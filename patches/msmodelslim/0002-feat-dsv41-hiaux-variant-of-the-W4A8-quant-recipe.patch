@@ -1,0 +1,151 @@
+From 5fc1ae301ca79a68769917fc4966f894ee3ae8db Mon Sep 17 00:00:00 2001
+From: chiro2001 <chiro2001@163.com>
+Date: Thu, 17 Sep 2026 13:02:15 +0800
+Subject: [PATCH 2/2] feat(dsv41): hiaux variant of the W4A8 quant recipe
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+主 recipe 之外的 hiaux 变体配置（激活/权重统计口径不同），
+按需选用；不改变默认量化链。
+---
+ .../deepseek_v4_1_flash_w4a8_hiaux.yaml       | 130 ++++++++++++++++++
+ 1 file changed, 130 insertions(+)
+ create mode 100644 lab_practice/deepseek_v41/deepseek_v4_1_flash_w4a8_hiaux.yaml
+
+diff --git a/lab_practice/deepseek_v41/deepseek_v4_1_flash_w4a8_hiaux.yaml b/lab_practice/deepseek_v41/deepseek_v4_1_flash_w4a8_hiaux.yaml
+new file mode 100644
+index 0000000..979f06c
+--- /dev/null
++++ b/lab_practice/deepseek_v41/deepseek_v4_1_flash_w4a8_hiaux.yaml
+@@ -0,0 +1,130 @@
++apiversion: modelslim_v1
++metadata:
++  config_id: deepseek_v4_1_flash_w4a8
++  score: 0.0
++  label:
++    w_bit: 4
++    a_bit: 8
++    is_sparse: false
++    kv_cache: false
++  verified_model_types:
++    - deepseek_v41
++  verified_tags: {}
++# 路由专家：W4A8（int4 per-channel SSZ + int8 per-token）
++default_w4a8_dynamic: &default_w4a8_dynamic
++  act:
++    scope: "per_token"
++    dtype: "int8"
++    symmetric: True
++    method: "minmax"
++  weight:
++    scope: "per_channel"
++    dtype: "int4"
++    symmetric: True
++    method: "ssz"
++# 注意力/共享专家：W8A8
++default_w8a8_dynamic: &default_w8a8_dynamic
++  act:
++    scope: "per_token"
++    dtype: "int8"
++    symmetric: True
++    method: "minmax"
++  weight:
++    scope: "per_channel"
++    dtype: "int8"
++    symmetric: True
++    method: "minmax"
++spec:
++  process:
++    - type: "quarot"
++      block_size: 32
++    - type: "flex_awq_ssz"
++      qconfig:
++        act:
++          scope: "per_token"
++          dtype: "int8"
++          symmetric: True
++          method: "minmax"
++        weight:
++          scope: "per_channel"
++          dtype: "int4"
++          symmetric: True
++          method: "ssz"
++          ext:
++            step: 10
++      enable_subgraph_type:
++        - "up-down"
++      include:
++        - "*"
++      exclude:
++        - "*.ffn.shared_experts.*"
++        - "mtp*"
++        - "*engram*"
++        - "*vision*"
++        - "*aligner*"
++    - type: "flex_smooth_quant"
++      enable_subgraph_type:
++        - "norm-linear"
++      include:
++        - "*"
++      exclude:
++        - "*ffn_norm*"
++        - "mtp*"
++        - "*engram*"
++        - "*vision*"
++        - "*aligner*"
++    # 注意力投影 -> W8A8
++    - type: "linear_quant"
++      qconfig: *default_w8a8_dynamic
++      include:
++        - "*attn*"
++      exclude:
++        - "*wo_a"
++        - "*wo_b"
++        - "*compressor.wgate"
++        - "*compressor.wkv"
++        - "*indexer.weights_proj"
++        - "*indexer.wk"
++        - "*indexer.wq_a"
++        - "mtp*"
++        - "*engram*"
++        - "*vision*"
++        - "*aligner*"
++    # 路由专家 -> W4A8
++    - type: "linear_quant"
++      qconfig: *default_w4a8_dynamic
++      include:
++        - "*ffn*"
++      exclude:
++        - "*gate"
++        - "*shared_experts*"
++        - "layers.37.ffn.experts.*"
++        - "layers.38.ffn.experts.*"
++        - "layers.39.ffn.experts.*"
++        - "mtp*"
++        - "*engram*"
++        - "*vision*"
++        - "*aligner*"
++    # aux 层(37/38/39)专家 -> W8A8：DSpark draft 的输入取自这三层，提高精度以提升接受长度
++    - type: "linear_quant"
++      qconfig: *default_w8a8_dynamic
++      include:
++        - "layers.37.ffn.experts.*"
++        - "layers.38.ffn.experts.*"
++        - "layers.39.ffn.experts.*"
++      exclude:
++        - "*gate"
++    # 共享专家 -> W8A8
++    - type: "linear_quant"
++      qconfig: *default_w8a8_dynamic
++      include:
++        - "*ffn.shared_experts*"
++      exclude:
++        - "mtp*"
++        - "*engram*"
++        - "*vision*"
++        - "*aligner*"
++  dataset: mix_calib.jsonl
++  save:
++    - type: "ascendv1_saver"
++      part_file_size: 4

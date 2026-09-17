@@ -1,0 +1,110 @@
+From 94844e13f0f391252c5aa6b9ba2081eb047ba91a Mon Sep 17 00:00:00 2001
+From: chiro2001 <chiro2001@163.com>
+Date: Thu, 17 Sep 2026 04:55:06 +0000
+Subject: [PATCH 5/8] perf(attention): 2D wo_a matmul and dummy-shape guard
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+F3：wo_a 的退化 batch matmul 改为 2D matmul；
+另有 V41_DUMMY_WO_A_FIX 处理 dummy batch 下的 wo_a 形状（默认 0）。
+
+门控：V41_O_PROJ_2D=1（默认 0）、V41_DUMMY_WO_A_FIX（默认 0）
+实测：-0.31 ~ -0.76 ms/step
+---
+ vllm_ascend/attention/dsa_v1.py | 63 ++++++++++++++++++++++++++++++++-
+ 1 file changed, 62 insertions(+), 1 deletion(-)
+
+diff --git a/vllm_ascend/attention/dsa_v1.py b/vllm_ascend/attention/dsa_v1.py
+index 1a091612e..e9fa423f4 100644
+--- a/vllm_ascend/attention/dsa_v1.py
++++ b/vllm_ascend/attention/dsa_v1.py
+@@ -3,6 +3,8 @@ from collections.abc import Callable
+ from dataclasses import dataclass
+ from typing import TYPE_CHECKING, Any, TypeAlias
+ 
++import os
++
+ import torch
+ import torch.distributed as dist
+ import torch_npu
+@@ -140,6 +142,17 @@ def _dsa_swa_only_cmp_ratio(compress_ratio: int, vllm_config: VllmConfig) -> int
+     return max(compress_ratio, 1)
+ 
+ 
++
++_O_PROJ_2D = os.environ.get("V41_O_PROJ_2D", "0") == "1"
++_DUMMY_WO_A_FIX = os.environ.get("V41_DUMMY_WO_A_FIX", "0") == "1"
++
++
++def _o_proj_2d_enabled() -> bool:
++    """[F3] Runtime switch for the 2D wo_a path."""
++    return _O_PROJ_2D
++
++
++
+ class AscendDSABackend(AttentionBackend):
+     accept_output_buffer: bool = True
+ 
+@@ -1556,12 +1569,60 @@ class AscendDSAImpl(AttentionImplBase[Any]):
+         elif olora_tp_enable():
+             o_proj_input = self.wo_a(o_proj_input)
+             output[...] = self.wo_b(o_proj_input)
++        elif _o_proj_2d_enabled() and self.n_local_groups == 1:
++            # [F3 / V41_O_PROJ_2D] Degenerate batch matmul -> plain 2D matmul.
++            # wo_a.weight for this deployment is [1, H, R] (audit:
++            # TransposeBatchMatMul [8,1,4096]x[1,4096,1024] = 47.26us/op x 40
++            # = 1.89 ms/step, cube util 13.9%).  With a single group the
++            # permuted batch matmul reduces to x @ w with the trivial batch
++            # dim dropped, so a 2D GEMM is numerically identical and avoids
++            # the batch-matmul tiling overhead.
++            _w2d = getattr(self, "_f3_wo_a_2d", None)
++            _w = self.wo_a.weight
++            if _w2d is not None:
++                pass
++            elif _w.dim() == 3 and _w.shape[0] == 1:
++                _w2d = _w.squeeze(0)
++            elif _w.dim() == 2:
++                # [WO_A-DUMMY] `--load-format dummy` skips weight_loader, so the
++                # weight is still in its declared 2D layout
++                # [n_local_groups*o_lora_rank, group_hidden] instead of the 3D
++                # [groups, group_hidden, o_lora_rank] the loader would build.
++                # For n_local_groups == 1 that is the transpose of what we need.
++                # Real loads (3D) never take this branch.
++                # [F3-2D-CACHE] transpose ONCE and cache -- doing it per call
++                # added a `Transpose` 42.8/step = 1.215 ms/step to the profile.
++                _w2d = _w.t().contiguous()
++                self._f3_wo_a_2d = _w2d
++            else:
++                _w2d = _w.reshape(-1, _w.shape[-1])
++            _x2d = o_proj_input.reshape(num_tokens, -1)
++            o_proj_input = torch.matmul(_x2d, _w2d)
++            output[...] = self.wo_b(o_proj_input)
+         else:
+             # A5 BF16 wo_a is reshaped to [groups, hidden, rank] at load time,
+             # matching the A3 layout expected by npu_transpose_batchmatmul.
++            if _DUMMY_WO_A_FIX and self.wo_a.weight.dim() == 2:
++                # [WO_A-DUMMY-STOCK+CACHE] --load-format dummy skips
++                # weight_loader, so the weight is still
++                # [groups*o_lora_rank, group_hidden].  Rebuild the 3D layout the
++                # loader would have produced -- ONCE, then cache it.  (Doing the
++                # transpose+contiguous per call added a `Transpose`
++                # ~1.22 ms/step visible in the profile and polluted the A arm.)
++                _w3d = getattr(self, "_dummy_wo_a_3d", None)
++                if _w3d is None:
++                    _w = self.wo_a.weight
++                    _w3d = (
++                        _w.view(self.n_local_groups, self.o_lora_rank, -1)
++                        .transpose(2, 1)
++                        .contiguous()
++                    )
++                    self._dummy_wo_a_3d = _w3d
++            else:
++                _w3d = self.wo_a.weight
+             o_proj_input = torch_npu.npu_transpose_batchmatmul(
+                 o_proj_input,
+-                self.wo_a.weight,
++                _w3d,
+                 bias=None,
+                 scale=None,
+                 perm_x1=(1, 0, 2),

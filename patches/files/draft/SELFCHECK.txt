@@ -1,0 +1,88 @@
+[build] dsa_v1.py: hunk1 已合并; hunk2 已合并; hunk3 已合并
+[build] dspark_proposer.py: 剥掉 [DRAFTMETA-P0] 定义块; 剥掉 4 处 _dm(
+[build] llm_base_proposer.py: 剥掉 [DRAFTMETA-P0] 定义块; 剥掉 3 处 _dm(
+
+== 自检 ==
+  [PASS] #1 三个文件 py_compile  — OK 3/3
+  [PASS] #2 dsa_v1.py 仍含 F3  — _o_proj_2d_enabled=2, _DUMMY_WO_A_FIX=2
+  [PASS] #3 0004 生效（STARTPOS-DRAFT-FIX）  — marker=2(期望2), start_pos_draft=3(期望3)
+  [PASS] #4 0006 生效（TARGETPOS-FIX）  — count=6
+  [PASS] #5 0005 生效（DSPARK_DRAFT_METADATA_MODE）  — base+proposer count=11
+  [PASS] #6 硬禁已解除（computed 而非 False）  — computed=True, hardcoded_False=False
+  [PASS] #7 无探针残留  — count=0
+  [PASS] #8 0002 生效（DSPARK_GRAPH_CAPTURE_METADATA）  — count=2
+  [PASS] #9 幂等（重新生成与落盘字节一致）
+
+==> 集成成功
+[PASS] dspark_proposer.py: 剥探针后与参考版逐字节相同
+[PASS] llm_base_proposer.py: 剥探针后与参考版逐字节相同
+[PASS] dsa_v1.py: 合并后差异块 4 个（新增 62 行 / 删除 2 行），其中**不含 F3 标记**的块 0 个
+     [insert  ] -0/+2  
+     [delete  ] -1/+0  
+     [insert  ] -0/+11  
+     [mixed   ] -1/+49  elif _o_proj_2d_enabled() and self.n_local_groups == 1:
+
+==> 等价性验证通过
+
+########## AST 预检 (precheck_ast.py) ##########
+== Q1 dspark_proposer.py: self.use_cuda_graph 赋值 1 处 ==
+  L131-135:
+             self.use_cuda_graph = bool(
+                 callable(_runner_use_aclgraph)
+                 and _runner_use_aclgraph()
+                 and not vllm_config.speculative_config.enforce_eager
+             )
+  -> 硬禁=否  由 bool(...) 计算=是  涉及名字=['_runner_use_aclgraph', 'callable', 'enforce_eager']
+  [PASS] 硬禁已解除
+
+== Q2 llm_base_proposer.py: 含 ACLGraphWrapper( 的 If 分支 1 处 ==
+  L663:
+     self.vllm_config.compilation_config.cudagraph_mode.has_full_cudagraphs() and self.use_cuda_graph
+     -> 涉及名字: ['compilation_config', 'cudagraph_mode', 'has_full_cudagraphs', 'self', 'use_cuda_graph', 'vllm_config'] + 属性 ['has_full_cudagraphs', 'use_cuda_graph']
+
+== Q3 各门取值（源码阅读，非运行期实测）==
+  draft.use_cuda_graph   = bool(callable(_use_aclgraph) and _use_aclgraph() and not spec.enforce_eager)
+  _use_aclgraph()        = (cudagraph_mode != NONE) and (compilation_mode == VLLM_COMPILE or breakable) and not **target** model_config.enforce_eager
+  wrapper gate           = cudagraph_mode.has_full_cudagraphs() and draft.use_cuda_graph
+
+  ⚠️ 注意三道门的**阈值不同**：
+     · `_use_aclgraph()` 只要求 `cudagraph_mode != NONE`
+     · wrapper 还额外要求 `has_full_cudagraphs()`（即 max mode == FULL）
+     · `_use_aclgraph()` 里还夹了 **target** 的 `model_config.enforce_eager`
+     ⇒ 若 `cudagraph_mode == PIECEWISE`，即使补丁生效、spec.enforce_eager=0，
+        wrapper 也**不会**触发。运行期必须从日志/配置确认 cudagraph_mode。
+
+== 真值表（draft 是否入图）==
+  cudagraph_mode         spec.enforce_eager target.enforce_eager 入图
+  FULL                   False              False                YES
+  FULL                   False              True                 no
+  FULL                   True               False                no
+  FULL                   True               True                 no
+  FULL_DECODE_ONLY       False              False                YES
+  FULL_DECODE_ONLY       False              True                 no
+  FULL_DECODE_ONLY       True               False                no
+  FULL_DECODE_ONLY       True               True                 no
+  FULL_AND_PIECEWISE     False              False                YES
+  FULL_AND_PIECEWISE     False              True                 no
+  FULL_AND_PIECEWISE     True               False                no
+  FULL_AND_PIECEWISE     True               True                 no
+  PIECEWISE              False              False                no
+  PIECEWISE              False              True                 no
+  PIECEWISE              True               False                no
+  PIECEWISE              True               True                 no
+  NONE                   False              False                no
+  NONE                   False              True                 no
+  NONE                   True               False                no
+  NONE                   True               True                 no
+
+== 运行期实测证据（来自 A3-node1 的 serve 日志，非本次起服）==
+  来源: logs/perf/faA_serve.log 的 'non-default args' 行
+    cudagraph_mode               = CUDAGraphMode.FULL_DECODE_ONLY (2, 0)
+      -> max_cudagraph_mode() = FULL -> has_full_cudagraphs() = True   [门1 满足]
+    compilation_config.mode      = None
+      -> 由 vllm/config/vllm.py:1272 解析为 VLLM_COMPILE（optimization_level 默认 > O0）  [门2 满足]
+    model_config.enforce_eager   = False                                  [门2 满足]
+    speculative_config.enforce_eager = False
+      -> method=dspark, num_speculative_tokens=5                          [门3 满足]
+  => 离线预测：补丁生效 + DRAFT_GRAPH=1 时，ACLGraphWrapper **应当**被触发。
+     仍需 Phase 3 的三条运行期指纹确认（日志 / ExecuteAsync 计数 / OP State）。
