@@ -1,0 +1,40 @@
+From e9eb41594b180bb18f376d7660418387a6071f7d Mon Sep 17 00:00:00 2001
+From: chiro2001 <chiro2001@163.com>
+Date: Thu, 17 Sep 2026 04:55:05 +0000
+Subject: [PATCH 1/8] perf(moe): dispatch/combine over AllGather when TP=EP
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+当 TP=EP（本例 TP=8 + --enable-expert-parallel）时，MoE 的 dispatch/combine
+走 AllGather 路径，比逐 token 的标量开销更容易被 token 数摊薄。
+
+门控：V41_MOE_COMM_ALLGATHER=1（默认 0 = 行为与上游一致）
+实测（A3-node1，128K 单流，同会话配对 A/B）：
+  128K -4.25 ms/step、32K -1.35、8K -1.23
+  KV 池 3.39M -> 4.16M tokens（同一 gpu-memory-utilization）
+  输出与上游逐字节一致
+证据：reports/engram-sync-optimization.md、F2_ENGRAM_SYNC_MEASURED.md
+---
+ vllm_ascend/ascend_forward_context.py | 8 ++++++++
+ 1 file changed, 8 insertions(+)
+
+diff --git a/vllm_ascend/ascend_forward_context.py b/vllm_ascend/ascend_forward_context.py
+index 811ddc5ff..d8653cb03 100644
+--- a/vllm_ascend/ascend_forward_context.py
++++ b/vllm_ascend/ascend_forward_context.py
+@@ -304,6 +304,14 @@ def _select_fused_or_capacity_moe_comm_method(
+     vllm_config: VllmConfig,
+     mc2_tokens_capacity: int,
+ ) -> MoECommType:
++    # [V41-MOE-AG] 实验开关：强制走 AllGatherCommImpl。
++    # 动机：A3 的 FUSED_OR_CAPACITY 会把选择短路到 FUSED_MC2，而 MC2 路径下
++    # TP 会把 8 个 token 切成「每 rank 1 个」，`DispatchFFNCombineW4A8` 的
++    # 标量开销（aic_scalar_ratio=0.444 / aiv_scalar_ratio=0.336）只服务 1 个 token。
++    # AllGather 路径下每个 rank 持有全部 token，标量开销被摊薄。
++    import os as _os_ag
++    if _os_ag.environ.get("V41_MOE_COMM_ALLGATHER", "0") == "1":
++        return MoECommType.ALLGATHER
+     if use_cann_megamoe(vllm_config):
+         return MoECommType.FUSED_MC2
+     if get_ascend_config().enable_fused_mc2 == 1 and get_ep_group().world_size <= 32:

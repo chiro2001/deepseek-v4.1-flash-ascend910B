@@ -1,0 +1,142 @@
+#!/usr/bin/env bash
+# =============================================================================
+# A3 一键起服（A3-node1 / A3-node2，8×910C）
+#
+# 与 A2 共用同一个引擎（serve_a2.sh），本文件只覆盖**平台相关默认值**
+# （IMAGE / NAME / PORT / PGO）并做 A3 特有的**选卡校验**。
+# 其余（优化开关、门控 env、模型挂载、静态内核缓存、admission gate …）完全一致。
+#
+# 用法：
+#   # ① 先看哪些卡空着（只读，打印每张卡的占用与进程属主）
+#   bash tools/list_chips.sh
+#
+#   # ② 自己指定要用的 8 张卡（DEVS 必填，不给就报错退出）
+#   DEVS="8 9 10 11 12 13 14 15" \
+#     MODEL=/path/to/v41-w4a8-engram-dr-vision-qrot-mtpq \
+#     bash scripts/serve_a3.sh
+#
+#   # 先干跑核对（不碰 docker）：加 DRY_RUN=1
+#
+# ★ DEVS 是**用户输入**，脚本不替你选卡：一台机器上哪 8 张能用取决于当前谁在跑什么，
+#   脚本无法替你判断。CPU/NUMA 绑定默认按选中卡的 PCI numa_node **自动推导**
+#   （CPUSET=auto MEMS=auto），也可显式覆盖。
+# ★ 默认拒绝**已被占用的卡**（防误伤他人任务）：若确实要用自己的残留进程占着的卡，
+#   显式加 ALLOW_BUSY=1。
+# =============================================================================
+set -uo pipefail
+
+HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+DRY_RUN=${DRY_RUN:-0}
+
+export IMAGE=${IMAGE:-quay.nju.edu.cn/ascend/vllm-ascend:deepseek-v4.1-flash-a3}
+export NAME=${NAME:-dsv41-a3}
+export PORT=${PORT:-8020}
+export TOOL_CALLING=${TOOL_CALLING:-1}
+export MAX_SEQS=${MAX_SEQS:-32}
+# [绑核] 外部**不做** CPU/NUMA 绑定：容器不设 --cpuset-cpus/--cpuset-mems，
+#   由 vllm-ascend 内部的 cpu_binding 按 NPU 拓扑给每个 rank 自己绑
+#   （additional-config 的 enable_cpu_binding=true，由 CPU_BIND=1 控制）。
+#   起服日志证据：[cpu_binding.py] mode=topo_affinity rank=N / [migrate] NPU:N -> NUMA [M]
+#   需要复现历史口径或做 AB 时才显式给 CPUSET=<核列表> MEMS=<节点列表>。
+export CPUSET=${CPUSET:--1}
+export MEMS=${MEMS:--1}
+export CPU_BIND=${CPU_BIND:-1}
+# [PGO] A2 的 PGO 产物是针对 **A2 镜像** 的 libpython 编译的：
+#   A2 镜像 md5(libpython3.12.so.1.0) = f1ebbee1405d0e31136aa4480b57b3dc
+#   A3 镜像 md5(libpython3.12.so.1.0) = eaea156ea8ddf85b0b2d71f77872991e   ← 不同
+#   ⇒ A3 默认不挂 PGO（要试可显式 PYTHON_PGO=1，但属于未验证改动）。
+export PYTHON_PGO=${PYTHON_PGO:-0}
+
+# ---------- 1) DEVS 必填 ----------
+if [ -z "${DEVS:-}" ]; then
+  cat >&2 <<'MSG'
+
+[serve_a3][FAIL] 必须显式指定 DEVS=<要用的 chip 列表>（脚本不替你选卡）。
+
+  这台机器上哪 8 张卡能用，取决于当前谁在跑什么 —— 先看一眼：
+
+      bash tools/list_chips.sh
+
+  然后按空闲情况指定，例如：
+
+      DEVS="8 9 10 11 12 13 14 15" \
+        MODEL=/path/to/v41-w4a8-engram-dr-vision-qrot-mtpq \
+        bash scripts/serve_a3.sh
+
+  说明：
+    * DEVS 的个数应与 TP（默认 8）一致；
+    * CPU/NUMA 绑定默认按选中卡自动推导（CPUSET=auto MEMS=auto），也可显式覆盖；
+    * 默认拒绝已被占用的卡；确实要用自己的残留进程占着的卡时加 ALLOW_BUSY=1。
+
+MSG
+  exit 2
+fi
+
+# ---------- 2) DEVS 格式与数量 ----------
+_n=0
+for _c in $DEVS; do
+  case "$_c" in
+    ''|*[!0-9]*) echo "[serve_a3][FAIL] DEVS 里有非法项：'$_c'（只能是数字，空格分隔）" >&2; exit 2 ;;
+  esac
+  _n=$((_n + 1))
+done
+export DEVS
+echo "[serve_a3] DEVS='$DEVS'（$_n 张）CPUSET=$CPUSET MEMS=$MEMS"
+if [ "$_n" != "${TP:-8}" ]; then
+  if [ "${I_KNOW:-0}" != "1" ]; then
+    echo "[serve_a3][FAIL] DEVS 有 $_n 张，而 TP=${TP:-8} ⇒ 数量不匹配，可能起不来。" >&2
+    echo "  确认要用 $_n 张就跑：加 TP=$_n（或 I_KNOW=1 强制按 TP=${TP:-8} 继续）。" >&2
+    exit 2
+  fi
+  echo "[serve_a3] NOTE: DEVS 有 $_n 张 ≠ TP=${TP:-8}，已按 I_KNOW=1 继续（起不来就是这里）。"
+fi
+
+# ---------- 3) 占用检测（只读；默认拒绝） ----------
+# 解析 npu-smi info 的进程表：| <npu> <chip> | <pid> | <name> | ... |
+#   device 号统一按 npu*2+chip 折算（信息表两列的含义随机型而异，进程表两列在这两台机器上一致）。
+# 解析不到任何行时**不阻塞**（可能只是输出格式变了），只提示。
+if [ "$DRY_RUN" != "1" ] && [ "${ALLOW_BUSY:-0}" != "1" ]; then
+  if command -v npu-smi >/dev/null 2>&1; then
+    _busy=$(
+      npu-smi info 2>/dev/null | awk -F'|' '
+        NF>=6 && $3 ~ /^[[:space:]]*[0-9]+[[:space:]]*$/ {
+          split($2, a, /[[:space:]]+/); print (a[2]+0)*2 + (a[3]+0)
+        }' | sort -n -u | tr '\n' ' '
+    )
+    _hit=""
+    for _c in $DEVS; do
+      case " $_busy " in *" $_c "*) _hit="$_hit $_c" ;; esac
+    done
+    if [ -n "$_hit" ]; then
+      {
+        echo
+        echo "[serve_a3][FAIL] 选中的卡里有正在被占用的：$_hit"
+        echo "  （npu-smi 报出的占用卡：${_busy:-无}）"
+        echo
+        echo "  逐卡详情："
+        npu-smi info 2>/dev/null | sed -n '/Process id/,$p' | head -30
+        echo
+        echo "  处置："
+        echo "    * 换成空闲的卡：bash tools/list_chips.sh 看全貌，再改 DEVS=..."
+        echo "    * 若那些进程确实是你自己的残留，先停掉它（不要 blind kill 别人的）"
+        echo "    * 确实要带占用起服务：加 ALLOW_BUSY=1（危险，会与他人任务抢卡）"
+      } >&2
+      exit 3
+    fi
+    echo "[serve_a3] 占用检查：DEVS 全部空闲（npu-smi 报出占用卡：${_busy:-无}）"
+  else
+    echo "[serve_a3] WARN: 找不到 npu-smi，跳过占用检查" >&2
+  fi
+else
+  [ "$DRY_RUN" = "1" ] && echo "[serve_a3] dry-run：跳过占用检查"
+  [ "${ALLOW_BUSY:-0}" = "1" ] && echo "[serve_a3] ALLOW_BUSY=1：跳过占用检查"
+fi
+
+# ---------- 4) 只校验不起服 ----------
+# 想"先确认选卡正确、再决定何时起服务"时用：CHECK_ONLY=1
+if [ "${CHECK_ONLY:-0}" = "1" ]; then
+  echo "[serve_a3] CHECK_ONLY=1 ⇒ 选卡校验通过，不启动服务。"
+  exit 0
+fi
+
+exec bash "$HERE/serve_a2.sh" "$@"

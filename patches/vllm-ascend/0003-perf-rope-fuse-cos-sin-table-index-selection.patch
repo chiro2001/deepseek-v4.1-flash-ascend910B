@@ -1,0 +1,104 @@
+From 16660df477636340a773503dc648ed458b798a2c Mon Sep 17 00:00:00 2001
+From: chiro2001 <chiro2001@163.com>
+Date: Thu, 17 Sep 2026 04:55:05 +0000
+Subject: [PATCH 3/8] perf(rope): fuse cos/sin table index selection
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+cos/sin 取表链由 6 个 kernel 收敛到 2 个。
+
+门控：V41_ROPE_IDXSEL=1（默认 0）
+实测：-0.45 ~ -0.62 ms/pass
+---
+ vllm_ascend/ops/rope_dsv4.py | 59 +++++++++++++++++++++++++++++++-----
+ 1 file changed, 52 insertions(+), 7 deletions(-)
+
+diff --git a/vllm_ascend/ops/rope_dsv4.py b/vllm_ascend/ops/rope_dsv4.py
+index 48d40524b..5200396fd 100644
+--- a/vllm_ascend/ops/rope_dsv4.py
++++ b/vllm_ascend/ops/rope_dsv4.py
+@@ -20,6 +20,40 @@ class RopeGlobalState:
+ 
+ _ROPE_STATE = RopeGlobalState()
+ 
++# [ROPE-IDXSEL] begin ---------------------------------------------------------
++import os as _os_rope_idxsel
++
++# V41_ROPE_IDXSEL=1 时，用一次 `index_select` 取代
++# `expand(BroadcastTo) + materialize(Cast) + gather(GatherElementsV2)` 三步，
++# 省掉 BroadcastTo 与 Cast 两个 kernel（6 → 2 kernel/调用）。
++_ROPE_IDXSEL = _os_rope_idxsel.environ.get("V41_ROPE_IDXSEL", "0") == "1"
++
++
++def _rope_1d_index(pos_tensor):
++    """把位置张量规整成 1 维 int64（已是 int64 时 .to() 不产生 kernel）。"""
++    idx = pos_tensor.reshape(-1)
++    if idx.dtype != torch.int64:
++        idx = idx.to(torch.int64)
++    return idx
++
++
++def _rope_write_rows(src, pos_tensor, gather_idx, out):
++    """把 src 的第 pos_tensor 行写进预分配缓冲 out（数值与 stock 逐位相同）。
++
++    gather_idx 为 None ⇒ index_select 快路径；否则回落到 stock 的 torch.gather。
++    """
++    if gather_idx is None:
++        torch.index_select(src, 0, _rope_1d_index(pos_tensor), out=out)
++    else:
++        torch.gather(src, 0, gather_idx, out=out)
++
++
++def _rope_indexed(src, pos_tensor):
++    """use_cache=False 分支：等价于 src[pos_tensor]，但只用 1 个 GatherV3 kernel。"""
++    return torch.index_select(src, 0, _rope_1d_index(pos_tensor))
++# [ROPE-IDXSEL] end -----------------------------------------------------------
++
++
+ 
+ class RopeDataProxy:
+     def __init__(self, data_map, is_cos=True):
+@@ -127,24 +161,35 @@ def get_cos_and_sin_dsa(
+                 # row; expand() broadcasts that row across the rotary dim to
+                 # match full_rope_* (which is [max_pos, 1, 1, rotary_dim]),
+                 # so torch.gather(..., dim=0) selects row pos_tensor[i].
++                # [ROPE-IDXSEL] 快路径下不再构造 4-D gather 索引（省 BroadcastTo+Cast）。
+                 gather_idx = (
+-                    pos_tensor.to(torch.long).reshape(-1, 1, 1, 1).expand(num_tokens, 1, 1, full_rope_cos.size(-1))
++                    None
++                    if (_ROPE_IDXSEL and pos_tensor.dim() == 1)
++                    else pos_tensor.to(torch.long).reshape(-1, 1, 1, 1).expand(
++                        num_tokens, 1, 1, full_rope_cos.size(-1)
++                    )
+                 )
+                 if draft_index is None:
+-                    torch.gather(full_rope_cos, 0, gather_idx, out=buf_cos[:num_tokens])
+-                    torch.gather(full_rope_sin, 0, gather_idx, out=buf_sin[:num_tokens])
++                    _rope_write_rows(full_rope_cos, pos_tensor, gather_idx, buf_cos[:num_tokens])
++                    _rope_write_rows(full_rope_sin, pos_tensor, gather_idx, buf_sin[:num_tokens])
+ 
+                     batch_result[config_key][group_name] = (buf_cos[:num_tokens], buf_sin[:num_tokens])
+                 else:
+-                    torch.gather(full_rope_cos, 0, gather_idx, out=buf_cos[draft_index - 1][:num_tokens])
+-                    torch.gather(full_rope_sin, 0, gather_idx, out=buf_sin[draft_index - 1][:num_tokens])
++                    _rope_write_rows(full_rope_cos, pos_tensor, gather_idx, buf_cos[draft_index - 1][:num_tokens])
++                    _rope_write_rows(full_rope_sin, pos_tensor, gather_idx, buf_sin[draft_index - 1][:num_tokens])
+                     batch_result[config_key][group_name] = (
+                         buf_cos[draft_index - 1][:num_tokens],
+                         buf_sin[draft_index - 1][:num_tokens],
+                     )
+             else:
+-                curr_cos = full_rope_cos[pos_tensor]
+-                curr_sin = full_rope_sin[pos_tensor]
++                # [ROPE-IDXSEL] src[pos_tensor] -> index_select：Index+IndexCheck 两个
++                # kernel 合成 1 个 GatherV3（20.13 -> 4.80 µs/对，逐位相同）。
++                if _ROPE_IDXSEL and pos_tensor.dim() == 1:
++                    curr_cos = _rope_indexed(full_rope_cos, pos_tensor)
++                    curr_sin = _rope_indexed(full_rope_sin, pos_tensor)
++                else:
++                    curr_cos = full_rope_cos[pos_tensor]
++                    curr_sin = full_rope_sin[pos_tensor]
+                 batch_result[config_key][group_name] = (curr_cos, curr_sin)
+ 
+     return RopeDataProxy(batch_result, is_cos=True), RopeDataProxy(batch_result, is_cos=False)

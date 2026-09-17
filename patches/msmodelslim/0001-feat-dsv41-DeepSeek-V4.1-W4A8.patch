@@ -1,0 +1,1718 @@
+From e05b47190392bace361a012f115d64f4abcca30d Mon Sep 17 00:00:00 2001
+From: chiro2001 <chiro2001@163.com>
+Date: Fri, 11 Sep 2026 22:31:34 +0800
+Subject: [PATCH 1/2] =?UTF-8?q?feat(dsv41):=20DeepSeek-V4.1=20W4A8=20?=
+ =?UTF-8?q?=E9=87=8F=E5=8C=96=E9=80=82=E9=85=8D?=
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+- msmodelslim/model/deepseek_v41/: 模型适配器（nested text_config、delayed mHC、
+  kv/index source、QuaRot 旋转映射）、V41 主干（Compressor/Indexer/Attention/Gate/
+  MoE/Block/Transformer）、FP8/FP4 反量化
+- V41MoE.forward 补齐 DP gather/scatter（各 rank token 数不同会让 HCCL all_reduce
+  参数不一致，报 EI0005/EI0006）
+- deepseek_v4/model.py: V4.1 需要的 get_moe_config / attention_cls / moe_cls /
+  delayed_hc / hc_mixes / hc_collapse 等扩展
+- lab_practice/deepseek_v41/deepseek_v4_1_flash_w4a8.yaml: W4A8 配方
+  （路由专家 W4A8_DYNAMIC / 注意力与共享专家 W8A8_DYNAMIC / 其余 FLOAT）
+- config/config.ini: 本地 CLI 配置
+---
+ config/config.ini                             |   2 +
+ .../deepseek_v4_1_flash_w4a8.yaml             | 118 +++
+ msmodelslim/model/deepseek_v4/model.py        | 107 ++-
+ msmodelslim/model/deepseek_v41/__init__.py    |   6 +
+ msmodelslim/model/deepseek_v41/convert.py     | 122 +++
+ msmodelslim/model/deepseek_v41/loader.py      |   8 +
+ msmodelslim/model/deepseek_v41/model.py       | 852 ++++++++++++++++++
+ .../model/deepseek_v41/model_adapter.py       | 169 ++++
+ .../model/deepseek_v41/rotation_map.py        | 174 ++++
+ 9 files changed, 1545 insertions(+), 13 deletions(-)
+ create mode 100644 lab_practice/deepseek_v41/deepseek_v4_1_flash_w4a8.yaml
+ create mode 100644 msmodelslim/model/deepseek_v41/__init__.py
+ create mode 100644 msmodelslim/model/deepseek_v41/convert.py
+ create mode 100644 msmodelslim/model/deepseek_v41/loader.py
+ create mode 100644 msmodelslim/model/deepseek_v41/model.py
+ create mode 100644 msmodelslim/model/deepseek_v41/model_adapter.py
+ create mode 100644 msmodelslim/model/deepseek_v41/rotation_map.py
+
+diff --git a/config/config.ini b/config/config.ini
+index 704f850..20de462 100644
+--- a/config/config.ini
++++ b/config/config.ini
+@@ -9,6 +9,7 @@ deepseek_v3 = DeepSeek-V3, DeepSeek-V3-0324, DeepSeek-R1, DeepSeek-R1-0528, Deep
+ deepseek_v3_2 = DeepSeek-V3.2-Exp, DeepSeek-V3.2
+ deepseek_v4 = DeepSeek-V4-Flash, DeepSeek-V4-Pro
+ deepseek_v4_dspark = DeepSeek-V4-Flash-DSpark, DeepSeek-V4-Pro-DSpark, DeepSeek-V4-Flash-0731
++deepseek_v41 = deepseek_v41
+ glm_5 = GLM-5, GLM-5.1
+ glm_5_2 = GLM-5.2
+ glm_5_3 = GLM-5.3
+@@ -61,6 +62,7 @@ deepseek_v3 = msmodelslim.model.deepseek_v3.loader:DeepseekV3AdapterLoader
+ deepseek_v3_2 = msmodelslim.model.deepseek_v3_2.loader:DeepseekV3_2AdapterLoader
+ deepseek_v4 = msmodelslim.model.deepseek_v4.loader:DeepseekV4AdapterLoader
+ deepseek_v4_dspark = msmodelslim.model.deepseek_v4_dspark.loader:DeepseekV4DSparkAdapterLoader
++deepseek_v41 = msmodelslim.model.deepseek_v41.loader:DeepseekV41AdapterLoader
+ glm_5 = msmodelslim.model.glm_5.loader:Glm5AdapterLoader
+ glm_5_2 = msmodelslim.model.glm_5_2.loader:Glm52AdapterLoader
+ glm_5_3 = msmodelslim.model.glm_5_2.loader:Glm52AdapterLoader
+diff --git a/lab_practice/deepseek_v41/deepseek_v4_1_flash_w4a8.yaml b/lab_practice/deepseek_v41/deepseek_v4_1_flash_w4a8.yaml
+new file mode 100644
+index 0000000..03dbe03
+--- /dev/null
++++ b/lab_practice/deepseek_v41/deepseek_v4_1_flash_w4a8.yaml
+@@ -0,0 +1,118 @@
++apiversion: modelslim_v1
++metadata:
++  config_id: deepseek_v4_1_flash_w4a8
++  score: 0.0
++  label:
++    w_bit: 4
++    a_bit: 8
++    is_sparse: false
++    kv_cache: false
++  verified_model_types:
++    - deepseek_v41
++  verified_tags: {}
++# 路由专家：W4A8（int4 per-channel SSZ + int8 per-token）
++default_w4a8_dynamic: &default_w4a8_dynamic
++  act:
++    scope: "per_token"
++    dtype: "int8"
++    symmetric: True
++    method: "minmax"
++  weight:
++    scope: "per_channel"
++    dtype: "int4"
++    symmetric: True
++    method: "ssz"
++# 注意力/共享专家：W8A8
++default_w8a8_dynamic: &default_w8a8_dynamic
++  act:
++    scope: "per_token"
++    dtype: "int8"
++    symmetric: True
++    method: "minmax"
++  weight:
++    scope: "per_channel"
++    dtype: "int8"
++    symmetric: True
++    method: "minmax"
++spec:
++  process:
++    - type: "quarot"
++      block_size: 32
++    - type: "flex_awq_ssz"
++      qconfig:
++        act:
++          scope: "per_token"
++          dtype: "int8"
++          symmetric: True
++          method: "minmax"
++        weight:
++          scope: "per_channel"
++          dtype: "int4"
++          symmetric: True
++          method: "ssz"
++          ext:
++            step: 10
++      enable_subgraph_type:
++        - "up-down"
++      include:
++        - "*"
++      exclude:
++        - "*.ffn.shared_experts.*"
++        - "mtp*"
++        - "*engram*"
++        - "*vision*"
++        - "*aligner*"
++    - type: "flex_smooth_quant"
++      enable_subgraph_type:
++        - "norm-linear"
++      include:
++        - "*"
++      exclude:
++        - "*ffn_norm*"
++        - "mtp*"
++        - "*engram*"
++        - "*vision*"
++        - "*aligner*"
++    # 注意力投影 -> W8A8
++    - type: "linear_quant"
++      qconfig: *default_w8a8_dynamic
++      include:
++        - "*attn*"
++      exclude:
++        - "*wo_a"
++        - "*wo_b"
++        - "*compressor.wgate"
++        - "*compressor.wkv"
++        - "*indexer.weights_proj"
++        - "*indexer.wk"
++        - "*indexer.wq_a"
++        - "mtp*"
++        - "*engram*"
++        - "*vision*"
++        - "*aligner*"
++    # 路由专家 -> W4A8
++    - type: "linear_quant"
++      qconfig: *default_w4a8_dynamic
++      include:
++        - "*ffn*"
++      exclude:
++        - "*gate"
++        - "*shared_experts*"
++        - "mtp*"
++        - "*engram*"
++        - "*vision*"
++        - "*aligner*"
++    # 共享专家 -> W8A8
++    - type: "linear_quant"
++      qconfig: *default_w8a8_dynamic
++      include:
++        - "*ffn.shared_experts*"
++      exclude:
++        - "mtp*"
++        - "*engram*"
++        - "*vision*"
++        - "*aligner*"
++  dataset: mix_calib.jsonl
++  save:
++    - type: "ascendv1_saver"
++      part_file_size: 4
+diff --git a/msmodelslim/model/deepseek_v4/model.py b/msmodelslim/model/deepseek_v4/model.py
+index 4941eeb..70472c7 100644
+--- a/msmodelslim/model/deepseek_v4/model.py
++++ b/msmodelslim/model/deepseek_v4/model.py
+@@ -245,6 +245,30 @@ class ModelArgs:
+     hc_eps: float = 1e-6
+     # mtp
+     n_mtp_layers: int = 0
++    # ---- V4.1 backward-compatible additions (defaults keep V4 behavior) ----
++    use_hc_head: bool = True
++    delayed_hc: bool = False
++    q_norm_after_wq_b: bool = True
++    vision_n_layers: int = 0
++    use_vl_bias: bool = False
++    kv_source_layers: Tuple[int, ...] = ()
++    index_source_layers: Tuple[int, ...] = ()
++    candidate_source_layer: int = -1
++    candidate_topk_blocks: int = 0
++    candidate_block_size: int = 0
++    dspark_n_routed_experts: int = 0
++    dspark_num_experts_per_tok: int = 0
++    gate_temp: float = 1.0
++    norm_topk_prob: bool = True
++
++    def get_moe_config(self, layer_id: int) -> Tuple[int, int]:
++        """V4.1: per-layer routed/activated expert counts (DSpark layers included)."""
++        if layer_id < self.num_hidden_layers:
++            return self.n_routed_experts, self.n_activated_experts
++        return (
++            self.dspark_n_routed_experts or self.n_routed_experts,
++            self.dspark_num_experts_per_tok or self.n_activated_experts,
++        )
+ 
+ 
+ class ParallelEmbedding(nn.Module):
+@@ -957,6 +981,10 @@ class Block(nn.Module):
+         ffn_norm (nn.Module): Layer normalization for feed-forward network.
+     """
+ 
++    # V4.1: allow subclasses to swap in V41 attention/MoE implementations.
++    attention_cls = Attention
++    moe_cls = MoE
++
+     def __init__(self, layer_id: int, args: ModelArgs):
+         """
+         Initializes the Transformer block.
+@@ -968,8 +996,9 @@ class Block(nn.Module):
+         super().__init__()
+         self.layer_id = layer_id
+         self.norm_eps = args.norm_eps
+-        self.attn = Attention(layer_id, args)
+-        self.ffn = MoE(layer_id, args)
++        self.delayed_hc = getattr(args, "delayed_hc", False)
++        self.attn = self.attention_cls(layer_id, args)
++        self.ffn = self.moe_cls(layer_id, args)
+         self.attn_norm = RMSNorm(args.dim, self.norm_eps)
+         self.ffn_norm = RMSNorm(args.dim, self.norm_eps)
+         self.hc_mult = hc_mult = args.hc_mult
+@@ -1006,17 +1035,54 @@ class Block(nn.Module):
+         y = post.unsqueeze(-1) * x.unsqueeze(-2) + torch.sum(comb.unsqueeze(-1) * residual.unsqueeze(-2), dim=2)
+         return y.type_as(x)
+ 
+-    def forward(self, x: torch.Tensor, start_pos: int, input_ids: Optional[torch.Tensor]) -> torch.Tensor:
++    def hc_mixes(self, x: torch.Tensor, hc_fn: torch.Tensor, hc_scale: torch.Tensor, hc_base: torch.Tensor):
++        """x: [b,s,hc,d], hc_fn: [mix_hc,hc*d] -> pre/post/comb (V4.1 delayed mHC)."""
++        device = x.device
++        hc_fn = hc_fn.to(device)
++        hc_scale = hc_scale.to(device)
++        hc_base = hc_base.to(device)
++        x = x.flatten(2).float()
++        rsqrt = torch.rsqrt(x.square().mean(-1, keepdim=True) + self.norm_eps)
++        mixes = F.linear(x, hc_fn) * rsqrt
++        return hc_split_sinkhorn(mixes, hc_scale, hc_base, self.hc_mult, self.hc_sinkhorn_iters, self.hc_eps)
++
++    def hc_collapse(self, x: torch.Tensor, pre_mix: torch.Tensor):
++        """Collapse hc copies into one: [b,s,hc,d] x [b,s,hc] -> [b,s,d]."""
++        y = torch.sum(pre_mix.unsqueeze(-1) * x.float(), dim=2)
++        return y.to(x.dtype)
++
++    def forward(self, x: torch.Tensor, start_pos: int, input_ids: Optional[torch.Tensor] = None,
++                pre_mix: Optional[torch.Tensor] = None):
+         """
+         Forward pass for the Transformer block.
+ 
++        V4.1 (delayed_hc=True): returns (x, ffn_pre); pre_mix comes from the previous layer.
++
+         Args:
+             x (torch.Tensor): Input tensor.
+             start_pos (int): Starting position in the sequence.
+ 
+         Returns:
+-            torch.Tensor: Output tensor after block computation.
++            torch.Tensor: Output tensor after block computation; tuple in delayed mode.
+         """
++        if getattr(self, "delayed_hc", False):
++            residual = x
++            attn_pre, attn_post, attn_comb = self.hc_mixes(
++                x, self.hc_attn_fn, self.hc_attn_scale, self.hc_attn_base
++            )
++            x = self.hc_collapse(x, pre_mix)
++            x = self.attn_norm(x)
++            x = self.attn(x, start_pos)
++            x = self.hc_post(x, residual, attn_post, attn_comb)
++            residual = x
++            ffn_pre, ffn_post, ffn_comb = self.hc_mixes(
++                x, self.hc_ffn_fn, self.hc_ffn_scale, self.hc_ffn_base
++            )
++            x = self.hc_collapse(x, attn_pre)
++            x = self.ffn_norm(x)
++            x = self.ffn(x, input_ids)
++            x = self.hc_post(x, residual, ffn_post, ffn_comb)
++            return x, ffn_pre
+         residual = x
+         x, post, comb = self.hc_pre(x, self.hc_attn_fn, self.hc_attn_scale, self.hc_attn_base)
+         x = self.attn_norm(x)
+@@ -1054,6 +1120,8 @@ class Transformer(nn.Module):
+         world_size = dist.get_world_size() if dist.is_initialized() else 1
+         rank = dist.get_rank() if dist.is_initialized() else 0
+         super().__init__()
++        self.args = args
++        self.delayed_hc = getattr(args, "delayed_hc", False)
+         self.max_seq_len = args.max_seq_len
+         self.norm_eps = args.norm_eps
+         self.embed = ParallelEmbedding(args.vocab_size, args.dim)
+@@ -1067,12 +1135,17 @@ class Transformer(nn.Module):
+         self.hc_eps = args.hc_eps
+         self.hc_mult = hc_mult = args.hc_mult
+         hc_dim = hc_mult * args.dim
+-        origin_dtype = torch.get_default_dtype()
+-        torch.set_default_dtype(torch.float32)
+-        self.hc_head_fn = nn.Parameter(torch.empty(hc_mult, hc_dim))
+-        self.hc_head_base = nn.Parameter(torch.empty(hc_mult))
+-        self.hc_head_scale = nn.Parameter(torch.empty(1))
+-        torch.set_default_dtype(origin_dtype)
++        if getattr(args, "use_hc_head", True):
++            origin_dtype = torch.get_default_dtype()
++            torch.set_default_dtype(torch.float32)
++            self.hc_head_fn = nn.Parameter(torch.empty(hc_mult, hc_dim))
++            self.hc_head_base = nn.Parameter(torch.empty(hc_mult))
++            self.hc_head_scale = nn.Parameter(torch.empty(1))
++            torch.set_default_dtype(origin_dtype)
++        else:
++            self.hc_head_fn = None
++            self.hc_head_base = None
++            self.hc_head_scale = None
+         self.head = nn.Linear(args.dim, args.vocab_size, bias=False, dtype=torch.float32)
+ 
+     def hc_head(self, x: torch.Tensor, hc_fn: torch.Tensor, hc_scale: torch.Tensor, hc_base: torch.Tensor):
+@@ -1102,9 +1175,17 @@ class Transformer(nn.Module):
+         """
+         h = self.embed(input_ids)
+         h = h.unsqueeze(2).repeat(1, 1, self.hc_mult, 1)
+-        for layer in self.layers:
+-            h = layer(h, start_pos, input_ids)
+-        h = self.hc_head(h, self.hc_head_fn, self.hc_head_scale, self.hc_head_base)
++        if getattr(self, "delayed_hc", False):
++            pre_mix = h.new_zeros(h.size(0), h.size(1), self.hc_mult, dtype=torch.float32)
++            pre_mix[:, :, 0] = 1.0
++            for layer in self.layers:
++                h, pre_mix = layer(h, start_pos, input_ids, pre_mix)
++            h = Block.hc_collapse(h, pre_mix)
++        else:
++            for layer in self.layers:
++                h = layer(h, start_pos, input_ids)
++            if self.hc_head_fn is not None:
++                h = self.hc_head(h, self.hc_head_fn, self.hc_head_scale, self.hc_head_base)
+         h = self.norm(h)
+ 
+         # logging.info(f"h : {h}")
+diff --git a/msmodelslim/model/deepseek_v41/__init__.py b/msmodelslim/model/deepseek_v41/__init__.py
+new file mode 100644
+index 0000000..edf2b5d
+--- /dev/null
++++ b/msmodelslim/model/deepseek_v41/__init__.py
+@@ -0,0 +1,6 @@
++# -*- coding: UTF-8 -*-
++"""DeepSeek-V4.1-Flash adapter (community/self-owned, not upstream)."""
++from .model_adapter import DeepSeekV41ModelAdapter
++from .loader import DeepseekV41AdapterLoader
++
++__all__ = ["DeepSeekV41ModelAdapter", "DeepseekV41AdapterLoader"]
+diff --git a/msmodelslim/model/deepseek_v41/convert.py b/msmodelslim/model/deepseek_v41/convert.py
+new file mode 100644
+index 0000000..675db9c
+--- /dev/null
++++ b/msmodelslim/model/deepseek_v41/convert.py
+@@ -0,0 +1,122 @@
++# -*- coding: UTF-8 -*-
++"""DeepSeek-V4.1 反量化：支持 32x32 / 128x128 分块、UE8M0 scale、packed FP4。
++
++与 deepseek_v4/convert_fp8_to_bf16.py 的差异：
++  * decode_fp8 按 (weight.shape, scale.shape) 推断 block，不再写死 128x128
++  * decode_fp4 按 in_dim = packed.size(1) * 2 推断 fp4 block（V4.1 为 32）
++  * scale 可能是 torch.float8_e8m0fnu（UE8M0），统一转 float32
++"""
++import os
++from functools import lru_cache
++from typing import Dict
++
++import torch
++import torch.distributed as dist
++from safetensors import safe_open
++from tqdm import tqdm
++
++from msmodelslim.utils.logging import get_logger
++from msmodelslim.utils.security import get_valid_read_path, MAX_READ_FILE_SIZE_32G, json_safe_load
++
++WEIGHT_SCALE_INV = '.scale'
++
++# 官方 convert.py 的 FP4_TABLE（含符号位）
++FP4_TABLE = torch.tensor(
++    [0.0, 0.5, 1.0, 1.5, 2.0, 3.0, 4.0, 6.0,
++     0.0, -0.5, -1.0, -1.5, -2.0, -3.0, -4.0, -6.0],
++    dtype=torch.float32,
++)
++
++
++def scale_to_float(scale: torch.Tensor) -> torch.Tensor:
++    """UE8M0 / FP32 scale -> FP32。优先原生 cast，失败则按 e8m0 指数手算。"""
++    if scale.dtype == torch.float32:
++        return scale
++    try:
++        return scale.to(torch.float32)
++    except (RuntimeError, TypeError):
++        raw = scale.view(torch.uint8).to(torch.int32) - 127
++        return torch.ldexp(torch.ones_like(raw, dtype=torch.float32), raw)
++
++
++def decode_fp8(weight: torch.Tensor, scale: torch.Tensor) -> torch.Tensor:
++    """weight: fp8 [out, in]；scale: [out/block_out, in/block_in]（V4.1 为 32x32）。"""
++    out_block = weight.size(0) // scale.size(0)
++    in_block = weight.size(1) // scale.size(1)
++    w = weight.float().unflatten(0, (-1, out_block)).unflatten(-1, (-1, in_block))
++    w = w * scale_to_float(scale).to(w.device)[:, None, :, None]
++    return w.flatten(2, 3).flatten(0, 1).bfloat16()
++
++
++def decode_fp4(packed_fp4_data: torch.Tensor, block_scales: torch.Tensor) -> torch.Tensor:
++    """packed int8 [out, in/2] + scale [out, in/fp4_block]（V4.1 fp4_block=32）。"""
++    uint8 = packed_fp4_data.view(torch.uint8)
++    low = uint8 & 0x0F
++    high = (uint8 >> 4) & 0x0F
++    # 官方：先低 nibble 后高 nibble
++    indices = torch.stack([low, high], dim=-1).flatten(-2)
++    values = FP4_TABLE.to(packed_fp4_data.device)[indices.long()]
++    in_dim = packed_fp4_data.size(1) * 2
++    fp4_block = in_dim // block_scales.size(1)
++    scales = scale_to_float(block_scales).to(values.device).repeat_interleave(fp4_block, dim=-1)
++    return (values * scales).to(torch.bfloat16)
++
++
++@lru_cache(maxsize=1)
++def get_inv_weight_map(model_path: str):
++    model_index_path = os.path.join(model_path, "model.safetensors.index.json")
++    model_index = json_safe_load(model_index_path)
++    weight_map = model_index['weight_map']
++    return {k.replace(WEIGHT_SCALE_INV, ''): v for k, v in weight_map.items() if WEIGHT_SCALE_INV in k}
++
++
++def get_inv_tensor(tensor_name, fp8_path, weight_map):
++    file_name = weight_map[tensor_name]
++    file_path = os.path.join(fp8_path, file_name)
++    file_path = get_valid_read_path(file_path, 'safetensors', size_max=MAX_READ_FILE_SIZE_32G)
++    if dist.is_initialized() and hasattr(torch, 'npu') and torch.npu.is_available():
++        device = f"npu:{torch.npu.current_device()}"
++    else:
++        device = 'cpu'
++    with safe_open(file_path, framework='pt', device=device) as f:
++        return f.get_tensor(tensor_name + WEIGHT_SCALE_INV)
++
++
++def get_real_name(name, layer_prefix=''):
++    return f'{layer_prefix}.{name}' if layer_prefix else name
++
++
++def auto_dequant_state_dict(layer_prefix: str, state_dict: dict, model_path: str):
++    weight_map = get_inv_weight_map(model_path)
++    if not weight_map:
++        return
++    try:
++        sub_weight_map = {}
++        for sub_name in state_dict:
++            sub_key = get_real_name(sub_name, layer_prefix).removesuffix('.weight')
++            if sub_key in weight_map:
++                sub_weight_map[sub_key] = weight_map[sub_key]
++        dequant_state_dict(layer_prefix, state_dict, model_path, weight_map=sub_weight_map)
++    except KeyError:
++        get_logger().warning('Safetensors files not match index.json, skip fp8/fp4 to bf16.')
++
++
++@torch.no_grad()
++def dequant_state_dict(layer_prefix: str, module: dict, model_path: str, weight_map: Dict[str, str]):
++    with tqdm(total=len(weight_map), desc='v41 fp8/fp4 to bf16') as pbar:
++        for ori_name, weight in module.items():
++            real_name = get_real_name(ori_name, layer_prefix)
++            sub_name = real_name.removesuffix('.weight')
++            if sub_name not in weight_map:
++                continue
++            if str(weight.dtype) == 'torch.float8_e4m3fn':
++                dequant = decode_fp8
++            elif weight.dtype in (torch.int8, torch.uint8):
++                dequant = decode_fp4
++            else:
++                pbar.update(1)
++                continue
++            scale = get_inv_tensor(sub_name, model_path, weight_map)
++            module[ori_name] = dequant(weight, scale.to(weight.device)).detach()
++            weight.to('meta')
++            pbar.update(1)
+diff --git a/msmodelslim/model/deepseek_v41/loader.py b/msmodelslim/model/deepseek_v41/loader.py
+new file mode 100644
+index 0000000..564e255
+--- /dev/null
++++ b/msmodelslim/model/deepseek_v41/loader.py
+@@ -0,0 +1,8 @@
++# -*- coding: UTF-8 -*-
++from msmodelslim.model.plugin_factory.base_loader import BaseModelAdapterLoader
++
++
++class DeepseekV41AdapterLoader(BaseModelAdapterLoader):
++    ADAPTER_CLASS_PATH = (
++        "msmodelslim.model.deepseek_v41.model_adapter:DeepSeekV41ModelAdapter"
++    )
+diff --git a/msmodelslim/model/deepseek_v41/model.py b/msmodelslim/model/deepseek_v41/model.py
+new file mode 100644
+index 0000000..02be835
+--- /dev/null
++++ b/msmodelslim/model/deepseek_v41/model.py
+@@ -0,0 +1,852 @@
++# -*- coding: UTF-8 -*-
++"""DeepSeek-V4.1-Flash 主干模型（P1，自持实现）。
++
++从官方 `inference/model.py` 移植，尽量复用 `msmodelslim.model.deepseek_v4.model`
++中的现成件（ModelArgs / ParallelEmbedding / RMSNorm / Expert / Block /
++hc_split_sinkhorn / precompute_freqs_cis / apply_rotary_emb / sparse_attn /
++get_window_topk_idxs）。
++
++与 V4（DeepSeek-V4-Flash）的关键差异：
++  * compress_ratios 的 0/1/2 语义：
++      - 0：纯滑窗 SWA，不建 compressor/indexer，用 rope_theta 且禁用 YaRN；
++      - 1：compressor 只有 wkv(bf16)+norm，输出 1 token/组；
++      - 2：compressor 额外 wgate(fp32)+kv_state/score_state(fp32)，softmax 池化。
++    全库无 compressor ape。
++  * compressor/indexer 只在 source 层建参数：
++      - kv_source_layers   -> 建 compressor（写 compress_kv_cache）；
++      - index_source_layers -> 建 indexer；其中 indexer 的 wk/k_norm/k_cache
++        只在 owns_k（= kv_source）层建；
++      - 消费者层不建参数，只读 SharedAttentionRuntime 中的共享 cache。
++  * V4.1 无 post-Wq_b 的 per-head Q RMSNorm。
++  * delayed mHC：Block 返回 (x, ffn_pre)，上一层 ffn_pre 作为下一层 attention
++    的 pre_mix；最后一层 ffn_pre 收拢（没有终端 hc_head）。
++  * Gate 有 bias_vl（本 P1 只做文本；image_mask 传入路径预留）；无 tid2eid。
++
++P1 范围与简化（详见文件末尾 TODO）：
++  * 只实现 start_pos == 0 的 prefill 路径（校准用），decode 未实现；
++  * 不做 activation fp8/fp4 量化与 indexer 的 fp4 QAT，直接走 bf16 数值路径；
++  * candidate block 预筛选未实现（partial7 的 candidate_source_layer=20 不在
++    0..6，因此不影响本验收）；
++  * Engram 未实现（partial7 engram_layer_ids=[]，无相关参数）；
++  * DSpark/MTP 未实现（partial7 num_nextn_predict_layers=0）。
++"""
++
++import math
++import os
++from typing import Dict, Optional, Tuple
++
++import torch
++import torch.distributed as dist
++import torch.nn.functional as F
++from torch import nn
++
++from ..deepseek_v4.model import (
++    Block,
++    Expert,
++    ModelArgs,
++    ParallelEmbedding,
++    RMSNorm,
++    apply_rotary_emb,
++    get_window_topk_idxs,
++    hc_split_sinkhorn,
++    linear,
++    precompute_freqs_cis,
++    sparse_attn,
++)
++
++__all__ = [
++    "shared_attn",
++    "SharedAttentionRuntime",
++    "V41Compressor",
++    "V41Indexer",
++    "V41Attention",
++    "V41Gate",
++    "V41MoE",
++    "V41Block",
++    "V41Transformer",
++    "build_model_args_from_config",
++]
++
++CALIB_MAX_SEQ_LEN = int(os.environ.get("V41_CALIB_MAX_SEQ_LEN", "8192"))
++
++# config.json 的 text_config 字段 -> ModelArgs 字段
++_V41_ARGS_MAPPING = {
++    "dim": "hidden_size",
++    "moe_inter_dim": "moe_intermediate_size",
++    "index_topk": "index_topk",
++    "n_routed_experts": "n_routed_experts",
++    "n_heads": "num_attention_heads",
++    "num_hidden_layers": "num_hidden_layers",
++    "o_groups": "o_groups",
++    "q_lora_rank": "q_lora_rank",
++    "route_scale": "routed_scaling_factor",
++    "compress_ratios": "compress_ratios",
++    "head_dim": "head_dim",
++    "rope_head_dim": "qk_rope_head_dim",
++    "o_lora_rank": "o_lora_rank",
++    "window_size": "sliding_window",
++    "index_n_heads": "index_n_heads",
++    "index_head_dim": "index_head_dim",
++    "hc_mult": "hc_mult",
++    "hc_sinkhorn_iters": "hc_sinkhorn_iters",
++    "hc_eps": "hc_eps",
++    "vocab_size": "vocab_size",
++    "n_shared_experts": "n_shared_experts",
++    "n_activated_experts": "num_experts_per_tok",
++    "score_func": "scoring_func",
++    "swiglu_limit": "swiglu_limit",
++    "norm_eps": "rms_norm_eps",
++}
++
++# 仅记录、不改结构的 V4.1 字段（与 adapter 保持一致，便于后续 step）
++_V41_EXTRA_KEYS = (
++    "engram_layer_ids", "engram_num_embeddings", "engram_vocab_size",
++    "engram_compressed_vocab_size", "engram_head_dim", "engram_n_heads",
++    "engram_max_ngram_size", "engram_pad_token_id",
++    "dspark_block_size", "dspark_markov_rank", "dspark_target_layer_ids",
++    "dspark_n_routed_experts", "dspark_num_experts_per_tok",
++    "candidate_source_layer_id", "candidate_topk_blocks", "candidate_block_size",
++    "compress_rope_theta", "attention_bias", "attention_dropout", "image_token_id",
++    "gate_temp", "norm_topk_prob",
++)
++
++
++def build_model_args_from_config(config_data: Dict) -> ModelArgs:
++    """从 partial7/full V4.1 的 config.json 内容构造 ModelArgs。
++
++    主干超参在 text_config；compress_ratios 保留 0/1/2 原始语义。
++    """
++    text = config_data.get("text_config") or config_data
++    vision = config_data.get("vision_config") or {}
++
++    args = ModelArgs()
++    for arg_name, key in _V41_ARGS_MAPPING.items():
++        if key in text:
++            setattr(args, arg_name, text[key])
++
++    rope_scaling = text.get("rope_scaling") or {}
++    for src, dst in (
++        ("factor", "rope_factor"),
++        ("original_max_position_embeddings", "original_seq_len"),
++        ("beta_fast", "beta_fast"),
++        ("beta_slow", "beta_slow"),
++    ):
++        if src in rope_scaling:
++            setattr(args, dst, rope_scaling[src])
++    for key in ("rope_theta", "compress_rope_theta"):
++        if key in text:
++            setattr(args, key, text[key])
++
++    if getattr(args, "compress_ratios", None) is not None:
++        args.compress_ratios = list(args.compress_ratios)
++
++    n_layers = int(args.num_hidden_layers)
++    # V4.1 结构开关
++    args.n_hash_layers = 0
++    args.use_hc_head = False
++    args.delayed_hc = True
++    args.q_norm_after_wq_b = False
++    args.vision_n_layers = int(vision.get("num_hidden_layers", 0) or 0)
++    args.use_vl_bias = args.vision_n_layers > 0
++
++    # source 层拓扑
++    kv_src = [int(s) for s in text.get("kv_source_layer_ids", []) if 0 <= int(s) < n_layers]
++    ix_src = [int(s) for s in text.get("index_source_layer_ids", []) if 0 <= int(s) < n_layers]
++    args.kv_source_layers = tuple(kv_src)
++    args.index_source_layers = tuple(ix_src)
++    cand = text.get("candidate_source_layer_id", -1)
++    args.candidate_source_layer = int(cand) if cand is not None and 0 <= int(cand) < n_layers else -1
++    args.candidate_topk_blocks = int(text.get("candidate_topk_blocks", 0) or 0)
++    args.candidate_block_size = int(text.get("candidate_block_size", 0) or 0)
++
++    # MTP / DSpark
++    n_mtp = text.get("num_nextn_predict_layers", text.get("n_mtp_layers", 0))
++    args.n_mtp_layers = int(n_mtp or 0)
++    for key in _V41_EXTRA_KEYS:
++        if key in text:
++            setattr(args, key, text[key])
++    if "dspark_target_layer_ids" in text:
++        args.dspark_target_layer_ids = list(text["dspark_target_layer_ids"])
++
++    # 校准阶段限制 KV cache 大小
++    if "max_position_embeddings" in text:
++        args.max_seq_len = min(int(text["max_position_embeddings"]), CALIB_MAX_SEQ_LEN)
++    args.max_batch_size = int(os.environ.get("V41_CALIB_BATCH_SIZE", args.max_batch_size))
++    return args
++
++
++class SharedAttentionRuntime:
++    """跨层传递的共享注意力中间结果（模块级单例）。
++
++    msmodelslim 的 layer-wise runner 是"按层-全数据集"调度：source 层先把**所有
++    batch** 跑一遍，consumer 层随后才跑。因此共享结果必须**按 batch 隔离**，
++    不能只留一个 slot（否则 consumer 读到别的 batch 的 topk/KV，长度都不一致）。
++    键 = (start_pos, input_ids 内容哈希)，与 dataset 顺序/处理器调用次数无关。
++    """
++    _CAP = 512
++
++    def __init__(self):
++        from collections import OrderedDict
++
++        self._store: "OrderedDict" = OrderedDict()
++        self._key = None
++
++    def reset(self) -> None:
++        from collections import OrderedDict
++
++        self._store = OrderedDict()
++        self._key = None
++
++    @staticmethod
++    def _hash_ids(input_ids) -> str:
++        if input_ids is None:
++            return "none"
++        import hashlib
++
++        t = input_ids.detach().to("cpu").contiguous()
++        return hashlib.md5(t.numpy().tobytes()).hexdigest()
++
++    def begin(self, input_ids, start_pos: int) -> None:
++        """每次 layer forward 开始时调用，切换当前 batch 槽位。"""
++        self._key = (int(start_pos), self._hash_ids(input_ids))
++
++    def _slot(self, create: bool = False):
++        if create:
++            slot = self._store.get(self._key)
++            if slot is None:
++                self._store[self._key] = slot = {}
++                while len(self._store) > self._CAP:
++                    self._store.popitem(last=False)
++            else:
++                self._store.move_to_end(self._key)
++            return slot
++        return self._store.get(self._key)
++
++    def publish(self, name: str, value) -> None:
++        self._slot(create=True)[name] = value
++
++    def fetch(self, name: str):
++        slot = self._slot()
++        return None if slot is None else slot.get(name)
++
++    @property
++    def compress_kv(self):
++        return self.fetch("compress_kv")
++
++    @compress_kv.setter
++    def compress_kv(self, value):
++        self.publish("compress_kv", value)
++
++    @property
++    def index_k(self):
++        return self.fetch("index_k")
++
++    @index_k.setter
++    def index_k(self, value):
++        self.publish("index_k", value)
++
++    @property
++    def topk_idxs(self):
++        return self.fetch("topk_idxs")
++
++    @topk_idxs.setter
++    def topk_idxs(self, value):
++        self.publish("topk_idxs", value)
++
++    @property
++    def candidates(self):
++        return self.fetch("candidates")
++
++    @candidates.setter
++    def candidates(self, value):
++        self.publish("candidates", value)
++
++    def __repr__(self) -> str:  # pragma: no cover - debug helper
++        def _shape(t):
++            return None if t is None else tuple(t.shape)
++
++        return (
++            f"SharedAttentionRuntime(compress_kv={_shape(self.fetch('compress_kv'))}, "
++            f"index_k={_shape(self.fetch('index_k'))}, topk_idxs={_shape(self.fetch('topk_idxs'))}, "
++            f"candidates={_shape(self.fetch('candidates'))}, slots={len(self._store)})"
++        )
++
++
++# 一个进程只允许一个模型实例，与 world_size/rank 一致
++shared_attn = SharedAttentionRuntime()
++
++class V41Compressor(nn.Module):
++    """V4.1 compressor：ratio1 为纯投影，ratio2 为带 softmax gate 的 fp32 池化。
++
++    ratio2 的 kv_state/score_state 仅用于跨 step 缓存（decode），prefill 在组内
++    一次池化完，state 只在 seqlen % ratio != 0 时使用。
++    """
++
++    def __init__(self, args: ModelArgs, layer_id: int):
++        super().__init__()
++        compress_ratio = int(args.compress_ratios[layer_id])
++        if compress_ratio not in (1, 2):
++            raise ValueError(f"V4.1 compressor requires ratio 1 or 2, got {compress_ratio}")
++        self.compress_ratio = compress_ratio
++        self.layer_id = layer_id
++        self.dim = args.dim
++        self.head_dim = args.head_dim
++        self.norm = RMSNorm(self.head_dim, args.norm_eps)
++        # ratio1 是纯投影，保持 checkpoint 的 bf16；ratio2 的 softmax 池化在 fp32 做
++        self.wkv = nn.Linear(
++            self.dim, self.head_dim, bias=False,
++            dtype=torch.float32 if compress_ratio > 1 else torch.bfloat16,
++        )
++        if compress_ratio > 1:
++            self.wgate = nn.Linear(self.dim, self.head_dim, bias=False, dtype=torch.float32)
++            state_shape = (args.max_batch_size, compress_ratio, self.head_dim)
++            self.register_buffer("kv_state", torch.zeros(state_shape, dtype=torch.float32), persistent=False)
++            self.register_buffer(
++                "score_state",
++                torch.full(state_shape, float("-inf"), dtype=torch.float32),
++                persistent=False,
++            )
++
++    def forward(self, x: torch.Tensor, start_pos: int) -> Optional[torch.Tensor]:
++        ratio = self.compress_ratio
++        dtype = x.dtype
++        bsz, seqlen, _ = x.size()
++
++        if ratio == 1:
++            # 每个 token 自己一组：无需池化/门控（decode 同样成立）
++            return self.norm(self.wkv(x))
++
++        if start_pos != 0:
++            # TODO(P2): decode compressor：填 kv_state/score_state，组满后池化。
++            raise NotImplementedError(
++                "V4.1 compressor decode (start_pos>0) is not implemented in P1; "
++                "calibration prefill uses start_pos=0."
++            )
++
++        x = x.float()
++        kv = self.wkv(x)
++        score = self.wgate(x)
++        should_compress = seqlen >= ratio
++        remainder = seqlen % ratio
++        cutoff = seqlen - remainder
++        if remainder:
++            kv, self.kv_state[:bsz, :remainder] = kv.split([cutoff, remainder], dim=1)
++            score, self.score_state[:bsz, :remainder] = score.split([cutoff, remainder], dim=1)
++        kv = kv.unflatten(1, (-1, ratio))
++        score = score.unflatten(1, (-1, ratio))
++        kv = (kv * score.softmax(dim=2)).sum(dim=2)
++        if not should_compress:
++            return None
++        return self.norm(kv.to(dtype))
++
++
++class V41Indexer(nn.Module):
++    """V4.1 indexer：用压缩 latent 生成 index K，并给每条 query 选 index_topk 个压缩位置。
++
++    `owns_k=True`（= kv_source 层）时建 wk/k_norm/k_cache，并把 k_cache 发布到
++    shared_attn.index_k；其它 index source（非 kv source）只建 wq_b/weights_proj，
++    读取上游发布的 index_k。
++    """
++
++    def __init__(self, args: ModelArgs, layer_id: int, owns_k: bool):
++        super().__init__()
++        self.layer_id = layer_id
++        self.owns_k = owns_k
++        self.compress_ratio = int(args.compress_ratios[layer_id])
++        self.dim = args.dim
++        self.n_heads = args.index_n_heads
++        self.index_head_dim = args.index_head_dim
++        self.rope_head_dim = args.rope_head_dim
++        self.index_topk = args.index_topk
++        self.q_lora_rank = args.q_lora_rank
++        self.softmax_scale = self.index_head_dim ** -0.5
++        # 官方 indexer 只用 softmax_scale * n_heads**-0.5 作为 weights 尺度
++        self.weights_scale = self.softmax_scale * self.n_heads ** -0.5
++        self.freqs_cis: Optional[torch.Tensor] = None
++
++        self.wq_b = nn.Linear(self.q_lora_rank, self.n_heads * self.index_head_dim, bias=False)
++        self.weights_proj = nn.Linear(self.dim, self.n_heads, bias=False, dtype=torch.bfloat16)
++        if owns_k:
++            self.wk = nn.Linear(args.head_dim, self.index_head_dim, bias=False, dtype=torch.bfloat16)
++            self.k_norm = RMSNorm(self.index_head_dim, args.norm_eps)
++            self.register_buffer(
++                "k_cache",
++                torch.zeros(
++                    args.max_batch_size,
++                    args.max_seq_len // max(1, self.compress_ratio),
++                    self.index_head_dim,
++                ),
++                persistent=False,
++            )
++
++    def forward(
++        self,
++        x: torch.Tensor,
++        qr: torch.Tensor,
++        latent: Optional[torch.Tensor],
++        start_pos: int,
++        offset: int,
++    ) -> torch.Tensor:
++        assert self.freqs_cis is not None
++        bsz, seqlen, _ = x.size()
++        ratio = self.compress_ratio
++        rd = self.rope_head_dim
++        end_pos = start_pos + seqlen
++        compress_len = end_pos // ratio
++
++        # 1) owns_k：把本次的压缩 latent（pre-RoPE）写成 index K 并发布
++        if self.owns_k and latent is not None:
++            freqs = (
++                self.freqs_cis[: seqlen - seqlen % ratio : ratio]
++                if start_pos == 0
++                else self.freqs_cis[start_pos + 1 - ratio].unsqueeze(0)
++            )
++            k = self.k_norm(self.wk(latent))
++            apply_rotary_emb(k[..., -rd:], freqs)
++            # TODO(P2): 官方此处对 k 做 fp4_act_quant（QAT）；P1 走 bf16 数值路径
++            n_rows = start_pos // ratio + k.size(1)
++            self.k_cache[:bsz, start_pos // ratio : n_rows] = k
++            # 按 batch 存切片副本（layer-major 调度下 cache 会被后续 batch 覆写）
++            shared_attn.publish("index_k", self.k_cache[:bsz, :n_rows].clone())
++
++        # 2) query 侧打分
++        if shared_attn.index_k is None:
++            raise RuntimeError(
++                f"layer {self.layer_id}: indexer ran before any kv_source published index_k"
++            )
++        q = self.wq_b(qr).unflatten(-1, (self.n_heads, self.index_head_dim))
++        apply_rotary_emb(q[..., -rd:], self.freqs_cis[start_pos:end_pos])
++        # TODO(P2): q 的 fp4_act_quant
++        index_k = shared_attn.index_k[:bsz, :compress_len]
++        weights = self.weights_proj(x).float() * self.weights_scale
++        index_score = torch.einsum("bshd,btd->bsht", q.float(), index_k.float())
++        index_score = (index_score.relu() * weights.unsqueeze(-1)).sum(dim=2)
++
++        if start_pos == 0:
++            compress_lens = (torch.arange(1, seqlen + 1, device=x.device) // ratio).unsqueeze(-1)
++            index_score = index_score.masked_fill(
++                torch.arange(compress_len, device=x.device) >= compress_lens, float("-inf")
++            )
++        else:
++            compress_lens = compress_len
++
++        # TODO(P2): candidate_source_layer 的两级 topk / shared_attn.candidates，
++        # 以及 candidate_block_size/block 过滤。partial7 的 candidate source(20)
++        # 不在 0..6，本验收不触发。
++        topk = min(self.index_topk, compress_len)
++        idxs = index_score.topk(topk, dim=-1, sorted=False).indices.sort(dim=-1).values
++        return torch.where(idxs < compress_lens, idxs + offset, -1).int()
++
++
++class V41Attention(nn.Module):
++    """V4.1 latent attention：滑窗 KV + （ratio>0 时）压缩 KV，sparse_attn 一次算完。
++
++    source/consumer 通过 SharedAttentionRuntime 共享 compress_kv/topk_idxs/index_k。
++    """
++
++    def __init__(self, layer_id: int, args: ModelArgs):
++        super().__init__()
++        self.layer_id = layer_id
++        self.dim = args.dim
++        self.n_heads = args.n_heads
++        self.q_lora_rank = args.q_lora_rank
++        self.o_lora_rank = args.o_lora_rank
++        self.head_dim = args.head_dim
++        self.rope_head_dim = args.rope_head_dim
++        self.nope_head_dim = args.head_dim - args.rope_head_dim
++        self.n_groups = args.o_groups
++        self.window_size = args.window_size
++        self.eps = args.norm_eps
++        ratios = list(getattr(args, "compress_ratios", []) or [])
++        self.compress_ratio = int(ratios[layer_id]) if 0 <= layer_id < len(ratios) else 0
++
++        is_backbone = layer_id < args.num_hidden_layers
++        self.is_kv_source = is_backbone and layer_id in tuple(getattr(args, "kv_source_layers", ()) or ())
++        self.is_index_source = is_backbone and layer_id in tuple(getattr(args, "index_source_layers", ()) or ())
++
++        self.attn_sink = nn.Parameter(torch.empty(self.n_heads, dtype=torch.float32))
++        self.wq_a = nn.Linear(self.dim, self.q_lora_rank, bias=False)
++        self.q_norm = RMSNorm(self.q_lora_rank, self.eps)
++        self.wq_b = nn.Linear(self.q_lora_rank, self.n_heads * self.head_dim, bias=False)
++        self.wkv = nn.Linear(self.dim, self.head_dim, bias=False)
++        self.kv_norm = RMSNorm(self.head_dim, self.eps)
++        self.wo_a = nn.Linear(
++            self.n_heads * self.head_dim // self.n_groups,
++            self.n_groups * self.o_lora_rank,
++            bias=False,
++            dtype=torch.bfloat16,
++        )
++        self.wo_b = nn.Linear(self.n_groups * self.o_lora_rank, self.dim, bias=False)
++        self.softmax_scale = self.head_dim ** -0.5
++
++        # V4.1：没有 post-Wq_b 的 per-head Q RMSNorm
++        self.compressor: Optional[V41Compressor] = None
++        self.indexer: Optional[V41Indexer] = None
++        if self.is_kv_source:
++            self.compressor = V41Compressor(args, layer_id)
++        if self.is_index_source:
++            self.indexer = V41Indexer(args, layer_id, owns_k=self.is_kv_source)
++
++        self.register_buffer(
++            "window_kv_cache",
++            torch.zeros(args.max_batch_size, self.window_size, self.head_dim),
++            persistent=False,
++        )
++        if self.is_kv_source:
++            self.register_buffer(
++                "compress_kv_cache",
++                torch.zeros(
++                    args.max_batch_size,
++                    args.max_seq_len // max(1, self.compress_ratio),
++                    self.head_dim,
++                ),
++                persistent=False,
++            )
++        if self.compress_ratio > 0:
++            original_seq_len = args.original_seq_len
++            rope_theta = args.compress_rope_theta
++        else:
++            # ratio0：纯滑窗，禁用 YaRN，用 rope_theta
++            original_seq_len = 0
++            rope_theta = args.rope_theta
++        freqs_cis = precompute_freqs_cis(
++            self.rope_head_dim,
++            args.max_seq_len,
++            original_seq_len,
++            rope_theta,
++            args.rope_factor,
++            args.beta_fast,
++            args.beta_slow,
++        )
++        self.register_buffer("freqs_cis", freqs_cis, persistent=False)
++
++    def _window_kv(self, x: torch.Tensor, freqs_cis: torch.Tensor, start_pos: int):
++        bsz, seqlen, _ = x.size()
++        win = self.window_size
++        kv = self.kv_norm(self.wkv(x))
++        apply_rotary_emb(kv[..., -self.rope_head_dim :], freqs_cis)
++        # TODO(P2): 官方对 kv 做 fp8 act quant；P1 直接 bf16
++        if start_pos == 0:
++            if seqlen <= win:
++                self.window_kv_cache[:bsz, :seqlen] = kv
++            else:
++                cutoff = seqlen % win
++                self.window_kv_cache[:bsz, cutoff:win], self.window_kv_cache[:bsz, :cutoff] = (
++                    kv[:, -win:].split([win - cutoff, cutoff], dim=1)
++                )
++            window_kv = kv
++        else:
++            # TODO(P2): decode ring buffer
++            raise NotImplementedError(
++                "V4.1 decode (start_pos>0) is not implemented in P1; use start_pos=0 prefill."
++            )
++        topk_idxs = get_window_topk_idxs(win, bsz, seqlen, start_pos).to(x.device)
++        return window_kv, topk_idxs
++
++    def _compress_topk_idxs(
++        self,
++        x: torch.Tensor,
++        qr: torch.Tensor,
++        latent: Optional[torch.Tensor],
++        start_pos: int,
++        offset: int,
++        compress_len: int,
++    ) -> torch.Tensor:
++        if not self.is_index_source:
++            # consumer：读上游 index source 发布的 topk_idxs
++            if shared_attn.topk_idxs is None:
++                raise RuntimeError(
++                    f"layer {self.layer_id}: consumer read topk_idxs before index source published"
++                )
++            return shared_attn.topk_idxs
++
++        bsz, seqlen, _ = x.size()
++        if compress_len == 0:
++            idxs = torch.empty(bsz, seqlen, 0, dtype=torch.int32, device=x.device)
++        else:
++            assert self.indexer is not None
++            if self.indexer.freqs_cis is None:
++                self.indexer.freqs_cis = self.freqs_cis
++            idxs = self.indexer(x, qr, latent, start_pos, offset)
++        shared_attn.topk_idxs = idxs
++        return idxs
++
++    def _compress_kv(
++        self,
++        x: torch.Tensor,
++        qr: torch.Tensor,
++        start_pos: int,
++        offset: int,
++    ) -> Tuple[torch.Tensor, torch.Tensor]:
++        bsz, seqlen, _ = x.size()
++        ratio = self.compress_ratio
++        compress_len = (start_pos + seqlen) // ratio
++        latent = None
++        if self.is_kv_source:
++            latent = self.compressor(x, start_pos)
++            shared_attn.publish(
++                "compress_kv",
++                self.compress_kv_cache[:bsz, : start_pos // ratio + latent.size(1)].clone(),
++            )
++        idxs = self._compress_topk_idxs(x, qr, latent, start_pos, offset, compress_len)
++        if latent is not None:
++            # latent 代表每组的第一个 token，组 j 的 RoPE 位置是 j*ratio
++            if start_pos == 0:
++                freqs = self.freqs_cis[: seqlen - seqlen % ratio : ratio]
++            else:
++                freqs = self.freqs_cis[start_pos + 1 - ratio].unsqueeze(0)
++            apply_rotary_emb(latent[..., -self.rope_head_dim :], freqs)
++            # TODO(P2): 官方对压缩 latent 做 fp4 act quant（block 16, e4m3 scale）
++            self.compress_kv_cache[:bsz, start_pos // ratio : start_pos // ratio + latent.size(1)] = latent
++        if shared_attn.compress_kv is None:
++            raise RuntimeError(
++                f"layer {self.layer_id}: consumer read compress_kv before kv source published"
++            )
++        return shared_attn.compress_kv[:bsz, :compress_len], idxs
++
++    def forward(self, x: torch.Tensor, start_pos: int = 0,
++                input_ids: Optional[torch.Tensor] = None) -> torch.Tensor:
++        # 按 (start_pos, input_ids) 切换共享槽位：layer-major 校准调度下必须按 batch 隔离
++        shared_attn.begin(input_ids, start_pos)
++        bsz, seqlen, _ = x.size()
++        rd = self.rope_head_dim
++        freqs_cis = self.freqs_cis[start_pos : start_pos + seqlen]
++
++        qr = self.q_norm(self.wq_a(x))
++        q = self.wq_b(qr).unflatten(-1, (self.n_heads, self.head_dim))
++        apply_rotary_emb(q[..., -rd:], freqs_cis)
++
++        window_kv, topk_idxs = self._window_kv(x, freqs_cis, start_pos)
++        if self.compress_ratio > 0:
++            compress_kv, compress_idxs = self._compress_kv(x, qr, start_pos, window_kv.size(1))
++            kv = torch.cat([window_kv, compress_kv], dim=1)
++            topk_idxs = torch.cat([topk_idxs, compress_idxs], dim=-1)
++        else:
++            kv = window_kv
++
++        o = sparse_attn(q, kv, self.attn_sink, topk_idxs, self.softmax_scale)
++        apply_rotary_emb(o[..., -rd:], freqs_cis, True)
++
++        o = o.view(bsz, seqlen, self.n_groups, -1)
++        wo_a = self.wo_a.weight.view(self.n_groups, self.o_lora_rank, -1)
++        o = torch.einsum("bsgd,grd->bsgr", o, wo_a)
++        return self.wo_b(o.flatten(2))
++
++
++class V41Gate(nn.Module):
++    """MoE gate：bias 只参与选专家，权重用未加 bias 的 scores。
++
++    V4.1 有 bias_vl（视文本模型开关创建）；无 hash/tid2eid。
++    """
++
++    def __init__(self, layer_id: int, args: ModelArgs):
++        super().__init__()
++        n_routed_experts, n_activated_experts = args.get_moe_config(layer_id)
++        self.layer_id = layer_id
++        self.dim = args.dim
++        self.topk = n_activated_experts
++        self.score_func = args.score_func
++        self.gate_temp = float(getattr(args, "gate_temp", 1.0) or 1.0)
++        self.norm_topk_prob = bool(getattr(args, "norm_topk_prob", True))
++        self.route_scale = args.route_scale
++        self.weight = nn.Parameter(torch.empty(n_routed_experts, args.dim))
++        self.bias = nn.Parameter(torch.empty(n_routed_experts, dtype=torch.float32))
++        use_vl_bias = bool(getattr(args, "use_vl_bias", getattr(args, "vision_n_layers", 0) > 0))
++        if use_vl_bias:
++            self.bias_vl = nn.Parameter(torch.empty(n_routed_experts, dtype=torch.float32))
++        else:
++            self.bias_vl = None
++
++    def forward(
++        self, x: torch.Tensor, image_mask: Optional[torch.Tensor] = None
++    ) -> Tuple[torch.Tensor, torch.Tensor]:
++        scores = linear(x.float(), self.weight.float()) / self.gate_temp
++        if self.score_func == "softmax":
++            scores = scores.softmax(dim=-1)
++        elif self.score_func == "sigmoid":
++            scores = scores.sigmoid()
++        else:
++            scores = F.softplus(scores).sqrt()
++        bias = self.bias
++        if image_mask is not None and self.bias_vl is not None:
++            bias = torch.where(image_mask.unsqueeze(-1), self.bias_vl, bias)
++        indices = (scores + bias).topk(self.topk, dim=-1)[1]
++        weights = scores.gather(1, indices)
++        if self.norm_topk_prob and self.topk > 1:
++            weights = weights / (weights.sum(dim=-1, keepdim=True) + 1e-20)
++        weights = weights * self.route_scale
++        return weights, indices
++
++
++class V41MoE(nn.Module):
++    """V4.1 MoE：per-layer 专家数 + shared expert（SwiGLU limit 同样生效）。"""
++
++    def __init__(self, layer_id: int, args: ModelArgs):
++        super().__init__()
++        n_routed_experts, n_activated_experts = args.get_moe_config(layer_id)
++        world_size = dist.get_world_size() if dist.is_initialized() else 1
++        rank = dist.get_rank() if dist.is_initialized() else 0
++        assert n_routed_experts % world_size == 0, (  # nosec
++            f"Number of experts must be divisible by world size (world_size={world_size})"
++        )
++        self.layer_id = layer_id
++        self.dim = args.dim
++        self.n_routed_experts = n_routed_experts
++        self.n_local_experts = n_routed_experts // world_size
++        self.n_activated_experts = n_activated_experts
++        self.experts_start_idx = rank * self.n_local_experts
++        self.experts_end_idx = self.experts_start_idx + self.n_local_experts
++        self.gate = V41Gate(layer_id, args)
++        self.experts = nn.ModuleList(
++            [
++                Expert(args.dim, args.moe_inter_dim, swiglu_limit=args.swiglu_limit)
++                if self.experts_start_idx <= i < self.experts_end_idx
++                else None
++                for i in range(n_routed_experts)
++            ]
++        )
++        assert args.n_shared_experts == 1, "V4.1 expects exactly one shared expert"  # nosec
++        self.shared_experts = Expert(args.dim, args.moe_inter_dim, swiglu_limit=args.swiglu_limit)
++
++    def forward(
++        self,
++        x: torch.Tensor,
++        input_ids: Optional[torch.Tensor] = None,
++        image_mask: Optional[torch.Tensor] = None,
++    ) -> torch.Tensor:
++        """input_ids 只用于兼容 Block.forward 的位置参数（V4 语义）；V4.1 文本
++        路径不需要它，图像 span 由 image_mask 选择 bias_vl（P1 暂不接）。
++        """
++        del input_ids  # noqa: F841  # V4.1 backbone 不做 hash gate
++        # DP 模式：先把各 rank 的 token 聚合（长度可不同），再本地计算本 rank 的专家，
++        # all_reduce 合并后切回本 rank 的 token。若不聚合，各 rank 的 all_reduce 参数
++        # 不一致（HCCL EI0005），这也是 DP 量化必须的处理。
++        from msmodelslim.model.deepseek_v4 import model as v4model
++        from msmodelslim.utils.distributed.dist_helper import DistHelper
++
++        # 不能用 v4 模块全局 world_size/rank：V41Transformer 不继承 v4 Transformer，
++        # 那些全局量不会被赋值。直接查 dist 最可靠。
++        world_size = dist.get_world_size() if dist.is_initialized() else 1
++        rank = dist.get_rank() if dist.is_initialized() else 0
++        use_dp = v4model.USE_DP_MODE  # 动态读，TP runner 会把它改成 False
++        if world_size > 1 and use_dp:
++            seq_len_this_rank = x.size(-2)
++            seq_len_tensor = torch.tensor([seq_len_this_rank], dtype=torch.long, device=x.device)
++            seq_len_list = [torch.zeros_like(seq_len_tensor) for _ in range(world_size)]
++            dist.all_gather(seq_len_list, seq_len_tensor)
++            seq_lens = [t.item() for t in seq_len_list]
++            start_pos = sum(seq_lens[:rank])
++            end_pos = start_pos + seq_len_this_rank
++            x = torch.cat(DistHelper.gather_variable_shapes(x), dim=1)
++        else:
++            start_pos, end_pos = 0, x.size(-2)
++
++        shape = x.size()
++        x = x.view(-1, self.dim)
++        weights, indices = self.gate(
++            x, None if image_mask is None else image_mask.flatten().to(x.device)
++        )
++        y = torch.zeros_like(x, dtype=torch.float32)
++        counts = torch.bincount(indices.flatten(), minlength=self.n_routed_experts).tolist()
++        for i in range(self.experts_start_idx, self.experts_end_idx):
++            if counts[i] == 0:
++                continue
++            expert = self.experts[i]
++            idx, top = torch.where(indices == i)
++            y[idx] += expert(x[idx], weights[idx, top, None])
++        if world_size > 1:
++            dist.all_reduce(y)
++        y = y + self.shared_experts(x)
++        y = y.type_as(x).view(shape)
++        if world_size > 1 and use_dp:
++            return y[:, start_pos:end_pos, :]
++        return y
++
++
++class V41Block(Block):
++    """延迟 mHC Block：attention / MoE 换成 V41 实现，其余（hc_* 参数、延迟
++    forward 语义）复用共享 Block。"""
++
++    attention_cls = V41Attention
++    moe_cls = V41MoE
++
++    def forward(self, x, start_pos: int = 0, input_ids=None, pre_mix=None):
++        # 与共享 Block 的 delayed 分支一致，唯一差别：把 input_ids 传给 attention，
++        # 供共享 cache 按 batch 建键（layer-major 校准调度需要）。
++        residual = x
++        attn_pre, attn_post, attn_comb = self.hc_mixes(
++            x, self.hc_attn_fn, self.hc_attn_scale, self.hc_attn_base
++        )
++        x = self.hc_collapse(x, pre_mix)
++        x = self.attn_norm(x)
++        x = self.attn(x, start_pos, input_ids)
++        x = self.hc_post(x, residual, attn_post, attn_comb)
++        residual = x
++        ffn_pre, ffn_post, ffn_comb = self.hc_mixes(
++            x, self.hc_ffn_fn, self.hc_ffn_scale, self.hc_ffn_base
++        )
++        x = self.hc_collapse(x, attn_pre)
++        x = self.ffn_norm(x)
++        x = self.ffn(x, input_ids)
++        x = self.hc_post(x, residual, ffn_post, ffn_comb)
++        return x, ffn_pre
++
++
++class V41Transformer(nn.Module):
++    """V4.1 主干：embed -> hc 展开 -> 逐层 delayed mHC -> 最后一层 ffn_pre
++    收拢 -> norm -> head。不创建 hc_head_*。
++
++    `layers` 为 ModuleList，支持先建 1 层模板、再逐层 append（逐层加载）。
++    """
++
++    def __init__(self, args: ModelArgs):
++        super().__init__()
++        self.args = args
++        self.max_seq_len = args.max_seq_len
++        self.norm_eps = args.norm_eps
++        self.hc_mult = args.hc_mult
++        self.embed = ParallelEmbedding(args.vocab_size, args.dim)
++        self.layers = nn.ModuleList(
++            [V41Block(layer_id, args) for layer_id in range(args.num_hidden_layers)]
++        )
++        self.norm = RMSNorm(args.dim, self.norm_eps)
++        self.head = nn.Linear(args.dim, args.vocab_size, bias=False, dtype=torch.float32)
++
++    def _init_pre_mix(self, x: torch.Tensor) -> torch.Tensor:
++        pre_mix = x.new_zeros(x.size(0), x.size(1), self.hc_mult, dtype=torch.float32)
++        pre_mix[:, :, 0] = 1.0
++        return pre_mix
++
++    def forward_hidden_states(self, input_ids: torch.Tensor, start_pos: int = 0) -> torch.Tensor:
++        """返回收拢后的 hidden states [b, s, dim]（不经过 norm/head）。"""
++        if start_pos != 0:
++            raise NotImplementedError("V4.1 decode (start_pos>0) is not implemented in P1")
++        shared_attn.reset()
++        h = self.embed(input_ids)
++        h = h.unsqueeze(2).repeat(1, 1, self.hc_mult, 1)
++        pre_mix = self._init_pre_mix(h)
++        for layer in self.layers:
++            h, pre_mix = layer(h, start_pos, input_ids, pre_mix)
++        if len(self.layers) > 0:
++            h = self.layers[-1].hc_collapse(h, pre_mix)
++        return h
++
++    @torch.inference_mode()
++    def forward(self, input_ids: torch.Tensor, start_pos: int = 0) -> torch.Tensor:
++        h = self.forward_hidden_states(input_ids, start_pos)
++        h = self.norm(h)
++        return self.head(h[:, -1].float())
++
++
++# ---------------------------------------------------------------------------
++# TODO(P2/P3)
++#   1. decode：window_kv_cache 环形写、compressor kv_state/score_state 续池化、
++#      indexer k_cache 单 token 追加、freqs_cis 单步切片；
++#   2. activation 量化：sparse attention 前的 fp8 act_quant、compressor latent 的
++#      fp4_act_quant(block=16,e4m3)、indexer q/k 的 fp4_act_quant(block=32,ue8m0)；
++#   3. candidate 两级筛选：select_candidate_blocks + shared_attn.candidates，
++#      candidate_source_layer=20 及 block_size=8；
++#   4. Engram / DSpark MTP：partial7 未包含，全量模型需要补齐；
++#   5. VL：image_mask 透传与 bias_vl，vision tower / aligner 接入；
++#   6. 分布式：当前按 world_size=1 编写，TP/EP 的分片与 all_reduce 未移植。
++# ---------------------------------------------------------------------------
+diff --git a/msmodelslim/model/deepseek_v41/model_adapter.py b/msmodelslim/model/deepseek_v41/model_adapter.py
+new file mode 100644
+index 0000000..f69ca25
+--- /dev/null
++++ b/msmodelslim/model/deepseek_v41/model_adapter.py
+@@ -0,0 +1,169 @@
++# -*- coding: UTF-8 -*-
++"""DeepSeek-V4.1-Flash 适配器（自持，非上游）。
++
++与 V4/V4-Pro 的结构差异（详见移植分析）：
++  * config.json 是多模态嵌套结构，主干超参在 text_config
++  * model_type = "deepseek_v41" / architectures = DeepseekV41ForCausalLM
++  * compress_ratios 0/1/2（纯 CSA2），需保留原始值
++  * 无终端 hc_head（delayed mHC：Block 返回 (x, ffn_pre)，最后一层 ffn_pre 收拢）
++  * 无 per-head Q RMSNorm（q_norm_after_wq_b=False）
++  * compressor/indexer 只在 kv_source/index_source 层存在
++  * MTP/DSpark 用独立专家数（step 3 实现）
++  * fp8/fp4 反量化为 32x32 + UE8M0
++
++P1 已接通：init_model（1 层模板 + 反量化 + strict load）、逐层 load
++（source/consumer 建参差异由 V41Attention 决定）、延迟 mHC 前向 generator。
++"""
++
++import os
++from typing import Any, Dict, Generator, Optional, Tuple
++from unittest.mock import patch
++
++import torch
++import torch.distributed as dist
++from torch import nn
++
++from msmodelslim.core.base.protocol import ProcessRequest
++from msmodelslim.core.const import DeviceType
++from msmodelslim.model.common.layer_wise_forward import (
++    TransformersForwardBreak,
++    generated_decoder_layer_visit_func,
++)
++from msmodelslim.model.common.weight_helper import get_state_dict
++from msmodelslim.model.deepseek_v4.model import ModelArgs
++from msmodelslim.model.deepseek_v4_dspark.model_adapter import DeepSeekV4DSparkModelAdapter
++from msmodelslim.utils.exception import InvalidModelError
++from msmodelslim.utils.logging import get_logger, logger_setter
++from msmodelslim.utils.security import json_safe_load
++
++from .convert import auto_dequant_state_dict as auto_dequant_state_dict_v41
++from .model import V41Transformer, build_model_args_from_config, shared_attn
++from .rotation_map import V41QuaRotMixin
++
++
++@logger_setter("msmodelslim.model.deepseek_v41")
++class DeepSeekV41ModelAdapter(V41QuaRotMixin, DeepSeekV4DSparkModelAdapter):
++    """DeepSeek-V4.1-Flash：CED + CSA2(0/1/2) + delayed mHC + Engram + DSpark。"""
++
++    def get_model_pedigree(self) -> str:
++        return "deepseek_v41"
++
++    # ------------------------------------------------------------------ config
++    def _load_config(self, trust_remote_code: bool = False) -> Any:
++        config_path = os.path.join(str(self.model_path), "config.json")
++        config_data = json_safe_load(config_path)
++        args = build_model_args_from_config(config_data)
++        get_logger().info(
++            "V4.1 config: layers=%s(+%s mtp) experts=%s dim=%s ratios=%s kv_src=%s ix_src=%s engram=%s max_seq_len=%s",
++            args.num_hidden_layers, args.n_mtp_layers, args.n_routed_experts, args.dim,
++            sorted(set(args.compress_ratios)), tuple(args.kv_source_layers), tuple(args.index_source_layers),
++            getattr(args, "engram_layer_ids", None), args.max_seq_len,
++        )
++        return args
++
++    # ------------------------------------------------------------------- model
++    def init_model(self, device: DeviceType = DeviceType.NPU) -> nn.Module:
++        torch.set_default_dtype(torch.bfloat16)
++        n_mtp = getattr(self.config, "n_mtp_layers", 0)
++        get_logger().info(
++            "V4.1 model: %s layers + %s MTP = %s total",
++            self.config.num_hidden_layers, n_mtp, self.config.num_hidden_layers + n_mtp,
++        )
++        origin = self.config.num_hidden_layers
++        # 只建 1 层模板；其余层由 load_decoder_if_not_exist 逐层构造。
++        # 模板里的专家层权重随后会被反量化结果覆盖，禁止随机初始化以避免
++        # 不必要的数十 GB 级 CPU 计算。
++        self.config.num_hidden_layers = 1
++        with patch.object(nn.Linear, "reset_parameters", lambda _self: None):
++            with torch.device("cpu"):
++                model = V41Transformer(self.config)
++        self.config.num_hidden_layers = origin
++
++        state_dict = get_state_dict(self.model_path, model)
++        auto_dequant_state_dict_v41("", state_dict, str(self.model_path))
++        model.load_state_dict(state_dict)
++        model.eval()
++        get_logger().info("V4.1 init_model ok (layer 0 template loaded, strict)")
++        return model
++
++    # -------------------------------------------------------------- layer wise
++    def load_decoder_if_not_exist(self, model: nn.Module, layer_prefix: str, idx: int):
++        try:
++            decoder = model.get_submodule(layer_prefix)
++        except AttributeError:
++            # 禁止 reset_parameters：DeepSeek 的专家层初始化代价极高，权重随后从
++            # checkpoint 反量化并 strict load。
++            with patch.object(nn.Linear, "reset_parameters", lambda _self: None):
++                get_logger().info("Creating V4.1 decoder layer %s", idx)
++                module_list: nn.ModuleList = model.layers
++                template_module = module_list[0]
++                decoder = template_module.__class__(layer_id=idx, args=self.config)
++
++                state_dict = get_state_dict(self.model_path, decoder, prefix=layer_prefix)
++                auto_dequant_state_dict_v41(layer_prefix, state_dict, str(self.model_path))
++                decoder.load_state_dict(state_dict, strict=True)
++                decoder.eval()
++                module_list.append(decoder)
++                get_logger().info("Create V4.1 decoder layer %s successfully", idx)
++        return decoder
++
++    def generate_decoder_layer(self, model: nn.Module):
++        for idx in range(self.config.num_hidden_layers):
++            layer_prefix = f"layers.{idx}"
++            decoder = self.load_decoder_if_not_exist(model, layer_prefix=layer_prefix, idx=idx)
++            yield layer_prefix, decoder
++        # TODO(P3): MTP/DSpark 层（partial7 num_nextn_predict_layers=0，不在 P1 范围）
++        for mtp_idx in range(getattr(self.config, "n_mtp_layers", 0)):
++            raise NotImplementedError("V4.1 DSpark MTP layer-wise load is not implemented in P1")
++
++    # ----------------------------------------------------------------- forward
++    def generate_model_forward(self, model: nn.Module, inputs: Any) -> Generator[ProcessRequest, Any, None]:
++        """逐层前向：V4.1 的 (h, pre_mix) 作为跨层状态一起传递。
++
++        `shared_attn` 是模块级单例，进入逐层前向之前必须 reset。
++        """
++        # 不能在此 reset()：layer-major 调度会清掉其它 batch 的共享条目。
++        # 槽位由 V41Attention.forward 的 shared_attn.begin(input_ids, start_pos) 切换。
++        first_block_input: Optional[Tuple] = None
++
++        def break_hook(module: nn.Module, hook_args: Tuple[Any, ...], hook_kwargs: Dict[str, Any]):
++            nonlocal first_block_input
++            first_block_input = (hook_args, hook_kwargs)
++            raise TransformersForwardBreak()
++
++        remove_handler = model.layers[0].register_forward_pre_hook(break_hook, with_kwargs=True, prepend=True)
++
++        try:
++            if isinstance(inputs, (list, tuple)):
++                model(inputs[0])
++            elif isinstance(inputs, dict):
++                model(**inputs)
++            else:
++                model(inputs)
++        except TransformersForwardBreak:
++            pass
++        except Exception as e:
++            raise e
++        finally:
++            remove_handler.remove()
++
++        if first_block_input is None:
++            raise InvalidModelError("Can't get first block input.", action="Please check the model and input")
++
++        if dist.is_initialized():
++            dist.barrier()
++
++        args, kwargs = first_block_input
++        if len(args) < 4:
++            raise InvalidModelError(
++                "V4.1 delayed mHC expects (h, start_pos, input_ids, pre_mix) at layer 0.",
++                action="Check V41Transformer.forward_hidden_states / block args.",
++            )
++        h, start_pos, input_ids, pre_mix = args
++        for name, block in self.generate_decoder_layer(model):
++            outputs = yield ProcessRequest(name, block, (h, start_pos, input_ids, pre_mix), kwargs)
++            if isinstance(outputs, (tuple, list)):
++                h, pre_mix = outputs[0], outputs[1]
++            else:
++                h, pre_mix = outputs, pre_mix
++            args = (h, start_pos, input_ids, pre_mix)
+diff --git a/msmodelslim/model/deepseek_v41/rotation_map.py b/msmodelslim/model/deepseek_v41/rotation_map.py
+new file mode 100644
+index 0000000..14d7257
+--- /dev/null
++++ b/msmodelslim/model/deepseek_v41/rotation_map.py
+@@ -0,0 +1,174 @@
++# -*- coding: UTF-8 -*-
++"""V4.1 的 QuaRot / norm-fuse / subgraph 映射（口径对齐 Eco-Tech Aurora W8A8 配方）。
++
++与 V4 适配器的差异：
++  * 无终端 hc_head → pre_run 只旋 embed/head
++  * compressor.* 仅存在于 kv_source 层；wgate 仅 ratio==2
++  * indexer.wq_b / indexer.weights_proj 仅存在于 index_source 层（不再与 ratio==4 绑定）
++  * 旧的 indexer.compressor.* 在 V4.1 不存在
++  * MTP：只旋 mtp.0.main_proj（其余 MTP 权重保持未旋转）
++"""
++from typing import Dict, List, Tuple
++
++from msmodelslim.core.graph import AdapterConfig, MappingConfig
++from msmodelslim.processor.quarot import QuaRotInterface
++
++
++class V41QuaRotMixin:
++    """混入 DeepSeekV41ModelAdapter：提供 P2 所需的三个接口。"""
++
++    # ------------------------------------------------------------------ helpers
++    def _v41_ratio(self, idx: int) -> int:
++        ratios = getattr(self.config, "compress_ratios", None) or []
++        return int(ratios[idx]) if idx < len(ratios) else 1
++
++    def _v41_iter_layers(self) -> List[Tuple[str, int, int, bool]]:
++        out = []
++        for i in range(int(self.config.num_hidden_layers)):
++            out.append(("layers", i, self._v41_ratio(i), False))
++        for m in range(int(getattr(self.config, "n_mtp_layers", 0) or 0)):
++            out.append(("mtp", m, 1, True))
++        return out
++
++    def _v41_is_kv_source(self, prefix: str, idx: int) -> bool:
++        return prefix == "layers" and idx in set(getattr(self.config, "kv_source_layers", ()) or ())
++
++    def _v41_is_index_source(self, prefix: str, idx: int) -> bool:
++        return prefix == "layers" and idx in set(getattr(self.config, "index_source_layers", ()) or ())
++
++    def _v41_experts(self) -> Tuple[int, int]:
++        try:
++            start, end, _ = self._get_local_expert_range()
++            return start, end
++        except Exception:
++            n = int(getattr(self.config, "n_routed_experts", 0) or 0)
++            return 0, n
++
++    # --------------------------------------------------------------- ln fuse
++    def get_ln_fuse_map(self):
++        """返回 (pre_run_map, per_layer_map)，与 QuaRot pre_run 的二元解包一致。"""
++        start, end = self._v41_experts()
++        pre_map: Dict[str, List[str]] = {"norm": ["head"]}
++        m: Dict[str, List[str]] = {}
++        for prefix, i, ratio, is_mtp in self._v41_iter_layers():
++            p = f"{prefix}.{i}"
++            m[f"{p}.ffn_norm"] = [f"{p}.ffn.gate"] + [
++                f"{p}.ffn.experts.{e}.{proj}" for proj in ("w1", "w3") for e in range(start, end)
++            ] + [f"{p}.ffn.shared_experts.{proj}" for proj in ("w1", "w3")]
++            attn_targets = [f"{p}.attn.wq_a", f"{p}.attn.wkv"]
++            if self._v41_is_kv_source(prefix, i):
++                attn_targets.append(f"{p}.attn.compressor.wkv")
++                if ratio == 2:
++                    attn_targets.append(f"{p}.attn.compressor.wgate")
++            if self._v41_is_index_source(prefix, i):
++                attn_targets.append(f"{p}.attn.indexer.weights_proj")
++            m[f"{p}.attn_norm"] = attn_targets
++            q_targets = [f"{p}.attn.wq_b"]
++            if self._v41_is_index_source(prefix, i):
++                q_targets.append(f"{p}.attn.indexer.wq_b")
++            m[f"{p}.attn.q_norm"] = q_targets
++        return pre_map, m
++
++    # --------------------------------------------------------------- rotate
++    def get_rotate_map(self, block_size):
++        start, end = self._v41_experts()
++        rot = QuaRotInterface.get_rotate_command(
++            size=self.config.dim, mode=QuaRotInterface.QuaRotMode.HADAMARD, block_size=block_size
++        )
++        rot_b_proj = QuaRotInterface.get_rotate_command(
++            size=self.config.q_lora_rank,
++            mode=QuaRotInterface.QuaRotMode.BLOCK_HADAMARD_SHIFTED,
++            block_size=block_size,
++        )
++        # pre_run：V4.1 无 hc_head_fn
++        pre_run = QuaRotInterface.RotatePair(left_rot={}, right_rot={"embed": rot, "head": rot})
++
++        left_rot: Dict[str, object] = {}
++        right_rot: Dict[str, object] = {}
++        left_b: Dict[str, object] = {}
++        right_b: Dict[str, object] = {}
++        for prefix, i, ratio, is_mtp in self._v41_iter_layers():
++            p = f"{prefix}.{i}"
++            if is_mtp:
++                if i == 0:
++                    right_rot[f"{p}.main_proj"] = rot
++                continue
++            # MoE
++            for e in range(start, end):
++                right_rot[f"{p}.ffn.experts.{e}.w1"] = rot
++                right_rot[f"{p}.ffn.experts.{e}.w3"] = rot
++                left_rot[f"{p}.ffn.experts.{e}.w2"] = rot
++            right_rot[f"{p}.ffn.shared_experts.w1"] = rot
++            right_rot[f"{p}.ffn.shared_experts.w3"] = rot
++            left_rot[f"{p}.ffn.shared_experts.w2"] = rot
++            right_rot[f"{p}.ffn.gate"] = rot
++            right_rot[f"{p}.hc_ffn_fn"] = rot
++            # Attention
++            left_rot[f"{p}.attn.wo_b"] = rot
++            right_rot[f"{p}.hc_attn_fn"] = rot
++            right_rot[f"{p}.attn.wq_a"] = rot
++            right_rot[f"{p}.attn.wkv"] = rot
++            if self._v41_is_kv_source(prefix, i):
++                right_rot[f"{p}.attn.compressor.wkv"] = rot
++                if ratio == 2:
++                    right_rot[f"{p}.attn.compressor.wgate"] = rot
++            if self._v41_is_index_source(prefix, i):
++                right_rot[f"{p}.attn.indexer.weights_proj"] = rot
++            # query 旋转对
++            left_b[f"{p}.attn.wq_a"] = rot_b_proj
++            right_b[f"{p}.attn.wq_b"] = rot_b_proj
++            if self._v41_is_index_source(prefix, i):
++                right_b[f"{p}.attn.indexer.wq_b"] = rot_b_proj
++        return (
++            [pre_run],
++            [
++                QuaRotInterface.RotatePair(left_rot=left_rot, right_rot=right_rot),
++                QuaRotInterface.RotatePair(left_rot=left_b, right_rot=right_b),
++            ],
++        )
++
++    # ------------------------------------------------------------- subgraph
++    def get_adapter_config_for_subgraph(self) -> List[AdapterConfig]:
++        start, end = self._v41_experts()
++        cfgs: List[AdapterConfig] = []
++        for prefix, i, ratio, is_mtp in self._v41_iter_layers():
++            p = f"{prefix}.{i}"
++            # up-down：共享专家 + 路由专家
++            cfgs.append(AdapterConfig(
++                subgraph_type="up-down",
++                mapping=MappingConfig(
++                    source=f"{p}.ffn.shared_experts.w3", targets=[f"{p}.ffn.shared_experts.w2"]
++                ),
++            ))
++            for e in range(start, end):
++                cfgs.append(AdapterConfig(
++                    subgraph_type="up-down",
++                    mapping=MappingConfig(
++                        source=f"{p}.ffn.experts.{e}.w3", targets=[f"{p}.ffn.experts.{e}.w2"]
++                    ),
++                ))
++            # linear-linear：wo_a → wo_b
++            cfgs.append(AdapterConfig(
++                subgraph_type="linear-linear",
++                mapping=MappingConfig(source=f"{p}.attn.wo_a", targets=[f"{p}.attn.wo_b"]),
++            ))
++            # norm-linear：attn_norm / q_norm（按 source 角色）
++            attn_targets = [f"{p}.attn.wq_a", f"{p}.attn.wkv"]
++            if self._v41_is_kv_source(prefix, i):
++                attn_targets.append(f"{p}.attn.compressor.wkv")
++                if ratio == 2:
++                    attn_targets.append(f"{p}.attn.compressor.wgate")
++            if self._v41_is_index_source(prefix, i):
++                attn_targets.append(f"{p}.attn.indexer.weights_proj")
++            cfgs.append(AdapterConfig(
++                subgraph_type="norm-linear",
++                mapping=MappingConfig(source=f"{p}.attn_norm", targets=attn_targets),
++            ))
++            q_targets = [f"{p}.attn.wq_b"]
++            if self._v41_is_index_source(prefix, i):
++                q_targets.append(f"{p}.attn.indexer.wq_b")
++            cfgs.append(AdapterConfig(
++                subgraph_type="norm-linear",
++                mapping=MappingConfig(source=f"{p}.attn.q_norm", targets=q_targets),
++            ))
++        return cfgs

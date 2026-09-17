@@ -1,0 +1,393 @@
+import math
+from typing import Any
+
+import torch
+import torch.nn as nn
+import torch.nn.functional as F
+import torch_npu
+from vllm.config import VllmConfig
+from vllm.platforms import current_platform
+
+
+class RopeGlobalState:
+    def __init__(self):
+        self.full_rope_cache: dict[str, tuple[torch.Tensor, torch.Tensor]] = {}
+        self.runtime_buffer: dict[str, dict[str, tuple[torch.Tensor, torch.Tensor]]] = {}
+        self.spec_runtime_buffer: dict[str, dict[str, tuple[torch.Tensor, torch.Tensor]]] = {}
+        self.layer_info: dict[str, tuple[str, list[str]]] = {}
+        self.registry_summary: dict[str, set] = {}
+
+
+_ROPE_STATE = RopeGlobalState()
+
+# [ROPE-IDXSEL] begin ---------------------------------------------------------
+import os as _os_rope_idxsel
+
+# V41_ROPE_IDXSEL=1 时，用一次 `index_select` 取代
+# `expand(BroadcastTo) + materialize(Cast) + gather(GatherElementsV2)` 三步，
+# 省掉 BroadcastTo 与 Cast 两个 kernel（6 → 2 kernel/调用）。
+_ROPE_IDXSEL = _os_rope_idxsel.environ.get("V41_ROPE_IDXSEL", "0") == "1"
+
+
+def _rope_1d_index(pos_tensor):
+    """把位置张量规整成 1 维 int64（已是 int64 时 .to() 不产生 kernel）。"""
+    idx = pos_tensor.reshape(-1)
+    if idx.dtype != torch.int64:
+        idx = idx.to(torch.int64)
+    return idx
+
+
+def _rope_write_rows(src, pos_tensor, gather_idx, out):
+    """把 src 的第 pos_tensor 行写进预分配缓冲 out（数值与 stock 逐位相同）。
+
+    gather_idx 为 None ⇒ index_select 快路径；否则回落到 stock 的 torch.gather。
+    """
+    if gather_idx is None:
+        torch.index_select(src, 0, _rope_1d_index(pos_tensor), out=out)
+    else:
+        torch.gather(src, 0, gather_idx, out=out)
+
+
+def _rope_indexed(src, pos_tensor):
+    """use_cache=False 分支：等价于 src[pos_tensor]，但只用 1 个 GatherV3 kernel。"""
+    return torch.index_select(src, 0, _rope_1d_index(pos_tensor))
+# [ROPE-IDXSEL] end -----------------------------------------------------------
+
+
+
+class RopeDataProxy:
+    def __init__(self, data_map, is_cos=True):
+        self._data = data_map
+        self.idx = 0 if is_cos else 1
+
+    def pad_to(self, target_len: int, dim: int = 0) -> "RopeDataProxy":
+        """
+        Return a new proxy whose underlying tensors are padded to ``target_len`` along ``dim``.
+        """
+        new_data: dict = {}
+        for config_key, groups in self._data.items():
+            new_data[config_key] = {}
+            for group_name, (cos_t, sin_t) in groups.items():
+                pad_size = target_len - cos_t.shape[dim]
+                if pad_size > 0:
+                    ndim = cos_t.ndim
+                    pad = [0] * (2 * ndim)
+                    # F.pad pads from the last dimension backward:
+                    #   (dim_{N-1}_left, dim_{N-1}_right, ..., dim_0_left, dim_0_right)
+                    pad[-(1 + 2 * dim)] = pad_size  # right side of the target dim
+                    cos_t = F.pad(cos_t, pad)
+                    sin_t = F.pad(sin_t, pad)
+                new_data[config_key][group_name] = (cos_t, sin_t)
+        return RopeDataProxy(new_data, is_cos=(self.idx == 0))
+
+    def __getitem__(self, index):
+        if not isinstance(index, str):
+            new_map: dict = {}
+            for config_k, groups_map in self._data.items():
+                new_map[config_k] = {}
+                for group_name, item in groups_map.items():
+                    c_val = item[0][index]
+                    s_val = item[1][index]
+                    new_map[config_k][group_name] = (c_val, s_val)
+
+            return RopeDataProxy(new_map, is_cos=(self.idx == 0))
+
+        else:
+            layername = index
+            info = _ROPE_STATE.layer_info.get(layername)
+            if info is None:
+                raise KeyError(f"Layer {layername} not registered.")
+
+            config_key, required_groups = info
+
+            config_data = self._data.get(config_key, {})
+
+            layer_result = {}
+            for grp in required_groups:
+                if grp in config_data:
+                    layer_result[grp] = config_data[grp][self.idx]
+                else:
+                    pass
+            if len(layer_result) == 1:
+                return list(layer_result.values())[0]
+
+            return layer_result
+
+
+def get_cos_and_sin_dsa(
+    positions: torch.Tensor | dict[str, torch.Tensor],
+    use_cache: bool = False,
+    draft_index: int | None = None,
+):
+    if isinstance(positions, torch.Tensor):
+        pos_map = {"default": positions}
+    else:
+        pos_map = positions
+
+    batch_result: dict[Any, Any] = {}
+
+    for config_key, registered_groups in _ROPE_STATE.registry_summary.items():
+        if config_key not in _ROPE_STATE.full_rope_cache:
+            continue
+        full_rope_cos, full_rope_sin = _ROPE_STATE.full_rope_cache[config_key]
+
+        batch_result[config_key] = {}
+
+        for group_name, pos_tensor in pos_map.items():
+            if group_name not in registered_groups:
+                continue
+
+            if use_cache:
+                group_buffers = (
+                    _ROPE_STATE.runtime_buffer.get(config_key, {}).get(group_name)
+                    if draft_index is None
+                    else _ROPE_STATE.spec_runtime_buffer.get(config_key, {}).get(group_name)
+                )
+
+                if group_buffers is None:
+                    continue
+
+                buf_cos, buf_sin = group_buffers
+                num_tokens = pos_tensor.size(0)
+
+                # This is semantically equivalent to the previous
+                # `full_rope_cos[pos_tensor] / full_rope_sin[pos_tensor]`
+                # indexing followed by `copy_`; the change only combines the
+                # indexing and the write into the preallocated output buffers.
+                #
+                # gather_idx is built so torch.gather picks the same rows: each
+                # row contains the token index repeated along the rotary dim.
+                # pos_tensor -> reshape(-1, 1, 1, 1) gives each token its own
+                # row; expand() broadcasts that row across the rotary dim to
+                # match full_rope_* (which is [max_pos, 1, 1, rotary_dim]),
+                # so torch.gather(..., dim=0) selects row pos_tensor[i].
+                # [ROPE-IDXSEL] 快路径下不再构造 4-D gather 索引（省 BroadcastTo+Cast）。
+                gather_idx = (
+                    None
+                    if (_ROPE_IDXSEL and pos_tensor.dim() == 1)
+                    else pos_tensor.to(torch.long).reshape(-1, 1, 1, 1).expand(
+                        num_tokens, 1, 1, full_rope_cos.size(-1)
+                    )
+                )
+                if draft_index is None:
+                    _rope_write_rows(full_rope_cos, pos_tensor, gather_idx, buf_cos[:num_tokens])
+                    _rope_write_rows(full_rope_sin, pos_tensor, gather_idx, buf_sin[:num_tokens])
+
+                    batch_result[config_key][group_name] = (buf_cos[:num_tokens], buf_sin[:num_tokens])
+                else:
+                    _rope_write_rows(full_rope_cos, pos_tensor, gather_idx, buf_cos[draft_index - 1][:num_tokens])
+                    _rope_write_rows(full_rope_sin, pos_tensor, gather_idx, buf_sin[draft_index - 1][:num_tokens])
+                    batch_result[config_key][group_name] = (
+                        buf_cos[draft_index - 1][:num_tokens],
+                        buf_sin[draft_index - 1][:num_tokens],
+                    )
+            else:
+                # [ROPE-IDXSEL] src[pos_tensor] -> index_select：Index+IndexCheck 两个
+                # kernel 合成 1 个 GatherV3（20.13 -> 4.80 µs/对，逐位相同）。
+                if _ROPE_IDXSEL and pos_tensor.dim() == 1:
+                    curr_cos = _rope_indexed(full_rope_cos, pos_tensor)
+                    curr_sin = _rope_indexed(full_rope_sin, pos_tensor)
+                else:
+                    curr_cos = full_rope_cos[pos_tensor]
+                    curr_sin = full_rope_sin[pos_tensor]
+                batch_result[config_key][group_name] = (curr_cos, curr_sin)
+
+    return RopeDataProxy(batch_result, is_cos=True), RopeDataProxy(batch_result, is_cos=False)
+
+
+def get_full_cos_and_sin_dsa(group_name: str) -> tuple[torch.Tensor, torch.Tensor]:
+    """Return the full precomputed RoPE cache for a registered DSA RoPE group.
+
+    Unlike get_cos_and_sin_dsa(), this does not index by token positions on
+    Python side. The compressor metadata op consumes the full cache and selects
+    compressed-row RoPE positions on device.
+    """
+    config_keys = [
+        config_key
+        for config_key, registered_groups in _ROPE_STATE.registry_summary.items()
+        if group_name in registered_groups
+    ]
+    if not config_keys:
+        raise KeyError(f"RoPE group {group_name} is not registered.")
+    if len(config_keys) > 1:
+        raise KeyError(f"RoPE group {group_name} is registered with multiple configs: {config_keys}.")
+
+    config_key = config_keys[0]
+    if config_key not in _ROPE_STATE.full_rope_cache:
+        raise KeyError(f"Rope cache for group {group_name} is not initialized.")
+
+    return _ROPE_STATE.full_rope_cache[config_key]
+
+
+def get_full_cos_and_sin_dsa_for_layer(
+    layer_name: str,
+) -> tuple[torch.Tensor, torch.Tensor]:
+    """Return the full RoPE cache selected by one registered layer.
+
+    A group name is not sufficient for V4.1 because pure-SWA and long-context
+    layers both use the ``default`` group while registering different RoPE
+    configurations.  Resolving through ``layer_info`` keeps the compressor
+    metadata path tied to the exact table used by its source attention layer.
+    """
+    info = _ROPE_STATE.layer_info.get(layer_name)
+    if info is None:
+        raise KeyError(f"Layer {layer_name} is not registered.")
+    config_key, _ = info
+    try:
+        return _ROPE_STATE.full_rope_cache[config_key]
+    except KeyError as exc:
+        raise KeyError(f"Rope cache for layer {layer_name} is not initialized.") from exc
+
+
+class ComplexExpRotaryEmbedding(nn.Module):
+    def __init__(
+        self,
+        vllm_config: VllmConfig,
+        layername: str,
+        head_size: int,
+        rotary_dim: int,
+        max_position_embeddings: int,
+        base: int,
+        scaling_factor: float,
+        rope_groups: list[str] | None = None,
+        **extra_kwargs,
+    ) -> None:
+        super().__init__()
+        if rope_groups is None:
+            rope_groups = ["default"]
+        self.layername = layername
+        self.rotary_dim = rotary_dim
+        beta_fast = extra_kwargs.get("beta_fast", 32)
+        beta_slow = extra_kwargs.get("beta_slow", 1)
+        original_seq_len = extra_kwargs.get("original_seq_len", max_position_embeddings)
+        config_key = (
+            f"rotary_dim{rotary_dim}_max_position_embeddings{max_position_embeddings}_"
+            f"original_seq_len{original_seq_len}_base{base}_scaling_factor{scaling_factor}_"
+            f"beta_fast{beta_fast}_beta_slow{beta_slow}"
+        )
+        _ROPE_STATE.layer_info[layername] = (config_key, rope_groups)
+
+        if config_key not in _ROPE_STATE.registry_summary:
+            _ROPE_STATE.registry_summary[config_key] = set()
+        for grp in rope_groups:
+            _ROPE_STATE.registry_summary[config_key].add(grp)
+
+        if config_key not in _ROPE_STATE.full_rope_cache:
+            inv_freq = self.precompute_freqs_cis(
+                rotary_dim, max_position_embeddings, original_seq_len, base, scaling_factor, beta_fast, beta_slow
+            )
+            t = torch.arange(
+                max_position_embeddings * scaling_factor,
+                device=current_platform.device_type,
+                dtype=torch.float32,
+            )
+            freqs = torch.einsum("i,j -> ij", t, inv_freq)
+            cos = freqs.cos().repeat_interleave(2, dim=-1)
+            sin = freqs.sin().repeat_interleave(2, dim=-1)
+            cos = cos.to(current_platform.device_type)
+            sin = sin.to(current_platform.device_type)
+
+            _ROPE_STATE.full_rope_cache[config_key] = (cos.unsqueeze(1).unsqueeze(1), sin.unsqueeze(1).unsqueeze(1))
+
+        use_eagle = (
+            vllm_config is not None
+            and vllm_config.speculative_config is not None
+            and vllm_config.speculative_config.use_eagle()
+        )
+        num_speculative_tokens = vllm_config.speculative_config.num_speculative_tokens if use_eagle else None
+
+        if config_key not in _ROPE_STATE.runtime_buffer:
+            _ROPE_STATE.runtime_buffer[config_key] = {}
+            if num_speculative_tokens is not None:
+                _ROPE_STATE.spec_runtime_buffer[config_key] = {}
+
+        target_device = current_platform.device_type
+        max_batch_size = vllm_config.scheduler_config.max_num_batched_tokens
+        for grp in rope_groups:
+            if grp not in _ROPE_STATE.runtime_buffer[config_key]:
+                buf_cos = torch.ones(max_batch_size, 1, 1, rotary_dim, dtype=torch.float32, device=target_device)
+                buf_sin = torch.zeros(max_batch_size, 1, 1, rotary_dim, dtype=torch.float32, device=target_device)
+                _ROPE_STATE.runtime_buffer[config_key][grp] = (buf_cos, buf_sin)
+                if num_speculative_tokens is not None:
+                    buf_cos = [
+                        torch.ones(max_batch_size, 1, 1, rotary_dim, dtype=torch.float32, device=target_device)
+                        for _ in range(num_speculative_tokens)
+                    ]
+                    buf_sin = [
+                        torch.zeros(max_batch_size, 1, 1, rotary_dim, dtype=torch.float32, device=target_device)
+                        for _ in range(num_speculative_tokens)
+                    ]
+                    _ROPE_STATE.spec_runtime_buffer[config_key][grp] = (buf_cos, buf_sin)
+
+    @staticmethod
+    def precompute_freqs_cis(dim, seqlen, original_seq_len, base, factor, beta_fast, beta_slow):
+        def yarn_find_correction_dim(
+            num_rotations: int,
+            dim: int,
+            base: float = 10000,
+            max_position_embeddings: int = 2048,
+        ) -> float:
+            return (dim * math.log(max_position_embeddings / (num_rotations * 2 * math.pi))) / (2 * math.log(base))
+
+        # Find dim range bounds based on rotations
+        def yarn_find_correction_range(
+            low_rot: int,
+            high_rot: int,
+            dim: int,
+            base: float = 10000,
+            max_position_embeddings: int = 2048,
+            truncate: bool = True,
+        ) -> tuple[float | int, float | int]:
+            low = yarn_find_correction_dim(low_rot, dim, base, max_position_embeddings)
+            high = yarn_find_correction_dim(high_rot, dim, base, max_position_embeddings)
+            if truncate:
+                low = math.floor(low)
+                high = math.ceil(high)
+            return max(low, 0), min(high, dim - 1)  # Clamp values just in case
+
+        def yarn_linear_ramp_mask(low: float, high: float, dim: int, dtype: torch.dtype) -> torch.Tensor:
+            if low == high:
+                high += 0.001  # Prevent singularity
+
+            linear_func = (torch.arange(dim, dtype=dtype) - low) / (high - low)
+            ramp_func = torch.clamp(linear_func, 0, 1)
+            return ramp_func
+
+        pos_freqs = base ** (torch.arange(0, dim, 2, dtype=torch.float32) / dim)
+        inv_freq_extrapolation = 1.0 / pos_freqs
+        if original_seq_len <= 0:
+            return inv_freq_extrapolation
+        inv_freq_interpolation = 1.0 / (factor * pos_freqs)
+
+        low, high = yarn_find_correction_range(
+            beta_fast,
+            beta_slow,
+            dim,
+            base,
+            original_seq_len,
+        )
+        inv_freq_mask = (1 - yarn_linear_ramp_mask(low, high, dim // 2, dtype=torch.float32)) * 1
+        inv_freq = inv_freq_interpolation * (1 - inv_freq_mask) + inv_freq_extrapolation * inv_freq_mask
+        return inv_freq
+
+    def forward(
+        self,
+        x: torch.Tensor,
+        cos: torch.Tensor,
+        sin: torch.Tensor,
+    ) -> torch.Tensor:
+        ori_shape = x.shape
+        y = x
+
+        if x.dim() == 2:
+            x = x.unsqueeze(-2)
+        if x.dim() == 3:
+            x = x.unsqueeze(1)
+
+        x = torch_npu.npu_rotary_mul(x, cos, sin, rotary_mode="interleave")
+
+        y.copy_(x.view(ori_shape))
+        return y
+
+    def extra_repr(self) -> str:
+        return f"layername={self.layername}, rotary_dim={self.rotary_dim}"

@@ -1,0 +1,393 @@
+From 2e7db012b0d415d7bd8027606b3fd8d013f4413c Mon Sep 17 00:00:00 2001
+From: chiro2001 <chiro2001@163.com>
+Date: Thu, 17 Sep 2026 04:55:09 +0000
+Subject: [PATCH] feat(scheduler): admission gate to protect decode from
+ prefill starvation
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+长上下文场景下 prefill 会长期占住调度步，decode 被饿死（表现为
+"prefill-only step #N ... deferred_decode_reqs=1" 连续上百步、首 token
+之后长时间不出字）。admission gate 在同一个 step 里只放 prefill、把
+decode 延后到下一个 step 之前的门控步，保证 decode 有稳定节拍。
+
+门控：VLLM_ADMISSION_GATE=1（默认关；只认环境变量，避免
+      --additional-config 的 extra="forbid" 拒绝既有部署）
+观测：日志打印 [admission_gate] prefill-only step #N (step=M)
+      用于确认门控真的在起作用（配合 tools/negative_control 使用）。
+---
+ vllm/v1/core/sched/scheduler.py | 283 +++++++++++++++++++++++++++++++-
+ 1 file changed, 282 insertions(+), 1 deletion(-)
+
+diff --git a/vllm/v1/core/sched/scheduler.py b/vllm/v1/core/sched/scheduler.py
+index b4521a2..851260f 100644
+--- a/vllm/v1/core/sched/scheduler.py
++++ b/vllm/v1/core/sched/scheduler.py
+@@ -1,6 +1,7 @@
+ # SPDX-License-Identifier: Apache-2.0
+ # SPDX-FileCopyrightText: Copyright contributors to the vLLM project
+ import itertools
++import os
+ import time
+ from collections import defaultdict, deque
+ from collections.abc import Iterable
+@@ -65,6 +66,33 @@ from vllm.v1.utils import record_function_or_nullcontext
+ 
+ logger = init_logger(__name__)
+ 
++_ADMISSION_GATE_ENV = "VLLM_ADMISSION_GATE"
++
++
++def _admission_gate_enabled() -> bool:
++    """Whether the admission gate is enabled (default: off).
++
++    Enabled with ``VLLM_ADMISSION_GATE=1`` (also accepts ``true``/``yes``/
++    ``on``, case-insensitive). The switch is environment-only on purpose:
++    vLLM-Ascend validates ``--additional-config`` with ``extra="forbid"``
++    (``vllm_ascend/ascend_config.py:390``), so adding a new top-level key
++    there would reject existing deployments (e.g. the P2 ``additional-config``
++    used by this project) at startup.
++    """
++    raw = os.environ.get(_ADMISSION_GATE_ENV)
++    if raw is None:
++        return False
++    value = raw.strip().lower()
++    if value in ("1", "true", "yes", "on"):
++        return True
++    if value not in ("", "0", "false", "no", "off"):
++        logger.warning(
++            "Ignoring unrecognized %s=%r (use 1/0); admission gate stays off.",
++            _ADMISSION_GATE_ENV,
++            raw,
++        )
++    return False
++
+ 
+ class Scheduler(SchedulerInterface):
+     def __init__(
+@@ -80,6 +108,37 @@ class Scheduler(SchedulerInterface):
+     ) -> None:
+         self.vllm_config = vllm_config
+         self.scheduler_config = vllm_config.scheduler_config
++        # Admission gate (default off): serialize prefill admission so a step
++        # carries either exactly one prefill request or decode requests, never
++        # both. Enabled by VLLM_ADMISSION_GATE=1; see docs/ADMISSION_GATE.md.
++        self.admission_gate_enabled = _admission_gate_enabled()
++        # Safety valve for a prefill-only step that could not schedule anything
++        # (e.g. no free KV blocks, or the next waiting request is connector-
++        # blocked): force a bounded number of decode-only steps before retrying
++        # prefills, so running decodes keep making progress instead of
++        # deadlocking behind an un-admittable prefill.
++        self._gate_force_decode_steps = 0
++        self._gate_prefill_fail_streak = 0
++        # Observability counters (INFO logs in schedule()).
++        self._gate_prefill_steps = 0
++        self._gate_deferred_decode_reqs = 0
++        self._gate_episode_prefill_steps = 0
++        self._gate_episode_deferred_decode_reqs = 0
++        self._gate_in_prefill_episode = False
++        if self.admission_gate_enabled:
++            logger.info(
++                "[admission_gate] enabled: each step is either one prefill "
++                "request or decode requests (VLLM_ADMISSION_GATE=1)."
++            )
++            concurrent_batches = vllm_config.max_concurrent_batches
++            if concurrent_batches > 1:
++                logger.warning(
++                    "[admission_gate] max_concurrent_batches=%d (async "
++                    "scheduling/PP): scheduler outputs are pure, but batches "
++                    "may still overlap on workers. Use --no-async-scheduling "
++                    "for strict single-batch execution during gate validation.",
++                    concurrent_batches,
++                )
+         self.cache_config = vllm_config.cache_config
+         self.lora_config = vllm_config.lora_config
+         self.kv_cache_config = kv_cache_config
+@@ -359,6 +418,50 @@ class Scheduler(SchedulerInterface):
+         # async KV loads). Their remaining-block reservation gates async loads.
+         self._inflight_prefills: set[Request] = set()
+ 
++    def _gate_is_prefill_request(
++        self, request: Request, num_computed_tokens: int | None = None
++    ) -> bool:
++        """Whether scheduling ``request`` in this step computes prompt tokens.
++
++        This is the gate's working definition of "the request is prefilling":
++        its computed token count is still below its prompt length (the same
++        boundary the P2 crash/pollution repro exercises). Decode requests with
++        in-flight output placeholders reported as ``is_prefill_chunk`` (PP/async
++        pipelining) are deliberately *not* treated as prefills here: they only
++        append a handful of output tokens and must stay in decode-only steps.
++        """
++        computed = (
++            request.num_computed_tokens
++            if num_computed_tokens is None
++            else num_computed_tokens
++        )
++        return computed < request.num_prompt_tokens
++
++    def _gate_has_prefill_work(self) -> bool:
++        """Whether any request could be scheduled as prefill work this step.
++
++        A running prefill chunk always counts (it already holds blocks). A
++        waiting request only counts if there is room in the running batch and
++        the request is not currently blocked on an external dependency.
++        """
++        if any(self._gate_is_prefill_request(req) for req in self.running):
++            return True
++        num_running = len(self.running) + self.num_waiting_for_streaming_input
++        if num_running >= self.max_num_running_reqs:
++            return False
++        for queue in (self.waiting, self.skipped_waiting):
++            for request in queue:
++                if self._is_blocked_waiting_status(request.status):
++                    continue
++                if (
++                    request.num_stale_output_tokens > 0
++                    and not request.drop_stale_output
++                ):
++                    continue
++                if request.num_computed_tokens < request.num_tokens:
++                    return True
++        return False
++
+     def _mamba_block_aligned_split(
+         self,
+         request: Request,
+@@ -480,6 +583,22 @@ class Scheduler(SchedulerInterface):
+             throttle_prefills and not self.prefill_capacity_bound
+         ) and any(not r.is_prefill_chunk for r in self.running)
+ 
++        # Admission gate (VLLM_ADMISSION_GATE=1): decide up front whether this
++        # step is a prefill-only step or a decode-only step. The two request
++        # classes must never share a SchedulerOutput (P2 hybrid crash/pollution).
++        gate_enabled = self.admission_gate_enabled
++        gate_prefill_step = False
++        gate_prefill_done = False
++        gate_step_deferred_decode_reqs = 0
++        gate_async_admission = False
++        if gate_enabled:
++            if self._gate_force_decode_steps > 0:
++                # A previous prefill-only attempt could not schedule anything;
++                # let running decodes make progress before retrying prefills.
++                self._gate_force_decode_steps -= 1
++            elif token_budget > 0 and not defer_prefills:
++                gate_prefill_step = self._gate_has_prefill_work()
++
+         # First, schedule the RUNNING requests.
+         req_index = 0
+         while req_index < len(self.running) and token_budget > 0:
+@@ -513,6 +632,20 @@ class Scheduler(SchedulerInterface):
+                 req_index += 1
+                 continue
+ 
++            if gate_enabled:
++                if gate_prefill_step:
++                    # Prefill-only step: keep exactly one prefill request and no
++                    # decode tokens. Deferred decodes stay in self.running.
++                    if not self._gate_is_prefill_request(request):
++                        gate_step_deferred_decode_reqs += 1
++                        req_index += 1
++                        continue
++                elif self._gate_is_prefill_request(request):
++                    # Decode-only step: in-flight prefill chunks wait for the
++                    # next prefill-only step.
++                    req_index += 1
++                    continue
++
+             num_new_tokens = (
+                 request.num_tokens_with_spec
+                 + request.num_output_placeholders
+@@ -670,6 +803,12 @@ class Scheduler(SchedulerInterface):
+                     if self.ec_connector is not None:
+                         self.ec_connector.update_state_after_alloc(request, i)
+ 
++            if gate_prefill_step:
++                # Exactly one prefill request per prefill-only step. The normal
++                # per-request bookkeeping above has already run for it.
++                gate_prefill_done = True
++                break
++
+         # Record the LoRAs in scheduled_running_reqs
+         scheduled_loras: set[int] = set()
+         if self.lora_config:
+@@ -680,7 +819,10 @@ class Scheduler(SchedulerInterface):
+             )
+             assert len(scheduled_loras) <= self.lora_config.max_loras
+ 
+-        # Next, schedule the WAITING requests.
++        # Next, schedule the WAITING requests. With the admission gate on, the
++        # queue is still traversed for its promotion/skip side effects (blocked
++        # requests must be promoted during decode-only steps too), but the gate
++        # breaks out before admitting more than one prefill request.
+         if not preempted_reqs and self._pause_state == PauseState.UNPAUSED:
+             step_skipped_waiting = create_request_queue(self.policy)
+ 
+@@ -736,6 +878,13 @@ class Scheduler(SchedulerInterface):
+                     step_skipped_waiting.prepend_request(request)
+                     continue
+ 
++                if gate_enabled and (gate_prefill_done or not gate_prefill_step):
++                    # Gate: this step may not admit any more work. The
++                    # promotion/skip checks above still ran (so blocked and
++                    # max-LoRA requests are not starved); stop before
++                    # allocate_slots so no KV blocks are touched.
++                    break
++
+                 num_external_computed_tokens = 0
+                 load_kv_async = False
+                 connector_prefix_cache_queries, connector_prefix_cache_hits = 0, 0
+@@ -1050,6 +1199,12 @@ class Scheduler(SchedulerInterface):
+                                 num_computed_tokens,
+                             )
+                         )
++                    if gate_prefill_step:
++                        # Admitting the async KV load already uses this
++                        # prefill-only step; do not admit more work alongside it.
++                        gate_prefill_done = True
++                        gate_async_admission = True
++                        break
+                     continue
+ 
+                 self.running.append(request)
+@@ -1096,6 +1251,12 @@ class Scheduler(SchedulerInterface):
+                         if self.ec_connector is not None:
+                             self.ec_connector.update_state_after_alloc(request, i)
+ 
++                if gate_prefill_step:
++                    # Admitted one prefill request; no second request (prefill
++                    # or decode) may join this step.
++                    gate_prefill_done = True
++                    break
++
+             # re-queue requests skipped in this pass ahead of older skipped items.
+             if step_skipped_waiting:
+                 self.skipped_waiting.prepend_requests(step_skipped_waiting)
+@@ -1110,6 +1271,126 @@ class Scheduler(SchedulerInterface):
+         assert total_num_scheduled_tokens <= self.max_num_scheduled_tokens
+ 
+         assert token_budget >= 0
++
++        if gate_enabled:
++            # Classify the step from the authoritative scheduled-token map and
++            # log (not raise) if the gate invariant was broken. P4 can grep for
++            # "[admission_gate] invariant violated".
++            gate_prefill_reqs = 0
++            gate_decode_reqs = 0
++            for req_id in num_scheduled_tokens:
++                if self._gate_is_prefill_request(self.requests[req_id]):
++                    gate_prefill_reqs += 1
++                else:
++                    gate_decode_reqs += 1
++            if gate_prefill_step and gate_decode_reqs:
++                logger.error(
++                    "[admission_gate] invariant violated: prefill-only step=%d "
++                    "scheduled %d decode request(s): %s.",
++                    self.current_step,
++                    gate_decode_reqs,
++                    [
++                        req_id
++                        for req_id in num_scheduled_tokens
++                        if not self._gate_is_prefill_request(self.requests[req_id])
++                    ],
++                )
++            if not gate_prefill_step and gate_prefill_reqs:
++                logger.error(
++                    "[admission_gate] invariant violated: decode-only step=%d "
++                    "scheduled %d prefill request(s): %s.",
++                    self.current_step,
++                    gate_prefill_reqs,
++                    [
++                        req_id
++                        for req_id in num_scheduled_tokens
++                        if self._gate_is_prefill_request(self.requests[req_id])
++                    ],
++                )
++            if gate_prefill_reqs > 1:
++                logger.error(
++                    "[admission_gate] invariant violated: step=%d scheduled %d "
++                    "prefill requests (>1).",
++                    self.current_step,
++                    gate_prefill_reqs,
++                )
++            logger.debug(
++                "[admission_gate] step=%d mode=%s prefill_reqs=%d "
++                "decode_reqs=%d total_tokens=%d deferred_decode_reqs=%d.",
++                self.current_step,
++                "prefill" if gate_prefill_step else "decode",
++                gate_prefill_reqs,
++                gate_decode_reqs,
++                total_num_scheduled_tokens,
++                gate_step_deferred_decode_reqs,
++            )
++
++            self._gate_deferred_decode_reqs += gate_step_deferred_decode_reqs
++            if gate_prefill_step and total_num_scheduled_tokens > 0:
++                self._gate_prefill_fail_streak = 0
++                self._gate_prefill_steps += 1
++                if not self._gate_in_prefill_episode:
++                    # New contiguous prefill-only episode.
++                    self._gate_in_prefill_episode = True
++                    self._gate_episode_prefill_steps = 0
++                    self._gate_episode_deferred_decode_reqs = 0
++                self._gate_episode_prefill_steps += 1
++                self._gate_episode_deferred_decode_reqs += (
++                    gate_step_deferred_decode_reqs
++                )
++                if (
++                    self._gate_prefill_steps == 1
++                    or self._gate_prefill_steps % 10 == 0
++                ):
++                    logger.info(
++                        "[admission_gate] prefill-only step #%d (step=%d): "
++                        "prefill_reqs=%d decode_reqs=%d total_tokens=%d "
++                        "deferred_decode_reqs=%d (cumulative=%d).",
++                        self._gate_prefill_steps,
++                        self.current_step,
++                        gate_prefill_reqs,
++                        gate_decode_reqs,
++                        total_num_scheduled_tokens,
++                        gate_step_deferred_decode_reqs,
++                        self._gate_deferred_decode_reqs,
++                    )
++            elif gate_prefill_step:
++                if gate_async_admission:
++                    logger.info(
++                        "[admission_gate] async KV load admitted (step=%d): no "
++                        "forward token this step; next step re-evaluates pending "
++                        "prefill/decode work.",
++                        self.current_step,
++                    )
++                else:
++                    # The gate chose a prefill-only step but nothing could be
++                    # admitted (KV pressure, connector-blocked waiting request...).
++                    # Back off: force decode-only step(s) so block holders finish
++                    # and the prefill can be retried; this is the deadlock escape.
++                    self._gate_prefill_fail_streak += 1
++                    self._gate_force_decode_steps = min(
++                        2 ** min(self._gate_prefill_fail_streak, 3), 8
++                    )
++                    logger.info(
++                        "[admission_gate] prefill-only step could not be scheduled "
++                        "(step=%d): no token admitted; streak=%d, forcing %d "
++                        "decode-only step(s).",
++                        self.current_step,
++                        self._gate_prefill_fail_streak,
++                        self._gate_force_decode_steps,
++                    )
++            if self._gate_in_prefill_episode and not gate_prefill_step:
++                logger.info(
++                    "[admission_gate] prefill-only episode ended: steps=%d "
++                    "deferred_decode_reqs=%d (cumulative_deferred=%d, "
++                    "cumulative_prefill_steps=%d).",
++                    self._gate_episode_prefill_steps,
++                    self._gate_episode_deferred_decode_reqs,
++                    self._gate_deferred_decode_reqs,
++                    self._gate_prefill_steps,
++                )
++                self._gate_in_prefill_episode = False
++
+         assert len(self.running) <= self.max_num_running_reqs
+         # Since some requests in the RUNNING queue may not be scheduled in
+         # this step, the total number of scheduled requests can be smaller than

@@ -1,0 +1,32 @@
+# ---- 运行期产出（不入库）----
+results/
+cache/
+*.tar.gz
+*.tar.gz.sha256
+.last_run_id
+
+# 受版权保护的测试语料：仓库只放来源链接 + 校验和，
+# 原文由使用者自己下载（见 tools/fetch_corpus.sh）
+data/dihuo.txt
+
+# ---- PGO 构建工作区与产物（在目标机生成；二进制不入库）----
+optim/pgo/libpython3.12.so.1.0
+optim/pgo/python3
+optim/pgo/TARGET_PATH.txt
+optim/pgo/VERSION_MISMATCH.txt
+optim/pgo/.build_marker
+optim/pgo/build/src/
+optim/pgo/build/out/
+optim/pgo/build/logs/
+
+# ---- Python ----
+__pycache__/
+*.py[cod]
+*.so
+.venv/
+
+# ---- 本地/编辑器 ----
+.DS_Store
+*.swp
+.idea/
+.vscode/

@@ -1,0 +1,27 @@
+DSV4.1-Flash W4A8 optimized vLLM deployment package
+Copyright 2026 chiro2001 <chiro2001@163.com>
+
+This product includes software developed at other projects:
+
+1. vLLM (https://github.com/vllm-project/vllm)
+   Licensed under the Apache License, Version 2.0.
+   File(s) derived: vllm/v1/core/sched/scheduler.py (admission gate patch).
+
+2. vllm-ascend, V4.1 line (https://github.com/GDzhu01/vllm-ascend-v41-private)
+   Licensed under the Apache License, Version 2.0.
+   File(s) derived: the 8 patches under patches/vllm-ascend/ touch
+   vllm_ascend/{ascend_forward_context.py, attention/dsa_v1.py, ops/rope_dsv4.py,
+   ops/fused_moe/token_dispatcher.py, models/deepseek_v41/*}.
+
+3. msmodelslim (https://gitcode.com/Ascend/msmodelslim)
+   Licensed under the Apache License, Version 2.0.
+   File(s) derived: the 2 patches under patches/msmodelslim/.
+
+4. CPython 3.12 (https://www.python.org/)
+   Licensed under the PSF License Agreement.
+   NOTE: no CPython binary is distributed with this package. The optional
+   build_scripts/00_ensure_pgo.sh script downloads and builds CPython on the
+   target machine; the resulting binaries are produced locally by the user.
+
+Model weights, tokenizer files and container images are NOT distributed with
+this package and remain under their own respective licenses.
