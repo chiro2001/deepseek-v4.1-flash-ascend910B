@@ -18,7 +18,7 @@ DeepSeek-V4.1-Flash 的 W4A8 量化推理服务，含完整补丁、一键起服
 
 * Engram-int8 常驻 DRAM
 * DSpark 投机解码开启（5 tokens）
-* KV cache 在 HBM 且 **> 3,145,728 tokens（3Mi）**
+* KV cache 在 HBM 且 **> 3M tokens**（实测详见 §2.5 的取舍说明）
 * Vision 23/23、GSM8K ≈198/200
 * 静态内核不得静默降级（`static_kernel.py:650` 命中数必须为 0）
 
@@ -93,9 +93,22 @@ chunked prefill 把长 prompt 切成 `ceil(prompt / BAT_TOKENS)` 段依次前向
 ⇒ **默认 `BAT_TOKENS=8192` 把这七档全部拉到 100%**，同一 prompt 重复 10 次
 输出逐字节一致。
 
-**代价**：activation 峰值更高，KV cache 从 **4,145,957 → 3,088,738 tokens**
-（8×910C、`GPU_UTIL=0.94` 实测）。若你的场景更看重 KV 容量、且上下文主要在 <20K，
-可以显式 `BAT_TOKENS=2048`。
+**代价**：activation 峰值从 0.79 涨到 **3.21 GiB**，KV cache 从
+**4,145,957 → 3,088,412 tokens**（8×910C、`GPU_UTIL=0.94` 实测）。
+若你的场景更看重 KV 容量、且上下文主要在 <20K，可以显式 `BAT_TOKENS=2048`。
+
+> ⚠️ **不要靠调大 `GPU_UTIL` 把 KV 补回来** —— 实测会 OOM：
+>
+> | 配置 | KV tokens | 结果 |
+> |---|---:|---|
+> | `BAT=8192` + `GPU_UTIL=0.94`（默认） | 3,088,412 | ✅ 稳定 |
+> | `BAT=8192` + `GPU_UTIL=0.95` | 3,221,350 | ❌ 第一个真实 prefill 就 OOM |
+> | `BAT=6144` + `GPU_UTIL=0.94` | 3,415,799 | ❌ ACL graph 重放 OOM |
+>
+> 原因是**真实请求的 activation 峰值高于启动 profiling 报告的值**（约高 0.5–0.8 GiB）：
+> 实测需留 **≥ 3.6 GiB** 设备余量才稳，而 `BAT=8192` 下 3.09M 就是上限。
+> 若必须满足更高的 KV 门槛，应评估裁剪 `CAPTURE_SIZES`（代价：高并发 decode 退回 eager），
+> 而不是调 `GPU_UTIL`。
 
 > **自查方法**：本包提供 `tests/agent_trace/longctx_retrieval.py`，
 > 用 `--tokens 60000 --reps 10` 跑一次，正常应 10/10。
@@ -129,7 +142,7 @@ chunked prefill 把长 prompt 切成 `ceil(prompt / BAT_TOKENS)` 段依次前向
 |---|---|
 | ms/step | 中位 **30.2 – 31.6**，最好 26.9 |
 | 单流 tok/s | 中位 **85 – 90** |
-| KV 池 | 4,145,589 tokens（> 3Mi 门槛） |
+| KV 池 | **3,088,412 tokens**（`BAT_TOKENS=8192`，见 §2.5） |
 
 > 语料为《红楼梦》全本按目标 token 数精确截取 + 指令后缀（quote 口径）。
 > 口径：**unprofiled 客户端墙钟**，单流独占。
@@ -315,7 +328,7 @@ msmodelslim 侧的 V4.1 W4A8 支持，含 hiaux 变体配方。
 | `DRAFT_GRAPH=1` | 未采纳：缺 `DSPARK_GRAPH_CAPTURE_METADATA=1` 时会静默失效（A 恒 1.0 但 ms 看着正常） |
 | `V41_MOE_ZERO_INVALID` / `MOE_NF` | 实验项/负结果，默认关 |
 | 128K 以上长文 | **已定位并修复**：chunked prefill 的 chunk 数决定偏离率（~2%/chunk）。默认 `BAT_TOKENS=8192` 后 260K token 档实测 6/6。见 §2.5 |
-| `BAT_TOKENS` 的 KV 代价 | 提到 8192 会让 KV cache 从 4.15M 降到 3.09M tokens（activation 峰值更高）。两者取舍见 §2.5 |
+| `BAT_TOKENS` 的 KV 代价 | 提到 8192 会让 KV cache 从 4.15M 降到 **3.09M** tokens（activation 峰值 0.79→3.21 GiB）。**3.09M 是本机型上限**（再往上 OOM，实测见 §2.5） |
 | A2 与 A3 的性能差 | 硬件（含 HBM 带宽，两边同为 1600 GB/s/die）只能解释 ~15%，其余在 host 侧 |
 
 细节与原始数据见 [`EXPECTED_PERF.md`](EXPECTED_PERF.md)、[`CORRECTNESS_STATUS.md`](CORRECTNESS_STATUS.md)、
