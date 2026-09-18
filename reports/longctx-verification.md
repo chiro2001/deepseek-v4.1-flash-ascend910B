@@ -159,3 +159,69 @@ python3 tests/agent_trace/accuracy_gate.py --reps 10 \
 ```
 
 原始数据：`results/verify_final/`（本次）、`results/gate_*.json`、`results/needle_*.json`
+
+---
+
+## 6. KV 容量与正确性的取舍（实测边界）
+
+### 6.1 结论
+
+**在本机型（8×910C，61.27 GiB/卡）上，`BAT=8192` 时 KV 的稳定上限约 3.09M tokens。**
+
+* 满足本次 objective 里的 **`KV > 3M`**（3,088,412 > 3,000,000）✅
+* **未满足仓库历史文档里的 `> 3,145,728（3Mi）` 门槛**，差 **1.8%** ❌
+
+两者是**互斥**的：把 KV 抬到 3.15M 以上会立刻 OOM。证据见下。
+
+### 6.2 三次边界实验
+
+| 配置 | KV tokens | 峰值 activation | 结果 |
+|---|---:|---:|---|
+| `BAT=8192` + `GPU_UTIL=0.94`（当前默认） | **3,088,412** | 3.21 GiB | ✅ 稳定（本文全部数据） |
+| `BAT=8192` + `GPU_UTIL=0.95` | 3,221,350 | 3.21 GiB | ❌ **第一个真实 prefill 就 OOM** |
+| `BAT=6144` + `GPU_UTIL=0.94` | 3,415,799 | 2.40 GiB | ❌ **ACL graph 重放 OOM** |
+
+OOM 形态（两次都是同一类）：
+
+```
+torch.OutOfMemoryError: replay:../torch_npu/csrc/core/npu/NPUGraph.cpp:281
+Resource_Error_Insufficient_Device_Memory(EL0019)
+Try to allocate 632.00 MiB ... FAILED
+```
+
+### 6.3 为什么"少给 activation"救不回来
+
+`BAT=6144` 确实把峰值 activation 从 3.21 降到 **2.40 GiB**（省 0.81 GiB，
+与"每 1000 BAT 约 0.39 GiB"的线性外推完全吻合），KV 也因此涨到 3.42M。
+但**仍然 OOM**。
+
+⇒ 说明 **真实请求的 activation 峰值高于启动 profiling 报告的值**（约高 0.5–0.8 GiB）。
+启动日志里的 "peak activation" 是 warmup 阶段的测量，不能直接当作运行期峰值来算余量。
+
+**可用的安全余量下限**（设备总 61.27 GiB − 各项占用）：
+
+| 配置 | 名义余量 | 结果 |
+|---|---:|---|
+| `BAT=8192` / 0.94 | 3.82 GiB | ✅ |
+| `BAT=6144` / 0.94 | 3.37 GiB | ❌ |
+| `BAT=8192` / 0.95 | 3.05 GiB | ❌ |
+
+⇒ 需要留 **≥ ~3.6 GiB** 才稳。
+
+### 6.4 如果必须满足 3Mi，可以考虑（均未验证）
+
+| 方案 | 收益 | 代价 |
+|---|---|---|
+| 裁掉 `CAPTURE_SIZES` 的 `96,192` 两个桶 | graph memory 1.13 GiB 可省约 0.4 GiB | 并发 >32 时 decode 退回 eager（正确但慢） |
+| `KV_DTYPE=int8` | KV 容量约翻倍 | **降精度**，与本次"修精度"目标冲突，不可用于本修复 |
+| 提高单卡可用显存（换机型/降权重占用） | 直接 | 非本机型可控 |
+
+### 6.5 建议
+
+**本次以 `BAT=8192` + `KV=3.088M` 交付**，理由是：
+
+* 正确性收益是**决定性的**（真实 agent 轨迹 0/3 → 10/10；60K 检索 50% → 100%）
+* KV 从 4.15M 降到 3.09M 只影响"同时容纳几个满 1M 上下文"（3 → 2.9 个），
+  而 3Mi 门槛本身就是按 `3 × 1048576` 设的
+* 若某场景必须严格要求 3Mi，应显式评估 §6.4 的裁剪方案，**不要**靠调 `GPU_UTIL`
+  （已实测会 OOM）
