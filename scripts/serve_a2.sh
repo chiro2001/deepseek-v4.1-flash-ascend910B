@@ -451,6 +451,28 @@ if [ "$PROBE" = "1" ]; then
   fi
 fi
 
+# ---------- [MEM-GUARD] 大 BAT × 大 MAX_SEQS 会 OOM ----------
+# 实测（8×910C, 60.96 GiB/卡）：`BAT_TOKENS=8192` 时 peak activation 从
+# 0.79 GiB 涨到 3.21 GiB（+2.4 GiB）。若同时把 MAX_SEQS 开到 64（capture
+# 桶要覆盖到 384、graph memory 1.15 GiB），`GPU_UTIL=0.94` 会把显存吃干，
+# ACL graph **重放时会 OOM**：
+#     torch.OutOfMemoryError: NPUGraph.cpp:281
+#     Resource_Error_Insufficient_Device_Memory(EL0019)
+#     Failed to allocate 2097152 bytes ... halStreamTaskFill failed
+# 这里只做**提示**（不擅自改用户配置），避免静默行为变化。
+if [ "$BAT_TOKENS" -ge 8192 ] && [ "$MAX_SEQS" -ge 64 ]; then
+  case "$GPU_UTIL" in
+    0.9|0.90|0.91|0.92|0.93|0.94|0.95|0.96|0.97|0.98|0.99|1.0|1) : ;;
+    *) : ;;
+  esac
+  if awk "BEGIN{exit !($GPU_UTIL > 0.92)}"; then
+    echo "[serve_a2] WARNING: BAT_TOKENS=$BAT_TOKENS 且 MAX_SEQS=$MAX_SEQS，GPU_UTIL=$GPU_UTIL 偏高。"
+    echo "                    这个组合实测会 OOM（ACL graph 重放失败）。建议："
+    echo "                      GPU_UTIL=0.90  （保留显存余量）"
+    echo "                      或 MAX_SEQS=32  （发布默认，已验证）"
+  fi
+fi
+
 # [HCCL-DET] 只在非空时传（空值会让 HCCL 报 EI0001）
 HCCL_ENV_ARGS=()
 if [ -n "$HCCL_DET" ]; then HCCL_ENV_ARGS+=(-e "HCCL_DETERMINISTIC=$HCCL_DET"); fi
