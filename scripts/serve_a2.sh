@@ -57,7 +57,27 @@ if [ -n "${NO_PREFIX:-}" ] && [ "${NO_PREFIX}" != "0" ]; then
   fi
 fi
 PREFIX=${PREFIX:-1}
-BAT_TOKENS=${BAT_TOKENS:-2048}
+# [BAT-TOKENS] ★ 正确性关键参数，不要随手调小。
+#
+# chunked prefill 会把长 prompt 切成 ceil(prompt / BAT) 段依次前向。每段都有一次
+# 独立的"偏离"机会，且误差沿后续 chunk 累积 —— 实测偏离率约 2%/chunk。
+# 因此 **chunk 数越多，长上下文正确率越低**，且是平滑下滑（不是阈值效应）。
+#
+# 实测（同一 needle 检索探针、每档 10 个不同 nonce、"埋事实在中段"）：
+#     prompt_tokens   BAT=2048(chunk)   BAT=2048   BAT=8192(chunk)   BAT=8192
+#        10,394            5              10/10          2             10/10
+#        20,318           10               8/10          3             10/10
+#        40,163           20               7/10          5             10/10
+#        60,012           30               5/10          8             10/10
+#        79,855           40               3/10         10             10/10
+#       149,986           74              ~0%           19              6/6
+#       259,985          127              ~0%           32              6/6
+#   ⇒ BAT=8192 把这些档位全部拉到 100%，且同一 prompt 重复 10 次输出逐字节一致。
+#
+# 代价：activation 峰值更高，KV cache 从 4,145,957 → 3,088,738 tokens（本机 8×910C，
+#       GPU_UTIL=0.94）。若你的场景更看重 KV 容量、且上下文主要在 <20K，
+#       可以显式设 BAT_TOKENS=2048。
+BAT_TOKENS=${BAT_TOKENS:-8192}
 BLOCK=${BLOCK:-128}
 KV_DTYPE=${KV_DTYPE:-bfloat16}
 STATIC_KERNEL=${STATIC_KERNEL:-1}
@@ -108,6 +128,13 @@ CAND_MODE=${CAND_MODE:-0}           # 诊断用，0=不挂 indexer.py
 # 外部不再设 cpuset/mems（CPUSET/MEMS 默认 -1），绑核位置完全由内部按 NPU 拓扑决定。
 CPU_BIND=${CPU_BIND:-1}
 MULTISTREAM=${MULTISTREAM:-1}
+# [MC2-PARAM] 这几个原本在 inner.sh 里硬编码为 0；改成可参数化，
+# 以便复现 2026-09-16 的"已知good"配置（FUSED_MC2=1 MULTISTREAM=0 SP_TOKENS=7）。
+FUSED_MC2=${FUSED_MC2:-0}
+MC2=${MC2:-0}
+MC2_HIER=${MC2_HIER:-0}
+REDUCE_SAMPLE=${REDUCE_SAMPLE:-0}
+DSA_OVERLAP=${DSA_OVERLAP:-1}
 # [CPUS-ALIAS] v5 的变量名是 CPUSET（与 MEMS 不对称），用户传 CPUS=-1 会被静默忽略。
 # 这里同时接受两个名字，并在两者都给了时以 CPUSET 为准（同时打印提醒）。
 # 默认 **-1 = 外部完全不管 CPU**（绑核交给 vLLM 内部的 enable_cpu_binding，见下面 [CPU/NUMA]）。
@@ -363,6 +390,10 @@ fi
 
 # ---------- [MOUNTS] ----------
 MOUNTS=()
+# [SCRIPTS-MOUNT] 把本包的 scripts/ 只读挂进容器。
+# 原实现依赖镜像里烘焙好的 /opt/dsv41/scripts/serve_v2.sh ——
+# 换用未打我们补丁的基础镜像（用于 A/B 对照）时那个路径不存在，会直接起不来。
+MOUNTS+=(-v "$PKG/scripts:/opt/dsv41/scripts:ro")
 if [ "$PATCH_MODE" = "mount" ]; then
   F=$PKG/patches/files
   MOUNTS+=(-v "$F/engram_hbm.py:/vllm-workspace/vllm-ascend/vllm_ascend/models/deepseek_v41/engram_hbm.py:rw")
@@ -399,6 +430,27 @@ if [ "$PATCH_MODE" = "mount" ]; then
   fi
 fi
 [ -n "$PGO_LIB" ] && MOUNTS+=(-v "$PKG/optim/pgo/libpython3.12.so.1.0:$PGO_LIB:ro")
+# ---------- [PROBE] 稀疏状态插针（事后取证；独立于 PATCH_MODE） ----------
+# PROBE=1 时用只读挂载覆盖 dsa_v41.py 并注入 sparse_capture.py。
+# L1 元数据常开（~200 B/step/层）；L2 张量快照由 <probe_capture>/ENABLE 开关文件控制。
+#
+# **默认 0**：插针需要一份"在 dsa_v41.py 里插了 14 行调用"的派生文件
+# （`reports/probe/dsa_v41.probe.py`），那是上游代码的 fork，本包不附带以免漂移。
+# 需要时见 `reports/probe/README.md` 的生成方法。
+PROBE=${PROBE:-0}
+if [ "$PROBE" = "1" ]; then
+  PB=$PKG/reports/probe
+  if [ -f "$PB/dsa_v41.probe.py" ] && [ -f "$PB/sparse_capture.py" ]; then
+    MOUNTS+=(-v "$PB/sparse_capture.py:/vllm-workspace/vllm-ascend/vllm_ascend/attention/sparse_capture.py:ro")
+    MOUNTS+=(-v "$PB/dsa_v41.probe.py:/vllm-workspace/vllm-ascend/vllm_ascend/attention/dsa_v41.py:ro")
+    mkdir -p "$PKG/probe_capture"
+    MOUNTS+=(-v "$PKG/probe_capture:/opt/dsv41/probe")
+    echo "[serve_a2] PROBE=1：稀疏状态插针已挂载（输出 $PKG/probe_capture）"
+  else
+    echo "[serve_a2] WARNING: PROBE=1 但缺 $PB/{dsa_v41.probe.py,sparse_capture.py} → 跳过插针"
+  fi
+fi
+
 # [HCCL-DET] 只在非空时传（空值会让 HCCL 报 EI0001）
 HCCL_ENV_ARGS=()
 if [ -n "$HCCL_DET" ]; then HCCL_ENV_ARGS+=(-e "HCCL_DETERMINISTIC=$HCCL_DET"); fi
@@ -512,12 +564,24 @@ export KV_DTYPE=$KV_DTYPE GRAPH=1 EAGER=0 PREFIX=$PREFIX SPEC=$SPEC SP_TOKENS=$S
 if [ "$DRAFT_GRAPH" = "1" ]; then export SPEC_EAGER=0; else export SPEC_EAGER=1; fi
 export ENGRAM=$ENGRAM ENGRAM_STORAGE=int8 VISION=$VISION
 export NPUGRAPH_EX=$NPUGRAPH_EX STATIC_KERNEL=$STATIC_KERNEL CPU_BIND=$CPU_BIND
-export MULTISTREAM=$MULTISTREAM DSA_OVERLAP=1 FUSED_MC2=0 MC2=0 MC2_HIER=0 REDUCE_SAMPLE=0
+export MULTISTREAM=$MULTISTREAM DSA_OVERLAP=$DSA_OVERLAP FUSED_MC2=$FUSED_MC2 MC2=$MC2 MC2_HIER=$MC2_HIER REDUCE_SAMPLE=$REDUCE_SAMPLE
 export LOADER_MT=1 LAZY=1
 export V41_KV_TIER=off
 export V41_ENGRAM_LOCAL_OWNER_FILE=/tmp/v41_engram_localowner
 export CAPTURE_SIZES="$CAPTURE_SIZES"
 export ASCEND_MAX_OP_CACHE_SIZE=-1
+# [OPS-SWITCHES] 三个排障开关，**默认全关**（发布口径）。
+# 排查长上下文/精度问题时把它们打开很有用：
+#   VLLM_SERVER_DEV_MODE=1  → 额外挂出 12 个运维端点（/reset_prefix_cache /pause
+#                             /resume /sleep /wake_up /collective_rpc /server_info …），
+#                             vLLM 自己会打一条 "Development endpoints are enabled!" 安全告警。
+#   LOG_REQUESTS=1          → 把请求级 I/O 写进 serve.log（长度上限 MAX_LOG_LEN）。
+#   PROBE=1                 → 稀疏状态插针，见上。
+export VLLM_SERVER_DEV_MODE=${VLLM_SERVER_DEV_MODE:-0}
+export V41_PROBE_DIR=${V41_PROBE_DIR:-/opt/dsv41/probe}
+export LOG_REQUESTS=${LOG_REQUESTS:-0}
+export MAX_LOG_LEN=${MAX_LOG_LEN:-4096}
+
 if [ "$TOOL_CALLING" = "1" ]; then
   export EXTRA='--tokenizer-mode=deepseek_v41 --reasoning-parser=deepseek_v41 --tool-call-parser=deepseek_v41 --enable-auto-tool-choice --default-chat-template-kwargs={"enable_thinking":false}'
 else

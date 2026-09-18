@@ -85,6 +85,9 @@ fi
 [ -n "${LOAD_FORMAT:-}" ] && ARGS+=(--load-format "$LOAD_FORMAT")
 if [ "$VISION" = "1" ]; then ARGS+=(--limit-mm-per-prompt '{"image": 1}'); else ARGS+=(--limit-mm-per-prompt '{"image": 0}'); fi
 [ -n "$CHAT_TEMPLATE" ] && ARGS+=(--chat-template "$CHAT_TEMPLATE")
+# [LOG_REQUESTS] 端到端请求日志（进 serve.log，带长度上限避免炸日志）
+[ "${LOG_REQUESTS:-0}" = "1" ] && ARGS+=(--enable-log-requests --max-log-len "${MAX_LOG_LEN:-4096}")
+
 if [ "$PROFILE" = "1" ]; then mkdir -p "$PROFILE_DIR"; ARGS+=(--profiler-config "{\"profiler\":\"torch\",\"torch_profiler_dir\":\"$PROFILE_DIR\",\"torch_profiler_with_stack\":false}"); fi
 # shellcheck disable=SC2206
 [ -n "$EXTRA" ] && ARGS+=($EXTRA)

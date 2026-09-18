@@ -892,7 +892,7 @@ quant_model_weights.safetensors.index.json,quant_model_description.json,config.j
 | 长上下文答案坏但不报错、KV 像别的层 | 误打 `prefill_incr`/`staging_delta`：4 个 long-KV source 共享 staging，第 2 步起静默读错源；正确链不要 apply，见 §6.2.2 与 `docs/INT8_PREFILL_DELTA_SAFETY.md` |
 | 视觉答案错但请求 200、文本正常 | 已知视觉 WIP（43.5%/23 例，必过负向挂）；不是权重缺失；见 §7.4 / `docs/VISION_RCA_P43.md` |
 | 长上下文崩/答非所问、yarn 配置告警 | 阶段一 `max_position_embeddings` 被压到 8192，而 yarn `original_max_position_embeddings=65536`；运行前把 runtime `config.json` 的 text_config 恢复 `1048576`（`docs/STATUS.md` 记录） |
-| C-Eval/GSM8K 很低、大量空响应 | 先查 chat 模板是否缺 `</think>`；官方 encoder 要求 chat 模式末尾 `<｜Assistant｜></think>`（`docs/ACCURACY.md` §3 修过该 bug） |
+| C-Eval/GSM8K 很低、大量空响应 | 先查 chat 模板是否缺 `</think>`；官方 encoder 要求 chat 模式末尾以 `<|Assistant|>` + `<|/think|>` 收尾（`docs/ACCURACY.md` §3 修过该 bug） |
 | DSpark 接受率≈1.0 | 已知未解问题（`docs/STATUS.md` 2026-09-12）：已排除 MTP 反量化误差/main_proj 旋转方向/双重旋转/权重名映射；draft 词表补齐是必要的但不充分。不要用它宣称投机可用 |
 | `make_dspark_ckpt.py` 报找不到 rotation | 默认读 `<quant-dir>/optional/quarot.safetensors`；没有就 `--rotation-file` 指定，或仅对照时 `--no-rotate-main-proj` |
 | 量化重跑把旧产物清了 | `quant_dp_inner.sh` 里有 `rm -rf $SAVE`；换新 `SAVE` 或先备份 |

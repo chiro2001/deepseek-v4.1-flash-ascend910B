@@ -68,8 +68,41 @@ MODEL=/path/to/model MODE=full bash scripts/run_test.sh
 |---|---|---|
 | `PREFIX` | **1（开）** | prefix caching。面向用户的默认是生产形态。要测**无前缀缓存**的性能口径用 `NO_PREFIX=1`（等价 `PREFIX=0`）。两种口径的 ms/step 与接受长度**不可直接混比**，报数字时必须写明。 |
 | `MAX_SEQS` | **32** | 并发上限。它会决定 CUDA graph 的捕获桶数，越大启动时捕获越久（首次多 1–2 min）。 |
+| `BAT_TOKENS` | **8192** | `--max-num-batched-tokens`。**正确性关键参数**，见 §2.5 —— 不要随手调小。 |
 
-### 2.5 绑核
+### 2.5 ★ `BAT_TOKENS`：长上下文正确率的开关
+
+chunked prefill 把长 prompt 切成 `ceil(prompt / BAT_TOKENS)` 段依次前向。
+**每段都有一次独立的"偏离"机会，且误差沿后续 chunk 累积** ——
+实测偏离率约 **2%/chunk**，因此 **chunk 数越多、长上下文正确率越低**，
+而且是**平滑下滑**（不是"超过某个长度就崩"）。
+
+用"把唯一事实埋在长文档中段、只问一个答案唯一的问题"做探针，
+每档 10 个不同样本（内容不同）：
+
+| prompt_tokens | `BAT=2048`（10 chunk/20K tok） | `BAT=8192` |
+|---:|---:|---:|
+| 10,394 | 10/10 | **10/10** |
+| 20,318 | 8/10 | **10/10** |
+| 40,163 | 7/10 | **10/10** |
+| 60,012 | 5/10 | **10/10** |
+| 79,855 | 3/10 | **10/10** |
+| 149,986 | ~0% | **6/6** |
+| 259,985 | ~0% | **6/6** |
+
+⇒ **默认 `BAT_TOKENS=8192` 把这七档全部拉到 100%**，同一 prompt 重复 10 次
+输出逐字节一致。
+
+**代价**：activation 峰值更高，KV cache 从 **4,145,957 → 3,088,738 tokens**
+（8×910C、`GPU_UTIL=0.94` 实测）。若你的场景更看重 KV 容量、且上下文主要在 <20K，
+可以显式 `BAT_TOKENS=2048`。
+
+> **自查方法**：本包提供 `tests/agent_trace/longctx_retrieval.py`，
+> 用 `--tokens 60000 --reps 10` 跑一次，正常应 10/10。
+>
+> 详细分析（含机制、消融、方法论教训）：[`reports/longctx-accuracy-fix.md`](reports/longctx-accuracy-fix.md)
+
+### 2.6 绑核
 
 **外部不计算绑核位置**：容器默认不设 `--cpuset-cpus/--cpuset-mems`，
 由 vllm-ascend 内部的 `cpu_binding` 按 NPU 拓扑给每个 rank 自己绑
@@ -277,7 +310,8 @@ msmodelslim 侧的 V4.1 W4A8 支持，含 hiaux 变体配方。
 | 接受长度 A | **不能当绩效指标**；必须报 `(clean-rate, ms/step)` |
 | `DRAFT_GRAPH=1` | 未采纳：缺 `DSPARK_GRAPH_CAPTURE_METADATA=1` 时会静默失效（A 恒 1.0 但 ms 看着正常） |
 | `V41_MOE_ZERO_INVALID` / `MOE_NF` | 实验项/负结果，默认关 |
-| 128K 以上长文 | 上游在超长序列上的稳定性未充分验证，建议专项测试 |
+| 128K 以上长文 | **已定位并修复**：chunked prefill 的 chunk 数决定偏离率（~2%/chunk）。默认 `BAT_TOKENS=8192` 后 260K token 档实测 6/6。见 §2.5 |
+| `BAT_TOKENS` 的 KV 代价 | 提到 8192 会让 KV cache 从 4.15M 降到 3.09M tokens（activation 峰值更高）。两者取舍见 §2.5 |
 | A2 与 A3 的性能差 | 硬件（含 HBM 带宽，两边同为 1600 GB/s/die）只能解释 ~15%，其余在 host 侧 |
 
 细节与原始数据见 [`EXPECTED_PERF.md`](EXPECTED_PERF.md)、[`CORRECTNESS_STATUS.md`](CORRECTNESS_STATUS.md)、
@@ -299,7 +333,12 @@ README.md  REPRO.md  LICENSE  NOTICE
 ├── build_scripts/ CPython PGO 目标机编译（产物不入库）
 ├── quant/         W4A8 / Engram-int8 / DSpark 量化复现
 ├── tests/         单流 / 视觉 / GSM8K / 多 batch 验收
-├── reports/       55 份实验记录（每项结论的原始依据）
+│   └── agent_trace/           ← ★ agent 形态精度门
+│       ├── longctx_retrieval.py  长上下文检索探针（60K token 即可测出退化）
+│       └── accuracy_gate.py      工具调用门（5 长度档 + Wilson CI）
+├── reports/       实验记录（每项结论的原始依据）
+│   ├── longctx-accuracy-fix.md   ← ★ BAT_TOKENS 修复的完整分析
+│   └── probe/                    稀疏状态插针 + 设计文档（PROBE=1 启用）
 ├── docs/
 │   ├── BENCH-METHODOLOGY.md   ← ★ 为什么"单流 tok/s"必须配上下文看
 │   ├── img/                   ← 曲线图 + CSV
