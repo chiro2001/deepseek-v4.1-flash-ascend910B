@@ -95,6 +95,44 @@ Engram/QLI 是主因），全部源于**跨会话比较**——服务会随时�
 3. 判据必须看 `finish_reason` —— `finish=length` 的截断样本既非成功也非失败，
    混进失败率会得出错误结论。
 
+## 6. 完整验收（2026-09-18）
+
+| 验收项 | 要求 | 实测 | 判定 |
+|---|---|---|---|
+| 前后对比（N≥10） | 修复前失败率显著、修复后 0 | 43/50 → **62/62** | ✅ |
+| 8K / 32K / 128K / 256K | 全覆盖 | 8.4K / 32.2K / 130.5K / 260.0K 全 10/10（256K 为 6/6） | ✅ |
+| 真实 agent 轨迹 | 覆盖 | 两条真实会话轨迹各 **10/10** | ✅ |
+| Vision | 23/23 | **23/23** | ✅ |
+| GSM8K-200 | ≈198/200 | **199/200** | ✅ |
+| `static_kernel` 降级 | 0 | **0** | ✅ |
+| Engram-int8 常驻 | 必须 | `engram_storage=int8` + host-resident | ✅ |
+| KV > 3Mi | 交付约束 | **3,088,303（低 1.8%）** | ⚠️ 见下 |
+
+### 6.1 新增的显存约束（`[MEM-GUARD]`）
+
+`BAT=8192` 让 peak activation 从 0.79 → 3.21 GiB。与 `MAX_SEQS=64`
+（capture 桶到 384）叠加时，`GPU_UTIL=0.94` 会在 **ACL graph 重放时 OOM**：
+
+```
+torch.OutOfMemoryError: NPUGraph.cpp:281
+Resource_Error_Insufficient_Device_Memory(EL0019)
+```
+
+`scripts/serve_a2.sh` 已加提示（危险组合时打印建议，不擅自改配置）：
+
+| 组合 | 结果 |
+|---|---|
+| `MAX_SEQS=32` + `BAT=8192` + `0.94`（发布默认） | ✅ |
+| `MAX_SEQS=64` + `BAT=8192` + `0.90` | ✅（KV 降到 2.56M） |
+| `MAX_SEQS=64` + `BAT=8192` + `0.94` | ❌ OOM |
+
+### 6.2 已知代价
+
+KV cache 4,145,957 → **3,088,303** tokens，低于 3Mi 交付约束约 1.8%。
+若必须同时满足 KV>3Mi，可评估 `BAT=4096`（尚未验证是否足够）。
+
+完整记录见 [`reports/longctx-verification.md`](reports/longctx-verification.md)。
+
 ---
 
 # ★ v6（2026-09-17）—— 交付工程修复 + 自检体系

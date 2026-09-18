@@ -263,6 +263,10 @@ def main() -> int:
 
     tools = [tool_read(), tool_bash()]
     arms = [x.strip() for x in a.arms.split(",") if x.strip()]
+    # `--real` 传了真实轨迹，就隐含要跑 real 臂 —— 否则用户很容易只写
+    # `--arms 8k,32k --real x.json` 然后发现真实轨迹被静默跳过。
+    if a.real and "real" not in arms:
+        arms.append("real")
     # 字符数 → 目标 token 数（中文约 0.76 tok/char，见 README 记录）
     char_for = {"8k": 10500, "32k": 42000, "128k": 168000, "256k": 340000}
 

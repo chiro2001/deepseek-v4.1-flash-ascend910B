@@ -197,9 +197,13 @@ python3 tools/plot_concurrency.py results/bench/*.json -o docs/img --prefix conc
 
 | 项目 | 结果 |
 |---|---|
-| Vision | **23/23** |
-| GSM8K-200 | **198/200、199/200、197/200**（三次） |
-| 静态内核降级 | 0 次 |
+| Vision | **23/23**（BAT=8192 下复测） |
+| GSM8K-200 | **199/200**（BAT=8192 下复测）；历史三次 198 / 199 / 197 |
+| 静态内核降级 | **0 次** |
+| 长上下文检索（8K/32K/128K） | **10/10、10/10、10/10** |
+| 真实 agent 轨迹（27 工具、多轮） | **10/10、10/10** |
+
+完整验收记录（含前后对比与官方 API 对照）：[`reports/longctx-verification.md`](reports/longctx-verification.md)
 
 ## 3.4 起服后必查（4 项）
 
