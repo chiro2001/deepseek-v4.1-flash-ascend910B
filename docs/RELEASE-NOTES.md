@@ -41,7 +41,15 @@
 
 1. Engram-int8 常驻 DRAM（`V41_ENGRAM_HOST_RESIDENT=1`）
 2. DSpark 开（`--speculative-config` method=dspark, 5 tokens）
-3. KV cache 在 HBM 且 **> 3,145,728 tokens**（实测 4.14M）
+3. KV cache 在 HBM。**门槛随默认 `GPU_UTIL` 而定**：
+   * 默认 `GPU_UTIL=0.92`（2026-09-19 起）→ **> 2,800,000 tokens**（实测约 2.82M）
+   * 旧默认 `GPU_UTIL=0.94` → 3,088,412 tokens（>3M），**但长 prompt 的 prefill 慢 6~7×**
+
+   > **2026-09-19 变更**：默认 `GPU_UTIL` 由 0.94 降为 0.92，用 ~8.6% 的 KV 容量
+   > 换 prefill 快 6~7×（8K prompt 首 token 从 8.0 s 降到 1.14 s）。
+   > 机制、原始显存轨迹与单变量对照见
+   > [`prefill-memory-headroom.md`](prefill-memory-headroom.md)。
+   > 需要更大 KV 的场景显式 `GPU_UTIL=0.94`，并接受首 token 延迟。
 4. Vision 23/23、GSM8K ≈198/200
 5. `static_kernel.py:650` 命中数 **必须为 0**（否则静默降级、数字不可信）
 

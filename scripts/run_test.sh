@@ -10,7 +10,7 @@
 #   [2] 等就绪   每 15 s 报进度，35 min 超时
 #   [3] 必查     ✓ static_kernel 未被静默降级（static_kernel.py:650 == 0）
 #                ✓ Engram local-owner validate 自检
-#                ✓ KV 容量 > 3Mi（3,145,728 tokens）
+#                ✓ KV 容量 > $KV_MIN（默认 2,800,000，随默认 GPU_UTIL=0.92 而定）
 #   [4] 性能     quote 口径单流：8K / 32K（MODE=full 再加 128K）
 #               记录 ms/step、接受长度 A、tok/s
 #   [5] 视觉     23 例图文问答（≥19 通过为达标；需要官方图片目录）
@@ -25,7 +25,7 @@
 #               tests/multibatch/run_prod_both.sh（PREFIX=1 与 PREFIX=0 各一个会话）。
 #   PREFIX      0(默认，性能口径) | 1(生产口径：prefix caching ON)
 #   MAX_SEQS    默认 4；MODE=prod 时默认抬到 32（等于生产）
-#   GPU_UTIL    默认 0.94（KV 不够就抬 0.95/0.96）
+#   GPU_UTIL    默认 0.92（留 activation 余量；0.94 会让 prefill 慢 2.1×）
 #   LOAD_FORMAT dummy = 只测时延（**A 恒为 1.0，不能用于精度/容量判据**）
 #   PYTHON_PGO  默认 1（编译好的 libpython，宿主 CPU 弱时更值；自动降级）
 #   MOE_ZERO / DRAFT_GRAPH 默认 0 —— **未验证**，只在实验时打开（见 CHANGELOG）
@@ -44,7 +44,9 @@ IMAGE=${IMAGE:-dsv41-a2:v6}
 PORT=${PORT:-8100}
 MODE=${MODE:-quick}
 TP=${TP:-8}
-GPU_UTIL=${GPU_UTIL:-0.94}
+# 见 serve_a2.sh 的 §[MEM-HEADROOM]：0.94 会让真实 prefill 的 activation
+# 贴住显存上限、forward 慢 2.1×；0.92 是实测的拐点，KV 少 8.6% 但 prefill 快 6~7×。
+GPU_UTIL=${GPU_UTIL:-0.92}
 MAX_LEN=${MAX_LEN:-1048576}
 # 口径：quick/full = **无前缀缓存**的单流性能口径；prod = 生产口径（max-num-seqs 32 + prefix ON）
 # 两者**不可混比**（A/ms 都不是一回事），所以这里按 MODE 给不同默认值，显式传参优先。
@@ -215,10 +217,23 @@ else
 fi
 
 # --- 必查 ③ KV 容量 ---
-say "容量检查（门槛 3,145,728 tokens = 3Mi）"
+# 门槛跟着**默认 GPU_UTIL** 走，否则默认配置会必然判 FAIL：
+#   GPU_UTIL=0.92（现默认）→ 约 2.82M tokens   ← 门槛取 2,800,000
+#   GPU_UTIL=0.94（旧默认）→ 3,088,412 tokens（>3M），但长 prompt 的 prefill 慢 6~7×
+# 若你的场景确实要卡 3Mi 门槛，显式传 KV_MIN=3145728 并同时设 GPU_UTIL=0.94。
+KV_MIN=${KV_MIN:-2800000}
+say "容量检查（门槛 $KV_MIN tokens；GPU_UTIL=$GPU_UTIL）"
 KV=$(grep -oE "GPU KV cache size: [0-9,]+ tokens" "$LOG" | tail -1 | tr -dc '0-9')
 KV=${KV:-0}
-if [ "$KV" -gt 3145728 ]; then ok "KV $KV tokens > 3Mi"; KV_PASS=1; else bad "KV $KV tokens ≤ 3Mi"; KV_PASS=0; fi
+if [ "$KV" -gt "$KV_MIN" ]; then
+  ok "KV $KV tokens > $KV_MIN"
+  KV_PASS=1
+else
+  bad "KV $KV tokens ≤ $KV_MIN"
+  KV_PASS=0
+  echo "     提示：默认 GPU_UTIL=0.92 下 KV 约 2.82M 是**有意取舍**（换 prefill 快 6~7×）。"
+  echo "           要更大 KV 请设 GPU_UTIL=0.94，但长 prompt 首 token 会从 1.1 s 涨到 8 s。"
+fi
 printf 'kv_tokens=%s\nkv_pass=%s\nmax_seqs=%s\nprefix=%s\nmode=%s\n' \
   "$KV" "$KV_PASS" "$MAX_SEQS" "$PREFIX" "$MODE" >> "$OUT/env.txt"
 
