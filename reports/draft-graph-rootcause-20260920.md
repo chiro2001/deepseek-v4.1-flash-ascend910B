@@ -60,6 +60,13 @@ self.use_cuda_graph = False
 它在一次 replay 之后用**同一批 buffer** 再跑一遍 eager draft 前向，并 diff 两边产出的
 draft token ids：
 
+> ⚠️ **2026-09-20 补记（臂 F）**：这一臂还没跑成 —— 影子探针的开关
+> `DSPARK_GRAPH_SHADOW_EAGER` **没有在 `serve_a2.sh` 里透传**，所以容器里是 0，
+> 日志里看不到 `[dspark-graph-probe] shadow eager compare`。**下次必须先把 env 接上**
+> （见 §5 的清单）。同一臂顺带验证了另一件事：把捕获与重放的 `target_positions`
+> 换成**共享常驻缓冲**（[TARGETPOS-FIX-v3]）**没有任何效果**（A=1.070，与未改前逐位相同）
+> ⇒ 该改动已回退，draft 文件保持"上游同形 + v2 的 eager 修正"。
+
 | 影子对比结果 | 结论 | 下一步 |
 |---|---|---|
 | **一致** ⇒ 图算得没错，是**喂给图的输入**在 replay 时没刷新 | 去审"replay 时哪些张量不是常驻 buffer 的切片"（`sin/cos`、`sas_metadata`、`dspark_swa_indices` 已经确认是常驻的，剩下的是 per-group 的 block_table / query_slot_mapping） |
@@ -83,3 +90,34 @@ bash tools/draft_arm_probe.sh http://127.0.0.1:8020 results/<run_id> <标签>
 
 原始产物：`results/a2_20260920_063841/arm_armE8/`（臂 E）、
 `results/a2_20260920_064902/arm_armC8/`（臂 C，guard.log 里有逐档数据）。
+
+## 6. 下一臂的执行清单（照抄即可，别漏 env）
+
+```bash
+# ① 先把影子探针的 env 接进容器（当前 serve_a2.sh 里**没有**，这是上次没跑到的原因）
+grep -n "DSPARK_GRAPH_SHADOW" scripts/serve_a2.sh || \
+  sed -i 's|  -e DSPARK_DRAFT_METADATA_MODE=.*|&\n  -e DSPARK_GRAPH_SHADOW_EAGER="${DSPARK_GRAPH_SHADOW_EAGER:-0}" \\|' scripts/serve_a2.sh
+
+# ② 起服（draft 入图 + 影子探针）
+DEVS="8 9 10 11 12 13 14 15" CPU_BIND=0 \
+  MODEL=/home/user/models/out/v41-w4a8-engram-dr-vision-qrot-mtpq \
+  DRAFT_GRAPH=1 DSPARK_GRAPH_SHADOW_EAGER=1 bash scripts/serve_a3.sh
+
+# ③ 断言探针真的开在容器里
+docker exec dsv41-a3 bash -lc 'echo $DSPARK_GRAPH_SHADOW_EAGER'   # 必须是 1
+
+# ④ 测量 + 读探针对比
+bash tools/draft_arm_probe.sh http://127.0.0.1:8020 results/<run_id> armG
+R=$(ls -td results/a2_20260920_* | head -1)
+grep -oE "\[dspark-graph-probe\] shadow eager compare.*" $R/serve.log | head -3
+```
+
+判读：
+
+| 影子对比 | 含义 | 下一步 |
+|---|---|---|
+| `graph==eager 100%` | 图里算的和 eager **一致** ⇒ 错的是**喂进去的输入**（replay 没刷新某个张量） | 审 per-group 的 `block_table` / `query_slot_mapping` / `dspark_swa_indices` 是否都是常驻 buffer 的切片 |
+| `graph==eager` 很低 | 图**本身**算错 ⇒ 捕获时烘进去的东西与 replay 不符 | 逐算子比 capture vs replay 的输入张量 |
+
+顺带提醒：本臂的 `[bneck] hp` 会显示 ~122 ms/step —— 那是**bucket 对齐后的整档步时**
+（32 个 slot 一起算），不要拿它和 eager 单请求的 29.5 ms 比。

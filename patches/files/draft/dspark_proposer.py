@@ -649,6 +649,9 @@ class AscendDSparkProposer(AscendDflashProposer):
                     num_input_tokens=num_input_tokens,
                     batch_size=num_reqs,
                     token_indices_to_sample=self.token_indices_to_sample[: num_reqs * self.num_speculative_tokens],
+                    # [TARGETPOS-FIX-v3 已撤销] 曾改为共享常驻缓冲
+                    # （`_ensure_draft_target_positions`），2026-09-20 臂 F 实测**无效果**
+                    # （A=1.070，与未改前逐位相同）⇒ 回退，保持与上游同形。
                     target_positions=self._get_positions(num_input_tokens),
                     inputs_embeds=None,
                     multi_steps_attn_metadata=multi_steps_attn_metadata,
