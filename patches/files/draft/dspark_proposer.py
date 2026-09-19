@@ -127,11 +127,18 @@ class AscendDSparkProposer(AscendDflashProposer):
             )
         # [DSV41 patch] 原实现硬编码 eager；这里改为受 spec config 的 enforce_eager 控制，
         # 以便试验把 draft 前向也放进 ACL Graph（默认行为不变：enforce_eager=True → 仍 eager）。
+        #
+        # [DRAFT-DELTA-BISECT] DSPARK_DRAFT_USE_CUDAGRAPH=0 强制 draft 保持 eager，
+        # **但主模型仍然走图** —— 这是把"draft 版文件的非图改动"与"入图"分开的唯一办法：
+        # 走 `enforce_eager=1` 会把主模型也变成 eager，那就不是单变量了。
+        # 三臂：① stock 文件（基线 A≈2.85）② 本文件 + USE_CUDAGRAPH=0 ③ 本文件 + 入图。
+        _draft_use_cudagraph = os.environ.get("DSPARK_DRAFT_USE_CUDAGRAPH", "1") != "0"
         _runner_use_aclgraph = getattr(runner, "_use_aclgraph", None)
         self.use_cuda_graph = bool(
             callable(_runner_use_aclgraph)
             and _runner_use_aclgraph()
             and not vllm_config.speculative_config.enforce_eager
+            and _draft_use_cudagraph
         )
         # Max query tokens depend on whether sampling from anchor or not.
         #

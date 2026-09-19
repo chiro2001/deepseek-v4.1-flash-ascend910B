@@ -151,6 +151,51 @@ AI CPU kernel execution failed ... kernelName=ScatterElements, errorCode=0x91
 实测 `MemFree 528517 MiB → 997802 MiB (+469 GiB)`。**注意它清不了 tmpfs**
 （`/tmp`、`/dev/shm` 里的东西算 Shmem，不可回收）。
 
+### 4.5 mount 模式下 `admission gate` 必须现场打（否则静默失效）
+
+vLLM core 的 `admission_gate` 是**补丁**（不是整文件），Dockerfile 只在
+`build_image.sh` 的烘焙路径里 `git apply`。而 **A3 默认走 `PATCH_MODE=mount`**
+（官方镜像 + 挂补丁）—— 那条路径**不经过 Dockerfile** ⇒ 不补的话
+`VLLM_ADMISSION_GATE=1` 就是一个**没人消费的 env**，prefill 饿死 decode 的保护
+完全不存在，而且**没有任何报错**。
+
+现在 `serve_a2.sh` 在 mount 模式下把 patch 挂进容器、起容器后**现场 apply**，
+并断言 live tree 命中：
+
+```
+[ADMISSION-GATE] mount 模式：在容器内现场应用 admission_gate.patch
+[ADMISSION-GATE] 已应用 ✓
+[ADMISSION-GATE] live tree 命中 15 处 ✓
+[serve_a2] PATCH_MODE=mount ADMISSION_GATE=APPLIED(live_hits=15)
+```
+
+### 4.6 ⚠️ 已知故障：`[migrate]` 会让起服**永久卡住**（A3 实测）
+
+内部绑核（`enable_cpu_binding=true`）的最后一步是
+`migratepages <pid> <all-nodes> <target-node>`：把 worker 的**全部常驻页**
+迁到它那张卡所在的 NUMA 节点。本模型的 worker RSS 极大
+（Engram 表常驻 DRAM，实测单 rank **132 GB**，虚拟地址空间 **9.9 TB**），
+这一步可能从几十秒变成**永不结束**：
+
+```
+$ ps -eo etimes,pcpu,stat,args | grep migratepages
+  1201  97.8 R  migratepages 1402 0,1,2,3,4,5,6,7 6
+$ grep -o 'N6=[0-9]*' /proc/1402/numa_maps | awk -F= '{s+=$2} END {print s}'
+532650        # 90 秒后再测仍是 532650 —— 一个页都没动
+```
+
+伴随现象：`shm_broadcast.py:802 No available shared memory broadcast block found in 60 seconds`
+（那是**引擎在等 worker**，不是共享内存泄漏 —— 别按泄漏去清 `/dev/shm`）。
+引擎不会自己恢复。
+
+**处置**：`CPU_BIND=0` 重启（跳过内部绑核与页面迁移）。实测该臂
+**约 15 分钟**起服成功（同一套默认配置 + `ENGRAM_DEVICE_INDEX=auto`），
+五项自检全过：`static_kernel` 降级 0、device-index 探测通过、
+KV 池 **2,821,337** tokens、`admission gate live_hits=15`、Vision **23/23**。
+
+⇒ A3 上推荐**先 `CPU_BIND=0` 把服务起起来**；要试内部绑核请守着 `ps` 里的
+`migratepages`，确认它在动（判据：`numa_maps` 的目标节点页数在涨）。
+
 ## 5. 精度与正确性
 
 device-index 的价值必须建立在**逐位一致**上。已通过的测试：

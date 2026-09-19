@@ -139,6 +139,34 @@ chunked prefill 把长 prompt 切成 `ceil(prompt / BAT_TOKENS)` 段依次前向
 
 `CPUSET=`/`MEMS=` 保留为逃生口，显式给了才会透传给 docker。
 
+#### ⚠️ 已知故障：`[migrate]` 可能永久卡死起服（2026-09-20 实测，A3）
+
+内部绑核的最后一步是 `migratepages <pid> <all-nodes> <target-node>`，
+把 worker 进程的**全部常驻页**迁到它那张卡所在的 NUMA 节点。在本模型上这个进程的
+RSS 很大（Engram 表常驻 DRAM，实测单 rank **132 GB**、虚拟地址空间 **9.9 TB**），
+于是这步可能从"几十秒"变成**永远不结束**。实测症状：
+
+```
+$ ps -eo etimes,pcpu,stat,args | grep migratepages
+  1201  97.8 R  migratepages 1402 0,1,2,3,4,5,6,7 6      ← 20 分钟、97% CPU、零进展
+$ grep -o 'N6=[0-9]*' /proc/1402/numa_maps | ...
+N6_pages=532650   ← 90 秒后仍是 532650（一个页都没动）
+```
+
+同时 `/dev/shm` 会出现 `No available shared memory broadcast block found in 60 seconds`
+（那是引擎在等 worker，不是共享内存泄漏）。**服务不会自己恢复。**
+
+**处置**：停掉容器，用 `CPU_BIND=0` 重启（跳过内部绑核与页面迁移）：
+
+```bash
+DEVS="8 9 10 11 12 13 14 15" CPU_BIND=0 MODEL=... bash scripts/serve_a3.sh
+```
+
+> 这一步只影响**起服路径**，不影响我们验证过的其它优化；设备侧的 NPU 中断绑定、
+> acl/release 线程绑定都在这步之后或独立进行。绑核带来的性能差异请自己做 A/B。
+> **A3 上我们最终的推荐做法是先用 `CPU_BIND=0` 把服务起起来**；要试内部绑核，
+> 请守着 `migratepages` 的 `ps` 输出，确认它真的在动。
+
 ## 3. 性能数据
 
 ### 3.1 单流延迟（128K 上下文）
@@ -315,6 +343,7 @@ PORT=8020 NAME=<容器名> SLOG=$R/serve.log bash tools/attach_test.sh
 | 优化 | 做法 | 收益 |
 |---|---|---|
 | **INT8 表 host 常驻 + local-owner** | 表放 DRAM，走 local-owner 快路径，省一次 metadata all_gather 与 ids all_to_all | 释放 HBM 给 KV；route 步明显变短 |
+| **★ device-index（v8）** | 表仍常驻 host DRAM，但改由**设备算子直接索引**（`aclrtHostRegister` + `MAPPED`），整条 host 路径（d2h/分片/all_gather/all_to_all/broadcast/h2d）消失，查表进主图 | 每步同步 host 时间 **3.379 → 0.058 ms**；decode 并发 1 **29.5 → 28.4 ms/step**、并发 4 **35.3 → 32.1** |
 | **hash / plan 的 numba JIT** | host 侧两条热路径改 JIT（带磁盘缓存） | hash 0.427→**0.076 ms**、plan 0.261→**0.068 ms** |
 | **gate 分块** | 按 chunk 计算，去掉固定 2048 行 padding | 8K **−1.56 ms**，KV 反而更省 |
 
@@ -341,8 +370,11 @@ msmodelslim 侧的 V4.1 W4A8 支持，含 hiaux 变体配方。
 > | + MoE AllGather | 35.14 | `reports/moe-allgather-breakthrough.md` |
 > | + 其余 7 个补丁 | 32.74 | `reports/consolidated-6patch-result.md` |
 > | **+ Engram JIT 等（全补丁）** | **31.39** | `reports/milestone-ms-target-met.md` |
+> | **+ Engram device-index 入图（v8）** | **28.4**（并发 1，1K prompt 口径见 §3.2） | `CHANGELOG.md` §0 / §9 |
 >
 > 合计 **−7.71 ms/step（−19.7%）**；多轮实测中位区间 **30.2–31.6 ms/step**，最好 26.9。
+> 注：最后一行是**不同口径**（并发 1、1024 token prompt、端到端），不要和上面 128K 单流的行直接相减；
+> 它的同口径 A/B 是 29.5 → 28.4（并发 1）与 35.3 → 32.1（并发 4）。
 
 ### 4.2 补丁明细
 
