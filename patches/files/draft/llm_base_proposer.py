@@ -1283,7 +1283,20 @@ class AscendSpecDecodeBaseProposer(SpecDecodeBaseProposer):
                 # argument (AST-verified by
                 # probe_draftmeta/preflight_targetpos_fix.py), so the values are
                 # inert; the eager consumers above were fed the staged copy.
-                "target_positions": self._get_positions(num_target_positions),
+                #
+                # [TARGETPOS-FIX-v2] ⚠️ 上面那句"captured callable never
+                # dereferences"**只对图成立**。eager 路径下 `run_draft()` 直接调用
+                # `self._runnable`，它会真的把这个张量当 RoPE 位置读；喂
+                # `self._get_positions()`（drafter 自己的缓冲）而不是真实 target
+                # positions ⇒ draft 注意力拿到错位置。2026-09-20 臂 B 实测：
+                # pos0 0.79→0.57、A 2.85→2.04（**关掉 draft 图也照样退化**）。
+                # staged buffer（`_draft_target_positions`）本身也是常驻的，
+                # 步与步之间地址不变 ⇒ eager 用它既不违反地址稳定性、值又是对的。
+                "target_positions": (
+                    self._get_positions(num_target_positions)
+                    if self.use_cuda_graph
+                    else target_positions
+                ),
                 "inputs_embeds": inputs_embeds,
                 "multi_steps_attn_metadata": multi_steps_attn_metadata,
                 "num_tokens": num_tokens,

@@ -39,11 +39,14 @@ code=$(curl -s -o /dev/null -w '%{http_code}' -m 10 "$BASE/health" || echo 000)
 [ "$code" = "200" ] || { echo "[guard] FAIL: health=$code"; exit 2; }
 echo "health=$code"
 
-say "2. 跑一条与发布口径一致的基准（1024 prompt / 256 output）"
+say "2. 跑与发布口径一致的基准（1024 prompt / 256 output；conc=1 档 **8 条**取中位）"
+# ⚠️ 口径陷阱：bench 的 prompt 条数 = `--concurrency` 列表的**最大值**。
+#    传 `--concurrency 1` 只发 1 条 —— 与 64 条中位数不可比（A 的发放级方差很大）。
+#    2026-09-20 我们就因此把"draft 文件退化"误判了一轮。
 cd "$PKG"
 timeout 900 python3 tools/bench_concurrency.py \
   --base-url "$BASE" --model deepseek-v41 \
-  --concurrency 1 --prompt-tokens 1024 --output-tokens 256 --repeats 1 \
+  --concurrency 1,2,4,8 --prompt-tokens 1024 --output-tokens 256 --repeats 1 \
   --corpus-file data/dihuo.txt --suffix-dir data/dihuo_local \
   --json-out "$OUT/guard.json" > "$OUT/guard.log" 2>&1
 grep -E "^  [0-9]" "$OUT/guard.log" | tail -1
@@ -52,7 +55,7 @@ python3 - "$OUT/guard.json" <<'PY'
 import json, sys
 try:
     d = json.load(open(sys.argv[1]))
-    r = d["rows"][0]
+    r = next(x for x in d["rows"] if x["conc"] == 1.0)   # conc=1 档（8 条串行）
 except Exception as e:
     print(f"[guard] FAIL: \u62ff\u4e0d\u5230\u57fa\u51c6\u7ed3\u679c ({e})"); raise SystemExit(2)
 A = r["accept_len"]; tok = r["per_stream_med"]

@@ -244,6 +244,17 @@ bash tools/draft_graph_guard.sh     # 退出码 0=有效 / 1=静默失效 / 2=�
 
 ### 6.1 补充：这是一个**未完成的重构**，不是一个可以修的 bug
 
+> **⚠️ 2026-09-20 更正（重要）**：下面表格里"draft 版 + 图关掉 = A 1.84"这一行
+> **是单条请求的口径**，与"64 条中位"的基线不可比。用**同一口径**（conc=1 跑 8 条请求取中位）
+> 重测后，draft 文件在 **draft eager** 下是 **A=2.648 / 92.0 tok/s**，与 stock 基线同量级
+> ⇒ **draft 那三个文件是好的**；坏掉的只有"把 draft 前向放进 ACLGraph"这一件事
+> （同口径下 draft 入图 = **A=1.07 / 42.7 tok/s**）。完整记录见
+> [`reports/draft-graph-rootcause-20260920.md`](reports/draft-graph-rootcause-20260920.md)。
+>
+> 口径坑的来源：`tools/bench_concurrency.py` 的 **prompt 条数 = `--concurrency` 列表的最大值**，
+> `--concurrency 1` 只发 **1 条**。`tools/draft_graph_guard.sh` 与 `tools/draft_arm_probe.sh`
+> 已改为 `1,2,4,8`（8 条中位），脚本里写明了这条坑。
+
 按要求把 draft 入图设为默认后，实测发现它**两层都坏**：
 
 | 配置 | 用哪个 `dspark_proposer.py` | 是否入图 | A（接受长度） | 单流 tok/s |
