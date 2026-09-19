@@ -1,5 +1,10 @@
 # ---- 运行期产出（不入库）----
-results/
+# 例外：性能基准的**原始 JSON** 只有几 KB，且 README / EXPECTED_PERF 直接引用它，
+# 所以单独放行 results/bench/*.json（其余 results/ 仍然不入库）。
+results/*
+!results/bench/
+results/bench/*
+!results/bench/*.json
 cache/
 *.tar.gz
 *.tar.gz.sha256

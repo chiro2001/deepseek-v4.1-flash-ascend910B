@@ -1,0 +1,1768 @@
+From 4f421444ceacda24c2e8bd98bb3da8053e32f4c9 Mon Sep 17 00:00:00 2001
+From: chiro2001 <chiro2001@163.com>
+Date: Sat, 19 Sep 2026 21:03:30 +0000
+Subject: [PATCH 9/9] feat(engram): device-side table lookup over host-mapped
+ DRAM, captured in ACLGraph
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+Engram 的 INT8 表仍然常驻 host DRAM（206 GiB，进不了 HBM），但改由**设备算子直接索引**：
+用 `aclrtHostRegister(..., MAPPED)` 把表所在的 mmap 注册成设备可寻址，
+`torch.index_select` 即可直接读 host DRAM。于是 `d2h` 同步 / 分片 / all_gather /
+all_to_all / broadcast / h2d 六条 host 路径整体消失，查表变成主图里的一张 ACLGraph。
+
+新增文件：
+  * engram_device_index.py —— HostMappedSafetensors / HostMappedEngramTable /
+    DeviceNgramHash（向量化历史）/ 能力探测（**只做 host_register**，见下）
+  * engram_graph.py —— 每个 batch shape 一张 ACLGraph，零拷贝 + 指针校验
+
+三个关键设计点（都有实测支撑）：
+  1. decode 与 prefill 分流：整表 gather 在 n=6/288 时都是 0.083 ms、**与表大小无关**，
+     而 n=393216 时是 16.75 ms —— 代价按行发生。所以 decode 走整表直索（天然可捕获），
+     prefill 仍走分段。
+  2. 零拷贝捕获：图直接捕获在模型自己的常驻 buffer 上；曾试过"拷进私有 buffer"，
+     **实测更差**（H2D 会阻塞等设备队列排空，route 0.35 -> 2.0 ms）。
+  3. 每 batch shape 一张图 + 指针校验：bucket key 必须含 (n, n_reqs, block_width)；
+     每次重放前比对四个输入的 data_ptr + shape，不一致就退回 eager。
+
+门控：V41_ENGRAM_DEVICE_INDEX=auto（默认，探测通过才启用，否则静默回退 host 路径）
+      / 1（强制，探测失败即抛错，A3 验收用这个）/ 0（强制关闭）
+
+实测（A3-node1，同会话 A/B）：
+  每步同步 host 时间 3.379 ms -> 0.058 ms（d2h 1.667 + hash 0.074 + route 1.638）
+  decode 并发 1：29.5 -> 28.4 ms/step；并发 4：35.3 -> 32.1 ms/step
+  单卡：n=12 时 2.024 -> 0.695 ms（含 0.285 ms ACLGraph 固定底噪）
+  逐位一致：CPU/NPU/图三阶段 + 多设备回归 + 真实 layout 哈希，全部逐位相同
+
+注意（两个掉过的坑，已写进注释，勿重复）：
+  * 能力探测**只做 host_register**；在 worker 初始化期做 `int(t[0])` 会 segfault，
+    端到端可读性交给独立进程工具 tools/probe_a2_hostmap.py。
+  * 曾配套加过 model_runner_v1.py 的 device_metadata「自愈护栏」，**已撤销**：
+    它的判据在正常运行中也会命中，提前释放 device metadata，
+    64 并发实测 57/64 + 服务挂（ScatterElements 0x91 -> ERR00100 -> HCCL watchdog）。
+---
+ .../deepseek_v41/engram_device_index.py       | 1062 +++++++++++++++++
+ .../models/deepseek_v41/engram_graph.py       |  219 ++++
+ vllm_ascend/models/deepseek_v41/engram_hbm.py |   31 +-
+ vllm_ascend/models/deepseek_v41/model.py      |  316 +++++
+ 4 files changed, 1626 insertions(+), 2 deletions(-)
+ create mode 100644 vllm_ascend/models/deepseek_v41/engram_device_index.py
+ create mode 100644 vllm_ascend/models/deepseek_v41/engram_graph.py
+
+diff --git a/vllm_ascend/models/deepseek_v41/engram_device_index.py b/vllm_ascend/models/deepseek_v41/engram_device_index.py
+new file mode 100644
+index 000000000..3db272591
+--- /dev/null
++++ b/vllm_ascend/models/deepseek_v41/engram_device_index.py
+@@ -0,0 +1,1062 @@
++# SPDX-License-Identifier: Apache-2.0
++# SPDX-FileCopyrightText: Copyright contributors to the vLLM project
++"""Engram lookup that runs entirely on the device.
++
++The V4.1 Engram tables (2 layers x ~3.84e8 rows, INT8 codes + FP32 group
++scales, 221 GB) cannot live in HBM, so they stay in host DRAM.  The legacy
++path then performs the whole lookup on the host CPU:
++
++* it needs ``input_ids`` on the CPU, i.e. a blocking ``.cpu()`` sync;
++* it needs the table split into 1/8 row shards, because a rank can only read
++  its own process memory -- hence a metadata ``all_gather``, an ``all_to_all``
++  and a ``broadcast``;
++* being out of graph, it forces an extra host round trip per step.
++
++A3's compute cores can address host-mapped memory directly
++(``aclrtHostMemMapCapabilities`` reports AIC/AIV supported), so the table can
++be mapped into the device address space and indexed by ordinary device
++operators.  Every rank then sees the *whole* table (``MAP_SHARED`` keeps the
++physical pages single-copy, so the node still stores 221 GB once), which
++removes the sharding, the owner routing and the collectives.  The lookup
++becomes a plain device node that ACLGraph can capture.
++
++``HostMappedSafetensors`` maps one ``.safetensors`` payload out of host DRAM
++and registers it so device operators can index it.  ``DeviceNgramHash`` is the
++device port of ``PagedNgramHistory.update`` (page table write, 4-gram history
++read, polynomial hash); ``engram_device_test.py`` sweeps the corner cases.
++"""
++
++from __future__ import annotations
++
++import ctypes
++import json
++import os
++import struct
++
++import torch
++
++__all__ = [
++    "HostMappedSafetensors",
++    "wrap_device_ptr",
++    "npu_dlpack_device_type",
++    "EngramDeviceTables",
++    "HostMappedEngramTable",
++    "DeviceNgramHash",
++    "gather_dequantize_device",
++    "real_prime_layout",
++    "device_engram_lookup",
++    "build_request_ids",
++]
++
++
++def real_prime_layout(layer_ids, lookback: int, n_heads: int, vocab: int):
++    """The production bucket layout's primes and offsets.
++
++    ``vocab`` is the **raw** ``engram_vocab_size`` (16,000,000 in V4.1-Flash),
++    *not* the compressed vocabulary (99,092).  Primes are drawn as consecutive
++    primes above ``vocab - 1`` and never reused, so the bucket ranges are
++    disjoint; ``offsets`` is their running sum.  Both matter:
++
++    * the raw vocab is what makes the 24 primes ~16M each, so the running sum
++      tiles the table (~384M rows).  Using the compressed vocab instead gives
++      primes just above 99k and a layout that only fills 0.6% of the table --
++      still self-consistent, but not the shape anything real has to hold.
++    * the sum must not exceed the table's row count.  Random primes from a wide
++      window overflow it, and the CANN gather then aborts with
++      ``Index ... out of range`` (measured: an index of 394233561 against a
++      384006168-row table crashed the AIV with a vector-core exception).  A
++      fixture that ignores this does not exercise the implementation, it just
++      takes the device down.
++    """
++    import sympy
++
++    primes, seen = [], set()
++    for _ in layer_ids:
++        per_ngram = []
++        for _ in range(lookback - 1):
++            sizes, current = [], vocab - 1
++            for _ in range(n_heads):
++                candidate = current + 1
++                while not sympy.isprime(candidate) or candidate in seen:
++                    candidate += 1
++                seen.add(candidate)
++                current = candidate
++                sizes.append(candidate)
++            per_ngram.append(tuple(sizes))
++        primes.append(tuple(per_ngram))
++    primes_t = torch.tensor(primes, dtype=torch.int64)
++    flat = primes_t.flatten(1)
++    return primes_t, flat.cumsum(-1) - flat
++
++# ---------------------------------------------------------------------------
++# constants
++# ---------------------------------------------------------------------------
++ACL_HOST_REGISTER_MAPPED = 0
++PAGE = 4096
++
++_libc = ctypes.CDLL("libc.so.6", use_errno=True)
++_libc.mmap.restype = ctypes.c_void_p
++_libc.mmap.argtypes = [
++    ctypes.c_void_p,
++    ctypes.c_size_t,
++    ctypes.c_int,
++    ctypes.c_int,
++    ctypes.c_int,
++    ctypes.c_long,
++]
++_libc.munmap.argtypes = [ctypes.c_void_p, ctypes.c_size_t]
++_libc.mincore.argtypes = [ctypes.c_void_p, ctypes.c_size_t, ctypes.c_char_p]
++_libc.mincore.restype = ctypes.c_int
++
++PROT_READ, PROT_WRITE = 1, 2
++MAP_SHARED = 1
++MAP_PRIVATE = 0x02
++MAP_ANONYMOUS = 0x20
++
++_DTYPE_MAP = {
++    "I8": torch.int8,
++    "U8": torch.uint8,
++    "F32": torch.float32,
++    "F16": torch.float16,
++    "BF16": torch.bfloat16,
++}
++_NUMPY_DTYPE = {
++    torch.int8: "int8",
++    torch.uint8: "uint8",
++    torch.float32: "float32",
++    torch.float16: "float16",
++    torch.bfloat16: "bfloat16",
++}
++# DLDataType code: 0 = signed int, 1 = unsigned int, 2 = float
++_DL_CODE = {
++    torch.int8: 0,
++    torch.uint8: 0,
++    torch.float16: 2,
++    torch.bfloat16: 2,
++    torch.float32: 2,
++}
++
++
++class _DLDevice(ctypes.Structure):
++    _fields_ = [("device_type", ctypes.c_int), ("device_id", ctypes.c_int)]
++
++
++class _DLDataType(ctypes.Structure):
++    _fields_ = [("code", ctypes.c_uint8), ("bits", ctypes.c_uint8), ("lanes", ctypes.c_uint16)]
++
++
++class _DLTensor(ctypes.Structure):
++    _fields_ = [
++        ("data", ctypes.c_void_p),
++        ("device", _DLDevice),
++        ("ndim", ctypes.c_int),
++        ("dtype", _DLDataType),
++        ("shape", ctypes.POINTER(ctypes.c_int64)),
++        ("strides", ctypes.POINTER(ctypes.c_int64)),
++        ("byte_offset", ctypes.c_uint64),
++    ]
++
++
++class _DLManagedTensor(ctypes.Structure):
++    # `dl_tensor` must come first: the capsule handed to `from_dlpack` holds a
++    # `DLManagedTensor*`, so the device type can be read without torch's own
++    # `Tensor.__dlpack_device__()`, which raises "Unknown device type npu".
++    _fields_ = [
++        ("dl_tensor", _DLTensor),
++        ("manager_ctx", ctypes.c_void_p),
++        ("deleter", ctypes.c_void_p),
++    ]
++
++
++_PyCapsule_GetPointer = ctypes.pythonapi.PyCapsule_GetPointer
++_PyCapsule_GetPointer.restype = ctypes.c_void_p
++_PyCapsule_GetPointer.argtypes = [ctypes.py_object, ctypes.c_char_p]
++
++_KEEPALIVE: list = []
++_ACL_READY = False
++
++
++def npu_dlpack_device_type() -> int:
++    """DLDeviceType for NPU, probed at runtime rather than hard-coded."""
++    t = torch.zeros(2, device="npu")
++    cap = torch.utils.dlpack.to_dlpack(t)
++    ptr = _PyCapsule_GetPointer(cap, b"dltensor")
++    mt = ctypes.cast(ptr, ctypes.POINTER(_DLManagedTensor)).contents
++    return int(mt.dl_tensor.device.device_type)
++
++
++def _ensure_acl() -> None:
++    """Initialise ACL and make a device current.
++
++    Inside a vLLM worker torch_npu has already done both; in a standalone
++    script it has not, and ``aclrtHostRegister`` then fails with ret=107002
++    ("no context"), which reads like a permission problem.
++    """
++    global _ACL_READY
++    if _ACL_READY:
++        return
++    import acl
++
++    acl.init()
++    try:
++        dev = int(torch.npu.current_device())
++    except Exception:  # noqa: BLE001 - torch_npu may not be importable yet
++        dev = 0
++    acl.rt.set_device(dev)
++    _ACL_READY = True
++
++
++def probe_host_mapping_capability() -> tuple[bool, str]:
++    """Can this machine register host memory so device operators can read it?
++
++    The whole device-index design rests on one hardware/driver property:
++    ``aclrtHostRegister(..., MAPPED)`` on an ordinary writable host mapping,
++    after which a device operator (``index_select``) reads it directly.  That was
++    verified on **A3 (910C)**; it has **never** been verified on **A2 (910B3)**,
++    and there is a documented counter-example on this very project: on A3,
++    ``offload.get_dva(pinned_ptr)`` returns 0 and an AIV de-referencing a
++    registered *pinned* address dies with ``507035 MTE invalid GM address``
++    (``docs/A2_VS_A3_DIFF.md`` §5: "任何『host 地址可以被 device kernel 直接读』
++    的假设在 A2 上都是未验证").
++
++    So the release must not assume the property: it probes at start-up and only
++    turns the device-index path on when the probe passes.  4 KiB is enough -- the
++    question is whether registration is *accepted*, not how fast it is.
++
++    Returns ``(ok, detail)``; never raises, so callers can log and fall back.
++    """
++    size = PAGE
++    addr = 0
++    registered = False
++    try:
++        import acl
++
++        _ensure_acl()
++        addr = _libc.mmap(None, size, PROT_READ | PROT_WRITE,
++                          MAP_PRIVATE | MAP_ANONYMOUS, -1, 0)
++        if addr in (None, ctypes.c_void_p(-1).value, 2**64 - 1):
++            return False, f"mmap failed: {os.strerror(ctypes.get_errno())}"
++        dev, ret = acl.rt.host_register(addr, size, ACL_HOST_REGISTER_MAPPED)
++        if ret != 0 or not dev:
++            return False, f"aclrtHostRegister returned ret={ret} (dev={dev})"
++        registered = True
++        # ★ 这里**故意不做**"设备读一次验证"。早先版本用
++        #     t = wrap_device_ptr(dev, (size,), torch.uint8); int(t[0])
++        # 想证明显存可读，结果在 **worker 初始化期间 segfault**：
++        #     Segfault encountered
++        #       aclrtMemcpyImpl -> at::_ops::_local_scalar_dense -> at::native::item
++        # 即对 wrap_device_ptr 造出来的"指向 host 映射的 device 指针张量"做 D2H 会崩，
++        # 而 worker init 恰好是不该做设备同步的时机（实测整台机器起不来）。
++        # 所以本探测只回答"注册被不被接受" —— 那是它在 auto 模式下的职责；
++        # **端到端可读性**（真正的判据）交给独立进程的 tools/probe_a2_hostmap.py，
++        # 它在干净的进程里做 index_select + 逐字节对账，实测在 A3 上通过。
++        return True, ("host mapping registered (仅证明注册被接受；端到端可读性"
++                      "请用 tools/probe_a2_hostmap.py 在独立进程里验证)")
++    except Exception as exc:  # noqa: BLE001 - probe must never break start-up
++        return False, f"{type(exc).__name__}: {exc}"
++    finally:
++        try:
++            if registered:
++                import acl
++
++                acl.rt.host_unregister(addr)
++        except Exception:  # noqa: BLE001
++            pass
++        if addr:
++            try:
++                _libc.munmap(ctypes.c_void_p(addr), ctypes.c_size_t(size))
++            except Exception:  # noqa: BLE001
++                pass
++
++
++def wrap_device_ptr(
++    dev_ptr: int, shape: tuple[int, ...], dtype: torch.dtype, device_id: int | None = None
++) -> torch.Tensor:
++    """Expose a device address as a torch tensor without copying.
++
++    The capsule and its shape array must outlive the tensor, so they are parked
++    on the tensor itself (and in a module-level list).  The capsule must point
++    at a **DLManagedTensor**: torch reads ``manager_ctx``/``deleter`` past the
++    tensor fields, so a bare ``DLTensor`` segfaults.  The deleter is a no-op
++    because the mapping's lifetime belongs to ``HostMappedSafetensors``.
++
++    ``device_id`` must be **this process's logical device**, not 0.  In a
++    single-device test process the two coincide, which hides the bug; under TP8
++    each worker is on its own device, and a tensor labelled ``npu:0`` while the
++    index tensor lives on ``npu:3`` fails with
++    "Expected all tensors to be on the same device, but got index is on npu:3,
++    different from other tensors on npu:0".  Measured on A3-node1 TP8.
++    """
++    if device_id is None:
++        device_id = int(torch.npu.current_device())
++    ndim = len(shape)
++    shape_arr = (ctypes.c_int64 * ndim)(*shape)
++    mt = _DLManagedTensor()
++    mt.dl_tensor.data = ctypes.c_void_p(dev_ptr)
++    mt.dl_tensor.device = _DLDevice(npu_dlpack_device_type(), int(device_id))
++    mt.dl_tensor.ndim = ndim
++    mt.dl_tensor.dtype = _DLDataType(_DL_CODE[dtype], dtype.itemsize * 8, 1)
++    mt.dl_tensor.shape = ctypes.cast(shape_arr, ctypes.POINTER(ctypes.c_int64))
++    mt.dl_tensor.strides = None
++    mt.dl_tensor.byte_offset = 0
++    mt.manager_ctx = None
++    noop = ctypes.CFUNCTYPE(None, ctypes.c_void_p)(lambda _p: None)
++    mt.deleter = ctypes.cast(noop, ctypes.c_void_p)
++    _KEEPALIVE.extend([mt, shape_arr, noop])
++
++    pycapsule_new = ctypes.pythonapi.PyCapsule_New
++    pycapsule_new.restype = ctypes.py_object
++    pycapsule_new.argtypes = [ctypes.c_void_p, ctypes.c_char_p, ctypes.c_void_p]
++    cap = pycapsule_new(ctypes.cast(ctypes.pointer(mt), ctypes.c_void_p), b"dltensor", None)
++    _KEEPALIVE.append(cap)
++    t = torch.utils.dlpack.from_dlpack(cap)
++    t._hostmap_keepalive = _KEEPALIVE[-3:]  # keep alive together with the tensor
++    return t
++
++
++class HostMappedSafetensors:
++    """One tensor out of a ``.safetensors`` file, mapped from host DRAM and
++    registered so device operators can index it directly.
++
++    Usage::
++
++        with HostMappedSafetensors("/path/layers_1_engram_embed.weight.safetensors") as t:
++            rows = torch.index_select(t.tensor, 0, ids_on_device)
++
++    Constraints established on A3 (see ``probe_register_matrix.py``):
++
++    * the mapping must be **writable** -- a read-only VMA is rejected with
++      ret=507899, so the table directory must be mounted read-write even though
++      nothing ever writes to it;
++    * the address must be **page-aligned** (mmap guarantees that) and the
++      registered range must not extend past EOF (ret=107017 otherwise).  A
++      safetensors payload starts at ``8 + header_len``, so the mapping starts
++      one page early and the device pointer is offset by the same delta.
++    """
++
++    def __init__(self, path: str, device_id: int | None = None, row_start: int = 0,
++                 row_count: int | None = None) -> None:
++        self.path = path
++        self.device_id = device_id
++        self._addr = 0
++        self._maplen = 0
++        self._registered = False
++        self.tensor: torch.Tensor | None = None
++
++        self.offset, self.name, meta = self._parse_header()
++        self.dtype = _DTYPE_MAP[meta["dtype"]]
++        self.total_shape = tuple(int(x) for x in meta["shape"])
++        self.shape = self.total_shape
++        # `data_offsets` is already a byte range -- do not also multiply by the
++        # shape, that overflows into a nonsense size.
++        self.nbytes = int(meta["data_offsets"][1]) - int(meta["data_offsets"][0])
++        expect = self.dtype.itemsize
++        for d in self.shape:
++            expect *= d
++        if expect != self.nbytes:
++            raise ValueError(
++                f"{self.path}: header says {self.nbytes} bytes but shape "
++                f"{self.shape} of {self.dtype} needs {expect}"
++            )
++        # Optionally map only a row range.  This is what makes a *segmented*
++        # mapping useful: several small registrations keep every device access
++        # inside one segment's address span, whereas one registration over the
++        # whole file exposes the full span no matter how the tensor is sliced.
++        if row_start or row_count is not None:
++            row_bytes = self.dtype.itemsize
++            for d in self.total_shape[1:]:
++                row_bytes *= d
++            total_rows = self.total_shape[0]
++            count = total_rows - row_start if row_count is None else int(row_count)
++            if row_start < 0 or count <= 0 or row_start + count > total_rows:
++                raise ValueError(
++                    f"{self.path}: row range [{row_start}, {row_start + count}) "
++                    f"does not fit in {total_rows} rows"
++                )
++            self.offset += row_start * row_bytes
++            self.shape = (count, *self.total_shape[1:])
++            self.nbytes = count * row_bytes
++        self._map_and_register()
++
++    # ------------------------------------------------------------------ setup
++    def _parse_header(self):
++        with open(self.path, "rb") as fh:
++            hlen = struct.unpack("<Q", fh.read(8))[0]
++            hdr = json.loads(fh.read(hlen))
++        for name, meta in hdr.items():
++            if name == "__metadata__":
++                continue
++            return 8 + hlen + int(meta["data_offsets"][0]), name, meta
++        raise RuntimeError(f"{self.path}: empty safetensors header")
++
++    def _map_and_register(self) -> None:
++        import acl
++
++        _ensure_acl()
++
++        fd = os.open(self.path, os.O_RDWR)
++        try:
++            aligned = self.offset & ~(PAGE - 1)
++            delta = self.offset - aligned
++            filesize = os.path.getsize(self.path)
++            maplen = min(self.nbytes + delta, filesize - aligned)
++            addr = _libc.mmap(None, maplen, PROT_READ | PROT_WRITE, MAP_SHARED, fd, aligned)
++            if addr in (None, ctypes.c_void_p(-1).value, 2**64 - 1):
++                err = ctypes.get_errno()
++                raise OSError(
++                    f"mmap({self.path}) failed: {os.strerror(err)}. If this is "
++                    "EACCES/EROFS the table directory is mounted read-only and "
++                    "aclrtHostRegister cannot take a reference on it."
++                )
++            self._addr = addr
++            self._maplen = maplen
++            dev, ret = acl.rt.host_register(addr, maplen, ACL_HOST_REGISTER_MAPPED)
++            if ret != 0 or not dev:
++                _libc.munmap(ctypes.c_void_p(addr), ctypes.c_size_t(maplen))
++                self._addr = 0
++                raise RuntimeError(
++                    f"aclrtHostRegister({self.path}) failed: ret={ret}. Known causes: "
++                    "(a) the mapping is read-only (ret=507899); (b) no device context "
++                    "(ret=107002). The file must be opened O_RDWR."
++                )
++            self._dev_ptr = dev + delta
++            self._registered = True
++        finally:
++            os.close(fd)  # the mapping holds its own reference
++
++        self.tensor = wrap_device_ptr(
++            self._dev_ptr, self.shape, self.dtype, device_id=self.device_id
++        )
++
++    # ------------------------------------------------------------------ teardown
++    def close(self) -> None:
++        """Release in the order CANN requires: tensor, unregister, unmap."""
++        self.tensor = None
++        if self._registered:
++            try:
++                import acl
++
++                acl.rt.host_unregister(self._addr)
++            except Exception:  # noqa: BLE001
++                pass
++            self._registered = False
++        if self._addr:
++            _libc.munmap(ctypes.c_void_p(self._addr), ctypes.c_size_t(self._maplen))
++            self._addr = 0
++
++    def host_array(self):
++        """numpy view of the host mapping -- ground truth for correctness
++        checks against a device gather (no copy, same physical pages)."""
++        import numpy as np
++
++        if not self._addr:
++            raise RuntimeError("mapping is closed")
++        delta = self.offset - (self.offset & ~(PAGE - 1))
++        buf = (ctypes.c_char * self.nbytes).from_address(self._addr + delta)
++        return np.frombuffer(buf, dtype=np.uint8).view(_NUMPY_DTYPE[self.dtype]).reshape(self.shape)
++
++    def resident_bytes(self) -> int:
++        """How much of the mapping is backed by resident physical pages.
++
++        Worth checking before believing any bandwidth number: a random gather
++        over a file that is *not* in page cache measures the disk, not the
++        interconnect.
++        """
++        if not self._addr:
++            raise RuntimeError("mapping is closed")
++        pages = (self._maplen + PAGE - 1) // PAGE
++        vec = ctypes.create_string_buffer(pages)
++        ret = _libc.mincore(
++            ctypes.c_void_p(self._addr), ctypes.c_size_t(self._maplen), vec
++        )
++        if ret != 0:
++            err = ctypes.get_errno()
++            raise OSError(f"mincore failed: {os.strerror(err)}")
++        raw = vec.raw[:pages]
++        return sum(1 for b in raw if b & 1) * PAGE
++
++    def __enter__(self) -> "HostMappedSafetensors":
++        return self
++
++    def __exit__(self, *exc) -> None:
++        self.close()
++
++    def __del__(self):
++        try:
++            self.close()
++        except Exception:  # noqa: BLE001
++            pass
++
++
++class EngramDeviceTables:
++    """Both Engram layers, host-mapped and device-addressable.
++
++    The files are produced offline by the INT8 quantiser and are shared by all
++    ranks of the node: ``MAP_SHARED`` means the pages are stored once, so eight
++    ranks still cost 221 GB of DRAM rather than 8 x 221 GB.
++    """
++
++    WEIGHT = "layers_{layer}_engram_embed.weight.safetensors"
++    SCALE = "layers_{layer}_engram_embed.scale.safetensors"
++
++    def __init__(self, root: str, layer_ids, device_id: int | None = None) -> None:
++        self.root = root
++        self.layer_ids = tuple(layer_ids)
++        self._weights: dict[int, HostMappedSafetensors] = {}
++        self._scales: dict[int, HostMappedSafetensors] = {}
++        for layer in self.layer_ids:
++            self._weights[layer] = HostMappedSafetensors(
++                os.path.join(root, self.WEIGHT.format(layer=layer)), device_id=device_id
++            )
++            self._scales[layer] = HostMappedSafetensors(
++                os.path.join(root, self.SCALE.format(layer=layer)), device_id=device_id
++            )
++
++    def weight(self, layer: int) -> torch.Tensor:
++        return self._weights[layer].tensor
++
++    def scale(self, layer: int) -> torch.Tensor:
++        return self._scales[layer].tensor
++
++    def rows(self, layer: int) -> int:
++        return int(self._weights[layer].shape[0])
++
++    def close(self) -> None:
++        for t in list(self._weights.values()) + list(self._scales.values()):
++            t.close()
++        self._weights.clear()
++        self._scales.clear()
++
++    def __enter__(self) -> "EngramDeviceTables":
++        return self
++
++    def __exit__(self, *exc) -> None:
++        self.close()
++
++
++class SegmentedHostTable:
++    """The whole table, mapped and registered as N independent segments.
++
++    A device gather over a 92 GiB host mapping costs 9.4x more than the same
++    gather over an 11.5 GiB one -- same rows, same bytes read, same file:
++
++        393216 rows, whole 92 GiB table      16.8 ms    6.0 GB/s
++        393216 rows, first 11.5 GiB eighth    1.8 ms   56.6 GB/s
++
++    Host huge pages do not explain it (a 2 MiB-backed anonymous mapping of the
++    same size behaves identically), so the cost is in the device-side address
++    translation for a large span.  Registering each eighth separately keeps
++    every gather inside one segment's span and recovers the difference; the
++    rows then have to be put back in their original order, which is why the
++    restore path matters as much as the gather.
++
++    Measured end to end for 393216 rows on A3 (see ``engram_segment_probe.py``
++    and ``engram_restore_probe.py``):
++
++        whole-table gather                    16.75 ms
++        segmented gather                       2.06 ms
++        segmented + restore                   5.36 ms
++        full call incl. regrouping             6.87 ms   (2.44x)
++
++    and the result is bit-identical to the whole-table gather.
++    """
++
++    def __init__(self, path: str, rows: int, width: int, segments: int = 8,
++                 device_id: int | None = None) -> None:
++        self.path = path
++        self.rows = int(rows)
++        self.width = int(width)
++        self.n_segments = int(segments)
++        self._maps: list[tuple[int, int, HostMappedSafetensors]] = []
++
++        # One mapping per segment.  They are separate `mmap` calls on the same
++        # file, so the page cache still stores the bytes once.
++        seg_rows = (self.rows + self.n_segments - 1) // self.n_segments
++        self.seg_rows = seg_rows
++        for s in range(self.n_segments):
++            start = s * seg_rows
++            if start >= self.rows:
++                break
++            rows_here = min(seg_rows, self.rows - start)
++            self._maps.append(
++                (
++                    start,
++                    rows_here,
++                    HostMappedSafetensors(
++                        path, device_id=device_id, row_start=start, row_count=rows_here
++                    ),
++                )
++            )
++
++    def _segment_tensor(self, entry):
++        """The segment's device tensor (its mapping covers only this range)."""
++        return entry[2].tensor
++
++    @torch.no_grad()
++    def gather(self, ids: torch.Tensor) -> torch.Tensor:
++        """``weight[ids]`` for the whole table, in one flat device tensor."""
++        n = int(ids.shape[0])
++        out = torch.empty((n, self.width), dtype=self._maps[0][2].dtype,
++                          device=ids.device)
++        if ids.device.type != "npu" or self.n_segments == 1:
++            return torch.index_select(self._maps[0][2].tensor, 0, ids)
++        seg_of = ids // self.seg_rows
++        parts, orders = [], []
++        for s, (start, rows, _mapped) in enumerate(self._maps):
++            idx = torch.nonzero(seg_of == s, as_tuple=False).flatten()
++            if idx.numel() == 0:
++                continue
++            parts.append(torch.index_select(self._segment_tensor(self._maps[s]),
++                                            0, ids[idx] - start))
++            orders.append(idx)
++        gathered = torch.cat(parts, 0)
++        order = torch.cat(orders, 0)
++        _scatter_rows(out, order, gathered)
++        return out
++
++    def close(self) -> None:
++        for _start, _rows, mapped in self._maps:
++            mapped.close()
++        self._maps.clear()
++
++    def __enter__(self) -> "SegmentedHostTable":
++        return self
++
++    def __exit__(self, *exc) -> None:
++        self.close()
++
++
++def _scatter_rows(out: torch.Tensor, order: torch.Tensor, values: torch.Tensor) -> None:
++    """Write ``values`` back into ``out`` at ``order``, on device.
++
++    ``Tensor.index_copy_`` costs 43 ms for 393216 x 256 int8 -- 29x more than
++    ``npu_scatter_nd_update_`` (1.49 ms) and far more than a plain 100 MB copy
++    (0.07 ms), so the CANN-native op is the only usable option here.  It is
++    documented for Atlas A3 and supports graph mode, which is what lets the
++    whole segmented lookup stay capturable.
++    """
++    try:
++        import torch_npu
++
++        torch_npu.npu_scatter_nd_update_(out, order.unsqueeze(-1).to(torch.int64), values)
++        return
++    except Exception:  # noqa: BLE001 - fall back to the portable form
++        pass
++    out.index_put_((order,), values)
++
++
++def build_request_ids(boundaries: torch.Tensor, device) -> torch.Tensor:
++    """Which request each row of the batch belongs to.
++
++    ``boundaries`` is the scheduler's ``query_start_loc`` (``num_reqs + 1``
++    entries) and may live on **either** CPU or device.  The device path passes
++    ``meta.query_start_loc`` as-is to avoid a per-step H2D, and an earlier
++    version built the index on the CPU:
++
++        torch.repeat_interleave(torch.arange(n), boundaries.diff())
++
++    which raises ``Expected all tensors to be on the same device, but got
++    repeats is on npu:N, different from other tensors on cpu``.  That mattered
++    far more than a one-line bug should: the exception escaped *after* the
++    engine had submitted its device-metadata task and before it released it,
++    permanently latching that flag, so this surfaced as
++    "The previous device metadata submission has not been released" on every
++    later request.  Build both operands on the same device.
++    """
++    dev = torch.device(device)
++    counts = boundaries.diff().to(dev)
++    index = torch.arange(len(boundaries) - 1, dtype=torch.int64, device=dev)
++    return torch.repeat_interleave(index, counts)
++
++
++@torch.no_grad()
++def device_engram_lookup(
++    hash_impl: "DeviceNgramHash",
++    tables: dict,
++    layer_ids,
++    input_ids: torch.Tensor,
++    positions: torch.Tensor,
++    boundaries: torch.Tensor,
++    block_table: torch.Tensor,
++) -> tuple[dict, torch.Tensor]:
++    """The whole device-side Engram step: n-gram hash, then one lookup per layer.
++
++    Kept as a free function (rather than inlined in the model) so the tensor
++    plumbing -- request mapping, block-table indexing, per-layer slicing -- can
++    be tested against a fake attention metadata without booting the engine.
++    """
++    device = positions.device
++    requests = build_request_ids(boundaries, device)
++    hashes, mask = hash_impl(input_ids, positions, requests, block_table)
++    lookups = {
++        layer_id: tables[layer_id].lookup(hashes[:, slot])
++        for slot, layer_id in enumerate(layer_ids)
++    }
++    return lookups, mask
++
++
++def gather_dequantize_device(
++    weight: torch.Tensor, scales: torch.Tensor, ids: torch.Tensor
++) -> torch.Tensor:
++    """Gather INT8 rows and apply the group-32 scales, entirely on the device.
++
++    ``torch.index_select`` goes through aclnn, which -- unlike the Triton
++    launcher -- does not re-validate the pointer's memory location, so it works
++    on a host-mapped table.  The fused Triton kernel is used when the runtime
++    accepts the table pointer (see ``probe_triton_hostmap``).
++    """
++    codes = torch.index_select(weight, 0, ids)
++    group = torch.index_select(scales, 0, ids)
++    decoded = codes.to(torch.float32).unflatten(-1, (-1, 32))
++    decoded.mul_(group.unsqueeze(-1))
++    return decoded.flatten(-2).to(torch.bfloat16)
++
++
++class HostMappedEngramTable:
++    """One Engram layer's INT8 codes and FP32 group scales, addressed by device.
++
++    Drop-in replacement for ``NodeShardedEngram``'s lookup: it exposes the same
++    ``[T, n_hash_cols * width]`` BF16 result, but the table is never copied into
++    HBM and no rank-local shard is needed, so the metadata all-gather,
++    all_to_all and broadcast all disappear.
++
++    Scale gather is deliberately *not* optimised: measured on the real table it
++    costs 0.77 ms for 393216 rows, while the codes cost 16.8 ms.  The lookup is
++    dominated by the codes.
++    """
++
++    WEIGHT = "layers_{layer}_engram_embed.weight.safetensors"
++    SCALE = "layers_{layer}_engram_embed.scale.safetensors"
++
++    def __init__(self, root: str, layer_id: int, device_id: int | None = None) -> None:
++        self.root = root
++        self.layer_id = int(layer_id)
++        self.weight_map = HostMappedSafetensors(
++            os.path.join(root, self.WEIGHT.format(layer=self.layer_id)), device_id=device_id
++        )
++        self.scale_map = HostMappedSafetensors(
++            os.path.join(root, self.SCALE.format(layer=self.layer_id)), device_id=device_id
++        )
++        self.weight = self.weight_map.tensor
++        self.scale = self.scale_map.tensor
++        self.rows = int(self.weight.shape[0])
++        self.width = int(self.weight.shape[1])
++        if int(self.scale.shape[0]) != self.rows or int(self.scale.shape[1]) != self.width // 32:
++            raise ValueError(
++                f"Engram layer {self.layer_id}: scale {tuple(self.scale.shape)} does not "
++                f"match weight {tuple(self.weight.shape)}"
++            )
++
++    @torch.no_grad()
++    def lookup(self, ids: torch.Tensor) -> torch.Tensor:
++        """``ids`` is ``[T, n_hash_cols]`` int64; result is ``[T, n_hash_cols * width]``."""
++        shape = ids.shape
++        flat = ids.reshape(-1)
++        codes = torch.index_select(self.weight, 0, flat)
++        groups = torch.index_select(self.scale, 0, flat)
++        decoded = codes.to(torch.float32).unflatten(-1, (-1, 32))
++        decoded.mul_(groups.unsqueeze(-1))
++        # Same arithmetic order as the stock `dequantize_engram_rows`, which is
++        # what the fused Triton kernel also implements.
++        return decoded.flatten(-2).to(torch.bfloat16).view(*shape, self.width).flatten(1)
++
++    def close(self) -> None:
++        self.weight = None
++        self.scale = None
++        self.weight_map.close()
++        self.scale_map.close()
++
++
++def probe_triton_hostmap(weight: torch.Tensor, scales: torch.Tensor) -> tuple[bool, str]:
++    """Can the fused Triton kernel read this table?
++
++    The Triton launcher rejects any pointer whose ``aclrtPointerGetAttributes``
++    location is neither DEVICE nor HOST_NUMA, so a file-backed host mapping is
++    refused with "Pointer argument (at 0) cannot be accessed from Triton (cpu
++    tensor?)".  Probing costs one tiny kernel at start-up and saves the caller
++    from paying a failed dispatch every step.
++    """
++    try:
++        from vllm_ascend.ops.triton.engram_int8 import gather_dequantize_engram_int8
++    except Exception as exc:  # noqa: BLE001 - optional accelerator path
++        return False, f"import failed: {exc!r}"
++    ids = torch.zeros(1, dtype=torch.int64, device=weight.device)
++    try:
++        gather_dequantize_engram_int8(weight, scales, ids)
++    except Exception as exc:  # noqa: BLE001 - we fall back to aclnn
++        return False, f"{type(exc).__name__}: {exc}"
++    return True, "accepted"
++
++
++class DeviceNgramHash:
++    """Device port of ``PagedNgramHistory.update``.
++
++    The host version keeps ``pages`` as a Python dict and the history scan as a
++    Python loop; both become dense device tensors here so the whole node can be
++    captured.  Everything with a semantic effect is preserved:
++
++    * the page table is written for *all* rows before any history is read, so a
++      token sees the freshly written prefix of its own chunk;
++    * image tokens are stored as -1 and therefore break the history scan;
++    * the scan stops at the first non-present slot (``< 0``) instead of
++      skipping it;
++    * slots that were never written read as -1, which is what the dict version
++      returns for every page it is willing to touch;
++    * the hash is int64 multiply/xor/modulo in the same order, and the bucket
++      offsets are added last.
++
++    ``row_valid`` masks padding rows: their page writes are redirected to a
++    dedicated trash page (they must not touch a real request's block) and they
++    are excluded from the returned mask.
++    """
++
++    TRASH_OFFSET = 0
++
++    def __init__(
++        self,
++        token_map: torch.Tensor,
++        primes: torch.Tensor,
++        offsets: torch.Tensor,
++        multipliers: torch.Tensor,
++        pad_id: int,
++        image_token_id: int,
++        image_pad_token_id: int,
++        device,
++        max_pages: int = 0,
++        block_size: int = 128,
++    ) -> None:
++        self.device = torch.device(device)
++        self.lookback = int(multipliers.shape[-1])
++        self.n_layers = int(multipliers.shape[0])
++        self.n_heads = int(primes.shape[-1])
++        self.block_size = int(block_size)
++        self.trash_page = int(max_pages)
++        self.pad_id = int(pad_id)
++        self.image_token_id = int(image_token_id)
++        self.image_pad_token_id = int(image_pad_token_id)
++
++        self.token_map = token_map.to(self.device, torch.int64)
++        self.primes = primes.to(self.device, torch.int64)
++        self.offsets = offsets.to(self.device, torch.int64)
++        self.multipliers = multipliers.to(self.device, torch.int64).unsqueeze(0)
++        # One extra row is the trash page used by padding rows.
++        self.pages = torch.full(
++            (self.trash_page + 1, self.block_size), -1, dtype=torch.int64, device=self.device
++        )
++        # Flat view for the page write: on Ascend `flat.scatter_(0, idx, val)`
++        # costs ~0.10 ms where `pages[page, off] = val` costs ~0.34 ms for the
++        # same 32 rows, and both walk the whole destination.
++        self.pages_flat = self.pages.view(-1)
++        self._invalid_reported = 0
++        self._clean_steps = 0
++
++    @property
++    def capacity(self) -> int:
++        return self.pages.shape[0] - 1
++
++    def _note_invalid_pages(self, page_ok: torch.Tensor) -> None:
++        """Count out-of-range page ids and report the first few occurrences.
++
++        Silently redirecting them is *correct* (it mirrors the host dict) but it
++        must not be invisible: if this fires constantly, the page table is
++        under-sized and the lookup is quietly degrading to garbage values.
++        The sync is only paid on the first few steps.
++        """
++        if self._invalid_reported >= 3:
++            return
++        # Never do a device->host sync while a graph is being captured: that is
++        # the failure mode ACLGraph reports as "stream is captured".  The check
++        # is diagnostics only, so skipping it during capture costs nothing.
++        try:
++            if torch.npu.is_current_stream_capturing():
++                return
++        except Exception:  # noqa: BLE001 - older torch_npu may lack the helper
++            pass
++        bad = int((~page_ok).sum())
++        if bad == 0:
++            self._clean_steps += 1
++            if self._clean_steps >= 3:
++                self._invalid_reported = 3     # saw enough clean steps; stop checking
++            return
++        self._invalid_reported += 1
++        print(
++            f"[DEVICE-INDEX] 警告：本步有 {bad}/{page_ok.numel()} 个槽位的 page id "
++            f"越界（合法区间 [0, {self.capacity})），已重定向到垃圾桶页 "
++            f"{self.trash_page}。这与 host 路径的 `pages[-1]` 语义等价，结果仍逐位一致；"
++            "但若持续出现，说明页表容量偏小，应调大 num_gpu_blocks 的估算。",
++            flush=True,
++        )
++
++    def check_pages(self, block_table: torch.Tensor) -> int:
++        """Fail loudly if the block table references a page id we did not size for.
++
++        The host version kept ``pages`` in a Python dict, so an unexpected page
++        simply created a new entry.  A dense table turns that into an
++        out-of-bounds access, and if the id happened to land inside the
++        allocation it would corrupt *another request's* n-gram history with no
++        error at all.  This costs one sync, so the caller runs it a few times at
++        start-up (and after every reallocation) rather than on every step.
++
++        Returns the largest page id seen.
++        """
++        worst = int(block_table.max())
++        lowest = int(block_table.min())
++        if worst > self.capacity or lowest < 0:
++            raise RuntimeError(
++                f"Engram device page table holds {self.capacity} pages but the "
++                f"block table spans [{lowest}, {worst}]. Raise the sizing (see "
++                f"cache_config.num_gpu_blocks) or the lookup will read/write out "
++                f"of bounds. NOTE: checking only `.max()` was the bug that let a "
++                f"negative page id reach `scatter_` and abort the engine with "
++                f"'AI CPU kernel execution failed ... ScatterElements'."
++            )
++        return worst
++
++    def ensure_capacity(self, max_pages: int) -> bool:
++        """Grow the dense page table so ``max_pages`` distinct page ids fit.
++
++        The host version keeps ``pages`` in a Python dict, so it never had to
++        bound the page id space.  A dense device table must, and the bound comes
++        from the scheduler's block pool (``cache_config.num_gpu_blocks``), which
++        is only known after the memory profile -- hence the lazy growth.
++
++        Returns True when the table was reallocated (its contents are then
++        lost, which is correct: a bigger pool means the old ids are gone).
++        """
++        if max_pages <= self.capacity:
++            return False
++        self.trash_page = int(max_pages)
++        self.pages = torch.full(
++            (self.trash_page + 1, self.block_size), -1,
++            dtype=torch.int64, device=self.device,
++        )
++        self.pages_flat = self.pages.view(-1)
++        return True
++
++    @torch.no_grad()
++    def __call__(
++        self,
++        input_ids: torch.Tensor,
++        positions: torch.Tensor,
++        request_ids: torch.Tensor,
++        block_table: torch.Tensor,
++        row_valid: torch.Tensor | None = None,
++    ):
++        n = int(input_ids.numel())
++        max_blocks = int(block_table.shape[1])
++
++        flat_ids = input_ids.reshape(-1)
++        pos = positions.reshape(-1).to(torch.int64)
++        req = request_ids.reshape(-1).to(torch.int64)
++
++        mask = (flat_ids != self.image_token_id) & (flat_ids != self.image_pad_token_id)
++        if row_valid is not None:
++            mask = mask & row_valid.reshape(-1)
++        compressed = torch.index_select(self.token_map, 0, flat_ids)
++        compressed = compressed.masked_fill(~mask, -1)
++
++        # ---- page table write (all rows first, then the history scan) ----
++        #
++        # * PAGE-ID VALIDATION IS MANDATORY.  `meta.block_table` may contain
++        # garbage for slots the request has not reached: the *host* implementation
++        # keeps `pages` in a Python dict, so a -1 (or any unexpected id) simply
++        # creates a new dict entry and stays self-consistent.  A dense device
++        # table turns the same value into a negative/OOB index, and `scatter_` on
++        # Ascend falls back to an **AI CPU** kernel which bounds-checks and aborts
++        # the whole engine:
++        #
++        #   AI CPU kernel execution failed, kernelName=ScatterElements,
++        #   soName=libcpu_kernels.so, errorCode=0x91
++        #   -> ERR00100 -> HCCL watchdog on other ranks -> engine dead
++        #
++        # Measured in the v8 release sweep: 7/64 requests returned 500 and all
++        # eight ranks died.  The previous `check_pages()` guard missed it because
++        # it looked only at `.max()` and never at `.min()`.
++        #
++        # Redirect every out-of-range id to one shared trash page, on BOTH the
++        # write and the read side so the two agree.  That is exactly the host's
++        # "everything invalid shares pages[-1]" behaviour, so results stay
++        # bit-identical to the reference.
++        slots = (pos // self.block_size).clamp_(0, max_blocks - 1)
++        page = block_table[req, slots]
++        off = pos % self.block_size
++        page_ok = (page >= 0) & (page < self.capacity)
++        trash = page.new_full((), self.trash_page)
++        w_page = torch.where(page_ok, page, trash)
++        w_off = off
++        if row_valid is not None:
++            valid = row_valid.reshape(-1)
++            w_page = torch.where(valid, w_page, trash)
++            w_off = torch.where(valid, off, off.new_full((), self.TRASH_OFFSET))
++        self._note_invalid_pages(page_ok)
++        self.pages_flat.scatter_(0, w_page * self.block_size + w_off, compressed)
++
++        # ---- n-gram history ----
++        # One gather for all `lookback` shifts instead of one per shift: the
++        # per-shift loop costs ~11 ops each (~44 total) and the whole step runs
++        # eagerly before the model's capture, where every op is pure dispatch.
++        # The barrier semantics are preserved by a running minimum rather than
++        # a serial early-exit, which is what the host implementation's "fast"
++        # path does -- and `engram_device_test.py --stage cpu` checks that the
++        # two formulations agree bit for bit on the stock/fast reference pair.
++        shift = torch.arange(self.lookback, dtype=torch.int64, device=self.device)
++        previous = pos.unsqueeze(1) - shift  # (n, lookback)
++        in_range = previous >= 0
++        prev_safe = previous.clamp_min(0)
++        page2d = block_table[
++            req.unsqueeze(1).expand_as(prev_safe),
++            torch.minimum(prev_safe // self.block_size,
++                          prev_safe.new_full((), max_blocks - 1)),
++        ]
++        off2d = prev_safe % self.block_size
++        # Same validation as the write side, and the two MUST agree, or a valid
++        # row could read a slot it never wrote.
++        #
++        # Note the offset: an out-of-range page id is redirected to the shared
++        # trash page but keeps its **natural offset**, because the host's
++        # `pages[-1]` really is one `block_size`-wide bucket -- forcing offset 0
++        # would make every invalid read alias onto the same slot and the result
++        # would stop matching the reference (measured: 480/1920 elements differ).
++        # The offset only collapses to 0 for positions before the sequence start,
++        # whose value is masked away immediately afterwards.
++        page2d_ok = (page2d >= 0) & (page2d < self.capacity)
++        read_ok = in_range & page2d_ok
++        read_page = torch.where(read_ok, page2d, page2d.new_full((), self.trash_page))
++        read_off = torch.where(in_range, off2d, off2d.new_full((), self.TRASH_OFFSET))
++        values = self.pages[read_page, read_off]
++        # A slot is live when its position is in range and the slot is not a
++        # barrier (-1).  Everything after the first barrier is forced back to
++        # pad_id, matching the reference walk's early exit.
++        values = values.masked_fill(~in_range | (values < 0), -1)
++        history = values.masked_fill(
++            values.cummin(dim=1).values < 0, self.pad_id
++        )
++
++        # ---- polynomial hash ----
++        products = history[:, None, :] * self.multipliers
++        rolling = products[..., 0]
++        hashes = []
++        for shift in range(1, self.lookback):
++            rolling = torch.bitwise_xor(rolling, products[..., shift])
++            hashes.append(rolling.unsqueeze(-1) % self.primes[:, shift - 1])
++        hashes = torch.cat(hashes, -1) + self.offsets
++        return hashes, mask
++
++    def configure(self, block_size: int, max_pages: int) -> bool:
++        """Size the dense page table.  Call before the first lookup.
++
++        ``block_size`` comes from the attention metadata (``storage_block_size``)
++        and ``max_pages`` from the scheduler's block pool, so both are learnt at
++        runtime rather than at construction.  Returns True when the table was
++        (re)allocated, which discards the paging state.
++        """
++        if int(block_size) != self.block_size:
++            self.block_size = int(block_size)
++            self.trash_page = max(int(max_pages), 1)
++            self.pages = torch.full(
++                (self.trash_page + 1, self.block_size), -1,
++                dtype=torch.int64, device=self.device,
++            )
++            self.pages_flat = self.pages.view(-1)
++            return True
++        return self.ensure_capacity(max_pages)
+diff --git a/vllm_ascend/models/deepseek_v41/engram_graph.py b/vllm_ascend/models/deepseek_v41/engram_graph.py
+new file mode 100644
+index 000000000..8a6be2abf
+--- /dev/null
++++ b/vllm_ascend/models/deepseek_v41/engram_graph.py
+@@ -0,0 +1,219 @@
++# SPDX-License-Identifier: Apache-2.0
++# SPDX-FileCopyrightText: Copyright contributors to the vLLM project
++"""Run the device Engram step from inside ACLGraph, one graph per batch shape.
++
++`prepare_engram_inputs()` runs *before* `run_model()`, i.e. outside the model's
++ACLGraph capture, so the device path is issued **eagerly**.  Measured on A3-node1
++that costs ~1.5 ms of pure launch overhead for the hash alone, and the cost is
++independent of batch size (1.587 / 1.507 / 1.513 ms for n = 6 / 32 / 192) --
++the signature of ~50 tiny ops: nothing is compute-bound, everything is
++dispatch-bound.  Captured, the same work replays in 0.405 ms (0.285 ms of which
++is the fixed ACLGraph floor).
++
++**Zero-copy by construction.** A vLLM step's inputs already live in persistent
++buffers (``input_ids.gpu``, ``positions``, ``query_start_loc.gpu`` and the block
++table), so the graph is captured directly over *those* tensors and no per-step
++copy exists.  An earlier version copied the step's values into private buffers
++instead; that looked safer but was strictly worse: the copies are host-to-device,
++so they block until the device queue drains, and the cost then grows with the
++batch (measured `route` = 2.0 ms at n = 6 but 5.4 ms at n = 24, versus 0.35 ms
++when nothing is copied).
++
++The price of zero copies is that a graph latches addresses.  So the cache records
++every input's ``data_ptr`` at capture time and re-checks it on every replay; a
++mismatch falls back to eager rather than to a silently wrong lookup.
++
++The token -> request mapping is computed *inside* the graph with a
++`searchsorted` over the (persistent) ``query_start_loc`` slice, so even that
++needs no host round trip.
++"""
++
++from __future__ import annotations
++
++import torch
++
++__all__ = ["EngramGraphCache"]
++
++
++def _is_capturing() -> bool:
++    """True when the current stream is already being captured.
++
++    Nested capture is illegal, so the cache must stay eager in that case.
++    """
++    try:
++        return bool(torch.npu.is_current_stream_capturing())
++    except Exception:  # noqa: BLE001 - older torch_npu has no such helper
++        return False
++
++
++class _Bucket:
++    """The captured graph plus the identity of the tensors it reads."""
++
++    __slots__ = ("size", "n_reqs", "ptrs", "graph", "lookups", "mask", "captured")
++
++    def __init__(self, size, n_reqs, ptrs):
++        self.size = int(size)
++        self.n_reqs = int(n_reqs)
++        self.ptrs = tuple(ptrs)
++        self.graph = torch.npu.NPUGraph()
++        self.lookups = None
++        self.mask = None
++        self.captured = False
++
++
++class EngramGraphCache:
++    """One ACLGraph per batch size for the whole device Engram step.
++
++    ``run`` is a drop-in replacement for the eager
++    ``device_engram_lookup`` call: same arguments, same return values.
++    """
++
++    def __init__(
++        self,
++        hash_impl,
++        tables,
++        layer_ids,
++        device,
++        max_graphs: int = 16,
++        max_tokens: int = 192,
++    ):
++        self.hash_impl = hash_impl
++        self.tables = tables
++        self.layer_ids = tuple(layer_ids)
++        self.device = torch.device(device)
++        self.max_graphs = int(max_graphs)
++        # Only decode-scale batches get a graph.  Prefill is ~1.1 s, so its 2.5 ms
++        # of launch overhead does not matter, while its outputs are huge
++        # (2 layers x 8192 x 6144 bf16 = 201 MB per graph) and would eat HBM.
++        self.max_tokens = int(max_tokens)
++        self._buckets: dict[tuple[int, int, int], _Bucket] = {}
++        self._order: list[tuple[int, int, int]] = []
++        self.eager_fallbacks = 0
++        self.graph_replays = 0
++        self.captures = 0
++        # Reason for the last fallback, so a silent regression is visible.
++        self.last_fallback_reason = ""
++        # Diagnostics: how often the harness had to fall back, so a silent
++        # regression cannot hide behind a "it works" report.
++        self.last_size: int | None = None
++        # Capturing while a capture is already in progress is not allowed, and
++        # `prepare_engram_inputs` is *called* from outside the model's capture —
++        # but a future refactor could move it inside, so guard explicitly.
++        self.skipped_inside_capture = 0
++        # A zero-copy capture is only valid while the inputs keep their
++        # addresses; this counts the times they did not.
++        self.pointer_mismatches = 0
++
++    # ------------------------------------------------------------------ eager
++    @torch.no_grad()
++    def _eager(self, input_ids, positions, start_loc, block_table):
++        from .engram_device_index import device_engram_lookup
++
++        self.eager_fallbacks += 1
++        return device_engram_lookup(
++            self.hash_impl, self.tables, self.layer_ids,
++            input_ids, positions, start_loc, block_table,
++        )
++
++    # ---------------------------------------------------------------- capture
++    @torch.no_grad()
++    def _capture(self, size, n_reqs, ids, pos, start_loc, block_table) -> _Bucket:
++        ptrs = (
++            ids.data_ptr(), pos.data_ptr(), start_loc.data_ptr(),
++            block_table.data_ptr(), block_table.shape,
++        )
++        b = _Bucket(size, n_reqs, ptrs)
++
++        def node():
++            # Token -> request, on device, from the persistent start_loc slice.
++            req = torch.searchsorted(
++                start_loc[: n_reqs + 1],
++                torch.arange(size, dtype=start_loc.dtype, device=self.device),
++                right=True,
++            ).to(torch.int64) - 1
++            hashes, mask = self.hash_impl(ids, pos, req, block_table)
++            lookups = {
++                lid: self.tables[lid].lookup(hashes[:, slot])
++                for slot, lid in enumerate(self.layer_ids)
++            }
++            return lookups, mask
++
++        with torch.npu.graph(b.graph):
++            b.lookups, b.mask = node()
++        b.captured = True
++        # A capture only records work, so replay once to fill the outputs.
++        #
++        # Do NOT synchronize here.  This runs in the middle of a serving step,
++        # and a device-wide synchronize at that point breaks the engine's
++        # `device_metadata` submit/release pairing: the next step then dies with
++        # "The previous device metadata submission has not been released"
++        # (the defect documented in DMQ-LEAK.md, but here triggered by us).
++        # Stream order already guarantees the model sees the replayed values.
++        b.graph.replay()
++        self.captures += 1
++        return b
++
++    # ------------------------------------------------------------------- run
++    @torch.no_grad()
++    def run(self, input_ids, positions, start_loc, block_table):
++        """All four arguments must be **device tensors backed by persistent
++        buffers**; that is what makes the zero-copy capture valid."""
++        n = int(input_ids.numel())
++        if n <= 0 or n > self.max_tokens:
++            self.last_fallback_reason = f"n={n} exceeds max_tokens={self.max_tokens}"
++            return self._eager(input_ids, positions, start_loc, block_table)
++        n_reqs = int(start_loc.numel()) - 1
++        # The metadata's request axis must match query_start_loc, or the
++        # per-request page lookup would be misaligned.
++        if n_reqs <= 0 or block_table.shape[0] != n_reqs:
++            self.last_fallback_reason = (
++                f"block_table rows {block_table.shape[0]} != n_reqs {n_reqs}"
++            )
++            return self._eager(input_ids, positions, start_loc, block_table)
++
++        # The key carries the full shape identity: the same token count can come
++        # from a different batch layout (n=12 as 2 requests x 6 or 12 x 1), and
++        # the captured graph has those shapes baked in.
++        key = (n, n_reqs, int(block_table.shape[1]))
++        b = self._buckets.get(key)
++        if b is None:
++            if len(self._buckets) >= self.max_graphs:
++                self.last_fallback_reason = f"graph cache full ({self.max_graphs})"
++                return self._eager(input_ids, positions, start_loc, block_table)
++            if _is_capturing():
++                self.skipped_inside_capture += 1
++                self.last_fallback_reason = "already inside a capture"
++                return self._eager(input_ids, positions, start_loc, block_table)
++            try:
++                b = self._capture(n, n_reqs, input_ids, positions, start_loc, block_table)
++            except Exception as exc:  # noqa: BLE001 - never break the model over this
++                self.last_fallback_reason = f"capture failed: {type(exc).__name__}: {exc}"
++                return self._eager(input_ids, positions, start_loc, block_table)
++            self._buckets[key] = b
++            self._order.append(key)
++
++        # The graph reads specific addresses, so verify them on every replay.
++        # This pointer comparison is the entire safety net for the zero-copy
++        # design, and it costs nothing measurable.
++        got = (
++            input_ids.data_ptr(), positions.data_ptr(), start_loc.data_ptr(),
++            block_table.data_ptr(), block_table.shape,
++        )
++        if got != b.ptrs:
++            self.pointer_mismatches += 1
++            self.last_fallback_reason = f"input buffers changed for key {key}"
++            return self._eager(input_ids, positions, start_loc, block_table)
++        b.graph.replay()
++        self.graph_replays += 1
++        self.last_size = n
++        return {lid: v for lid, v in b.lookups.items()}, b.mask
++
++    # ----------------------------------------------------------------- stats
++    def stats(self) -> str:
++        return (
++            f"graphs={len(self._buckets)} replays={self.graph_replays} "
++            f"captures={self.captures} eager_fallbacks={self.eager_fallbacks} "
++            f"ptr_mismatch={self.pointer_mismatches} "
++            f"keys={sorted(self._buckets)}"
++            + (f" last_fallback='{self.last_fallback_reason}'" if self.last_fallback_reason else "")
++        )
+diff --git a/vllm_ascend/models/deepseek_v41/engram_hbm.py b/vllm_ascend/models/deepseek_v41/engram_hbm.py
+index 7bee301f7..30145ce6e 100644
+--- a/vllm_ascend/models/deepseek_v41/engram_hbm.py
++++ b/vllm_ascend/models/deepseek_v41/engram_hbm.py
+@@ -263,6 +263,22 @@ _OFFLOAD_BUFFER_CACHE_SIZE = 8
+ _OFFLOAD_BUFFER_BYTES_LIMIT = 512 * 1024 * 1024
+ _BF16_BYTES = 2
+ 
++# [DEVICE-INDEX] V41_ENGRAM_DEVICE_INDEX=1 replaces the whole host lookup path
++# (d2h sync / per-rank shard / all_gather+all_to_all+broadcast / host hash) with
++# host-mapped tables that device operators index directly, so the lookup becomes
++# an ordinary capturable device node.  See engram_device_index.py.  In that mode
++# the per-rank torch shard is dead weight -- 25.75 GB of DRAM per rank per layer
++# that nothing ever reads -- so it is not allocated and not loaded.
++_ENGRAM_DEVICE_INDEX = os.environ.get("V41_ENGRAM_DEVICE_INDEX", "0") == "1"
++# The shard may only be dropped when nothing can fall back to it: with
++# V41_ENGRAM_DEVICE_FALLBACK=1 the host path stays reachable, and a fallback into
++# a shard that was never loaded would return wrong values *silently*.  So a
++# fallback build keeps the full shard (and pays its 25.75 GB/rank/layer of DRAM
++# and its load time); the default build is all-or-nothing and fails loudly.
++_ENGRAM_DEVICE_TRIM_SHARD = _ENGRAM_DEVICE_INDEX and (
++    os.environ.get("V41_ENGRAM_DEVICE_FALLBACK", "0") != "1"
++)
++
+ 
+ def quantize_engram_rows(rows):
+     """Group32 symmetric INT8 with FP32 power-of-two scales and ties-to-even."""
+@@ -477,9 +493,12 @@ class NodeShardedEngram(nn.Module):
+         # Reuse fixed-size HCCL metadata buffers across requests.
+         self._metadata_device_buffers = {}
+         self._empty_metadata = torch.zeros(query_group.size + 1, dtype=torch.int64, device="cpu")
++        # [DEVICE-INDEX] the host-mapped table replaces the per-rank shard
++        self.device_index = bool(_ENGRAM_DEVICE_TRIM_SHARD and storage_format == "int8")
++        shard_rows = 1 if self.device_index else self.end - self.start
+         self.weight = nn.Parameter(
+             torch.empty(
+-                self.end - self.start,
++                shard_rows,
+                 width,
+                 dtype=(
+                     torch.int8
+@@ -503,7 +522,7 @@ class NodeShardedEngram(nn.Module):
+             self.register_buffer(
+                 "weight_scale",
+                 torch.empty(
+-                    self.end - self.start,
++                    shard_rows,
+                     width // 32,
+                     dtype=torch.float32,
+                     device=(torch.device("cpu") if getattr(self, "host_resident", False) else device),
+@@ -523,6 +542,9 @@ class NodeShardedEngram(nn.Module):
+ 
+     def set_rows(self, start, rows):
+         """Load BF16 rows into local storage without allocating a BF16 table copy."""
++        if getattr(self, "device_index", False):
++            # [DEVICE-INDEX] the table is read straight from host DRAM.
++            return
+         end = start + rows.shape[0]
+         if self.storage_format == "int8":
+             codes, scales = quantize_engram_rows(rows.to(self.weight.device))
+@@ -625,6 +647,11 @@ class NodeShardedEngram(nn.Module):
+         FP8/MXFP8 remain CPU resident (PLE_OFFLOAD); only decoded BF16 rows
+         enter the node-local all-to-all response buffer.
+         """
++        if getattr(self, "device_index", False):
++            # [DEVICE-INDEX] the loader would fill a per-rank torch shard that
++            # the lookup never reads.  Skip it; the host-mapped table in
++            # engram_device_index.py is the only copy.
++            return
+         root = Path(model_path)
+         index = json.loads((root / "quant_model_weights.safetensors.index.json").read_text())["weight_map"]
+         scale_key = key.removesuffix(".weight") + ".scale"
+diff --git a/vllm_ascend/models/deepseek_v41/model.py b/vllm_ascend/models/deepseek_v41/model.py
+index 3940f2156..f94b37063 100644
+--- a/vllm_ascend/models/deepseek_v41/model.py
++++ b/vllm_ascend/models/deepseek_v41/model.py
+@@ -83,6 +83,71 @@ from .engram_gate import engram_gate
+ from .engram_hash import PagedNgramHistory
+ from .engram_hbm import EngramQueryGroup, NodeShardedEngram
+ 
++# ==== [DEVICE-INDEX] Engram 端到端设备化 =====================================
++# V41_ENGRAM_DEVICE_INDEX=1 时，查表不再经过 host：
++#   * 表仍常驻 host DRAM（206 GB 放不进 HBM），但经 aclrtHostRegister 映射成
++#     设备可寻址，由 device 算子直接索引，省掉 d2h 同步 / 分片 / all_gather /
++#     all_to_all / broadcast / h2d 五条路径；
++#   * 4-gram 页镜像与哈希改用 dense device 张量（DeviceNgramHash），
++#     语义与 PagedNgramHistory.update 逐位一致（12 个场景 x 2 种 host 实现已对账）；
++#   * 因为每个 rank 都能读整张表，不再需要 local-owner 分片。
++# 实测依据见 lite-port/engram-probe/COMPARE-device-vs-host.md。
++# 三态，而不是布尔：
++#   auto（默认）—— 起服时探测 aclrtHostRegister 能力，支持才启用，否则回退 host 路径
++#   1          —— 强制启用；探测失败即抛错（用于 A3 验收，避免"以为开了其实没开"）
++#   0          —— 强制关闭
++# 之所以默认 auto：device-index 的硬件前提只在 A3 实测过，A2（910B3）从未验证，
++# 而项目自己的文档记着 A2 上"host 地址可被 device kernel 直接读"**不成立的可能**
++# （docs/A2_VS_A3_DIFF.md §5）。默认 1 会让 A2 起不来或静默出错，默认 0 又等于
++# A3 白拿不到收益 —— auto 同时满足两者。
++_ENGRAM_DEVICE_INDEX_MODE = (
++    _os_engram_hoist.environ.get("V41_ENGRAM_DEVICE_INDEX", "auto") or "auto"
++).strip().lower()
++_ENGRAM_DEVICE_INDEX = _ENGRAM_DEVICE_INDEX_MODE not in ("0", "false", "off", "no", "")
++# 每步失败时是否回退到 host 路径。**默认不回退**：回退要求 host 分片仍然有效
++# （见 engram_hbm.py 的 _ENGRAM_DEVICE_TRIM_SHARD），而默认构建为了省掉
++# 25.75 GB/rank/层 的 DRAM 把分片裁掉了 —— 此时回退会读到没装数据的表并**静默出错**。
++# 所以走"全有或全无"：失败就抛，消息里带原因。确实需要回退时两个都设：
++#   V41_ENGRAM_DEVICE_FALLBACK=1   （保留完整分片）
++#   V41_ENGRAM_DEVICE_INDEX=1
++_ENGRAM_DEVICE_FALLBACK = _os_engram_hoist.environ.get("V41_ENGRAM_DEVICE_FALLBACK", "0") == "1"
++# 页表容量的起始上界（页数）。真实值来自 cache_config.num_gpu_blocks，但那只在
++# profile **之后**才确定，而 profile_run 用合成 block_table 就会走到这里，所以
++# 必须先给一个够合成批次的容量（64 请求 x 8192 token / 128 = 4096 页，取 2 倍余量）。
++# 8192 页 x 128 x 8 B = 8 MB；拿到 num_gpu_blocks 后再按需增长到 blocks+8。
++_ENGRAM_DEVICE_PAGES_BOOT = int(
++    _os_engram_hoist.environ.get("V41_ENGRAM_DEVICE_PAGES", "8192") or 8192
++)
++if _ENGRAM_DEVICE_INDEX:
++    # 只在开关打开时导入：模块本身只依赖 torch/ctypes，但保持"关掉即零影响"。
++    from .engram_device_index import device_engram_lookup  # noqa: F401
++    from .engram_graph import EngramGraphCache  # noqa: F401
++# [DEVICE-INDEX-GRAPH] 把整条设备路径放进"每个 batch size 一张图"的缓存里重放。
++# 需要它是因为 prepare_engram_inputs() 在 run_model() **之前**调用，也就是在
++# 模型自己的 ACLGraph 捕获之外 —— 设备路径于是以 eager 下发，光 hash 就要
++# 1.5 ms（且与 batch size 无关，是 ~50 个小算子的纯下发开销）。
++# 默认开。曾一度默认关：真机 TP8 起服后第一个请求报
++#   RuntimeError: The previous device metadata submission has not been released
++# 而误判为"图缓存与引擎的 device_metadata 冲突"。追到根因后是**我们自己的**
++# 一个设备不匹配 bug（`build_request_ids` 用 CPU arange 配 device 的 repeats），
++# 异常从 forward 里逃出，正好落在引擎 submit/release 之间，把那个标志永久置位；
++# 后续请求全部死在 submit 上，与图缓存无关。修法只有一条，且是治本的那条：
++#   * `build_request_ids` 两端同设备
++# 曾额外加过 `model_runner_v1.py` 的 DMQ 自愈护栏，**已撤销**：那个判据
++# （`submission_in_flight == True` 就 release）在**正常运行**中也会短时为真，
++# 于是提前释放 device metadata，64 并发实测把服务打挂（57/64 成功，
++# `ScatterElements 0x91` → ERR00100 → HCCL watchdog）。详见 CHANGELOG §4.3。
++# 单卡实测：n=12 时 2.024 ms → 0.695 ms，捕获重放与 eager 逐位一致。
++_ENGRAM_DEVICE_GRAPH = _ENGRAM_DEVICE_INDEX and (
++    _os_engram_hoist.environ.get("V41_ENGRAM_DEVICE_GRAPH", "1") == "1"
++)
++# 图的数量上限：超过就退回 eager。decode 的 n 落在捕获桶里，prefill 的 n 很大
++# 且每个请求都不同，所以上限既保护显存也保护起服时间。
++_ENGRAM_DEVICE_GRAPH_MAX = int(
++    _os_engram_hoist.environ.get("V41_ENGRAM_DEVICE_GRAPH_MAX", "16") or 16
++)
++# ==== /[DEVICE-INDEX] =======================================================
++
+ # ==== [bneck-probe] 运行时瓶颈开关（generated by make_bneck_probe.py）====
+ import os as _bp_os
+ import time as _bp_time
+@@ -688,6 +753,7 @@ class DeepseekV41Model(DeepseekV4Model):
+                 )
+         self.engram_history = None
+         self._engram_input_buffers = None
++        self._vllm_config = vllm_config
+         self._engram_max_tokens = max(
+             vllm_config.scheduler_config.max_num_batched_tokens,
+             vllm_config.compilation_config.max_cudagraph_capture_size or 0,
+@@ -710,9 +776,254 @@ class DeepseekV41Model(DeepseekV4Model):
+                 if not torch.equal(rotation, torch.block_diag(*[block] * (config.hidden_size // 32))):
+                     raise ValueError("Engram gate requires repeated block32 global rotation")
+             self.engram_rotation.copy_(block)
++        # [DEVICE-INDEX] 表已就绪后再建 host-mapped 设备视图（复用 layout 张量）。
++        self._engram_dev_hash = None
++        self._engram_dev_tables = {}
++        self._engram_dev_ready = False
++        self._engram_dev_failures = 0
++        self._engram_dev_pages = 0
++        self._engram_dev_checked = 0
++        self._engram_dev_mode_noted = False
++        self._engram_dev_graph = None
++        if _ENGRAM_DEVICE_INDEX and ascend_config.enable_engram and self.engram_history is not None:
++            self._engram_device_setup()
++
++    def _engram_device_setup(self):
++        """[DEVICE-INDEX] 建 dense 页镜像 + 把每层 int8 表映射成设备张量。"""
++        from .engram_device_index import (
++            DeviceNgramHash,
++            HostMappedEngramTable,
++            probe_host_mapping_capability,
++        )
++
++        # auto 模式下先探测硬件/驱动能力：A3 通过则启用，A2 若不支持则静默回退到
++        # host 路径（只是没有加速，功能完全不变）。强制模式（=1）则探测失败即抛。
++        if _ENGRAM_DEVICE_INDEX_MODE == "auto":
++            ok, detail = probe_host_mapping_capability()
++            if not ok:
++                if _bp_rank_zero():
++                    print(
++                        "[DEVICE-INDEX] 本机不支持 host 内存设备直索，自动回退到 host 路径"
++                        f"（不影响正确性，只是没有该项加速）。探测结果：{detail}\n"
++                        "  如需强制启用（A3 验收用）设 V41_ENGRAM_DEVICE_INDEX=1",
++                        flush=True,
++                    )
++                return
++            if _bp_rank_zero():
++                print(f"[DEVICE-INDEX] 能力探测通过：{detail}", flush=True)
++        elif _ENGRAM_DEVICE_INDEX_MODE not in ("1", "true", "on", "yes"):
++            return
++
++        history = self.engram_history
++        config = self.config
++        root = str(Path(self.engram_root) / "engram_int8")
++        self._engram_dev_hash = DeviceNgramHash(
++            token_map=history.token_map,
++            primes=history.primes,
++            offsets=history.offsets,
++            multipliers=history.multipliers,
++            pad_id=history.pad_id,
++            image_token_id=history.image_token_id,
++            image_pad_token_id=history.image_pad_token_id,
++            # 必须在这里就给一个够用的容量：profile_run 阶段 num_gpu_blocks 还
++            # 不知道，而合成 block_table 里的页号可能已经不是 0 —— 容量为 0 时
++            # `flat.scatter_` 会越界写。构造时就按上界建表，代价 67 MB HBM。
++            max_pages=_ENGRAM_DEVICE_PAGES_BOOT,
++            device=torch.device("npu", torch.npu.current_device()),
++        )
++        for layer_id in config.engram_layer_ids:
++            self._engram_dev_tables[layer_id] = HostMappedEngramTable(root, layer_id)
++        if _ENGRAM_DEVICE_GRAPH:
++            self._engram_dev_graph = EngramGraphCache(
++                self._engram_dev_hash,
++                self._engram_dev_tables,
++                config.engram_layer_ids,
++                device=torch.device("npu", torch.npu.current_device()),
++                max_graphs=_ENGRAM_DEVICE_GRAPH_MAX,
++            )
++        self._engram_dev_ready = True
++        if _bp_rank_zero():
++            print(
++                "[DEVICE-INDEX] Engram 表已映射为设备可寻址："
++                + ", ".join(
++                    f"L{lid}={self._engram_dev_tables[lid].rows}行"
++                    for lid in config.engram_layer_ids
++                )
++                + f"（每张 {self._engram_dev_tables[config.engram_layer_ids[0]].width}B/行，"
++                "HBM 占用 0）",
++                flush=True,
++            )
++
++    @torch.no_grad()
++    def _engram_dev_empty(self, dev, n):
++        """每一层的空 lookup（形状 [n, n_hash_cols*width]）+ 空 mask。
++
++        形状必须和真实路径一致，因为 ``prepare_engram_inputs`` 用它来建持久
++        缓冲区（``values.shape[1]``）。空字典会让缓冲区退化成空字典。
++        """
++        config = self.config
++        width = self._engram_dev_tables[config.engram_layer_ids[0]].width
++        cols = (config.engram_max_ngram_size - 1) * config.engram_n_heads
++        return (
++            {
++                layer_id: torch.empty((n, cols * width), dtype=torch.bfloat16, device=dev)
++                for layer_id in config.engram_layer_ids
++            },
++            torch.empty(n, dtype=torch.bool, device=dev),
++        )
++
++    @torch.no_grad()
++    def _prepare_engram_device(self, input_ids, positions):
++        """[DEVICE-INDEX] 全程设备的 Engram：dense 页镜像 + 哈希 + 整表直索。
++
++        与 host 路径的接口完全一致（返回 ``{layer_id: [n, cols*width]}`` 与 bool
++        mask），但没有任何 host 往返：没有 ``.cpu()``、没有分片、没有集合通信。
++
++        **契约**：即使这一步没有任何 token，也必须返回**每一层的空张量**，而不是
++        空字典。host 路径就是这样做的（它总是经过 route_many 再填 lookups），而
++        ``prepare_engram_inputs`` 会把 mask pad 到静态容量，于是
++        ``model.forward`` 里的 ``token_mask.numel()`` 非 0、必然去取
++        ``lookups[layer.layer_idx]`` —— 返回 ``{}`` 会直接 KeyError（实测：
++        profile_run 阶段 dynamo 报 `Dict key lookup failed for int: 1`）。
++        """
++        config = self.config
++        dev = positions.device
++        _bp = _BP_STATE.refresh()
++        _bp.cur_is_decode = False
++        metadata = get_forward_context().attn_metadata
++        if metadata is None:
++            return self._engram_dev_empty(dev, 0)
++        first = self.layers[0].self_attn.dsa_attn.swa_cache_layer
++        meta = metadata[first.prefix]
++        boundaries = (
++            meta.query_start_loc_cpu
++            if getattr(meta, "query_start_loc_cpu", None) is not None
++            else meta.query_start_loc.detach().cpu()
++        ).long()
++        n = int(boundaries[-1])
++        _bp.cur_is_decode = n <= _BP_DECODE_TOKENS
++        if not _bp.cur_is_decode:
++            _bp.decode_gen += 1
++        if n <= 0:
++            return self._engram_dev_empty(dev, 0)
++        # 页表容量 = 调度器的 block 池。num_gpu_blocks 只有在显存 profile **之后**
++        # 才确定（profile_run 自己就会走到这里），所以先按一个够用的界建表，之后
++        # 只在真实池子更大时才长 —— 只增不减，避免无谓的重分配（重分配会清空页镜像）。
++        block_size = int(meta.storage_block_size)
++        if self._engram_dev_hash.block_size != block_size:
++            # 换 block_size 必须重建页表（槽位数变了）。保留已有容量，别缩小。
++            keep = max(_ENGRAM_DEVICE_PAGES_BOOT, self._engram_dev_hash.capacity)
++            self._engram_dev_hash.configure(block_size, keep)
++            self._engram_dev_checked = 0
++        blocks = getattr(self._vllm_config.cache_config, "num_gpu_blocks", None)
++        if blocks is not None and int(blocks) + 8 > self._engram_dev_hash.capacity:
++            self._engram_dev_hash.configure(block_size, int(blocks) + 8)
++            self._engram_dev_checked = 0
++            if _bp_rank_zero():
++                print(
++                    f"[DEVICE-INDEX] 页表扩容到 {self._engram_dev_hash.capacity} 页"
++                    f"（num_gpu_blocks={blocks}）；之前的页镜像已清空。",
++                    flush=True,
++                )
++        block_table = meta.block_table
++        if block_table.device.type != dev.type:
++            block_table = block_table.to(dev)
++        # 页号越界必须立刻报错：dense 页表把"索引超界"从 host 版的 KeyError
++        # 变成了越界读写，一旦静默就会污染别的请求的 n-gram。只在前几次调用里
++        # 校验（每次一次同步），之后就信任 num_gpu_blocks。
++        # 页号自检只在真实池子已知之后做：profile_run 用的是合成 block_table，
++        # 那里的页号不代表调度器，误报会把起服卡死。
++        if blocks is not None and self._engram_dev_checked < 3:
++            self._engram_dev_checked += 1
++            worst = self._engram_dev_hash.check_pages(block_table)
++            if _bp_rank_zero():
++                print(
++                    f"[DEVICE-INDEX] 页表自检 #{self._engram_dev_checked}: "
++                    f"容量={self._engram_dev_hash.capacity} 观测最大页号={worst} "
++                    f"block_size={block_size} num_gpu_blocks={blocks}",
++                    flush=True,
++                )
++        _t0 = _bp_time.perf_counter()
++        ids_n, pos_n = input_ids[:n], positions[:n]
++        if self._engram_dev_graph is not None:
++            # 零拷贝捕获要求四个输入都是**设备上的常驻 buffer**：
++            #   input_ids / positions 是模型自己的持久缓冲切片；
++            #   query_start_loc.gpu 也是持久 buffer，且 req 的 searchsorted 在图内做。
++            # 之前用 CPU 的 boundaries 会让每步多一次 H2D，而 H2D 会阻塞等待设备
++            # 队列排空 —— 实测 route 因此从 0.35 ms 涨到 2.0(n=6)/5.4(n=24) ms。
++            start_loc_dev = meta.query_start_loc
++            if start_loc_dev is None or start_loc_dev.device.type != "npu":
++                res = None
++            else:
++                res = self._engram_dev_graph.run(
++                    ids_n, pos_n, start_loc_dev, block_table
++                )
++            if res is not None:
++                lookups, mask = res
++            else:
++                lookups, mask = device_engram_lookup(
++                    self._engram_dev_hash, self._engram_dev_tables,
++                    config.engram_layer_ids, ids_n, pos_n, boundaries, block_table,
++                )
++        else:
++            lookups, mask = device_engram_lookup(
++                self._engram_dev_hash,
++                self._engram_dev_tables,
++                config.engram_layer_ids,
++                ids_n,
++                pos_n,
++                boundaries,
++                block_table,
++            )
++        # hash 与 route 的边界（宿主实现里是两段）在设备路径上不再可分，
++        # 统一记在 route，另用 hash 记到第一次表访问为止。
++        _bp.stat("route", _t0)
++        return lookups, mask
+ 
+     def prepare_engram(self, input_ids, positions):
+         """Eager boundary: every DP participates, including metadata-free dummies."""
++        # `nohost` 是 host 路径的消融臂（返回全零 lookup），与 device-index 正交，
++        # 仍然交给 host 实现处理。
++        if (
++            _ENGRAM_DEVICE_INDEX
++            and self._engram_dev_ready
++            and _BP_STATE.refresh().mode != "nohost"
++        ):
++            # `/tmp/v41_bneck_mode` 的其它取值（stock/nocomm/mirror/faked2h）都是
++            # **host 路径**的消融臂，在设备路径上没有对应物。若被选到，这里会
++            # 按设备路径正常执行 —— 也就是说那条臂不再"关掉某一段"。说一次，
++            # 免得有人以为自己在做对照实验。
++            _m = _BP_STATE.refresh().mode
++            if _m not in ("stock", "nohost") and not self._engram_dev_mode_noted:
++                self._engram_dev_mode_noted = True
++                if _bp_rank_zero():
++                    print(
++                        f"[DEVICE-INDEX] 注意：bneck mode={_m} 是 host 路径的消融臂，"
++                        "在 ENGRAM_DEVICE_INDEX=1 下按正常设备路径执行（该臂失效）；"
++                        "设备路径的开关只有 nohost 与重启级的 ENGRAM_DEVICE_INDEX。",
++                        flush=True,
++                    )
++            if not _ENGRAM_DEVICE_FALLBACK:
++                return self._prepare_engram_device(input_ids, positions)
++            try:
++                return self._prepare_engram_device(input_ids, positions)
++            except Exception:
++                self._engram_dev_failures += 1
++                if _bp_rank_zero() and self._engram_dev_failures <= 3:
++                    print(
++                        "[DEVICE-INDEX] 第 %d 次失败，回退到 host 路径："
++                        % self._engram_dev_failures,
++                        flush=True,
++                    )
++                    import traceback
++
++                    traceback.print_exc()
++                if self._engram_dev_failures > 3:
++                    self._engram_dev_ready = False
++        return self._prepare_engram_host(input_ids, positions)
++
++    def _prepare_engram_host(self, input_ids, positions):
++        """Host 路径（原 prepare_engram 本体，保留作为对照与回退）。"""
+         config = self.config
+         if not get_ascend_config().enable_engram:
+             return {}, torch.empty(0, dtype=torch.bool, device=positions.device)
+@@ -862,6 +1173,11 @@ class DeepseekV41Model(DeepseekV4Model):
+         _bp.tick(
+             f"n={num_tokens} padded={int(padded_tokens or 0)} max={self._engram_max_tokens} "
+             f"lookup={_shape} fake={_bp.fake_hits} mirror={_bp.mirror_ok}/{_bp.mirror_bad}"
++            + (
++                f" | {self._engram_dev_graph.stats()}"
++                if getattr(self, "_engram_dev_graph", None) is not None
++                else ""
++            )
+         )
+         return {"engram_lookups": padded_lookups, "engram_mask": padded_mask}
+ 

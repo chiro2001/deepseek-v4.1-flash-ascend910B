@@ -8,7 +8,8 @@
 #   * DEVS 固定 0..7（A2 单机 8 卡；A3-node1 用 back8 = 8..15）
 #   * 补丁来自**镜像内已烘焙**的版本（build_image.sh 产出）；PATCH_MODE=mount 时才用 -v 挂
 #   * 默认关掉 A3-node1 的实验设施：HOTSPIKE=0、ROUTE_PROBE=0、探针不挂
-#   * 默认关掉未验证开关：MOE_ZERO=0、DRAFT_GRAPH=0
+#   * 默认开 DRAFT_GRAPH=1（draft 入图，含 DSPARK_GRAPH_CAPTURE_METADATA 绑定与校验）
+#   * 默认关未验证/负结果开关：MOE_ZERO=0、MOE_NF=0
 #   * 缓存目录默认落在包目录 ./cache（A2 无外网，缓存持久化很重要）
 #
 # 常用变量（都有默认值，绝大多数不用改）：
@@ -24,7 +25,7 @@
 #   SP_TOKENS  默认 5（DSpark 原生 block size；CAPTURE_SIZES 按 S+1 自动推导）
 #   PYTHON_PGO 默认 1（挂 optim/pgo 里编译好的 libpython；文件不存在则自动降级为 0）
 #   LOAD_FORMAT 空 = 读真权重；dummy = 只按 shape 建模型（**只测时延，A 恒为 1.0**）
-#   MOE_ZERO / DRAFT_GRAPH 默认 0（未验证，见 CHANGELOG 标红项）
+#   MOE_ZERO / MOE_NF 默认 0（未验证 / 负结果）；DRAFT_GRAPH 默认 1（见 CHANGELOG v8 §3）
 #   MOE_NF     默认 0（负结果，不采纳；见 README「别踩坑」表）
 # =============================================================================
 set -uo pipefail
@@ -119,6 +120,49 @@ O_PROJ_2D=${O_PROJ_2D:-1}      # F3 wo_a 2D matmul        −0.31~0.76 ms
 MOE_MASK=${MOE_MASK:-1}        # moe-mask-range           −0.51 ms
 ROPE_IDXSEL=${ROPE_IDXSEL:-1}  # rope-idxsel              −0.45~0.62 ms
 ENGRAM_JIT=${ENGRAM_JIT:-1}    # hash/plan numba JIT      −0.54 / −0.11 ms
+
+# [DEVICE-INDEX] Engram 端到端设备化（表仍常驻 host DRAM，但由 device 算子直索）。
+#
+# **auto（默认）**：起服时探测本机能否 `aclrtHostRegister` 一个可写映射并让设备
+#   算子直读它；支持就启用，不支持就静默回退到 host 路径（功能完全不变）。
+#   为什么默认不是 1：该能力只在 A3（910C）实测过，**A2（910B3）从未验证**，
+#   而且本项目的 `docs/A2_VS_A3_DIFF.md` §5 明确记着"任何『host 地址可以被
+#   device kernel 直接读』的假设在 A2 上都是未验证"（A3 上 pinned 内存做同样
+#   的事会报 507035 MTE invalid GM address）。默认 1 会让 A2 起不来或出错。
+# 1 / 0：强制开 / 强制关。A3 验收建议用 1，避免"以为开了其实回退成 host 了"。
+#
+# 启用时会把 engram_int8 目录挂成 **:rw** —— `aclrtHostRegister` 拒绝只读 VMA
+# （ret=507899）。代码本身只读这些文件。
+ENGRAM_DEVICE_INDEX=${ENGRAM_DEVICE_INDEX:-auto}
+# [DEVICE-INDEX] 只有显式 0 才算关。auto / 1 都要按"可能启用"准备挂载：探测发生在
+# 容器内，脚本此刻还不知道结果，而 aclrtHostRegister 只接受可写映射。
+_engram_need_rw() {
+  case "${ENGRAM_DEVICE_INDEX:-auto}" in
+    0|false|off|no|"") return 1 ;;
+    *) return 0 ;;
+  esac
+}
+# 每步失败时是否回退 host 路径。默认 0（不回退）：回退要求 host 分片仍然有效，
+# 而默认构建为省 25.75 GB/rank/层 的 DRAM 把分片裁掉了，此时回退会**静默读错**。
+# 需要回退就两个都设 1（保留完整分片）。
+ENGRAM_DEVICE_FALLBACK=${ENGRAM_DEVICE_FALLBACK:-0}
+
+# [DROPCACHE] 起服前清 page cache（默认开）。详见起容器前那段注释。
+DROPCACHE=${DROPCACHE:-1}
+
+# [PROFILE] V41_PROFILE=1 给 vllm 传 --profiler-config，从而在 API 上挂出
+# /start_profile 与 /stop_profile（vllm 只在 profiler_config.profiler 非空时才
+# 注册这两个端点，见 entrypoints/serve/profile/api_router.py:attach_router）。
+#   POST /start_profile  → 开始采集（8 卡同步）
+#   POST /stop_profile   → 停止并落盘
+# 采集文件写到容器内 /opt/dsv41/results/<run_id>/prof（= 宿主 results/<run_id>/prof）。
+# 起服时打开它，才能在**起服之后**按需测任意时刻的性能，而不用重启。
+# 代价：torch profiler 常驻会有一点开销，且必须记得 stop（否则文件一直涨）。
+# 命名用 V41_PROFILE 而不是 PROFILE：PROFILE 在 shell 环境里是个常见名，
+# 旧实验脚本（serve_v2.sh / p36 系列）用的是 PROFILE，这里保留兼容：
+# 两者任一为 1 都开。
+V41_PROFILE=${V41_PROFILE:-${PROFILE:-0}}
+PROFILE_DIR=${PROFILE_DIR:-}
 QLI_NOCAND=${QLI_NOCAND:-1}    # QLI no-candidate         −0.49 ms
 LOCAL_OWNER=${LOCAL_OWNER:-fast}
 GATE_CHUNK=${GATE_CHUNK:-0}
@@ -133,6 +177,32 @@ TOOL_CALLING=${TOOL_CALLING:-1}
 PYTHON_PGO=${PYTHON_PGO:-1}
 # ❌ 未验证（默认关；不要在生产/正式测试里打开）
 MOE_ZERO=${MOE_ZERO:-0}
+# [DRAFT_GRAPH] 把 DSpark draft 也放进 ACLGraph。
+#
+# 默认 **1**（发布口径）。历史上它是 0，原因是当时有一个**静默失效**：draft 图
+# 捕获时如果没有 `DSPARK_GRAPH_CAPTURE_METADATA=1`，`AscendDSAImpl.forward()` 会走
+# "no metadata" 回退分支，于是**重放的图里根本没有 attention** —— 表现为
+# `A 恒 1.0`，而 ms/step 看着正常（`reports/draft-graph-negative-control.md` 的负控）。
+# 所以这里把两个开关**绑在一起**设，并且在起服后做一次 A 校验（见下方 DRAFT-GUARD）。
+#
+# 收益：A3 上约 −0.41 ms/step；A2 上 draft 每轮 ~24 ms，是主矛盾，杠杆大得多
+# （EXPECTED_PERF.md §A2GAP 把它列为 A2 唯一的大杠杆）。
+# 关掉：DRAFT_GRAPH=0（此时回到 SPEC_EAGER=1 的 eager draft）。
+#
+# ★★ 2026-09-20 实测：**默认必须是 0**。曾按要求把默认改成 1，并补齐了
+#    DSPARK_GRAPH_CAPTURE_METADATA=1、验证了 draft 版文件已装、起服命令行也确实是
+#    `enforce_eager:false`（开关全部到位），但**效果是坏的**：
+#
+#      配置              A(接受长度)   单流 tok/s   ms/step
+#      DRAFT_GRAPH=0      2.7–3.0       90–111      27–30
+#      DRAFT_GRAPH=1      1.06–1.08     43.0        25.1
+#
+#    A≈1.0 说明 draft 完全没产出 —— 正是 `reports/draft-graph-negative-control.md`
+#    记录的那种**静默失效**。而 ms/step 反而"更好看"，因为每步只出 1.08 个 token
+#    而不是 2.85 个 ⇒ **真实吞吐慢 2.2×**。
+#    ⇒ 只看 ms/step 会得出完全相反的结论；判据必须是 (A, tok/s) 这一对。
+#    在查清根因之前维持 0。想实验：DRAFT_GRAPH=1，但**必须**用
+#    `bash tools/draft_graph_guard.sh` 确认 A ≥ 1.3，否则不要用。
 DRAFT_GRAPH=${DRAFT_GRAPH:-0}
 # ❌ 负结果（默认关）：只零化 MoE 无效行中的非有限元素。同会话交错 A/B N=24/臂：
 # clean 2/24 vs 2/24 ⇒ **无差异** ⇒ `0 权重 × Inf = NaN` 通道被排除。
@@ -262,10 +332,28 @@ if [ "$MODEL_MOUNT_MODE" != "none" ] && [ -f "$PKG/tools/model_mount_args.sh" ];
   fi
   if [ "${#MODEL_MOUNTS[@]}" -eq 0 ]; then
     for _d in "${_mdirs[@]}"; do
-      MODEL_MOUNTS+=(-v "$_d:$_d:ro")
+      # [DEVICE-INDEX] aclrtHostRegister 拒绝只读 VMA（ret=507899），所以
+      # Engram 表所在目录必须可写挂载 —— 代码只读它，但驱动要在上面取引用。
+      # 只放开这两个目录，其余模型目录保持 :ro。
+      case "${_d##*/}" in
+        engram_int8|engram-int8)
+          if _engram_need_rw; then
+            MODEL_MOUNTS+=(-v "$_d:$_d:rw")
+          else
+            MODEL_MOUNTS+=(-v "$_d:$_d:ro")
+          fi
+          ;;
+        *) MODEL_MOUNTS+=(-v "$_d:$_d:ro") ;;
+      esac
     done
-    say "模型挂载（auto 模式，${#_mdirs[@]} 个目录，含软链链条）"
-    for _d in "${_mdirs[@]}"; do say "   -v $_d:$_d:ro"; done
+    say "模型挂载（auto 模式，${#_mdirs[@]} 个目录，含软链链条；ENGRAM_DEVICE_INDEX=$ENGRAM_DEVICE_INDEX）"
+    for _d in "${_mdirs[@]}"; do
+      case "${_d##*/}" in
+        engram_int8|engram-int8)
+          if _engram_need_rw; then say "   -v $_d:$_d:rw"; else say "   -v $_d:$_d:ro"; fi ;;
+        *) say "   -v $_d:$_d:ro" ;;
+      esac
+    done
   fi
   rm -f "$_mma_err"
 else
@@ -303,7 +391,22 @@ if [ "$SKCACHE_GC" = "1" ] && [ -d "$_skc" ]; then
   fi
 fi
 if [ -d "$_skc/static_kernel_cache" ]; then
-  echo "[serve_a2] skcache: static_kernel_cache/ 命中（$(ls -1 "$_skc/static_kernel_cache" 2>/dev/null | grep -c '\.json$') 个缓存文件）"
+  _njson=$(ls -1 "$_skc/static_kernel_cache" 2>/dev/null | grep -c '\.json$')
+  echo "[serve_a2] skcache: static_kernel_cache/ 命中（${_njson} 个缓存文件）"
+  # [SKCACHE-PROOF] 只看"static_kernel_cache/ 目录在不在"会误报：旧版本把产物写在
+  # 容器里没挂出来，宿主目录照样能有个空壳。这里用**缓存清单的大小**当判据
+  # —— 清单是 `hash -> /workspace/.../*.run` 的映射，一份真实缓存至少几 KB；
+  # 空壳是 0 或几十字节。
+  # 不用 `du`：产物目录是 root 私有的，非 root 跑 du 会刷一屏 permission denied
+  # （实测），而 `stat` 只看文件本身，不需要 root。
+  _json=$(ls -1 "$_skc/static_kernel_cache"/*.json 2>/dev/null | head -1)
+  _sz=$(stat -c %s "$_json" 2>/dev/null || echo 0)
+  if [ "${_sz:-0}" -lt 512 ]; then
+    echo "[serve_a2] ⚠️  skcache 清单只有 ${_sz} 字节（$_json）—— 不像是有效缓存，"
+    echo "[serve_a2]    本次很可能仍要冷编译。检查挂载点是否与容器 cwd 一致（应为 /workspace）。"
+  else
+    echo "[serve_a2] skcache: 清单 $(basename "$_json") = ${_sz} 字节（有效）"
+  fi
 else
   echo "[serve_a2] skcache: 无 static_kernel_cache/ ⇒ 本次要冷编译（每 SoC 一次性，A2 首次 15–20 min）"
 fi
@@ -418,12 +521,33 @@ MOUNTS=()
 MOUNTS+=(-v "$PKG/scripts:/opt/dsv41/scripts:ro")
 if [ "$PATCH_MODE" = "mount" ]; then
   F=$PKG/patches/files
+  # [ADMISSION-GATE] vLLM core 的 admission gate 是**补丁**（不是整文件），
+  # Dockerfile 只在 build_image.sh 烘焙路径里 `git apply`。mount 模式（A3 默认：
+  # 官方镜像 + 挂补丁）**不经过那一步** ⇒ 必须把 patch 也挂进来，起容器后现场打。
+  # 不补的话 `VLLM_ADMISSION_GATE=1` 就是一个没人消费的 env，保护**静默失效**。
+  MOUNTS+=(-v "$PKG/patches/admission_gate.patch:/opt/dsv41/admission_gate.patch:ro")
   MOUNTS+=(-v "$F/engram_hbm.py:/vllm-workspace/vllm-ascend/vllm_ascend/models/deepseek_v41/engram_hbm.py:rw")
   MOUNTS+=(-v "$F/engram_hash.py:/vllm-workspace/vllm-ascend/vllm_ascend/models/deepseek_v41/engram_hash.py:rw")
+  # [DEVICE-INDEX] host-mapped 表 + 设备侧哈希（新模块；关掉开关时不会被 import）
+  if [ -f "$F/engram_device_index.py" ]; then
+    MOUNTS+=(-v "$F/engram_device_index.py:/vllm-workspace/vllm-ascend/vllm_ascend/models/deepseek_v41/engram_device_index.py:ro")
+  elif _engram_need_rw; then
+    die "ENGRAM_DEVICE_INDEX=1 但缺 patches/files/engram_device_index.py"
+  fi
+  if [ -f "$F/engram_graph.py" ]; then
+    MOUNTS+=(-v "$F/engram_graph.py:/vllm-workspace/vllm-ascend/vllm_ascend/models/deepseek_v41/engram_graph.py:ro")
+  elif _engram_need_rw; then
+    die "ENGRAM_DEVICE_INDEX=1 但缺 patches/files/engram_graph.py"
+  fi
   MOUNTS+=(-v "$F/engram_jit_kernel.py:/vllm-workspace/vllm-ascend/vllm_ascend/models/deepseek_v41/engram_jit_kernel.py:ro")
   MOUNTS+=(-v "$F/engram_plan_kernel.py:/vllm-workspace/vllm-ascend/vllm_ascend/models/deepseek_v41/engram_plan_kernel.py:ro")
   MOUNTS+=(-v "$F/engram_gate.py:/vllm-workspace/vllm-ascend/vllm_ascend/models/deepseek_v41/engram_gate.py:ro")
   MOUNTS+=(-v "$F/model.py:/vllm-workspace/vllm-ascend/vllm_ascend/models/deepseek_v41/model.py:rw")
+  # [DMQ-GUARD-REMOVED] 曾在这里挂 patches/files/model_runner_v1.py（device_metadata
+  # 的 submit/release 自愈护栏）。**已撤销**：该护栏在正常运行中也会误触发，
+  # 提前释放 device metadata ⇒ 64 并发实测 57/64 + 服务挂（ScatterElements 0x91 →
+  # ERR00100 → HCCL watchdog），撤销后同一扫描 64/64 全过。
+  # 不要恢复这个挂载 —— 整文件覆盖 model_runner_v1.py 的风险远大于收益。
   MOUNTS+=(-v "$F/ascend_forward_context.py:/vllm-workspace/vllm-ascend/vllm_ascend/ascend_forward_context.py:ro")
   MOUNTS+=(-v "$F/rope_dsv4.py:/vllm-workspace/vllm-ascend/vllm_ascend/ops/rope_dsv4.py:ro")
   if [ "$DRAFT_GRAPH" = "1" ]; then
@@ -508,6 +632,8 @@ if [ "$DRY_RUN" = "1" ]; then
   echo "[a2-dry] MAX_SEQS=$MAX_SEQS PREFIX=$PREFIX SP_TOKENS=$SP_TOKENS BAT_TOKENS=$BAT_TOKENS"
   echo "[a2-dry] CAPTURE_SIZES=$CAPTURE_SIZES"
   echo "[a2-dry] MOE_AG=$MOE_AG O_PROJ_2D=$O_PROJ_2D MOE_MASK=$MOE_MASK ROPE_IDXSEL=$ROPE_IDXSEL ENGRAM_JIT=$ENGRAM_JIT QLI_NOCAND=$QLI_NOCAND LOCAL_OWNER=$LOCAL_OWNER"
+  echo "[a2-dry] PROFILE=$V41_PROFILE ENGRAM_DEVICE_INDEX=$ENGRAM_DEVICE_INDEX ENGRAM_DEVICE_FALLBACK=$ENGRAM_DEVICE_FALLBACK"
+  echo "[a2-dry] DROPCACHE=$DROPCACHE（起服前清 page cache；0 关闭）"
   echo "[a2-dry] MOE_ZERO=$MOE_ZERO MOE_NF=$MOE_NF DRAFT_GRAPH=$DRAFT_GRAPH PYTHON_PGO=$PYTHON_PGO pgo_target=${PGO_LIB:-none} LOAD_FORMAT=${LOAD_FORMAT:-<real>} CAND_MODE=$CAND_MODE PATCH_MODE=$PATCH_MODE"
   echo "[a2-dry] CPUSET=$CPUSET${CPUSET_SRC:+ ($CPUSET_SRC)} MEMS=$MEMS${MEMS_SRC:+ ($MEMS_SRC)} STATIC_KERNEL=$STATIC_KERNEL NPUGRAPH_EX=$NPUGRAPH_EX MULTISTREAM=$MULTISTREAM HCCL_DET=${HCCL_DET:-none}"
   echo "[a2-dry] MOUNTS(${#MOUNTS[@]}): ${MOUNTS[*]:-<none>}"
@@ -517,11 +643,58 @@ if [ "$DRY_RUN" = "1" ]; then
 fi
 
 say "起容器 $NAME（image=$IMAGE port=$PORT devs='$DEVS' util=$GPU_UTIL pgo=$PYTHON_PGO patch_mode=$PATCH_MODE mseqs=$MAX_SEQS prefix=$PREFIX）"
+
+# ---------- [DROPCACHE] 起服前清 page cache（默认开） ----------
+# 为什么放在这里：起服需要一段**连续**的宿主内存（权重 206 GB 的 page cache +
+# 8 个 worker 的 torch/静态内核缓冲 + numba/torch.compile 缓存），而 page cache
+# 是可回收的常驻内存。实测一次 `echo 1 > drop_caches` 能释放 564 GiB
+# （Cached 811 -> 247 GiB，MemFree 454 -> 1021 GiB），代价是下一次读文件要重新
+# 走盘 —— 起服本来就要读一遍 206 GB 的表，所以这个代价是划算的。
+#
+# 注意它**不能**清理 tmpfs：`/tmp` 与 `/dev/shm` 里的东西算 Shmem（不可回收），
+# drop_caches 对它们完全无效（实测 Shmem 246.9 GiB 一动不动）。所以若宿主内存
+# 被 tmpfs 占满，需要单独清理那些目录，这个开关帮不上忙。
+#
+# 影响面：drop_caches 是**整机**的，会连带清掉同机其它租户的 page cache
+# （它们之后首次读文件会变慢）。所以留了开关：
+#   DROPCACHE=0 关闭；DROPCACHE=1（默认）打开。
+# 需要 root，没有免密 sudo 时只告警不失败。
+if [ "$DROPCACHE" = "1" ]; then
+  if [ "$(id -u)" = "0" ]; then
+    _sync_then_drop() { sync; echo 1 > /proc/sys/vm/drop_caches; }
+  elif sudo -n true 2>/dev/null; then
+    _sync_then_drop() { sync; sudo -n sh -c 'echo 1 > /proc/sys/vm/drop_caches'; }
+  else
+    _sync_then_drop() { return 1; }
+  fi
+  _before_mb=$(awk '/^MemFree:/{print int($2/1024)}' /proc/meminfo)
+  if _sync_then_drop; then
+    sleep 2
+    _after_mb=$(awk '/^MemFree:/{print int($2/1024)}' /proc/meminfo)
+    say "page cache 已清理：MemFree ${_before_mb} MiB -> ${_after_mb} MiB (+$((_after_mb - _before_mb)) MiB)"
+  else
+    say "⚠️  DROPCACHE=$DROPCACHE 但当前用户无 root/免密 sudo，跳过（不影响起服）"
+  fi
+fi
+
 $DOCKER rm -f "$NAME" >/dev/null 2>&1 || true
 : > "$LOG"
 # [MEMLOCK] A2 实测：pin_memory 报 207001（`aclrtMallocHostWithCfg` 失败）而 free -g
 # 仍有 667 GiB 空闲 —— 不是容量问题。解法是更新 driver + 解除 memlock 限制。
 # 这里默认 `--ulimit memlock=-1`（无限），A3 上无副作用。
+# [SKCACHE-PATH] static kernel 产物的挂载点必须与**实际写入路径**一致。
+# torch_npu 的 `npugraph_ex/.../_acl_concrete_graph/static_kernel.py` 用的是
+# `Path.cwd()`：
+#     line 888:  base_dir = Path.cwd().resolve()
+#     line 912:  base_output_dir = script_dir / "static_kernel_compile_outputs"
+#     line 672:  static_kernel_install 也在 <cwd> 下
+# 而容器是 `-w /workspace` 起的（本文件下方 docker run 的 -w）⇒ 产物落在
+# **/workspace/static_kernel_compile_outputs**。
+# 旧写法只挂 /vllm-workspace/... —— 那一层永远收不到东西，于是：
+#   ① 每次重启都冷编译（A3 实测多花 ~5 min，A2 更久）；
+#   ② 脚本自己的 "skcache 命中" 检查看的是宿主目录，因此还会**误报命中**；
+#   ③ 宿主目录只剩 4 KB 旧空壳（实测），而容器内 /workspace 下积了 182 MB。
+# 现在两处都挂：/workspace 是真实位置，/vllm-workspace 兼容 workdir 不同的镜像。
 $DOCKER run -d --name "$NAME" --net=host --shm-size=512g --privileged=true \
   --ulimit memlock=-1 \
   "${CGROUP_ARGS[@]}" \
@@ -537,8 +710,10 @@ $DOCKER run -d --name "$NAME" --net=host --shm-size=512g --privileged=true \
   -v "$CACHE/vllm:/root/.cache/vllm" \
   -v "$CACHE/npugraph:/root/npugraph_ex_cache" \
   -v "$CACHE/numba:/numba_cache" \
+  -v "$CACHE/skcache/compile_outputs:/workspace/static_kernel_compile_outputs" \
   -v "$CACHE/skcache/compile_outputs:/vllm-workspace/vllm/static_kernel_compile_outputs" \
   -v "$CACHE/skcache/compile_outputs:/vllm-workspace/vllm-ascend/static_kernel_compile_outputs" \
+  -v "$CACHE/skcache/install:/workspace/static_kernel_install" \
   -v "$CACHE/skcache/install:/vllm-workspace/vllm-ascend/static_kernel_install" \
   -v "$OUT:/opt/dsv41/results/$RUN_ID" \
   "${MOUNTS[@]}" \
@@ -556,6 +731,9 @@ $DOCKER run -d --name "$NAME" --net=host --shm-size=512g --privileged=true \
   -e V41_ENGRAM_GATE_CHUNK="$GATE_CHUNK" -e V41_ENGRAM_GATE_MAX_TOKENS="$GATE_MAX_TOKENS" -e MAX_TOKENS="$GATE_MAX_TOKENS" \
   -e V41_ENGRAM_GATE_HOIST=0 \
   -e V41_ENGRAM_JIT="$ENGRAM_JIT" \
+  -e V41_ENGRAM_DEVICE_INDEX="$ENGRAM_DEVICE_INDEX" \
+  -e DSPARK_GRAPH_CAPTURE_METADATA="$([ "$DRAFT_GRAPH" = "1" ] && echo 1 || echo 0)" \
+  -e V41_ENGRAM_DEVICE_FALLBACK="$ENGRAM_DEVICE_FALLBACK" \
   -e V41_QLI_NO_CANDIDATE="$QLI_NOCAND" \
   -e V41_MOE_COMM_ALLGATHER="$MOE_AG" \
   -e V41_MOE_MASK_RANGE="$MOE_MASK" \
@@ -575,10 +753,73 @@ _CONTAINER_STARTED=1     # [FAIL-CLEANUP] 之后任何 die() 都会删掉这个�
 # engram local-owner 用 /tmp 文件热切换（与 A3-node1 完全一致）
 $DOCKER exec "$NAME" bash -lc "printf '%s' '$LOCAL_OWNER' > /tmp/v41_engram_localowner; printf '%s' 'fast' > /tmp/v41_hash_mode" || true
 
+# ---------- [ADMISSION-GATE] mount 模式下现场打 vLLM core 补丁 ----------
+if [ "$PATCH_MODE" = "mount" ]; then
+  say "[ADMISSION-GATE] mount 模式：在容器内现场应用 admission_gate.patch"
+  _gate=$($DOCKER exec "$NAME" bash -lc '
+    P=/opt/dsv41/admission_gate.patch
+    [ -f "$P" ] || { echo MISSING_PATCH; exit 0; }
+    cd /vllm-workspace/vllm 2>/dev/null || { echo MISSING_VLLM_ROOT; exit 0; }
+    if git apply --check "$P" 2>/dev/null; then
+      git apply "$P" 2>/dev/null && echo APPLIED || echo FAILED
+    elif git apply --reverse --check "$P" 2>/dev/null; then
+      echo ALREADY
+    else
+      echo FAILED
+    fi' 2>/dev/null | tail -1)
+  case "${_gate:-}" in
+    APPLIED) say "[ADMISSION-GATE] 已应用 ✓" ;;
+    ALREADY) say "[ADMISSION-GATE] 基础镜像里已包含 ✓" ;;
+    *)       echo "[serve_a2] WARNING: admission gate 未能应用（${_gate:-unknown}）—— 基础镜像的 vLLM 版本可能不同。" >&2
+             echo "[serve_a2]         服务仍能起，但 prefill 饿死 decode 的保护不生效；请把这条日志当交付前必须解释的差异。" >&2 ;;
+  esac
+  # 效果断言：不看有没有打，看 live tree 里有没有
+  _gh=$($DOCKER exec "$NAME" bash -lc 'grep -c admission_gate /vllm-workspace/vllm/vllm/v1/core/sched/scheduler.py 2>/dev/null || true')
+  if [ "${_gh:-0}" -ge 1 ]; then
+    say "[ADMISSION-GATE] live tree 命中 ${_gh} 处 ✓"
+  else
+    echo "[serve_a2] WARNING: live tree 里找不到 admission gate ⇒ 该补丁未生效" >&2
+  fi
+fi
+
 if [ "$DRAFT_GRAPH" = "1" ]; then
-  # 用 probe_draft 的三个整文件覆盖（含 0002/0004/0005/0006 + F3），并打开 draft 图捕获
-  say "DRAFT_GRAPH=1（实验，未验证）：用 patch_mode=mount 挂 draft 版文件"
+  # draft 版三个整文件（含 0002/0004/0005/0006 + F3）必须真的**装到实际位置**，
+  # 否则 DSPARK_GRAPH_CAPTURE_METADATA=1 设了也没人消费 —— 就是那个静默失效。
+  #
+  # 两条路径：
+  #   PATCH_MODE=mount（A3 默认）—— 上面的 MOUNTS 已经把 draft 版挂到目标路径
+  #   PATCH_MODE=baked（A2 默认）—— 镜像里只是把 draft 文件放在
+  #       /opt/dsv41/patches/draft/，**没有人把它拷到 live tree**。所以这里显式装。
+  say "DRAFT_GRAPH=1：安装 draft 版文件 + 打开图捕获元数据（PATCH_MODE=$PATCH_MODE）"
+  if [ "$PATCH_MODE" != "mount" ]; then
+    if [ -f "$PKG/tools/enable_draft_graph.sh" ]; then
+      $DOCKER exec "$NAME" bash -lc "bash /opt/dsv41/tools/enable_draft_graph.sh on" >/dev/null 2>&1 || true
+    fi
+    # 兜底：直接从镜像内已 COPY 的 draft 目录装（不依赖 tools/ 是否被挂进去）
+    $DOCKER exec "$NAME" bash -lc '
+      A=/vllm-workspace/vllm-ascend/vllm_ascend; D=/opt/dsv41/patches/draft
+      for pair in "dsa_v1.py:$A/attention/dsa_v1.py" \
+                  "dspark_proposer.py:$A/spec_decode/dspark_proposer.py" \
+                  "llm_base_proposer.py:$A/spec_decode/llm_base_proposer.py"; do
+        src=${pair%%:*}; tgt=${pair##*:}
+        [ -f "$D/$src" ] || { echo "MISSING $D/$src"; exit 1; }
+        cp -f "$D/$src" "$tgt" && echo "installed $src"
+      done' || die "DRAFT_GRAPH=1 但 draft 版文件安装失败（见上）"
+  fi
   $DOCKER exec "$NAME" bash -lc "ls -la /vllm-workspace/vllm-ascend/vllm_ascend/spec_decode/dspark_proposer.py" >/dev/null
+  # 断言：装好的文件里必须真的有图捕获的实现（不是 stock 版）
+  _has=$($DOCKER exec "$NAME" bash -lc 'grep -c "DSPARK_GRAPH_CAPTURE_METADATA" /vllm-workspace/vllm-ascend/vllm_ascend/spec_decode/dspark_proposer.py || true')
+  if [ "${_has:-0}" -lt 1 ]; then
+    die "DRAFT_GRAPH=1 但 dspark_proposer.py 里找不到 DSPARK_GRAPH_CAPTURE_METADATA —— 
+      实际装的是 stock 版，draft 图会静默无 attention。检查 patches/files/draft/ 是否随包。"
+  fi
+  say "DRAFT-GUARD: dspark_proposer.py 含图捕获实现（命中 $_has 处）✓"
+  _cap=$($DOCKER exec "$NAME" bash -lc 'printf %s "${DSPARK_GRAPH_CAPTURE_METADATA:-unset}"')
+  if [ "$_cap" != "1" ]; then
+    die "DRAFT_GRAPH=1 但容器内 DSPARK_GRAPH_CAPTURE_METADATA=$_cap（应为 1）——
+      缺它 draft 图会静默无 attention（A 恒 1.0，ms 却看着正常）。这是构建/挂载问题，不是运行时问题。"
+  fi
+  say "DRAFT-GUARD: 容器内 DSPARK_GRAPH_CAPTURE_METADATA=$_cap ✓"
 fi
 
 mkdir -p "$OUT"
@@ -593,6 +834,9 @@ mkdir -p "$OUT"
   echo "[serve_a2] 口径：MAX_SEQS=$MAX_SEQS PREFIX=$PREFIX(0=性能口径/1=生产口径) capture_max=${CAPTURE_SIZES##*,}"
   echo "[serve_a2] 诊断项：HCCL_DET=${HCCL_DET:-none}（true 会掉 GSM8K 到 91/100，仅诊断）"
   echo "[serve_a2] cpuset=$CPUSET mems=$MEMS"
+  echo "[serve_a2] PROFILE=$V41_PROFILE（1 => /start_profile 与 /stop_profile 可用，落到 $OUT/prof）"
+  echo "[serve_a2] ENGRAM_DEVICE_INDEX=$ENGRAM_DEVICE_INDEX ENGRAM_DEVICE_FALLBACK=$ENGRAM_DEVICE_FALLBACK"
+  echo "[serve_a2] PATCH_MODE=$PATCH_MODE ADMISSION_GATE=${_gate:-n/a}(live_hits=${_gh:-0})"
 } | tee "$OUT/serve_cmd.txt"
 
 INNER=/opt/dsv41/results/$RUN_ID/inner.sh
@@ -612,6 +856,10 @@ export V41_KV_TIER=off
 export V41_ENGRAM_LOCAL_OWNER_FILE=/tmp/v41_engram_localowner
 export CAPTURE_SIZES="$CAPTURE_SIZES"
 export ASCEND_MAX_OP_CACHE_SIZE=-1
+# [PROFILE] 透传 profiler 开关；PROFILE_DIR 指向本次 run 的结果目录（宿主可见），
+# 这样 /stop_profile 一落盘就能直接分析，不用再 docker cp。
+export PROFILE=$V41_PROFILE
+export PROFILE_DIR=/opt/dsv41/results/$RUN_ID/prof
 # [OPS-SWITCHES] 三个排障开关，**默认全关**（发布口径）。
 # 排查长上下文/精度问题时把它们打开很有用：
 #   VLLM_SERVER_DEV_MODE=1  → 额外挂出 12 个运维端点（/reset_prefix_cache /pause
@@ -632,7 +880,11 @@ fi
 if [ -n "$LOAD_FORMAT" ]; then
   export V41_ENGRAM_WITH_DUMMY=1 V41_DUMMY_WO_A_FIX=1
 fi
-if [ "$DRAFT_GRAPH" = "1" ]; then export DSPARK_DRAFT_METADATA_MODE=sync; fi
+if [ "$DRAFT_GRAPH" = "1" ]; then
+  export DSPARK_DRAFT_METADATA_MODE=sync
+  # ★ 必须同时设这个，否则 draft 图静默无 attention（见上面 DRAFT_GRAPH 注释）。
+  export DSPARK_GRAPH_CAPTURE_METADATA=1
+fi
 echo "[a2] run_id=$RUN_ID port=$PORT static=$STATIC_KERNEL sptok=$SP_TOKENS capture_sizes=$CAPTURE_SIZES mseqs=$MAX_SEQS prefix=$PREFIX moeag=$MOE_AG local_owner=$LOCAL_OWNER pgo=$PYTHON_PGO load_format=\${LOAD_FORMAT:-real} draft_graph=$DRAFT_GRAPH moe_zero=$MOE_ZERO moe_nf=$MOE_NF"
 md5sum /vllm-workspace/vllm-ascend/vllm_ascend/models/deepseek_v41/engram_hbm.py \\
        /vllm-workspace/vllm-ascend/vllm_ascend/models/deepseek_v41/engram_hash.py 2>/dev/null

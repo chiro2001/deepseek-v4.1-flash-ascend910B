@@ -1,6 +1,285 @@
-# CHANGELOG.md —— v3 → v4 → v5 → v6 逐项 diff
+# CHANGELOG.md —— v3 → v4 → v5 → v6 → v7 → v8 逐项 diff
 
----
+# ★ v8（2026-09-20）—— Engram 完全入图：查表从 host 搬到 device，删掉整条 host 路径
+
+> 这是本包**第一次动 Engram 的执行位置**：表仍然 206 GiB 常驻 host DRAM（进不了 HBM），
+> 但改由**设备算子直接索引**，于是 `d2h` 同步 / 分片 / `all_gather` / `all_to_all` /
+> `broadcast` / `h2d` 六条 host 路径整体消失，查表变成主图里的一张 ACLGraph。
+
+## 0. 结论
+
+| 项 | host 路径（v7 及以前） | device-index（v8） |
+|---|---|---|
+| 每步**同步 host 时间** | 3.379 ms（`d2h` 1.667 + `hash` 0.074 + `route` 1.638） | **0.058 ms** |
+| decode 单流 ms/step（并发 1） | 29.5 | **28.4** |
+| decode 并发 4 ms/step | 35.3 | **32.1** |
+| HBM 占用 | 基线 | **一致**（13.05 vs 13.06 GiB） |
+| per-rank DRAM 分片 | 25.75 GB/rank/层 | **不再需要**（每 rank 读整张表） |
+
+`route` 从 2.462 ms 掉到 0.058 ms 的原因**不是算得更快**，而是 `Graph.replay()` 是
+**异步入队** —— host 只花 58 µs 把图提交出去，设备侧的 0.695 ms 与后续重叠。
+
+## 1. 原理
+
+A3 的 AI Core 可以直接寻址 host 映射内存（`aclrtHostMemMapCapabilities` 返回
+AIC/AIV = SUPPORTED）。用 `aclrtHostRegister(..., MAPPED)` 把表所在的
+`mmap` 注册成设备可寻址，`torch.index_select` 就能直接读 host DRAM。
+
+三个关键设计点（都有实测支撑）：
+
+1. **decode 与 prefill 分流**：整表 gather 在 n=6/288 时都是 0.083 ms、**与表大小无关**，
+   而 n=393216 时是 16.75 ms —— 代价按**行**发生，decode 规模下不存在。
+   所以 decode 走整表直索（且天然可捕获），prefill 才需要分段。
+2. **零拷贝捕获**：图直接捕获在模型自己的常驻 buffer 上（`input_ids.gpu`、`positions`、
+   `query_start_loc.gpu`、block table），`req` 的 searchsorted 也放图内。
+   此前试过"拷进私有 buffer"，**实测更差**：H2D 会阻塞等设备队列排空，
+   `route` 从 0.35 ms 涨到 2.0(n=6)/5.4(n=24)。
+3. **每 batch shape 一张图 + 指针校验**：bucket key 必须含 `(n, n_reqs, block_width)`
+   —— n=12 可能是 2 请求×6 也可能是 12 请求×1，只按 n 分键会**静默喂错布局**。
+   零拷贝会锁地址，所以每次重放前比对四个输入的 `data_ptr`+shape，不一致就退回 eager。
+
+## 2. 新增文件
+
+| 文件 | 作用 |
+|---|---|
+| `patches/files/engram_device_index.py` | `HostMappedSafetensors` / `HostMappedEngramTable` / `DeviceNgramHash`（向量化历史）/ 能力探测 |
+| `patches/files/engram_graph.py` | 每个 batch shape 一张 ACLGraph，零拷贝 + 指针校验 |
+| `tools/probe_a2_hostmap.py` + `tools/run_probe_hostmap.sh` | 一条命令判定某台机器能否启用 device-index |
+
+> v8 开发期还曾改过 `patches/files/model_runner_v1.py`（device_metadata 自愈护栏），
+> **已整块撤销并从包里删除**，原因见 §4.3 —— 那是本轮最重要的一条教训。
+
+## 3. ★ 默认 `auto`：为什么不在 A2 上想当然
+
+`ENGRAM_DEVICE_INDEX` 的取值：
+
+| 值 | 行为 |
+|---|---|
+| **`auto`（默认）** | 起服时**探测** `aclrtHostRegister` 一个可写映射并让设备读它；通过则启用，否则**静默回退 host 路径**（功能完全不变） |
+| `1` | 强制启用；探测失败即抛错（A3 验收建议用这个，避免"以为开了其实回退了"） |
+| `0` | 强制关闭 |
+
+**为什么默认不是 1**：该能力只在 A3（910C）实测过，A2（910B3）**从未在同一台机器上验证**。
+而且本项目自己的 `docs/A2_VS_A3_DIFF.md` §5 记着一条反例：A3 上
+`offload.get_dva(pinned_ptr)` 返回 0，AIV 解引用**已注册的 pinned 地址**会报
+`507035 MTE invalid GM address` ⇒ "registered host memory" ≠ "device kernel 可直接解引用"。
+
+**资料侧结论是"支持"**（华为官方零拷贝样例 `0_simple_zero_copy` 的产品表含
+Atlas A2 训练/推理系列，样例把映射地址当 `GM_ADDR` 传给 AscendC Kernel 用
+`DataCopy` 直接读写；`910B` 的 `NpuArch=2201` 也不在唯一的 `arch5162` 不支持清单里）。
+但**文档承诺 ≠ 现场成立**，所以仍然探测。
+
+A2 上一条命令即可拿到终局答案：
+
+```bash
+IMAGE=<你的镜像> DEV=<空闲卡> bash tools/run_probe_hostmap.sh
+# 退出码 0 = 支持，3 = 不支持，1 = 探测本身出错
+```
+
+## 4. 同时修掉的工程问题
+
+### 4.1 ★ A3 默认挂载补丁（否则跑的是未优化版本）
+
+`serve_a3.sh` 用的是**官方镜像**（`quay.nju.edu.cn/...:deepseek-v4.1-flash-a3`），
+里面没有本包的补丁。此前 `PATCH_MODE` 继承 `serve_a2.sh` 的默认值 `baked`，
+于是 A3 用户按 README 起服会跑**未优化版本，而且不报任何错**。
+现在 `serve_a3.sh` 默认 `PATCH_MODE=mount`。
+
+### 4.2 ★ static kernel 缓存挂载点错了（每次重启都冷编译）
+
+`torch_npu` 的 `npugraph_ex/.../static_kernel.py` 用 `Path.cwd()` 决定产物位置
+（`base_dir = Path.cwd().resolve()`，`base_output_dir = script_dir / "static_kernel_compile_outputs"`），
+而容器是 `-w /workspace` 起的 ⇒ 产物落在 **`/workspace/static_kernel_compile_outputs`**。
+
+旧脚本挂的是 `/vllm-workspace/...` —— 那一层**永远收不到东西**，后果：
+
+1. **每次重启都冷编译**（A3 实测多花 ~5 min，A2 首次 15–20 min）；
+2. 脚本自己的 "skcache 命中" 检查看的是宿主目录，因此还会**误报命中**；
+3. 宿主目录只剩 4 KB 旧空壳，而容器内 `/workspace` 下积了 182 MB。
+
+现在两处都挂（`/workspace` 是真实位置，`/vllm-workspace` 兼容 workdir 不同的镜像）。
+另外把"命中"判据从"目录存在"改成**清单文件大小**（`static_kernel_cache/*.json` ≥512 B），
+因为旧写法下空壳目录也能让检查通过。
+
+### 4.3 ⚠️ 两个**尝试过并撤销**的改动（本轮最重要的教训）
+
+#### (a) device_metadata 的"自愈护栏" —— 已删除，**不要恢复**
+
+**动机**：`device_metadata.py` 的 `submit()` 置位 / `release()` 清位由
+`model_runner_v1` 两处调用点配对，**没有 try/finally**。中间任何异常逃出，
+标志就永久停在 True，之后每个请求都死在
+`The previous device metadata submission has not been released`。
+（这个真实故障形态记在 `lite-runs/DMQ-LEAK.md`。）
+
+**做法**：整文件覆盖 `patches/files/model_runner_v1.py`（280 KB），加两道护栏 ——
+`submit()` **之前**判 `submission_in_flight == True` 就强制 release，forward 之后再兜一次。
+
+**实测结果：护栏本身把服务打挂了。** 64 并发扫描下，**正常请求也会命中**那个判据
+（`submission_in_flight` 在正常流程中会短暂为 True），于是 device metadata 被提前释放，
+device 侧契约被破坏：
+
+```
+AI CPU kernel execution failed ... kernelName=ScatterElements, errorCode=0x91
+→ ERR00100 → HCCL watchdog thread terminated → 服务整体不可用
+```
+
+**关键证据**：把 `ENGRAM_DEVICE_INDEX=0`（完全不走 device-index 路径）**也照样触发**
+⇒ 与 device-index 无关，就是护栏。同一次扫描 **57/64**，7 个请求失败。
+
+**处置**：整块删除 —— 文件已从包里移除、Dockerfile 已清、serve 脚本的挂载已撤
+（`serve_a2.sh` 里只留一条注释说明为什么不能恢复）。
+撤销后同一套并发扫描 **64/64 全过**（7 档 × 2 rep，见 §9）。
+
+**纪律**：整文件覆盖 vllm-ascend 核心文件（尤其 `model_runner_v1.py`）的风险远高于收益。
+护栏想治的是"异常从 forward 逃出"的**罕见**场景，而它的误伤在正常运行下是**必然**
+—— 宁可少一个护栏，不可多一个静默杀手。
+
+#### (b) 初始化期探测"显存可读性" —— 已删除
+
+**做法**：`probe_host_mapping_capability()` 里对 host-mapped 张量做 `int(t[0])`，
+想直接证明"设备真能读到 host 内存"。
+
+**实测结果**：worker 初始化阶段 **segfault**
+（`aclrtMemcpyImpl` → `_local_scalar_dense` → `item`），整台机器起不来。
+
+**处置**：能力探测**只做 `aclrtHostRegister`**（够用），端到端可读性交给**独立进程**的
+`tools/probe_a2_hostmap.py`（崩了也不影响服务）。A3 上该探针返回 SUPPORTED。
+
+### 4.4 起服前清 page cache
+
+`DROPCACHE=1`（默认）：起服前 `echo 1 > /proc/sys/vm/drop_caches`。
+实测 `MemFree 528517 MiB → 997802 MiB (+469 GiB)`。**注意它清不了 tmpfs**
+（`/tmp`、`/dev/shm` 里的东西算 Shmem，不可回收）。
+
+## 5. 精度与正确性
+
+device-index 的价值必须建立在**逐位一致**上。已通过的测试：
+
+| 测试 | 内容 |
+|---|---|
+| `engram_device_test.py --stage cpu` | 12 个语义场景 × host 的 `stock`/`fast` **两种**参考实现，逐位一致 |
+| `engram_device_test.py --stage npu` | NPU 上重跑同一批（含同调用重复槽位），逐位一致 |
+| `engram_device_test.py --stage graph` | 捕获 + replay + fresh-inputs 逐位一致 |
+| `engram_integration_test.py` | 表查找 vs 融合 Triton 反量化 4096 行逐位一致；真实 layout 哈希 12 场景一致 |
+| `engram_wiring_test.py` | 假 attn_metadata 驱动完整管线，5 个场景与 host 参考逐位一致；越界页号被拒 |
+| `engram_multidevice_test.py` | 多设备 `device_id` 回归（单卡测试抓不到这类 bug） |
+
+## 6. ★ DRAFT_GRAPH 的实测负面结果：**默认必须保持 0**
+
+发布前按要求尝试把 `DRAFT_GRAPH`（DSpark draft 入图）改为默认 1，并把同源的
+静默失效一并修掉，结果**实测是负收益**：
+
+| 配置 | A（接受长度） | 单流 tok/s | ms/step |
+|---|---:|---:|---:|
+| `DRAFT_GRAPH=0` | **2.7 – 3.0** | **90 – 111** | 27 – 30 |
+| `DRAFT_GRAPH=1` | **1.06 – 1.08** | **42.0** | 25.1 |
+
+**所有开关都验证到位了**：容器内 `DSPARK_GRAPH_CAPTURE_METADATA=1`、
+draft 版 `dspark_proposer.py` 已装（grep 命中 2 处）、起服命令行确实是
+`speculative-config {"method":"dspark",...,"enforce_eager":false}`。
+**但效果仍然是坏的** —— A ≈ 1.0 说明 draft 完全没产出，正是
+`reports/draft-graph-negative-control.md` 记录的那种静默失效。
+
+**最危险的地方**：ms/step 反而"更好看"（25.1 vs 29.5）。因为静默失效时每步只出
+**1.08** 个 token 而不是 **2.85** 个 ⇒ **真实吞吐慢 2.2×**。
+只看 ms/step 会得出完全相反的结论。
+
+⇒ 默认保持 `DRAFT_GRAPH=0`。要实验必须用新加的**效果级** guard：
+
+```bash
+DRAFT_GRAPH=1 bash scripts/serve_a3.sh
+bash tools/draft_graph_guard.sh     # 退出码 0=有效 / 1=静默失效 / 2=不确定
+```
+
+`draft_graph_guard.sh` 的判据以 **tok/s 为主、A 为辅**（tok/s 不会像 ms/step 那样被骗），
+并显式解释"ms/step 变小是假象"。
+
+> 教训：验证一个开关"装上了"（env 对、文件对、命令行对）**不等于**验证它"起作用了"。
+> 必须查**效果**，而且要用不会被同一故障反向误导的指标。
+
+### 6.1 补充：这是一个**未完成的重构**，不是一个可以修的 bug
+
+按要求把 draft 入图设为默认后，实测发现它**两层都坏**：
+
+| 配置 | 用哪个 `dspark_proposer.py` | 是否入图 | A（接受长度） | 单流 tok/s |
+|---|---|---:|---:|---:|
+| `DRAFT_GRAPH=0` | **stock**（官方镜像） | 否 | **2.85** | **94–111** |
+| `DRAFT_GRAPH=1 SPEC_EAGER=1` | **draft 版** | **否** | **1.84** | **58** |
+| `DRAFT_GRAPH=1` | **draft 版** | 是 | **1.05** | **42** |
+
+**关键**：把图关掉（`SPEC_EAGER=1`）**仍然是坏的**（2.85→1.84）⇒ 根因不只在"入图"，
+而在 `patches/files/draft/` 那 **~294 行**（403 → 664 行）从未验证的改动里；开图后再退化一次。
+
+排查过程中**排除掉**的假设（都有实测/源码证据）：
+- `DSPARK_GRAPH_CAPTURE_METADATA=1` 未设 → 已设，无效
+- capture 期 metadata tasks 没跑（`_DSPARK_DEVICE_METADATA` 默认 0）→ 已设 `=1`，无效
+- replay 不重建 metadata → 探针实测 replay **有**调用 `build_draft_attn_metadata`，且 `query_start_loc`/`max_query_len`/`decode_token_per_req` 与 capture **完全一致**
+- 9 个 capture bucket 不全 → 实测 9/9 全捕获（含单请求用的 bucket 6）
+
+⇒ 结论：这是**一个未完成的重构**，不是一处 bug。`tools/enable_draft_graph.sh` 里那句
+"❌ **上卡验证未做**" 是准确的。**默认保持 0**，要实验必须用 `tools/draft_graph_guard.sh`
+（效果级判据）确认 A ≥ 1.3 且 tok/s ≥ 80，否则不要采用。
+
+## 7. `--async-scheduling`：本配置下**无收益且高并发崩溃**
+
+`docs/STREAM_SPEED_PLAN.md` 记录过 async 的量级（async off 57.61 → on 34.39 ms/round，**−40.3%**），
+且明确说 `ADMISSION_GATE=1` 与 async **可以共存**、no-async 只是"首轮验证推荐"。据此实测：
+
+| 配置 | A | 单流 tok/s | ms/step |
+|---|---:|---:|---:|
+| `ASYNC=0`（默认） | 2.85 | 94 | **30.2** |
+| `ASYNC=1` | 2.25 | 73.6 | **30.6** |
+
+**没有收益**（30.6 vs 30.2），而且 **64 并发把服务打挂**：
+`HCCL watchdog thread terminated` + `ERR02005 DIST internal error`（10/64 请求失败，
+与服务此前那个 `ERR00100`+`ScatterElements` 的失败**签名不同**）。
+服务端自己会警告：`[admission_gate] max_concurrent_batches=2 (async scheduling/PP)` ——
+batch 开始重叠，而本包的 admission gate 是按单 batch 设计的。
+
+⇒ 历史那个 −40% 出自 `ENGRAM=0` + 无投机 + TP8/DP1 + 7.8K 上下文的配置，**不可外推**到本包形态。
+**默认保持 0**；开关保留（`ASYNC=1`）供后续在有 soak 保护的场景下复验。
+
+> 顺带得到一个重要推论：**async 无收益 ⇒ host 工作已不在关键路径上**。
+> 设备忙时约 27.96 ms / 真实步时 30.2 ms = **92.6% 饱和**，所以
+> profiler 报的 "Device Free 10.269 ms/step (26.9%)" 里**大部分是 profiler 自己拉长的**
+> —— 与用户给的判断一致（torch profiler 的负载主要在 host，会放大 host bound 的段）。
+> 要达成 24 ms/step 必须**减少设备工作量**，而不是继续压 host。
+
+## 8. 已知边界
+
+1. **prefill 仍走整表 gather（16.8 ms）**。分段方案已验证（5.36 ms，2.44×）但未接线；
+   按当前口径 prefill 省 11 ms / 1.14 s ≈ 1%，优先级低。
+2. **`GatherV3` 等算子是共享名**（模型自己的 LightningIndexer / MoE 路由也用），
+   做归因时必须用 A/B 计数差，只按名字匹配会系统性高估。
+3. `gather_dequantize_engram_int8`（融合 Triton 核）**拒绝** host-mapped 指针
+   （`aclrtPointerGetAttributes` 的 location 既非 DEVICE 也非 HOST_NUMA），
+   设备路径走 aclnn。decode 规模下这块本就只有 ~0.03 ms。
+
+## 9. ★ 并发吞吐重采（护栏撤销后的回归验证 + README §3.2 数据源）
+
+> 口径：**1024 token prompt（服务端 `/tokenize` 精确校准，64/64 命中偏差 0）× 256 token 输出**、
+> 语料 `data/dihuo.txt` 每请求**互不重叠的不同切片** + 轮换 5 个问题 ⇒ 无 prefix cache 复用；
+> 每档跑完同一批 **64 条**请求、2 rep 取中位数。
+> 配置 = 本包默认（`MAX_SEQS=64 PREFIX=1 GPU_UTIL=0.92 STATIC_KERNEL=1`）+
+> `ENGRAM_DEVICE_INDEX=auto`、`DRAFT_GRAPH=0`、`ASYNC=0`、无 PGO 产物（A3 自动降级）。
+
+| 并发 | 单流 tok/s | 总吞吐 tok/s | 加速比 | 单流效率 | A（接受长度） | TTFT |
+|---:|---:|---:|---:|---:|---:|---:|
+| 1 | **90.3** | 87.1 | 1.00× | 100.0% | 2.81 | 0.20 s |
+| 2 | **89.2** | 151.5 | 1.74× | 98.8% | 2.82 | 0.36 s |
+| 4 | **80.0** | 237.7 | 2.73× | 88.7% | 2.80 | 0.55 s |
+| 8 | **59.3** | 324.4 | 3.72× | 65.6% | 2.88 | 0.94 s |
+| 16 | **42.5** | 432.6 | 4.97× | 47.1% | 2.78 | 1.83 s |
+| 32 | **31.3** | 583.9 | 6.70× | 34.7% | 2.86 | 3.82 s |
+| 64 | **20.2** | **719.5** | 8.26× | 22.3% | 2.82 | 7.16 s |
+
+**7 档 × 2 rep 全部 `ok=64/64`，服务全程存活** —— 这同时是 §4.3(a) 护栏撤销的回归验证。
+
+与 v5 表格（96.3 / 595.8，2026-09-17 同一方法）相比：**总吞吐 +20.8%**（595.8 → 719.5）、
+**TTFT −26%**（0.27 → 0.20 s）、单流 −6.2%。
+差异未逐项归因（同机共租负载与 KV 容量都会影响），两表口径一致、都可复现。
+
+原始数据：`results/bench/conc_dihuo_v8.json`；复现命令见 README §3.2。
 
 # ★ v7（2026-09-18）—— 长上下文精度修复：`BAT_TOKENS` 2048 → 8192
 

@@ -263,6 +263,22 @@ _OFFLOAD_BUFFER_CACHE_SIZE = 8
 _OFFLOAD_BUFFER_BYTES_LIMIT = 512 * 1024 * 1024
 _BF16_BYTES = 2
 
+# [DEVICE-INDEX] V41_ENGRAM_DEVICE_INDEX=1 replaces the whole host lookup path
+# (d2h sync / per-rank shard / all_gather+all_to_all+broadcast / host hash) with
+# host-mapped tables that device operators index directly, so the lookup becomes
+# an ordinary capturable device node.  See engram_device_index.py.  In that mode
+# the per-rank torch shard is dead weight -- 25.75 GB of DRAM per rank per layer
+# that nothing ever reads -- so it is not allocated and not loaded.
+_ENGRAM_DEVICE_INDEX = os.environ.get("V41_ENGRAM_DEVICE_INDEX", "0") == "1"
+# The shard may only be dropped when nothing can fall back to it: with
+# V41_ENGRAM_DEVICE_FALLBACK=1 the host path stays reachable, and a fallback into
+# a shard that was never loaded would return wrong values *silently*.  So a
+# fallback build keeps the full shard (and pays its 25.75 GB/rank/layer of DRAM
+# and its load time); the default build is all-or-nothing and fails loudly.
+_ENGRAM_DEVICE_TRIM_SHARD = _ENGRAM_DEVICE_INDEX and (
+    os.environ.get("V41_ENGRAM_DEVICE_FALLBACK", "0") != "1"
+)
+
 
 def quantize_engram_rows(rows):
     """Group32 symmetric INT8 with FP32 power-of-two scales and ties-to-even."""
@@ -477,9 +493,12 @@ class NodeShardedEngram(nn.Module):
         # Reuse fixed-size HCCL metadata buffers across requests.
         self._metadata_device_buffers = {}
         self._empty_metadata = torch.zeros(query_group.size + 1, dtype=torch.int64, device="cpu")
+        # [DEVICE-INDEX] the host-mapped table replaces the per-rank shard
+        self.device_index = bool(_ENGRAM_DEVICE_TRIM_SHARD and storage_format == "int8")
+        shard_rows = 1 if self.device_index else self.end - self.start
         self.weight = nn.Parameter(
             torch.empty(
-                self.end - self.start,
+                shard_rows,
                 width,
                 dtype=(
                     torch.int8
@@ -503,7 +522,7 @@ class NodeShardedEngram(nn.Module):
             self.register_buffer(
                 "weight_scale",
                 torch.empty(
-                    self.end - self.start,
+                    shard_rows,
                     width // 32,
                     dtype=torch.float32,
                     device=(torch.device("cpu") if getattr(self, "host_resident", False) else device),
@@ -523,6 +542,9 @@ class NodeShardedEngram(nn.Module):
 
     def set_rows(self, start, rows):
         """Load BF16 rows into local storage without allocating a BF16 table copy."""
+        if getattr(self, "device_index", False):
+            # [DEVICE-INDEX] the table is read straight from host DRAM.
+            return
         end = start + rows.shape[0]
         if self.storage_format == "int8":
             codes, scales = quantize_engram_rows(rows.to(self.weight.device))
@@ -625,6 +647,11 @@ class NodeShardedEngram(nn.Module):
         FP8/MXFP8 remain CPU resident (PLE_OFFLOAD); only decoded BF16 rows
         enter the node-local all-to-all response buffer.
         """
+        if getattr(self, "device_index", False):
+            # [DEVICE-INDEX] the loader would fill a per-rank torch shard that
+            # the lookup never reads.  Skip it; the host-mapped table in
+            # engram_device_index.py is the only copy.
+            return
         root = Path(model_path)
         index = json.loads((root / "quant_model_weights.safetensors.index.json").read_text())["weight_map"]
         scale_key = key.removesuffix(".weight") + ".scale"

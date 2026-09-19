@@ -21,11 +21,13 @@ ENV BASE_IMAGE_TAG=${BASE_IMAGE}
 SHELL ["/bin/bash", "-lc"]
 USER root
 
-# ---------- 1) 已验证补丁（11 个整文件覆盖 + 2 个新增 sidecar）----------
+# ---------- 1) 已验证补丁（整文件覆盖 + 新增 sidecar）----------
 COPY patches/files/engram_hbm.py            /tmp/bake/engram_hbm.py
 COPY patches/files/engram_hash.py           /tmp/bake/engram_hash.py
 COPY patches/files/engram_jit_kernel.py     /tmp/bake/engram_jit_kernel.py
 COPY patches/files/engram_plan_kernel.py    /tmp/bake/engram_plan_kernel.py
+COPY patches/files/engram_device_index.py   /tmp/bake/engram_device_index.py
+COPY patches/files/engram_graph.py          /tmp/bake/engram_graph.py
 COPY patches/files/engram_gate.py           /tmp/bake/engram_gate.py
 COPY patches/files/model.py                 /tmp/bake/model.py
 COPY patches/files/ascend_forward_context.py /tmp/bake/ascend_forward_context.py
@@ -77,6 +79,8 @@ RUN set -euo pipefail; \
     inst rope_dsv4.py                 ops/rope_dsv4.py; \
     newf engram_jit_kernel.py         models/deepseek_v41/engram_jit_kernel.py; \
     newf engram_plan_kernel.py        models/deepseek_v41/engram_plan_kernel.py; \
+    newf engram_device_index.py       models/deepseek_v41/engram_device_index.py; \
+    newf engram_graph.py              models/deepseek_v41/engram_graph.py; \
     rm -rf /tmp/bake
 
 # ---------- 3) vLLM core：admission gate（prefill 不饿死 decode）----------
@@ -114,6 +118,8 @@ RUN set -euo pipefail; \
         models/deepseek_v41/engram_hash.py \
         models/deepseek_v41/engram_jit_kernel.py \
         models/deepseek_v41/engram_plan_kernel.py \
+        models/deepseek_v41/engram_device_index.py \
+        models/deepseek_v41/engram_graph.py \
         models/deepseek_v41/engram_gate.py \
         models/deepseek_v41/model.py \
         models/deepseek_v41/indexer.py \

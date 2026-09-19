@@ -99,6 +99,7 @@ $DOCKER build "${CACHE_ARGS[@]}" \
   --build-arg "ASCEND_PKG=$ASCEND_PKG" \
   --build-arg "VLLM_ROOT=$VLLM_ROOT" \
   --build-arg "SKIP_PGO=${SKIP_PGO:-0}" \
+  --build-arg "ALLOW_ASCEND_VERSION_MISMATCH=${ALLOW_ASCEND_VERSION_MISMATCH:-0}" \
   -t "$IMAGE_TAG" \
   -f "$PKG/Dockerfile" "$PKG" 2>&1 | tail -30
 [ "${PIPESTATUS[0]}" = "0" ] || die "docker build 失败"

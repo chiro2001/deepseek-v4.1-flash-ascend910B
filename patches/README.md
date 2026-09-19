@@ -7,7 +7,7 @@
 | **① 整文件（逐字节）** | `patches/files/**` | 烘焙进镜像 / bind-mount。与基线的 commit 无关，最稳 | ✅ A2 + A3 实机跑通 |
 | **② git 历史系列** | `patches/vllm-ascend/`、`patches/vllm/`、`patches/msmodelslim/` | `git am` 到干净 checkout，**保留每个提交的信息**（作者/日期/说明），用于评审、向上游提交、独立仓库发布 | ✅ 已在 base commit 上 `git am` + 逐字节比对通过 |
 
-两种形态的一致性已被机器验证：把 ② 打到 base 上得到的 12 个文件，与 ① 的
+两种形态的一致性已被机器验证：把 ② 打到 base 上得到的 13 个文件，与 ① 的
 `MD5SUMS` **逐字节相同**（见 `_build_series/verify_series.sh` 的 `VERIFY: ALL PASS`）。
 
 ---
@@ -16,7 +16,7 @@
 
 | 仓库 | 目录 | base commit | 系列 | 说明 |
 |---|---|---|---|---|
-| **vllm-ascend（V4.1 线）** | `patches/vllm-ascend/` | `46856f89e79c3011401e33663c60da37cd486d53` | 8 个补丁 | 全部性能优化都在这里 |
+| **vllm-ascend（V4.1 线）** | `patches/vllm-ascend/` | `46856f89e79c3011401e33663c60da37cd486d53` | 9 个补丁 | 全部性能优化都在这里 |
 | **vllm**（core） | `patches/vllm/` | `6e448d0ea9bf3d88d898b65449ca6dc2aec170ac` | 1 个补丁 | 只需 `VLLM_ADMISSION_GATE` |
 | **msmodelslim**（量化） | `patches/msmodelslim/` | `92e219fa9565a5bad84d90474a27bb11524d691c` | 2 个补丁 | 只在**重新量化**时才需要 |
 
@@ -60,6 +60,7 @@ main 比本基线多了 SP/CP 相关提交（`b4274f9f`、`e0bc6030`、`1933f86c
 |---|---|
 | 0001 – 0006 | ✅ 直接 `git apply` 干净 |
 | 0008 | ✅ `git apply -3` 三方合并成功 |
+| 0009 | ✅ 直接 `git apply` 干净（只改 `model.py`/`engram_hbm.py` + 两个新文件，无 import 块冲突） |
 | 0007 | ⚠️ `engram_hbm.py` / `engram_plan_kernel.py` 干净；`model.py` 有**一处 import 块冲突**（两边各自插入），手工保留两侧即可 |
 
 本系列的性能数字是在**基线 `46856f89e`** 上实测的；基于 main 的组合**未做端到端复测**。
@@ -121,6 +122,7 @@ git apply        /opt/dsv41/patches/vllm-ascend/0005-perf-attention-2D-wo_a-matm
 | 0006 | engram gate 分块 | `V41_ENGRAM_GATE_CHUNK=<int>` | 8K **−1.56 ms**（线上用 0=stock，见下） | 等价 |
 | 0007 | Engram host 常驻 + local-owner | `V41_ENGRAM_HOST_RESIDENT=1`<br>`V41_ENGRAM_LOCAL_OWNER=fast` | route 少一次 metadata all_gather + ids all_to_all | 数值等价 |
 | 0008 | hash/plan numba JIT | `V41_ENGRAM_JIT=1` | hash 0.427→**0.076 ms**；plan 0.261→**0.068 ms** | 等价 |
+| 0009 | **Engram device-index（host-mapped DRAM 直索 + 入图）** | `V41_ENGRAM_DEVICE_INDEX=auto/1/0` | 同步 host 时间 **3.379 → 0.058 ms/step**；decode 并发 1 **29.5 → 28.4 ms/step**、并发 4 **35.3 → 32.1** | 逐位一致（CPU/NPU/图三阶段 + 多设备 + 真实 layout 哈希） |
 
 ### 3.1 三个必须知道的坑
 
@@ -135,8 +137,10 @@ git apply        /opt/dsv41/patches/vllm-ascend/0005-perf-attention-2D-wo_a-matm
 ## 4. 依赖关系（不要打乱）
 
 ```
-0007 (engram_hbm + model + engram_plan_kernel)  ← 0008 依赖它（plan kernel 调用点在这）
+0007 (engram_hbm + model + engram_plan_kernel)  ← 0008/0009 依赖它
 0008 (engram_hash + engram_jit_kernel)          ← 需要 NUMBA_CACHE_DIR
+0009 (engram_device_index + engram_graph + model.py/engram_hbm.py 增量)
+                                                ← 叠加在 0007 之上；两个 sidecar 新文件必须同放
 0001..0006 互相独立，可单独摘出来做 AB
 ```
 

@@ -47,6 +47,14 @@ export CPU_BIND=${CPU_BIND:-1}
 #   ⇒ A3 默认不挂 PGO（要试可显式 PYTHON_PGO=1，但属于未验证改动）。
 export PYTHON_PGO=${PYTHON_PGO:-0}
 
+# [PATCH_MODE] A3 用的是**官方镜像**（quay.nju.edu.cn/ascend/vllm-ascend:
+# deepseek-v4.1-flash-a3），里面**没有**本包的补丁 —— 所以 A3 必须走 mount
+# 模式把 patches/files/* 挂进去。否则跑的是未优化版本，而且**不会有任何报错**，
+# 只是所有性能补丁（含 Engram device-index）都静默没生效。
+# 与 A2 相反：A2 用 build_image.sh 烘焙出 dsv41-a2:v6，默认 baked 是对的。
+# 想显式覆盖就设 PATCH_MODE=baked（例如你自己烘焙了一个 A3 镜像）。
+export PATCH_MODE=${PATCH_MODE:-mount}
+
 # ---------- 1) DEVS 必填 ----------
 if [ -z "${DEVS:-}" ]; then
   cat >&2 <<'MSG'
