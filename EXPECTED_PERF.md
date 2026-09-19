@@ -196,12 +196,23 @@ tok/s = A × 1000 / ms_per_step
 
 | 项 | A3-node1 实测 | A2 期望 | 判定方式 |
 |---|---|---|---|
-| KV 池 tokens（GPU_UTIL=0.94，BF16 KV） | 3.39M → **4.16M**（开 MOE_AG 后） | 需现场测，**≥ 3,145,728（3Mi）** 才算过 | `grep -oE "GPU KV cache size: [0-9,]+ tokens" serve.log` |
+| KV 池 tokens（BF16 KV） | 默认（`BAT=8192`+`GPU_UTIL=0.92`）**2,823,080**；`GPU_UTIL=0.94` 时 3,088,412；`BAT=2048`+`0.94` 时 4.16M | 需现场测；门槛随默认配置 = **≥ 2,800,000**。要更大 KV 见下面注 | `grep -oE "GPU KV cache size: [0-9,]+ tokens" serve.log` |
 | Engram 常驻 DRAM | ≈ **206 GiB** | **≈ 206 GiB（与平台无关）** | `docker stats` / 日志里的 host-resident 行 |
 | Vision 23 例 | **23/23** | ≥ 19/23 | `results/*/vision.json` |
 | GSM8K-200（chat） | **198/200、199/200、197/200**（三次） | 同量级（≥197） | `results/*/gsm8k.json`；原始 `A3-node2:logs/perf/gsm_{gate0,lo_on,qrot}.log` |
-| 128K prefill | 6,250–6,300 tok/s | 会明显更低（910B） | jsonl 的 `prefill_tok_s` |
+| 128K prefill | **7,216 tok/s**（默认配置实测：131,072 token / 18.17 s） | 会明显更低（910B） | jsonl 的 `prefill_tok_s` |
 | static_kernel 降级检查 | 0 命中 | **必须 0** | `grep -ac "static_kernel.py:650" serve.log` |
+
+> **关于 KV 门槛与 `GPU_UTIL` 的取舍**（2026-09-19 起）：
+> 默认 `GPU_UTIL` 由 0.94 降为 **0.92**，KV 池随之从 3,088,412 降到 **2,823,080** tokens
+> （−8.6%）。这是**主动取舍** —— 0.94 会让真实 prefill 的 activation 峰值贴住显存上限，
+> 长 prompt 首 token 慢 **6~7×**（8K: 1.14 s → 8.0 s；128K: 18.2 s → 102.3 s）。
+> 机制、原始显存轨迹与单变量对照见 [`docs/prefill-memory-headroom.md`](docs/prefill-memory-headroom.md)。
+>
+> 历史上"必须 ≥ 3Mi（3,145,728）"这条门槛是在 `BAT=2048` 时代定的（那时实测 4.16M）；
+> 后来 `BAT_TOKENS=8192`（长上下文正确率修复）把 KV 压到 3M 档，
+> 现在再降 `GPU_UTIL` 换 prefill 速度，**3Mi 已不再是本包的默认承诺**。
+> 需要它的场景请显式 `GPU_UTIL=0.94` 并接受首 token 延迟，或评估裁剪 `CAPTURE_SIZES`。
 
 ### A2 与 A3-node1 的**平台差异**（不要把差异当成失败）
 
