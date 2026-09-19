@@ -94,21 +94,28 @@ chunked prefill 把长 prompt 切成 `ceil(prompt / BAT_TOKENS)` 段依次前向
 输出逐字节一致。
 
 **代价**：activation 峰值从 0.79 涨到 **3.21 GiB**，KV cache 从
-**4,145,957 → 3,088,412 tokens**（8×910C、`GPU_UTIL=0.94` 实测）。
+**4,145,957 → 2,823,080 tokens**（8×910C、默认 `GPU_UTIL=0.92` 实测；
+若用 0.94 则是 3,088,412，但那样 prefill 会慢 6~7×，见下）。
 若你的场景更看重 KV 容量、且上下文主要在 <20K，可以显式 `BAT_TOKENS=2048`。
 
-> ⚠️ **不要靠调大 `GPU_UTIL` 把 KV 补回来** —— 实测会 OOM：
+> ⚠️ **`GPU_UTIL` 是本包最重要的性能开关** —— 0.94 会让长 prompt 的 prefill 慢 6~7×：
 >
-> | 配置 | KV tokens | 结果 |
-> |---|---:|---|
-> | `BAT=8192` + `GPU_UTIL=0.94`（默认） | 3,088,412 | ✅ 稳定 |
-> | `BAT=8192` + `GPU_UTIL=0.95` | 3,221,350 | ❌ 第一个真实 prefill 就 OOM |
-> | `BAT=6144` + `GPU_UTIL=0.94` | 3,415,799 | ❌ ACL graph 重放 OOM |
+> | `GPU_UTIL` | 设备余量 | 8K prompt 首 token | KV tokens |
+> |---:|---:|---:|---:|
+> | **0.92（默认）** | **7.36 GiB** | **1.14 s** | **2,823,080** |
+> | 0.94 | 6.11 GiB | **8.0 s** | 3,088,412 |
+> | 0.88 | 9.80 GiB | 1.28 s | 更少 |
 >
-> 原因是**真实请求的 activation 峰值高于启动 profiling 报告的值**（约高 0.5–0.8 GiB）：
-> 实测需留 **≥ 3.6 GiB** 设备余量才稳，而 `BAT=8192` 下 3.09M 就是上限。
-> 若必须满足更高的 KV 门槛，应评估裁剪 `CAPTURE_SIZES`（代价：高并发 decode 退回 eager），
-> 而不是调 `GPU_UTIL`。
+> 原因是**真实请求的 activation 峰值远高于启动 profiling 报告的值**：
+> profiling 在 KV cache 分配**之前**量到 3.21 GiB，而真实 8K prefill 需要
+> **约 6 GiB**（差额 2.8 GiB）。余量不足时分配器要反复向驱动申请/归还，
+> `forward` 慢 2.1×，新请求还要多等 ~6 s 把池子撑大。
+> **详细机制与全部证据见 [`docs/prefill-memory-headroom.md`](docs/prefill-memory-headroom.md)。**
+>
+> ⚠️ 也**不要往 0.95 及以上调**：实测首个真实 prefill 就 OOM；
+> `BAT=6144` + `GPU_UTIL=0.94` 会 ACL graph 重放 OOM。
+> 若必须满足更高的 KV 门槛，应评估裁剪 `CAPTURE_SIZES`
+> （代价：高并发 decode 退回 eager），而不是调 `GPU_UTIL`。
 
 > **自查方法**：本包提供 `tests/agent_trace/longctx_retrieval.py`，
 > 用 `--tokens 60000 --reps 10` 跑一次，正常应 10/10。
@@ -206,7 +213,36 @@ python3 tools/plot_concurrency.py results/bench/*.json -o docs/img --prefix conc
 > **首次起服需冷编译静态内核，engine init 约 9–10 分钟**（vs `MAX_SEQS=4` 的约 4 分钟）。
 > 编译完成后缓存复用，后续起服回到分钟级。
 
-### 3.3 精度
+### 3.3 长 prompt 的首 token 延迟（prefill）
+
+上面两节量的是 **decode**。长 prompt 的首 token 延迟（≈ prefill 时间）单独列在这里，
+因为**它由 `GPU_UTIL` 主导**（见 §2.5），而不是由 decode 的优化决定。
+
+**A3（8×910C，TP8+EP8）实测**，**发布默认配置**（`STATIC_KERNEL=1` + `PREFIX=1` +
+`GPU_UTIL=0.92`），单请求、真实语料切片（各请求 token 区间互不重叠，
+服务端 prefix cache 命中率全程 0.0%）：
+
+| prompt tokens | chunk 数 | 旧默认 `GPU_UTIL=0.94` | **默认 `GPU_UTIL=0.92`** | 改善 |
+|---:|---:|---:|---:|---:|
+| 8 192 | 1 | 8.0 – 8.6 s | **1.14 / 1.16 / 1.17 s** | 7.0× |
+| 32 768 | 4 | 29.1 s | **4.22 s** | 6.9× |
+| 131 072 | 16 | 102.3 s | **18.17 s** | 5.6× |
+
+换算：**prefill 吞吐 ≈ 7.2 K token/s，且与序列长度无关** ——
+每 8192-token chunk 的成本恒定在 **1.03–1.18 s**。
+
+> 为什么恒定：稀疏注意力的 `index_topk=512` 是固定的，每个 chunk 的注意力代价
+> 不随既有上下文长度增长。所以"长 prompt 慢"来自 chunk 数，不来自单 chunk 变慢。
+
+**口径**：单请求独占、客户端与服务同机（`127.0.0.1`）、首 token 墙钟；
+prompt 用目标模型的 tokenizer 精确切到目标 token 数（不按字符截）；
+关前缀缓存以保证每个 prompt 都真跑 prefill。并发场景下 TTFT 见 §3.2 的 TTFT 列。
+
+> ⚠️ §3.2 的 TTFT 看起来小得多（1024 token 只要 0.27 s），因为那里 prompt 只有 1K ——
+> prefill 的 activation 与耗时都随 prompt 长度增长，**1K 的 prompt 碰不到显存余量问题**。
+> 这也是此前没发现 `GPU_UTIL=0.94` 问题的原因。
+
+### 3.4 精度
 
 | 项目 | 结果 |
 |---|---|
@@ -218,7 +254,7 @@ python3 tools/plot_concurrency.py results/bench/*.json -o docs/img --prefix conc
 
 完整验收记录（含前后对比与官方 API 对照）：[`reports/longctx-verification.md`](reports/longctx-verification.md)
 
-## 3.4 起服后必查（4 项）
+## 3.5 起服后必查（5 项）
 
 服务 READY 后**必须**确认这四项，否则后面的数字都不可信：
 
@@ -228,8 +264,13 @@ R=results/<run_id>              # 起服脚本会打印这个目录
 # ① 静态内核没有被静默降级 —— 必须输出 0
 grep -ac "static_kernel.py:650" $R/serve.log
 
-# ② KV 容量 —— 必须 > 3,145,728（3Mi）
+# ② KV 容量 —— 默认 GPU_UTIL=0.92 时实测 2,823,080 tokens
+#     （0.94 时 3.09M 但 prefill 慢 6~7×；两者取舍见 §2.5 与
+#      docs/prefill-memory-headroom.md）
 grep -oE "GPU KV cache size: [0-9,]+ tokens" $R/serve.log | tail -1
+
+# ②b 长 prompt 的首 token 延迟 —— 8K prompt 应 ~1.1 s（0.94 时会是 8 s）
+#     用 §3.3 的口径实测一次；这是判断显存余量是否足够的直接指标
 
 # ③ 口径对不对（性能口径 vs 生产口径不可混比）
 grep -E "MAX_SEQS|PREFIX" $R/serve_cmd.txt
@@ -328,7 +369,8 @@ msmodelslim 侧的 V4.1 W4A8 支持，含 hiaux 变体配方。
 | `DRAFT_GRAPH=1` | 未采纳：缺 `DSPARK_GRAPH_CAPTURE_METADATA=1` 时会静默失效（A 恒 1.0 但 ms 看着正常） |
 | `V41_MOE_ZERO_INVALID` / `MOE_NF` | 实验项/负结果，默认关 |
 | 128K 以上长文 | **已定位并修复**：chunked prefill 的 chunk 数决定偏离率（~2%/chunk）。默认 `BAT_TOKENS=8192` 后 260K token 档实测 6/6。见 §2.5 |
-| `BAT_TOKENS` 的 KV 代价 | 提到 8192 会让 KV cache 从 4.15M 降到 **3.09M** tokens（activation 峰值 0.79→3.21 GiB）。**3.09M 是本机型上限**（再往上 OOM，实测见 §2.5） |
+| `BAT_TOKENS` 的 KV 代价 | 提到 8192 会让 KV cache 从 4.15M 降到 **2,823,080** tokens（activation 峰值 0.79→3.21 GiB，且默认 `GPU_UTIL` 为 0.92）。若改用 0.94 则是 3,088,412，但 prefill 会慢 6~7× —— 取舍见 §2.5 |
+| **KV 门槛 3Mi（3,145,728）** | **默认配置不再满足**：0.92 下 2,823,080（< 3M），0.94 下 3,088,412（> 3M 但 < 3Mi）。**这是用 KV 容量换 prefill 速度的主动取舍**；需要 3Mi 的场景应显式 `GPU_UTIL=0.94` 并接受 8 s 级首 token 延迟，或评估裁剪 `CAPTURE_SIZES` |
 | A2 与 A3 的性能差 | 硬件（含 HBM 带宽，两边同为 1600 GB/s/die）只能解释 ~15%，其余在 host 侧 |
 
 细节与原始数据见 [`EXPECTED_PERF.md`](EXPECTED_PERF.md)、[`CORRECTNESS_STATUS.md`](CORRECTNESS_STATUS.md)、

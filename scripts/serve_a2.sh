@@ -16,7 +16,8 @@
 #   IMAGE      默认 dsv41-a2:v6
 #   NAME       容器名，默认 dsv41-a2
 #   PORT       默认 8100
-#   GPU_UTIL   默认 0.94（容量不够就抬到 0.95/0.96）
+#   GPU_UTIL   默认 0.92（**长 prompt 首 token 延迟的关键**；
+#              机制与实测见 docs/prefill-memory-headroom.md）
 #   MAX_SEQS   默认 4（**性能口径**；A2 生产是 32，见 MODE=prod）
 #   PREFIX     默认 0 = 不启用 prefix caching（**历史性能口径**，与 v3 逐字节一致）
 #              **A2 生产用 1**；PREFIX=1 时才会出现"decode 队列里插入新请求"这一生产形态
@@ -37,7 +38,27 @@ NAME=${NAME:-dsv41-a2}
 PORT=${PORT:-8100}
 TP=${TP:-8}
 DEVS=${DEVS:-"0 1 2 3 4 5 6 7"}
-GPU_UTIL=${GPU_UTIL:-0.94}
+# [MEM-HEADROOM] 默认 0.92，**不是贪图显存，而是留出 activation 余量**。
+#
+# 实测（8×910C）：真实 prefill 的 activation 峰值约 6 GiB，而 vLLM 在
+# startup profiling 阶段只量到 3.21 GiB（那时 KV cache 还没分配）。
+# 这个差额靠"显存余量"兜；余量不足时分配器要反复向驱动申请/归还，
+# **模型 forward 会慢 2.1×（稳态）**，第一个请求还要额外付一次
+# "把池子撑大"的约 6 秒。实测（同一台机、同一模型、同一 8192-token 请求）：
+#
+#   GPU_UTIL=0.94  余量 6.11 GiB   forward 慢  →  8K prefill  8.0–8.6 s
+#   GPU_UTIL=0.92  余量 7.36 GiB   正常        →  8K prefill  1.14 s   ← 默认
+#   GPU_UTIL=0.88  余量 9.80 GiB   正常        →  8K prefill  1.28 s
+#
+# ⇒ 0.92 与 0.88 等效，但保留更多 KV；0.94 是断崖。
+#   代价：KV 池从 3.09M 降到约 2.82M tokens（−8.6%）。
+#   详细机制与全部证据：docs/prefill-memory-headroom.md
+#
+# 适用范围：以上数字**全部在 A3（8×910C）上实测**。机制（profiling 量的
+# activation 偏低 → 真实 prefill 峰值超出余量）与平台无关，A2 预期同样适用，
+# 但 **A2 上没有复测**；若你在 A2 上遇到异常，先用
+# docs/prefill-memory-headroom.md §6 的方法量一次首 token 延迟。
+GPU_UTIL=${GPU_UTIL:-0.92}
 MAX_LEN=${MAX_LEN:-1048576}
 # [保留] MAX_SEQS 影响 CAPTURE_SIZES 的桶数（32 → 最大桶 192，比 4 多约 5 个桶，
 # 首次捕获多花 1~2 min）。越小越省启动时间，越大越能扛并发。默认取生产值。
@@ -75,7 +96,8 @@ PREFIX=${PREFIX:-1}
 #   ⇒ BAT=8192 把这些档位全部拉到 100%，且同一 prompt 重复 10 次输出逐字节一致。
 #
 # 代价：activation 峰值更高，KV cache 从 4,145,957 → 3,088,738 tokens（本机 8×910C，
-#       GPU_UTIL=0.94）。若你的场景更看重 KV 容量、且上下文主要在 <20K，
+#       GPU_UTIL=0.94 时；默认已改为 0.92，KV 约 2.82M，见 §[MEM-HEADROOM]）。
+#       若你的场景更看重 KV 容量、且上下文主要在 <20K，
 #       可以显式设 BAT_TOKENS=2048。
 BAT_TOKENS=${BAT_TOKENS:-8192}
 BLOCK=${BLOCK:-128}
@@ -459,18 +481,16 @@ fi
 #     torch.OutOfMemoryError: NPUGraph.cpp:281
 #     Resource_Error_Insufficient_Device_Memory(EL0019)
 #     Failed to allocate 2097152 bytes ... halStreamTaskFill failed
+#
+# 默认 GPU_UTIL 已从 0.94 降到 0.92（见 §[MEM-HEADROOM]），余量从 6.11 涨到
+# 7.36 GiB，**上述组合在 0.92 下未复测**；仍按"未验证"处理，所以提示保留。
 # 这里只做**提示**（不擅自改用户配置），避免静默行为变化。
 if [ "$BAT_TOKENS" -ge 8192 ] && [ "$MAX_SEQS" -ge 64 ]; then
-  case "$GPU_UTIL" in
-    0.9|0.90|0.91|0.92|0.93|0.94|0.95|0.96|0.97|0.98|0.99|1.0|1) : ;;
-    *) : ;;
-  esac
-  if awk "BEGIN{exit !($GPU_UTIL > 0.92)}"; then
-    echo "[serve_a2] WARNING: BAT_TOKENS=$BAT_TOKENS 且 MAX_SEQS=$MAX_SEQS，GPU_UTIL=$GPU_UTIL 偏高。"
-    echo "                    这个组合实测会 OOM（ACL graph 重放失败）。建议："
-    echo "                      GPU_UTIL=0.90  （保留显存余量）"
-    echo "                      或 MAX_SEQS=32  （发布默认，已验证）"
-  fi
+  echo "[serve_a2] WARNING: BAT_TOKENS=$BAT_TOKENS 且 MAX_SEQS=$MAX_SEQS（GPU_UTIL=$GPU_UTIL）。"
+  echo "                    该组合在 GPU_UTIL=0.94 下实测 OOM（ACL graph 重放失败）；"
+  echo "                    默认的 0.92 尚未复测。建议二选一："
+  echo "                      MAX_SEQS=32  （发布默认，已验证）"
+  echo "                      GPU_UTIL=0.90（余量更大，prefill 速度不受影响）"
 fi
 
 # [HCCL-DET] 只在非空时传（空值会让 HCCL 报 EI0001）
