@@ -73,6 +73,20 @@ _DSPARK_CAPTURE_VALUE_FIX = os.environ.get("DSPARK_CAPTURE_VALUE_FIX", "0") == "
 # [DSV41 CAPTURE-DISPATCH] 见 dummy_run 里的长注释：让 capture 的 bucket 与 replay 一致。
 _DSPARK_CAPTURE_DISPATCH = os.environ.get("DSPARK_CAPTURE_DISPATCH", "0") == "1"
 
+# [DSV41 CAPTURE-NCTX-FIX] ★ (d) 第三处必需修复（2026-09-20 单 chip 实测，fixB 发现）
+#
+# `dummy_run` 原本写 `self._dflash_num_context = num_input_tokens`（**桶对齐后的值**），
+# 而 replay 侧 `set_inputs_first_pass:383` 算的是
+#     int(cad.query_start_loc_cpu[batch_size]) = **num_reqs × (1 + num_speculative_tokens)**
+# 两者在多请求下**不等**：
+#   nr=1: 捕获 5、重放 6      → 少写 1 行 context KV
+#   nr=8: 捕获 40→dispatch 42、重放 **48** → 前 7 个请求逐位正确、**只有第 8 个错**
+# ⇒ 又是"Python int 被烘进图"（决定写几行 context KV 的 slice 长度）。
+#
+# 实测的两条修法：**(d1)** 开 `DSPARK_CAPTURE_DISPATCH=1`（单请求可用，nr=8 **仍失败**）；
+# **(d2)** 就是下面这条 —— 直接把 `_dflash_num_context` 对齐成 `num_reqs*(1+SP)`。**多请求只有 (d2) 成立。**
+_DSPARK_CAPTURE_NCTX_FIX = os.environ.get("DSPARK_CAPTURE_NCTX_FIX", "1") == "1"
+
 
 def _safe_capturing_flag():
     """[fix] dummy_run reads `capturing` before set_ascend_forward_context, where the
@@ -815,7 +829,25 @@ class AscendDSparkProposer(AscendDflashProposer):
                 )
 
             else:
-                self._dflash_num_context = num_input_tokens
+                # [DSV41 CAPTURE-NCTX-FIX] 见文件顶部说明：捕获期必须用
+                # `num_reqs * (1 + num_speculative_tokens)`（= replay 侧 `set_inputs_first_pass`
+                # 会算出的真实值），否则图里只写 `num_input_tokens` 行 context KV，
+                # 多请求时后续请求会读到缺行的上下文。
+                if _DSPARK_CAPTURE_NCTX_FIX:
+                    _nctx = int(num_reqs) * (1 + int(self.num_speculative_tokens))
+                    self._dflash_num_context = _nctx
+                    # ⚠️ **不要引用 `_DSPARK_TOKEN_LEFT`** —— 它只定义在
+                    # `llm_base_proposer.py`；在**本文件**里引用会 `NameError`
+                    # （2026-09-20 实测：因 `NCTX_FIX` 默认 1，**生产一捕获就崩**）。
+                    # 这里用本文件自己的日志开关。
+                    if os.environ.get("DSPARK_CAPTURE_NCTX_LOG", "0") == "1":
+                        logger.warning(
+                            "[dspark-capture-nctx] 捕获期 _dflash_num_context=%d"
+                            "（num_reqs=%d, SP=%d；原值 num_input_tokens=%d）",
+                            _nctx, num_reqs, self.num_speculative_tokens, num_input_tokens,
+                        )
+                else:
+                    self._dflash_num_context = num_input_tokens
                 self._runnable(
                     num_input_tokens=num_input_tokens,
                     batch_size=num_reqs,

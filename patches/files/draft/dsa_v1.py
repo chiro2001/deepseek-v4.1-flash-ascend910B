@@ -177,6 +177,46 @@ _DSA_CAP_SEEN = False
 # 开关/取值：DSPARK_CAPTURE_MAXSEQLEN（0 = 关闭本修复；>0 = 用该值）
 _DSA_CAPTURE_MAXSEQLEN = int(os.environ.get("DSPARK_CAPTURE_MAXSEQLEN", "0") or 0)
 
+# [DSV41 SWA-INDICES-RESIDENT] ★★★ 根因修复（2026-09-20，单 chip 输入二分定出最小必要集合）
+#
+# `build_dspark_swa_indices` 的 docstring 自己写明：
+#   "When ``buffer`` is given, the per-token slots are copied into its leading rows
+#    and the returned tensor is a slice view of ``buffer``. **This keeps the address
+#    stable across async ACL-graph replays, where the DSA operator captures
+#    ``ori_sparse_indices``'s data pointer at capture time.**"
+#
+# 但**两条路径走得不一样**（实测核对）：
+#   * `build_req_metadata()`（target 路径，:1175）        → 传了 `buffer=self.dspark_swa_indices_buffer` ✅
+#   * `build_req_metadata_for_drafting()`（**drafting 路径**）→ 当 `_device_metadata_enabled=False`
+#     时走 else 分支 `build_dspark_swa_indices(*args)` **不带 buffer** ⇒ **每次新分配张量** ❌
+#
+# 而 ACLGraph 在捕获时记住的是 `ori_sparse_indices` 的 **data_ptr** ⇒ replay 时图仍读
+# **捕获期那个地址上的旧内容**，replay 期新算的（正确）内容它根本看不见。
+#
+# 单 chip 决定性实验（输入二分）：
+#   * 最小必要集合 = **{`dspark_swa_indices`, `seq_lens`}**，且必须**同时在捕获期就是正确内容**
+#   * 把 replay 期新算的 indices 内容拷回 capture 地址 ⇒ 无效（证明是"图读旧地址"）
+#   * "真实输入捕获 ⇒ ✅" 是**假阳性**：只是旧内容恰好等于首个 replay 步的值，换一步即失效
+# 而 `seq_lens` 在生产 `llm_base_proposer.py:1455-1456` **已经**重绑到常驻
+# `seq_lens_group[0]` ⇒ 生产只剩 `dspark_swa_indices` 这一处需要修。
+#
+# 本开关让 drafting 的 else 分支也走常驻 buffer（**外科改动**：不动 `_device_metadata_enabled`）。
+#
+# ✅ 2026-09-20 单 chip 决定性验证（对齐生产 seq_lens 路径后）：
+#   | SWA_INDICES_RESIDENT | CAP ptr | REP ptr | 地址同 | 结果 |
+#   |---|---|---|---|---|
+#   | **0** | `0x…66aa00` | `0x…66c600` | ❌ | **0/5** |
+#   | **1** | `0x12c696040000` | `0x12c696040000` | ✅ | **5/5，逐位 = eager** |
+#   两次重复各自稳定（0→0 两次 ❌，1→1 两次 ✅）⇒ 就是这个变量。
+#   `device_metadata_enabled=False` ⇒ 走的正是下面 else 分支，与生产 drafting 路径同分支。
+#   buffer 在 `AscendDSAMetadataBuilder.__init__`（`:776`）就已分配 ⇒ 守卫恒成立。
+#
+# ✅ 另一个重要结论：**常驻化之后，捕获期的内容不再重要** ——
+#   固定 resident=1，捕获期 `runner.seq_lens` 取 0 / 6 / 1037 / 8192 **全部 5/5 ✅**
+#   ⇒ **不需要"代表值"，也不需要按 bucket 分档捕获**（这比 V×R 矩阵的推测更简单）。
+# 因此本开关**默认 1（开启）**：这是本 bug 的唯一必需修复点。
+_DSA_SWA_RESIDENT = os.environ.get("DSPARK_SWA_INDICES_RESIDENT", "1") == "1"
+
 
 def _dsa_write_probe(cache, slot_mapping, rank_hint: str = "write") -> None:
     global _DSA_WRITE_LEFT, _DSA_WRITE_CAP_SEEN
@@ -1439,7 +1479,14 @@ class AscendDSAMetadataBuilder(AttentionMetadataBuilder[AscendDSAMetadata]):
                     indices_output=dspark_swa_indices,
                 )
             else:
-                dspark_swa_indices, _ = build_dspark_swa_indices(*dspark_swa_args)
+                # [DSV41 SWA-INDICES-RESIDENT] 见文件顶部说明：不传 buffer 时每次新分配，
+                # ACLGraph 会一直读捕获期那个地址上的旧内容。开启本开关后走常驻 buffer
+                # （地址跨步稳定，replay 期原地刷新内容 ⇒ 图读到的是新值）。
+                _swa_buf = getattr(self, "dspark_swa_indices_buffer", None)
+                if _DSA_SWA_RESIDENT and _swa_buf is not None and int(self.num_actual_tokens) <= int(_swa_buf.shape[0]):
+                    dspark_swa_indices, _ = build_dspark_swa_indices(*dspark_swa_args, buffer=_swa_buf)
+                else:
+                    dspark_swa_indices, _ = build_dspark_swa_indices(*dspark_swa_args)
                 dspark_swa_indices = dspark_swa_indices[: self.num_actual_tokens]
             ori_win_left, ori_win_right = get_dspark_sparse_sas_window(self.vllm_config)
 

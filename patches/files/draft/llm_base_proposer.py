@@ -174,6 +174,44 @@ _DSPARK_DRAFT_SERIAL = os.environ.get("DSPARK_DRAFT_SERIAL", "0") == "1"
 # [DSV41 PROBE] 逐步诊断：把"_propose 每步都跑"当作观测窗口（它在图之外）。
 _DSPARK_STEP_PROBE = os.environ.get("DSPARK_STEP_PROBE", "0") == "1"
 _DSPARK_STEP_PROBE_LEFT = int(os.environ.get("DSPARK_STEP_PROBE_STEPS", "40"))
+# [DSV41 dispatch-diag] 记录 draft 侧"两次 dispatch"的取桶决策（只有界地打 Python 标量），
+# 用于定位 `assert num_reqs <= num_reqs_padded`（conc>=8 时触发）。
+_DSPARK_DISPATCH_DIAG_LEFT = int(os.environ.get("DSPARK_DISPATCH_DIAG_STEPS", "0"))
+# [DSV41 DISPATCH-QUERY-LEN] ★ P0 修复（2026-09-20）：`DRAFT_GRAPH=1` + conc>=7 必崩
+# （`assert num_reqs <= num_reqs_padded`，model_runner_v1.py:960）。
+#
+# 机制（源码 + 实测）：
+#   * draft 每请求只消耗 `num_query_per_req`(=num_speculative_tokens=5) 个 token
+#     （sample_from_anchor=True）⇒ `_propose` 收到的 `num_tokens` = 5 × 请求数。
+#   * 但 `CudagraphDispatcher._create_padded_batch_descriptor` 按
+#     `uniform_decode_query_len`(=1+SP=6) 反推请求数：`num_reqs = 桶 // 6`。
+#   * 且 capture 期就是按"每请求 6 个"定桶的（`dummy_run` 用 num_reqs=bucket//6，
+#     所以 capture 描述符是 6/1、12/2、…、42/7、48/8）。
+#   ⇒ 40 token 被取到桶 42（42//6=7 < 8）、35 被取到桶 36（36//6=6 < 7）⇒ 断言崩。
+#     conc<=6 时"最小的 ≥5k 的捕获尺寸"恰好 ≥6k，所以一直没暴露。
+#
+# 修法：uniform decode 时，**把 dispatch 的输入换成"每请求 6 个"的等价 token 数**
+# （`num_reqs × uniform_decode_query_len`），使 replay 选中的桶与 capture 时
+# `num_reqs = 桶 // 6` 的定义自洽：k 个请求 ⇒ 桶 6k ⇒ num_reqs = k。
+# 之后 `_pad_query_start_loc_for_fia` 的 `num_tokens_padded == num_reqs_padded*6`
+# 与 `num_reqs <= num_reqs_padded` 同时成立，不再需要任何强制填充。
+# 关掉即回到原行为（复现用）。
+_DSPARK_DISPATCH_QUERY_LEN_FIX = os.environ.get("DSPARK_DISPATCH_QUERY_LEN_FIX", "1") == "1"
+# [DSV41 DISPATCH-UNIQUE-LOG] 每个**不同的** (num_reqs, uniform, use_graph, runtime_mode,
+# bucket num_tokens, bucket num_reqs) 组合**只打一次**。用于在有限的日志量内证明
+# "conc=N 的那一步到底走的是图重放还是 eager"（比按步数截断的计数器更耐用：
+# warmup 不会把配额吃光）。默认关，仅取证时开。
+_DSPARK_DISPATCH_UNIQUE = os.environ.get("DSPARK_DISPATCH_UNIQUE", "0") == "1"
+_DSPARK_DISPATCH_SEEN: set = set()
+# [DSV41 FIA-PAD-REQS ❌ 否证保留] 曾试过的修法：把传给 `_pad_query_start_loc_for_fia`
+# 的待填充请求数抬到真实 `cad.num_reqs`。**实测失败**（F_p0b，2026-09-20）：
+# `_pad_query_start_loc_for_fia` 的 mixed-batch 分支在 `qsl[num_reqs_padded] < num_tokens_padded`
+# 时会**再补一个 dummy 请求并 `num_reqs_padded += 1`**，返回 7+1=8；该值被写回
+# `common_attn_metadata.num_reqs`，而下游 `build_dspark_swa_indices` 的 block_table 只有 7 行
+# ⇒ `RuntimeError: gather ... expected index shape 8 smaller than self shape 7`。
+# 断言确实消失了（grep 计数 0），但换成了尺寸不一致的崩溃 ⇒ **不是正确修法**。
+# 默认 **0（关闭）**，仅作为否证记录保留；正确修法是上面的 DISPATCH-QUERY-LEN。
+_DSPARK_FIA_PAD_REQS_FIX = os.environ.get("DSPARK_FIA_PAD_REQS_FIX", "0") == "1"
 
 # [DSV41 ptr-probe] capture 与 replay 的**地址契约**探针。
 #
@@ -1243,7 +1281,12 @@ class AscendSpecDecodeBaseProposer(SpecDecodeBaseProposer):
         num_rejected_tokens_gpu: torch.Tensor | None = None,
     ) -> torch.Tensor:
         # [DSV41] 模块级计数器在本函数多处使用 ⇒ global 必须出现在**首次使用之前**。
+        # [DSV41 fix] 原缺 `_DSPARK_STEP_PROBE_LEFT` ⇒ 一旦 DSPARK_STEP_PROBE=1 就在
+        # 第 ~1306 行抛 UnboundLocalError（探针开关一开就崩引擎）。一并补上；
+        # 同时登记本文件新增的 dispatch 诊断计数器。
         global _DSPARK_TOKEN_LEFT, _DSPARK_TOK_STEP
+        global _DSPARK_STEP_PROBE_LEFT, _DSPARK_DISPATCH_DIAG_LEFT
+        global _DSPARK_DISPATCH_SEEN
         batch_size = common_attn_metadata.batch_size()
 
         # Dynamic SD: take the scheduled per-step K as an explicit argument and
@@ -1328,9 +1371,31 @@ class AscendSpecDecodeBaseProposer(SpecDecodeBaseProposer):
         uniform_decode = target_model_batch_desc.uniform
 
         _use_graph_rt = _dspark_use_graph_rt(self)
+        # [DSV41 DISPATCH-QUERY-LEN] 见文件顶部：draft 每请求只吃 5 个 token
+        # （num_query_per_req），而 dispatcher 按 6 个（uniform_decode_query_len）定桶 ⇒
+        # 请求数一多就取到"请求数偏小"的桶（40→42 ⇒ 7<8、35→36 ⇒ 6<7），
+        # 断言 `num_reqs <= num_reqs_padded` 崩。修法：把 dispatch 的输入换算成
+        # "每请求 6 个"的等价 token 数，使桶的 num_reqs 定义与 capture 期自洽。
+        _dispatch_num_tokens = num_tokens
+        if _use_graph_rt and uniform_decode and _DSPARK_DISPATCH_QUERY_LEN_FIX:
+            _udql = int(getattr(self.runner.cudagraph_dispatcher, "uniform_decode_query_len", 0) or 0)
+            _nqr = int(getattr(self, "num_query_per_req", 0) or 0)
+            _nreq = int(common_attn_metadata.num_reqs or 0)
+            if _udql > 0 and _nqr > 0 and _udql != _nqr and _nreq > 0 and num_tokens == _nreq * _nqr:
+                _dispatch_num_tokens = _nreq * _udql
+                if _DSPARK_DISPATCH_DIAG_LEFT > 0:
+                    logger.warning(
+                        "[dspark-dispatch-query-len] raw_num_tokens=%s (num_reqs=%s × num_query_per_req=%s) "
+                        "⇒ dispatch 输入换算为 %s (num_reqs × uniform_decode_query_len=%s)",
+                        num_tokens,
+                        _nreq,
+                        _nqr,
+                        _dispatch_num_tokens,
+                        _udql,
+                    )
         if _use_graph_rt:
             _, batch_descriptor = self.runner.cudagraph_dispatcher.dispatch(
-                num_tokens=num_tokens, uniform_decode=uniform_decode, has_lora=has_lora
+                num_tokens=_dispatch_num_tokens, uniform_decode=uniform_decode, has_lora=has_lora
             )
             num_input_tokens = batch_descriptor.num_tokens
         else:
@@ -1352,6 +1417,55 @@ class AscendSpecDecodeBaseProposer(SpecDecodeBaseProposer):
             aclgraph_runtime_mode = CUDAGraphMode.NONE
             batch_descriptor = None
 
+        if _DSPARK_DISPATCH_DIAG_LEFT > 0:
+            _DSPARK_DISPATCH_DIAG_LEFT -= 1
+            logger.warning(
+                "[dspark-dispatch-diag] raw_num_tokens=%s uniform_decode=%s has_lora=%s "
+                "use_graph_rt=%s -> num_input_tokens=%s runtime_mode=%s "
+                "batch_desc=(num_tokens=%s num_reqs=%s uniform=%s) "
+                "cad.num_reqs=%s cad.max_query_len=%s qsl_len=%s num_query_per_req=%s",
+                num_tokens,
+                uniform_decode,
+                has_lora,
+                _use_graph_rt,
+                num_input_tokens,
+                aclgraph_runtime_mode,
+                getattr(batch_descriptor, "num_tokens", None),
+                getattr(batch_descriptor, "num_reqs", None),
+                getattr(batch_descriptor, "uniform", None),
+                getattr(common_attn_metadata, "num_reqs", None),
+                getattr(common_attn_metadata, "max_query_len", None),
+                getattr(getattr(common_attn_metadata, "query_start_loc", None), "shape", None),
+                getattr(self, "num_query_per_req", None),
+            )
+
+        if _DSPARK_DISPATCH_UNIQUE:
+            _key = (
+                int(getattr(common_attn_metadata, "num_reqs", 0) or 0),
+                bool(uniform_decode),
+                bool(_use_graph_rt),
+                str(aclgraph_runtime_mode),
+                int(getattr(batch_descriptor, "num_tokens", 0) or 0),
+                getattr(batch_descriptor, "num_reqs", None),
+            )
+            if _key not in _DSPARK_DISPATCH_SEEN and len(_DSPARK_DISPATCH_SEEN) < 64:
+                _DSPARK_DISPATCH_SEEN.add(_key)
+                logger.warning(
+                    "[dspark-dispatch-unique] cad.num_reqs=%s uniform=%s use_graph_rt=%s "
+                    "runtime_mode=%s bucket=(num_tokens=%s num_reqs=%s uniform=%s) "
+                    "raw_num_tokens=%s num_input_tokens=%s num_query_per_req=%s",
+                    _key[0],
+                    _key[1],
+                    _key[2],
+                    _key[3],
+                    _key[4],
+                    _key[5],
+                    getattr(batch_descriptor, "uniform", None),
+                    num_tokens,
+                    num_input_tokens,
+                    getattr(self, "num_query_per_req", None),
+                )
+
         if aclgraph_runtime_mode == CUDAGraphMode.FULL:
             # TODO: Due to the inconsistency between the proposer `dispatcher` and model runner, this padding
             # should have been done in model runner but not. For example, at prefill stage, target model
@@ -1361,14 +1475,53 @@ class AscendSpecDecodeBaseProposer(SpecDecodeBaseProposer):
             num_reqs = common_attn_metadata.query_start_loc.shape[0]
             self.query_start_loc.gpu[:num_reqs].copy_(common_attn_metadata.query_start_loc)
             self.query_start_loc.cpu[:num_reqs].copy_(common_attn_metadata.query_start_loc_cpu)
-            num_reqs_padded = self.runner._pad_query_start_loc_for_fia(
-                self.query_start_loc,
-                num_input_tokens,
-                batch_descriptor.num_reqs if batch_descriptor.num_reqs is not None else common_attn_metadata.num_reqs,
-                common_attn_metadata.num_reqs,
-                aclgraph_runtime_mode,
-                batch_descriptor.num_reqs,
+            # [DSV41 fia-pad-diag] 只诊断、不改行为：捕获 `assert num_reqs <= num_reqs_padded`
+            # 失败时的全部 Python 标量。**仅在异常路径执行**（不进 capture 区间、不做 D2H）。
+            _pad_reqs_arg = (
+                batch_descriptor.num_reqs
+                if batch_descriptor.num_reqs is not None
+                else common_attn_metadata.num_reqs
             )
+            if _DSPARK_FIA_PAD_REQS_FIX and common_attn_metadata.num_reqs > _pad_reqs_arg:
+                # ❌ 已否证，见文件顶部说明：mixed-batch 分支会 +1 请求，导致下游尺寸不一致。
+                logger.warning(
+                    "[fia-pad-reqs-fix][DISPROVEN] batch_desc.num_reqs=%s < cad.num_reqs=%s "
+                    "⇒ 抬高待填充请求数（此路径已知会触发 gather 尺寸不一致，仅用于复现）",
+                    _pad_reqs_arg,
+                    common_attn_metadata.num_reqs,
+                )
+                _pad_reqs_arg = common_attn_metadata.num_reqs
+            try:
+                num_reqs_padded = self.runner._pad_query_start_loc_for_fia(
+                    self.query_start_loc,
+                    num_input_tokens,
+                    _pad_reqs_arg,
+                    common_attn_metadata.num_reqs,
+                    aclgraph_runtime_mode,
+                    _pad_reqs_arg,
+                )
+            except AssertionError:
+                try:
+                    logger.error(
+                        "[fia-pad-diag] num_reqs_arg=%s num_tokens_padded=%s batch_desc_num_reqs=%s "
+                        "batch_desc_num_tokens=%s cad_num_reqs=%s runtime_mode=%s "
+                        "compilation_cudagraph_mode=%s uniform_decode_query_len=%s "
+                        "num_query_per_req=%s decode_threshold=%s qsl_shape=%s",
+                        common_attn_metadata.query_start_loc.shape[0],
+                        num_input_tokens,
+                        batch_descriptor.num_reqs,
+                        batch_descriptor.num_tokens,
+                        common_attn_metadata.num_reqs,
+                        aclgraph_runtime_mode,
+                        self.runner.compilation_config.cudagraph_mode,
+                        self.runner.uniform_decode_query_len,
+                        getattr(self, "num_query_per_req", None),
+                        getattr(self, "decode_threshold", None),
+                        tuple(common_attn_metadata.query_start_loc.shape),
+                    )
+                except Exception:  # noqa: BLE001 - 诊断本身绝不能掩盖原异常
+                    pass
+                raise
             common_attn_metadata.num_reqs = num_reqs_padded
             common_attn_metadata.query_start_loc = self.query_start_loc.gpu[: num_reqs_padded + 1]
             common_attn_metadata.query_start_loc_cpu = self.query_start_loc.cpu[: num_reqs_padded + 1]

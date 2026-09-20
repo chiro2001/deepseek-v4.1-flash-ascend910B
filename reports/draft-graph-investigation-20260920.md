@@ -53,7 +53,27 @@
 
 4. **`_propose` 每步都跑（图之外）**，是唯一可靠的观测窗口；
    `dummy_run`/capture 只在起服时跑一次。
-   但探针预算要按"真实 decode"过滤 —— 否则会被 **profile run**（同样几十行 × 8 rank）吃光。
+  但探针预算要按"真实 decode"过滤 —— 否则会被 **profile run**（同样几十行 × 8 rank）吃光。
+
+5. **起服前必须做 env 自查，否则白等 15 分钟**。端到端一次起服 ≈ 15 min（权重 1–2 min →
+   device-index 探测 → 图捕获 5–8 min → READY），一旦关键开关漏传，**跑完也是错的配置**。
+   2026-09-20 已因此翻车一次（那次还叠加了 OOM）。自查命令：
+   ```bash
+   # 容器内，先拿 PID 再读 /proc 的 env（不要用 docker inspect：它只显示 run 时的 -e）
+   p=$(pgrep -f 'vllm serve' | head -1); tr '\0' '\n' < /proc/$p/environ \
+     | grep -E 'DSPARK|V41_|PORT' | sort
+   ```
+
+6. **核对 env/日志一律不要接 `tail -N` 当"全量"**。2026-09-20 我犯过一次：命令是
+   `... | grep -Ei 'DSPARK|V41_|PORT' | sort | tail -30`，而排序后 `DSPARK_CAPTURE_*`
+   正好位于**字母序最前**，被 `tail -30` 整段截掉（实际 56 行）⇒ 我据此误判"关键开关缺失"，
+   并向执行方发出错误的 kill + 重起指令（该指令被及时撤回，未造成损失）。
+   ⇒ 规则：核验清单**只许 `grep` 精确等值或先 `wc -l` 报总数**；`tail` 仅用于看"最后几行进展"。
+
+7. **内存压力下起服前清 page cache**（这台机 2 TB 内存、多租户，实测连**外部租户的 sglang** 都被 OOM 杀过）。
+   我们的 8 卡起服曾**整容器消失**（日志在 `[DEVICE-INDEX] 能力探测通过` 处戛然而止、无 Python traceback），
+   `dmesg` 显示 `Out of memory: Killed process (VLLM::Worker_TP) anon-rss:32.6GB` ⇒ **SIGKILL**，不是代码 bug。
+   ⇒ 起服前 `echo 1 | sudo -n tee /proc/sys/vm/drop_caches`，并先 `free -g` 确认 available 足够。
 
 ## 2. 已确证的事实（实测）
 
@@ -256,6 +276,181 @@ V=6    R=1032/262144 FAIL                        ← V 太小仍失败
 
 **验证状态**：顺序已修 + (a)(b) 已实现（默认关）；(c) 的取舍与 A/B 正在单 chip 上确认。
 
+## 4.4 ★★★★★ 根因最终形态：**图读取的是"捕获期绑定的地址上的内容"**
+
+### 输入二分（子代理 `fixA`，最小必要集合）
+
+从"全真实捕获（✅）"出发，逐个把输入换成 dummy：
+
+| 捕获期 dummy 化的输入 | replay==eager |
+|---|---|
+| 无（全真实） | ✅ 5/5 |
+| 全部 10 项（= 生产 `dummy_run`） | ❌ 0/5 |
+| 仅 `runner.seq_lens` + `optimistic_seq_lens_cpu` | ❌ 0/5 |
+| 仅 `seq_lens_group[0]` / `query_start_loc_group[0]` | ✅ 5/5 |
+| 仅 `_per_group_context_slot_mapping_buffers` | ✅ 5/5 |
+| 仅 `_per_group_query_slot_mapping_buffers` | ✅ 5/5 |
+| **只有 `runner.seq_lens` 真实、其余 9 项全 dummy** | **✅ 5/5** |
+| 除 `kv` 外全 dummy | ❌ 0/5 |
+
+**最小必要集合**（全 dummy 捕获下逐项写回正确内容，反查必要性）：
+
+| 写回字段 | 结果 |
+|---|---|
+| 只 `dspark_swa_indices` / 只 `sas_metadata` / 只 `seq_lens` / 只 `query_start_loc` / 只 `start_pos` | 全 ❌ |
+| 去掉 `sas`（留其余 4） | ✅ |
+| 去掉 `seq_lens`（留其余 4） | ❌ |
+| 去掉 `query_start_loc` / 去掉 `start_pos` | 均 ✅ |
+| **只 `swa` + `seq_lens`** | **✅ 5/5** |
+
+**反证**：把 `rm.seq_lens`（ptr 已核对 = `seq_lens_group[0]`）在捕获期覆写成 1037（= replay 真值）**仍然 ❌**
+⇒ 单靠它不够，**`dspark_swa_indices` 必须同时正确**。
+
+### 机制
+```
+capture: build_capture_draft_attn_metadata() → 张量 @A、@B；npu.graph 录制内核参数 = @A、@B
+replay:  set_inputs_first_pass/build_draft_attn_metadata → 新张量 @A'、@B'（值正确）
+         aclgraph.replay() → 内核仍读 @A、@B 上的**捕获期旧内容**
+```
+⇒ 捕获期那两个地址上是什么，replay 就永远看到什么。
+**"真实输入捕获 ✅" 是假阳性** —— 只是旧内容恰好等于首个 replay 步的值，换一步（如 1032→1050）立刻失效。
+这与 §4.3 的 V×R 矩阵**完全同源**：不是 V 被烘成 kernel 标量，而是 **V 决定了这两个捕获期地址上的内容**。
+
+### 生产真正缺的只有 `dspark_swa_indices` 一处
+
+**`seq_lens` 在生产里已经常驻**（我核过源码）：
+```
+llm_base_proposer.py:1455-1456（_propose/replay 侧）
+    self.seq_lens_group[0][:num_reqs_padded].copy_(common_attn_metadata.seq_lens)
+    common_attn_metadata.seq_lens = self.seq_lens_group[0][:num_reqs_padded]   ← 重绑到常驻
+dspark_proposer.py:487-493（dummy_run/capture 侧）
+    seq_lens = self.seq_lens_group[0]                                        ← 同一个常驻 buffer
+```
+（`fixA` 观察到的 `seq_lens` 漂移是**它 harness 的现象** —— 它在 replay 侧新建了 `cad.seq_lens`。）
+
+**`dspark_swa_indices` 则确实每次都新分配**（AST 核过的路径归属）：
+```
+build_req_metadata()             :1175  → buffer=self.dspark_swa_indices_buffer   ✅ 传了
+build_req_metadata_for_drafting():1472  → 原为 build_dspark_swa_indices(*args)  ❌ 不传
+build_for_drafting()             :1333  → 调 build_req_metadata_for_drafting    ← drafting 走这条
+```
+而 `build_dspark_swa_indices` 的 **docstring 自己写明**：
+> When `buffer` is given, the per-token slots are copied into its leading rows and the returned
+> tensor is a slice view of `buffer`. **This keeps the address stable across async ACL-graph
+> replays, where the DSA operator captures `ori_sparse_indices`'s data pointer at capture time.**
+
+⇒ 这个 `buffer=` 参数**本来就是为 ACLGraph 地址稳定而设的**，只是 drafting 路径没用上。
+
+### 生产修法（四件套；下表为**改前**状态，见下方修正）
+
+| 开关 | 文件 | 作用 |
+|---|---|---|
+| `DSPARK_CAPTURE_VALUE_FIX=1` | `dspark_proposer.py` | (a) 捕获期 `runner.seq_lens`/`optimistic_seq_lens_cpu` 填代表值；**(b)** 恢复图内 context KV 写入 |
+| `DSPARK_SWA_INDICES_RESIDENT=1` | `dsa_v1.py:1472` | **(c)** 让 drafting 的 else 分支也走常驻 `dspark_swa_indices_buffer`（**外科改动**，不动 `_device_metadata_enabled`） |
+| `DSPARK_CAPTURE_NCTX_FIX=1` | `dspark_proposer.py` | **(d)** 捕获期 `_dflash_num_context = num_reqs*(1+SP)`（原为 `num_input_tokens`，nr=1 时 5≠6、nr=8 时 42≠48） |
+| `DSPARK_CAPTURE_SEQ_LEN=<n>` | — | 代表值（0 ⇒ `max_num_tokens`，生产 8192） |
+
+### ❗ 修正（`fixB` 四格裁决，2026-09-20 17:2x）：**(a)(b) 也是必需的 —— 最小集合是四件套**
+
+上文"生产真正缺的只有 `dspark_swa_indices` 一处"**被实验否证**。`fixB` 在单 chip 上把四个变量做成 2×2×2 里的四格（`R=262144`，每格 3 次 replay 取一致结果）：
+
+| # | `CAPTURE_VALUE_FIX` | `SWA_RESIDENT` | `CAPTURE_NCTX_FIX` | nr | replay==eager |
+|---|---|---|---|---|---|
+| A | **0** | 1 | 1 | 1 | **❌** |
+| B | 0 | 1 | 1 | 8 | ❌ |
+| **C** | **1** | 1 | 1 | 8 | **✅** |
+| D | 0 | 1 | **0** | 1 | ❌ |
+
+**A 格原文（决定性）**：
+```
+[capture] 真实 dummy_run ... built draft attention metadata (num_query_total=5 ...)
+[capture] 完成 _dflash_num_context=6  ctx_buffers=None      ← (d) 已生效（6 而非 5）
+[ptr REPLAY] ... is_resident=True                           ← (c) 已生效
+[replay#0] tokens=[[828, 107625, 16, 539, 15]]   vs eager [[81, 2987, 11, 16781, 69630]]
+```
+⇒ **(c)(d) 都生效了仍然 ❌**，因为 `ctx_buffers=None` 让 `precompute_and_store_context_kv` 在捕获时**提前 `return`**：
+**图里根本没有"写 context KV"那串算子**。所以 (d) 只是把那个 slice 长度改对了，**那个调用压根没进图**。
+⇒ **(a)(b) 与 (c)(d) 是两类不同的缺陷**：前者决定"算子有没有被录进图"，后者决定"录进去的算子读的地址/长度对不对"。四件缺一不可。
+
+**仍未分离的一点（【推断】标注）**：C 格只证明了 `{a 或 b}` 必要；"只开 (b)、(a) 关（捕获期 `seq_lens=0`）是否 ❌"
+**尚未单独测**。也就是说最小集合可能是**三件而非四件**（(a) 或许可省，`DSPARK_CAPTURE_SEQ_LEN` 无需调）。
+`fixB` 已把这条列为待做实验（捕获前只把 `_context_slot_mapping_buffers` 置 `None`、其余全开；或 (b) on + (a) off）。
+
+**待验证**：① (a) 与 (b) 的分离实验（上条）；② 9 桶捕获的逐请求逐位审计；
+③ **端到端 A/tok-s（唯一真正的判据，正在跑）**。
+
+## 4.5 ★★★★★ 端到端裁决：**四件套有效，A 从 1.075 恢复到 2.39**（2026-09-20 18:21）
+
+**配置**：`DRAFT_GRAPH=1` + 四件套（`CAPTURE_VALUE_FIX=1` / `CAPTURE_SEQ_LEN=8192` /
+`SWA_INDICES_RESIDENT=1` / `CAPTURE_NCTX_FIX=1`），`V41_ENGRAM_DEVICE_INDEX=0`，8×910B3。
+
+| 并发 | 单流 tok/s | 总吞吐 tok/s | A |
+|---:|---:|---:|---:|
+| 1 | **89.0** | 82.5 | **2.390** |
+| 2 | 81.9 | 101.7 | 2.336 |
+| 4 | 61.6 | 191.5 | 2.279 |
+| 8 | **引擎死亡**（ok=6/8） | — | — |
+
+**对照臂**（同机、`DRAFT_GRAPH=0` eager，`a2_20260920_140641` 两条独立臂）：
+conc=1 分别 **89.3 / 80.9 / A=2.574** 与 **82.8 / 82.2 / A=2.570**。
+
+### ① 修复有效（决定性）
+
+| | 修复前（graph） | 修复后（graph） | eager 基线 |
+|---|---:|---:|---:|
+| A | 1.075 | **2.390** | 2.57 |
+| 单流 tok/s | 40.1 | **89.0** | 89.3 |
+| 位置 0 接受率 | 0.22 | 0.638 | ~0.77 |
+
+⇒ A **+122%**，单流 **+122%**。四件套是充分且必要的修复（每一件的必要性见 §4.4 的 A/B/C/D 格子）。
+
+### ② 步时换算：draft 入图**确实省了 2.84 ms/step**，但被 A 的缺口吃光
+
+用 `total_decode` 反算（**不要**用 `per_stream_med` 除以 A —— 那是 median÷mean 的口径混用）：
+```
+eager : wall = 2048/80.9  = 25.32 s, steps = 2048/2.574 = 795.6 → 31.82 ms/step
+graph : wall = 2048/82.5  = 24.83 s, steps = 2048/2.390 = 856.9 → 28.98 ms/step
+```
+⇒ **−2.84 ms/step（−8.9%）**。这与"draft allreduce 单次 293 µs（eager）vs 36 µs（图内）"
+的机理一致。但净吞吐持平（80.9 → 82.5，+2%）⇒ **收益被 A 的 7.1% 缺口抵消**。
+⇒ 只要把 A 补回 2.57，graph 就是 **+9%** 的净赢（2.57/0.02898 = 88.7 tok/s 单流）。
+**因此"补齐 A 缺口"是当前最高价值的目标。**
+
+### ③ 未解决问题 P0-A：A 仍比 eager 低 7%，且**不是抽签噪声**
+
+两条独立 eager 臂给出 **2.574 / 2.570**（conc=1、8 条），离散 <0.2% ⇒ 2.39 的 7% 缺口是真实的、系统性的。
+【推断】最可能落在三处之一（均未验证）：(a) 捕获期代表值 `seq_len=8192` 是否影响 SWA 窗口参数；
+(b) 图内 context KV 写入的位置/时序；(c) 常驻 `dspark_swa_indices_buffer` 在多层共享下的内容竞争。
+
+### ④ 未解决问题 P0-B：**`DRAFT_GRAPH=1` + conc≥8 ⇒ 引擎死亡**（历史既有，非本次引入，但是发布阻塞项）
+
+> **✅ 已解决（2026-09-20 19:44）—— 见 §4.6。下面是修复前的原始记录，保留作为演进链。**
+
+【实测】扫描本地全部 run：
+```
+出现 `assert num_reqs <= num_reqs_padded` 的 run：12 个，**全部**是 DRAFT_GRAPH=1，每 run 恰好 32 行
+a2_20260920_105507 / 133827 / 140641 的 graph 臂：conc=8 → ok=7/8、ok=6/8、ok=7/8
+同一台服务器同一时刻的 eager 臂：conc=8 → ok=8/8（237~341 tok/s）**从不死**
+```
+栈固定：`worker.py:720 sample_tokens → model_runner_v1.py:2661 → 2601 propose_draft_token_ids
+→ 1952 drafter._propose → llm_base_proposer.py:1364 _pad_query_start_loc_for_fia
+→ model_runner_v1.py:960 assert num_reqs <= num_reqs_padded`
+
+判定逻辑（`vllm_ascend/worker/model_runner_v1.py:931-972`）：
+```python
+if cudagraph_runtime_mode == FULL and compilation_config.cudagraph_mode == FULL:
+    num_reqs_padded = num_reqs                      # ← 这条分支不可能触发 assert
+else:
+    num_reqs_padded = batch_desc_num_reqs if batch_desc_num_reqs is not None else num_reqs
+if (num_tokens_padded == num_reqs_padded * self.uniform_decode_query_len
+        and compilation_config.cudagraph_mode != CUDAGraphMode.FULL):
+    assert num_reqs <= num_reqs_padded              # ← 崩在这
+```
+⇒ 崩溃要求**同时**满足 `cudagraph_runtime_mode != FULL` 与 `cudagraph_mode != FULL`，
+但起服日志明写 `Wrapping draft model with ACLGraphWrapper: runtime_mode=FULL`。
+**矛盾点就是要抓的对象**：要么某时刻 `runtime_mode` 不是 FULL，要么 `num_reqs_padded`
+被 `batch_desc_num_reqs` 取小了（取整方向反了）。已在 `_propose` 的调用点加"失败前诊断"（异常路径专用，不进 capture）。
+
 1. **重放时 Python 完全不执行** —— 扫描器给 `_runnable` 包计数器，整个 capture+replay 只有 `hooked call #1`
    （`ACLGraphWrapper` 重放路径只执行 `entry.aclgraph.replay()`）。
    ⇒ 能影响结果的**只有三类**：捕获时绑定的**地址**、**shape**、以及**图内被读的 Python 标量**。
@@ -365,7 +560,246 @@ graph 臂：graph==eager 4/5，graph[0]=[223,5038,10849,271,5038] eager[0]=[...,
 彻底排除跨起服的混杂（发放级抽签、前缀缓存、服务状态）。
 脚本：`/tmp/hotswap_ab.sh <port>`（含服务身份断言 + 三臂切换：图 → eager → 图，第三臂验证可逆性）。
 
+## 4.6 ★★★★★ P0-B 已解决：**dispatch 输入换算**（2026-09-20 19:44）
+
+### 根因（比 §4.5 ④ 的推测更精确）
+
+draft 每请求只吃 `num_query_per_req`(=**5**) 个 token，而 `CudagraphDispatcher`
+按 `uniform_decode_query_len`(=1+SP=**6**) 反推请求数（`num_reqs = 桶 // 6`）：
+
+```
+conc=7: 7×5 = 35 → 取桶 36 → 36 // 6 = 6 < 7  ⇒ assert num_reqs <= num_reqs_padded 崩
+conc=8: 8×5 = 40 → 取桶 42 → 42 // 6 = 7 < 8  ⇒ 崩
+conc≤6: "最小的 ≥5k 的捕获尺寸"恰好 ≥6k，所以一直没暴露
+```
+而 capture 期本来就是按"每请求 6 个"定桶的（`capture` 描述符实测为
+`(6,1) (12,2) (18,3) (24,4) (36,6) (42,7) (48,8) (96,16) (192,32)`）
+⇒ **两侧对"每请求几个 token"的定义不一致**。
+
+### 修法（一行换算，无需任何强制填充）
+
+`DSPARK_DISPATCH_QUERY_LEN_FIX=1`（`llm_base_proposer.py`，**默认 1**）：
+uniform decode 时把 dispatch 的输入换成"每请求 `uniform_decode_query_len` 个"的
+等价 token 数（`num_reqs × 6`），使 replay 选的桶与 capture 期
+`num_reqs = 桶 // 6` 的定义自洽：**k 个请求 ⇒ 桶 6k ⇒ num_reqs = k**。
+之后 `_pad_query_start_loc_for_fia` 的 `num_tokens_padded == num_reqs_padded × 6`
+与 `num_reqs <= num_reqs_padded` **同时成立**，不再需要任何填充。
+
+边界自洽：`MAX_SEQS=32` ⇒ `nreq×6 ∈ [6,192]`，正好落在 `capture_max=192` 内。
+
+### ❌ 被否证的修法（保留记录，避免重走）
+
+| 尝试 | 结果 |
+|---|---|
+| `DSPARK_FIA_PAD_REQS_FIX`：把待填充请求数抬到真实 `cad.num_reqs` | **否证**。`_pad_query_start_loc_for_fia` 的 mixed-batch 分支在 `qsl[nrp] < ntp` 时会**再补一个 dummy 请求并 `nrp += 1`**，返回 7+1=8，写回 `cad.num_reqs` 后下游 `build_dspark_swa_indices` 的 block_table 只有 7 行 ⇒ `RuntimeError: gather ... expected index shape 8 smaller than self shape 7`。**断言消失了，但换成尺寸崩溃。** 默认 0 保留为否证记录 |
+| `DSPARK_CAPTURE_DISPATCH=1` | 单请求可用，nr=8 仍失败（已被 `CAPTURE_NCTX_FIX` 取代） |
+| `DSPARK_DRAFT_SYNC_BEFORE=1` | A 不变、tok/s −31%，并引发同一个断言 ⇒ 有害 |
+
+### 端到端验证（同进程、同批 prompt、每臂前热身）
+
+| 臂 | conc=1 | conc=7 | conc=8 |
+|---|---|---|---|
+| G1 (graph) | **8/8** A=2.403 100.67 tok/s | **8/8** A=2.878 | **8/8** A=2.730 |
+| E1 (eager) | **8/8** A=2.455 66.54 | **8/8** A=2.633 | **8/8** A=2.643 |
+| G2 (graph) | **8/8** A=2.738 109.77 | **8/8** A=2.557 | **8/8** A=2.282 |
+
+`grep -c "num_reqs <= num_reqs_padded"` = **0**；`RuntimeError|EZ1001|OutOfMemory` = **0**。
+修复前 conc=7 → `ok=4/7` 引擎死、conc=8 连预热都起不来。
+
+### 「仍走图」的直接证据（`DSPARK_DISPATCH_UNIQUE=1`）
+
+`dispatch-unique-TP0.txt` 与 `captured-buckets.txt` 完全自洽，每个 `cad.num_reqs`
+都命中 `bucket.num_reqs ≥ cad.num_reqs` 的 FULL 桶：
+
+| cad.num_reqs | 1 | 2 | 3 | 4 | 5 | 6 | **7** | **8** |
+|---|---|---|---|---|---|---|---|---|
+| 桶 (nt, nr) | (6,1) | (12,2) | (18,3) | (24,4) | (36,6) | (36,6) | **(42,7)** | **(48,8)** |
+| ≥ cad? | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ ★修复前是(36,6) | ✅ ★修复前是(42,7) |
+
+同文件的 `use_graph_rt=False` 组合全部 `runtime_mode=NONE bucket=None`
+⇒ **同进程内的 eager 臂确实是真 eager**（不再靠 tok/s 反推）。
+
+**独立的第二条证据**：同进程同输入下 G2 `24.9 ms/step` vs E1 `36.9 ms/step`，
+**差 12 ms/step**。若 graph 臂静默退回 eager，两臂必然相同 ⇒ 图确实在重放。
+
+> ⚠️ **一个易误读的点**：`[bneck] mode=stock` **不能**证明 draft 走图 ——
+> 那是瓶颈注入探针（`patches/files/model.py` 的 `V41_BNECK_MODE_FILE`，报的是静态核模式）。
+> 早期我用它下过结论，是错的。
+
+### ★ P0-A 的旧结论被推翻：「graph 比 eager 少 7% A」**不成立**
+
+| 臂 | A（conc=1） | 观测量 |
+|---|---|---|
+| graph（修复后） | 2.403 / 2.738（同进程）、2.633 / 2.699 / 2.588 / 3.003（前几轮） | 观测区间 **2.40–3.00** |
+| eager | 2.455（同进程）、2.660（同进程）、2.574 / 2.570（14:20） | 观测区间 **2.46–2.66** |
+
+⇒ 两臂**在噪声内相等**；而 graph 每步稳定快 ~12 ms（同进程实测）。
+§4.5 ③ 那个"7% 缺口"是**跨起服比 + 无热身**造成的假象（18:21 那次 A=2.39 是离群）。
+
+### 默认值定稿（发布口径）
+
+| 开关 | 默认 | 位置 | 作用 |
+|---|---|---|---|
+| `DSPARK_CAPTURE_VALUE_FIX` | **1**（本次从 0 改） | `serve_a2.sh` | 捕获期代表值 + **恢复图内 context KV 写入** |
+| `DSPARK_SWA_INDICES_RESIDENT` | 1 | `dsa_v1.py` | 常驻索引缓冲（图捕获的是 data_ptr） |
+| `DSPARK_CAPTURE_NCTX_FIX` | 1 | `dspark_proposer.py` | `_dflash_num_context = num_reqs×(1+SP)` |
+| `DSPARK_DISPATCH_QUERY_LEN_FIX` | 1 | `llm_base_proposer.py` | **P0-B 修复**（本文档 §4.6） |
+| `DSPARK_DISPATCH_UNIQUE` | 0 | `llm_base_proposer.py` | 走图取证（默认关） |
+| `DSPARK_FIA_PAD_REQS_FIX` | 0 | `llm_base_proposer.py` | ❌ 否证保留 |
+
+⚠️ **`DSPARK_CAPTURE_VALUE_FIX` 默认改为 1 的理由**：只写 `DRAFT_GRAPH=1` 是最自然的用法，
+而旧默认 0 会让用户拿到"能起服、但 A≈1.07 / 单流 40 tok/s"的坏配置且**无任何报错**。
+另外三件在代码里默认已是 1，只有这一件漏了 ⇒ 它曾是唯一的"陷阱开关"。
+（draft 三文件只在 `DRAFT_GRAPH=1` 时挂载，故该默认对 `DRAFT_GRAPH=0` 无影响。）
+
+### 未验证项
+
+① conc=9..32（推导安全但未实测；`MAX_SEQS=32` ⇒ 最大 192 = `capture_max`）；
+② 多轮长跑稳定性（每档 1 次测量）；③ **精度回归**（Vision/GSM8K，进行中）；
+④ 跨进程 A 的绝对口径不可靠 ⇒ 只用同进程臂间对比。
+
+---
+
+## 4.7 ★★★★★ 新 P0：**`DRAFT_GRAPH=1` + conc≥16 ⇒ 引擎进入不可恢复的坏状态**（2026-09-20 20:29）
+
+### 现象（`e2e_fix_H_final` 原始证据）
+
+起服后先跑 Vision + GSM8K-200（约 10 分钟，期间 A = 3.93–3.98，**一直健康**），
+然后跑 `--concurrency 16`：
+
+```
+12:08:11  A=3.98      ← GSM8K 期间，健康
+12:10:11  A=2.24      ← conc=16 开始
+12:11:11  A=1.00      ← 从此再没恢复（此后连续 16 次采样全是 1.00）
+```
+指标原文（12:11:01）：
+```
+Mean acceptance length: 1.00, Accepted: 0 tokens, Drafted: 5200 tokens,
+Per-position acceptance rate: 0.000, 0.000, 0.000, 0.000, 0.000, Avg Draft acceptance rate: 0.0%
+```
+⇒ **draft 完全不被接受**，而且**此后所有新请求都这样**：
+
+| 探测 | 结果 |
+|---|---|
+| `guard_hi` conc=16 | `ok=16/32`，A=1.39（半途开始坏） |
+| `guard_hi` conc=32 | **全部失败**（`no content`） |
+| 之后单请求 non-stream（短/中/长 prompt） | `text=''`、但 `usage.completion_tokens=32` |
+| 之后单请求 stream | `chunks_with_text=0` |
+| `/health`、`/metrics` | **200**，进程活着，`Running: 0 reqs, KV cache 0%` |
+
+⇒ 引擎**进程不死，但输出永久变空**、draft 接受率永久为 0。
+
+### 归属：**`DRAFT_GRAPH=1` 独有**（决定性对照）
+
+同机、同模型、同为 `ENGRAM_DEVICE_INDEX=0`、同为 20:16–20:29 时段：
+
+| 臂 | conc=16 | conc=32 | 之后引擎 |
+|---|---|---|---|
+| **`DRAFT_GRAPH=1`**（H_final，四件套全开） | `ok=16/32`，A=1.39，半途坏 | **全部失败** | **永久坏**（A=1.00、`Accepted: 0`、`text=''`） |
+| **`DRAFT_GRAPH=0`**（I_graph0） | **`ok=32/32`**，A=**2.676** | **`ok=32/32`**，A=**2.735** | **健康**（`A=1.00` 计数 **0**、断言 **0**、单请求 `text='1'`） |
+
+⇒ **不是 target/scheduler 侧缺陷**（那条假设否证），是 `DRAFT_GRAPH=1` 特有的路径。
+
+### 已否证的机制猜测（记录以免重走）
+
+**共 5 条，全部被主动否证**（2026-09-20 深夜收口，6 轮独立实验）：
+
+| # | 猜测 | 判定 | 依据 |
+|---:|---|---|---|
+| 1 | 探针伪影（`TOKEN_DUMP` 的 D2H / `DISPATCH_UNIQUE`） | **否证** | 探针全开（`RT_FLAGS=1 TOKEN_DUMP=1(24) DISPATCH_UNIQUE=1 DIAG_STEPS=120`）+ Vision + GSM8K-200 → conc=16/32 **全绿**。<br>⚠️ 另有一处事实纠正：**H_final 当时其实没开 `TOKEN_DUMP`**（`grep -c "dspark-token"` = 0），它只开了 `RT_FLAGS + DISPATCH_UNIQUE + DIAG_STEPS`，而 `DISPATCH_UNIQUE` 是**纯 Python 标量、无 D2H 无流操作** ⇒ "探针伪影"的先验本就很弱 |
+| 2 | 前置 `conc=7/8/9`（走新桶 `(42,7)/(48,8)/(96,16)`） | **否证** | 顺序跑 7→8→9→16→32，全部满员通过（A=2.55/2.78/2.70/2.73/2.67） |
+| 3 | RT 热切换（`DRAFT_FORCE_EAGER` 往返） | **否证** | graph→eager→graph 后 conc=16/32 仍全绿 |
+| 4 | **请求行** padding 写脏 KV | **否证** | `dispatch-unique` 实测：conc=16 时 `num_reqs_padded(16) == cad.num_reqs(16)` ⇒ **零请求行 padding**；conc=32 同理 |
+| 5 | **token 行** padding 写脏 KV | **★ 源码级否证** | `llm_base_proposer.py: _pad_draft_buffers()` **每次 `_propose`** 都执行：<br>`buf[num_actual_tokens:num_input_tokens].fill_(-1)`（query slot）<br>`buf[self._dflash_num_context:].fill_(-1)`（context slot）<br>⇒ padding 区**每步被填 -1（不写 KV）**；且 `fill_` 是**原地写**、图读同一块存储 ⇒ 图内看到的也是 -1 ⇒ **两种 padding 都不成立** |
+
+| 其它 | 判定 | 依据 |
+|---|---|---|
+| `DISPATCH_QUERY_LEN_FIX` 引入 | 否证 | conc≥9 时修复前后取桶**逐字节相同**（只有 7,8,9,17,18,19 改变） |
+| 内存/注册问题（207001 那一类） | 否证 | 两个臂**同为 `ENGRAM_DEVICE_INDEX=0`**，都不注册 host 内存 |
+
+### ★ P0-C 的最终归档口径（2026-09-20 收口）
+
+**观测簿**：H_final 出现 **1 次**（A 永久 1.00，14 次采样、50 秒内从 3.91 掉到 1.00）；
+此后 **6 轮不同配方**（`J_bare`×3、`K_preload`、`L_cand`、soak 6 轮 × 6 并发）
+≈ **36 个测量点、10.4 分钟连续负载**，**全部健康**（A ∈ [1.94, 3.10]），
+`A=1.00 && Accepted==0` 计数 **0**。
+
+⇒ **归档为"1 次观测、6 轮未复现的偶发"**，不再是"必现的发布阻塞项"。
+但**保留完整字段**（时间、A 序列、桶决策、`rtsMallocHost=0`、per-position 退化曲线），
+以便将来现场对号。
+
+**坏状态的三个特征**（供现场识别）：
+1. **渐进退化、不是瞬时**：per-position 接受率 `0.826 → 0.581 → 0.278 → 0.000`；
+2. **draft 仍在产出**（`Drafted: 5200+ tokens`）但**全部不被接受**（`Accepted: 0`）；
+3. 请求 `text=''` 但 `usage.completion_tokens=32`；引擎**活着**（`/health` 200、
+   `Running: 0 / Waiting: 0 / KV cache 0%`）。
+
+**廉价判据 + 恢复**：连续两次 specdec metrics 出现
+`Mean acceptance length: 1.00` 且 `Accepted throughput: 0.00` ⇒ 判定已进入坏状态 ⇒
+**重启恢复**。（那时再发请求试探是浪费 —— 引擎已坏。）
+
+**判别命令**（已验证可用；健康基线 = `text='1'`, `token_ids=[19]`）：
+```json
+"max_tokens": 1, "return_token_ids": true, "skip_special_tokens": false, "logprobs": 1
+```
+
+**⚠️ 与另一种坏状态严格区分**（两者都表现为"服务异常"，但归属完全不同）：
+
+| | **P0-C（A=1.00）** | **pinned OOM（hang）** |
+|---|---|---|
+| `rtsMallocHost` 计数 | **0** | **2 行**（同 worker 同秒；含 `Insufficient_Host_Memory` 共 4 行） |
+| `A=1.00` 计数 | **14** | **0** |
+| 请求表现 | `text=''` 但 `completion_tokens=32` | 请求**卡住不动**（`Running: 2 reqs`） |
+| 归属 | **`DRAFT_GRAPH=1` 独有**（`DRAFT_GRAPH=0` 6 轮全健康） | **target 侧**（`_calc_spec_decode_metadata` 申请 32 B pinned 失败），**与 draft 图无关** |
+| 恢复 | 重启 | 重启 |
+
+### ⚠️ 仍存在的混淆变量（必须消掉）
+
+H_final（graph 臂）在 conc=16 之前**先跑了 Vision + GSM8K-200**（约 10 分钟负载），
+而 I_graph0（eager 臂）是**起服后直接**跑 conc=16/32。
+⇒ 不能排除"**长时间负载累积**"是必要条件。**下一轮直接测裸触发**（起服后立刻 conc=16）。
+
+### 待做的判别（`token_ids` 到底是什么）
+
+上轮看到的 `token_ids: null` **不是证据** —— 那是默认不返回造成的，必须显式请求：
+`"return_token_ids": true, "skip_special_tokens": false, "logprobs"`，
+区分 ① **真·空数组** vs ② **全是 pad/EOS 特殊 token**。
+后者支持"KV/输出通路被污染"，前者指向 API 层。
+
+### 廉价坏状态判据（写进后续所有探测的前置检查）
+
+> **只要 specdec metrics 连续两次 `Mean acceptance length: 1.00` 且 `Accepted throughput: 0.00`，
+> 就判定引擎已进入坏状态** —— 不必再发请求试探（那时引擎已坏，试探只会浪费时间）。
+
+### 对发布的影响（fixA 的判断，我认可）
+
+1. `DRAFT_GRAPH=1` 在 **conc ≤ 8** 已可发布（A 与 eager 持平、per-step 快 ~12 ms、精度全过）；
+2. **conc ≥ 16 是发布阻塞项**（用户跑到 16 并发就会看到引擎变哑）；
+3. 应作为**独立 P0** 立项，别和 draft 图的其它修复混。
+
+### 顺带订正（我复核桶表后的结论）
+
+`DISPATCH_QUERY_LEN_FIX` 修复的不是 conc=7、8 **两个**值 ——
+按 `capture` 桶表（`6,12,18,24,36,42,48,96,192` 与 `nr=桶//6`）重算：
+
+```
+修复前会崩的 conc :  7, 8, 9, 17, 18, 19   （六个）
+修复后会崩的 conc :  无
+改变取桶的 conc   :  7, 8, 9, 17, 18, 19
+```
+⇒ 覆盖面比原报告写的更宽，这对发布是加分。
+
+### 证据位置
+
+- graph 臂（坏）：`results/e2e_fix_H_final/{serve.log,guard_hi.json,guard_hi.log,guard_hi_eager.log}`
+- eager 臂（健康）：`results/e2e_fix_I_graph0/{serve.log,guard_hi.json,guard_hi.log}`
+- 走图证据：`lite-runs/fixA/out/e2e/dispatch-unique-TP0.txt`、`captured-buckets.txt`
+
+---
+
 ## 5. 相关工具与开关（本轮新增）
+
+以下是本轮排查过程中新增/常用的工具与门控（**含默认值与用途**），供后续复用。
 
 | 工具/开关 | 作用 |
 |---|---|
@@ -383,6 +817,42 @@ graph 臂：graph==eager 4/5，graph[0]=[223,5038,10849,271,5038] eager[0]=[...,
 
 ## 6. 交付口径
 
-**保持 `DRAFT_GRAPH=0`**（draft 永远 eager）。`DRAFT_GRAPH=1` 需要显式打开，
-且 `serve_a2.sh` 的 DRAFT-GUARD 会拒绝"stock 文件 + DRAFT_GRAPH=1"这种**静默失效**组合。
-**发布不受本问题影响。**
+### 当前状态（2026-09-20 收口）
+
+| 项 | 状态 |
+|---|---|
+| 四件套修复（A=1.075 → ~2.6） | ✅ **已验证**，精度全过（GSM8K **198/200**、Vision **23/23**、10/10 质量判据） |
+| P0-B（conc=7,8,9,17,18,19 崩溃） | ✅ **已修**（`DISPATCH_QUERY_LEN_FIX`，默认 1）；**六档全部实测通过**，每档桶决策原文已归档，全部 `runtime_mode=FULL` |
+| A（接受长度） | ✅ **与 eager 持平**（同进程：graph 2.40–2.74 / eager 2.46，区间重叠） |
+| per-step | ✅ **graph 快 ~12 ms**（同进程 24.9 vs 36.9 ms）—— 这条独立证明"图真的在重放" |
+| **P0-C（偶发 A 永久 1.00）** | ⚠️ **1 次观测、6 轮未复现**（≈36 个测量点全健康），**5 条机制猜测全部否证** ⇒ 降级为**已知偶发**，非阻塞项（详见 §4.7 的归档口径） |
+| `DSPARK_CAPTURE_VALUE_FIX` 默认值 | 已从 `0` 改为 **`1`**（`serve_a2.sh`）—— 缺它时 A≈1.07 且**无任何报错** |
+
+### 发布口径（定稿）
+
+**`DRAFT_GRAPH` 保持默认 `0`；`DRAFT_GRAPH=1` 作为"推荐开启"的显式选项。**
+
+理由：P0-C 虽已 6 轮未复现、5 条候选全部否证，但它的**失效形态最危险** ——
+进程活着、`/health` 200、却**永久输出空**（且无报错）。把它设成默认，等于让所有用户在
+不知情的情况下承担这个风险；而作为显式选项 + 文档写明判据，用户可以在收益与风险之间
+自己权衡。
+
+**README 里对 `DRAFT_GRAPH=1` 的表述口径**：
+* 收益：**−12 ms/step（−32%）**，A 与 eager 持平，精度已过（Vision 23/23、GSM8K 198/200）；
+* 风险：存在**极罕见**的"A 永久 1.00 / 输出变空"坏状态（截至目前 **1 次观测、6 轮未复现**）；
+* 判据与恢复：连续两次 `Mean acceptance length: 1.00` 且 `Accepted throughput: 0.00` ⇒
+  **重启即可恢复**；
+* `serve_a2.sh` 的 DRAFT-GUARD 会拒绝"stock 文件 + `DRAFT_GRAPH=1`"这种**静默失效**组合
+  （那种组合下 A 恒 1.0 但 ms 看着正常 —— 见 `reports/draft-graph-negative-control.md`）。
+
+### 四件套开关的默认值（定稿，缺一不可）
+
+| 开关 | 默认 | 位置 | 作用 |
+|---|---|---|---|
+| `DSPARK_CAPTURE_VALUE_FIX` | **1** | `serve_a2.sh` 透传 | (a) 捕获期代表值 + **(b) 恢复图内 context KV 写入** |
+| `DSPARK_SWA_INDICES_RESIDENT` | 1 | `dsa_v1.py` | (c) 常驻索引缓冲（图捕获的是 `data_ptr`） |
+| `DSPARK_CAPTURE_NCTX_FIX` | 1 | `dspark_proposer.py` | (d) `_dflash_num_context = num_reqs×(1+SP)` |
+| `DSPARK_DISPATCH_QUERY_LEN_FIX` | 1 | `llm_base_proposer.py` | **P0-B 修复**（dispatch 输入换算） |
+
+⇒ 用户只需 `DRAFT_GRAPH=1`，四件套**自动全开**（脚本传 1 或代码默认 1）。
+想复现旧行为时才显式传 `=0`。

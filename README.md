@@ -235,6 +235,45 @@ DEVS="8 9 10 11 12 13 14 15" CPU_BIND=0 MODEL=... bash scripts/serve_a3.sh
 > **A3 上我们最终的推荐做法是先用 `CPU_BIND=0` 把服务起起来**；要试内部绑核，
 > 请守着 `migratepages` 的 `ps` 输出，确认它真的在动。
 
+### 2.7 ★ `DRAFT_GRAPH=1`：投机解码入图（推荐开启，默认关）
+
+**怎么开**：
+```bash
+DRAFT_GRAPH=1 bash scripts/serve_a2.sh       # A2
+DRAFT_GRAPH=1 DEVS="8 9 ..." bash scripts/serve_a3.sh   # A3
+```
+
+**收益**（同进程 A/B 实测，A3 8×910C）：
+
+| 项 | eager draft（默认 `DRAFT_GRAPH=0`） | **入图（`=1`）** |
+|---|---:|---:|
+| decode per-step | 36.9 ms | **24.9 ms**（−12 ms，−32%） |
+| 接受长度 A | 2.46 | **2.40–2.74**（**与 eager 持平**） |
+
+⇒ 单流吞吐约 **1.5×**。**精度已验收**：Vision **23/23**、GSM8K-200 **198/200 = 99.0%**
+（历史 195/200）、10 条质量判据 10/10。
+
+**为什么默认仍是 0**：存在一个**极罕见**的坏状态 —— 进程活着、`/health` 返回 200、
+但 draft 全部不被接受（`A` 永久 1.00）且**输出变空**。截至目前是
+**1 次观测、6 轮独立复现尝试（≈36 个测量点、10.4 分钟连续负载）全部未复现**，
+5 条机制猜测（探针伪影 / 前置新桶 / RT 热切换 / 两类 padding 写脏 KV）**全部被否证**。
+由于它的失效形态**静默且永久**，我们不把它设为默认；但收益足够大，值得显式开启。
+
+**坏状态的判据与恢复**（记住这一条就够）：
+> 连续两次 specdec metrics 出现 `Mean acceptance length: 1.00` **且**
+> `Accepted throughput: 0.00` ⇒ 判定已进入坏状态 ⇒ **重启服务即可恢复**。
+> 那时不必再发请求试探（引擎已坏）。
+
+**`serve_a2.sh` 会替你守住一个静默陷阱**：`DRAFT_GRAPH=1` 必须配
+`DSPARK_GRAPH_CAPTURE_METADATA=1`，否则 draft 图会**静默失效**（A 恒 1.0 但 ms/step
+看着还正常 —— 见 `reports/draft-graph-negative-control.md`）。脚本把这两个开关绑在一起设，
+并在起服后做一次 DRAFT-GUARD 校验，组合不对会直接 `die`。
+
+**四件套开关无需手工设置**（`DRAFT_GRAPH=1` 时自动全开，缺一不可）：
+`DSPARK_CAPTURE_VALUE_FIX=1`、`DSPARK_SWA_INDICES_RESIDENT=1`、
+`DSPARK_CAPTURE_NCTX_FIX=1`、`DSPARK_DISPATCH_QUERY_LEN_FIX=1`。
+排查细节与全部否证记录见 [`reports/draft-graph-investigation-20260920.md`](reports/draft-graph-investigation-20260920.md)。
+
 ## 3. 性能数据
 
 ### 3.1 单流延迟（128K 上下文）
@@ -476,7 +515,7 @@ msmodelslim 侧的 V4.1 W4A8 支持，含 hiaux 变体配方。
 |---|---|
 | 110 tok/s | **不可交付**：设备 busy 本身 30.9 ms > 达标所需的 25.1 ms |
 | 接受长度 A | **不能当绩效指标**；必须报 `(clean-rate, ms/step)` |
-| `DRAFT_GRAPH=1` | 未采纳：缺 `DSPARK_GRAPH_CAPTURE_METADATA=1` 时会静默失效（A 恒 1.0 但 ms 看着正常） |
+| `DRAFT_GRAPH=1` | **推荐开启（显式）**，默认仍为 0 —— 见下方专节 |
 | `V41_MOE_ZERO_INVALID` / `MOE_NF` | 实验项/负结果，默认关 |
 | 128K 以上长文 | **已定位并修复**：chunked prefill 的 chunk 数决定偏离率（~2%/chunk）。默认 `BAT_TOKENS=8192` 后 260K token 档实测 6/6。见 §2.5 |
 | `BAT_TOKENS` 的 KV 代价 | 提到 8192 会让 KV cache 从 4.15M 降到 **2,823,080** tokens（activation 峰值 0.79→3.21 GiB，且默认 `GPU_UTIL` 为 0.92）。若改用 0.94 则是 3,088,412，但 prefill 会慢 6~7× —— 取舍见 §2.5 |
