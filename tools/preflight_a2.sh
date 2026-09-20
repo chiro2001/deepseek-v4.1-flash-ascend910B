@@ -112,7 +112,10 @@ else
   if [ -f tools/model_mount_args.sh ]; then
     _out=$(mktemp); _err=$(mktemp)
     if bash tools/model_mount_args.sh "$MODEL" >"$_out" 2>"$_err"; then
-      _n=$(grep -c . "$_out" || echo 0)
+      # ⚠️ 同 `run_test.sh:188` 的坑：`grep -c` 无匹配时打印 0 且退出码 1，
+      #    `|| echo 0` 会拼出 "0\n0"。这里用 `|| true` + 默认值兜底。
+      _n=$(grep -c . "$_out" 2>/dev/null || true)
+      _n=${_n:-0}
       ok "软链链健康：需要挂 $_n 个目录（v5 已修"只挂一层会悬空"）"
       _hops=$(grep -oE '软链跳数分布: .*' "$_err" | head -1 || true)
       [ -n "$_hops" ] && info "$_hops"

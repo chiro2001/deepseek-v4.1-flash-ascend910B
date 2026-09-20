@@ -185,7 +185,14 @@ MODEL="$MODEL" IMAGE="$IMAGE" NAME="$NAME" PORT="$PORT" SERVED_NAME="$SERVED_NAM
   bash "$HERE/serve_a2.sh" || die "serve_a2.sh 失败（见上）"
 
 # --- 必查 ① static_kernel 静默降级 ---
-SK_HITS=$(grep -ac "static_kernel.py:650" "$LOG" 2>/dev/null || echo 0)
+# ⚠️ **绝不能写成 `|| echo 0`**：`grep -c` 在**无匹配**时打印 `0` **且退出码 1**，
+#    于是 `$(... || echo 0)` 得到的是 **"0\n0"**（两个 0），而 `"0\n0" != "0"` 成立
+#    ⇒ 把"**没降级**"这个正常结果误判成"被静默降级"，并给出"结果不可信"。
+#    2026-09-20 在 A2 真机上正是这样：同一份日志先被 `serve_a2.sh` 判为 ✓，
+#    又被这里判为 ✗（报"命中 0\n0 次"），互相矛盾。
+#    正确写法见 `tools/attach_test.sh:151`（那边已修，本处当时漏改）。
+SK_HITS=$(grep -ac "static_kernel.py:650" "$LOG" 2>/dev/null || true)
+SK_HITS=${SK_HITS:-0}
 if [ "${SK_HITS:-0}" != "0" ]; then
   bad "static_kernel 被静默降级（static_kernel.py:650 命中 ${SK_HITS} 次）—— 结果不可信"
   grep -n "static_kernel.py:650" "$LOG" | head -3 | sed 's/^/    /'
