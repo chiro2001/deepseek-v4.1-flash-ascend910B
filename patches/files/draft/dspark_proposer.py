@@ -45,6 +45,31 @@ _DSPARK_ROW_DUMP = os.environ.get("DSPARK_ROW_DUMP", "0") == "1"
 # [DSV41 fix-candidate] capture 期把 draft 的 slot_mapping 置 -1（不写 KV）。
 # 见 `_build_capture_draft_attn_metadata` 里的长注释与 `[dspark-capture-pad]` 日志。
 _DSPARK_CAPTURE_PAD_SLOTS = os.environ.get("DSPARK_CAPTURE_PAD_SLOTS", "0") == "1"
+
+# [DSV41 CAPTURE-VALUE-FIX] ★★★ 根因修复（2026-09-20，单 chip 双向对照实测）
+#
+# 单 chip 上的决定性证据（同输入、同 metadata、同 kernel 直方图，50 种/2088 次逐项相同）：
+#
+#   | # | context KV 写入 | **捕获期 `runner.seq_lens`** | replay==eager |
+#   |---|---|---|---|
+#   | ① | 图内写 | 5（dummy） | ❌ |
+#   | ②③ | 图外写(+sync) | 0（dummy） | ❌ |
+#   | ④ | 图外写 | **1032（真实）** | **✅** |
+#   | ⑤ | 图内写 | **1032（真实）** | **✅** |
+#   | ⑥⑦ | 任意 | capture 0/1032，**replay 期怎么改都无效** | ❌ |
+#
+# ⇒ **"值固化"**：被烘进图的是**捕获期的值域**，replay 期改 buffer 内容救不回来
+#   （⑥⑦ 是双向对照，排除了"地址漂移"与"图读同一 buffer"两种解释）。
+# ⇒ 修法**两部分缺一不可**：
+#   (a) 捕获期的 draft metadata 必须用**代表性值域**（`runner.seq_lens` /
+#       `optimistic_seq_lens_cpu` 不能是 0/5 这种 dummy 值）；
+#   (b) **恢复 context KV 写入**：捕获期把 `_context_slot_mapping_buffers` 填成
+#       真实的 per-group 缓冲 list（这样"写 KV"的算子被捕获进图；地址常驻，
+#       replay 期由 `set_inputs_first_pass` 原地刷新内容 ⇒ 写到正确位置）。
+#
+# 用法：`DSPARK_CAPTURE_VALUE_FIX=1` 开启；`DSPARK_CAPTURE_SEQ_LEN=<n>` 指定代表值
+#       （默认取 `max_num_batched_tokens`，因为 `num_context` 的上界就是它）。
+_DSPARK_CAPTURE_VALUE_FIX = os.environ.get("DSPARK_CAPTURE_VALUE_FIX", "0") == "1"
 # [DSV41 CAPTURE-DISPATCH] 见 dummy_run 里的长注释：让 capture 的 bucket 与 replay 一致。
 _DSPARK_CAPTURE_DISPATCH = os.environ.get("DSPARK_CAPTURE_DISPATCH", "0") == "1"
 
@@ -687,6 +712,32 @@ class AscendDSparkProposer(AscendDflashProposer):
             and not is_profile
             and num_reqs > 0
         ):
+            # [DSV41 CAPTURE-VALUE-FIX] ★ 必须在 `_build_capture_draft_attn_metadata` **之前**
+            # 执行 —— 该函数会用 `runner.seq_lens` / `optimistic_seq_lens_cpu` 构建捕获期
+            # metadata。2026-09-20 实测：把这两段放在它**之后**（原实现的位置）会让修复
+            # **完全不生效**（同一组参数，只改顺序：early ✅ / late ❌）。
+            if _DSPARK_CAPTURE_VALUE_FIX and num_reqs > 0:
+                # (b) 恢复 context KV 写入：捕获期填成真实 per-group 缓冲 list。
+                # 这些缓冲在 `initialize_attn_backend`（init 期）就建好、地址常驻；
+                # replay 期 `set_inputs_first_pass` 会原地刷新内容 ⇒ 写到正确位置。
+                self._context_slot_mapping_buffers = [
+                    self._per_group_context_slot_mapping_buffers[gidx] for gidx in self._layer_group_idx
+                ]
+                # (a) 代表性值域：让捕获期 metadata 用代表值构建（不能是 0/5 这类 dummy 值）。
+                #     实测：`V = max_num_tokens`（生产 8192）配合"索引缓冲常驻"后，
+                #     replay 的 R 从 6 到 262144 **全部 ✅**；V 太小（如 6）则失败。
+                _cap_len = int(os.environ.get("DSPARK_CAPTURE_SEQ_LEN", "0") or 0)
+                if _cap_len <= 0:
+                    _cap_len = int(getattr(self, "max_num_tokens", 0) or 0) or 8192
+                try:
+                    self.runner.seq_lens[:num_reqs].fill_(_cap_len)
+                    self.runner.optimistic_seq_lens_cpu[:num_reqs].fill_(_cap_len)
+                except Exception as _ce:  # pragma: no cover
+                    logger.warning("[dspark-capture-value-fix] 设置代表值失败：%r", _ce)
+                logger.warning(
+                    "[dspark-capture-value-fix] 捕获期代表值 seq_len=%d（batch=%d）+ context KV 写入已恢复（%d 组）",
+                    _cap_len, num_reqs, len(self._context_slot_mapping_buffers),
+                )
             global _DSPARK_CAPTURE_INDEX
             capture_index = _DSPARK_CAPTURE_INDEX
             _DSPARK_CAPTURE_INDEX += 1

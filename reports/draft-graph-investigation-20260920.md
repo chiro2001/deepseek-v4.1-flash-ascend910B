@@ -184,6 +184,78 @@ def precompute_and_store_context_kv(self, context_states, context_positions,
 
 ### 两条必须记住的方法论事实（子代理穷举扫描得出）
 
+## 4.3 ★★★★ 根因确定：**捕获期的 `seq_lens` 值域被固化**（单 chip 双向对照）
+
+### 决定性证据（另一个子代理，`dsg-fixB`）
+
+**① 双向对照表**（同 harness、同输入、同 metadata、同 kernel 直方图）：
+
+| # | context KV 写入 | **捕获期 `runner.seq_lens`** | replay==eager |
+|---|---|---|---|
+| ① | 图内写 | 5（dummy） | ❌ |
+| ②③ | 图外写(+sync) | 0（dummy） | ❌ |
+| ④ | 图外写 | **1032（真实）** | **✅** |
+| ⑤ | 图内写 | **1032（真实）** | **✅** |
+| ⑥ | 图外写 | capture=0，**replay 前把 buffer 改成 1037** | ❌ |
+| ⑦ | 图内写 | capture=1032，**replay 前把 buffer 改回 5** | ❌ |
+
+**⑥⑦ 是双向对照** ⇒ **replay 期怎么改那个 buffer 都没用，只有 capture 期的值说了算**
+（排除了"地址漂移"与"图读同一 buffer 内容"两种解释）⇒ 真·**值固化**。
+
+**② 排除的三条**（都有数据）：
+* **kernel 直方图两臂逐项相同**（50 种 / 2088 次；`SparseAttnSharedkv` ×24、
+  `aclnnScatterNdUpdateSk_*` ×48、`InplacePartialRotaryMul` ×72 全一致）⇒ 不是"图里少了算子串"；
+* **replay 期交给图的 metadata 逐项相同**（`seq_lens=[1037]`、`start_pos=[1032]`、
+  `slot_mapping=[27,8..12]`、`sas_metadata` sum/非零数、`dspark_swa_indices` 的 **ptr 与内容**、
+  `block_table`、`ori_win_left/right`）⇒ 分叉 100% 在"捕获期定型的东西"里；
+* **把 replay 期新算的 indices 内容拷回 capture 地址** ⇒ 无效 ⇒ 不是"图读 capture 地址的 tensor 内容"。
+
+**③ V×R 矩阵**（每格独立进程，eager(真实 R) vs capture(V) → replay(真实 R)×2）：
+
+| V \ R | 6 | 1032 | 8192 | 65536 | 262144 |
+|---|---|---|---|---|---|
+| **6** | ✅ | ❌ | ❌ | ❌ | ❌ |
+| **1032** | ❌ | ✅ | ❌ | ❌ | ❌ |
+| **8192** | ❌ | ❌ | ✅ | ❌ | ❌ |
+| **65536** | ❌ | ❌ | ❌ | ✅ | ❌ |
+| **262144** | ❌ | ❌ | ❌ | ❌ | ✅ |
+
+细扫（R=1032）：V=1032/1033/1040/1064 ✅，**1160/1290/1024/1016/1000/900 ❌**
+⇒ 规律 **R ≤ V ≤ R+122**（122 ≈ `sliding_window(128) − num_context(6)`），不是对角线、不是同量级、也不是"V≥R"。
+
+**④ ★ 打开"索引缓冲地址常驻"后，`cap_len` 变得与 R 无关**：
+```
+stable-idx enabled=True buf=(2048,1,256)
+V=8192 R=6/8192/1032/65536/262144  → 全部 PASS（5/5）
+V=1024 R=262144 PASS ; V=262144 R=1032/65536 PASS
+V=6    R=1032/262144 FAIL                        ← V 太小仍失败
+```
+⇒ **存在与 R 无关的安全值 `cap_len = max_num_tokens`（生产 8192），但前提是索引缓冲地址常驻。**
+
+机制：`dsa_v1.py:797` drafting 路径 `_device_metadata_enabled=False` ⇒ 某些分支
+`build_dspark_swa_indices(*args)` **不带 buffer ⇒ 每次新分配** ⇒ 图里烘的是捕获期的指针。
+
+### ⚠️ 一个致命顺序 bug（已修）
+
+原实现把 (a)(b) 两段赋值放在 `_build_capture_draft_attn_metadata(...)` **之后**（`else` 分支里），
+而该函数用 `runner.seq_lens` 构建捕获期 metadata ⇒ **修复完全不生效**。
+实测（子代理）：同参数只改顺序，`--order early` ✅ / `--order late` ❌。
+**已修**：赋值搬到构建之前（现在 `dspark_proposer.py:719`，构建在 `:745`）。
+
+### 修法（三部分，门控 `DSPARK_CAPTURE_VALUE_FIX`，默认 **0**）
+
+1. **(a) 代表性值域**：捕获前把 `runner.seq_lens[:n]` / `optimistic_seq_lens_cpu[:n]` 填成
+   `DSPARK_CAPTURE_SEQ_LEN`（默认回落 `max_num_tokens`，生产 8192）；
+2. **(b) 恢复 context KV 写入**：捕获前把 `_context_slot_mapping_buffers` 填成真实的
+   per-group 缓冲 list（这些缓冲在 `initialize_attn_backend` 就建好、地址常驻）
+   —— 实测"只做 (b) ❌"、"只做 (a)+图内写 ✅"。
+3. **(c) 索引缓冲地址常驻**：让 drafting 路径用常驻 buffer（**待定** ——
+   已核实 drafting 路径（`:1175`）**本来就传** `buffer=self.dspark_swa_indices_buffer`，
+   而新分配来自 `build_req_metadata` 那条（`:1444` 的 else）。**正在验证生产捕获走哪条路径**，
+   以决定 (c) 是否必需、以及用哪种最小改法）。
+
+**验证状态**：顺序已修 + (a)(b) 已实现（默认关）；(c) 的取舍与 A/B 正在单 chip 上确认。
+
 1. **重放时 Python 完全不执行** —— 扫描器给 `_runnable` 包计数器，整个 capture+replay 只有 `hooked call #1`
    （`ACLGraphWrapper` 重放路径只执行 `entry.aclgraph.replay()`）。
    ⇒ 能影响结果的**只有三类**：捕获时绑定的**地址**、**shape**、以及**图内被读的 Python 标量**。
