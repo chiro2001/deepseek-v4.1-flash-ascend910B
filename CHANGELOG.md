@@ -458,6 +458,91 @@ INSECURE_TLS=1 bash tools/fetch_corpus.sh             # 语料下载同理
 > `docs/RELEASE-NOTES.md` **没有改**：它是 v7 的历史发布说明（"相对 a2_pkg_v6 的变化"），
 > 按本仓库既定的纪律，历史记录不追改 —— v8 的变更统一记在本 CHANGELOG。
 
+## 14. ★ 修复 `engram_int8/` 的挂载权限（A2 真机报障：`aclrtHostRegister failed: ret=507899`）
+
+### 14.1 用户报障（A2 真机，原话）
+
+> v8 以后，启动 A2 脚本，模型的 `engram_int8/` 目录就必须是可写入权限，如果是 readonly
+> 加载权限时候会报错。感觉 engram 那个开关在 V8 里面可能存在问题，我现在把所有模型判断的
+> ro 都改成了 rw，然后把开关从 auto 改成了 1，能过了。
+
+### 14.2 根因（三条路径，两条漏了）
+
+`engram_device_index.py::_map_and_register()` 要求**可写映射**，这是硬约束、不是配置口味：
+
+```python
+fd   = os.open(self.path, os.O_RDWR)                      # ← 要求可写
+addr = _libc.mmap(None, maplen, PROT_READ | PROT_WRITE, MAP_SHARED, fd, aligned)
+dev, ret = acl.rt.host_register(addr, maplen, ACL_HOST_REGISTER_MAPPED)   # 只读 VMA → ret=507899
+```
+
+而 `serve_a2.sh` 有**三条**构建 `MODEL_MOUNTS` 的路径，**只有第 2 条**（`auto`，默认）有
+engram 特判：
+
+| # | 路径 | v8 之前的行为 | 后果 |
+|---|---|---|---|
+| 1 | `MODEL_MOUNT_MODE=ancestor` | 整棵公共祖先 `:ro`，**无 engram 特判** | 容器内 `ret=507899` |
+| 2 | `MODEL_MOUNT_MODE=auto`（默认） | `case "${_d##*/}"` 命中 `engram_int8`/`engram-int8` → `:rw` | 正常，但**判定太脆**（见 14.4） |
+| 3 | 单层 fallback（`none` / 缺 `model_mount_args.sh`） | 只挂 `$MODEL:ro`，**无 engram 特判** | 容器内 `ret=507899` |
+
+**为什么用户改 `auto` → `1` 也"能过"：那个开关跟挂载权限无关。** 代码级判定：
+`_engram_need_rw()` 对 `auto` 与 `1` **都返回真**（只有显式 `0/false/off/no/空` 才返回假），
+所以两条取值在挂载构造上完全等价；容器侧的差别只在"能力探测被拒绝"时——`auto` 静默回退
+host 路径，`1` 直接抛错（`_ENGRAM_DEVICE_INDEX_MODE`）。用户是同一次改了**两处**
+（"把所有 ro 改成 rw" + "auto 改成 1"），真正生效的是前者。
+⇒ 发布口径**保持 `auto` 默认**，不要建议用户改 `1`：它只会把"静默回退"变成"硬失败"。
+
+### 14.3 修复
+
+1. **三条路径统一**：新增 `[ENGRAM-RW]` 判定 + `[ENGRAM-RW-OVERLAY]` —— 祖先/单层挂载
+   保持 `:ro`，只把 engram 表目录**嵌套叠加**成 `:rw`（不再"整棵模型目录开成 rw"，也不是
+   照抄用户的 workaround）。
+2. **判定口径从"目录名"改成"三来源"**（旧代码只看 `_d` 的 basename，三种形态全漏）：
+   * `$MODEL/engram_int8` **本身是实体目录**时，它根本不在 `model_mount_args.sh` 的输出里；
+   * 名字含 `engram` 且含 `int8` 的目录（`engram_int8` / `engram-int8` / `engram_int8_data` …）；
+   * **真正落盘的那个目录**：`engram_int8/` 里的条目本身还是软链（`engram_dr_build.py`
+     就这么造的），而 `O_RDWR` 是按最终 inode 所在目录判定的。
+     A3 真机实测链条（见 14.5）：`$MODEL/engram_int8 → L4/engram_int8 → L3/engram_int8`（实体）
+     `→ 4 个软链 → …/projects/dsv41/models/out/engram-int8 → …/models/out/engram-int8`，
+     **最后一步跟模型树不在同一棵目录树里**。
+3. **起服前自检（前移到 `docker run` 之前）**：目录存在 + **最深覆盖它的那条挂载必须是
+   `:rw`**，否则 `die` 并给出可直接照做的修法（`MODEL_MOUNT_MODE=auto` / `ENGRAM_DEVICE_INDEX=0`）。
+   价值：用户现在的报错在**容器内、起服中途**，把定位成本从"一整轮试错"降到"起服前一行字"。
+4. ⚠️ **"宿主上可写"只告警、不拦**。第一版按 `[ -w "$dir" ]` 硬判，结果在 A3 真机上**自己
+   把自己拦住了**：交付模型里 `…/models/out/engram-int8/*.safetensors` 是 **`root:root 0600`**，
+   而容器是**以 root 运行**的（`Dockerfile` `USER root` + `docker run` 不带 `--user`）——
+   `rw` 挂载下 root `O_RDWR` 完全没问题。⇒ 真正决定成败的是**挂载模式**，不是宿主上的模式位；
+   宿主不可写只提示"容器必须是以 root 起的；换非 root 才需要 chmod/换属主"。
+5. **`ancestor` 模式顺带修掉一个半坏**：原实现取 `dirname | sort -u | head -1` 当"公共祖先"，
+   而 A3 真机的模型树横跨 `models/out` 与 `projects/dsv41/models/out` **两棵树** ⇒ 挑出来的
+   `models/out` **覆盖不到** `projects/…`，容器里那些软链全是悬空（**不报错**，只是读不到）。
+   现在加了覆盖性检查：覆盖不全就退回 `auto`（与"取不到公共祖先就退回 auto"同一策略）。
+6. **脚本指纹**：起服时打印 `script=… ver=v8-engram-rw-mount-20260920 md5=…`。镜像里也有一份
+   烘焙的 `/opt/dsv41/scripts/serve_a2.sh`（构建时快照，可能比包旧）；打印路径若是
+   `/opt/dsv41/scripts/…`，脚本会显式告警让你改用包里那份。README §2.2 同步写明。
+
+### 14.4 次生问题（顺手排查的结果）
+
+| 疑点 | 结论 |
+|---|---|
+| `case "${_d##*/}"` 依赖目录名 | **成立**，已改成三来源判定（14.3-2）。旧代码在"`engram_int8` 是实体目录"这种形态下**永远不命中** |
+| `model_mount_args.sh` 会不会漏掉 `engram_int8` | **会**：它只输出"软链目标目录"，**实体子目录不输出**（`scan()` 里真目录只递归、不登记）。这正是上面那条最危险的形态 |
+| 软链名还是真实名 | 输出的是**每一跳的目标目录**（`readlink` 逐跳，不是 `realpath`），所以链条上每一层都会出现；但**最后一跳的实体目录**要靠新加的第③条规则才拿得到 |
+| 用户是不是在跑镜像里烘焙的旧脚本 | 排查项已内建：起服打印路径+版本+指纹，命中 `/opt/dsv41/scripts/` 时显式告警；README §2.2 写明"用包里的脚本" |
+
+### 14.5 验证（**没有 A2 访问权限**，所以全部是离线 + A3 宿主侧的 dry-run）
+
+| 验证 | 结果 |
+|---|---|
+| `tests/engram_rw_mount_test.sh`（新增，34 条断言，假模型树 + `DRY_RUN=1`，不需要 docker/NPU） | **pass=34 fail=0**：auto / ancestor / 单层 fallback / 缺工具 / 实体目录 / `ENGRAM_DEVICE_INDEX=0` / 宿主不可写 / 缺表目录 全覆盖 |
+| `tools/negative_control.sh`（新增 NC11–NC14） | **PASS=23 FAIL=0**：①宿主不可写只告警不误杀 ②正常树 engram 必须 `:rw` 且模型根仍 `:ro` ③祖先覆盖不全必须退回 auto ④config 声明 engram 却没有表目录必须拦 |
+| A3 真机（宿主侧 dry-run，不碰 docker） | 真实模型 `v41-w4a8-engram-dr-vision-qrot-mtpq`：`auto` 下 5 个 engram 目录**全部 `:rw`**、其余 10 个目录 `:ro`；`ancestor` 正确打印"覆盖不到 … 退回 auto"；`none` 下 `$MODEL:ro` + 3 个 engram 目录 `:rw` |
+| `bash -n scripts/serve_a2.sh` / `tools/selfcheck_pkg.sh` / `tools/check_checksums.sh` | 见本次提交说明 |
+
+> **未验证**：A2 真机起服（我们没有 A2 的访问权限）。用户侧一条命令即可验证：
+> `DRY_RUN=1 MODEL=<模型目录> bash scripts/serve_a2.sh | grep engram_int8` ——
+> 期望每一行都以 `:rw` 结尾，且**不出现** `$MODEL:$MODEL:rw`。
+
 # ★ v7（2026-09-18）—— 长上下文精度修复：`BAT_TOKENS` 2048 → 8192
 
 > **这是本包第一次修"正确性"而不是"性能"或"工程"。**

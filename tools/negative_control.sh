@@ -25,6 +25,11 @@
 #   NC7  serve_a2.sh 退回单层挂载                    （软链悬空，回到 v4 状态）
 #   NC8  skcache 临时目录堆积                        （磁盘无限增长）
 #   NC9  补丁载荷被改动但 md5 清单/落位表没跟上       （v7→v8 的 build_image checksum 失败）
+#   NC10 镜像内校验脚本分不清"一致"与"改了一个字节"
+#   NC11 engram 表目录宿主不可写却被误判为致命         （A3 真机 root:root 0600 ⇒ 假阳性）
+#   NC12 engram 表目录被挂成 :ro                       （v8 A2 真机：ret=507899，报错在容器里）
+#   NC13 ancestor 模式的祖先覆盖不到部分目录           （软链悬空，半坏且不报错）
+#   NC14 config 声明了 engram 但模型目录里没有表        （模型目录不完整）
 # =============================================================================
 set -uo pipefail
 
@@ -282,6 +287,85 @@ if bash "$_d/tools/verify_baked_tree.sh" --root "$_d/tree" --manifest "$_d/chk.t
   bad "NC10 备份负控：缺 .a2orig 回滚备份却判为通过（检查失效！）"
 else
   good "NC10 备份负控：缺 .a2orig 回滚备份即 FAIL"
+fi
+
+# ---------------------------------------------------------------------------
+hr "NC11–NC14  engram 表目录的挂载权限（v8 之后 A2 真机报障的那条）"
+# ---------------------------------------------------------------------------
+# 背景：engram_device_index.py 用 os.open(path, O_RDWR) + PROT_WRITE/MAP_SHARED
+# 再 aclrtHostRegister —— 只读挂载会 ret=507899，而报错发生在**容器内、起服中途**。
+# 这组负控证明：①不可写要**在起服前就炸**；②正常情况下 engram 目录必须是 :rw，
+# 且模型根目录仍然是 :ro（不是"全都开成 rw"的 workaround）；③ancestor 模式的祖先
+# 覆盖不全时必须退回 auto（否则容器里软链悬空，半坏且不报错）。
+# 全部用假模型树 + DRY_RUN=1（不碰 docker / 不占卡）。
+_nc="$WORK/NC11"
+mkdir -p "$_nc/out/model-dir/engram_int8" "$_nc/out/l4"
+printf '{"text_config":{"engram_layer_ids":[1,14]}}\n' > "$_nc/out/model-dir/config.json"
+: > "$_nc/out/model-dir/engram_int8/layers_1_engram_embed.weight.safetensors"
+ln -sfn "$_nc/out/model-dir/config.json" "$_nc/out/l4/config.json"
+ln -sfn "$_nc/out/model-dir/engram_int8" "$_nc/out/l4/engram_int8"
+_ncmodel="$_nc/out/l4"
+_ncserve="$PKG/scripts/serve_a2.sh"
+
+# ① 正常树：engram 目录 :rw，模型根目录仍 :ro（正控）
+_out=$(env DRY_RUN=1 MODEL="$_ncmodel" OUT_DRYRUN_DIR="$_nc/dry" bash "$_ncserve" 2>&1)
+if printf '%s' "$_out" | grep -qF -- "-v $_ncmodel/engram_int8:$_ncmodel/engram_int8:rw" \
+   && printf '%s' "$_out" | grep -qF -- "-v $_ncmodel:$_ncmodel:ro"; then
+  good "NC12 正控：engram 表目录 :rw（含实体目录形态），模型根目录仍 :ro"
+else
+  bad "NC12 正控：engram 表目录不是 :rw（或者模型根被开成 rw）—— 挂载逻辑回归了"
+  printf '%s\n' "$_out" | grep -- '-v ' | tail -4 | sed 's/^/          /'
+fi
+
+# ② 宿主上不可写：**必须只告警，不许拦**（A3 真机 engram 表是 root:root 0600，
+#    跑脚本的普通用户 [ -w ] 为假，而容器以 root 跑 ⇒ 用 [ -w ] 当硬判据会误杀）
+if [ "$(id -u)" = "0" ]; then
+  note "NC11 跳过：以 root 运行（access(W_OK) 对 root 恒真）；用普通用户跑即可覆盖"
+else
+  _nc2="$_nc/NC11"; mkdir -p "$_nc2/out/model-dir/engram_int8"
+  printf '{"text_config":{"engram_layer_ids":[1,14]}}\n' > "$_nc2/out/model-dir/config.json"
+  : > "$_nc2/out/model-dir/engram_int8/layers_1_engram_embed.weight.safetensors"
+  chmod 555 "$_nc2/out/model-dir/engram_int8"
+  _out=$(env DRY_RUN=1 MODEL="$_nc2/out/model-dir" OUT_DRYRUN_DIR="$_nc/dry2" bash "$_ncserve" 2>&1)
+  _rc=$?
+  chmod 755 "$_nc2/out/model-dir/engram_int8" 2>/dev/null || true
+  if [ "$_rc" -eq 0 ] && printf '%s' "$_out" | grep -q "WARNING: 宿主上" \
+     && printf '%s' "$_out" | grep -q "ENGRAM_DEVICE_INDEX=0" \
+     && printf '%s' "$_out" | grep -qF -- "-v $_nc2/out/model-dir/engram_int8:$_nc2/out/model-dir/engram_int8:rw"; then
+    good "NC11：宿主不可写 ⇒ 只告警 + 给出修法，挂载仍是 :rw（不误杀 root 容器）"
+  else
+    bad "NC11：宿主不可写的处理不对（要么误杀，要么既不告警也不给修法）"
+    printf '%s\n' "$_out" | tail -6 | sed 's/^/          /'
+  fi
+fi
+
+# ③ ancestor 覆盖不全：必须退回 auto
+_nc3="$_nc/NC13"; mkdir -p "$_nc3/models/out/L3/engram_int8" "$_nc3/raw/engram-int8" "$_nc3/models/out/L5"
+printf '{"text_config":{"engram_layer_ids":[1,14]}}\n' > "$_nc3/models/out/L3/config.json"
+: > "$_nc3/raw/engram-int8/layers_1_engram_embed.weight.safetensors"
+ln -sfn "$_nc3/raw/engram-int8/layers_1_engram_embed.weight.safetensors" \
+        "$_nc3/models/out/L3/engram_int8/layers_1_engram_embed.weight.safetensors"
+ln -sfn "$_nc3/models/out/L3/config.json" "$_nc3/models/out/L5/config.json"
+ln -sfn "$_nc3/models/out/L3/engram_int8" "$_nc3/models/out/L5/engram_int8"
+_out=$(env DRY_RUN=1 MODEL="$_nc3/models/out/L5" MODEL_MOUNT_MODE=ancestor \
+       OUT_DRYRUN_DIR="$_nc/dry3" bash "$_ncserve" 2>&1)
+if printf '%s' "$_out" | grep -q "覆盖不到" \
+   && printf '%s' "$_out" | grep -qF -- "-v $_nc3/raw/engram-int8:$_nc3/raw/engram-int8:rw"; then
+  good "NC13：祖先覆盖不到 projects/… 那棵树 ⇒ 退回 auto，且物理目录仍 :rw"
+else
+  bad "NC13：祖先覆盖不全却照样只用祖先挂载（容器里软链会悬空）"
+  printf '%s\n' "$_out" | grep -- '-v ' | tail -4 | sed 's/^/          /'
+fi
+
+# ④ config 声明了 engram 却没有表目录：必须在起服前 die（模型目录不完整）
+_nc4="$_nc/NC14"; mkdir -p "$_nc4/model-noengram"
+printf '{"text_config":{"engram_layer_ids":[1,14]}}\n' > "$_nc4/model-noengram/config.json"
+_out=$(env DRY_RUN=1 MODEL="$_nc4/model-noengram" OUT_DRYRUN_DIR="$_nc/dry4" bash "$_ncserve" 2>&1)
+_rc=$?
+if [ "$_rc" -ne 0 ] && printf '%s' "$_out" | grep -q "声明了 engram_layer_ids"; then
+  good "NC14：config 声明了 engram 但没有 engram_int8/ ⇒ 起服前 die 并点名"
+else
+  bad "NC14：模型目录不完整却放行（rc=$_rc）"
 fi
 
 # ---------------------------------------------------------------------------

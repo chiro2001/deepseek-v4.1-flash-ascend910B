@@ -49,6 +49,36 @@ bash scripts/build_image.sh                 # 烘焙补丁，产出 dsv41-a2:v8�
 MODEL=/path/to/v41-w4a8-engram-dr-vision-qrot-mtpq bash scripts/serve_a2.sh
 ```
 
+**⚠️ 用发布包里的 `scripts/serve_a2.sh`，不要用镜像里那份。** `build_image.sh` 会把脚本
+COPY 进镜像的 `/opt/dsv41/scripts/`，那是**构建时**的快照，可能比包旧（跑它就等于跳过
+本包的修复）。脚本每次起服都打印自己的路径 + 版本 + md5：
+
+```
+[serve_a2] script=/path/to/包/scripts/serve_a2.sh ver=v8-engram-rw-mount-20260920 md5=…
+```
+
+报障时先看这一行；若它指向 `/opt/dsv41/scripts/serve_a2.sh`，改成包里那份再跑。
+
+**★ `engram_int8/` 必须可写挂载**（v8 起；A2 真机踩过，见 `CHANGELOG.md` v8 §14）：
+Engram 表要由设备算子直接索引，走的是 `os.open(path, O_RDWR)` +
+`PROT_WRITE|MAP_SHARED` 的 `mmap`，再交给
+`aclrtHostRegister(..., ACL_HOST_REGISTER_MAPPED)`。**只读 VMA 会被驱动拒绝**
+（`ret=507899`），而 `os.open` 在 read-only 挂载上先就报 `EROFS`。代码本身只**读**
+这些文件——要写权限纯粹是驱动注册的要求，不是我们想改它们。
+
+起服脚本**自己会把这件事办掉**：三条挂载路径（`auto` / `ancestor` / 单层 fallback）
+都会把 engram 表目录**单独叠加**成 `:rw`，其余模型目录保持 `:ro`；并且在
+`docker run` **之前**自检（目录存在 + 最深覆盖它的那条挂载必须是 `:rw`），不满足就
+直接失败并给出修法，而不是等你在容器里看到 `aclrtHostRegister failed: ret=507899`。
+
+| 情况 | 你该做什么 |
+|---|---|
+| 默认（`MODEL_MOUNT_MODE=auto`） | **什么都不用做**，脚本自动叠加 `:rw` |
+| 想先确认 | `DRY_RUN=1 MODEL=<模型目录> bash scripts/serve_a2.sh`（不碰 docker），看 engram 那几行是不是 `:rw` |
+| 报"宿主上不可写"的 WARNING | 一般**忽略即可**：容器以 root 运行，挂载是 `:rw` 就能 `O_RDWR`（A3 真机的表就是 `root:root 0600`）。只有用**非 root** 起容器时才需要 `chmod u+w` / 换属主 |
+| 起服前自检 FAIL（engram 目录被 `:ro` 覆盖 / 目录不存在） | 按报错里的修法：改回 `MODEL_MOUNT_MODE=auto`（默认）；若是模型目录里没有 `engram_int8/`，那是模型不完整，先补上 |
+| 就是想绕开 | `ENGRAM_DEVICE_INDEX=0` —— **干净的退路**：走 host 路径，完全不要求可写，代价是关掉 v8 的 device-index 加速 |
+
 `build_image.sh` 最后一步的逐文件 md5 校验**不再手写**：期望值在构建时由
 `patches/files/**` 的字节现算（落位表取自 `Dockerfile`），因此"改了补丁忘了改校验和"
 不会再让用户白等 10–20 分钟 —— 详见 [`CHANGELOG.md`](CHANGELOG.md) v8 §11。

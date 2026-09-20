@@ -39,6 +39,11 @@ NAME=${NAME:-dsv41-a2}
 PORT=${PORT:-8100}
 TP=${TP:-8}
 DEVS=${DEVS:-"0 1 2 3 4 5 6 7"}
+# [SCRIPT-VER] 起服时打印脚本版本 + 指纹。为什么需要：镜像里也有一份烘焙的
+# `/opt/dsv41/scripts/serve_a2.sh`（Dockerfile COPY），而镜像可能是**旧脚本**构建的
+# —— 用户报障时先看这一行就能判断"修复到底有没有生效"（v8 之后 A2 报障的第一件事）。
+# 纪律：README 要求**用发布包里的** scripts/serve_a2.sh；镜像里那份只作兜底。
+SERVE_A2_VER="v8-engram-rw-mount-20260920"
 # [MEM-HEADROOM] 默认 0.92，**不是贪图显存，而是留出 activation 余量**。
 #
 # 实测（8×910C）：真实 prefill 的 activation 峰值约 6 GiB，而 vLLM 在
@@ -282,6 +287,18 @@ else
     || die "镜像 $IMAGE 不存在。先执行：bash scripts/build_image.sh"
 fi
 
+# [SCRIPT-VER] 让"跑的是哪一份脚本"在日志里可查（用户报障的第一件事）
+_script_self="${BASH_SOURCE[0]}"
+_script_md5=$(md5sum "$_script_self" 2>/dev/null | cut -c1-12 || echo "?")
+echo "[serve_a2] script=$_script_self ver=$SERVE_A2_VER md5=$_script_md5"
+case "$HERE" in
+  /opt/dsv41/scripts)
+    echo "[serve_a2] ⚠️  你现在跑的是**镜像里烘焙**的那份脚本（$HERE）。
+          镜像内的副本是 build_image.sh 构建时 COPY 进去的，可能比发布包旧；
+          若本次要修的挂载逻辑看起来没生效，请改用**发布包里**的：
+            bash <发布包>/scripts/serve_a2.sh" ;;
+esac
+
 # =============================================================================
 # [SYMLINK-MODEL-MOUNT] 量化流水线产出的模型目录是**软链构造**的（零拷贝），
 # 且软链写的是**绝对路径**，链条可达 5 层（L5→L4→L3→L2→L1）。
@@ -298,6 +315,157 @@ fi
 # =============================================================================
 MODEL_MOUNT_MODE=${MODEL_MOUNT_MODE:-auto}
 MODEL_MOUNTS=()
+
+# ---------------------------------------------------------------------------
+# [ENGRAM-RW] engram 表目录必须**可写**挂载 —— 为什么，以及怎么判定
+#
+# 代码级事实（patches/files/engram_device_index.py::_map_and_register）：
+#     fd   = os.open(self.path, os.O_RDWR)                      # ← 要求可写
+#     addr = libc.mmap(None, maplen, PROT_READ|PROT_WRITE, MAP_SHARED, fd, aligned)
+#     dev, ret = acl.rt.host_register(addr, maplen, ACL_HOST_REGISTER_MAPPED)
+# ⇒ 只读 VMA 会被 aclrtHostRegister 拒绝（**实测 ret=507899**），而且 os.open 在
+#   read-only 挂载上先就报 EROFS。所以 engram 表的**每一个落盘目录**都必须 :rw。
+#   注意：代码只**读**这些文件，要写权限纯粹是驱动注册的要求。
+#
+# 用户报障（v8，A2 真机）：默认路径之外的另外两条路径
+#   （MODEL_MOUNT_MODE=ancestor / 单层 fallback）本来**完全没有 engram 特判**，
+#   整棵模型树都是 :ro ⇒ 报错发生在**容器内、起服中途**
+#   `aclrtHostRegister failed: ret=507899`，极难定位。本段把这件事前移到脚本里。
+#
+# 判定口径（三个来源都要，少一个就会漏）：
+#   ① MODEL 自己：$MODEL/engram_int8（**是真实目录时**它根本不在
+#      model_mount_args.sh 的输出里 ⇒ 旧代码的 `case ${_d##*/}` 永远不命中）；
+#   ② 软链链条上的 engram 目录（名字含 engram 且含 int8：engram_int8 /
+#      engram-int8 / engram_int8_data …；不能只匹配两个固定名字）；
+#   ③ **真正落盘的那个目录**：engram_int8/ 里的条目本身还是软链
+#      （quant/scripts/engram_dr_build.py 就是这么造的），而 O_RDWR 是按最终
+#      inode 所在目录判定的 ⇒ 必须把 `readlink -f` 之后的目录也挂成 :rw。
+#      A3 真机实测布局（同一份交付包）：
+#        $MODEL/engram_int8 -> L4/engram_int8 -> L3/engram_int8（实体目录）
+#          -> 4 个软链 -> /home/…/projects/dsv41/models/out/engram-int8/…
+#      最后一层跟模型树**不在同一棵目录树里**（一个在 models/out、一个在
+#      projects/dsv41/models/out）—— 只挂模型树那几层是不够的。
+# ---------------------------------------------------------------------------
+_ENGRAM_RW_DIRS=()
+
+_engram_rw_add() {   # 登记一个"必须 :rw"的宿主目录（去重）
+  local _x="$1" _i
+  [ -n "$_x" ] || return 0
+  for _i in ${_ENGRAM_RW_DIRS[@]+"${_ENGRAM_RW_DIRS[@]}"}; do
+    [ "$_i" = "$_x" ] && return 0
+  done
+  _ENGRAM_RW_DIRS+=("$_x")
+}
+
+_engram_collect_rw() {   # $1 = 模型根目录（宿主路径 = 容器路径）
+  local _base="$1" _c _real _f
+  for _c in "$_base/engram_int8" "$_base/engram-int8"; do
+    [ -e "$_c" ] || continue
+    _engram_rw_add "$_c"                       # ← 容器里被 open() 的那个路径
+    _real=$(readlink -f "$_c" 2>/dev/null || true)
+    _engram_rw_add "$_real"                    # ← 软链真正指向的目录
+    # 目录内的条目：glob **会穿过软链**列出真实内容，逐个解析到最终落盘目录
+    for _f in "$_c"/*; do
+      [ -e "$_f" ] || continue
+      [ -L "$_f" ] || continue
+      _real=$(readlink -f "$_f" 2>/dev/null || true)
+      [ -n "$_real" ] && _engram_rw_add "$(dirname "$_real")"
+    done
+  done
+}
+
+_engram_is_rw_dir() {   # $1 = 目录；0 = 它（或它下面的东西）必须 :rw
+  local _d="$1" _r
+  for _r in ${_ENGRAM_RW_DIRS[@]+"${_ENGRAM_RW_DIRS[@]}"}; do
+    case "$_d/" in "$_r"/*) return 0 ;; esac
+  done
+  return 1
+}
+
+_engram_mount_mode_for() {   # $1 = 宿主目录 → 打印 "<最深覆盖它的 mode> <容器路径>"
+  local _t="$1" _i _entry _dst _mode _best_dst="" _best_mode=""
+  for ((_i=0; _i<${#MODEL_MOUNTS[@]}; _i++)); do
+    [ "${MODEL_MOUNTS[$_i]}" = "-v" ] || continue
+    _entry="${MODEL_MOUNTS[$((_i+1))]:-}"
+    [ -n "$_entry" ] || continue
+    _dst="${_entry#*:}"; _dst="${_dst%:*}"
+    _mode="${_entry##*:}"
+    # 覆盖判定：相等，或 _t 在 _dst 之下（嵌套挂载里**最深的那条**说了算）
+    case "$_t/" in "$_dst"/*) : ;; *) continue ;; esac
+    if [ "${#_dst}" -ge "${#_best_dst}" ]; then _best_dst="$_dst"; _best_mode="$_mode"; fi
+  done
+  printf '%s %s' "${_best_mode:--}" "${_best_dst:--}"
+}
+
+_engram_required_by_config() {   # 0 = 模型 config 声明了 engram_layer_ids
+  local _cfg="$MODEL/config.json"
+  [ -f "$_cfg" ] || return 1
+  if command -v python3 >/dev/null 2>&1; then
+    python3 - "$_cfg" <<'PYENGRAM' 2>/dev/null
+import json, sys
+try:
+    cfg = json.load(open(sys.argv[1]))
+except Exception:
+    sys.exit(1)
+ids = (cfg.get("text_config") or {}).get("engram_layer_ids") \
+      or cfg.get("engram_layer_ids") or []
+sys.exit(0 if ids else 1)
+PYENGRAM
+  else
+    grep -q '"engram_layer_ids"[[:space:]]*:[[:space:]]*\[[[:space:]]*"' "$_cfg"
+  fi
+}
+
+# ⚠️ 关于"宿主上可写（[ -w ]）"这条：**只告警，不致命**。为什么（A3 真机实测）：
+#   交付模型里 `…/projects/dsv41/models/out/engram-int8/*.safetensors` 是
+#   **root:root 0600**，跑脚本的普通用户 `[ -w ]` 判为假，而**容器是以 root 运行的**
+#   （Dockerfile `USER root` + docker run 不带 --user）⇒ root 打开 rw 挂载里的这些
+#   文件完全没问题。拿 [ -w ] 当硬判据会在这种**完全正常**的部署上直接拦死起服
+#   （本修复的第一版就在 A3 上踩了这个假阳性）。
+#   ⇒ 硬判据只有两条：**目录存在** + **最深覆盖它的挂载是 :rw**。
+#   宿主不可写只作为提示（说明容器必须是以 root 起；换非 root 才需要 chmod/换属主）。
+_engram_warn_host_ro() {   # $@ = 宿主上不可写的路径
+  [ "$#" -gt 0 ] || return 0
+  echo "[serve_a2] WARNING: 宿主上 $(id -un) 对下面这些 engram 路径不可写（[ -w ] 为假）："
+  local _x
+  for _x in "$@"; do echo "[serve_a2]          $_x"; done
+  echo "[serve_a2]          容器默认以 **root** 运行（本脚本不带 --user，镜像也是 USER root）"
+  echo "[serve_a2]          ⇒ 只要挂载是 :rw，root 打开它们没问题（A3 真机实测就是这个形态："
+  echo "[serve_a2]          engram-int8/*.safetensors 是 root:root 0600，服务正常）。"
+  echo "[serve_a2]          只有当你改用**非 root** 起容器时才会 os.open EACCES："
+  echo "[serve_a2]          那时修法 = chmod u+w / chown 这些文件，或 ENGRAM_DEVICE_INDEX=0（走 host 路径）。"
+}
+
+# [ENGRAM-RW-PREFLIGHT] 起服前自检：存在 + 在 MODEL_MOUNTS 里**没有被一条 :ro 覆盖**
+# （即最深覆盖它的那条必须是 :rw）。不满足就 die 并给出可直接照做的修法。
+_engram_preflight_check() {
+  local _d _info _mode _dst _bad="" _why="" _f
+  local -a _ro=()
+  for _d in ${_ENGRAM_RW_DIRS[@]+"${_ENGRAM_RW_DIRS[@]}"}; do
+    if [ ! -d "$_d" ]; then _bad="$_d"; _why="目录不存在（软链悬空？）"; break; fi
+    _info=$(_engram_mount_mode_for "$_d"); _mode="${_info%% *}"; _dst="${_info##* }"
+    if [ "$_mode" != "rw" ]; then
+      _bad="$_d"
+      _why="当前 MODEL_MOUNTS 里它被 '$_dst:$_mode' 覆盖（只读），或根本没有被挂载"
+      break
+    fi
+    if [ ! -w "$_d" ]; then _ro+=("$_d（目录）"); continue; fi
+    for _f in "$_d"/*.safetensors; do
+      [ -e "$_f" ] || continue
+      [ -w "$_f" ] || { _ro+=("$_f"); break; }
+    done
+  done
+  _engram_warn_host_ro ${_ro[@]+"${_ro[@]}"}
+  [ -n "$_bad" ] || return 0
+  die "engram 表目录需要**可写**挂载（aclrtHostRegister 要求 O_RDWR 映射；只读 VMA 会
+       ret=507899 / os.open 先报 EROFS），但起服前自检没过：$_why
+       受影响目录：$_bad
+       修法二选一：
+         * 用 MODEL_MOUNT_MODE=auto（默认，逐目录挂载 ⇒ 脚本会自动把 engram 表目录叠加成 :rw）
+         * 或显式 ENGRAM_DEVICE_INDEX=0（走 host 路径，不要求可写；代价是关掉 v8 的
+           device-index 加速）"
+}
+
 # 注意：这里用 -f 而不是 -x —— 交付包里脚本的执行位可能在打包/解包过程中丢失，
 # 我们本来就用 `bash <script>` 调用，不需要执行位。（曾因 -x 导致静默走 fallback，
 #  只挂 MODEL 一层 —— 正是本次要修的 bug 又复现了一遍。）
@@ -321,38 +489,57 @@ if [ "$MODEL_MOUNT_MODE" != "none" ] && [ -f "$PKG/tools/model_mount_args.sh" ];
   #    所以上游改成只吐裸路径，这里显式拼成 2 个元素。
   # ---------------------------------------------------------------------------
   mapfile -t _mdirs < <(printf '%s\n' "$_links" | sed '/^[[:space:]]*$/d')
+
+  # [ENGRAM-RW] 登记必须 :rw 的 engram 表目录（只在本机可能启用 device-index 时才做）
+  if _engram_need_rw; then
+    for _d in ${_mdirs[@]+"${_mdirs[@]}"}; do
+      _bn=$(printf '%s' "${_d##*/}" | tr 'A-Z' 'a-z')
+      case "$_bn" in *engram*int8*) _engram_rw_add "$_d" ;; esac
+    done
+    _engram_collect_rw "$MODEL"
+  fi
+
   if [ "$MODEL_MOUNT_MODE" = "ancestor" ] && [ "${#_mdirs[@]}" -gt 1 ]; then
     _anc=$(printf '%s\n' "${_mdirs[@]}" | xargs -r -n1 dirname | sort -u | head -1)
+    # [ANCESTOR-COVER] `dirname | sort -u | head -1` **不是真的公共祖先**，它只取
+    # 字典序最小的那个父目录。A3 真机布局里模型树横跨 models/out 与
+    # projects/dsv41/models/out **两棵树** ⇒ 挑出来的 models/out 覆盖不到
+    # projects/... 下的目录，挂进容器后那些软链全是悬空（半坏，且不报错）。
+    # 这里加覆盖性检查：覆盖不全就退回 auto（与"取不到公共祖先就退回 auto"同一策略）。
+    _miss=""
     if [ -n "${_anc:-}" ] && [ -d "$_anc" ]; then
-      MODEL_MOUNTS=(-v "$_anc:$_anc:ro")
-      say "模型挂载（ancestor 模式，1 个目录）：$_anc"
+      for _d in ${_mdirs[@]+"${_mdirs[@]}"}; do
+        case "$_d/" in "$_anc"/*) : ;; *) _miss="$_d"; break ;; esac
+      done
     else
-      MODEL_MOUNT_MODE=auto       # 取不到公共祖先就退回 auto
+      _miss="（取不到公共祖先）"
+    fi
+    if [ -n "$_miss" ]; then
+      say "⚠️  MODEL_MOUNT_MODE=ancestor 选出的祖先 $_anc 覆盖不到 $_miss ⇒ 退回 auto（逐目录挂载）"
+      MODEL_MOUNT_MODE=auto
+    else
+      MODEL_MOUNTS=(-v "$_anc:$_anc:ro")
+      say "模型挂载（ancestor 模式，1 个目录）：$_anc（:ro；engram 表目录会单独叠加 :rw）"
     fi
   fi
   if [ "${#MODEL_MOUNTS[@]}" -eq 0 ]; then
-    for _d in "${_mdirs[@]}"; do
+    for _d in ${_mdirs[@]+"${_mdirs[@]}"}; do
       # [DEVICE-INDEX] aclrtHostRegister 拒绝只读 VMA（ret=507899），所以
       # Engram 表所在目录必须可写挂载 —— 代码只读它，但驱动要在上面取引用。
-      # 只放开这两个目录，其余模型目录保持 :ro。
-      case "${_d##*/}" in
-        engram_int8|engram-int8)
-          if _engram_need_rw; then
-            MODEL_MOUNTS+=(-v "$_d:$_d:rw")
-          else
-            MODEL_MOUNTS+=(-v "$_d:$_d:ro")
-          fi
-          ;;
-        *) MODEL_MOUNTS+=(-v "$_d:$_d:ro") ;;
-      esac
+      # 只放开 engram 表目录（判定见上面 [ENGRAM-RW]），其余模型目录保持 :ro。
+      if _engram_need_rw && _engram_is_rw_dir "$_d"; then
+        MODEL_MOUNTS+=(-v "$_d:$_d:rw")
+      else
+        MODEL_MOUNTS+=(-v "$_d:$_d:ro")
+      fi
     done
     say "模型挂载（auto 模式，${#_mdirs[@]} 个目录，含软链链条；ENGRAM_DEVICE_INDEX=$ENGRAM_DEVICE_INDEX）"
-    for _d in "${_mdirs[@]}"; do
-      case "${_d##*/}" in
-        engram_int8|engram-int8)
-          if _engram_need_rw; then say "   -v $_d:$_d:rw"; else say "   -v $_d:$_d:ro"; fi ;;
-        *) say "   -v $_d:$_d:ro" ;;
-      esac
+    for _d in ${_mdirs[@]+"${_mdirs[@]}"}; do
+      if _engram_need_rw && _engram_is_rw_dir "$_d"; then
+        say "   -v $_d:$_d:rw"
+      else
+        say "   -v $_d:$_d:ro"
+      fi
     done
   fi
   rm -f "$_mma_err"
@@ -362,6 +549,42 @@ else
     say "模型挂载（none 模式 —— 软链会悬空，仅用于复现故障）"
   else
     say "⚠️  找不到 tools/model_mount_args.sh，退回只挂 MODEL 一层（软链会悬空）"
+  fi
+  # [ENGRAM-RW] 单层 fallback（用户报障的第 3 条路径）同样要叠加 engram 表目录 :rw
+  if _engram_need_rw; then
+    _engram_collect_rw "$MODEL"
+  fi
+fi
+
+# [ENGRAM-RW-OVERLAY] 把还没作为容器路径出现过的 engram 表目录**叠加**挂成 :rw。
+# 祖先/单层挂载都是 :ro 的宽挂载，这里用嵌套挂载只放开 engram 那几层目录
+# （docker 允许嵌套覆盖，且深的那条赢），避免"把整棵模型目录开成可写"。
+if [ "${#_ENGRAM_RW_DIRS[@]}" -gt 0 ]; then
+  for _r in ${_ENGRAM_RW_DIRS[@]+"${_ENGRAM_RW_DIRS[@]}"}; do
+    _seen=0
+    for ((_i=0; _i<${#MODEL_MOUNTS[@]}; _i++)); do
+      [ "${MODEL_MOUNTS[$_i]}" = "-v" ] || continue
+      _entry="${MODEL_MOUNTS[$((_i+1))]:-}"; _dst="${_entry#*:}"; _dst="${_dst%:*}"
+      [ "$_dst" = "$_r" ] && { _seen=1; break; }
+    done
+    [ "$_seen" = "1" ] || MODEL_MOUNTS+=(-v "$_r:$_r:rw")
+  done
+fi
+
+# [ENGRAM-RW-PREFLIGHT] 起服前自检（在 docker run 之前失败，且给出修法）
+if _engram_need_rw; then
+  if [ "${#_ENGRAM_RW_DIRS[@]}" -eq 0 ] && _engram_required_by_config; then
+    die "$MODEL/config.json 声明了 engram_layer_ids，但模型目录里找不到 engram 表目录
+         （$MODEL/engram_int8 或 $MODEL/engram-int8）。
+         这不是挂载问题，而是模型目录本身不完整（Engram 表 ≈206 GiB 没就位）——
+         起服会在容器里以另一种面目失败（读不到表文件），所以在这里先拦。
+         修法：把 engram_int8/ 放回模型目录（quant/scripts/engram_dr_build.py 的产物），
+         或换一个 config.json 里 engram_layer_ids 为空的模型目录。"
+  fi
+  _engram_preflight_check
+  if [ "${#_ENGRAM_RW_DIRS[@]}" -gt 0 ]; then
+    say "engram 表目录（${#_ENGRAM_RW_DIRS[@]} 个）挂成 :rw（只读 VMA 会被 aclrtHostRegister 拒绝：ret=507899）："
+    for _r in ${_ENGRAM_RW_DIRS[@]+"${_ENGRAM_RW_DIRS[@]}"}; do say "   -v $_r:$_r:rw"; done
   fi
 fi
 
@@ -637,6 +860,7 @@ ARTV=${ARTV#,}
 # ---------- [DRY_RUN] 开关矩阵烟测出口（不碰 docker） ----------
 if [ "$DRY_RUN" = "1" ]; then
   echo "[a2-dry] OK"
+  echo "[a2-dry] ver=$SERVE_A2_VER md5=$_script_md5 script=$_script_self"
   echo "[a2-dry] image=$IMAGE name=$NAME port=$PORT devs='$DEVS' util=$GPU_UTIL max_len=$MAX_LEN"
   echo "[a2-dry] MAX_SEQS=$MAX_SEQS PREFIX=$PREFIX SP_TOKENS=$SP_TOKENS BAT_TOKENS=$BAT_TOKENS"
   echo "[a2-dry] CAPTURE_SIZES=$CAPTURE_SIZES"
@@ -647,7 +871,14 @@ if [ "$DRY_RUN" = "1" ]; then
   echo "[a2-dry] CPUSET=$CPUSET${CPUSET_SRC:+ ($CPUSET_SRC)} MEMS=$MEMS${MEMS_SRC:+ ($MEMS_SRC)} STATIC_KERNEL=$STATIC_KERNEL NPUGRAPH_EX=$NPUGRAPH_EX MULTISTREAM=$MULTISTREAM HCCL_DET=${HCCL_DET:-none}"
   echo "[a2-dry] MOUNTS(${#MOUNTS[@]}): ${MOUNTS[*]:-<none>}"
   echo "[a2-dry] MODEL_MOUNT_MODE=$MODEL_MOUNT_MODE MODEL_MOUNTS(${#MODEL_MOUNTS[@]}):"
-  for _m in "${MODEL_MOUNTS[@]}"; do echo "[a2-dry]    $_m"; done
+  # 打印成 "一行一条挂载"（`-v` 与 `路径:路径:mode` 拼在一行）—— 方便人工核对，
+  # 也方便测试直接断言整条（tests/engram_rw_mount_test.sh）。
+  _mi=0
+  while [ "$_mi" -lt "${#MODEL_MOUNTS[@]}" ]; do
+    echo "[a2-dry]    ${MODEL_MOUNTS[$_mi]} ${MODEL_MOUNTS[$((_mi+1))]:-}"
+    _mi=$((_mi+2))
+  done
+  echo "[a2-dry] ENGRAM_RW_DIRS(${#_ENGRAM_RW_DIRS[@]}): ${_ENGRAM_RW_DIRS[*]:-<none>}"
   exit 0
 fi
 
@@ -766,6 +997,7 @@ $DOCKER run -d --name "$NAME" --net=host --shm-size=512g --privileged=true \
   -e DSPARK_HOIST_CONTEXT_KV="${DSPARK_HOIST_CONTEXT_KV:-0}" \
   -e DSPARK_CAPTURE_VALUE_FIX="${DSPARK_CAPTURE_VALUE_FIX:-0}" \
   -e DSPARK_CAPTURE_SEQ_LEN="${DSPARK_CAPTURE_SEQ_LEN:-0}" \
+  -e DSPARK_SWA_INDICES_RESIDENT="${DSPARK_SWA_INDICES_RESIDENT:-1}" \
   -e DSPARK_TOKEN_DUMP="${DSPARK_TOKEN_DUMP:-0}" \
   -e DSPARK_TOKEN_DUMP_STEPS="${DSPARK_TOKEN_DUMP_STEPS:-12}" \
   -e DSPARK_STEP_PROBE="${DSPARK_STEP_PROBE:-0}" \

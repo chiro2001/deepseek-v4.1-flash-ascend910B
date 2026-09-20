@@ -122,12 +122,39 @@ docker run --rm $(bash tools/model_mount_args.sh <L5> | tr '\n' ' ') alpine cat 
 | `tools/model_mount_args.sh`（新增） | 逐跳解析**字面软链**（不是 `realpath`！），把每一层的目录都输出成 `-v` 参数 |
 | `scripts/serve_a2.sh` | 自动调用上面这个工具，把所有层级都挂上；**实测真值需要挂 13 个目录** |
 | `tools/check_model_dir.sh` | 起服**前**就检查悬空软链 + 报告链条深度 ⇒ 5 秒内失败，而不是白等 4 分钟 |
+| `scripts/serve_a2.sh`（v8 §14） | **Engram 表目录单独叠加成 `:rw`**（其余仍 `:ro`），并在 `docker run` 前自检；为什么必须 rw 见 §3.0.1 |
+
+#### 3.0.1 Engram 表为什么必须 `:rw`（v8 起；A2 真机踩过 `ret=507899`）
+
+Engram 表由设备算子直接索引，`patches/files/engram_device_index.py::_map_and_register()`
+走的是 `os.open(path, O_RDWR)` + `PROT_READ|PROT_WRITE, MAP_SHARED` 的 `mmap`，再交给
+`acl.rt.host_register(..., ACL_HOST_REGISTER_MAPPED)`。**只读 VMA 会被驱动拒绝**
+（`aclrtHostRegister failed: ret=507899`），而 `os.open` 在 read-only 挂载上先就报 `EROFS`。
+代码本身只**读**这些文件 —— 要写权限纯粹是驱动注册的要求。
+
+三种形态都要放开（`serve_a2.sh` 现在自动做，不用你动手）：
+1. `$MODEL/engram_int8` **是实体目录**（`model_mount_args.sh` 不输出它 ⇒ 旧代码漏）；
+2. 软链链条上的 `engram_int8` / `engram-int8`（逐跳都要）；
+3. **真正落盘的目录** —— `engram_int8/` 里的条目本身还是软链，`O_RDWR` 按最终 inode
+   判定（实测链条：`$MODEL/engram_int8 → L4 → L3（实体）→ 4 个软链 →
+   …/projects/dsv41/models/out/engram-int8 → …/models/out/engram-int8`，最后一步在
+   **另一棵目录树**里）。
+
+宿主上"文件不可写"（A3 真机的表是 `root:root 0600`）**不影响**：容器以 root 起、挂载是
+`:rw` 就能 `O_RDWR`；脚本就此只打一条 WARNING。真要绕开可用 `ENGRAM_DEVICE_INDEX=0`
+（走 host 路径，完全不要求可写，代价是关掉 v8 的 device-index 加速）。
+
+离线验证（不需要 A2 / 不需要 docker）：
+
+```bash
+bash tests/engram_rw_mount_test.sh     # 三种挂载模式 + 实体目录 + 异常形态，34 条断言
+```
 
 可调开关：
 
 | 变量 | 默认 | 说明 |
 |---|---|---|
-| `MODEL_MOUNT_MODE` | `auto` | `auto` = 逐层精确挂载（13 个目录）；`ancestor` = 只挂公共祖先（更宽但更省，如整棵 `models/out/`）；`none` = **旧行为**，仅用于复现该故障 |
+| `MODEL_MOUNT_MODE` | `auto` | `auto` = 逐层精确挂载（13 个目录）；`ancestor` = 只挂公共祖先（更宽但更省，如整棵 `models/out/`）——**若选出的祖先覆盖不到某些目录就自动退回 `auto`**（A3 真机的模型树横跨两棵目录树，旧写法会挂出一个覆盖不到的祖先，容器里软链全悬空）；`none` = **旧行为**，仅用于复现该故障。三种模式都会把 engram 表目录单独叠加成 `:rw` |
 | `EXTRA_MODEL_MOUNTS` | 空 | 分号分隔的额外宿主路径，例如软链指向了模型目录之外的地方 |
 
 **为什么会踩**：`os.path.realpath()` 会把 `L5→L4→L3→L2→L1` 一次折叠成 L1，
@@ -141,6 +168,7 @@ docker run --rm $(bash tools/model_mount_args.sh <L5> | tr '\n' ' ') alpine cat 
 bash tools/check_model_dir.sh "$MODEL"        # 健康度 + 链条深度
 bash tools/model_mount_args.sh "$MODEL"       # 看看实际会挂哪些目录
 MODEL="$MODEL" DRY_RUN=1 bash scripts/serve_a2.sh | grep MODEL_MOUNT   # 看最终挂载清单
+MODEL="$MODEL" DRY_RUN=1 bash scripts/serve_a2.sh | grep engram_int8   # 每行都应是 :rw
 ```
 
 ```bash

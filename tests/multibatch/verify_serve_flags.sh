@@ -19,9 +19,27 @@ PKG="$(cd "$HERE/../.." && pwd)"
 SERVE="$PKG/scripts/serve_a2.sh"
 
 pass=0; fail=0
+
+# ---------------------------------------------------------------------------
+# [FAKE-MODEL] 给矩阵准备一棵**假的模型树**（软链 + engram_int8/）。
+#
+# 为什么必须造：本脚本默认 `MODEL=/nonexistent/DRY_RUN_MODEL`，而 serve_a2.sh 在
+# 模型目录不存在时会直接 die（"不是目录"）⇒ **12 个组合全 FAIL**，看起来像开关
+# 回归，其实是测试自己没给模型。造一棵带 engram_int8 的假树同时把 engram 挂载
+# 逻辑也覆盖到（dry-run 不碰 docker，几十毫秒）。
+# ---------------------------------------------------------------------------
+FAKE=$(mktemp -d)
+trap 'rm -rf "$FAKE"' EXIT
+mkdir -p "$FAKE/out/v41-demo/engram_int8" "$FAKE/out/v41-demo-l4"
+printf '{"text_config":{"engram_layer_ids":[1,14]}}\n' > "$FAKE/out/v41-demo/config.json"
+: > "$FAKE/out/v41-demo/engram_int8/layers_1_engram_embed.weight.safetensors"
+ln -sfn "$FAKE/out/v41-demo/config.json" "$FAKE/out/v41-demo-l4/config.json"
+ln -sfn "$FAKE/out/v41-demo/engram_int8" "$FAKE/out/v41-demo-l4/engram_int8"
+DEFAULT_MODEL="$FAKE/out/v41-demo-l4"
+
 run() {
   local combo="$1" out rc
-  out=$(env DRY_RUN=1 MODEL=${MODEL:-/nonexistent/DRY_RUN_MODEL} $combo bash "$SERVE" 2>&1); rc=$?
+  out=$(env DRY_RUN=1 MODEL=${MODEL:-$DEFAULT_MODEL} OUT_DRYRUN_DIR="$FAKE/dry" $combo bash "$SERVE" 2>&1); rc=$?
   if [ "$rc" -eq 0 ] && printf '%s' "$out" | grep -q "\[a2-dry\] OK"; then
     pass=$((pass+1)); printf '[ok  ] %s\n' "${combo:-<默认>}"
   else
