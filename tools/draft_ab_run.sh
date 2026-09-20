@@ -23,4 +23,6 @@ run C4_kv     --stage kv    --max-tokens 2048
 run C5_fix    --stage fix   --variants bind_sl_qsl
 run C6_fixall --stage fix   --variants bind_all
 run C7_addr   --stage addr  --max-tokens 2048
+run C8_tri    --stage tri   --max-tokens 2048
+run C9_lazy   --stage lazy  --max-tokens 2048
 echo "===== 全部完成，原始日志在 $OUT ====="

@@ -82,6 +82,35 @@ _DSPARK_DRAFT_NO_ATTN = os.environ.get("DSPARK_DRAFT_NO_ATTN", "0") == "1"
 # 直接 `return entry.output`（捕获时输出的 weak ref）。若消费方不在同一 stream 上，
 # 就可能读到图还没写完的 buffer。
 _DSPARK_DRAFT_SYNC_AFTER = os.environ.get("DSPARK_DRAFT_SYNC_AFTER", "0") == "1"
+# [DSV41 HOIST-CONTEXT-KV] ★★★ 根因修复（2026-09-20，静态分析确认）
+#
+# `build_model_inputs_first_pass` 在**图内**被调用（它由 `_run_merged_draft` 调，
+# 而 `ACLGraphWrapper` 包的正是 `_run_merged_draft`）。而这个函数依赖两个**捕获期固化**的量：
+#
+#   1) `self._context_slot_mapping_buffers` —— 它的**全部**赋值点只有
+#      `set_inputs_first_pass`（先置 None、后填真实 list）。而**捕获走的 `dummy_run`
+#      从不调用 `set_inputs_first_pass`** ⇒ 捕获时它仍是 `__init__` 里的 **None**。
+#      下游 `models/deepseek_v4/dspark.py::precompute_and_store_context_kv` 开头就是
+#          if context_states.numel() == 0 or context_slot_mapping is None: return
+#      ⇒ **捕获进图的那次调用直接提前返回，图里没有任何"写 context KV"的算子**。
+#      每次 replay 都跳过整个上下文 KV 写入 ⇒ draft 读到空/脏上下文 ⇒ token 全错。
+#
+#   2) `num_context = self._dflash_num_context` —— Python int，决定
+#      `_dflash_hidden_states[:num_context]` / `_context_positions_buffer[:num_context]` /
+#      `context_slots[:num_context]` 的 **slice 长度**，会被烘进图。
+#      捕获时它 = 桶对齐值（单请求桶 **6**），重放时 = 真实值（实测出现过 32/256/1024）。
+#
+# 修法：把该调用**移出图边界** —— 在 `_propose` 里、`run_draft()` **之前**执行一次
+# （每步都用真实的 slots 与真实的 nctx），并在 `_run_merged_draft` 里跳过它。
+# 这与 metadata 的处理方式一致（metadata 也是图外每步重建）。
+# 关掉本开关即回退到原行为（两者都捕获），便于 A/B。
+# ❌ 2026-09-20 实测：**单独启用它不足以修复** —— 子代理的 harness 上，
+#    HOIST-OFF 与 HOIST-ON **都是 0/5**（首分叉都是位置 0）。
+#    原因：把 KV 写入搬到图外后，"图里没有 KV 写入"这个状态本身**不是**唯一缺陷。
+#    ⇒ **默认关（0）**，不改变生产行为；保留仅供后续 A/B 与实验。
+_DSPARK_HOIST_CONTEXT_KV = os.environ.get("DSPARK_HOIST_CONTEXT_KV", "0") == "1"
+
+
 # [DSV41 SYNC-BEFORE] ★ 竞态判定实验（2026-09-20）
 #
 # 现象：同一 prompt、同一序列位置（pos=39）、四次跑 —— **eager 两次都给 6881（完全可复现）**，
@@ -1586,6 +1615,12 @@ class AscendSpecDecodeBaseProposer(SpecDecodeBaseProposer):
             )
             if _force_eager_rt and _DSPARK_TOKEN_LEFT > 0:
                 logger.warning("[dspark-force-eager] 本次前向走 eager（运行时热切换）")
+            if _DSPARK_HOIST_CONTEXT_KV and self.method == "dspark":
+                # [DSV41 HOIST-CONTEXT-KV] 图外执行：此时 `set_inputs_first_pass` 已把
+                # `_context_slot_mapping_buffers` 填成真实 list、`_dflash_num_context`
+                # 也是本步真实值 ⇒ 每步都用真实 slots/nctx，不再有捕获期固化。
+                self.build_model_inputs_first_pass(num_input_tokens, self._context_slot_mapping_buffers)
+
             run_draft: Callable[[], Any] = partial(runnable, **model_inputs)
 
             if self.enable_enpu:
@@ -1750,7 +1785,11 @@ class AscendSpecDecodeBaseProposer(SpecDecodeBaseProposer):
         model_kwargs = {"input_ids": model_input_ids, "positions": model_positions, "inputs_embeds": inputs_embeds}
 
         if self.method in ("dflash", "dspark"):
-            self.build_model_inputs_first_pass(num_input_tokens, self._context_slot_mapping_buffers)
+            # [DSV41 HOIST-CONTEXT-KV] 见文件顶部说明：启用时该调用已在 `_propose`（图外）
+            # 执行过；这里必须跳过，否则它会被捕获进图，把 `_context_slot_mapping_buffers`
+            # 的 None 状态与 `_dflash_num_context` 的捕获期值一起固化。
+            if not (_DSPARK_HOIST_CONTEXT_KV and self.method == "dspark"):
+                self.build_model_inputs_first_pass(num_input_tokens, self._context_slot_mapping_buffers)
         else:
             if self.pass_hidden_states_to_model:
                 model_hidden_states = self.hidden_states[:num_input_tokens]

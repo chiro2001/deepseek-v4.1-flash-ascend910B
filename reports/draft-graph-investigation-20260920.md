@@ -84,6 +84,113 @@
 
 ## 4.0 ★★★ 竞态：**已拿到非确定性实证 + 定位到具体源码行**（2026-09-20 晚）
 
+> ⚠️ 本节（竞态）后来被**否证**（见 §4.1），根因是 §4.2 的"捕获期固化"。
+
+## 4.2 ★★★★ 根因：`build_model_inputs_first_pass` 在图内，依赖两个捕获期固化的量
+
+**结论（2026-09-20 深夜，静态分析确认）**：
+`build_model_inputs_first_pass` 被 `_run_merged_draft` 调用，而 `ACLGraphWrapper` 包的正是
+`_run_merged_draft` ⇒ **它是图内代码**。它依赖两个量：
+
+### 缺陷 ①（致命）：`_context_slot_mapping_buffers` 在捕获时是 `None`
+
+它的**全部**赋值点（grep 过）：
+
+| 位置 | 值 |
+|---|---|
+| `dspark_proposer.py:215`（`__init__`） | **`None`** |
+| `dspark_proposer.py:357`（`set_inputs_first_pass` 内） | **`None`** |
+| `dspark_proposer.py:406`（`set_inputs_first_pass` 内） | 真实 list |
+
+而**捕获走的 `dummy_run` 从不调用 `set_inputs_first_pass`**（它只设 `_dflash_num_context`）
+⇒ **捕获时该值仍是 `None`**。
+
+下游 `models/deepseek_v4/dspark.py:245`：
+```python
+def precompute_and_store_context_kv(self, context_states, context_positions,
+                                    context_slot_mapping=None) -> None:
+    if context_states.numel() == 0 or context_slot_mapping is None:
+        return                      # ★ 提前返回：一个 context KV 都不写
+    for layer_idx, layer in enumerate(self.layers.values()):
+        ...
+        self._store_standard_swa_kv(shared_kv, layer_context_slot_mapping, attn)
+```
+
+⇒ **捕获进图的那次调用直接走 `return`，图里没有任何"写 context KV"的算子。**
+每次 replay 都跳过整个上下文 KV 写入 ⇒ draft 读到空/脏上下文 ⇒ **token 全错、A≈1.07**。
+
+### 缺陷 ②（同链、次要但同样错）：`num_context` 是 Python int
+
+`dflash_proposer.py:295` `num_context = self._dflash_num_context` 决定
+`_dflash_hidden_states[:num_context]` / `_context_positions_buffer[:num_context]` /
+`context_slots[:num_context]` 的 **slice 长度**，会被烘进图：
+* 捕获（`dspark_proposer.py:767`）= `num_input_tokens`（桶对齐，单请求桶 **6**）
+* 重放（`dspark_proposer.py:358`）= `int(cad.query_start_loc_cpu[batch_size])`（真实值，实测 32/256/1024）
+
+### 这解释了**全部**已知现象
+
+| 观察 | 解释 |
+|---|---|
+| **真实输入捕获 → replay == eager** ✅ | harness 在捕获前提供了真实的 `context_slot_mapping`（非 None）⇒ 图里有 KV 写入 |
+| **dummy 捕获 → 0/5** ❌ | `None` ⇒ 图里没有 KV 写入 |
+| **地址全同** ✅ | 传的是 `None`，根本没有地址可比 |
+| **16 个标量全同** ✅ | 这个分支判断不在那 16 个里 |
+| **shape 此前从未查过** ✅ | `None` 没有 shape |
+| **每步都错、pos0 仅 0.047** ✅ | 上下文 KV 从来没写进去 |
+| **此前 6 个修复全无效** ✅ | 它们都在改别的量，没碰这条路径 |
+| **eager 稳定、graph 稳定但两者不同** ✅ | 两条路径执行的是**不同的代码分支**（一个 return、一个真写 KV） |
+
+### 修法（已实现，门控 `DSPARK_HOIST_CONTEXT_KV`，默认 `1`）
+
+**把该调用移出图边界**（与 metadata 的处理方式一致）：
+1. `_propose` 内、`run_draft()` **之前**，图外执行一次
+   `build_model_inputs_first_pass(num_input_tokens, self._context_slot_mapping_buffers)`
+   —— 此时 `set_inputs_first_pass` 已填好真实 slots、`_dflash_num_context` 也是本步真实值；
+2. `_run_merged_draft` 内**跳过**该调用（`method=="dspark"` 且开关开启时）。
+
+⇒ 每步都用真实 slots 与真实 nctx，**两个缺陷一并消除**。
+门控设 `0` 可回退到原行为做 A/B。
+
+**验证状态**：修法已实现并同步到 A3-node1，**单 chip A/B 验证正在进行**（另一个子代理）。
+未验证前**不要**把它当已成立的结论。
+
+### ❌ 修法验证结果：**hoist 单独不够**（2026-09-20 实测，单 chip harness）
+
+子代理跑了 4 个臂（`--capnone` = 捕获期 slots 为 None，即生产形态）：
+
+| 臂 | `DSPARK_HOIST_CONTEXT_KV` | 捕获期 `precompute` 调用 | 捕获期 `slots_is_none` | replay == eager? |
+|---|---:|---:|---|---|
+| H0a / H0b | **0** | **1 次**（图内含 KV 写入） | **true** | ❌ 0/5（首分叉=0） |
+| H1a | **1** | **0 次**（图内无 KV 写入） | true | ❌ **仍 0/5** |
+
+探针原文（确认了 §4.2 的诊断）：
+```
+[hoist-probe] capture 期: {"capturing": true, "nctx": 6, "states_rows": 6,
+                            "slots_is_none": true, "n_slot_tensors": null, ...}
+[hoist]       replay-前:   slots_none=False slot_ptrs=['0x12d300660c00'×3] slot_elem0=[3458,3458,3458]
+[hoist]       replay 期 precompute 调用=[{... "slots_is_none": false ...}]   ← HOIST-ON 时图外已写
+[hoist]       replay run#0..2 = [[23950,201,15,19,16]]   （eager = [[18834,85,49016,25232,4373]]）
+```
+
+**⇒ 两个结论**：
+1. **诊断被证实**：捕获期 `_context_slot_mapping_buffers` 确实是 `None`，图里确实没有 KV 写入算子。
+2. **但"把 KV 写入搬到图外"不足以修复** —— KV 已在 replay 前写对，结果仍 0/5
+   ⇒ **W（捕获期用真实 slots，✅）与 B'（图外写 KV，❌）之间还有别的差异**。
+
+**处置**：`DSPARK_HOIST_CONTEXT_KV` 默认已改回 **`0`**（不改变生产行为，保留供实验）。
+根因仍在追：已给两个子代理分别派了
+① **W→B 差分二分**（从可用点出发逐个回退成生产形态，找第一个变坏的点）；
+② **"图内算子清单"对比 + `_store_standard_swa_kv` 的副作用审计 + stream 有序性**。
+
+### 两条必须记住的方法论事实（子代理穷举扫描得出）
+
+1. **重放时 Python 完全不执行** —— 扫描器给 `_runnable` 包计数器，整个 capture+replay 只有 `hooked call #1`
+   （`ACLGraphWrapper` 重放路径只执行 `entry.aclgraph.replay()`）。
+   ⇒ 能影响结果的**只有三类**：捕获时绑定的**地址**、**shape**、以及**图内被读的 Python 标量**。
+2. 该扫描已把这三类逐一排除：地址漂移（收紧到 0 项）、shape 固化（**0 条**）、
+   图内标量 `_dflash_num_context`（改掉无效）。
+   ⇒ 若三类都排除，问题就落在**"同一算子在图内录制 vs 重放时行为不同"**或**图内外语义差异**上。
+
 ### 决定性实验（同一 prompt、同一次起服、跑 4 次：graph, graph, eager, eager）
 
 每步 dump `[dspark-token] step=N use_graph=X start_pos=[seq_lens] rows=[5 个 draft token]`。

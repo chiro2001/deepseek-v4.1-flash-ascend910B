@@ -14,7 +14,7 @@ mkdir -p "$LOCAL"
 case "$DIR" in
   up)
     tar czf - -C "$LOCAL" . | ssh A3-node1 'mkdir -p ~/projects/dsv41-release/lite-runs/draft-ab && tar xzf - -C ~/projects/dsv41-release/lite-runs/draft-ab'
-    tar czf - -C "$TOOLS" draft_ab_launch.sh draft_ab_run.sh draft_ab_sync.sh \
+    tar czf - -C "$TOOLS" draft_ab_launch.sh draft_ab_run.sh draft_ab_sync.sh draft_ab_scal_arms.sh \
       | ssh A3-node1 'mkdir -p ~/projects/dsv41-release/tools && tar xzf - -C ~/projects/dsv41-release/tools'
     echo "[sync] up: $(find "$LOCAL" -type f | wc -l) files (+3 tools)"
     ;;
