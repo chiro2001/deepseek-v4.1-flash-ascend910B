@@ -402,6 +402,62 @@ batch 开始重叠，而本包的 admission gate 是按单 batch 设计的。
 > 教训与 v5 的 `selfcheck_pkg.sh` 那次同型：**清单不能手工维护**。
 > 这次连"实例"一起修：两个 md5 清单文件也与载荷对齐了。
 
+## 12. ★ 合并 A2 真机调出来的 PGO 修复（编译容器复用 / 续编 / RPATH 旧库）
+
+> 来源：用户在内网 A2 上跑 `scripts/build_image.sh` + `build_scripts/00_ensure_pgo.sh`
+> 时踩坑后手改的 `dsv41-a2-modifies.diff`。下面每一条都**有真机报错原文**支撑；
+> 逐条核对后合并，并对其中三处做了加固（见"加固/改写"栏）。
+
+| # | 文件 | 真机问题 | 合并内容 | 我做的加固 / 改写 |
+|---|---|---|---|---|
+| 1 | `build_scripts/00_ensure_pgo.sh` | 编译 30–40 分钟，`docker run --rm` 一失败就把"已装依赖 + 已完成进度"全丢掉 | 编译容器去掉 `--rm`、固定名 `pgo-build-a2`；参数一致时 `docker start -ai` 续编；失败保留容器；`PGO_RM_CONTAINER=1` 才删 | ① `-e http_proxy=$http_proxy` 在 `set -u` 下会 **unbound 崩溃**（已有对照实测）⇒ 改为"只透传真的设了的代理变量"，且只打印变量名（代理 URL 常带凭据）；② 新增**防假成功**判据（见下）；③ `scripts/openEuler.repo` **只在文件存在时才挂**（否则 docker 会创建一个同名目录把容器内 repo 顶坏）；④ `PGO_RM_CONTAINER=1` 在失败路径也生效，不再"只成功时才删"；⑤ 代理/openEuler.repo 只在创建时生效这一点写进提示 |
+| 2 | `build_scripts/02_fetch_source.sh` | 每次跑都 `rm -rf` 源码树 ⇒ 已编译的 `.o` / profile 数据全作废 | 新增增量续编分支：`Makefile + configure + pyconfig.h` 齐备且 `PGO_FORCE != 1` 时直接 `exit 0` | 保留；并把判据来源（后两者由 `03_configure.sh` 生成）写进注释；`PGO_FORCE=1` 仍走完整重下/重解压 |
+| 3 | `build_scripts/04_make.sh` | `./python: undefined symbol: __gcov_indirect_call` —— 新编 `./python` 的 `DT_RPATH` 指向镜像里那份**非 PGO** libpython，而 **RPATH 优先于 `LD_LIBRARY_PATH`** | 构建容器内把旧库移到 `/work/logs/image-libpython-quarantine/`；并删掉上次失败残留的 `pybuilddir.txt` / `platform`（否则 make 认为"已最新"跳过重生成） | 保留；补 `PGO_IMAGE_LIBDIR` 覆盖口、失败时的显式告警、以及"重复运行会走 else 分支"的说明；隔离目录落点与 `.gitignore` 对齐 |
+| 4 | `build_scripts/06_package.sh` | `tar tzf … \| head -40` 在 `set -o pipefail` 下：head 读够就关管道 ⇒ tar 收 SIGPIPE ⇒ **打完包之后**才整脚本失败，极难查 | 先落全量清单 `sourcetree_manifest.txt` 再 `head`；`site-packages` 先判存在/判空 | 保留；实测复现：4000 条目 tar 的 rc=**141**，且旧写法确实在"打包完成之后"中止 |
+| 5 | `tools/fetch_corpus.sh` | 内网自签证书导致 `curl` 拒绝下载 | `curl -k` | **不无条件合并** ⇒ 改为 `INSECURE_TLS=1` 门控（默认关），见 §13 |
+
+### 12.1 防假成功（用户点名的风险，已实测复现并修掉）
+
+用户把失败路径的 `die` 改成 `say`（为了保留容器、让第 5 步的产物检查兜底）。这会带一个
+**静默假成功**风险：编译失败但 `optim/pgo/` 下还留着上次成功的产物 ⇒ 脚本会写出一份
+"指纹正确、产物陈旧"的 marker，之后每次都被"秒钟退出"骗过去（永不重编）。
+
+修法：第 4 步记 `_rc`；第 5 步
+
+* `_rc != 0` 时**只采纳 mtime 晚于本次开工时间**（`optim/pgo/build/logs/.build_start_stamp`）的产物，
+  旧产物显式打"忽略陈旧产物"并跳过；
+* 判据是「**本次真的拷到 2/2 件**」而不是"`optim/pgo/` 下有文件"（后者会被上一轮的成功残留骗过）；
+* 两件都拿不到 ⇒ `die`（不写 marker、不报成功），容器保留可续编；
+* 只有"`_rc != 0` 但产物是本次新生成且齐全"（典型：`06_package.sh` 打完包之后才报错）才采纳，
+  并**大声告警**；marker 里记 `build_rc=` 与 `build_container=`，秒退路径也会把 `build_rc != 0` 再提醒一次。
+
+> 离线用 stub docker 端到端验证了 4 种形态：成功 / 失败+陈旧产物（**不写 marker、rc=1**）/
+> 失败+新鲜产物（采纳+告警+marker 记 `build_rc=16`）/ marker 命中秒退；另验证了容器
+> "参数一致⇒复用（`docker start`）"、"参数变化⇒重建（`rm`+`run`）"、"容器在跑⇒拒绝并发"。
+
+## 13. ★ `INSECURE_TLS`：内网可用性 vs 公网安全（**默认关**）
+
+用户的 diff 里有三处 TLS 降级（`02_fetch_source.sh` 两处 `curl -k`、`tools/fetch_corpus.sh`
+一处 `curl -k`、以及往 `/etc/yum.conf` 写 `sslverify=False`）。这在**内网自签证书/中间盒**
+下是必要的，但本仓是**公开**仓库：无条件关掉证书校验属于**安全降级**，不能默默带出去。
+
+⇒ 统一改成显式开关 `INSECURE_TLS=1`（默认关）：
+
+```bash
+INSECURE_TLS=1 bash build_scripts/00_ensure_pgo.sh    # 内网自签证书机器才需要
+INSECURE_TLS=1 bash tools/fetch_corpus.sh             # 语料下载同理
+```
+
+* 生效范围：给两处 curl 加 `-k`；往容器内 `/etc/yum.conf` 与 `/etc/dnf/dnf.conf` 写
+  `sslverify=False`（**幂等**：先 grep 再 append，重复运行不会叠加 —— 编译容器现在会被复用，
+  这点很重要）；
+* **完整性不依赖 TLS**：`02_fetch_source.sh` 仍然做华为云/阿里云**双源 sha256 交叉校验**，
+  `tools/fetch_corpus.sh` 仍然逐文件比对 sha256 —— `-k` 只影响传输层身份验证；
+* 用法写进了三个脚本头注释、`optim/pgo/README.md`（内网章节）与本节。
+
+> `docs/RELEASE-NOTES.md` **没有改**：它是 v7 的历史发布说明（"相对 a2_pkg_v6 的变化"），
+> 按本仓库既定的纪律，历史记录不追改 —— v8 的变更统一记在本 CHANGELOG。
+
 # ★ v7（2026-09-18）—— 长上下文精度修复：`BAT_TOKENS` 2048 → 8192
 
 > **这是本包第一次修"正确性"而不是"性能"或"工程"。**

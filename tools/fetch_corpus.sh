@@ -19,6 +19,12 @@
 #   3. 做与基准一致的清洗（去掉末尾的 "(完)" 标记），写入 data/dihuo.txt
 #      并再校验一次结果哈希
 # 只有两步哈希都对，才算成功 —— 这样 bench 数字可以逐字节复现。
+#
+# 环境变量
+# ---------------------------------------------------------------------------
+#   INSECURE_TLS=1   给 curl 加 -k（跳过 TLS 证书校验）。**仅限内网自签证书 / TLS 中间盒**，
+#                    默认关；public 网络**不要**打开（关掉校验等于放弃传输层身份验证）。
+#                    完整性不受影响：下面仍然逐字节比对 sha256，-k 只影响传输层。
 # =============================================================================
 set -uo pipefail
 
@@ -60,7 +66,12 @@ trap 'rm -f "$TMP"' EXIT
 
 say "下载原文 …"
 say "  来源（自备链接）：见下方 URL"
-curl -fsSL --retry 3 -m 120 -o "$TMP" "$URL" || die "下载失败（网络？）"
+# [TLS] 默认空 = 正常校验证书；只有显式 INSECURE_TLS=1 才降级（内网自签证书场景）
+CURL_TLS=""
+[ "${INSECURE_TLS:-0}" = "1" ] && CURL_TLS="-k"
+[ -n "$CURL_TLS" ] && say "  ⚠️ INSECURE_TLS=1：已关闭 TLS 证书校验（仅建议内网使用）"
+# shellcheck disable=SC2086  # $CURL_TLS 只在 INSECURE_TLS=1 时展开为 -k
+curl $CURL_TLS -fsSL --retry 3 -m 120 -o "$TMP" "$URL" || die "下载失败（网络？）"
 
 _got=$(sha256sum "$TMP" | cut -d' ' -f1)
 if [ "$_got" != "$SRC_SHA256" ]; then
