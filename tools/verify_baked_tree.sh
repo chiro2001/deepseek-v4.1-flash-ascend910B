@@ -16,12 +16,14 @@
 # =============================================================================
 set -uo pipefail
 
-ROOT=""
+BAKED_ROOT=""
 MANIFEST=""
 IMAGE_EXTRAS=0
 while [ $# -gt 0 ]; do
   case "$1" in
-    --root)         ROOT=${2:-}; shift 2 ;;
+    # 变量名刻意不用 ROOT：那是常见环境变量（很多容器里 ROOT=/root），
+    # 撞上就会去校验错误的目录，得出假通过/假失败。唯一的外部来源是 ASCEND_PKG。
+    --root)         BAKED_ROOT=${2:-}; shift 2 ;;
     --manifest)     MANIFEST=${2:-}; shift 2 ;;
     --image-extras) IMAGE_EXTRAS=1; shift ;;
     -h|--help)      sed -n '2,18p' "$0"; exit 0 ;;
@@ -29,8 +31,8 @@ while [ $# -gt 0 ]; do
   esac
 done
 
-ROOT=${ROOT:-${ASCEND_PKG:-/vllm-workspace/vllm-ascend/vllm_ascend}}
-[ -d "$ROOT" ] || { echo "[verify][FAIL] 目录不存在：$ROOT" >&2; exit 2; }
+BAKED_ROOT=${BAKED_ROOT:-${ASCEND_PKG:-/vllm-workspace/vllm-ascend/vllm_ascend}}
+[ -d "$BAKED_ROOT" ] || { echo "[verify][FAIL] 目录不存在：$BAKED_ROOT" >&2; exit 2; }
 [ -f "$MANIFEST" ] || { echo "[verify][FAIL] 清单不存在：$MANIFEST" >&2; exit 2; }
 
 rc=0
@@ -41,7 +43,7 @@ export PYTHONPYCACHEPREFIX="${TMPDIR:-/tmp}/dsv41-pycache"
 while IFS=$'\t' read -r kind dst want; do
   [ -n "${kind:-}" ] || continue
   [ -n "${dst:-}" ]  || continue
-  t="$ROOT/$dst"
+  t="$BAKED_ROOT/$dst"
   if [ ! -f "$t" ]; then echo "  FAIL 缺文件 $dst"; rc=1; continue; fi
   got=$(md5sum "$t" | cut -d' ' -f1)
   if [ "$got" != "$want" ]; then

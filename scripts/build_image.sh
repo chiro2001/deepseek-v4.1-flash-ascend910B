@@ -38,6 +38,12 @@ if ! $DOCKER info >/dev/null 2>&1; then
   else die "无法访问 docker（试过 docker 与 sudo -n docker）"; fi
 fi
 
+# ---------- 0.5) 本脚本自身依赖（第 4 步要用它们推导/核对校验和）----------
+command -v python3 >/dev/null 2>&1 || die "需要宿主机 python3（用于由 patches/files 推导期望 md5）"
+for f in tools/check_checksums.py tools/verify_baked_tree.sh; do
+  [ -f "$PKG/$f" ] || die "缺 $f —— 它是第 4 步自校验的依据（v8 起不再手写 md5 表）"
+done
+
 # ---------- 1) 基础镜像 + 路径探测 ----------
 say "基础镜像: $BASE_IMAGE"
 $DOCKER image inspect "$BASE_IMAGE" >/dev/null 2>&1 \
