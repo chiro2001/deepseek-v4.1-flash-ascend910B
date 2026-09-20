@@ -113,6 +113,24 @@ if [ -f Dockerfile ]; then
   rm -f /tmp/dsck.$$
 fi
 
+# ------------------------------------------- 5b) 起服脚本的 `docker run` 续行链
+#
+# ⚠️ 2026-09-20 A2 真机炸过一次：一段**注释块被插进 `docker run` 的续行链中间**，
+#    续行在那里终止 ⇒ 后半段 `-e ...` 变成独立命令、`docker run` 丢掉 IMAGE 参数。
+#    报错是 `"docker run" requires at least 1 argument` + `-e: command not found`，
+#    **不指向注释**，排查成本很高。
+#    而 `bash -n` **抓不到**（拼接后语法合法）—— 与上面 Dockerfile 的坑是同一类，
+#    所以这里用同样的思路加一道静态检查。
+if [ -f tools/check_serve_run_chain.py ]; then
+  if python3 tools/check_serve_run_chain.py scripts/serve_a2.sh >/tmp/rcck.$$ 2>&1; then
+    ok "起服脚本 docker run 续行链合法（$(grep -c '^\s*\$DOCKER run' scripts/serve_a2.sh 2>/dev/null) 处）"
+  else
+    bad "起服脚本的 docker run 续行链有问题（注释/空行插在续行链里？）："
+    sed 's/^/        /' /tmp/rcck.$$ | grep -E "FAIL|第 .* 行|修法" | head -6
+  fi
+  rm -f /tmp/rcck.$$
+fi
+
 # ------------------------------------------------- 6) 执行位（缺了也能跑，但要提醒）
 _noexec=0
 for f in $(find . -name "*.sh" -not -path "./results/*" 2>/dev/null); do

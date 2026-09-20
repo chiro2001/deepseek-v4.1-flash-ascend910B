@@ -987,6 +987,29 @@ $DOCKER rm -f "$NAME" >/dev/null 2>&1 || true
 #   ② 脚本自己的 "skcache 命中" 检查看的是宿主目录，因此还会**误报命中**；
 #   ③ 宿主目录只剩 4 KB 旧空壳（实测），而容器内 /workspace 下积了 182 MB。
 # 现在两处都挂：/workspace 是真实位置，/vllm-workspace 兼容 workdir 不同的镜像。
+#
+# [DRAFT-FOUR-PIECE] `DSPARK_CAPTURE_VALUE_FIX` 默认 **1**（2026-09-20 端到端验证后定稿）。
+#
+# 四件套是 `DRAFT_GRAPH=1` 能正常工作的**最小集合**，缺一件就会静默退化：
+#   * `DSPARK_CAPTURE_VALUE_FIX=1` —— 捕获期填代表值 + **恢复图内 context KV 写入**。
+#     这一件必须显式传 1：缺它时 `_context_slot_mapping_buffers` 仍是 None，
+#     `precompute_and_store_context_kv` 在捕获时提前 return ⇒ **图里根本没有"写 KV"
+#     那串算子** ⇒ A 从 ~2.6 掉到 **1.07**、单流从 ~100 掉到 **40 tok/s**（实测）。
+#   * 另外三件在代码/脚本里的默认值已经是 1：
+#     `DSPARK_SWA_INDICES_RESIDENT`（`dsa_v1.py`，常驻索引缓冲）、
+#     `DSPARK_CAPTURE_NCTX_FIX`（`dspark_proposer.py`，`num_reqs×(1+SP)`）、
+#     `DSPARK_DISPATCH_QUERY_LEN_FIX`（`llm_base_proposer.py`，P0-B 高并发崩溃修复）。
+#
+# 为什么默认必须改成 1：只写 `DRAFT_GRAPH=1` 是最自然的用法，而旧默认 0 会让用户
+# **拿到一个能起服、但 A≈1.07 的坏配置**，且没有任何报错 —— 只能靠 A/单流数字发现。
+# 传 `DSPARK_CAPTURE_VALUE_FIX=0` 仍可复现旧行为（用于对照实验）。
+# 注：draft 版文件只在 `DRAFT_GRAPH=1` 时才挂载，所以本默认对 `DRAFT_GRAPH=0` 无影响。
+#
+# ⚠️ 上面所有注释都必须在 `$DOCKER run` **之前** —— 曾把这段插进 `docker run` 的
+#    续行链中间（`-e ... \` 之后），注释会**中断续行**，导致命令被截断成
+#    `docker run ... -e DSPARK_HOIST_CONTEXT_KV=0` 而丢掉 IMAGE 参数，报
+#    `"docker run" requires at least 1 argument` + `-e: command not found`。
+#    `bash -n` **抓不到**这种错（语法合法），所以已加 `tools/check_serve_run_chain.py` 回归。
 $DOCKER run -d --name "$NAME" --net=host --shm-size=512g --privileged=true \
   --ulimit memlock=-1 \
   "${CGROUP_ARGS[@]}" \
@@ -1047,22 +1070,6 @@ $DOCKER run -d --name "$NAME" --net=host --shm-size=512g --privileged=true \
   -e DSPARK_DRAFT_SYNC_BEFORE="${DSPARK_DRAFT_SYNC_BEFORE:-0}" \
   -e DSPARK_RT_FLAGS="${DSPARK_RT_FLAGS:-0}" \
   -e DSPARK_HOIST_CONTEXT_KV="${DSPARK_HOIST_CONTEXT_KV:-0}" \
-  # [DRAFT-FOUR-PIECE] 默认 **1**（2026-09-20 端到端验证后定稿）。
-  #
-  # 四件套是 `DRAFT_GRAPH=1` 能正常工作的**最小集合**，缺一件就会静默退化：
-  #   * `DSPARK_CAPTURE_VALUE_FIX=1`  —— 捕获期填代表值 + **恢复图内 context KV 写入**。
-  #     这一件是**必须显式打开**的：缺它时 `_context_slot_mapping_buffers` 仍是 None，
-  #     `precompute_and_store_context_kv` 在捕获时提前 return ⇒ **图里根本没有"写 KV"
-  #     那串算子** ⇒ A 从 ~2.6 掉到 **1.07**、单流从 ~100 掉到 **40 tok/s**（实测）。
-  #   * 另外三件在代码/脚本里的默认值已经是 1：
-  #     `DSPARK_SWA_INDICES_RESIDENT`（dsa_v1.py，常驻索引缓冲）、
-  #     `DSPARK_CAPTURE_NCTX_FIX`（dspark_proposer.py，num_reqs×(1+SP)）、
-  #     `DSPARK_DISPATCH_QUERY_LEN_FIX`（llm_base_proposer.py，P0-B 高并发崩溃修复）。
-  #
-  # 为什么必须把默认改成 1：只写 `DRAFT_GRAPH=1` 是最自然的用法，而旧默认 0 会让用户
-  # **拿到一个能起服、但 A≈1.07 的坏配置**，且没有任何报错——只能靠 A/单流数字发现。
-  # 传 `DSPARK_CAPTURE_VALUE_FIX=0` 仍可复现旧行为（用于对照实验）。
-  # 注：draft 版文件只在 `DRAFT_GRAPH=1` 时才挂载，所以本默认对 `DRAFT_GRAPH=0` 无影响。
   -e DSPARK_CAPTURE_VALUE_FIX="${DSPARK_CAPTURE_VALUE_FIX:-1}" \
   -e DSPARK_CAPTURE_SEQ_LEN="${DSPARK_CAPTURE_SEQ_LEN:-0}" \
   -e DSPARK_CAPTURE_NCTX_FIX="${DSPARK_CAPTURE_NCTX_FIX:-1}" \
