@@ -51,6 +51,11 @@ import sys
 _INST_RE = re.compile(r"^\s*(inst|newf)\s+(\S+)\s+(\S+)\s*$")
 _COPY_RE = re.compile(r"^\s*COPY\s+patches/files/(\S*)\s+(\S+)\s*$")
 
+# 实验/编辑残留 —— **不是发布载荷**，因此不要求出现在 MD5SUMS 里（只报 NOTE）。
+# 判据：Python 不会 import 这些名字（后缀不是 .py），它们也不该被 COPY/inst 引用。
+# 注意：不要往这里加 `*.py`，否则会把真正的载荷漏掉。
+_ARTIFACT_RE = re.compile(r"(\.bak|\.bak-.*|\.orig|\.rej|~|\.swp|\.swo|\.DS_Store|#.*#)$")
+
 
 def md5_file(path: str) -> str:
     h = hashlib.md5()
@@ -150,6 +155,8 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--emit-chk", action="store_true", help="打印每个镜像内路径的期望 md5（审计用）")
     ap.add_argument("--strict-others", action="store_true",
                     help="非运行时载荷（draft/、PGO 产物等）的 md5 不一致也判 FAIL")
+    ap.add_argument("--strict-artifacts", action="store_true",
+                    help="连实验残留（*.bak-probe 等）也要求登记进 MD5SUMS")
     ap.add_argument("--quiet-ok", action="store_true", help="全部通过时不逐条打印 OK")
     args = ap.parse_args(argv)
 
@@ -218,6 +225,7 @@ def main(argv: list[str] | None = None) -> int:
     # ---------- 2) 载荷里每个文件都应"有归属 + 有校验和" ----------
     in_docker = {bake_map.get(mid, mid) for _k, mid, _d in entries}
     stage_docs: list[str] = []
+    artifacts: list[str] = []
     payload_files: list[str] = []
     for root, dirs, files in os.walk(args.payload):
         dirs[:] = [d for d in dirs if d != "__pycache__"]
@@ -227,6 +235,10 @@ def main(argv: list[str] | None = None) -> int:
             rel = os.path.relpath(os.path.join(root, name), args.payload).replace(os.sep, "/")
             payload_files.append(rel)
     for rel in sorted(payload_files):
+        if _ARTIFACT_RE.search(rel) and not args.strict_artifacts:
+            # 部署副本上常见（并行调试留下的 *.bak-probe）；它不是发布载荷，不参与校验
+            artifacts.append(rel)
+            continue
         if rel not in in_docker:
             parent = rel.split("/", 1)[0] if "/" in rel else ""
             if rel in staged or (parent and parent in staged) or not rel.endswith(".py"):
@@ -289,6 +301,9 @@ def main(argv: list[str] | None = None) -> int:
     if stage_docs:
         print(f"[chk][NOTE] 仅随包发布、不烘焙进运行时（{len(stage_docs)}）："
               + "、".join(stage_docs) )
+    if artifacts:
+        print(f"[chk][NOTE] 实验/编辑残留（既非载荷也不进镜像，已忽略；--strict-artifacts 可强制检查）："
+              + "、".join(artifacts))
     for n in notes:
         print(f"[chk][NOTE] {n}")
     for w in warns:

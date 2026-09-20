@@ -395,6 +395,9 @@ batch 开始重叠，而本包的 admission gate 是按单 batch 设计的。
   "装了却没被校验"（孤儿载荷）与"校验了却没装"两类问题。
 * `tools/negative_control.sh` 新增 NC9/NC10：**证明这套检查真的会抓到**上面那两个 bug
   （载荷改一个字节必须 FAIL、缺 `.a2orig` 必须 FAIL、清单过期必须 FAIL）。
+* 实验残留（部署副本上并行调试留下的 `*.bak-probe`）**不算载荷**、不参与校验：检查器只报
+  NOTE，`--strict-artifacts` 才会强制要求它们登记进 MD5SUMS —— 避免"忘了删备份文件"
+  被误判成发布缺陷。
 
 > 教训与 v5 的 `selfcheck_pkg.sh` 那次同型：**清单不能手工维护**。
 > 这次连"实例"一起修：两个 md5 清单文件也与载荷对齐了。
