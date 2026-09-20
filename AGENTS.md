@@ -152,6 +152,18 @@ capture 期做 D2H（`.tolist()` / `.sum()` / `.item()`）会让图捕获失败�
 `set -u` 下会 `unbound variable` 且**容器从未出现**。改起服脚本时，把新条件块放在
 `MOUNTS=` 初始化**之后**（`reports/mount-order-fix.md`）。
 
+### 3.9 `--out` 会被 argparse 当成 `--output-tokens`（缩写匹配）
+
+`tools/bench_concurrency.py` 的输出参数叫 **`--json-out`**。若写 `--out x.json`，
+argparse 的**前缀匹配**（`allow_abbrev` 默认开）会把它解析成 `--output-tokens x.json` ⇒
+
+```
+bench_concurrency.py: error: argument --output-tokens: invalid int value: 'x.json'
+```
+
+⇒ **测量一行没跑就退出**。2026-09-20 在 A3 上真踩过：白等 21 分钟起服（`MAX_SEQS=64`
+冷编译 static kernel），结果 bench 秒退。**跑完先确认 `results/bench/*.json` 真生成了。**
+
 ---
 
 ## 4. 调试入口
