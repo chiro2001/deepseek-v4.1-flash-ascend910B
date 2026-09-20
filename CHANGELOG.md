@@ -295,6 +295,13 @@ device-index 的价值必须建立在**逐位一致**上。已通过的测试：
 
 ## 6. ★ DRAFT_GRAPH 的实测负面结果：**默认必须保持 0**
 
+> **⚠️ 本节前半部分是 2026-09-20 上午的历史记录，结论已在同日下午被推翻。**
+> 那次"负收益"的真因是**四件套缺一**（capture 期代表值 / 图内 context KV 写入 /
+> 常驻索引缓冲 / dispatch 输入换算）。补齐后 **A 与 eager 持平、`ms/step` 反而下降**，
+> 且 **A2 上收益比 A3 更大**（−30.5 ms/step、单流 54.7 → 88.7 tok/s）。
+> **最新定稿见 §6.2**；给人看的版本见 `README.md` §2.7；完整排查与 5 条否证见
+> `reports/draft-graph-investigation-20260920.md`。
+
 发布前按要求尝试把 `DRAFT_GRAPH`（DSpark draft 入图）改为默认 1，并把同源的
 静默失效一并修掉，结果**实测是负收益**：
 
@@ -359,6 +366,43 @@ bash tools/draft_graph_guard.sh     # 退出码 0=有效 / 1=静默失效 / 2=�
 ⇒ 结论：这是**一个未完成的重构**，不是一处 bug。`tools/enable_draft_graph.sh` 里那句
 "❌ **上卡验证未做**" 是准确的。**默认保持 0**，要实验必须用 `tools/draft_graph_guard.sh`
 （效果级判据）确认 A ≥ 1.3 且 tok/s ≥ 80，否则不要采用。
+
+### 6.2 ★★ 定稿（2026-09-20 晚）：四件套修复后**A 与 eager 持平，收益为正**
+
+上面 §6.1 的"未完成的重构"已补完。**根因不是竞态、不是桶、不是 padding，而是四件套缺一**
+（每一条都独立门控、默认已是 1）：
+
+| 开关 | 位置 | 作用 |
+|---|---|---|
+| `DSPARK_CAPTURE_VALUE_FIX=1` | `dspark_proposer.py` | 捕获期代表值 + **恢复图内 context KV 写入** |
+| `DSPARK_SWA_INDICES_RESIDENT=1` | `dsa_v1.py` | 常驻索引缓冲（图捕获的是 `data_ptr`） |
+| `DSPARK_CAPTURE_NCTX_FIX=1` | `dspark_proposer.py` | `_dflash_num_context = num_reqs×(1+SP)` |
+| `DSPARK_DISPATCH_QUERY_LEN_FIX=1` | `llm_base_proposer.py` | **P0-B**：dispatch 输入换算（修 conc=7,8,9,17,18,19 崩溃） |
+
+**实测收益（同进程配对臂 / 跨会话，两者都注明口径）**：
+
+| 机器 | 指标 | eager | 入图 | 变化 |
+|---|---|---:|---:|---|
+| A3（同进程，8 发中位） | ms/step | 36.9 | **23.9 / 24.9** | −35% |
+| A3 | 单流 tok/s | 66.5 | **100.7 / 109.8** | +51% ~ +65% |
+| A3 | A | 2.455 | 2.403 – 2.738 | 持平 |
+| **A2**（跨会话） | ms/step | 64.8 | **34.3** | **−47%** |
+| **A2** | 单流 tok/s | 54.7 | **88.7** | **+62%** |
+
+**A2 的绝对收益是 A3 的 2.3 倍**（−30.5 vs −13 ms/step）—— 910B3 的 CPU 更弱，
+draft 的 eager 派发开销更大。**A2 打开后单流已追平 A3。**
+
+**精度**：Vision 23/23（A3、A2 各一次）、GSM8K-200 **198/200**、10 条质量判据 10/10。
+
+**发布口径**：`DRAFT_GRAPH` **默认仍为 0**，`DRAFT_GRAPH=1` 是"**推荐开启**"的显式选项。
+理由不是收益不足（收益很大），而是失效形态危险：存在一个**极罕见**的
+"A 永久 1.00 / 输出变空"坏状态 —— 截至目前 **1 次观测、6 轮独立复现尝试（≈36 个测量点、
+10.4 分钟连续负载）全部未复现**，5 条机制猜测全部被否证。
+**判据与恢复**：连续两次 specdec metrics 出现 `Mean acceptance length: 1.00`
+**且** `Accepted throughput: 0.00` ⇒ 重启服务即可（别发请求试探）。
+
+> 详细数据：`reports/draft-graph-investigation-20260920.md`（排查全过程 + 5 条否证）、
+> `reports/a2-draft-graph-20260920.md`（A2 首测）。
 
 ## 7. `--async-scheduling`：本配置下**无收益且高并发崩溃**
 
