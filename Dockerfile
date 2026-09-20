@@ -35,6 +35,7 @@ COPY patches/files/dsa_v1.py                /tmp/bake/dsa_v1.py
 COPY patches/files/indexer.py               /tmp/bake/indexer.py
 COPY patches/files/token_dispatcher_moemask.py /tmp/bake/token_dispatcher.py
 COPY patches/files/rope_dsv4.py             /tmp/bake/rope_dsv4.py
+COPY patches/files/block_table.py           /tmp/bake/block_table.py
 COPY patches/files/draft/                    /opt/dsv41/patches/draft/
 COPY patches/files/token_dispatcher_moezero.py /opt/dsv41/patches/files/token_dispatcher_moezero.py
 COPY patches/files/indexer.py               /opt/dsv41/patches/files/indexer.py
@@ -77,6 +78,7 @@ RUN set -euo pipefail; \
     inst dsa_v1.py                    attention/dsa_v1.py; \
     inst token_dispatcher.py          ops/fused_moe/token_dispatcher.py; \
     inst rope_dsv4.py                 ops/rope_dsv4.py; \
+    inst block_table.py               worker/block_table.py; \
     newf engram_jit_kernel.py         models/deepseek_v41/engram_jit_kernel.py; \
     newf engram_plan_kernel.py        models/deepseek_v41/engram_plan_kernel.py; \
     newf engram_device_index.py       models/deepseek_v41/engram_device_index.py; \
@@ -126,7 +128,8 @@ RUN set -euo pipefail; \
         ascend_forward_context.py \
         attention/dsa_v1.py \
         ops/fused_moe/token_dispatcher.py \
-        ops/rope_dsv4.py ; do \
+        ops/rope_dsv4.py \
+        worker/block_table.py ; do \
         echo "$(md5sum ${ASCEND_PKG}/${f} | cut -d' ' -f1)  ${f}"; \
       done; \
     } > /opt/dsv41/BUILD_INFO.txt; \

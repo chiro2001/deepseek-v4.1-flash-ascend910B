@@ -21,6 +21,12 @@ from vllm_ascend.attention.dsa_v1 import AscendDSAMetadataBuilder
 from vllm_ascend.attention.utils import AscendCommonAttentionMetadata, enable_pcp
 from vllm_ascend.ops.triton.spec_decode.utils import copy_and_expand_dflash_and_dspark_inputs_kernel
 from vllm_ascend.spec_decode.dflash_proposer import AscendDflashProposer, _compute_num_programs
+from vllm_ascend.spec_decode.llm_base_proposer import (
+    _DSPARK_PTR_PROBE,
+    _dspark_ptr_line,
+    _dspark_row_dump,
+    _dspark_ptr_snapshot,
+)
 from vllm_ascend.spec_decode.utils import DynamicSpecScheduler
 
 
@@ -35,6 +41,12 @@ _DSPARK_CAPTURE_METADATA = os.environ.get("DSPARK_GRAPH_CAPTURE_METADATA", "0") 
 _DSPARK_AB_LEGACY_CAPTURES = int(os.environ.get("DSPARK_GRAPH_AB_LEGACY_CAPTURES", "0"))
 _DSPARK_CAPTURE_INDEX = 0
 _DSPARK_GRAPH_DEBUG = os.environ.get("DSPARK_GRAPH_DEBUG", "0") == "1"
+_DSPARK_ROW_DUMP = os.environ.get("DSPARK_ROW_DUMP", "0") == "1"
+# [DSV41 fix-candidate] capture 期把 draft 的 slot_mapping 置 -1（不写 KV）。
+# 见 `_build_capture_draft_attn_metadata` 里的长注释与 `[dspark-capture-pad]` 日志。
+_DSPARK_CAPTURE_PAD_SLOTS = os.environ.get("DSPARK_CAPTURE_PAD_SLOTS", "0") == "1"
+# [DSV41 CAPTURE-DISPATCH] 见 dummy_run 里的长注释：让 capture 的 bucket 与 replay 一致。
+_DSPARK_CAPTURE_DISPATCH = os.environ.get("DSPARK_CAPTURE_DISPATCH", "0") == "1"
 
 
 def _safe_capturing_flag():
@@ -481,6 +493,25 @@ class AscendDSparkProposer(AscendDflashProposer):
         seq_lens[:batch_size].copy_(self.runner.seq_lens[:batch_size] + self.num_query_per_req)
         seq_lens[batch_size:].fill_(0)
 
+        # [DSV41 fix-candidate KV-POLLUTION] capture 期的 slot_mapping 是 **dummy 值**
+        # （实测 `[[0,0]]×5` ⇒ 物理 block0 / offset0..4）。若 attention 真的按它去写 KV，
+        # 就等于往**真实 KV 缓存**的早期槽位写 5 行垃圾，且 capture 发生在引擎初始化阶段、
+        # 之后所有请求都会读到被污染的区域。
+        # 处置：capture 期把 slot_mapping 置 **-1（pad，不写）**。
+        # 依据：`dsa_attn_kv_plan.dsa_kv_compress_scatter` 的注释明确说
+        # "padded [-1, -1] rows 会直接传给 SparseFlashMla 的 scatter 路径"（即由 kernel 忽略）。
+        # 开关 `DSPARK_CAPTURE_PAD_SLOTS=1` 才生效，便于同一套代码 A/B。
+        if _DSPARK_CAPTURE_PAD_SLOTS:
+            _slot = self._per_group_query_slot_mapping_buffers.get(primary_gid)
+            if _slot is None:
+                _slot = self._slot_mapping_buffer
+            _slot[:num_input_tokens].fill_(-1)
+            logger.warning(
+                "[dspark-capture-pad] capture 期 slot_mapping 已置 -1（num_input_tokens=%d）"
+                " —— 避免向真实 KV 缓存的 block0/offset0..4 写 dummy 数据",
+                num_input_tokens,
+            )
+
         cad = AscendCommonAttentionMetadata(
             query_start_loc=query_start_loc[: batch_size + 1],
             query_start_loc_cpu=(
@@ -523,6 +554,33 @@ class AscendDSparkProposer(AscendDflashProposer):
                 captured_tasks.extend(take_tasks())
             for layer_name in attn_group.layer_names:
                 per_layer_attn_metadata[layer_name] = attn_metadata
+        # [DSV41 ptr-probe] capture 侧：记下契约张量的地址，供 replay 比对。
+        if _DSPARK_ROW_DUMP:
+            _dspark_row_dump("CAPTURE", self, num_rows=6)
+        if _DSPARK_PTR_PROBE and per_layer_attn_metadata:
+            _first = next(iter(per_layer_attn_metadata.values()))
+            _desc_key = f"{num_input_tokens}x{num_reqs}"
+            logger.warning(
+                "%s",
+                _dspark_ptr_line("CAPTURE", _desc_key, _dspark_ptr_snapshot(_first)),
+            )
+            # [DSV41 capture-audit] capture 期的 metadata **是不是真的被模型消费了**
+            # —— 光"我们构造了 metadata"不等于"注意力用了它"。
+            # 这里把要交给 forward_context 的那个 dict 的键打出来（模型按 key 查），
+            # 之后和 dsa-probe 的 `hit=` 字段对照即可。
+            logger.warning(
+                "[dspark-capture-audit] 交给模型的 per_layer keys=%s (共 %d 层) "
+                "slot_mapping_shape=%s num_query_total=%d num_input_tokens=%d num_reqs=%d",
+                list(per_layer_attn_metadata.keys())[:4],
+                len(per_layer_attn_metadata),
+                tuple(_first.req_metadata.slot_mapping.shape)
+                if getattr(_first, "req_metadata", None) is not None
+                and getattr(_first.req_metadata, "slot_mapping", None) is not None
+                else None,
+                num_query_total,
+                num_input_tokens,
+                num_reqs,
+            )
         return [per_layer_attn_metadata], captured_tasks
 
     @torch.inference_mode()
@@ -540,11 +598,59 @@ class AscendDSparkProposer(AscendDflashProposer):
         num_query_total = num_reqs * self.num_query_per_req
         num_query_tokens = min(num_query_total if num_reqs > 0 else num_tokens, self.max_query_tokens)
 
+        # [DSV41 CAPTURE-DISPATCH] ★ 2026-09-20 根因修复候选：**capture 与 replay 的
+        # bucket 必须一致**。
+        #
+        # 事实（ptr 探针实测）：
+        #   capture key = `5x1`（num_input_tokens=5 = num_reqs*num_query_per_req）
+        #   replay  key = `6x1`（num_tokens=6 = cudagraph_dispatcher 的 bucket）
+        # ⇒ 图是按 **5 行**捕获的，却按 **6 行**重放。
+        # 而 eager 臂两侧都是 5（`_propose` 里 use_cuda_graph=False 时不 dispatch）⇒ 正常。
+        #
+        # 原因是两条路径的 bucket 选择逻辑不同：
+        #   `_propose`（replay）: dispatch(raw) → sync_metadata_across_dp → dispatch(再次) → 用 bucketed 值
+        #   `dummy_run`（capture）: 只做 sync_metadata_across_dp，**从不 dispatch**
+        # 本开关让 capture 走和 replay **完全相同**的两次 dispatch。
+        _use_dispatch = (
+            _DSPARK_CAPTURE_DISPATCH
+            and self.use_cuda_graph
+            and aclgraph_runtime_mode == CUDAGraphMode.FULL
+            and num_reqs > 0
+        )
+        if _use_dispatch:
+            try:
+                _, _bd_cap1 = self.runner.cudagraph_dispatcher.dispatch(
+                    num_tokens=num_query_tokens, uniform_decode=True, has_lora=False
+                )
+                num_query_tokens = _bd_cap1.num_tokens
+            except Exception as _exc:  # pragma: no cover - probe only
+                logger.warning("[dspark-capture-dispatch] 第一次 dispatch 失败：%r", _exc)
+
         (
             num_input_tokens,
             num_tokens_across_dp,
             _,
         ) = self.runner._sync_metadata_across_dp(num_query_tokens, is_draft_model=True)
+
+        if _use_dispatch:
+            try:
+                _, _bd_cap2 = self.runner.cudagraph_dispatcher.dispatch(
+                    num_tokens=num_input_tokens, uniform_decode=True, has_lora=False
+                )
+                if _bd_cap2 is not None and _bd_cap2.num_tokens is not None:
+                    num_input_tokens = _bd_cap2.num_tokens
+            except Exception as _exc:  # pragma: no cover - probe only
+                logger.warning("[dspark-capture-dispatch] 第二次 dispatch 失败：%r", _exc)
+        if _DSPARK_CAPTURE_DISPATCH:
+            logger.warning(
+                "[dspark-capture-dispatch] capture: num_reqs=%s num_query_total=%s "
+                "num_query_tokens(after disp)=%s num_input_tokens(final)=%s（replay 侧用 "
+                "dispatcher 的 bucket，两者必须相等）",
+                num_reqs,
+                num_query_total,
+                num_query_tokens,
+                num_input_tokens,
+            )
 
         if not self.use_cuda_graph:
             aclgraph_runtime_mode = CUDAGraphMode.NONE
@@ -613,6 +719,20 @@ class AscendDSparkProposer(AscendDflashProposer):
                     num_input_tokens,
                     len(capture_tasks),
                     capture_device_metadata_executor is not None,
+                )
+                # [DSV41 capture-audit] 静默降级探针：capture 期我们把 metadata 交给了
+                # `set_ascend_forward_context(draft_attn_metadatas=...)`，但**模型是否真的用它**
+                # 取决于 forward 里按 key 的查找。这里记下"我们给了什么"，
+                # 与 dsa-probe 打的 `hit=` 对照：hit=None 就说明注意力走了无 metadata 的分支，
+                # 图里将**完全没有 attention**（这正是 pos0≈0.07 的头号解释）。
+                _md0 = multi_steps_attn_metadata[0] if multi_steps_attn_metadata else None
+                logger.warning(
+                    "[dspark-capture-audit] capture #%d 提供的 metadata: dict=%s n_layers=%s "
+                    "keys=%s",
+                    capture_index,
+                    "yes" if _md0 else "no",
+                    (len(_md0) if _md0 else 0),
+                    (sorted(_md0.keys())[:3] if _md0 else None),
                 )
             else:
                 logger.warning(

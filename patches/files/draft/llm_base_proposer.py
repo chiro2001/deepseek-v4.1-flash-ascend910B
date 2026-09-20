@@ -66,6 +66,226 @@ from vllm_ascend.ops.vocab_parallel_embedding import lmhead_all_to_all
 _DSPARK_SHADOW_EAGER = os.environ.get("DSPARK_GRAPH_SHADOW_EAGER", "0") == "1"
 _DSPARK_SHADOW_STEPS = int(os.environ.get("DSPARK_GRAPH_SHADOW_STEPS", "2"))
 _DSPARK_SHADOW_DONE = 0
+# [DSV41 input-dump] 见 `_dspark_row_dump`。
+_DSPARK_ROW_DUMP = os.environ.get("DSPARK_ROW_DUMP", "0") == "1"
+_DSPARK_ROW_LEFT = int(os.environ.get("DSPARK_ROW_DUMP_STEPS", "8"))
+_DSPARK_TOKEN_DUMP = os.environ.get("DSPARK_TOKEN_DUMP", "0") == "1"
+# [DSV41 NO-TOPK-SHARE] 见 `_maybe_share_topk_indices` 里的长注释。
+_DSPARK_NO_TOPK_SHARE = os.environ.get("DSPARK_NO_TOPK_SHARE", "0") == "1"
+# [DSV41 NO-ATTN] 判定实验：强制 draft 的 `draft_attn_metadatas=None` ⇒
+# DSA attention 走 `if attn_metadata is None: output.fill_(0)` 的 fallback（**完全没有 attention**）。
+# 用途：把"draft attention 算错了"与"别的原因"分开 —— 若关掉 attention 后 A 反而变好，
+# 就说明 draft attention 是罪魁；若变差，说明 attention 必须在。
+_DSPARK_DRAFT_NO_ATTN = os.environ.get("DSPARK_DRAFT_NO_ATTN", "0") == "1"
+# [DSV41 SYNC-AFTER] 判定实验：draft 图 replay 后立刻 synchronize 一次。
+# `ACLGraphWrapper` 只在 replay **之前**同步（且 is_draft_eagle 时还跳过），replay 之后
+# 直接 `return entry.output`（捕获时输出的 weak ref）。若消费方不在同一 stream 上，
+# 就可能读到图还没写完的 buffer。
+_DSPARK_DRAFT_SYNC_AFTER = os.environ.get("DSPARK_DRAFT_SYNC_AFTER", "0") == "1"
+# [DSV41 SYNC-BEFORE] ★ 竞态判定实验（2026-09-20）
+#
+# 现象：同一 prompt、同一序列位置（pos=39）、四次跑 —— **eager 两次都给 6881（完全可复现）**，
+# **graph 两次给不同值**（470/303 vs 470/97396）⇒ 图臂**非确定**，是竞态的典型签名。
+#
+# 机制嫌疑（源码级）：`compilation/acl_graph.py` 的 replay 前屏障是
+#     is_draft_eagle = _EXTRA_CTX.is_draft_model and self.use_eagle
+#     need_sync = (runtime_mode == FULL) and not is_draft_eagle
+#     if not enable_enpu and need_sync: current_stream().synchronize()
+#   注释写「FULL + EAGLE draft（merge path）时不需要这个屏障」——
+#   但 **DSpark 不是 EAGLE**（自己的 metadata 契约 + 并行 draft），
+#   而本配置又开了 `multistream_overhead_shared_expert` / `multistream_dsv4_dsa_overlap`
+#   ⇒ 跨 stream 的写/读没有显式事件排序，draft replay 可能读到**尚未写完**的 metadata/KV。
+#
+# 本开关在 draft replay **之前**插入一次同步。
+# ❌ **2026-09-20 实测：假设已否证，且本开关有害 —— 不要启用。**
+#    A 不变（1.073），tok/s −31%（42.7→29.4），并引发
+#    `assert num_reqs <= num_reqs_padded`（model_runner_v1.py:960）导致服务崩溃。
+#    保留仅为记录负面结果（默认 0 = 关闭）。
+_DSPARK_DRAFT_SYNC_BEFORE = os.environ.get("DSPARK_DRAFT_SYNC_BEFORE", "0") == "1"
+
+
+# ⚠️ **热路径性能**：`_dspark_rt_flag` 在 `_propose` 里每个 step 都被调用，
+# 而"打开一个不存在的文件"在 Python 里要抛/接异常（实测开销可观）。
+# 所以运行时热切换**必须显式打开** `DSPARK_RT_FLAGS=1` 才会去读文件；
+# 默认（发布默认）只读环境变量，零额外开销。
+_DSPARK_RT_FLAGS_ENABLED = os.environ.get("DSPARK_RT_FLAGS", "0") == "1"
+
+
+def _dspark_rt_flag(name: str, default: str = "0") -> str:
+    """**运行时**标志：`/tmp/v41_dspark_flags` 里的 `NAME=1` 优先于环境变量。
+
+    为什么需要它：draft 入图的 A/B 若跨起服比较，会混进"发放级 A 抽签"、
+    前缀缓存、服务状态等变量，之前已经因此误判过一轮。本函数让同一次起服内
+    可以改文件即时切换行为 ⇒ 同一批请求、同一进程、只变一个变量。
+
+    用法：起服时加 `DSPARK_RT_FLAGS=1` 才会读该文件（**默认关**，见上面的性能说明）。
+    """
+    if _DSPARK_RT_FLAGS_ENABLED:
+        try:
+            with open("/tmp/v41_dspark_flags") as _f:
+                for _line in _f:
+                    _line = _line.strip()
+                    if _line.startswith(name + "="):
+                        return _line.split("=", 1)[1].strip()
+        except Exception:
+            pass
+    return os.environ.get(name, default)
+
+
+def _dspark_use_graph_rt(obj) -> bool:
+    """`DRAFT_FORCE_EAGER=1` 时**整体**按 eager 走：
+    不只绕过 ACLGraphWrapper，还要让 `aclgraph_runtime_mode=NONE`、`batch_descriptor=None`。
+    只换 callable 是不够的 —— forward_context 仍是 FULL 时 DSA attention 会走图分支，
+    那样的 A/B 不是干净对照（会混进"mode 不同"这个变量）。"""
+    return bool(getattr(obj, "use_cuda_graph", False)) and not _dspark_rt_flag("DRAFT_FORCE_EAGER") == "1"
+_DSPARK_TOKEN_LEFT = int(os.environ.get("DSPARK_TOKEN_DUMP_STEPS", "12"))
+_DSPARK_TOK_STEP = 0
+# [DSV41 DRAFT-SERIAL] 见 `_run_merged_draft` 里 input_batch_size 处的长注释。
+_DSPARK_DRAFT_SERIAL = os.environ.get("DSPARK_DRAFT_SERIAL", "0") == "1"
+# [DSV41 PROBE] 逐步诊断：把"_propose 每步都跑"当作观测窗口（它在图之外）。
+_DSPARK_STEP_PROBE = os.environ.get("DSPARK_STEP_PROBE", "0") == "1"
+_DSPARK_STEP_PROBE_LEFT = int(os.environ.get("DSPARK_STEP_PROBE_STEPS", "40"))
+
+# [DSV41 ptr-probe] capture 与 replay 的**地址契约**探针。
+#
+# 影子 eager 探针（`_probe_shadow_eager_dspark`）比的是**值**：它显示
+# graph==eager=4/5 —— 两条路径几乎一致，说明图"算得挺忠实"，但实际 A 只有 1.07。
+# 值一致 + 效果坏 ⇒ 错在**喂进去的输入**，而"输入"有两个可能的错法：
+#   ① 值对、**地址漂移**：图固化的是 capture 时的地址，replay 时 Python 写到别处；
+#   ② 值本身就错。
+# 影子探针测不出 ①（它读的是 Python 当前状态）。所以这里再补一个**地址**探针：
+# capture 时记下契约张量的 data_ptr，replay 时按同一个 batch_descriptor 比对，
+# 只打印**不一致**的项 —— 这一条就能把 ①/② 分开。
+_DSPARK_PTR_PROBE = os.environ.get("DSPARK_GRAPH_PTR_PROBE", "0") == "1"
+_DSPARK_PTR_REPLAY_LEFT = int(os.environ.get("DSPARK_GRAPH_PTR_PROBE_STEPS", "5"))
+
+
+def _dspark_val_str(v: torch.Tensor) -> str:
+    """小张量的值（元素数 ≤ 16）—— 地址一致之后，剩下的错法就是**值**。
+
+    ⚠️ `.tolist()` 是 D2H 同步。**capture 区间内必须跳过**：2026-09-20 实测
+    capture 期做 D2H 会让图捕获失败（`Worker ... died` / `RuntimeError: cancelled`）。
+    所以这里自己判 capturing，capture 只回形状。
+    """
+    if v.numel() == 0 or v.numel() > 16:
+        return ""
+    try:
+        from vllm.forward_context import get_forward_context as _gfc_val
+
+        if bool(getattr(_gfc_val(), "capturing", False)):
+            return "=<capture:D2H skipped>"
+    except Exception:
+        return "=<no-ctx>"
+    try:
+        return f"={v.tolist()}"
+    except Exception:
+        return "=<err>"
+
+
+def _dspark_ptr_snapshot(attn_metadata) -> dict[str, str]:
+    """把 draft metadata 里**被图读取**的契约张量拍成 {名字: '0x地址/形状'}。"""
+    snap: dict[str, str] = {}
+    rm = getattr(attn_metadata, "req_metadata", None)
+    if rm is None:
+        # 字段名对不上时，把可见属性名打出来 —— 一次就能知道该改哪个名字
+        attrs = [a for a in dir(attn_metadata) if not a.startswith("_")]
+        return {"<no req_metadata>": f"type={type(attn_metadata).__name__} attrs={attrs[:24]}"}
+    for name in (
+        "query_start_loc",
+        "seq_lens",
+        "slot_mapping",
+        "block_table",
+        "start_pos",
+        "sas_metadata",
+        "sin",
+        "cos",
+        "cu_cmp_seqlen_list",
+    ):
+        v = getattr(rm, name, None)
+        if isinstance(v, torch.Tensor):
+            snap[name] = f"0x{v.data_ptr():x}/{tuple(v.shape)}{_dspark_val_str(v)}"
+        elif isinstance(v, dict):  # sin/cos 可能是 {layer: tensor}
+            for lk, lv in list(v.items())[:1]:
+                if isinstance(lv, torch.Tensor):
+                    snap[f"{name}[{lk}]"] = f"0x{lv.data_ptr():x}/{tuple(lv.shape)}"
+    if not snap:
+        attrs = [a for a in dir(rm) if not a.startswith("_")]
+        return {"<empty>": f"rm_type={type(rm).__name__} attrs={attrs[:28]}"}
+    return snap
+
+
+def _dspark_ptr_line(tag: str, desc_key: str, snap: dict[str, str]) -> str:
+    """**无条件**打印快照全文 —— 不依赖 capture/replay 的 bucket key 能对上。
+
+    第一版设计成"只打差异"，结果两个坑：(a) capture 侧的返回值我忘了打印；
+    (b) capture 的 key 来自 dummy_run 的 `num_reqs`、replay 的来自
+    `batch_descriptor`，一旦对不上就什么都不打 —— 而"没输出"会被误读成"没问题"。
+    改成两边都打全文，人工对齐即可；同时附一行自动比对结果（能对上时）。
+    """
+    store = _DSPARK_PTR_CAPTURE
+    ref = store.get(desc_key)
+    if tag == "CAPTURE":
+        # 同一个 bucket 可能捕获多次（多个 capture index），保留第一份
+        store.setdefault(desc_key, snap)
+    verdict = ""
+    if ref is not None and tag != "CAPTURE":
+        diffs = [k for k in sorted(set(ref) | set(snap)) if ref.get(k) != snap.get(k)]
+        verdict = (
+            f" match=OK({len(ref)}项)"
+            if not diffs
+            else f" **漂移 {len(diffs)}/{len(ref)}**: "
+            + " , ".join(f"{k}: cap={ref.get(k)} rep={snap.get(k)}" for k in diffs)
+        )
+    elif tag != "CAPTURE":
+        verdict = f" match=NO_REF(capture_keys={sorted(store)})"
+    body = " ".join(f"{k}={v}" for k, v in snap.items()) or "<snapshot 为空：字段名没对上>"
+    return f"[dspark-ptr] {tag} key={desc_key} n={len(snap)}{verdict} | {body}"
+
+
+_DSPARK_PTR_CAPTURE: dict[str, dict[str, str]] = {}
+
+
+def _dspark_row_dump(tag: str, base, num_rows: int = 6) -> None:
+    """[DSV41 input-dump] 把 draft step0 真正喂给模型的**前几行输入**打出来。
+
+    地址与形状都验证过一致，值也在 replay 时刷新过，但 A 仍然只有 1.07 ⇒
+    最后一招是把 capture 与 replay 的**同一批 buffer 内容**逐行 dump 出来对比。
+    只看前 6 行（一个单请求 bucket 的 `num_query_per_req=5` 全在内）。
+
+    ⚠️⚠️ **capture 区间内绝对不能执行本函数**（`.tolist()`/`.sum()` 都是 D2H）：
+    2026-09-20 实测 —— 在 capture 期调用它会让 8 个 rank 的图捕获全部失败，
+    表现为 `Worker proc VllmWorker-N died unexpectedly` + `RuntimeError: cancelled`
+    （引擎起不来）。所以这里自己判断 capturing，capture 期直接返回。
+    """
+    try:
+        from vllm.forward_context import get_forward_context as _gfc_row
+
+        if bool(getattr(_gfc_row(), "capturing", False)):
+            return
+    except Exception:
+        return
+    global _DSPARK_ROW_LEFT
+    if _DSPARK_ROW_LEFT <= 0:
+        return
+    _DSPARK_ROW_LEFT -= 1
+    try:
+        import torch as _t
+
+        parts = []
+        for name in ("input_ids", "positions", "hidden_states", "_slot_mapping_buffer", "token_indices_to_sample"):
+            buf = getattr(base, name, None)
+            if not isinstance(buf, _t.Tensor) or buf.numel() == 0:
+                continue
+            view = buf.reshape(buf.shape[0], -1)[:num_rows]
+            if view.dtype.is_floating_point:
+                # 大 tensor 只打"每行的和"，足以发现"行与行是否相同/是否全 0"
+                vals = [round(float(r.sum()), 4) for r in view]
+            else:
+                vals = [r[:8].tolist() for r in view]
+            parts.append(f"{name}={vals}")
+        logger.warning("[dspark-idump] %s | %s", tag, " ".join(parts))
+    except Exception as exc:  # pragma: no cover - probe only
+        logger.warning("[dspark-idump] %s 失败: %r", tag, exc)
 # [DSV41 fix step 2, host-side variant] With DSPARK_GRAPH_DEVICE_METADATA=1 the
 # draft metadata tasks run on the dedicated metadata stream and the main stream
 # is ordered against that stream on the host before graph.replay(). The earlier
@@ -677,6 +897,27 @@ class AscendSpecDecodeBaseProposer(SpecDecodeBaseProposer):
             )
 
     def _maybe_share_topk_indices(self, target_language_model: nn.Module) -> None:
+        # [DSV41 NO-TOPK-SHARE] ★ 2026-09-20 根因修复候选
+        #
+        # target 与 draft **共用同一个 `topk_indices_buffer`**（下面就是把 target 的
+        # buffer 直接赋给 draft 的每个模块）。eager 时两者顺序执行、互不冲突；
+        # 但 draft 一旦入图，**每次 replay 都会往这个共享 buffer 写 draft 的 topk 索引**，
+        # 而 target 的 forward 也读写同一个 buffer ⇒ **target 侧被污染**。
+        #
+        # 这与实测完全吻合：
+        #   * 两臂 draft 产出的 token **逐位相同**（draft 按自己的 topk 算，看不出问题）
+        #   * 但 A 从 2.18/2.65 掉到 1.07、pos0 只有 0.047
+        #     ⇒ **target 的 verify 与 draft 对不上**，而不是 draft 算错
+        #   * graph 臂 hp/step 反而更大（36.5 vs 29.5 ms）
+        #
+        # 关掉共享后 draft 会自己算 topk（DSpark 只有 3 个 MTP 层，代价小），
+        # 换取 target 的 buffer 不被覆盖。DSPARK_NO_TOPK_SHARE=1 启用本修复。
+        if _DSPARK_NO_TOPK_SHARE:
+            logger.warning(
+                "[dspark-no-topk-share] 跳过 topk_indices_buffer 共享：draft 将自算 topk，"
+                "避免 draft 图 replay 覆盖 target 的 buffer（DSPARK_NO_TOPK_SHARE=1）"
+            )
+            return
         if hasattr(target_language_model.model, "topk_indices_buffer"):
             if hasattr(self.model.model, "topk_indices_buffer"):
                 del self.model.model.topk_indices_buffer
@@ -972,6 +1213,8 @@ class AscendSpecDecodeBaseProposer(SpecDecodeBaseProposer):
         num_scheduled_tokens: int = 0,
         num_rejected_tokens_gpu: torch.Tensor | None = None,
     ) -> torch.Tensor:
+        # [DSV41] 模块级计数器在本函数多处使用 ⇒ global 必须出现在**首次使用之前**。
+        global _DSPARK_TOKEN_LEFT, _DSPARK_TOK_STEP
         batch_size = common_attn_metadata.batch_size()
 
         # Dynamic SD: take the scheduled per-step K as an explicit argument and
@@ -1026,6 +1269,26 @@ class AscendSpecDecodeBaseProposer(SpecDecodeBaseProposer):
             num_prefill_reqs=num_prefill_reqs,
             num_decode_reqs=num_decode_reqs,
         )
+        if _DSPARK_STEP_PROBE and self.method == "dspark":
+            if _DSPARK_STEP_PROBE_LEFT > 0:
+                _DSPARK_STEP_PROBE_LEFT -= 1
+                logger.warning(
+                    "[dspark-step] num_tokens(set_inputs_first_pass)=%s num_query_per_req=%s "
+                    "net_new_slots=%s pass_hidden_states_to_model=%s parallel_drafting=%s "
+                    "use_cuda_graph=%s cad.num_reqs=%s cad.num_actual_tokens=%s cad.max_query_len=%s "
+                    "cad.query_start_loc=%s",
+                    num_tokens,
+                    getattr(self, "num_query_per_req", None),
+                    getattr(self, "net_num_new_slots_per_request", "?UNDEFINED"),
+                    getattr(self, "pass_hidden_states_to_model", None),
+                    getattr(self, "parallel_drafting", None),
+                    getattr(self, "use_cuda_graph", None),
+                    getattr(common_attn_metadata, "num_reqs", None),
+                    getattr(common_attn_metadata, "num_actual_tokens", None),
+                    getattr(common_attn_metadata, "max_query_len", None),
+                    (common_attn_metadata.query_start_loc[:6].tolist()
+                     if hasattr(common_attn_metadata, "query_start_loc") else None),
+                )
         assert self.runner is not None
         dcp_manager = getattr(self.runner, "dcp_manager", None)
         if dcp_manager is not None:
@@ -1035,7 +1298,8 @@ class AscendSpecDecodeBaseProposer(SpecDecodeBaseProposer):
         has_lora = len(self.runner.input_batch.lora_id_to_lora_request) > 0
         uniform_decode = target_model_batch_desc.uniform
 
-        if self.use_cuda_graph:
+        _use_graph_rt = _dspark_use_graph_rt(self)
+        if _use_graph_rt:
             _, batch_descriptor = self.runner.cudagraph_dispatcher.dispatch(
                 num_tokens=num_tokens, uniform_decode=uniform_decode, has_lora=has_lora
             )
@@ -1049,12 +1313,13 @@ class AscendSpecDecodeBaseProposer(SpecDecodeBaseProposer):
             _,
         ) = self.runner._sync_metadata_across_dp(num_input_tokens, is_draft_model=True)
 
-        if self.use_cuda_graph:
+        if _use_graph_rt:
             aclgraph_runtime_mode, batch_descriptor = self.runner.cudagraph_dispatcher.dispatch(
                 num_tokens=num_input_tokens, uniform_decode=uniform_decode, has_lora=has_lora
             )
             num_input_tokens = batch_descriptor.num_tokens
         else:
+            # DRAFT_FORCE_EAGER=1 走这里 ⇒ 与 DRAFT_GRAPH=0 的 eager 路径**完全同形**。
             aclgraph_runtime_mode = CUDAGraphMode.NONE
             batch_descriptor = None
 
@@ -1256,7 +1521,9 @@ class AscendSpecDecodeBaseProposer(SpecDecodeBaseProposer):
             batch_descriptor=batch_descriptor,
             aclgraph_runtime_mode=aclgraph_runtime_mode,
             is_draft_model=True,
-            draft_attn_metadatas=multi_steps_attn_metadata,
+            # [DSV41 NO-ATTN] DSPARK_DRAFT_NO_ATTN=1 ⇒ 传 None，让 DSA 走无 metadata 的
+            # fallback 分支（output.fill_(0)，即**完全没有 attention**）。判定实验用。
+            draft_attn_metadatas=(None if _DSPARK_DRAFT_NO_ATTN else multi_steps_attn_metadata),
             device_metadata_executor=active_device_metadata_executor,
             eplb_heat_collection_status=(
                 self.runner.eplb_heat_collection_status if self.runner.dynamic_eplb else False
@@ -1303,7 +1570,22 @@ class AscendSpecDecodeBaseProposer(SpecDecodeBaseProposer):
                 "is_prefill": is_prefill_batch,
                 "sampling_metadata": sampling_metadata,
             }
-            runnable = cast(Callable[..., Any], self._runnable)
+            # [DSV41 FORCE-EAGER] 热切换：`/tmp/v41_dspark_flags` 里写
+            # `DRAFT_FORCE_EAGER=1` ⇒ 这一次前向绕过 ACLGraphWrapper、直接跑 eager。
+            # 同一进程内切换 ⇒ 排除跨起服混杂，是"图 vs eager"的干净判据。
+            _force_eager_rt = not _use_graph_rt
+            if _DSPARK_DRAFT_SYNC_BEFORE and not _force_eager_rt:
+                # 见 [DSV41 SYNC-BEFORE]：replay 前的屏障被 EAGLE 的假设跳过了。
+                import torch as _t_sb
+
+                _t_sb.npu.current_stream().synchronize()
+                if _DSPARK_TOKEN_LEFT > 0:
+                    logger.warning("[dspark-sync-before] replay 前已 synchronize")
+            runnable = cast(
+                Callable[..., Any], self._run_merged_draft if _force_eager_rt else self._runnable
+            )
+            if _force_eager_rt and _DSPARK_TOKEN_LEFT > 0:
+                logger.warning("[dspark-force-eager] 本次前向走 eager（运行时热切换）")
             run_draft: Callable[[], Any] = partial(runnable, **model_inputs)
 
             if self.enable_enpu:
@@ -1312,6 +1594,75 @@ class AscendSpecDecodeBaseProposer(SpecDecodeBaseProposer):
             else:
                 draft_token_ids = run_draft()
                 self._update_full_graph_params_if_needed(forward_context, num_input_tokens, multi_steps_attn_metadata)
+            if _DSPARK_DRAFT_SYNC_AFTER:
+                # 见 [DSV41 SYNC-AFTER] 的说明。
+                import torch as _t_sync
+
+                _t_sync.npu.current_stream().synchronize()
+                if _DSPARK_TOKEN_LEFT > 0:
+                    logger.warning("[dspark-sync-after] replay 后已 synchronize")
+            # [DSV41 token-dump] 跨臂对比用：同一个 prompt 下 eager 臂与 graph 臂
+            # 若产出同样的 token，问题在验证侧；若明显不同，问题在 draft 前向本身。
+            if _DSPARK_TOKEN_DUMP:
+                if _DSPARK_TOKEN_LEFT > 0:
+                    _DSPARK_TOKEN_LEFT -= 1
+                    _DSPARK_TOK_STEP += 1
+                    try:
+                        _b = draft_token_ids
+                        # 每个请求的 5 个 draft token 都打出来（不只第 0 行）——
+                        # 只有这样才能看出"第 1 步对、后面逐步退化"。
+                        _rows = (
+                            [_b[i].tolist()[:6] for i in range(min(2, _b.shape[0]))]
+                            if _b.dim() > 1
+                            else [_b[:8].tolist()]
+                        )
+                        # [POS-ALIGN] 把**该步的序列位置**一起打出来。
+                        # 两臂的接受长度不同（1.12 vs 2.0 token/步）⇒ 进入第 N 步时
+                        # 所在的序列位置可能不同；若不按位置对齐，就会把"位置不同"
+                        # 误判成"draft 算错"。有了 start_pos 才能做真正的同位置对比。
+                        _pos = None
+                        try:
+                            # common_attn_metadata 是 set_inputs_first_pass 的返回值，
+                            # 已在上面解包；seq_lens 就是各请求当前的序列长度（= 位置）。
+                            _sl = common_attn_metadata.seq_lens
+                            _pos = _sl[: min(4, _sl.shape[0])].tolist()
+                        except Exception as _pe:
+                            _pos = f"<err {_pe!r}>" 
+                        # [IO-DUMP] 同时打**输入**：只打输出无法区分"算错"与"喂错"。
+                        # 输入取 draft 前向真正吃到的那几行（顺序与 rows 对应）。
+                        _ins = {}
+                        try:
+                            _n = min(6, int(num_input_tokens))
+                            _ins["ids"] = self.input_ids[:_n].tolist()
+                            _ins["pos"] = self.positions[:_n].tolist()
+                            _hs = self.hidden_states[:_n]
+                            _ins["hs"] = [round(float(x), 3) for x in _hs.reshape(_n, -1).sum(dim=1)]
+                            # ⚠️ `_dflash_num_context` 是 Python int，会被**烘进图**：
+                            # 捕获时 dummy_run 把它设成 bucketed 的 num_input_tokens（例如 6），
+                            # 而 replay 时 set_inputs_first_pass（图外）把它设成
+                            # `cad.query_start_loc_cpu[batch_size]`（真实值，例如 5）。
+                            # 图内的 `build_model_inputs_first_pass` 用**捕获时**的它切 slice
+                            # ⇒ 若两者不等，图每次都会多/少处理若干个 context 位置。
+                            _ins["dflash_nctx"] = getattr(self, "_dflash_num_context", None)
+                            _ins["draft_hs_head"] = [
+                                round(float(x), 3)
+                                for x in getattr(self, "_dflash_hidden_states", torch.zeros(1))[:2]
+                                .reshape(2, -1)
+                                .sum(dim=1)
+                            ]
+                        except Exception as _ie:
+                            _ins = {"err": repr(_ie)}
+                        logger.warning(
+                            "[dspark-token] step=%d use_graph=%s pos=%s shape=%s IN=%s OUT=%s",
+                            _DSPARK_TOK_STEP,
+                            _dspark_use_graph_rt(self),
+                            _pos,
+                            tuple(_b.shape),
+                            _ins,
+                            _rows,
+                        )
+                    except Exception as _exc:  # pragma: no cover
+                        logger.warning("[dspark-token] dump failed: %r", _exc)
             if _DSPARK_SHADOW_EAGER:
                 draft_token_ids = self._probe_shadow_eager_dspark(draft_token_ids, model_inputs)
         if active_device_metadata_executor is not None:
@@ -1417,9 +1768,22 @@ class AscendSpecDecodeBaseProposer(SpecDecodeBaseProposer):
         last_hidden_states, hidden_states = _split_draft_outputs(ret_hidden_states)
 
         # step 1+ skip indexer
+        #
+        # [DSV41 NO-TOPK-SHARE] 配套改动：`skip_topk=True` 的语义是
+        # "**不计算** topk，直接读 `topk_indices_buffer`"。默认它与 target 共享 buffer，
+        # 所以读到的是 target 刚算好的值。但 DSPARK_NO_TOPK_SHARE=1 时我们已经
+        # **解除了共享**，此时再 skip 就会读到 draft **自己上一轮的旧值** ⇒ 结果错。
+        # 所以关掉共享时必须**始终 False**（draft 自己算），两个开关要成对出现。
         draft_model = getattr(self.model, "model", None)
-        if self._share_mtp_indices and draft_model is not None and hasattr(draft_model, "set_skip_topk"):
+        if (
+            self._share_mtp_indices
+            and not _DSPARK_NO_TOPK_SHARE
+            and draft_model is not None
+            and hasattr(draft_model, "set_skip_topk")
+        ):
             draft_model.set_skip_topk(True)
+        elif _DSPARK_NO_TOPK_SHARE and draft_model is not None and hasattr(draft_model, "set_skip_topk"):
+            draft_model.set_skip_topk(False)
 
         if self.method != "dflash":
             last_hidden_states, model_positions, hidden_states = self.maybe_all_gather_and_unpad(
@@ -1609,7 +1973,27 @@ class AscendSpecDecodeBaseProposer(SpecDecodeBaseProposer):
         hidden_states = hidden_states[token_indices_to_sample]
         token_indices_to_sample = self.arange[:batch_size]
 
-        input_batch_size = num_input_tokens if (self.method == "mtp" or self.use_cuda_graph) else batch_size
+        # [DSV41 DRAFT-SERIAL] 候选修复：让"入图"也走和 eager 完全相同的**逐步宽度**。
+        #
+        # 事实（2026-09-20 实测，同口径 conc=1 跑 8 条取中位）：
+        #   draft eager  ⇒ A=2.648 / 92 tok/s（健康）
+        #   draft 入图    ⇒ A=1.07  / 42 tok/s（pos0 仅 0.067）
+        # 两臂的差异**只在这一行**：图臂把 draft 前向的输入宽度取成 bucket 对齐后的
+        # `num_input_tokens`（= 每请求 num_query_per_req 行，实测 5×num_reqs），
+        # 而 eager 臂取 `batch_size`（= num_reqs）。第一段（step0）两臂都用
+        # `num_input_tokens`，所以差异只在下面这个循环里。
+        # ⇒ 本开关把循环宽度强制回 `batch_size`，其余（图捕获、metadata、重放）保持不变。
+        input_batch_size = (
+            batch_size
+            if (_DSPARK_DRAFT_SERIAL and self.method == "dspark")
+            else (num_input_tokens if (self.method == "mtp" or self.use_cuda_graph) else batch_size)
+        )
+        if _DSPARK_DRAFT_SERIAL and self.method == "dspark":
+            logger.warning(
+                "[dspark-serial] 循环输入宽度强制为 batch_size=%d（原 num_input_tokens=%d）",
+                batch_size,
+                num_input_tokens,
+            )
 
         forward_context = get_forward_context()
         _EXTRA_CTX.num_tokens = input_batch_size
@@ -2725,6 +3109,48 @@ class AscendSpecDecodeBaseProposer(SpecDecodeBaseProposer):
         multi_steps_attn_metadata = [per_layer_attn_metadata]
         # Copy the old attn_metadata and update
         attn_metadata_i = per_layer_attn_metadata[self.draft_attn_groups[0].layer_names[0]]
+        if _DSPARK_ROW_DUMP:
+            _dspark_row_dump("REPLAY", self, num_rows=6)
+        # [DSV41 ptr-probe] replay 侧：按 batch_descriptor 与 capture 的地址快照比对。
+        if _DSPARK_PTR_PROBE and self.method == "dspark":
+            global _DSPARK_PTR_REPLAY_LEFT
+            if _DSPARK_PTR_REPLAY_LEFT > 0:
+                _DSPARK_PTR_REPLAY_LEFT -= 1
+                # [DSV41 kv-pollution-audit] capture 期的 slot_mapping 是 dummy 值
+                # （实测 `[[0,0]]×5`）。如果 attention 真的按它去 **写 KV**，
+                # 就会把 5 行垃圾写进物理 block 0 的 offset 0..4 —— 那是**某条真实请求的
+                # 上下文槽位**，且 capture 发生在引擎初始化阶段、此后所有请求都受影响。
+                # 这一条与其"推断"，不如直接看：把 replay 每步的 slot_mapping 打出来，
+                # 再与 capture 的对比；同时确认 capture 是否真的进过 attention（dsa-probe）。
+                _sm = getattr(getattr(attn_metadata_i, "req_metadata", None), "slot_mapping", None)
+                logger.warning(
+                    "[dspark-kv-audit] step slot_mapping[0..2]=%s (capture 期实测为全 0 → "
+                    "若 capture 真按它写 KV，就是往物理 block0/offset0-4 写了 5 行垃圾)",
+                    (_sm[:3].tolist() if isinstance(_sm, torch.Tensor) and _sm.numel() >= 3 else None),
+                )
+                desc_key = (
+                    f"{batch_descriptor.num_tokens}x{batch_descriptor.num_reqs}"
+                    if batch_descriptor is not None
+                    else f"{num_input_tokens}xNONE"
+                )
+                logger.warning(
+                    "[dspark-ptr] REPLAY ctx num_input_tokens=%s num_actual_tokens=%s "
+                    "cad.num_reqs=%s cad.num_actual_tokens=%s cad.num_input_tokens=%s "
+                    "max_query_len=%s decode_token_per_req=%s attn_state=%s bd=%s",
+                    num_input_tokens,
+                    num_actual_tokens,
+                    getattr(common_attn_metadata, "num_reqs", None),
+                    getattr(common_attn_metadata, "num_actual_tokens", None),
+                    getattr(common_attn_metadata, "num_input_tokens", None),
+                    getattr(common_attn_metadata, "max_query_len", None),
+                    getattr(common_attn_metadata, "decode_token_per_req", None),
+                    getattr(common_attn_metadata, "attn_state", None),
+                    batch_descriptor,
+                )
+                logger.warning(
+                    "%s",
+                    _dspark_ptr_line("REPLAY", desc_key, _dspark_ptr_snapshot(attn_metadata_i)),
+                )
         return multi_steps_attn_metadata, attn_metadata_i
 
     def _pad_draft_buffers(

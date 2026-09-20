@@ -550,6 +550,15 @@ if [ "$PATCH_MODE" = "mount" ]; then
   # 不要恢复这个挂载 —— 整文件覆盖 model_runner_v1.py 的风险远大于收益。
   MOUNTS+=(-v "$F/ascend_forward_context.py:/vllm-workspace/vllm-ascend/vllm_ascend/ascend_forward_context.py:ro")
   MOUNTS+=(-v "$F/rope_dsv4.py:/vllm-workspace/vllm-ascend/vllm_ascend/ops/rope_dsv4.py:ro")
+  # [V41-SLOT-MAP-FUSED] block_table.py：12 次 slot-mapping 启动 → 1 次。
+  # 由 env `V41_SLOT_MAP_FUSED` 门控（默认 0/关 = 与 stock 完全一致）。
+  # 缺文件不致命（回落 stock），但要**响亮地**告诉用户门控会静默失效。
+  if [ -f "$F/block_table.py" ]; then
+    MOUNTS+=(-v "$F/block_table.py:/vllm-workspace/vllm-ascend/vllm_ascend/worker/block_table.py:rw")
+  elif [ "${V41_SLOT_MAP_FUSED:-0}" != "0" ]; then
+    echo "[serve_a2] WARNING: V41_SLOT_MAP_FUSED=${V41_SLOT_MAP_FUSED} 但缺 patches/files/block_table.py" >&2
+    echo "[serve_a2]           → 门控会静默失效（跑的是 stock 逐组路径）" >&2
+  fi
   if [ "$DRAFT_GRAPH" = "1" ]; then
     # draft 版 dsa_v1.py 是「stock + 0004 + F3」合并版 ⇒ 此时不要再挂 F3 版（同一目标路径会 duplicate mount）
     MOUNTS+=(-v "$F/draft/dsa_v1.py:/vllm-workspace/vllm-ascend/vllm_ascend/attention/dsa_v1.py:ro")
@@ -735,6 +744,31 @@ $DOCKER run -d --name "$NAME" --net=host --shm-size=512g --privileged=true \
   -e DSPARK_GRAPH_CAPTURE_METADATA="$([ "$DRAFT_GRAPH" = "1" ] && echo 1 || echo 0)" \
   -e DSPARK_DRAFT_USE_CUDAGRAPH="${DSPARK_DRAFT_USE_CUDAGRAPH:-1}" \
   -e DSPARK_DRAFT_METADATA_MODE="${DSPARK_DRAFT_METADATA_MODE:-sync}" \
+  -e DSPARK_GRAPH_SHADOW_EAGER="${DSPARK_GRAPH_SHADOW_EAGER:-0}" \
+  -e DSPARK_GRAPH_SHADOW_STEPS="${DSPARK_GRAPH_SHADOW_STEPS:-2}" \
+  -e DSPARK_GRAPH_DEVICE_METADATA="${DSPARK_GRAPH_DEVICE_METADATA:-0}" \
+  -e DSPARK_GRAPH_DEBUG="${DSPARK_GRAPH_DEBUG:-0}" \
+  -e DSPARK_GRAPH_PTR_PROBE="${DSPARK_GRAPH_PTR_PROBE:-0}" \
+  -e DSPARK_DSA_PROBE="${DSPARK_DSA_PROBE:-0}" \
+  -e DSPARK_DSA_PROBE_CAPTURE="${DSPARK_DSA_PROBE_CAPTURE:-0}" \
+  -e DSPARK_DSA_WRITE_PROBE="${DSPARK_DSA_WRITE_PROBE:-0}" \
+  -e DSPARK_DSA_WRITE_PROBE_STEPS="${DSPARK_DSA_WRITE_PROBE_STEPS:-12}" \
+  -e DSPARK_CAPTURE_PAD_SLOTS="${DSPARK_CAPTURE_PAD_SLOTS:-0}" \
+  -e DSPARK_DRAFT_SERIAL="${DSPARK_DRAFT_SERIAL:-0}" \
+  -e DSPARK_ROW_DUMP="${DSPARK_ROW_DUMP:-0}" \
+  -e DSPARK_CAPTURE_MAXSEQLEN="${DSPARK_CAPTURE_MAXSEQLEN:-0}" \
+  -e DSPARK_CAPTURE_DISPATCH="${DSPARK_CAPTURE_DISPATCH:-0}" \
+  -e DSPARK_NO_TOPK_SHARE="${DSPARK_NO_TOPK_SHARE:-0}" \
+  -e DSPARK_DRAFT_NO_ATTN="${DSPARK_DRAFT_NO_ATTN:-0}" \
+  -e DSPARK_DRAFT_SYNC_AFTER="${DSPARK_DRAFT_SYNC_AFTER:-0}" \
+  -e DSPARK_DRAFT_SYNC_BEFORE="${DSPARK_DRAFT_SYNC_BEFORE:-0}" \
+  -e DSPARK_RT_FLAGS="${DSPARK_RT_FLAGS:-0}" \
+  -e DSPARK_TOKEN_DUMP="${DSPARK_TOKEN_DUMP:-0}" \
+  -e DSPARK_TOKEN_DUMP_STEPS="${DSPARK_TOKEN_DUMP_STEPS:-12}" \
+  -e DSPARK_STEP_PROBE="${DSPARK_STEP_PROBE:-0}" \
+  -e DSPARK_STEP_PROBE_STEPS="${DSPARK_STEP_PROBE_STEPS:-40}" \
+  -e DSPARK_DSA_PROBE_STEPS="${DSPARK_DSA_PROBE_STEPS:-60}" \
+  -e DSPARK_GRAPH_PTR_PROBE_STEPS="${DSPARK_GRAPH_PTR_PROBE_STEPS:-5}" \
   -e V41_ENGRAM_DEVICE_FALLBACK="$ENGRAM_DEVICE_FALLBACK" \
   -e V41_QLI_NO_CANDIDATE="$QLI_NOCAND" \
   -e V41_MOE_COMM_ALLGATHER="$MOE_AG" \

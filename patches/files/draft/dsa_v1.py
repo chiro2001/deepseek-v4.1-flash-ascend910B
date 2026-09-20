@@ -144,6 +144,180 @@ def _dsa_swa_only_cmp_ratio(compress_ratio: int, vllm_config: VllmConfig) -> int
 
 
 _O_PROJ_2D = os.environ.get("V41_O_PROJ_2D", "0") == "1"
+
+# ==== [DSV41 DSA-PROBE] 判断 DSA 注意力走哪条分支 ====
+# 代码里有一条**静默降级**路径（`if attn_metadata is None: output.fill_(0); return`）：
+# 一旦被走到，图里就**完全没有 attention**，且不会有任何报错 —— 这正是
+# "draft 入图后 pos0≈0.07（第一个 draft token 就错）"的头号怀疑。
+# draft 的 metadata 由 set_ascend_forward_context(..., draft_attn_metadatas=...) 传入，
+# 消费点有两处（attention_v1.py 的 GQA 路径、以及 dsa_v1.forward）。
+_DSA_PROBE = os.environ.get("DSPARK_DSA_PROBE", "0") == "1"
+_DSA_PROBE_LEFT = int(os.environ.get("DSPARK_DSA_PROBE_STEPS", "400"))
+# capture 阶段要不要也打：默认**不打** —— 第一版预算 60 全被 capture 烧光，
+# 正式请求的 replay 一条都没看到。capture 的信息由 dspark-capture-audit 覆盖。
+_DSA_PROBE_CAPTURE = os.environ.get("DSPARK_DSA_PROBE_CAPTURE", "0") == "1"
+# [kv-write-probe] 打 KV 散播的目的地：判"capture 把垃圾写进了哪个槽位"。
+_DSA_WRITE_PROBE = os.environ.get("DSPARK_DSA_WRITE_PROBE", "0") == "1"
+_DSA_WRITE_LEFT = int(os.environ.get("DSPARK_DSA_WRITE_PROBE_STEPS", "12"))
+_DSA_WRITE_CAP_SEEN = False
+_DSA_CAP_SEEN = False
+
+# [DSV41 CAPTURE-MAXSEQLEN] ★ 根因修复候选（2026-09-20）
+#
+# `max_seqlen_kv` 是 `torch.max(seq_lens_cpu).item()` —— 一个 **Python 标量**，
+# 作为标量参数传给 metadata 算子（`npu_sparse_flash_mla_metadata` 等）。
+# ACLGraph 捕获会把标量参数**烘进图**，replay 时不会更新：
+#   * 捕获时 seq_lens 是 dummy 值（实测 `[11]`）⇒ 图里烘的是 11
+#   * replay 时真实 seq_lens 是 1037，但 kernel 仍按 11 算 metadata
+#   ⇒ metadata 内部结构与真实 KV 长度不一致 ⇒ draft attention 全错
+#     （实测症状正好是 pos0=0.067、A=1.07；A 的 1.0 来自偶然接受）
+#
+# 处置：**捕获时改用一个上界值**，这样无论 replay 的真实长度是多少都够用。
+# 上界取 `min(max_model_len, 该 metadata buffer 能容纳的量)`，默认 8192*2。
+# 开关/取值：DSPARK_CAPTURE_MAXSEQLEN（0 = 关闭本修复；>0 = 用该值）
+_DSA_CAPTURE_MAXSEQLEN = int(os.environ.get("DSPARK_CAPTURE_MAXSEQLEN", "0") or 0)
+
+
+def _dsa_write_probe(cache, slot_mapping, rank_hint: str = "write") -> None:
+    global _DSA_WRITE_LEFT, _DSA_WRITE_CAP_SEEN
+    if not _DSA_WRITE_PROBE or _DSA_WRITE_LEFT <= 0:
+        return
+    try:
+        from vllm.forward_context import get_forward_context as _gfc2
+
+        fc = _gfc2()
+        cap = bool(getattr(fc, "capturing", False))
+        mode = getattr(fc, "cudagraph_runtime_mode", None)
+    except Exception:
+        cap, mode = None, None
+    if cap and _DSA_WRITE_CAP_SEEN:
+        return
+    if cap:
+        _DSA_WRITE_CAP_SEEN = True
+    _DSA_WRITE_LEFT -= 1
+    sm = None
+    # ⚠️ capture 区间内**绝不能做 D2H**（`.tolist()`/`.item()`/`.cpu()`）：
+    # 第一次跑就因此把起服打挂了 ——
+    #   `rtStreamEndCapture execution failed, reason=capture model contains a stream that was ...`
+    # capture 只打形状/dtype/指针，值留到 replay 再打。
+    if isinstance(slot_mapping, torch.Tensor) and not cap:
+        sm = slot_mapping[: min(5, slot_mapping.shape[0])].tolist()
+    elif isinstance(slot_mapping, torch.Tensor):
+        sm = f"<capture 期不打值 shape={tuple(slot_mapping.shape)} dtype={slot_mapping.dtype}>"
+    import logging as _logging2
+
+    _logging2.getLogger("vllm").warning(
+        "[dsa-write] %s capturing=%s mode=%s slot_mapping[:5]=%s cache_ptr=0x%x cache_shape=%s",
+        rank_hint,
+        cap,
+        mode,
+        sm,
+        (cache.data_ptr() if isinstance(cache, torch.Tensor) else -1),
+        (tuple(cache.shape) if isinstance(cache, torch.Tensor) else None),
+    )
+
+
+def _dsa_probe_prefix_hit(layer_name, md: dict):
+    """metadata 的键是 attention prefix（如 model.layers.61.self_attn.attn），
+    而调用给的是完整 layer_name；返回任意能对上的键。"""
+    for k in md:
+        k = str(k)
+        if str(layer_name).startswith(k) or k.startswith(str(layer_name)):
+            return k
+    for k in md:
+        k = str(k)
+        if "self_attn" in k and "self_attn" in str(layer_name):
+            return "~" + k
+    return None
+
+
+def _dsa_probe(tag, layer_name, attn_metadata, hidden_states, output=None):
+    global _DSA_PROBE_LEFT
+    if not _DSA_PROBE or _DSA_PROBE_LEFT <= 0:
+        return
+    global _DSA_CAP_SEEN
+    # ★ 只统计**真实 decode**：前三次设计都被"capture/profile 把预算烧光"坑了
+    #   （capture 一次几十行 × 8 rank、profile run 同样多），正式请求一条都没留下。
+    #   这里用 `in_profile_run` / `capturing` 双重过滤，capture 另由 _DSA_PROBE_CAPTURE 控制。
+    try:
+        from vllm.forward_context import get_forward_context as _gfc_pf
+
+        _fc_pf = _gfc_pf()
+        if bool(getattr(_fc_pf, "in_profile_run", False)):
+            return
+        if bool(getattr(_fc_pf, "capturing", False)) and not _DSA_PROBE_CAPTURE:
+            return
+    except Exception:
+        pass
+    else:
+        # capture 期只打**第一次**：2026-09-20 实测 capture 期每个 layer 都打
+        # （每 rank 几十行 × 8 rank）会把图捕获拖垮（worker died / RuntimeError: cancelled）。
+        try:
+            from vllm.forward_context import get_forward_context as _gfc_cap2
+
+            if bool(getattr(_gfc_cap2(), "capturing", False)):
+                if _DSA_CAP_SEEN:
+                    return
+                _DSA_CAP_SEEN = True
+        except Exception:
+            pass
+    _DSA_PROBE_LEFT -= 1
+    try:
+        from vllm.forward_context import get_forward_context
+        fc = get_forward_context()
+        mode = getattr(fc, "cudagraph_runtime_mode", None)
+        capturing = getattr(fc, "capturing", None)
+    except Exception as exc:  # pragma: no cover
+        mode = capturing = f"<err {exc!r}>"
+    try:
+        from vllm_ascend.ascend_forward_context import _EXTRA_CTX
+        is_draft = getattr(_EXTRA_CTX, "is_draft_model", None)
+    except Exception:
+        is_draft = "?"
+    n_keys = len(attn_metadata) if isinstance(attn_metadata, dict) else None
+    keys = list(attn_metadata.keys())[:3] if isinstance(attn_metadata, dict) else None
+    hit = _dsa_probe_prefix_hit(layer_name, attn_metadata) if isinstance(attn_metadata, dict) else None
+    import logging as _logging
+    _logging.getLogger("vllm").warning(
+        "[dsa-probe] %s layer=%s md=%s n_keys=%s hit=%s mode=%s capturing=%s "
+        "is_draft=%s hidden=%s | %s",
+        tag, layer_name, ("None" if attn_metadata is None else type(attn_metadata).__name__),
+        n_keys, hit, mode, capturing, is_draft, tuple(hidden_states.shape),
+        _dsa_probe_extra(attn_metadata),
+    )
+
+
+def _dsa_probe_extra(attn_metadata) -> str:
+    """判"capture/replay 分支是否一致"所需的字段。
+
+    `build_req_metadata_for_drafting` 里有一条**结构性**分叉：
+        if not has_prefill: 用常驻 spec buffer（地址稳定，图重放能读到新值）
+        else:               每次新建张量（地址会漂，图里烘的是**旧地址**）
+    ⇒ capture 与 replay 的 num_prefills 若不同，图里烘的就是错误的那个分支。
+    """
+    if not isinstance(attn_metadata, dict):
+        return "-"
+    out = []
+    for _k, v in list(attn_metadata.items())[:1]:
+        for f in ("num_decodes", "num_prefills", "num_actual_tokens", "num_decode_tokens", "attn_state"):
+            out.append(f"{f}={getattr(v, f, None)}")
+        rm = getattr(v, "req_metadata", None)
+        if rm is not None:
+            sas = getattr(rm, "sas_metadata", None)
+            if isinstance(sas, torch.Tensor):
+                out.append(f"sas=0x{sas.data_ptr():x}")
+            for f in ("start_pos", "seq_lens", "sin", "cos"):
+                t = getattr(rm, f, None)
+                if isinstance(t, torch.Tensor):
+                    out.append(f"{f}=0x{t.data_ptr():x}/{tuple(t.shape)}")
+                elif isinstance(t, dict):
+                    _first = next(iter(t.items()), None)
+                    if _first and isinstance(_first[1], torch.Tensor):
+                        out.append(f"{f}[{_first[0]}]=0x{_first[1].data_ptr():x}")
+                else:
+                    out.append(f"{f}=None")
+    return " ".join(out)
+
 _DUMMY_WO_A_FIX = os.environ.get("V41_DUMMY_WO_A_FIX", "0") == "1"
 
 
@@ -956,6 +1130,16 @@ class AscendDSAMetadataBuilder(AttentionMetadataBuilder[AscendDSAMetadata]):
         seq_lens_q = query_start_loc[1:] - query_start_loc[:-1]
         max_seqlen_q = torch.max(query_start_loc_cpu[1:] - query_start_loc_cpu[:-1]).item()
         max_seqlen_kv = torch.max(seq_lens_cpu[:num_reqs]).item()
+        if _DSA_CAPTURE_MAXSEQLEN > 0:
+            # 见文件里 [DSV41 CAPTURE-MAXSEQLEN] 的说明：捕获期要用上界，
+            # 否则这个标量会被烘成 dummy 小值，replay 时不再更新。
+            try:
+                from vllm.forward_context import get_forward_context as _gfc_capmax
+
+                if bool(getattr(_gfc_capmax(), "capturing", False)):
+                    max_seqlen_kv = max(max_seqlen_kv, _DSA_CAPTURE_MAXSEQLEN)
+            except Exception:
+                pass
         has_prefill = self.num_prefills > 0
 
         self.start_pos_prefill.fill_(0)
@@ -1685,8 +1869,10 @@ class AscendDSAImpl(AttentionImplBase[Any]):
     ) -> torch.Tensor:
         assert output is not None, "Output tensor must be provided."
         output_padded = output
+        _dsa_probe("ENTER", layer_name, attn_metadata, hidden_states, output)
         o_proj_input_shape = self._get_o_proj_input_shape(attn_metadata)
         if attn_metadata is None:
+            _dsa_probe("FALLBACK_NO_METADATA", layer_name, attn_metadata, hidden_states, output)
             # Profiling run: run o_proj on zero input so HCCL collectives are
             # captured by the ACL graph.  Non-OTP just zeros the output.
             if oproj_tp_enable():
@@ -1696,6 +1882,7 @@ class AscendDSAImpl(AttentionImplBase[Any]):
                 output.fill_(0)
             return output
         layer_metadata = self._get_layer_metadata(layer_name, attn_metadata)
+        _dsa_probe("HAS_METADATA", layer_name, attn_metadata, hidden_states, output)
         common_attn_metadata = layer_metadata.attention
         if common_attn_metadata is None:
             common_attn_metadata = layer_metadata.swa
@@ -1819,6 +2006,7 @@ class AscendDSAImpl(AttentionImplBase[Any]):
             )
 
             # swa exec kv
+            _dsa_write_probe(swa_kv_cache, slot_mapping, "swa_exec")
             get_dsa_attn_kv_plan(self.vllm_config).dsa_kv_compress_scatter(
                 swa_kv_cache,
                 kv,
@@ -1923,6 +2111,7 @@ class AscendDSAImpl(AttentionImplBase[Any]):
                 rotary_mode="interleave",
                 partial_slice=[self.nope_head_dim, self.head_dim],
             )
+            _dsa_write_probe(swa_kv_cache, slot_mapping, "cmp_kv")
             get_dsa_attn_kv_plan(self.vllm_config).dsa_kv_compress_scatter(swa_kv_cache, kv, slot_mapping)
 
         if is_prefill:
