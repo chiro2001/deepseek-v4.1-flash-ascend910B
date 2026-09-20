@@ -49,17 +49,93 @@ AIC/AIV = SUPPORTED）。用 `aclrtHostRegister(..., MAPPED)` 把表所在的
 > v8 开发期还曾改过 `patches/files/model_runner_v1.py`（device_metadata 自愈护栏），
 > **已整块撤销并从包里删除**，原因见 §4.3 —— 那是本轮最重要的一条教训。
 
-## 3. ★ 默认 `auto`：为什么不在 A2 上想当然
+## 3. ★★ 默认口径定稿（2026-09-20 A2 真机定论）：**A3 默认开、A2 默认关**
 
-`ENGRAM_DEVICE_INDEX` 的取值：
+> **一句话**：Engram 算子入图（device-index）**只在 A3 默认开启**；A2(910B3)
+> **默认关闭**、走 host 路径（功能与精度不变，只是没有该项加速）。
+> 判据不是机型名，而是**驱动侧的 `host_mem_pool` 特性** —— 它由 PCI device id
+> 在驱动 probe 时定死。
+
+### 3.1 之前的 `auto` 为什么会误判
+
+旧 `auto` 只探 **4 KiB 匿名注册能否被接受**。这个探针在 A2 上**也通过**，
+于是误判为支持 ⇒ 起服跑到 **17 分钟**才以 `ret=207001` 失败。
+**4 KiB 回答的是"这个 API 被不被接受"，回答不了"整表 206 GiB 能不能注册"。**
+
+### 3.2 真门槛：`host_mem_pool`
+
+驱动 `devmm_dev_capability_support_host_mem_pool(devid)`：
+
+```c
+if (g_dev_feature_capabilty_disable[devid][HOST_MEM_POOL_FEATURE]) return false;
+if (hccs_connect(devid) || devdrv_is_mdev_vm_full_spec(devid))     return true;
+else                                                               return false;
+```
+
+`hccs_connect()` 读的是**驱动 probe 时按 PCI device id 定死**的 `connect_protocol`
+（`devdrv_pci.c: devdrv_connect_protocol_init`）：
+
+| 机型 | PCI device id | CPU↔NPU 协议 | `host_mem_pool` | 结果 |
+|---|---|---|---|---|
+| **A3 (910C)** | `19e5:d803` | **HCCS** | **1** | 8 rank × 206 GiB 起服 **133 秒**完成 |
+| **A2 (910B3)** | `19e5:d802` | **PCIe** | **0** | 17 分钟后 `ret=207001` |
+
+> ⚠️ 两机的 `npu-smi info -t topo` **都显示 HCCS** —— 那是 **NPU 之间**的互联；
+> 这里判的是 **CPU↔NPU** 的连接协议，两者不同，不矛盾。
+
+### 3.3 为什么 `host_mem_pool=0` 会失败（**不是内存不够**）
+
+走了逐页建元数据的慢路径，每 **4 KiB 页 64 B**：
+
+| 数组 | 位置 | 每页 |
+|---|---|---:|
+| `node->pa_list` | `svm_master_remote_map.c: devmm_alloc_shm_node` | 8 B |
+| `node->dma_info` | 同上（`devmm_is_mem_map_by_pcie_th()` 为真时才分配） | 16 B |
+| `blks` | `devmm_register_dma.c: devmm_set_register_dma_node` | 40 B |
+
+整表 206 GiB ÷ 4 KiB = **5400 万页/rank** ⇒ 元数据 **3.3 GiB/rank**；其中 `blks`
+是**一笔 ~2.06 GiB 的连续 `vmalloc`**，8 个 rank 各要一笔。
+
+**决定性反证**：失败瞬间宿主机 `MemAvailable` 仍有 **703 GiB（95%）**，
+`buff/cache` 恰好是 engram 表**一份**（216 GiB ÷ 206 GiB = 1.05 ⇒ `MAP_SHARED`
+生效，8 rank 共享同一份物理页）。所以**不是物理内存不足**，是这条慢路径的
+**内核侧元数据分配**失败（`207001 = ACL_ERROR_RT_MEMORY_ALLOCATION`,
+源码注释写明 "only used by out of memory"）。
+
+### 3.4 三条被实测否证的绕行方案（别再试）
+
+| 方案 | 为什么不行 |
+|---|---|
+| 写 `/proc/svm/devN/feature/host_mem_pool` | **no-op**。特性表里 `host_mem_pool` 的 `is_support_disable=false`（只有 `bar_mem`/`aic_reg_map`/`shmem_map_exbus` 是 true），`devmm_dev_feature_capability_disable()` 永远写不进 true |
+| 换大页（hugetlbfs / THP）绕过 | **无效**。页数按 **VA 范围 ÷ 4 KiB** 硬编码：`devmm_register_dma.c` 用 `devmm_get_pagecount_by_size(vaddr, size, KA_MM_PAGE_SIZE)`，而 `ka_memory_pub.h: #define KA_MM_PAGE_SIZE PAGE_SIZE`。只省物理页表，省不了驱动元数据 |
+| 减少 rank 数 / 单 rank 注册 | 单 rank 能过（实测 149.9 s），但生产是 TP8 ⇒ 8 个 rank 各注册一份，逃不掉 |
+
+### 3.5 代码怎么判（自动，不需要用户操作）
+
+`probe_host_mapping_capability()` 增加**第 0 步**：先查
+`/proc/svm/dev<N>/feature/host_mem_pool`（普通用户可读），为 `0` 直接判不支持。
+于是 `auto`（默认）在 A2 上自动回退 host 路径，日志会打印完整原因；
+在 A3 上照常启用。
+
+`V41_ENGRAM_DEVICE_INDEX` 的取值：
 
 | 值 | 行为 |
 |---|---|
-| **`auto`（默认）** | 起服时**探测** `aclrtHostRegister` 一个可写映射并让设备读它；通过则启用，否则**静默回退 host 路径**（功能完全不变） |
-| `1` | 强制启用；探测失败即抛错（A3 验收建议用这个，避免"以为开了其实回退了"） |
+| **`auto`（默认）** | 先查 `host_mem_pool`（0 ⇒ 直接回退），再探 4 KiB 匿名注册；通过才启用，否则**回退 host 路径**（功能与精度不变） |
+| `1` | 强制启用；探测失败即抛错（A3 验收用这个，避免"以为开了其实回退了"） |
 | `0` | 强制关闭 |
 
-**为什么默认不是 1**：该能力只在 A3（910C）实测过，A2（910B3）**从未在同一台机器上验证**。
+### 3.6 A2 的后续方向（未做，评估中）
+
+唯一可行方向是**减少注册总量**（例如每 rank 只注册 1/8 的表 ⇒ 元数据降到
+412 MiB/rank）。代价是要把 v8 删掉的**跨 rank 查表路由**加回一部分 ——
+实测代价约 **+1.5–2.3 ms/step**（host 侧 `route` 1.00 + 设备侧 a2a/bcast 0.77，
+见 `reports/engram-final-quantification.md`），且**无法入图**。
+相比 `ENGRAM_DEVICE_INDEX=0` 的 60–70 ms/step，仍然值得，但属于下一个 PR。
+
+### 3.7 历史记录（保留，说明当时的判断依据）
+
+**当初为什么不敢默认开**：该能力只在 A3（910C）实测过，A2（910B3）从未在同机验证。
 而且本项目自己的 `docs/A2_VS_A3_DIFF.md` §5 记着一条反例：A3 上
 `offload.get_dva(pinned_ptr)` 返回 0，AIV 解引用**已注册的 pinned 地址**会报
 `507035 MTE invalid GM address` ⇒ "registered host memory" ≠ "device kernel 可直接解引用"。
@@ -67,7 +143,11 @@ AIC/AIV = SUPPORTED）。用 `aclrtHostRegister(..., MAPPED)` 把表所在的
 **资料侧结论是"支持"**（华为官方零拷贝样例 `0_simple_zero_copy` 的产品表含
 Atlas A2 训练/推理系列，样例把映射地址当 `GM_ADDR` 传给 AscendC Kernel 用
 `DataCopy` 直接读写；`910B` 的 `NpuArch=2201` 也不在唯一的 `arch5162` 不支持清单里）。
-但**文档承诺 ≠ 现场成立**，所以仍然探测。
+
+**2026-09-20 的现场定论把两件事分开**：A2 的**能力是有的**
+（实测单进程注册完整 206 GiB 成功，149.9 s / 159.5 s 两次），
+卡住它的是 `host_mem_pool=0` 那条慢路径在**8 rank 规模**下的内核侧元数据分配。
+所以"文档说支持"和"生产能用"都对，只是**中间差了一个 `host_mem_pool`**。
 
 A2 上一条命令即可拿到终局答案：
 
@@ -75,6 +155,10 @@ A2 上一条命令即可拿到终局答案：
 IMAGE=<你的镜像> DEV=<空闲卡> bash tools/run_probe_hostmap.sh
 # 退出码 0 = 支持，3 = 不支持，1 = 探测本身出错
 ```
+
+（诊断工具：`tools/probe_engram_hostreg.py` + `run_probe_engram_hostreg.sh`
+——四维二分"匿名/文件 × PRIVATE/SHARED × 尺寸 × 并发进程数"，
+能直接量出失败发生在第几个文件、多少 GiB 处。）
 
 ## 4. 同时修掉的工程问题
 

@@ -796,21 +796,37 @@ class DeepseekV41Model(DeepseekV4Model):
             probe_host_mapping_capability,
         )
 
-        # auto 模式下先探测硬件/驱动能力：A3 通过则启用，A2 若不支持则静默回退到
-        # host 路径（只是没有加速，功能完全不变）。强制模式（=1）则探测失败即抛。
+        # [DEVICE-INDEX-DEFAULT] 发布口径：**A3 默认开启 Engram 算子入图，A2 默认关闭**。
+        #
+        # 这里不按机型名硬编码，而是用**驱动侧的 host_mem_pool 特性**做判据
+        # （`probe_host_mapping_capability()` 的第 0 步）：
+        #   * A3(910C, PCI 19e5:d803, CPU↔NPU 走 HCCS) ⇒ host_mem_pool=1 ⇒ 开启；
+        #   * A2(910B3, PCI 19e5:d802, CPU↔NPU 走 PCIe) ⇒ host_mem_pool=0 ⇒ 关闭。
+        # 为什么 A2 必须关：host_mem_pool=0 时 host_register 逐页建元数据
+        #（每 4 KiB 页 64 B），整表 206 GiB×2 层 ×8 rank 会让单次 vmalloc 申请
+        # ~2.06 GiB 连续内核内存 —— A2 实测 17 分钟后 ret=207001（OOM 语义），
+        # 而同时刻宿主机 MemAvailable 仍有 703 GiB。详见 engram_device_index.py
+        # 的 host_mem_pool_supported()。
+        #
+        # auto 下探测不过就回退 host 路径（**功能与精度完全不变**，只是没有该项加速）。
+        # 强制模式（=1）则探测失败即抛 —— 保留给 A3 验收与后续机型实验。
         if _ENGRAM_DEVICE_INDEX_MODE == "auto":
             ok, detail = probe_host_mapping_capability()
             if not ok:
                 if _bp_rank_zero():
                     print(
-                        "[DEVICE-INDEX] 本机不支持 host 内存设备直索，自动回退到 host 路径"
-                        f"（不影响正确性，只是没有该项加速）。探测结果：{detail}\n"
-                        "  如需强制启用（A3 验收用）设 V41_ENGRAM_DEVICE_INDEX=1",
+                        "[DEVICE-INDEX] 本机不满足 Engram 算子入图的条件，"
+                        "自动回退到 host 路径（**功能与精度不变**，只是没有该项加速）。\n"
+                        f"  探测结果：{detail}\n"
+                        "  发布口径：A3(910C) 默认开启、A2(910B3) 默认关闭 —— 判据是"
+                        "驱动侧的 host_mem_pool 特性。\n"
+                        "  如需强制启用（A3 验收/机型实验）设 V41_ENGRAM_DEVICE_INDEX=1",
                         flush=True,
                     )
                 return
             if _bp_rank_zero():
-                print(f"[DEVICE-INDEX] 能力探测通过：{detail}", flush=True)
+                print(f"[DEVICE-INDEX] 能力探测通过，Engram 算子入图已启用：{detail}",
+                      flush=True)
         elif _ENGRAM_DEVICE_INDEX_MODE not in ("1", "true", "on", "yes"):
             return
 

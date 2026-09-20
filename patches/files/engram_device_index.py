@@ -176,6 +176,107 @@ _KEEPALIVE: list = []
 _ACL_READY = False
 
 
+# ---------------------------------------------------------------------------
+# [HOST-MEM-POOL] 驱动是否为该设备启用 host 内存池 —— **A2/A3 的真正分界线**
+#
+# 为什么需要它
+# ----------
+# 驱动里 `devmm_dev_capability_support_host_mem_pool(devid)` 决定
+# `aclrtHostRegister` 走哪条路（源码 `svm_master_dev_capability.c`）：
+#
+#     if (g_dev_feature_capabilty_disable[devid][HOST_MEM_POOL_FEATURE]) return false;
+#     if (hccs_connect(devid) || devdrv_is_mdev_vm_full_spec(devid))     return true;
+#     else                                                               return false;
+#
+# 而 `hccs_connect()` 读的是**驱动 probe 时按 PCI device id 定死**的
+# `pci_ctrl->connect_protocol`（`devdrv_pci.c: devdrv_connect_protocol_init`）：
+#
+#     0xd803  CLOUD_V2_HCCS_IEP_DEVICE  → CONNECT_PROTOCOL_HCCS → host_mem_pool=1   ← A3 (910C)
+#     0xd802  CLOUD_V2_DEVICE           → CONNECT_PROTOCOL_PCIE → host_mem_pool=0   ← A2 (910B3)
+#
+# ⚠️ 注意 `npu-smi info -t topo` 显示的两机都是 HCCS —— 那是 **NPU 之间**的互联；
+#    这里判的是 **CPU↔NPU** 的连接协议，两者不同，不矛盾。
+#
+# **不可改写**：`host_mem_pool` 在特性表里 `is_support_disable=false`
+#（对比 `bar_mem`/`aic_reg_map`/`shmem_map_exbus` 才是 true），所以
+# `devmm_dev_feature_capability_disable()` 永远写不进 true，
+# 往 `/proc/svm/devN/feature/host_mem_pool` 写 0 或 1 都是 **no-op**。
+#
+# 为什么它决定"整表能不能注册"
+# -------------------------
+# `host_mem_pool=0` 时注册走 `HOST_IO_MAP_DEV` 慢路径，驱动为**每一页**建元数据
+#（`svm_master_remote_map.c: devmm_alloc_shm_node` + `devmm_register_dma.c`）：
+#
+#     node->pa_list  = vmalloc(sizeof(u64) * page_num)                 //  8 B/页
+#     node->dma_info = vmalloc(sizeof(struct devmm_dma_info) * page_num) // 16 B/页
+#     blks           = kvzalloc(sizeof(struct devmm_dma_block) * blks_num) // 40 B/页
+#                                                                        // = 64 B/页
+#
+# 整表 206 GiB ÷ 4 KiB = 54,000,000 页/rank ⇒ 元数据 ≈ 3.3 GiB/rank；
+# 其中 `blks` 是**一笔 2.06 GiB 的连续 vmalloc**，8 个 rank 各要一笔。
+# A2 上实测：单进程 206 GiB 能过（149.9 s），但**8 rank × 206 GiB 时失败**
+# ——`aclrtHostRegister` 返回 `ret=207001`。同一刻宿主机 `MemAvailable` 仍有
+# **703 GiB / 95%**（`/tmp/a2_mem.log`），所以**不是物理内存不足**，
+# 而是这条慢路径的内核侧元数据分配失败。
+#
+# 为什么不能用大页绕过（实测否证）
+# -----------------------------
+# 条数按 **VA 范围 ÷ 4 KiB** 算且硬编码：
+#     devmm_register_dma.c: blks_num = devmm_get_pagecount_by_size(vaddr, size, KA_MM_PAGE_SIZE)
+#     ka_memory_pub.h:      #define KA_MM_PAGE_SIZE  PAGE_SIZE      // = 4 KiB
+# ⇒ 换 hugetlbfs / THP 都不会让 `blks_num` 变小，只省物理页表、省不了驱动元数据。
+#
+# 结论与用法
+# ---------
+#   A3（host_mem_pool=1）：**默认开启** Engram 算子入图。
+#   A2（host_mem_pool=0）：**默认关闭**，走 host 路径（功能/精度不变，只是没有该项加速）。
+#   `V41_ENGRAM_DEVICE_INDEX=1` 仍可强制（会失败并抛出，消息里带本函数的详情）。
+# ---------------------------------------------------------------------------
+def host_mem_pool_supported(device_id: int | None = None) -> tuple[bool, str]:
+    """驱动是否为该设备启用 host 内存池（决定 `host_register` 的快/慢路径）。
+
+    读 ``/proc/svm/dev<N>/feature/host_mem_pool``（root 与普通用户均可读；
+    写入是 no-op，见上面的说明）。读不到时**保守判不支持** —— 因为慢路径在
+    整表规模下必然失败，而"误判为支持"会让起服在 15 分钟后才报错。
+
+    Returns ``(ok, detail)``；never raises。
+    """
+    try:
+        if device_id is None:
+            try:
+                import torch
+
+                device_id = int(torch.npu.current_device())
+            except Exception:  # noqa: BLE001 - torch_npu 可能还没就绪
+                device_id = 0
+        dev = int(device_id)
+        path = f"/proc/svm/dev{dev}/feature/host_mem_pool"
+        try:
+            with open(path, encoding="ascii") as fh:
+                val = fh.read().strip()
+        except OSError as exc:
+            return False, (
+                f"读不到 {path}（{exc.strerror}）⇒ 无法确认驱动侧的 host 内存池；"
+                "保守判不支持（慢路径在整表规模下会失败，见 host_mem_pool_supported 的文档）。"
+                "如需强制启用：V41_ENGRAM_DEVICE_INDEX=1"
+            )
+        if val == "1":
+            return True, f"{path}=1（驱动已启用 host 内存池）"
+        return False, (
+            f"{path}={val or '<空>'} ⇒ 驱动**未**启用 host 内存池。"
+            "此时 host_register 走逐页建元数据的慢路径（每 4 KiB 页 64 B），"
+            "整表 206 GiB×2 层会让单次 vmalloc 申请 ~2.06 GiB 连续内核内存，"
+            "实测在 A2(910B3, PCI 19e5:d802) 上以 ret=207001 "
+            "(ACL_ERROR_RT_MEMORY_ALLOCATION) 失败。"
+            "该特性由驱动 probe 时按 PCI device id 定死、procfs 写入是 no-op，"
+            "不能用大页绕过（页数按 VA÷4 KiB 硬编码）。"
+            "⇒ 本机默认关闭 Engram 算子入图（走 host 路径，功能与精度不变）。"
+            "如需强制：V41_ENGRAM_DEVICE_INDEX=1"
+        )
+    except Exception as exc:  # noqa: BLE001 - probe must never break start-up
+        return False, f"{type(exc).__name__}: {exc}"
+
+
 def npu_dlpack_device_type() -> int:
     """DLDeviceType for NPU, probed at runtime rather than hard-coded."""
     t = torch.zeros(2, device="npu")
@@ -211,20 +312,46 @@ def probe_host_mapping_capability() -> tuple[bool, str]:
 
     The whole device-index design rests on one hardware/driver property:
     ``aclrtHostRegister(..., MAPPED)`` on an ordinary writable host mapping,
-    after which a device operator (``index_select``) reads it directly.  That was
-    verified on **A3 (910C)**; it has **never** been verified on **A2 (910B3)**,
-    and there is a documented counter-example on this very project: on A3,
-    ``offload.get_dva(pinned_ptr)`` returns 0 and an AIV de-referencing a
-    registered *pinned* address dies with ``507035 MTE invalid GM address``
-    (``docs/A2_VS_A3_DIFF.md`` §5: "任何『host 地址可以被 device kernel 直接读』
-    的假设在 A2 上都是未验证").
+    after which a device operator (``index_select``) reads it directly.
 
-    So the release must not assume the property: it probes at start-up and only
-    turns the device-index path on when the probe passes.  4 KiB is enough -- the
-    question is whether registration is *accepted*, not how fast it is.
+    **2026-09-20 A2 真机定论（本探测的分水岭）**：A2(910B3) 上失败的原因**不是**
+    "host 地址不能被 device kernel 读"（能力是有的 —— 实测单进程注册完整
+    206 GiB 成功），而是驱动侧的 **`host_mem_pool` 特性**：
+
+      * A3(910C, PCI ``19e5:d803``, CPU↔NPU 走 HCCS) ⇒ ``host_mem_pool=1``
+        ⇒ 走池化快路径 ⇒ 8 rank × 206 GiB 起服 **133 秒**完成；
+      * A2(910B3, PCI ``19e5:d802``, CPU↔NPU 走 PCIe) ⇒ ``host_mem_pool=0``
+        ⇒ 走逐页建元数据的慢路径（每 4 KiB 页 64 B）⇒ 8 rank × 206 GiB
+        在 17 分钟后以 ``ret=207001`` 失败（宿主机 ``MemAvailable`` 仍有 703 GiB）。
+
+    ⚠️ 所以"只探 4 KiB 匿名注册"**不够**：4 KiB 在 A2 上也是通过的，它回答的是
+    "这个 API 被不被接受"，回答不了"**整表能不能注册**"。必须**先查
+    ``host_mem_pool``**（见 ``host_mem_pool_supported()``），否则 auto 模式会在
+    A2 上误判为支持、然后在起服 15 分钟后才报错。
+
+    本函数的职责因此变成两条：① `host_mem_pool` 必须是 1；② 4 KiB 匿名注册
+    必须被接受。两条都过才算"支持"。
 
     Returns ``(ok, detail)``; never raises, so callers can log and fall back.
     """
+    # ────────────────────────────────────────────────────────────────────────
+    # 第 0 步：驱动侧的 host_mem_pool 特性 —— **决定整表能不能注册**
+    #
+    # ★★★ 这是 2026-09-20 在 A2 真机上定出的**真正门槛**，也是"4 KiB 探测通过、
+    #     真表却失败"的原因。详细机制见 `host_mem_pool_supported()` 的文档。
+    #
+    # 一句话：host_mem_pool=0 时 `aclrtHostRegister` 走**逐页建元数据**的慢路径
+    #（每 4 KiB 页 64 B），整表 206 GiB × 2 层会让单次 `devmm_kvzalloc` 申请
+    # 2.06 GiB 连续 vmalloc —— A2 上实测失败：`ret=207001`
+    #（= `ACL_ERROR_RT_MEMORY_ALLOCATION`，"only used by out of memory"）。
+    #
+    # 所以：**host_mem_pool=0 ⇒ 直接判不支持**，让 auto 模式回退到 host 路径。
+    # 这同时把发布口径钉死为"**A3 默认开启 Engram 算子入图、A2 默认关闭**"，
+    # 不需要按机型名硬编码。
+    pool_ok, pool_detail = host_mem_pool_supported()
+    if not pool_ok:
+        return False, pool_detail
+
     size = PAGE
     addr = 0
     registered = False

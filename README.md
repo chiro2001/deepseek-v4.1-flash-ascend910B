@@ -79,6 +79,37 @@ Engram 表要由设备算子直接索引，走的是 `os.open(path, O_RDWR)` +
 | 起服前自检 FAIL（engram 目录被 `:ro` 覆盖 / 目录不存在） | 按报错里的修法：改回 `MODEL_MOUNT_MODE=auto`（默认）；若是模型目录里没有 `engram_int8/`，那是模型不完整，先补上 |
 | 就是想绕开 | `ENGRAM_DEVICE_INDEX=0` —— **干净的退路**：走 host 路径，完全不要求可写，代价是关掉 v8 的 device-index 加速 |
 
+#### ⚠️ Engram 算子入图的**默认口径**：A3 开、A2 关（2026-09-20 定稿）
+
+`ENGRAM_DEVICE_INDEX=auto`（默认）**不是**看机型名，而是看驱动侧的
+**`host_mem_pool` 特性**（`/proc/svm/dev<N>/feature/host_mem_pool`，普通用户可读）：
+
+| 机型 | CPU↔NPU 协议 | `host_mem_pool` | 默认行为 |
+|---|---|---|---|
+| **A3 (910C)** | HCCS | **1** | **开启** Engram 算子入图（8 rank × 206 GiB 起服约 **133 秒**） |
+| **A2 (910B3)** | PCIe | **0** | **关闭**，自动回退 host 路径（**功能与精度不变**，只是没有该项加速） |
+
+**A2 为什么必须关**：`host_mem_pool=0` 时 `aclrtHostRegister` 走逐页建元数据的
+慢路径（每 4 KiB 页 64 B），整表 206 GiB × 2 层 × 8 rank 会让单次 `vmalloc`
+申请约 2.06 GiB 连续内核内存 —— A2 上实测 **17 分钟后** `ret=207001`
+（`ACL_ERROR_RT_MEMORY_ALLOCATION`），而**同一时刻宿主机 `MemAvailable` 仍有
+703 GiB**（不是物理内存不足）。完整机制与三条被否证的绕行方案见
+[`CHANGELOG.md`](CHANGELOG.md) v8 §3。
+
+判断只需一条命令（不入容器）：
+```bash
+cat /proc/svm/dev0/feature/host_mem_pool     # 1 = A3 口径，0 = A2 口径
+```
+
+起服日志会明确打印走到了哪一边：
+```
+[DEVICE-INDEX] 能力探测通过，Engram 算子入图已启用：/proc/svm/dev0/feature/host_mem_pool=1（…）
+```
+或
+```
+[DEVICE-INDEX] 本机不满足 Engram 算子入图的条件，自动回退到 host 路径（功能与精度不变）…
+```
+
 `build_image.sh` 最后一步的逐文件 md5 校验**不再手写**：期望值在构建时由
 `patches/files/**` 的字节现算（落位表取自 `Dockerfile`），因此"改了补丁忘了改校验和"
 不会再让用户白等 10–20 分钟 —— 详见 [`CHANGELOG.md`](CHANGELOG.md) v8 §11。
