@@ -2,6 +2,9 @@
 # quote 口径单流性能测量（T4）：由 run_test.sh 调用，也可单独跑。
 #   TAG=8k TOKENS=8192 URL=http://127.0.0.1:8100 bash t_quote.sh
 set -uo pipefail
+# [SERVED_NAME] API 请求里的 `"model"` 字段。与起服时的 --served-model-name 一致；
+# 默认 deepseek-v41（向后兼容）。改服务名时同步设它，否则请求会 404。
+SERVED_NAME=${SERVED_NAME:-deepseek-v41}
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PKG="$(dirname "$HERE")"
 TAG=${TAG:-quote}
@@ -26,7 +29,7 @@ echo "[t_quote] tag=$TAG tokens=$TOKENS max_tokens=$MAXTOK repeats=$REPEATS"
 for i in $(seq 1 "$REPEATS"); do
   echo "[t_quote] ---- point $i/$REPEATS $(date '+%F %T') ----"
   "$PY" "$HERE/p15_stream_curve_filefiller.py" \
-    --base-url "$URL" --model deepseek-v41 \
+    --base-url "$URL" --model "$SERVED_NAME" \
     --tokens "$TOKENS" --max-tokens "$MAXTOK" \
     --warmup-tokens 1 --warmup-output-tokens 24 \
     --prefix-file "$PREFIX" --suffix-file "$SUFFIX" \

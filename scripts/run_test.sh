@@ -42,6 +42,11 @@ cd "$PKG"
 MODEL=${MODEL:-}
 IMAGE=${IMAGE:-dsv41-a2:v8}
 PORT=${PORT:-8100}
+# [SERVED_NAME] API 请求 body 里的 `"model"` 字段。必须与起服时的
+# `--served-model-name` 一致（`serve_a2.sh` 里同名 env，默认 deepseek-v41）。
+# ⚠️ 2026-09-20 修：此前本脚本 3 处**硬编码** `deepseek-v41`，用户改了服务名后
+#    这些请求会以 404/400 失败，且报错信息不指向根因。
+SERVED_NAME=${SERVED_NAME:-deepseek-v41}
 MODE=${MODE:-quick}
 TP=${TP:-8}
 # 见 serve_a2.sh 的 §[MEM-HEADROOM]：0.94 会让真实 prefill 的 activation
@@ -169,7 +174,7 @@ SINGLE_STREAM_NOTE="真权重"
 
 # ============================== [1][2][3] 起服 + 就绪 + 必查项 ==============================
 say "起服（模式：$SINGLE_STREAM_NOTE；sptok=$SP_TOKENS；mseqs=$MAX_SEQS；prefix=$PREFIX；PGO=$PYTHON_PGO）"
-MODEL="$MODEL" IMAGE="$IMAGE" NAME="$NAME" PORT="$PORT" TP="$TP" GPU_UTIL="$GPU_UTIL" \
+MODEL="$MODEL" IMAGE="$IMAGE" NAME="$NAME" PORT="$PORT" SERVED_NAME="$SERVED_NAME" TP="$TP" GPU_UTIL="$GPU_UTIL" \
   MAX_LEN="$MAX_LEN" MAX_SEQS="$MAX_SEQS" BAT_TOKENS="$BAT_TOKENS" STATIC_KERNEL="$STATIC_KERNEL" \
   SP_TOKENS="$SP_TOKENS" LOCAL_OWNER="$LOCAL_OWNER" PYTHON_PGO="$PYTHON_PGO" LOAD_FORMAT="$LOAD_FORMAT" \
   MOE_ZERO="$MOE_ZERO" DRAFT_GRAPH="$DRAFT_GRAPH" ENGRAM="$ENGRAM_ON" VISION=1 \
@@ -193,7 +198,7 @@ echo "static_kernel_degrade_hits=$SK_HITS" >> "$OUT/env.txt"
 
 # --- 必查 ② local-owner validate ---
 ask() { curl -s -m "${2:-180}" "http://127.0.0.1:$PORT/v1/completions" -H 'Content-Type: application/json' \
-        -d "{\"model\":\"deepseek-v41\",\"prompt\":$1,\"max_tokens\":${3:-16},\"temperature\":0.0}"; }
+        -d "{\"model\":\"$SERVED_NAME\",\"prompt\":$1,\"max_tokens\":${3:-16},\"temperature\":0.0}"; }
 if [ "$ENGRAM_ON" = "1" ]; then
   say "Engram local-owner 自检（validate → 全对则切 fast）"
   $DOCKER exec "$NAME" bash -lc "printf '%s' validate > /tmp/v41_engram_localowner" 2>/dev/null || true
@@ -241,7 +246,7 @@ printf 'kv_tokens=%s\nkv_pass=%s\nmax_seqs=%s\nprefix=%s\nmode=%s\n' \
 if [ "$MODE" = "prod" ]; then
   say "多 batch / 多轮对话三块验证（生产口径 MAX_SEQS=$MAX_SEQS PREFIX=$PREFIX）"
   "$PYHOST" "$PKG/tests/multibatch/multibatch_gate.py" \
-      --base "http://127.0.0.1:$PORT" --model deepseek-v41 --out "$OUT" \
+      --base "http://127.0.0.1:$PORT" --model "$SERVED_NAME" --out "$OUT" \
       --rounds "${MBG_ROUNDS:-8}" --conc "${MBG_CONC:-8}" \
       --long-ctx "${MBG_LONG_CTX:-131072}" ${MBG_SKIP:+--skip "$MBG_SKIP"} \
       2>&1 | tail -30 | sed 's/^/  /' | tee -a "$OUT/driver.log"
@@ -269,7 +274,7 @@ fi
 if [ -n "$OFFICIAL_DIR" ] && [ -d "$OFFICIAL_DIR/inference/examples/images" ]; then
   say "视觉 23 例 …"
   "$PYHOST" "$PKG/tests/t_vision.py" \
-      --server "http://127.0.0.1:$PORT" --model deepseek-v41 \
+      --server "http://127.0.0.1:$PORT" --model "$SERVED_NAME" \
       --images-dir "$OFFICIAL_DIR/inference/examples/images" \
       --out "$OUT/vision.json" 2>&1 | tail -10 | sed 's/^/  /' | tee -a "$OUT/driver.log"
 else

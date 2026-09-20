@@ -33,6 +33,8 @@
 #   ① 往结果目录写 jsonl/report ② 按需写容器内 /tmp/v41_engram_localowner（可 SKIP=lo 关掉）
 # =============================================================================
 set -uo pipefail
+# [SERVED_NAME] API 请求里的 model 字段；默认 deepseek-v41（向后兼容）。
+SERVED_NAME=${SERVED_NAME:-deepseek-v41}
 
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PKG="$(cd "$HERE/.." && pwd)"
@@ -164,7 +166,7 @@ else
 fi
 
 ask() { curl -s -m "${2:-180}" "http://127.0.0.1:$PORT/v1/completions" -H 'Content-Type: application/json' \
-        -d "{\"model\":\"deepseek-v41\",\"prompt\":$1,\"max_tokens\":${3:-16},\"temperature\":0.0}"; }
+        -d "{\"model\":\"$SERVED_NAME\",\"prompt\":$1,\"max_tokens\":${3:-16},\"temperature\":0.0}"; }
 
 say "必查 ② Engram local-owner 自检（validate → 全对则切 fast）"
 LO_EFF=unknown
@@ -250,7 +252,7 @@ if skipped vision; then
 elif [ -n "$OFFICIAL_DIR" ] && [ -d "$OFFICIAL_DIR/inference/examples/images" ]; then
   say "视觉 23 例 …"
   "$PYHOST" "$PKG/tests/t_vision.py" \
-      --server "http://127.0.0.1:$PORT" --model deepseek-v41 \
+      --server "http://127.0.0.1:$PORT" --model "$SERVED_NAME" \
       --images-dir "$OFFICIAL_DIR/inference/examples/images" \
       --out "$OUT/vision.json" 2>&1 | tail -10 | sed 's/^/  /' | tee -a "$OUT/driver.log"
 else

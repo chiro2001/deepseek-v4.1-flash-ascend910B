@@ -37,13 +37,25 @@ MODEL=${MODEL:-}
 IMAGE=${IMAGE:-dsv41-a2:v8}
 NAME=${NAME:-dsv41-a2}
 PORT=${PORT:-8100}
+# [SERVED_NAME] `--served-model-name`（API 请求 body 里的 `"model"` 字段）。
+# ⚠️ 2026-09-20 修：此前这里是**硬编码** `SERVED_NAME=deepseek-v41`（见下方 inner.sh），
+#    用户传 `SERVED_NAME=xxx` 会被静默覆盖 —— 多实例部署/避让命名冲突时无法自定义。
+#    现在与 `PORT` 同口径：env 优先，默认仍是 `deepseek-v41`（保持向后兼容）。
+#    注意这个值同时决定 **API 请求里必须填的 model 名**；测试脚本要用同一个名字
+#    （`tools/*.sh` 与 `tests/*.py` 会读 `SERVED_NAME`，默认同样回落 deepseek-v41）。
+SERVED_NAME=${SERVED_NAME:-deepseek-v41}
 TP=${TP:-8}
 DEVS=${DEVS:-"0 1 2 3 4 5 6 7"}
 # [SCRIPT-VER] 起服时打印脚本版本 + 指纹。为什么需要：镜像里也有一份烘焙的
 # `/opt/dsv41/scripts/serve_a2.sh`（Dockerfile COPY），而镜像可能是**旧脚本**构建的
 # —— 用户报障时先看这一行就能判断"修复到底有没有生效"（v8 之后 A2 报障的第一件事）。
 # 纪律：README 要求**用发布包里的** scripts/serve_a2.sh；镜像里那份只作兜底。
-SERVE_A2_VER="v8-engram-rw-mount-20260920"
+# ⚠️ 临时诊断版（相对已发布的 12caf9b）：
+#   * MODEL_MOUNT_ALL_RW=1 —— 模型树**全部**挂 :rw（排查用，默认仍是最小放开）
+#   * 透传 DSPARK_DISPATCH_DIAG_STEPS / CAPTURE_NCTX_FIX / SWA_INDICES_RESIDENT
+#     （draft 四件套的实验开关，便于 A/B 关掉对照）
+# 正式合并回发布包时会重新定版本号。
+SERVE_A2_VER="v8-engram-rw-mount-20260920+allrw"
 # [MEM-HEADROOM] 默认 0.92，**不是贪图显存，而是留出 activation 余量**。
 #
 # 实测（8×910C）：真实 prefill 的 activation 峰值约 6 GiB，而 vLLM 在
@@ -316,6 +328,23 @@ esac
 MODEL_MOUNT_MODE=${MODEL_MOUNT_MODE:-auto}
 MODEL_MOUNTS=()
 
+# [MODEL-MOUNT-ALL-RW] ⚠️ 仅诊断用开关（默认 0）：把**整棵模型树**都挂成 :rw。
+#
+# 为什么会有这个开关：v8 起 `engram_int8/` 必须可写（aclrtHostRegister 只接受可写
+# 映射，只读 VMA → ret=507899）。默认逻辑（上面 [ENGRAM-RW]）只放开 engram 表目录，
+# 其余模型目录保持 :ro —— 这是**最小暴露面**的生产口径。
+# 但排查阶段（例如怀疑还有别的目录被驱动/代码要求可写、或想快速排除 :ro 因素）需要
+# 一个"一把全开"的手段，免得逐个目录试。
+#
+# 用法：MODEL_MOUNT_ALL_RW=1 bash scripts/serve_a2.sh ...
+# 效果：所有 MODEL_MOUNTS 条目（含 ancestor / auto 逐目录 / 单层 fallback /
+#       EXTRA_MODEL_MOUNTS）的 `:ro` 一律变 `:rw`；起服日志会打印 ALL-RW 告警。
+# 注意：**不要用于生产**。放宽 :ro 意味着容器内进程（以 root 跑）可以改写权重与
+#       配置；调试完请去掉该 env，或改回 ENGRAM_DEVICE_INDEX=0。
+MODEL_MOUNT_ALL_RW=${MODEL_MOUNT_ALL_RW:-0}
+_ROMODE=ro
+if [ "$MODEL_MOUNT_ALL_RW" = "1" ]; then _ROMODE=rw; fi
+
 # ---------------------------------------------------------------------------
 # [ENGRAM-RW] engram 表目录必须**可写**挂载 —— 为什么，以及怎么判定
 #
@@ -380,6 +409,13 @@ _engram_is_rw_dir() {   # $1 = 目录；0 = 它（或它下面的东西）必须
     case "$_d/" in "$_r"/*) return 0 ;; esac
   done
   return 1
+}
+
+# [MODEL-MOUNT-ALL-RW] 统一判定"这条模型目录要不要挂成 :rw"。
+# 默认口径 = 只有 engram 表目录要 rw；MODEL_MOUNT_ALL_RW=1 时**全部**要 rw。
+_model_dir_needs_rw() {   # $1 = 宿主目录；0 = 需要 :rw
+  [ "$_ROMODE" = "rw" ] && return 0
+  _engram_need_rw && _engram_is_rw_dir "$1"
 }
 
 _engram_mount_mode_for() {   # $1 = 宿主目录 → 打印 "<最深覆盖它的 mode> <容器路径>"
@@ -518,8 +554,12 @@ if [ "$MODEL_MOUNT_MODE" != "none" ] && [ -f "$PKG/tools/model_mount_args.sh" ];
       say "⚠️  MODEL_MOUNT_MODE=ancestor 选出的祖先 $_anc 覆盖不到 $_miss ⇒ 退回 auto（逐目录挂载）"
       MODEL_MOUNT_MODE=auto
     else
-      MODEL_MOUNTS=(-v "$_anc:$_anc:ro")
-      say "模型挂载（ancestor 模式，1 个目录）：$_anc（:ro；engram 表目录会单独叠加 :rw）"
+      MODEL_MOUNTS=(-v "$_anc:$_anc:$_ROMODE")
+      if [ "$_ROMODE" = "rw" ]; then
+        say "模型挂载（ancestor 模式，1 个目录）：$_anc（:rw ← MODEL_MOUNT_ALL_RW=1 强制）"
+      else
+        say "模型挂载（ancestor 模式，1 个目录）：$_anc（:ro；engram 表目录会单独叠加 :rw）"
+      fi
     fi
   fi
   if [ "${#MODEL_MOUNTS[@]}" -eq 0 ]; then
@@ -527,28 +567,32 @@ if [ "$MODEL_MOUNT_MODE" != "none" ] && [ -f "$PKG/tools/model_mount_args.sh" ];
       # [DEVICE-INDEX] aclrtHostRegister 拒绝只读 VMA（ret=507899），所以
       # Engram 表所在目录必须可写挂载 —— 代码只读它，但驱动要在上面取引用。
       # 只放开 engram 表目录（判定见上面 [ENGRAM-RW]），其余模型目录保持 :ro。
-      if _engram_need_rw && _engram_is_rw_dir "$_d"; then
+      # [MODEL-MOUNT-ALL-RW] 开该开关时全部走 :rw（见 _model_dir_needs_rw 注释）。
+      if _model_dir_needs_rw "$_d"; then
         MODEL_MOUNTS+=(-v "$_d:$_d:rw")
       else
-        MODEL_MOUNTS+=(-v "$_d:$_d:ro")
+        MODEL_MOUNTS+=(-v "$_d:$_d:$_ROMODE")
       fi
     done
-    say "模型挂载（auto 模式，${#_mdirs[@]} 个目录，含软链链条；ENGRAM_DEVICE_INDEX=$ENGRAM_DEVICE_INDEX）"
+    say "模型挂载（auto 模式，${#_mdirs[@]} 个目录，含软链链条；ENGRAM_DEVICE_INDEX=$ENGRAM_DEVICE_INDEX MODEL_MOUNT_ALL_RW=$MODEL_MOUNT_ALL_RW）"
     for _d in ${_mdirs[@]+"${_mdirs[@]}"}; do
-      if _engram_need_rw && _engram_is_rw_dir "$_d"; then
+      if _model_dir_needs_rw "$_d"; then
         say "   -v $_d:$_d:rw"
       else
-        say "   -v $_d:$_d:ro"
+        say "   -v $_d:$_d:$_ROMODE"
       fi
     done
   fi
   rm -f "$_mma_err"
 else
-  MODEL_MOUNTS=(-v "$MODEL:$MODEL:ro")
+  MODEL_MOUNTS=(-v "$MODEL:$MODEL:$_ROMODE")
   if [ "$MODEL_MOUNT_MODE" = "none" ]; then
     say "模型挂载（none 模式 —— 软链会悬空，仅用于复现故障）"
   else
     say "⚠️  找不到 tools/model_mount_args.sh，退回只挂 MODEL 一层（软链会悬空）"
+  fi
+  if [ "$_ROMODE" = "rw" ]; then
+    say "   ← MODEL_MOUNT_ALL_RW=1：这一层也是 :rw"
   fi
   # [ENGRAM-RW] 单层 fallback（用户报障的第 3 条路径）同样要叠加 engram 表目录 :rw
   if _engram_need_rw; then
@@ -591,8 +635,16 @@ fi
 if [ -n "${EXTRA_MODEL_MOUNTS:-}" ]; then
   IFS=';' read -r -a _extra <<<"$EXTRA_MODEL_MOUNTS"
   for _p in "${_extra[@]}"; do
-    [ -n "$_p" ] && MODEL_MOUNTS+=(-v "$_p:$_p:ro")
+    [ -n "$_p" ] && MODEL_MOUNTS+=(-v "$_p:$_p:$_ROMODE")
   done
+fi
+
+# [MODEL-MOUNT-ALL-RW] 生效时打一条**显眼**告警：这是诊断口径，不是生产口径。
+if [ "$MODEL_MOUNT_ALL_RW" = "1" ]; then
+  say "⚠️⚠️  MODEL_MOUNT_ALL_RW=1：模型树**全部**挂成 :rw（诊断口径，勿用于生产）"
+  say "       放宽范围：MODEL_MOUNTS 里所有条目（含 ancestor / auto / fallback / EXTRA）"
+  say "       风险：容器内以 root 运行的进程可改写权重与 config.json"
+  say "       调试完请去掉该 env（回到默认只放开 engram 表目录），或改用 ENGRAM_DEVICE_INDEX=0"
 fi
 
 mkdir -p "$OUT" "$CACHE/vllm" "$CACHE/npugraph" "$CACHE/skcache/compile_outputs" "$CACHE/skcache/install" "$CACHE/numba"
@@ -861,7 +913,7 @@ ARTV=${ARTV#,}
 if [ "$DRY_RUN" = "1" ]; then
   echo "[a2-dry] OK"
   echo "[a2-dry] ver=$SERVE_A2_VER md5=$_script_md5 script=$_script_self"
-  echo "[a2-dry] image=$IMAGE name=$NAME port=$PORT devs='$DEVS' util=$GPU_UTIL max_len=$MAX_LEN"
+  echo "[a2-dry] image=$IMAGE name=$NAME port=$PORT served_name=$SERVED_NAME devs='$DEVS' util=$GPU_UTIL max_len=$MAX_LEN"
   echo "[a2-dry] MAX_SEQS=$MAX_SEQS PREFIX=$PREFIX SP_TOKENS=$SP_TOKENS BAT_TOKENS=$BAT_TOKENS"
   echo "[a2-dry] CAPTURE_SIZES=$CAPTURE_SIZES"
   echo "[a2-dry] MOE_AG=$MOE_AG O_PROJ_2D=$O_PROJ_2D MOE_MASK=$MOE_MASK ROPE_IDXSEL=$ROPE_IDXSEL ENGRAM_JIT=$ENGRAM_JIT QLI_NOCAND=$QLI_NOCAND LOCAL_OWNER=$LOCAL_OWNER"
@@ -995,12 +1047,31 @@ $DOCKER run -d --name "$NAME" --net=host --shm-size=512g --privileged=true \
   -e DSPARK_DRAFT_SYNC_BEFORE="${DSPARK_DRAFT_SYNC_BEFORE:-0}" \
   -e DSPARK_RT_FLAGS="${DSPARK_RT_FLAGS:-0}" \
   -e DSPARK_HOIST_CONTEXT_KV="${DSPARK_HOIST_CONTEXT_KV:-0}" \
-  -e DSPARK_CAPTURE_VALUE_FIX="${DSPARK_CAPTURE_VALUE_FIX:-0}" \
+  # [DRAFT-FOUR-PIECE] 默认 **1**（2026-09-20 端到端验证后定稿）。
+  #
+  # 四件套是 `DRAFT_GRAPH=1` 能正常工作的**最小集合**，缺一件就会静默退化：
+  #   * `DSPARK_CAPTURE_VALUE_FIX=1`  —— 捕获期填代表值 + **恢复图内 context KV 写入**。
+  #     这一件是**必须显式打开**的：缺它时 `_context_slot_mapping_buffers` 仍是 None，
+  #     `precompute_and_store_context_kv` 在捕获时提前 return ⇒ **图里根本没有"写 KV"
+  #     那串算子** ⇒ A 从 ~2.6 掉到 **1.07**、单流从 ~100 掉到 **40 tok/s**（实测）。
+  #   * 另外三件在代码/脚本里的默认值已经是 1：
+  #     `DSPARK_SWA_INDICES_RESIDENT`（dsa_v1.py，常驻索引缓冲）、
+  #     `DSPARK_CAPTURE_NCTX_FIX`（dspark_proposer.py，num_reqs×(1+SP)）、
+  #     `DSPARK_DISPATCH_QUERY_LEN_FIX`（llm_base_proposer.py，P0-B 高并发崩溃修复）。
+  #
+  # 为什么必须把默认改成 1：只写 `DRAFT_GRAPH=1` 是最自然的用法，而旧默认 0 会让用户
+  # **拿到一个能起服、但 A≈1.07 的坏配置**，且没有任何报错——只能靠 A/单流数字发现。
+  # 传 `DSPARK_CAPTURE_VALUE_FIX=0` 仍可复现旧行为（用于对照实验）。
+  # 注：draft 版文件只在 `DRAFT_GRAPH=1` 时才挂载，所以本默认对 `DRAFT_GRAPH=0` 无影响。
+  -e DSPARK_CAPTURE_VALUE_FIX="${DSPARK_CAPTURE_VALUE_FIX:-1}" \
   -e DSPARK_CAPTURE_SEQ_LEN="${DSPARK_CAPTURE_SEQ_LEN:-0}" \
+  -e DSPARK_CAPTURE_NCTX_FIX="${DSPARK_CAPTURE_NCTX_FIX:-1}" \
+  -e DSPARK_SWA_INDICES_RESIDENT="${DSPARK_SWA_INDICES_RESIDENT:-1}" \
   -e DSPARK_TOKEN_DUMP="${DSPARK_TOKEN_DUMP:-0}" \
   -e DSPARK_TOKEN_DUMP_STEPS="${DSPARK_TOKEN_DUMP_STEPS:-12}" \
   -e DSPARK_STEP_PROBE="${DSPARK_STEP_PROBE:-0}" \
   -e DSPARK_STEP_PROBE_STEPS="${DSPARK_STEP_PROBE_STEPS:-40}" \
+  -e DSPARK_DISPATCH_DIAG_STEPS="${DSPARK_DISPATCH_DIAG_STEPS:-0}" \
   -e DSPARK_DSA_PROBE_STEPS="${DSPARK_DSA_PROBE_STEPS:-60}" \
   -e DSPARK_GRAPH_PTR_PROBE_STEPS="${DSPARK_GRAPH_PTR_PROBE_STEPS:-5}" \
   -e V41_ENGRAM_DEVICE_FALLBACK="$ENGRAM_DEVICE_FALLBACK" \
@@ -1095,7 +1166,7 @@ fi
 mkdir -p "$OUT"
 {
   echo "[serve_a2] run_id=$RUN_ID image=$IMAGE model=$MODEL"
-  echo "[serve_a2] port=$PORT tp=$TP util=$GPU_UTIL max_len=$MAX_LEN max_seqs=$MAX_SEQS bat=$BAT_TOKENS"
+  echo "[serve_a2] port=$PORT served_name=$SERVED_NAME tp=$TP util=$GPU_UTIL max_len=$MAX_LEN max_seqs=$MAX_SEQS bat=$BAT_TOKENS"
   echo "[serve_a2] sptok=$SP_TOKENS capture_sizes=$CAPTURE_SIZES"
   echo "[serve_a2] MOE_AG=$MOE_AG O_PROJ_2D=$O_PROJ_2D MOE_MASK=$MOE_MASK ROPE_IDXSEL=$ROPE_IDXSEL"
   echo "[serve_a2] ENGRAM_JIT=$ENGRAM_JIT QLI_NOCAND=$QLI_NOCAND LOCAL_OWNER=$LOCAL_OWNER GATE_CHUNK=$GATE_CHUNK"
@@ -1114,7 +1185,7 @@ cat > "$OUT/inner.sh" <<INNER_EOF
 #!/usr/bin/env bash
 set -uo pipefail
 cd /workspace
-export MODEL="$MODEL" TP=$TP DP=1 PORT=$PORT SERVED_NAME=deepseek-v41
+export MODEL="$MODEL" TP=$TP DP=1 PORT=$PORT SERVED_NAME="$SERVED_NAME"
 export MAX_LEN=$MAX_LEN MAX_SEQS=$MAX_SEQS BAT_TOKENS=$BAT_TOKENS GPU_UTIL=$GPU_UTIL BLOCK=$BLOCK
 export KV_DTYPE=$KV_DTYPE GRAPH=1 EAGER=0 PREFIX=$PREFIX SPEC=$SPEC SP_TOKENS=$SP_TOKENS
 if [ "$DRAFT_GRAPH" = "1" ]; then export SPEC_EAGER=0; else export SPEC_EAGER=1; fi

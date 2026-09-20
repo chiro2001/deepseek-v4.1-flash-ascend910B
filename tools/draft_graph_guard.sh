@@ -26,6 +26,9 @@
 # 退出码：0 通过 / 1 判定静默失效 / 2 无基准可比
 # =============================================================================
 set -uo pipefail
+# [SERVED_NAME] API 请求里的 `"model"` 字段。与起服时的 --served-model-name 一致；
+# 默认 deepseek-v41（向后兼容）。改服务名时同步设它，否则请求会 404。
+SERVED_NAME=${SERVED_NAME:-deepseek-v41}
 
 BASE=${1:-http://127.0.0.1:8020}
 PKG=${PKG:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}
@@ -45,7 +48,7 @@ say "2. 跑与发布口径一致的基准（1024 prompt / 256 output；conc=1 �
 #    2026-09-20 我们就因此把"draft 文件退化"误判了一轮。
 cd "$PKG"
 timeout 900 python3 tools/bench_concurrency.py \
-  --base-url "$BASE" --model deepseek-v41 \
+  --base-url "$BASE" --model "$SERVED_NAME" \
   --concurrency 1,2,4,8 --prompt-tokens 1024 --output-tokens 256 --repeats 1 \
   --corpus-file data/dihuo.txt --suffix-dir data/dihuo_local \
   --json-out "$OUT/guard.json" > "$OUT/guard.log" 2>&1

@@ -14,6 +14,9 @@
 #   <run_dir>/arm_<标签>/{guard.json,guard.log,specdec.log,bneck.log,summary.txt}
 # =============================================================================
 set -uo pipefail
+# [SERVED_NAME] API 请求里的 `"model"` 字段。与起服时的 --served-model-name 一致；
+# 默认 deepseek-v41（向后兼容）。改服务名时同步设它，否则请求会 404。
+SERVED_NAME=${SERVED_NAME:-deepseek-v41}
 
 BASE=${1:-http://127.0.0.1:8020}
 RUN=${2:?需要 run 目录（results/<run_id>）}
@@ -40,7 +43,7 @@ say "1. 基准（1024 prompt / 256 output；conc=1 档跑 **8 条**请求取中�
 #    取 conc=1 那一行（8 条串行）作为该臂的 A/tok-s。
 cd "$PKG"
 timeout 900 python3 tools/bench_concurrency.py \
-  --base-url "$BASE" --model deepseek-v41 \
+  --base-url "$BASE" --model "$SERVED_NAME" \
   --concurrency 1,2,4,8 --prompt-tokens 1024 --output-tokens 256 --repeats 1 \
   --corpus-file data/dihuo.txt --suffix-dir data/dihuo_local \
   --json-out "$OUT/guard.json" > "$OUT/guard.log" 2>&1

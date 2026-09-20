@@ -31,6 +31,9 @@ DRY_RUN=${DRY_RUN:-0}
 export IMAGE=${IMAGE:-quay.nju.edu.cn/ascend/vllm-ascend:deepseek-v4.1-flash-a3}
 export NAME=${NAME:-dsv41-a3}
 export PORT=${PORT:-8020}
+# [SERVED_NAME] 与 PORT 同口径：env 优先，默认 `deepseek-v41`。
+# 它同时决定 API 请求 body 里必须填的 `"model"` 字段；测试脚本请用同一个名字。
+export SERVED_NAME=${SERVED_NAME:-deepseek-v41}
 export TOOL_CALLING=${TOOL_CALLING:-1}
 export MAX_SEQS=${MAX_SEQS:-32}
 # [绑核] 外部**不做** CPU/NUMA 绑定：容器不设 --cpuset-cpus/--cpuset-mems，
