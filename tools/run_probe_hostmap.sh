@@ -8,7 +8,7 @@
 set -uo pipefail
 
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-IMAGE=${IMAGE:-dsv41-a2:v6}
+IMAGE=${IMAGE:-dsv41-a2:v8}
 DEV=${DEV:-0}
 DOCKER=${DOCKER:-docker}
 

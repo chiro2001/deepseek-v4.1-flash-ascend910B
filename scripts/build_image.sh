@@ -13,7 +13,7 @@
 #
 # 可选环境变量：
 #   BASE_IMAGE  基础镜像（默认 quay.nju.edu.cn/ascend/vllm-ascend:deepseek-v4.1-flash-openeuler）
-#   IMAGE_TAG   产出镜像名（默认 dsv41-a2:v6）
+#   IMAGE_TAG   产出镜像名（默认 dsv41-a2:v8）
 #   NO_CACHE    1 = 不使用构建缓存
 #   SKIP_PGO    1 = 不打包 PGO 产物（镜像会小 30 MB）
 # =============================================================================
@@ -24,7 +24,7 @@ PKG="$(cd "$HERE/.." && pwd)"
 cd "$PKG"
 
 BASE_IMAGE=${BASE_IMAGE:-quay.nju.edu.cn/ascend/vllm-ascend:deepseek-v4.1-flash-openeuler}
-IMAGE_TAG=${IMAGE_TAG:-dsv41-a2:v6}
+IMAGE_TAG=${IMAGE_TAG:-dsv41-a2:v8}
 CACHE_ARGS=()
 [ "${NO_CACHE:-0}" = "1" ] && CACHE_ARGS+=(--no-cache)
 
@@ -105,44 +105,31 @@ $DOCKER build "${CACHE_ARGS[@]}" \
 [ "${PIPESTATUS[0]}" = "0" ] || die "docker build 失败"
 
 # ---------- 4) 自校验（镜像内逐文件 md5 + py_compile + 备份存在性）----------
+#
+# ⚠️ 这里**不再有手写 md5 表**。v7→v8 就是因为这张表没跟上而让用户白等 10–20 分钟：
+#    改了 patches/files/model.py 却忘了改 chk 里的期望值 -> "FAIL md5 .../model.py"。
+# 现在期望值在**构建时**由 `tools/check_checksums.py` 从包内载荷字节现算，
+# 落位表（哪个文件装到哪个路径、inst 还是 newf）由 Dockerfile 的 inst/newf 推导 ⇒
+# "改了文件忘了同步校验和"在结构上不可能再发生，也不会再漏掉某个文件。
+say "生成校验清单（由 patches/files/ 的字节 + Dockerfile 落位表推导）…"
+CHK_TSV=$(mktemp -t dsv41chk.XXXXXX)
+trap 'rm -f "$CHK_TSV"' EXIT
+python3 "$PKG/tools/check_checksums.py" \
+    --dockerfile "$PKG/Dockerfile" \
+    --payload    "$PKG/patches/files" \
+    --sums       "$PKG/patches/MD5SUMS" \
+    --manifest   "$CHK_TSV" --quiet-ok \
+  || die "包内一致性检查失败（见上）—— 先修好再 build，别浪费 10–20 分钟"
+say "  清单 $(grep -c . "$CHK_TSV") 项：$(cut -f1 "$CHK_TSV" | sort | uniq -c | tr '\n' ' ')"
+
 say "校验烘焙结果…"
-$DOCKER run "$IMAGE_TAG" bash -lc '
+$DOCKER run --rm \
+  -v "$CHK_TSV:/tmp/dsv41-chk.tsv:ro" \
+  -v "$PKG/tools/verify_baked_tree.sh:/tmp/dsv41-verify.sh:ro" \
+  "$IMAGE_TAG" bash -lc '
   set -uo pipefail
   A="${ASCEND_PKG:-/vllm-workspace/vllm-ascend/vllm_ascend}"
-  rc=0
-  chk() { # relpath expected_md5
-    local t="$A/$1"
-    if [ ! -f "$t" ]; then echo "  FAIL 缺文件 $1"; rc=1; return; fi
-    local got; got=$(md5sum "$t" | cut -d" " -f1)
-    if [ "$got" != "$2" ]; then echo "  FAIL md5 $1: got=$got want=$2"; rc=1; return; fi
-    python3 -m py_compile "$t" 2>/dev/null || { echo "  FAIL py_compile $1"; rc=1; return; }
-    echo "  OK  $got  $1"
-  }
-  chk models/deepseek_v41/engram_hbm.py            6f227a749aa6ba6f1290446611202028
-  chk models/deepseek_v41/engram_hash.py           3a842bbb6d0dd783c65087ccef347370
-  chk models/deepseek_v41/engram_jit_kernel.py     1add256a203d7f6dfd98874c575ce24a
-  chk models/deepseek_v41/engram_plan_kernel.py    0be62d7775374b0167a54f5b393a65ac
-  chk models/deepseek_v41/engram_gate.py           146010cac42261e9dc4380699e156252
-  chk models/deepseek_v41/model.py                 5b7c45261e2d63838b9e4a25f87ad350
-  chk ascend_forward_context.py                    6cccd4259bd65c907ef9d9dd42a83dca
-  chk attention/dsa_v1.py                          9a36e709b0937589eab05c5316a62591
-  chk models/deepseek_v41/indexer.py               f61f242df4f060106ce1bf4500ff5844
-  chk ops/fused_moe/token_dispatcher.py            a695735ae3e03096a432468eb9ad6b83
-  chk ops/rope_dsv4.py                             6a19890850ac7cb41c535b070c2dfbf6
-  # 备份必须存在（回滚用）
-  for f in models/deepseek_v41/engram_hbm.py models/deepseek_v41/engram_gate.py \
-           ops/fused_moe/token_dispatcher.py ops/rope_dsv4.py attention/dsa_v1.py ; do
-    [ -f "$A/$f.a2orig" ] || { echo "  FAIL 缺备份 $f.a2orig"; rc=1; }
-  done
-  # 未验证项**不应**被装进运行时（只在 /opt/dsv41/patches 里待命）
-  [ -f /opt/dsv41/patches/draft/dspark_proposer.py ] || { echo "  FAIL 缺 draft 补丁"; rc=1; }
-  [ -f /opt/dsv41/patches/draft/llm_base_proposer.py ] || { echo "  FAIL 缺 draft 补丁"; rc=1; }
-  [ -f /opt/dsv41/patches/files/token_dispatcher_moezero.py ] || { echo "  FAIL 缺 MOE_ZERO 补丁"; rc=1; }
-  [ -f /opt/dsv41/scripts/serve_v2.sh ] || { echo "  FAIL 缺 serve_v2.sh"; rc=1; }
-  [ -f /opt/dsv41/scripts/serve_a2.sh ] || { echo "  FAIL 缺 serve_a2.sh"; rc=1; }
-  [ -f /opt/dsv41/BUILD_INFO.txt ]      || { echo "  FAIL 缺 BUILD_INFO.txt"; rc=1; }
-  grep -q libjemalloc /opt/dsv41/scripts/serve_v2.sh || { echo "  FAIL serve_v2 未启用 jemalloc"; rc=1; }
-  exit $rc
+  bash /tmp/dsv41-verify.sh --root "$A" --manifest /tmp/dsv41-chk.tsv --image-extras
 ' || die "自校验失败（见上）"
 
 say "完成：镜像 $IMAGE_TAG"

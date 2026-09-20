@@ -93,11 +93,12 @@ fi
 BASE=${BASE_IMAGE:-quay.nju.edu.cn/ascend/vllm-ascend:deepseek-v4.1-flash-openeuler}
 IMG=${PGO_BUILD_IMAGE:-}
 if [ -z "$IMG" ]; then
-  for c in "$BASE" "dsv41-a2:v6" "dsv41-a2:v5"; do
+  # 顺序 = 优先级：本包烘焙出的 v8 在前，老机器上可能只留下了 v5/v6，保留作 fallback。
+  for c in "$BASE" "dsv41-a2:v8" "dsv41-a2:v6" "dsv41-a2:v5"; do
     if $DOCKER image inspect "$c" >/dev/null 2>&1; then IMG="$c"; break; fi
   done
 fi
-[ -n "$IMG" ] || die "找不到可用的编译镜像（试过 $BASE / dsv41-a2:v6 / dsv41-a2:v5）"
+[ -n "$IMG" ] || die "找不到可用的编译镜像（试过 $BASE / dsv41-a2:v8 / dsv41-a2:v6 / dsv41-a2:v5）"
 say "编译容器镜像：$IMG"
 
 JOBS=${PGO_JOBS:-}

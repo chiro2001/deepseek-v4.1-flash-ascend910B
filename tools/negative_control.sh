@@ -24,6 +24,7 @@
 #   NC6  `-v` 参数被拆成单个元素（mapfile 的坑）      （docker 报 invalid characters）
 #   NC7  serve_a2.sh 退回单层挂载                    （软链悬空，回到 v4 状态）
 #   NC8  skcache 临时目录堆积                        （磁盘无限增长）
+#   NC9  补丁载荷被改动但 md5 清单/落位表没跟上       （v7→v8 的 build_image checksum 失败）
 # =============================================================================
 set -uo pipefail
 
@@ -124,7 +125,9 @@ fi
 hr "NC4  镜像 tag 三处不一致必须被 preflight 抓到"
 # ---------------------------------------------------------------------------
 _d="$WORK/NC4"; cp -a "$PKG/." "$_d/" 2>/dev/null || true
-sed -i 's/dsv41-a2:v6/dsv41-a2:v9/' "$_d/scripts/build_image.sh"
+# ⚠️ 这里的源串必须与 scripts/build_image.sh 的**当前**默认 tag 一致，
+#    否则 sed 静默不匹配 ⇒ NC4 变成假通过（最坏的一类 bug）。
+sed -i 's/dsv41-a2:v8/dsv41-a2:v9/' "$_d/scripts/build_image.sh"
 _out=$(cd "$_d" && SKIP_DOCKER=1 bash tools/preflight_a2.sh 2>&1)
 if printf '%s' "$_out" | grep -qE "FATAL.*tag 不一致"; then
   good "NC4 preflight 正确报 FATAL：镜像 tag 不一致"
@@ -225,12 +228,62 @@ else
 fi
 
 # ---------------------------------------------------------------------------
+hr "NC9  补丁载荷改动而 md5 清单没跟上，必须被 check_checksums 抓到"
+# ---------------------------------------------------------------------------
+# 这正是用户报的那个 bug：v8 改了 patches/files/{model,engram_hbm}.py，而 build_image.sh
+# 里那张手写 md5 表没跟上 ⇒ build 跑到最后一步才 FAIL md5。
+# 现在的判据：期望 md5 **由载荷字节现算**，任何"载荷 vs 清单"不一致都必须报出来。
+if bash "$PKG/tools/check_checksums.sh" >/dev/null 2>&1; then
+  good "NC9 正控：真实包三方一致（Dockerfile 落位表 / patches/files / MD5SUMS）"
+else
+  bad "NC9 正控：真实包三方**不一致**（先修真实包，否则 build_image 必然失败）"
+fi
+
+_d="$WORK/NC9"; mkdir -p "$_d/tools" "$_d/patches/files" "$_d/patches/vllm-ascend"
+cp "$PKG/Dockerfile" "$_d/"
+cp "$PKG/tools/check_checksums.py" "$PKG/tools/check_checksums.sh" "$_d/tools/"
+cp -a "$PKG/patches/files/." "$_d/patches/files/"
+cp "$PKG/patches/MD5SUMS" "$_d/patches/MD5SUMS"
+cp "$PKG/patches/vllm-ascend/MD5SUMS" "$_d/patches/vllm-ascend/MD5SUMS"
+# 造坏输入：往载荷尾部加一行注释（内容变了，两份 md5 清单都还是旧值）
+printf '\n# negctl NC9\n' >> "$_d/patches/files/model.py"
+_out=$(bash "$_d/tools/check_checksums.sh" 2>&1)
+if printf '%s' "$_out" | grep -q "FAIL" && printf '%s' "$_out" | grep -q "model.py"; then
+  good "NC9 负控：载荷被改动后 check_checksums 报 FAIL 且点名 model.py"
+else
+  bad "NC9 负控：载荷被改动却判为通过（检查失效！）"
+fi
+
+# ---------------------------------------------------------------------------
+hr "NC10  镜像内校验脚本必须真的能分辨『逐字节一致』与『被改过一个字节』"
+# ---------------------------------------------------------------------------
+# verify_baked_tree.sh 是 build_image.sh 最后一步用的脚本；这里在**假树**上做正/负控，
+# 不需要 docker，也不需要 10–20 分钟的 build。
+_d="$WORK/NC10"; mkdir -p "$_d/tools"
+cp "$PKG/tools/verify_baked_tree.sh" "$_d/tools/"
+# 用**落位表**把载荷铺成一棵模拟镜像树（等价于"理想 build 的结果"，不需要 docker）
+python3 "$PKG/tools/check_checksums.py" --manifest "$_d/chk.tsv" \
+        --materialize "$_d/tree" --quiet-ok >/dev/null 2>&1
+_n=$(grep -c . "$_d/chk.tsv")
+if bash "$_d/tools/verify_baked_tree.sh" --root "$_d/tree" --manifest "$_d/chk.tsv" >/dev/null 2>&1; then
+  good "NC10 正控：假树（$_n 项 + 备份）判为逐字节一致"
+else
+  bad "NC10 正控：一致的假树被判为不一致（误报）"
+fi
+printf '\n# negctl NC10\n' >> "$_d/tree/models/deepseek_v41/model.py"
+if bash "$_d/tools/verify_baked_tree.sh" --root "$_d/tree" --manifest "$_d/chk.tsv" >/dev/null 2>&1; then
+  bad "NC10 负控：被改过一个字节的 model.py 仍判为一致（检查失效！）"
+else
+  good "NC10 负控：改一个字节即 FAIL（就是用户当年看到的那条）"
+fi
+cp "$PKG/patches/files/model.py" "$_d/tree/models/deepseek_v41/model.py"
+rm -f "$_d/tree/models/deepseek_v41/model.py.a2orig"
+if bash "$_d/tools/verify_baked_tree.sh" --root "$_d/tree" --manifest "$_d/chk.tsv" >/dev/null 2>&1; then
+  bad "NC10 备份负控：缺 .a2orig 回滚备份却判为通过（检查失效！）"
+else
+  good "NC10 备份负控：缺 .a2orig 回滚备份即 FAIL"
+fi
+
+# ---------------------------------------------------------------------------
 hr "汇总"
 # ---------------------------------------------------------------------------
-printf '  PASS=%d  FAIL=%d\n' "$PASS" "$FAIL"
-if [ "$FAIL" -gt 0 ]; then
-  printf '\n\033[31m[negctl] %d 项失败 —— 说明对应的自检"抓不到 bug"，必须修\033[0m\n\n' "$FAIL"
-  exit 1
-fi
-printf '\n\033[32m[negctl] 全部通过 ✅ 每个自检都被证明能抓到它对应的 bug\033[0m\n\n'
-exit 0

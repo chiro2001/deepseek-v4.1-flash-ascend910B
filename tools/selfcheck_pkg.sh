@@ -58,6 +58,7 @@ fi
 for f in scripts/build_image.sh scripts/serve_a2.sh scripts/run_test.sh \
          tools/model_mount_args.sh tools/check_model_dir.sh \
          tools/preflight_a2.sh tools/negative_control.sh \
+         tools/check_checksums.sh tools/verify_baked_tree.sh \
          build_scripts/00_ensure_pgo.sh \
          tests/t_quote.sh tests/multibatch/multibatch_session.sh; do
   if [ ! -f "$f" ]; then
@@ -74,6 +75,7 @@ for f in tests/t_vision.py tests/t_gsm8k.py tests/acc_eval.py \
          tests/vision_accuracy_check.py tests/p15_stream_curve_filefiller.py \
          tests/multibatch/multibatch_gate.py \
          tools/check_dockerfile.py tools/fisher_recheck.py tools/steep_summary.py \
+         tools/check_checksums.py \
          tools/model_mount_args.sh; do
   [ -f "$f" ] || { bad "缺文件：$f"; continue; }
   case "$f" in *.py)
@@ -127,6 +129,28 @@ if [ -f MANIFEST.sha256 ]; then
   else bad "MANIFEST.sha256 有 $n_bad/$n_total 项不匹配（文件被改过？重跑 sha256sum）"; fi
 else
   warn "没有 MANIFEST.sha256"
+fi
+
+# ------------------------------------------------- 8) 校验和一致性（v8 补的坑）
+# build_image.sh 早期把补丁 md5 **硬编码**在 chk() 里，v7→v8 忘了同步 ⇒ 用户 build 到
+# 最后一步才报 "FAIL md5 .../model.py"。现在期望 md5 由载荷字节现算，本项检查则保证
+# 「Dockerfile 落位表 / patches/files / MD5SUMS」三方一致、且没有"装了却没被校验"的文件。
+if [ -x tools/check_checksums.sh ] || [ -f tools/check_checksums.sh ]; then
+  if out=$(bash tools/check_checksums.sh 2>&1); then
+    n=$(printf '%s' "$out" | sed -n 's/^\[chk\] 落位表 \([0-9]*\) 项.*/\1/p' | head -1)
+    warn_cnt=$(printf '%s' "$out" | grep -c '^\[chk\]\[WARN\]' || true)
+    if [ "${warn_cnt:-0}" = "0" ]; then
+      ok "校验和一致性：Dockerfile 落位表（${n:-?} 项）/ patches/files / MD5SUMS 三方一致"
+    else
+      warn "校验和一致性通过，但有 $warn_cnt 条 WARN（非运行时载荷的清单过期，见下）"
+      printf '%s\n' "$out" | grep '^\[chk\]\[WARN\]' | sed 's/^/        /'
+    fi
+  else
+    bad "校验和一致性失败（build_image.sh 会因此拒绝构建）："
+    printf '%s\n' "$out" | grep -E '^\s+-|^\[chk\]\[FAIL\]' | sed 's/^/        /' | head -12
+  fi
+else
+  bad "缺 tools/check_checksums.sh（v8 起 build_image.sh 依赖它推导期望 md5）"
 fi
 
 echo

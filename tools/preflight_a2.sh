@@ -25,7 +25,7 @@ PKG="$(cd "$HERE/.." && pwd)"
 cd "$PKG"
 
 MODEL=${MODEL:-}
-IMAGE=${IMAGE:-dsv41-a2:v6}
+IMAGE=${IMAGE:-dsv41-a2:v8}
 
 FATAL=0
 WARN=0
@@ -189,7 +189,7 @@ if "$PYHOST_" -c "import datasets, sys; print(datasets.__version__)" >/tmp/_ds.$
 else
   bad "PYHOST 的解释器没有 datasets ⇒ GSM8K 必然失败"
   fix "$PYHOST_ -m pip install 'datasets==5.0.1'"
-  fix "或 export PYHOST=<带 datasets 的解释器>（v6 支持覆盖，v5 不支持）"
+  fix "或 export PYHOST=<带 datasets 的解释器>（本包支持用 PYHOST 覆盖）"
 fi
 rm -f /tmp/_ds.$$
 # HF 缓存
@@ -215,7 +215,7 @@ else
   fix "export OMP_NUM_THREADS=1（A3 实测配置）"
 fi
 _ml=$(ulimit -l 2>/dev/null || echo '?')
-info "memlock (ulimit -l) = $_ml   （A2 需要大值；v6 已默认 --ulimit memlock=-1）"
+info "memlock (ulimit -l) = $_ml   （A2 需要大值；本包已默认 --ulimit memlock=-1）"
 
 # NUMA / NPU 拓扑：决定 detect_numa 会绑到哪些核
 if command -v npu-smi >/dev/null 2>&1; then
@@ -263,8 +263,8 @@ else
 fi
 _ts=$(find "$_skc" -maxdepth 1 -type d -name 'ts*_outputs' 2>/dev/null | wc -l)
 if [ "${_ts:-0}" -gt 0 ]; then
-  warn "有 $_ts 个 ts*_outputs 临时目录（v5 从不清理，A3 上攒到 1491 个/847MB）"
-  fix "v6 起服时会自动 GC；也可手动：find $_skc -maxdepth 1 -type d -name 'ts*_outputs' -delete"
+  warn "有 $_ts 个 ts*_outputs 临时目录（旧版从不清理，A3 上曾攒到 1491 个/847MB）"
+  fix "本包起服时会自动 GC；也可手动：find $_skc -maxdepth 1 -type d -name 'ts*_outputs' -delete"
 fi
 
 if [ -f optim/pgo/libpython3.12.so.1.0 ]; then
@@ -273,8 +273,8 @@ if [ -f optim/pgo/libpython3.12.so.1.0 ]; then
   if [ -s optim/pgo/TARGET_PATH.txt ]; then
     ok "TARGET_PATH.txt = $(cat optim/pgo/TARGET_PATH.txt)"
   else
-    warn "TARGET_PATH.txt 缺失/为空（v5 会因此**静默降级** PYTHON_PGO=0）"
-    fix "v6 起服时会自动探测并落盘；也可先跑一次 scripts/build_image.sh"
+    warn "TARGET_PATH.txt 缺失/为空（旧版会因此**静默降级** PYTHON_PGO=0）"
+    fix "本包起服时会自动探测并落盘；也可先跑一次 scripts/build_image.sh"
   fi
 else
   warn "无 PGO 产物 ⇒ PYTHON_PGO 会降级为 0（失去 ~4.4% 服务侧收益）"
@@ -303,7 +303,7 @@ if command -v docker >/dev/null 2>&1 || sudo -n docker info >/dev/null 2>&1; the
   DOCKER="docker"; docker info >/dev/null 2>&1 || DOCKER="sudo -n docker"
   _left=$($DOCKER ps -a --format '{{.Names}}' 2>/dev/null | grep -x 'dsv41-a2' || true)
   if [ -n "$_left" ]; then
-    bad "残留容器 dsv41-a2 存在（v5 里失败不清理 ⇒ 悬挂 ~313 GB，导致后续起服叠加失败）"
+    bad "残留容器 dsv41-a2 存在（旧版失败不清理 ⇒ 悬挂 ~313 GB，导致后续起服叠加失败）"
     fix "$DOCKER rm -f dsv41-a2"
   else
     ok "无残留 dsv41-a2 容器"
@@ -311,15 +311,15 @@ if command -v docker >/dev/null 2>&1 || sudo -n docker info >/dev/null 2>&1; the
   if $DOCKER image inspect "$IMAGE" >/dev/null 2>&1; then
     ok "镜像 $IMAGE 存在"
   else
-    # [RETAG-HINT] v6 的 patches/ + Dockerfile + optim/ 与 v5 **逐字节相同** ⇒
-    # 镜像内容一致，不必重新 build（省 10–20 min）。直接 retag 即可。
-    if [ "$IMAGE" = "dsv41-a2:v6" ] && $DOCKER image inspect dsv41-a2:v5 >/dev/null 2>&1; then
-      warn "镜像 $IMAGE 不存在，但 dsv41-a2:v5 在（v6 的镜像内容与 v5 完全相同）"
-      fix "直接 retag，省掉 10–20 min 重建：docker tag dsv41-a2:v5 dsv41-a2:v6"
-      fix "或显式沿用：IMAGE=dsv41-a2:v5 bash scripts/run_test.sh"
-    else
-      warn "镜像 $IMAGE 不存在 ⇒ 先跑 bash scripts/build_image.sh"
-    fi
+    # [RETAG-HINT 已撤销] 这里曾写死："v6 的 patches/ + Dockerfile + optim/ 与 v5
+    # 逐字节相同 ⇒ 可直接 `docker tag dsv41-a2:v5 dsv41-a2:v6`，省 10–20 min"。
+    # 那个结论**只对 v6 成立**：v8 的镜像内容与 v5/v6 不同（新增 engram_device_index.py /
+    # engram_graph.py，改 model.py / engram_hbm.py），照提示 retag 会得到一个
+    # 「名字叫 v8、内容却是 v6」的镜像 —— 属发布事故。而且 tag 名本身无法证明内容等价，
+    # 唯一可靠的判据是逐文件 md5（build_image.sh 第 4 步会做）。
+    # ⇒ 现在只提示"重建"，不再提供任何 retag 捷径。
+    warn "镜像 $IMAGE 不存在 ⇒ 先跑 bash scripts/build_image.sh 烘焙（约 10–20 min）"
+    fix "若确实想沿用旧镜像，请**显式指定并自行确认内容**：IMAGE=<已有 tag> bash scripts/run_test.sh"
   fi
 else
   warn "docker 不可用，跳过容器检查"

@@ -14,7 +14,7 @@
 #
 # 常用变量（都有默认值，绝大多数不用改）：
 #   MODEL      必填，模型目录
-#   IMAGE      默认 dsv41-a2:v6
+#   IMAGE      默认 dsv41-a2:v8
 #   NAME       容器名，默认 dsv41-a2
 #   PORT       默认 8100
 #   GPU_UTIL   默认 0.92（**长 prompt 首 token 延迟的关键**；
@@ -34,7 +34,7 @@ HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PKG="$(cd "$HERE/.." && pwd)"
 
 MODEL=${MODEL:-}
-IMAGE=${IMAGE:-dsv41-a2:v6}
+IMAGE=${IMAGE:-dsv41-a2:v8}
 NAME=${NAME:-dsv41-a2}
 PORT=${PORT:-8100}
 TP=${TP:-8}
@@ -443,8 +443,8 @@ fi
 # ---------- [PYTHON_PGO] 只在产物存在且版本匹配时启用 ----------
 PGO_LIB=""
 if [ "$PYTHON_PGO" = "1" ]; then
-  # [PGO-AUTODETECT] v5 的行为：TARGET_PATH.txt 缺失 → 只打一行 WARNING 就静默降级，
-  # 很容易被漏掉（这正是用户遇到的情况）。v6 改为**自动探测并落盘**。
+  # [PGO-AUTODETECT] 旧版行为：TARGET_PATH.txt 缺失 → 只打一行 WARNING 就静默降级，
+  # 很容易被漏掉（这正是用户遇到的情况）。本包改为**自动探测并落盘**。
   if [ "$DRY_RUN" != "1" ] \
      && [ ! -f "$PKG/optim/pgo/TARGET_PATH.txt" ] \
      && [ -f "$PKG/optim/pgo/libpython3.12.so.1.0" ]; then

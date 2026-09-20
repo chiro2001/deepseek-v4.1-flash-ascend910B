@@ -337,6 +337,68 @@ batch 开始重叠，而本包的 admission gate 是按单 batch 设计的。
 
 原始数据：`results/bench/conc_dihuo_v8.json`；复现命令见 README §3.2。
 
+## 10. ★ 镜像 tag 升到 `dsv41-a2:v8`（**必须重新 build，不能沿用旧镜像**）
+
+> 这是本节里**唯一的用户可见行为变更**：默认镜像 tag 从 `dsv41-a2:v6` 升到
+> **`dsv41-a2:v8`**（`scripts/build_image.sh` / `serve_a2.sh` / `run_test.sh` /
+> `tools/preflight_a2.sh` / `tools/run_probe_hostmap.sh` 五处默认值同步，
+> `tools/selfcheck_pkg.sh` 会断言 build/serve/run_test 三处一致）。
+
+**为什么必须重建、不能 `docker tag` 旧镜像**：v8 的镜像内容与 v5/v6 **不同** ——
+
+| 变化 | 文件 |
+|---|---|
+| 新增（`newf`，无备份） | `engram_device_index.py`、`engram_graph.py` |
+| 改动（`inst`，先备份 `.a2orig`） | `model.py`（+313 行）、`engram_hbm.py`（+31 行） |
+
+沿用 v6 镜像会得到一个**名字叫 v8、内容却是 v6** 的镜像，而 `V41_ENGRAM_DEVICE_INDEX=auto`
+在 v6 里**不存在** ⇒ 起服不报错、只是静默跑在没有 device-index 的旧路径上。
+因此 `tools/preflight_a2.sh` 里原先那句
+"v6 与 v5 逐字节相同 ⇒ 直接 `docker tag` 即可"的提示**已撤销**（它只对 v6 成立），
+现在只提示重建；要沿用旧镜像必须显式 `IMAGE=<已有 tag>` 并自行确认内容。
+
+## 11. ★ 修复 `build_image.sh` 的陈旧 md5 校验表（用户实测报障）+ 防复发
+
+**症状（用户报障）**：`bash scripts/build_image.sh` 跑到最后一步报
+`FAIL md5 models/deepseek_v41/model.py: got=d22eec4c… want=5b7c4526…`。
+
+**根因**：镜像内自检 `chk()` 里有一张**手写**的 md5 表（11 条），v7→v8 改了
+`model.py` / `engram_hbm.py`、新增两个文件后没人同步它。实测三类问题：
+
+| 问题 | 文件 | 详情 |
+|---|---|---|
+| **STALE**（用户看到的） | `model.py` | 表里 `5b7c4526…`，载荷实际 `d22eec4c…` |
+| **STALE** | `engram_hbm.py` | 表里 `6f227a74…`，载荷实际 `02ba2b7c…` |
+| **漏项**（装了但没校验） | `engram_device_index.py`、`engram_graph.py` | v8 新增，表里根本没有 |
+
+同时发现两处**同类**陈旧：`patches/vllm-ascend/MD5SUMS` 缺 v8 两行 + 2 行旧值
+（它在 `patches/README.md` 里被承诺"`md5sum -c` 应与 `patches/files` 一致"），
+`patches/MD5SUMS` 的 `serve_v2.sh` 行也对不上。均已按载荷字节修正。
+（注意：载荷本身是对的 —— `MANIFEST.sha256`、`patches/_tools/verify_series.sh` 的
+`VERIFY: ALL PASS` 三方一致，**错的只是清单**。）
+
+**防复发（消除双份真相，而不是"再同步一次"）**：
+
+| 事实 | 唯一权威来源 |
+|---|---|
+| 装到镜像的哪个路径、`inst` 还是 `newf` | `Dockerfile` 的落位表 |
+| 载荷内容 | `patches/files/**` 的实际字节 |
+| 期望 md5（公开清单） | `patches/MD5SUMS` |
+
+* `scripts/build_image.sh` 不再内联任何 md5：构建时用
+  `tools/check_checksums.py --manifest` **由载荷字节现算**期望值，落位表由 Dockerfile 推导
+  （含 `token_dispatcher_moemask.py → /tmp/bake/token_dispatcher.py → ops/fused_moe/token_dispatcher.py`
+  这类改名映射），再交给 `tools/verify_baked_tree.sh` 在镜像内逐条核对 md5 + `py_compile`
+  + `inst` 项的 `.a2orig` 回滚备份是否存在。
+* `tools/check_checksums.sh` 是 10 秒的静态检查（不需要 docker），已接入
+  `tools/selfcheck_pkg.sh`；三方任何一处不一致都会 FAIL，并且会报出
+  "装了却没被校验"（孤儿载荷）与"校验了却没装"两类问题。
+* `tools/negative_control.sh` 新增 NC9/NC10：**证明这套检查真的会抓到**上面那两个 bug
+  （载荷改一个字节必须 FAIL、缺 `.a2orig` 必须 FAIL、清单过期必须 FAIL）。
+
+> 教训与 v5 的 `selfcheck_pkg.sh` 那次同型：**清单不能手工维护**。
+> 这次连"实例"一起修：两个 md5 清单文件也与载荷对齐了。
+
 # ★ v7（2026-09-18）—— 长上下文精度修复：`BAT_TOKENS` 2048 → 8192
 
 > **这是本包第一次修"正确性"而不是"性能"或"工程"。**

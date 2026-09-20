@@ -42,9 +42,16 @@ DEVS="8 9 10 11 12 13 14 15" \
 ### 2.2 A2（8×910B3）
 
 ```bash
-bash scripts/build_image.sh                 # 烘焙补丁，产出 dsv41-a2:v6（约 10–20 min）
+# 发包前（10 秒，不起容器）：确认 Dockerfile 落位表 / patches/files / MD5SUMS 三方一致
+bash tools/check_checksums.sh
+
+bash scripts/build_image.sh                 # 烘焙补丁，产出 dsv41-a2:v8（约 10–20 min）
 MODEL=/path/to/v41-w4a8-engram-dr-vision-qrot-mtpq bash scripts/serve_a2.sh
 ```
+
+`build_image.sh` 最后一步的逐文件 md5 校验**不再手写**：期望值在构建时由
+`patches/files/**` 的字节现算（落位表取自 `Dockerfile`），因此"改了补丁忘了改校验和"
+不会再让用户白等 10–20 分钟 —— 详见 [`CHANGELOG.md`](CHANGELOG.md) v8 §11。
 
 ### 2.3 起服前/后
 
@@ -424,9 +431,11 @@ msmodelslim 侧的 V4.1 W4A8 支持，含 hiaux 变体配方。
 README.md  REPRO.md  LICENSE  NOTICE
 ├── patches/       补丁系列（两种形态）+ 基线 commit 说明
 ├── scripts/       起服（A2/A3）、镜像构建、验收（run_test / attach_test）
-├── tools/         选卡、模型目录自检、附着测试、**并发压测**、**出图**、负控
+├── tools/         选卡、模型目录自检、附着测试、**并发压测**、**出图**、负控、**校验和一致性**
 │   ├── bench_concurrency.py   ← 并发扫描（单流 + 总吞吐 + 接受长度）
-│   └── plot_concurrency.py    ← 出图（中英双版 + CSV）
+│   ├── plot_concurrency.py    ← 出图（中英双版 + CSV）
+│   ├── check_checksums.sh     ← 落位表/载荷/md5 清单三方一致（10 秒，进 selfcheck）
+│   └── verify_baked_tree.sh   ← 镜像内逐文件 md5 + py_compile + 回滚备份断言
 ├── data/          测试语料
 │   ├── hongloumeng.txt        ← 全本（128K 单流口径）
 │   ├── dihuo.txt              ← 现代白话小说（并发口径）

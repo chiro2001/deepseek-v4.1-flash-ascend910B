@@ -3,7 +3,7 @@
 # 用法（由 scripts/build_image.sh 自动调用，一般不用手写）：
 #   docker build --build-arg BASE_IMAGE=<基础镜像> \
 #                --build-arg ASCEND_PKG=/vllm-workspace/vllm-ascend/vllm_ascend \
-#                --build-arg VLLM_ROOT=/vllm-workspace/vllm -t dsv41-a2:v6 .
+#                --build-arg VLLM_ROOT=/vllm-workspace/vllm -t dsv41-a2:v8 .
 #
 # 注意：本镜像**不含模型权重**（273 GB，需现场准备）。
 ARG BASE_IMAGE=quay.nju.edu.cn/ascend/vllm-ascend:deepseek-v4.1-flash-openeuler

@@ -51,7 +51,7 @@ export PYTHON_PGO=${PYTHON_PGO:-0}
 # deepseek-v4.1-flash-a3），里面**没有**本包的补丁 —— 所以 A3 必须走 mount
 # 模式把 patches/files/* 挂进去。否则跑的是未优化版本，而且**不会有任何报错**，
 # 只是所有性能补丁（含 Engram device-index）都静默没生效。
-# 与 A2 相反：A2 用 build_image.sh 烘焙出 dsv41-a2:v6，默认 baked 是对的。
+# 与 A2 相反：A2 用 build_image.sh 烘焙出 dsv41-a2:v8，默认 baked 是对的。
 # 想显式覆盖就设 PATCH_MODE=baked（例如你自己烘焙了一个 A3 镜像）。
 export PATCH_MODE=${PATCH_MODE:-mount}
 
