@@ -258,6 +258,68 @@ bash a2/scripts/a2_one_shot_probe.sh          # 或 --quick（约 2 分钟）
 
 ---
 
+## 6.5 ★★ 如果 `MAX_LEN` 要开到 **1M**（当前配置是 128K）——能不能用？
+
+### 6.5.1 先确认：**1M 就是模型的设定上限**【实测】
+```json
+// 模型 config.json 的 text_config
+"max_position_embeddings": 1048576,
+"rope_scaling": {"rope_type": "yarn", "factor": 16,
+                 "original_max_position_embeddings": 65536,
+                 "beta_fast": 32, "beta_slow": 1}
+```
+⇒ **1M = 64K 原生 × 16（YaRN）**，是**设计上限**，不是超范围外推。
+
+★ **一条需要澄清的警告**：起服日志里会出现
+```
+[transformers] Unrecognized keys in `rope_parameters` for 'rope_type'='default':
+{'original_max_position_embeddings', 'beta_slow', 'beta_fast', 'factor'}
+```
+**这是无害的**（`model.py:255-270` 逐字读的，模型自己实现 YaRN，不走 HF 的通用路径）：
+```python
+# V4.1 applies YaRN only to layers carrying long-context compressed KV.
+# Pure SWA layers use the unscaled base RoPE even though the allocated
+# lookup table still spans the configured maximum context length.
+scaling_factor=config.rope_parameters["factor"],            # = 16
+base=(config.compress_rope_theta if role.has_long_context   # = 160000
+      else config.rope_theta),                              # = 10000
+original_seq_len=(max_position_embeddings if role.has_long_context else 0),
+```
+⇒ ★ **YaRN 只加在"带长上下文压缩 KV 的那几层"上，纯 SWA 层用未缩放的基础 RoPE** —— 这是设计如此。
+
+### 6.5.2 三个天花板（按"最先撞到"排序）
+
+| # | 天花板 | 1M 下的账 | 我们的发布能否改善 |
+|---|---|---|---|
+| **①** | **单请求必须整个驻留 HBM** | 1M × 4,420.6 B = **4.32 GiB**；可用 HBM KV **14.40 GiB** ⇒ **最多 3 个并发 1M** | ⛔ **不能** —— 卸载层是**块粒度前缀缓存**、不是 swap（`045` §5.3：*"DRAM 层不放宽单请求最长上下文"*）。由 `GPU_UTIL` 与模型结构决定 |
+| **②** | **DRAM 池的容量** | 1M = **24,064 unit**（按 `042` 实测 23.5 unit/1024token 线性外推）× **3,660,003 B/unit**（8 rank，**L1 之后**）= **一份完整 1M KV ≈ 82.0 GiB**<br>⇒ A2 余量 442 GiB 能装 **5.39 个**（留 1.2× ⇒ **4 个**）<br>⇒ **16 并发 × 1M = 1,312 GiB ⛔ 不可能** | ✅ **能，而且是"必需"**（见 6.5.3） |
+| **③** | **我们的定值全都要重算** | `MAX_LEN` 131072 → **1048576**；`OFFLOAD_GB` 56 → **85**（覆盖 3 个 1M 会话：`3 × 24,064 × 1.2 = 86,630 unit`，宿主 ≈298 GiB）<br>⚠️ 还要核 `--kv-cache-memory-bytes ≥ max_model_len × kv_per_tok`（`045` §5.3 的硬要求，**不满足则 1M 起不来**） | — |
+
+### 6.5.3 ★★ 关键：**1M 场景下两条杠杆是"必需"，不是"可选"**
+```
+没有 L5（per-group bpc）：每个 SWA 组也按 8 个 block 记账 ⇒ 池需求 ×4.89
+没有 L1（按需分配行数）：宿主 ×1.99
+两者都缺 ⇒ 1M 的池需求 ≈ 82.0 × 4.89 × 1.99 ≈ 798 GiB/会话
+           ⇒ 【连 1 个会话都装不下】（A2 只有 442 GiB）
+```
+⇒ **现在的档 B 把 1M 从"完全不可能"推到"3~4 个并发可行"。**
+
+### 6.5.4 ★ 真实 agent 流量下宽松得多（**最坏口径 vs 典型口径**）
+上面那个"4 个"是**最坏口径**（每个请求前缀互不相同）。池只需覆盖**唯一前缀总量**：
+- `042` 的 D 臂实测：**16 个请求共享同一个 128K 前缀 ⇒ 池只要 20.83 GiB**（不是 16 倍）
+- 推到 1M：若 N 个会话**共享长前缀** ⇒ 池需求 ≈ **1 个前缀的 82.0 GiB**，**与 N 无关**
+⇒ **"很多会话共享同一个长 system prompt / 同一份长文档"完全可行**；
+⇒ **"N 个互不相干的长会话"才是瓶颈**。
+
+### 6.5.5 需要实测才能定的三格（**都能在 A3 8 卡跑，不在 A2**）
+| # | 事项 | 为什么重要 |
+|---|---|---|
+| **1** | **23.5 unit/1024token 在 1M 上是否仍线性** | 只在 32K/128K 反解过；尾部半满段的常数项在 1M 下占比更小 ⇒ 实际可能**优于**线性 |
+| **2** | **1M 下的 HBM 实际占用** | 4.32 GiB 是按 B/token 算的，**没在 1M 上直测过** |
+| **3** | **A2 上的 `--kv-cache-memory-bytes`** | 这条不满足 ⇒ **1M 直接起不来**（与 `GPU_UTIL` 无关的独立门槛） |
+
+---
+
 ## 7. 未完项（如实列出，不掩盖）
 
 | # | 事项 | 影响 |
