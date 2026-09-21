@@ -1,22 +1,34 @@
 --- a/vllm_ascend/cpu_binding.py
 +++ b/vllm_ascend/cpu_binding.py
-@@ -51,11 +51,44 @@
+@@ -41,7 +41,7 @@
+     return False
+ 
+ 
+-def execute_command(cmd: list[str]) -> tuple[str, int]:
++def execute_command(cmd: list[str], timeout_s: int = 1000) -> tuple[str, int]:
+     # Force a C locale so subprocess output remains parseable on localized OSes.
+     env = os.environ.copy()
+     env["LC_ALL"] = "C"
+@@ -49,13 +49,46 @@
+     env["LC_MESSAGES"] = "C"
+     with subprocess.Popen(cmd, shell=False, stdout=subprocess.PIPE, stderr=subprocess.PIPE, env=env) as p:
          try:
-             out, _ = p.communicate(timeout=1000)
+-            out, _ = p.communicate(timeout=1000)
++            out, _ = p.communicate(timeout=timeout_s)
          except subprocess.TimeoutExpired:
-+            # SIGKILL is only acted on at a signal check point. A helper stuck in an
-+            # uninterruptible kernel path -- e.g. migratepages against a full NUMA node
-+            # -- can therefore ignore it for hours, which is what we observed. The reap
-+            # below must be bounded as well, otherwise the 1000 s timeout above degrades
-+            # into a hang that never returns and the engine never reaches READY.
++            # SIGKILL is only acted on at a signal check point, so a helper stuck in an
++            # uninterruptible kernel path -- e.g. migratepages against a full NUMA node --
++            # can ignore it for a long time. The reap must therefore be bounded too,
++            # otherwise the timeout above degrades into a hang that never returns and the
++            # engine never reaches READY.
              p.kill()
 -            out, _ = p.communicate()
 +            try:
 +                out, _ = p.communicate(timeout=30)
 +            except subprocess.TimeoutExpired:
 +                logger.warning(
-+                    "[cpu_binding] '%s' survived SIGKILL for 30 s; abandoning it. "
-+                    "It may stay on the host until the kernel reclaims it.",
++                    "[cpu_binding] '%s' survived SIGKILL for 30 s and is being abandoned; "
++                    "it may stay on the host until the kernel reclaims it.",
 +                    cmd[0],
 +                )
 +                return "", -9
@@ -26,9 +38,9 @@
 +def _node_mem_free_bytes(numa_node: int) -> int | None:
 +    """Bytes free on one NUMA node, or None when that node's meminfo is unreadable.
 +
-+    Readable from inside the container on the images we tested. The value is only a
-+    hint -- the kernel will also reclaim page cache to make room -- and we compare
-+    against MemFree alone, which is the conservative side of the comparison.
++    Readable from inside the container on the images we tested. The value is a hint --
++    the kernel can also reclaim page cache -- and we compare against MemFree alone,
++    which is the conservative side of the comparison.
 +    """
 +    path = f"/sys/devices/system/node/node{numa_node}/meminfo"
 +    try:
@@ -46,15 +58,15 @@
  class DeviceInfo:
      def __init__(self):
          self.npu_map_info: dict[str, dict[str, str]] = self.get_npu_map_info()
-@@ -659,6 +692,28 @@
+@@ -659,15 +692,41 @@
          if target_numa not in all_numa_nodes:
              logger.warning("[migrate] NUMA node not found. npu=%s, numa=%s. ", npu, target_numa)
              return
 +        # migratepages has no fast failure mode: when the destination node cannot absorb
-+        # this process's pages it spins in the kernel (direct reclaim) instead of
-+        # returning an error, and the engine then blocks in bind_memory() forever -- see
-+        # the bounded-reap change in execute_command() for the second half of that
-+        # story. Check the two numbers we can read before paying that cost.
++        # this process's pages it spins in the kernel (direct reclaim) instead of returning
++        # an error, and bind_memory() then blocks forever -- see the bounded reap in
++        # execute_command() for the other half of that story. Check the two numbers we can
++        # read before paying that cost.
 +        target_free = _node_mem_free_bytes(target_numa)
 +        try:
 +            wanted = psutil.Process(int(pid)).memory_info().rss
@@ -62,10 +74,10 @@
 +            wanted = 0
 +        if target_free is not None and wanted and target_free < wanted:
 +            logger.warning(
-+                "[migrate] NPU:%s -> NUMA [%s] skipped: the node has %.1f GiB free but this "
-+                "rank holds %.1f GiB, so migratepages would not converge. The rank keeps "
-+                "running with its current placement; set enable_cpu_binding=false to silence "
-+                "this, or free memory on that node.",
++                "[migrate] NPU:%s -> NUMA [%s] skipped: that node has %.1f GiB free but this "
++                "rank holds %.1f GiB, so migratepages would not converge. CPU binding and IRQ "
++                "affinity are unaffected; set enable_cpu_binding=false to silence this, or "
++                "free memory on that node.",
 +                npu,
 +                target_numa,
 +                target_free / 1024**3,
@@ -74,4 +86,18 @@
 +            return
          # Bind memory to the NPU's NUMA node only to minimize cross-NUMA traffic.
          logger.info("[migrate] NPU:%s -> NUMA [%s]", npu, target_numa)
++        # A legitimate migration of a few tens of GiB is seconds-to-a-minute; 300 s is
++        # generous, and it keeps the worst case bounded even when the pre-check above
++        # cannot be evaluated (meminfo unreadable).
          execute_command(
+             [
+                 "migratepages",
+                 pid,
+                 ",".join(map(str, all_numa_nodes)),
+                 str(target_numa),
+-            ]
++            ],
++            timeout_s=300,
+         )
+ 
+     def bind_threads(self) -> None:

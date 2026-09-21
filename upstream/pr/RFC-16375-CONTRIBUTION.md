@@ -715,19 +715,48 @@ we measured, and the per-card capacity conversion in §4.2 is 1.85×.*
 
 ## 5. Ablation table — one patch at a time
 
-> **STATUS: PARTIAL — the single-session ablation (run A1) has not been done.** What the
-> table below holds is the **per-patch measurement we already have**, from the sessions
-> recorded in §7, not from one harness toggling gates in a single process. Where a cell
-> reads "—" we have no number of that kind. **Do not read this table as a controlled
-> ablation**; it is a consolidation of existing evidence with its provenance attached.
+> **STATUS: DONE (2026-09-21) — the single-session ablation has been run on eight cards.**
+> Twelve arms, one 8×910C box, one harness, one model, one pair of `(A, ms/step)` per arm;
+> every arm differs from the **stock** arm by exactly one gate. Full write-up with per-cell
+> provenance: [`logs/44-20260921-single-session-ablation.md`](../logs/44-20260921-single-session-ablation.md).
+> Raw per-arm results: `results/<run_id>/` on the bench host, trimmed copies in
+> `logs/raw/44-ablation-*/`.
+>
+> **The headline is not a millisecond count.** In this frame the gates do **not** each save
+> 0.3–0.6 ms; **`MOE_AG` alone decides whether the speculative accept length is 1.7 or 4.7**,
+> and that decides whether single-stream `tok/s` is 48 or 140 (**×2.9**). The other five
+> single-gate arms are all inside the noise floor. See §5.2.
+>
+> ⚠️ **That accept-length gap carries one unresolved caveat — quote before you cite it.**
+> The measurement workload is *verbatim copying* ("transcribe the opening of chapter 5 of
+> Dream of the Red Chamber"), i.e. a **copy-type task**, and the harness records metrics
+> only (**no generated text**) for it. In the separate, text-recording probe frame we ran,
+> **both** arms ran away into a repetition loop (the `MOE_AG=0` arm cycled through *different*
+> sentences, the `=1` arm repeated *one* sentence). So the gap is consistent with two
+> readings we have **not** separated: (a) AllGather makes the **draft model** more accurate,
+> or (b) a tighter loop is simply **easier to guess**, so `A` rises without the model being
+> better at real work. On a real agent workload we have only the `MOE_AG=1` side
+> (`A` median **3.58**, no anomalies) — a value **between** 1.7 and 4.7.
+> ⇒ Until an accept-length comparison is repeated on a **non-degenerate** task (or both arms
+> are run through the accuracy gates), quote this as *"on the verbatim-copy workload"*,
+> **not** as a general "accept rate ×2.8". Details: `logs/44` §5.2.0.
+>
+> ⚠️ **Frame of the new table** (stated so nobody mixes it with the per-patch table below):
+> `CPU_BIND=0` (production is `=1`; on this box `=1` hangs — see §5.4), `DROPCACHE=0`,
+> `SP_TOKENS=5`, `DRAFT_GRAPH=0`, `PREFIX=0`, `MAX_SEQS=4`, `GPU_UTIL=0.92`,
+> `MODE=quick` (8K + 32K, 6 repetitions each), vision skipped, `REPEATS=6`.
+> **Cross-frame numbers are not paired.**
 
 RFC [97] asks for measurements *"against the corresponding baseline"*, and a stack of
 eleven gates invites the fair question: which of them actually pays?
 
-The clean way to answer it is one session that toggles each gate and reports one row per
-arm. We have not run that on eight cards. What we do have is one measured effect per
-patch, each from its own same-session A/B where the *gate* was toggled and everything else
-held — which is the same comparison, just not produced by one script.
+**The single-session ablation has now been run** (§5.2) — twelve arms on one 8×910C box,
+every arm differing from stock by exactly one gate. The per-patch table below is kept
+**as a second, different frame**: those rows are one-card function-level or single-chip
+A/Bs, they answer "does this patch change the kernel it targets", and they must not be
+added to or compared against the new table's deltas.
+
+### 5.1 Per-patch table — **second frame, function level** (kept from the 2026-09-21 draft)
 
 | # | Gate | Measured effect | Kind of measurement | Where |
 |---:|---|---|---|---|
@@ -743,22 +772,192 @@ held — which is the same comparison, just not produced by one script.
 | 0009 | `V41_ENGRAM_DEVICE_INDEX=auto` | **29.5 → 28.4 ms/step** (C1), **35.3 → 32.1** (C4); host sync 3.379 → **0.058 ms/step** | same-session A/B, 8 chips | `CHANGELOG.md` v8 §0 |
 | 0010 | default policy (A3 on / A2 off) | A2: full-table registration fails `ret=207001`; A3: succeeds | capability probe on both machines | `CHANGELOG.md` v8 §3.2–3.3 |
 
-**What is missing from this table, stated plainly:** a single session that turns every
-gate on and off in turn, so the rows share one baseline and one pair of
-`(accept length, ms/step)`. And the accept-length column: none of these A/Bs isolated
-`A` for the arm, because `A` is a draw per request (see §0.3) and none of the runs was
-powered to resolve a difference in it.
+**What this frame does not contain, stated plainly:** no row shares a baseline with any
+other row, and the accept-length column is empty — none of these A/Bs isolated `A` for the
+arm, because `A` is a draw per request (see §0.3) and none of the runs was powered to
+resolve a difference in it. **That gap is what §5.2 fills** (twelve arms, one baseline,
+one `(A, ms/step)` pair per arm, two repeat arms for the noise floor), and §5.2.3 lists
+row by row where the two frames agree and where they do not.
 
 **Fill command:**
 
 ```bash
 MODEL=<model> bash scripts/run_test.sh MODE=full          # per-arm, gate set via env
-# A1 harness (to be published): bench/ablation_harness.py --arms stock,<gate-set> --repeats 3
+# What was actually run for §5.2 (twelve arms, one env change each) is scripted in
+# agents/T4_ablation/run_arm.sh + finish_arm.sh; the per-arm record is agents/T4_ablation/arms.tsv
 ```
 
 **Reporting rules for this table** (fixed in advance so the numbers cannot be cherry-picked
 afterwards): report medians, always report the accept length `A` next to the timing, keep
 the raw log path per row, and state the session id — cross-session numbers are not paired.
+
+### 5.2 ★ Single-session ablation, measured (2026-09-21) — **[MEASURED]**
+
+Twelve arms, **one 8×910C box** (`A3-node1`, Phy-ID 8–15), one image
+(`quay.nju.edu.cn/ascend/vllm-ascend:deepseek-v4.1-flash-a3`, `PATCH_MODE=mount`),
+one model (W4A8 + Engram-int8, DSpark S=5), one harness (`scripts/run_test.sh`,
+`MODE=quick` = single-stream 8K + 32K, 6 repetitions each). **Every arm differs from the
+`stock` arm by exactly one gate.** Session: 2026-09-21 16:22–20:3x CST.
+
+**A0 `stock`** = `MOE_AG=0 MOE_MASK=0 ROPE_IDXSEL=0 QLI_NOCAND=0 O_PROJ_2D=0 ENGRAM_JIT=0
+ENGRAM_DEVICE_INDEX=0 DRAFT_GRAPH=0`, with `GATE_CHUNK=0 GATE_MAX_TOKENS=2048` (the
+production gate values — see the note under the table).
+
+| arm | what it is | `ms/step` 8K | `A` 8K | `tok/s` 8K | `ms/step` 32K | `A` 32K | `tok/s` 32K | peak KV | run_id |
+|---|---|---:|---:|---:|---:|---:|---:|---:|---|
+| **A0** | stock (all six gates off) | 34.72 | 1.738 | 50.0 | 36.83 | 2.899 | 78.9 | 3,241,932 | `a0_20260921_165927` |
+| **A0b** | *repeat of A0* (noise floor) | 34.42 | 1.676 | 48.3 | 35.45 | 2.881 | 80.5 | 3,241,442 | `a0b_20260921_171229` |
+| **A1** | shipped (all defaults) | **29.86** | **4.787** | **157.0** | **30.47** | **4.691** | **151.7** | 3,842,534 | `a1_20260921_172649` |
+| **A1r** | *repeat of A1* | 30.35 | 4.727 | 150.3 | 31.04 | 4.726 | 150.6 | 3,842,534 | `a1r_20260921_183507` |
+| **A2** | A1 with `ENGRAM_DEVICE_INDEX=0` | 32.65 | 4.771 | 143.0 | 33.43 | 4.727 | 137.4 | 3,844,493 | `a2_20260921_175024` |
+| **A3** | A1 with `ENGRAM_JIT=0` | 31.70 | 4.815 | 149.6 | 30.66 | 4.631 | 150.2 | 3,842,657 | `a3_20260921_180419` |
+| **A4** | A1 with `QLI_NOCAND=0` | 30.11 | 4.815 | 156.5 | 31.09 | 4.640 | 146.2 | 3,842,534 | `a4_20260921_182034` |
+| **A5** | A0 + `MOE_MASK=1` | 34.91 | 1.717 | 48.6 | 35.68 | 2.876 | 80.4 | 3,241,564 | `a5_20260921_185117` |
+| **A6** | A0 + `QLI_NOCAND=1` | 34.49 | 1.655 | 47.8 | 35.44 | 2.850 | 79.2 | 3,241,687 | `a6_20260921_190549` |
+| **A7** | **A0 + `MOE_AG=1`** | **33.59** | **4.743** | **139.6** | **32.29** | **4.727** | **143.9** | **3,844,493** | `a7_20260921_191947` |
+| **A8** | A0 + `ROPE_IDXSEL=1` | 34.84 | 1.655 | 46.2 | 36.88 | 2.872 | 76.3 | 3,241,687 | `a8_20260921_193105` |
+| **A9** | A0 + `O_PROJ_2D=1` | 34.52 | 1.744 | 48.7 | 35.56 | 2.876 | 79.9 | 3,241,687 | `a9_20260921_194140` |
+| **A10** | A0 + `ENGRAM_JIT=1` | 35.50 | 1.746 | 48.9 | 34.87 | 2.866 | 81.8 | 3,241,564 | `a10_20260921_195535` |
+| **A11** | A1 + `GATE_CHUNK=512` | 30.68 | 4.771 | 153.3 | 30.61 | 4.658 | 149.0 | 3,842,901 | `a11_20260921_200615` |
+
+*(medians of 6 usable points; A0 is 2 points and carries the note in §5.2.1. Every cell's raw
+file is `results/<run_id>/p42_t4_quote_{8192_quote_8k,32768_quote_32k}.jsonl`; peak KV is
+`results/<run_id>/env.txt`. `static_kernel.py:650` hits = **0 on every arm**.)*
+
+#### 5.2.1 ★ Result 1 — only `MOE_AG` moves the accept length
+
+| gate (A0 + only this one) | Δ `ms/step` 8K | Δ `A` 8K | Δ `ms/step` 32K | Δ `A` 32K |
+|---|---:|---:|---:|---:|
+| `MOE_MASK=1` (A5) | +0.49 | +0.041 | +0.23 | −0.005 |
+| `QLI_NOCAND=1` (A6) | +0.07 | −0.021 | −0.01 | −0.031 |
+| **`MOE_AG=1` (A7)** | **−0.83** | **+3.067 (×2.83)** | **−3.16** | **+1.846 (×1.64)** |
+| `ROPE_IDXSEL=1` (A8) | +0.42 | −0.021 | +1.43 | −0.009 |
+| `O_PROJ_2D=1` (A9) | +0.10 | +0.068 | +0.11 | −0.005 |
+| `ENGRAM_JIT=1` (A10) | +1.08 | +0.070 | −0.58 | −0.015 |
+
+**Measured noise floor** (same config, two back-to-back sessions): 8K `ms/step` **0.30 ms**,
+32K `ms/step` **1.37 ms**, `A` 0.06 (8K) / 0.02 (32K). ⇒ **the five non-`MOE_AG` rows are all
+inside the floor.** Only `MOE_AG` is distinguishable:
+
+> **`MOE_AG` alone takes the accept length from 1.68 to 4.74 and single-stream `tok/s`
+> from 48 to 140 (×2.9).** No other gate in the stack changes `A` at all, in either
+> direction (A5–A10 vs A1–A4).
+
+**Peak KV pool, same session**: the gate that sets it is `MOE_AG`, not
+`ENGRAM_DEVICE_INDEX` — A0 and A2 **both** run `ENGRAM_DEVICE_INDEX=0`, and A2 (which has
+`MOE_AG=1`) still reaches **3,844,493** tokens vs A0's 3,241,932. A7 (`A0` + only `MOE_AG`)
+gets **exactly the same 3,844,493**. This independently reproduces the `MOE_AG` row of the
+per-patch table above ("KV pool 3.39M → **4.16M**").
+
+**A third, independent check — the output text.** Each arm also answers one fixed
+`temperature=0` request (a stable 1.4 K-token prompt ending in
+`…Question: What is the capital of France? Answer: The capital of France is`, 6 repetitions,
+recorded as a sha256). The four arms whose gates do **not** move `A` — A6 (`QLI_NOCAND`),
+A8 (`ROPE_IDXSEL`), A9 (`O_PROJ_2D`), A10 (`ENGRAM_JIT`) — produce the **same** hash
+(`42593d7da3b2f373…`, four different run_ids on four different sessions), while **A7
+(`MOE_AG`) produces a different one**. So the text fingerprint, the accept length and the
+KV pool all separate the same single gate from the rest. *(A caveat the reader should
+carry: this fingerprint discriminates configurations; it is not a correctness oracle — one
+arm's repetitions disagreed on where generation stopped, see `logs/44` §4.10.1.)*
+
+#### 5.2.2 Result 2 — the reverse direction (shipped minus one gate)
+
+| removed from A1 | Δ `ms/step` 8K | Δ `A` 8K | Δ `ms/step` 32K | Δ `A` 32K | verdict |
+|---|---:|---:|---:|---:|---|
+| `ENGRAM_DEVICE_INDEX` (A2) | **+2.79** | −0.016 | **+2.96** | +0.036 | **real (−2.9 ms when on)** |
+| `ENGRAM_JIT` (A3) | **+1.84** | +0.028 | +0.19 | −0.060 | real at 8K, not resolvable at 32K |
+| `QLI_NOCAND` (A4) | +0.25 | +0.028 | +0.62 | −0.051 | inside the floor |
+
+**The two directions do not contradict each other, and the difference matters**:
+removing `ENGRAM_DEVICE_INDEX` from the full stack costs ~2.9 ms, but *adding* it to stock
+(which is what A5–A10 measure) is invisible — because in the stock configuration the
+accept length is 1.7, so each decode step moves far fewer tokens and every per-step
+constant is amortised differently. **A delta measured against stock is not the same
+quantity as a delta measured against the shipped stack.**
+
+#### 5.2.3 Result 3 — how the new table relates to the per-patch table above
+
+| per-patch claim | single-session result | agreement |
+|---|---|---|
+| 0001 `MOE_AG`: −1.23 ms @8K, −1.35 @32K, KV 3.39M→4.16M | A7 vs A0: **−0.83 ms @8K / −3.16 @32K**, KV **3.24M→3.84M**, plus `A` 1.68→**4.74** | **same sign**; the per-patch row **omits the accept-length effect, which is the large one** |
+| 0002 `MOE_MASK`: net −0.51 ms/step | A5 vs A0: **+0.49 ms @8K** (inside floor) | **not resolvable** in this frame |
+| 0003 `ROPE_IDXSEL`: −0.45…−0.62 ms/pass | A8 vs A0: +0.42 @8K / +1.43 @32K | **not resolvable** |
+| 0004 `QLI_NOCAND`: ≈ −0.49 ms/step | A6 vs A0: +0.07 @8K; A4 vs A1: +0.25 @8K | **not resolvable** |
+| 0005 `O_PROJ_2D`: −0.31…−0.76 ms | A9 vs A0: +0.10 @8K / +0.11 @32K | **not resolvable** |
+| 0008 `ENGRAM_JIT`: hash 0.427→0.076 ms (host) | A10 vs A0: +1.08 @8K; A3 vs A1: **+1.84 @8K**, +0.19 @32K | 8K row agrees in sign; the host-side claim is a different quantity |
+| 0009 `ENGRAM_DEVICE_INDEX`: 29.5→28.4 ms/step | A2 vs A1: **−2.79 @8K / −2.96 @32K** | same sign, **larger** than the per-patch row |
+| 0006 `GATE_CHUNK=512`: −1.56 ms @8K, HBM 0.52× | A11 vs A1: **+0.82 @8K / +0.14 @32K**, KV **+367** | **time claim does not reproduce end-to-end**; HBM claim does (see §5.3) |
+
+**What the new table does *not* establish** (stated plainly): it is **not** a function-level
+measurement, so it cannot confirm or refute the per-patch rows' *mechanisms*; it is one
+configuration family (TP8/EP8, no SP/DCP/PD, single stream, no prefix caching) on one
+910C box, so its absolute numbers do not transfer to 128K context or to A2; and it does
+not isolate `ENGRAM_HOST_RESIDENT` (0007) or the registration policy (0010), which are
+held constant in every arm.
+
+#### 5.2.4 Method note — what "one session" can and cannot mean here
+
+The gates are **not** runtime-togglable inside one process: `ENGRAM_GATE_CHUNK` is read at
+trace/capture time (`_gate_chunk_tokens()` is evaluated while the graph is captured, and
+replaying the graph does not re-read the environment), and `STATIC_KERNEL` / `NPUGRAPH_EX`
+/ `DRAFT_GRAPH` are compile-time choices. So "one session" here means: **same box, same
+image, same model, same harness, back-to-back, one env change per arm, same
+`(A, ms/step)` measurement** — with the two repeat arms (A0b, A1r) quantifying what
+cross-session variation remains. That variation is what §5.2.1's noise floor reports.
+
+**Never compare across frames**: the per-patch table, this table, and §3.2's function A/B
+were produced on different hardware, different context lengths and different frames.
+
+### 5.3 `GATE_CHUNK=512` end-to-end (G19) — **[MEASURED, and it does not amplify]**
+
+The per-patch row 0006 reports **−1.56 ms at 8K** for the chunked gate and notes that
+*"production ships 0 (= stock) because long-context re-measurement is pending"*. That
+number is **function level**. The single-session ablation ran the missing end-to-end arm:
+**A11** = the shipped stack **plus** `V41_ENGRAM_GATE_CHUNK=512` (`MAX_TOKENS=2048`
+unchanged, `a11_20260921_200615`), against **A1** = shipped with `CHUNK=0`.
+
+| | `ms/step` 8K | `A` 8K | `tok/s` 8K | `ms/step` 32K | `A` 32K | `tok/s` 32K | peak KV |
+|---|---:|---:|---:|---:|---:|---:|---:|
+| **A1** shipped (`CHUNK=0`) | 29.86 | 4.787 | 157.0 | 30.47 | 4.691 | 151.7 | 3,842,534 |
+| **A11** shipped + `CHUNK=512` | 30.68 | 4.771 | 153.3 | 30.61 | 4.658 | 149.0 | 3,842,901 |
+| **Δ** | **+0.82** | −0.016 | −3.7 | **+0.14** | −0.033 | −2.7 | **+367** |
+
+**Reading**:
+
+* **The −1.56 ms does not survive into the end-to-end step.** At 8K the point estimate is
+  **+0.82 ms** — outside the 8K noise floor (0.60 ms) but only by 1.4×, i.e. one arm is
+  not enough to call it a regression; at 32K (+0.14 ms) it is far inside the floor.
+  The honest sentence is: **no measurable end-to-end gain at 8K or 32K, point estimate
+  slightly negative.**
+* **The HBM effect is real and points the same way as the old claim**: the KV pool grows
+  by **+367 tokens** (3,842,534 → 3,842,901), consistent with the gate's lower peak
+  activation (the function-level "peak HBM 0.52×"). The chunking gate buys **memory, not
+  time** — which matches §3.2.1's conclusion that at the production `BAT=2048` the
+  chunked path is at time parity with upstream (0.94–1.00×).
+* **Therefore keeping `GATE_CHUNK=0` in production is correct on this evidence**, and
+  row 0006 should be re-labelled from "−1.56 ms at 8K" to "**−1.56 ms function-level;
+  end-to-end 8K/32K: not resolvable, point estimate +0.8 ms; buys peak HBM, not step time**".
+* **Still missing**: **128K**. `MODE=full` was not run in this session, so the
+  long-context re-measurement that row 0006 waits for is still open. Nothing here says
+  the 128K behaviour is the same.
+
+### 5.4 ★ Operational finding: `CPU_BIND=1` hangs the 8-card bring-up on this box — **[MEASURED]**
+
+Every arm in §5.2 runs with **`CPU_BIND=0`**, and that is not a preference — with the
+production default (`CPU_BIND=1` → `additional-config.enable_cpu_binding=true`) the server
+**never became ready** in 35 minutes. The cause is in `vllm_ascend/cpu_binding.py`'s
+`bind_memory()`: it runs `migratepages <pid> <all nodes> <target node>` for every rank,
+**without checking the target node's free memory**, and the caller's timeout branch
+(`except subprocess.TimeoutExpired: p.kill(); p.communicate()`) calls `communicate()`
+**again with no timeout** — so once `migratepages` wedges in the kernel, the "1000 s
+protection" becomes a permanent block. On this machine NUMA node 6 was 99.99 % full
+(`MemFree ≈ 22 MB`) while each rank held ≈ 90 GB of mapped Engram table, so the migration
+never progressed (three `MemFree` samples three minutes apart moved by 24 kB; the two
+`migratepages` processes burned 100 % CPU each for ~2.5 h and ignored `SIGKILL` until they
+finally exited). Full timeline, the `MemFree`/`AnonPages`/`FilePages` samples and a
+suggested fix are in `logs/44-20260921-single-session-ablation.md` §1. **This is an
+operational hazard for any shared box with uneven NUMA free memory, not a property of our
+patches.**
 
 ---
 

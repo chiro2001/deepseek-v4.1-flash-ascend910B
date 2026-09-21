@@ -52,6 +52,8 @@
 | 41 | ★ engram gate 的 padding 天花板曲线 + RoPE 两个尾巴 | https://github.com/chiro2001/deepseek-v4.1-flash-ascend910B/blob/main/upstream/logs/41-engram-gate-ceiling-sweep.md |
 | 42 | ★ 把 RoPE 的 int32 回退**消除掉**（改代码 + 重验） | https://github.com/chiro2001/deepseek-v4.1-flash-ascend910B/blob/main/upstream/logs/42-rope-index-hoist.md |
 | 43 | ★★ **ceiling 扫描搬进生产帧（ACLGraph）** + 8K 小表 + n>4096 探测 | https://github.com/chiro2001/deepseek-v4.1-flash-ascend910B/blob/main/upstream/logs/43-gate-ceiling-in-graph.md |
+| 44 | ★★★ **单会话消融（12 臂，RFC [97] 一直在标 PARTIAL 的那条）** + `CPU_BIND` 挂死 + 起服阶段表 | https://github.com/chiro2001/deepseek-v4.1-flash-ascend910B/blob/main/upstream/logs/44-single-session-ablation.md |
+| 45 | ★★★ **DRAM KV 卸载打通**（单卡 Qwen3-1.7B：有效容量 9.0×、replay TTFT 2.28×）+ Mooncake 路径 | https://github.com/chiro2001/deepseek-v4.1-flash-ascend910B/blob/main/upstream/logs/45-dram-kv-offload.md |
 
 > **40 号值得单独看**：真表行宽是 **256 B**（不是合成表的 20480 B），所以
 > **均匀随机 gather 只有 7.55 GB/s**（合成表 96）—— 但**热行 skew 在真表上反而有
@@ -66,6 +68,12 @@
 ---
 
 ## D. 判断"数据够不够"用
+
+### ★ 新增：KV cache 的账（回答"为什么我们 4421 B/token、官方 890 B"）
+
+| 材料 | 链接 |
+|---|---|
+| **KV cache 账本**：4421 B/token 逐项拆解、3 道精度门（8-bit/4-bit 为什么用不了）、A2 的 DRAM 容量规划 | https://github.com/chiro2001/deepseek-v4.1-flash-ascend910B/blob/main/upstream/docs/KV-CACHE-ACCOUNTING.md |
 
 | 材料 | 链接 |
 |---|---|
