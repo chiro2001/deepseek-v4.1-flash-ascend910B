@@ -1,0 +1,250 @@
+# A2 上线清单（DRAM 卸载 + KV8）
+
+> 2026-09-22 01:2x 起草。**状态：待 A2 探测结果**（`scripts/a2_probe.sh` / `a2_pinned_probe.sh`）。
+> 本文是**可直接执行的清单**：每步都有前提、命令、判据、回滚。
+
+---
+
+## 0. 目标
+
+**把内网 A2（8×910B3）用起来：长上下文/多并发不掉服务质量。**
+两条线：
+
+* **线 1 · DRAM KV 卸载**：KV 被踢出 HBM 后能**取回**，不必全量重 prefill；
+* **线 2 · KV8**：long-KV 从 BF16 存成 INT8，容量 ×1.84。
+
+---
+
+## 1. 前置：A2 上的两条探测（**都必须先做，且都不占卡**）
+
+### 1.1 `a2_probe.sh` —— 环境与 pinned 能力
+
+```bash
+# 在 A2 的容器里（需要能看到 /dev/davinci* 与 libascendcl.so）
+bash a2_probe.sh              # 或 --no-npu 只看文件系统部分
+```
+
+**看三格**：① `host_mem_pool`（预期 0）；② `aclrtMallocHost` 逐档；③ `torch_npu` `pin_memory` 逐档。
+
+### 1.2 ★ `a2_pinned_probe.sh` —— 候选 β 的生死判据
+
+```bash
+A2_CONTAINER=<你的容器名> bash agents/P1_pinned/scripts/a2_pinned_probe.sh
+```
+
+**这一条决定 A2 用哪个 API 起池子**（脚本末尾自带 DECISION 判读）：
+
+| 探测结果 | 结论 |
+|---|---|
+| `aclrtHostRegister` 成功且**拷贝逐字节一致** | ✅ **走候选 β**（普通 host 内存 + 注册）—— `OFFLOAD_NPU_WORKER_PATCH=1 NPU_OFFLOAD_HOST_MEM=registered` |
+| 注册失败 / 拷贝不一致 | ⚠️ 回到 `pin_memory` 路径，但**池子上限要重新量**（`host_mem_pool=0` 是风险） |
+
+> **已知风险**（`logs/014` §4）：A2 的 `host_mem_pool=0`，且 **Engram 206 GiB 注册曾失败**
+> ⇒ β 在 A2 上**不是自动成立**，必须先探测。
+
+---
+
+## 2. 线 1：DRAM 卸载上线
+
+### 2.1 需要的两个补丁（都已备好）
+
+| 补丁 | 位置 | 作用 |
+|---|---|---|
+| **D2 的 scheduler 补丁** | `agents/D2_offload/patches/offload_dsv41/scheduler.py`（md5 `0302fab4…`） | 把 `state` 组从**存/查两侧**排除（这是"能存取回"的**决定项**） |
+| **P1 的池子补丁** | `agents/P1_pinned/patches/offload_dsv41/cpu_npu.py` | 池子改用 `aclrtHostRegister`，绕开 `aclrtMallocHost` |
+
+挂载开关：`OFFLOAD_SCHED_PATCH=1` + `OFFLOAD_NPU_WORKER_PATCH=1` + `NPU_OFFLOAD_HOST_MEM=registered`。
+**回滚**：任一开关置 0 即完全回到现状；`registered` 注册失败会**自动回落 `pinned`**。
+
+### 2.2 起服参数
+
+```bash
+# ★ 见下方更正：宿主实占 = 记账值 x6.945 ⇒ 48 GiB 记账 ≈ 333 GiB 宿主
+TAG=a2-dram48 \
+ENGRAM=0 \
+OFFLOAD_GB=48 \
+PREFIX_MATCH_UNIT=32 \
+OFFLOAD_SCHED_PATCH=1 \
+OFFLOAD_NPU_WORKER_PATCH=1 \
+NPU_OFFLOAD_HOST_MEM=registered \
+BAT_TOKENS=2048 MAX_SEQS=4 GPU_UTIL=0.90 \
+bash scripts/serve_a2.sh
+```
+
+| 参数 | 值 | 依据 |
+|---|---|---|
+| `OFFLOAD_GB` | **32–48**（起步）；长上下文另算 | ★ **`logs/016` 实测更正**：宿主实占 = 记账值 **×6.945**（不是 1.7×）⇒ **32 GiB 记账 = 222 GiB 宿主**。**A2 余量 442 GiB ⇒ 记账值别超 ~48 GiB**（= 333 GiB 宿主） |
+| `PREFIX_MATCH_UNIT=32` | **必须** | 不加就撞 `tokens_per_block=32 % tokens_per_hash=128`（`logs/001` §4.1 / `logs/010`） |
+| `blocks_per_chunk` | **8** | `logs/045` §5.2：太大（64）会**静默零收益** |
+| `--kv-cache-memory-bytes` | ≥ `max_model_len × kv_per_token` | `logs/045` §5.3：DRAM 层**不放宽**单请求最长上下文 |
+| `--enable-prefix-caching` | **必须** | 卸载层与 prefix cache 是配套的 |
+
+### 2.3 ★ 四条判据（**全中才算上线**）
+
+| # | 判据 | 阈值 |
+|---|---|---|
+| ① | `BlockStored(medium="CPU")` | > 0 |
+| ② | **`kv_offload_total_bytes_total{CPU_to_GPU}`** | **> 0**（这是"能存取回"的直接证据） |
+| ③ | **`external_prefix_cache_hits_total`** | **> 0** 且 replay 轮命中率 > 50% |
+| ④ | **`replay TTFT ≪ fill TTFT`** | **≥ 3×**（A3 上 8 卡 14.8×、单卡 9.2×） |
+
+**另加一条"池子账"**：`num_cpu_blocks ≥ 一轮待取回的条目数`
+（`logs/013` §3.3：1.000× 全中、**0.977× 断崖归零**）⇒ 余量留 **≥1.2×**。
+
+### 2.4 ★★ 长上下文的前提（**已按 `logs/017` 更正，这条改变了结论**）
+
+`logs/017` 把"SWA 裁剪"这条路测透了，结论是**三句话**：
+
+| # | 事实 | 强度 |
+|---|---|---|
+| 1 | **上游那条 `alignment_chunk_count` 钩子在 DSV4.1 上空转**（SWA 组 `tokens_per_chunk` 也是 1024，`_alignment_chunk_count()` 直接 `return None`）—— 它本是给"SWA block ≪ MLA block"的模型设计的 | 【实测】 |
+| 2 | **"每请求每 SWA 组只留窗口 1 个 chunk"确实能把池子压到 1/3.14**（44→14 条，224 MiB 池四条判据全中、replay 47.5 vs fill 461.8 ms、**文本 sha256 16/16 相同**） | 【实测】 |
+| 3 | ⛔ **但它对"变长前缀"不安全**：同池同代码，replay 换更短前缀（4096→2048）⇒ **`hits=0`、`CPU→GPU=0`、replay 239.8 ≈ 冷算 243.4 ms** | 【实测】 |
+
+**⇒ 对真实会话（system prompt + 变长历史），"只存窗口"不能上线。**
+安全下界下，池子需求**回到"SWA 全存"那一列**：
+
+| 上下文 | 16 并发宿主实占 |
+|---:|---:|
+| 32K | **333 GiB** |
+| 128K | **1,333 GiB** ⛔ **A2 不可能** |
+
+### 2.5 ✅✅ 出路已经做出来了：**per-group `blocks_per_chunk`**（`logs/021`，实测）
+
+**做法**：把 `blocks_per_chunk` 做成 **per-group**（SWA=1、full=8）、池记账单位改成"1 个 GPU block"
+⇒ **上游那条本来就有、在 DSV4.1 上空转的 `is_store_reachable_swa_chunk()` 立刻生效**
+（`alignment_chunk_count` 从 `None` 变成 **8**）。
+
+**五条判据全过**（11 条臂）：
+
+| # | 判据 | 结果 |
+|---|---|---|
+| 1 | 总字节 | **704 MiB → 144 MiB（4.89×）** |
+| 2 | 四条判据 | ✅ `BlockStored:CPU=714`、`CPU→GPU=273 MB`、`hits=65,520`、**replay 49.9 vs fill 464.5 ms（9.3×）** |
+| 3 | ★★ **变长前缀安全** | ✅ 4096 → **2048 回放**：`hits=32,752`、**replay 46.1 ms（10.1×）** —— 而同一代码下 `SWA_TRIM=window` 仍是 **0/0** ⇒ **§2.4 的反例被修复** |
+| 4 | 文本 sha256 | ✅ 与 `017` 基线逐字节相同 |
+| 5 | 单位 | 131,072 B 记账 / 910,208 B 物理（×6.945）⇒ **每请求 9 MiB（旧 44 MiB）** |
+
+### 2.6 ★★★ A2 的最终容量账（**§2.4 的矩阵作废**）
+
+| 上下文 | 口径 | 记账 ×16 | **宿主实占** | 判定 |
+|---:|---|---:|---:|---|
+| **32K** | SWA 全存 | 48.0 GiB | **333 GiB** | ⚠️ 占余量 75% |
+| | **★ per-group bpc** | **9.5 GiB** | **66 GiB** | ✅ **宽裕** |
+| **128K** | SWA 全存 | 192.0 GiB | **1,333 GiB** | ⛔ **不可能** |
+| | **★ per-group bpc** | **38.0 GiB** | **264 GiB** | ✅ **可以**（占余量 60%） |
+
+**⇒ ★ A2 的 128K × 16 并发从"不可能"变成"可以"。**
+
+### 2.6b ★★ 并发 × 上下文的边界（**A2 到底能扛多少**）
+
+| 场景 | **宿主实占** | A2（余量 442 GiB） |
+|---|---:|---|
+| 16 × 32K | **66 GiB** | ✅ 宽裕 |
+| **16 × 128K** | **264 GiB** | ✅ **可以**（60%） |
+| 32 × 128K | **528 GiB** | ⛔ 不可能 |
+| **64 × 128K** | **1,056 GiB** | ⛔ **不可能** |
+
+★ **但这是最坏口径**（每请求前缀互不相同）。真实 agent 流量是**共享 system prompt + 变长历史**，
+此时池子只需覆盖**唯一前缀总量**：
+
+| | 要覆盖的 | 1.000× 池 |
+|---|---|---|
+| 最坏（前缀互不相同） | Σ 各请求长度 | 16 × 128K ⇒ **264 GiB** |
+| **典型（共享同一前缀）** | 唯一前缀总量 | ≈1 个前缀 ⇒ **16.5 GiB** |
+
+**⇒ 差 16 倍。** 「64 并发」在最坏口径下不可行，但在共享前缀下**很可能完全可行**。
+（`L3_8card` 正在测这条，结果会给出真实场景的池子需求。）
+
+### 2.7 上线顺序（**已更新**）
+
+1. **短上下文（32K）现在就能上**：per-group bpc + `OFFLOAD_GB=16`（宿主 ≈111 GiB）；
+2. **长上下文（128K）需要** per-group bpc + `OFFLOAD_GB=48`（宿主 ≈333 GiB，占余量 60%）；
+3. **KV8 不再是 128K 的必需项**（per-group bpc 已经够了）—— KV8 的 1.135× 只是锦上添花，
+   而且它现在还有 **+21% 时延**的硬伤（见 §3）。
+
+---
+
+## 3. 线 2：KV8 上线（**后置**）
+
+### 3.1 现状
+
+| 阶段 | 状态 |
+|---|---|
+| 精度前提 | ✅ `logs/002`：INT8 g128 → rel_L2 2.21%、cos_min 0.990、**无尾部** |
+| **TND 路线** | ⛔ **否决**（`logs/015`：arch22 只编译 `TND Q × PA_BBND KV`） |
+| **替代设计** | ✅ **PA_BBND scratch + identity block table + 索引重编号**，逐比特精确 |
+| **性能（图内）** | ✅ **+0.23%**（+0.068 ms/step） |
+| **性能（chunked prefill）** | ❌ **45–105 ms/step 否决** |
+| **引擎集成** | ✅ **已完成**（`logs/018`）：无损臂 `max_abs=0 / rel_L2=0`；真量化 `rel_L2=5.42e-3 / cos=0.999986`；**图内 +0.07%** |
+| **⛔ 容量收益** | **只量化 long-KV：×1.032**（`logs/018`）；**连 SWA 一起量化：×1.135**（`logs/020`）—— **都不是 ×1.84/×1.98**，见 §3.2 |
+| **⛔ 图内性能** | **+169 µs/层（SWA）/ +267 µs/层（cmp）⇒ ≈+7.8 ms/step（+26%）**（`logs/020` §6 生产形状整图；**`018` 的 +5.2 µs/层是单层 replay 的欠估**） |
+
+### ★★ 3.1b 容量收益为什么拿不到（**两层原因，第二层是 `logs/020` 才发现的**）
+
+**第一层（`logs/018`）**：hybrid slot 把 long-KV 平面与 10 个 SWA 平面**叠在同一物理页几何**，
+页大小取 `max(long-KV 页 + indexer 页, *alias 页)`；**BF16 SWA 页 = 128 × 512 × 2 = 131072 B**
+永远大于 INT8 long-KV 页 ⇒ 只量化 long-KV 只到 **×1.032**。
+
+**第二层（`logs/020`，★ 这一层才是真凶）**：把 SWA 也量化（`scale_dim` 加上、SWA 页
+**131072 → 66560 B**）之后，容量**只到 ×1.135（540928 → 476416 B/block）**，不是 ×1.98。
+原因：**4 个 hybrid slot 里有 3 个（ratio-2 槽）的页被 FP32 compressor state ring 顶住**：
+
+```
+DeepseekV41CompressorStateSpec = 32 行 × 1024 dim × 4 B(F32) = 131072 B/block
+                                              ↑ 逐字等于被 SWA 顶住的那个数
+```
+
+⇒ **缩了 SWA 也一分钱不省**（020 §2 有分槽逐项对账）。
+
+### ★★ 3.1c 两条 P0（需要决策）
+
+| # | 问题 | 结论 / 建议 |
+|---|---|---|
+| **P0-1** | **图内性能不达标**：生产形状整图 **+169 µs/层（SWA）/ +267 µs/层（cmp）** ⇒ **≈+7.8 ms/step（+26%）**；而**预置 scratch 后算子只 +0.16 µs/层** ⇒ **成本 100% 在 gather/dequant** | ★ **先修这个** —— `logs/015` 已标定瓶颈是 `kv_i8[phys]` **二维高级索引（~20 GB/s）**，而 **flat `index_select` 达 1.2 TB/s（60×）** ⇒ 换快路径后有望降到 <1% |
+| **P0-2** | **容量分母是 compressor state ring**（F32 32×1024） | 缩它超出 KV8 范围（要动 `AscendCircularBufferSpec`）；缩了之后是 **×1.91**【推断】 |
+
+**⇒ 决策：先做 P0-1（性能），因为性能不达标时容量再大也是负收益。**
+已派子代理 **KV8_gather** 去做（见 `logs/023`）。
+
+### 3.2 上线的前提（★ 已按 `logs/018` 更正）
+
+| # | 前提 | 状态 |
+|---|---|---|
+| 1 | 数值对拍（`rel_L2 ≤ 2.3%`） | ✅ **已过**（5.42e-3）；**但 prefill 形状有 NaN**【未确认】 |
+| 2 | **容量验证**（3.50M → ~6.4M） | ⛔ **未过**（只有 ×1.032）⇒ **必须先做「SWA 也量化」** |
+| 3 | **prefill 侧必须回退 BF16**（或找别的解法） | ⏳ `018` 已做"页粒度整前缀重建"绕开 015 的行放大，但 NaN 未定性 |
+| 4 | 与卸载**叠加验证** | ⏳ 未做 |
+
+### 3.3 预期收益（**已更正**）
+
+```
+【原预期】4421 -> 2405 B/token（x1.84）
+【实测】  4226 -> 4096 B/token（x1.032）   ← long-KV 单独量化拿不到
+【须做】  把 SWA(ori_kv) 也量化 => 2137 B/token（x1.98，推算）
+```
+
+**⇒ 线 2 的下一步是「SWA 也量化」（要新加 `scale_dim` 到 `DeepseekV41SWASpec`），不是"直接上线"。**
+
+---
+
+## 4. 交付物落点
+
+| 类 | 位置 |
+|---|---|
+| 上线脚本 | **验证通过后**进 `../dsv41-release/scripts/`（发布包只收已验证的） |
+| 补丁 | `a2/agents/{D2_offload,P1_pinned}/patches/` → 验证后进 `../dsv41-release/patches/` |
+| 参数与判据 | 本文 + `logs/019` |
+| 实验证据 | `a2/logs/NNN-*` + `a2/logs/raw/NNN-*` |
+
+---
+
+## 5. 未确认 / 风险
+
+| # | 事项 | 影响 |
+|---|---|---|
+| 1 | **A2 的两条探测还没跑** | 决定候选 β 是否可用 ⇒ **阻塞线 1 上线** |
+| 2 | **SWA 裁剪未实现** | 决定长上下文能否上线（760 GiB vs 74.5 GiB） |
+| 3 | `1.7×` 记账系数是 A3 的数 | A2 上要重测 |
+| 4 | KV8 的 **prefill 否决** | 线 2 上线的硬约束 |
+| 5 | `state` 组跳过的**数值正确性**只做了语义推断 | `logs/009` §6 已标【未确认】，建议补精度对比 |
