@@ -106,8 +106,26 @@ replay TTFT 4167 ms ≈ fill 4192 ms ⇒ **对服务质量零帮助**。
 | 路径 | 内容 |
 |---|---|
 | `patches/` | 四个可交付补丁 + 挂载说明 |
+| `scripts/` | **一键起服**（`serve_a2_offload.sh`，依赖 shadow-pkg） |
 | `logs/` | 关键实验日志（8 卡终验、per-group bpc、KV8 裁决） |
 | `CHANGELOG.md` | 本分支相对 `main` 的逐项变更 |
+
+### 3.1 一键起服
+
+```bash
+MODEL=<模型目录> SHADOW_PKG=<shadow-pkg 路径> bash a2/scripts/serve_a2_offload.sh
+
+# 32K 场景（默认）：宿主实占 ≈111 GiB
+# 128K 场景：
+MODEL=<模型目录> OFFLOAD_GB=48 MAX_LEN=131072 bash a2/scripts/serve_a2_offload.sh
+
+# 先干跑看参数（不启动）：
+DRY=1 MODEL=<模型目录> SHADOW_PKG=<路径> bash a2/scripts/serve_a2_offload.sh
+```
+
+★ **为什么需要 shadow-pkg**：`dsv41-release/scripts/serve_a2.sh` 是生产脚本，**不改它**。
+shadow-pkg 是它的副本，多了两个注入点（认 `KV_ARGS_EXTRA` 与 `OFFLOAD_*_PATCH`）。
+本脚本负责把 `a2/patches/` 的四个文件复制进去，再调它的 `serve_a2.sh`。
 
 ---
 
