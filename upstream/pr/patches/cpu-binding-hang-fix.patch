@@ -1,0 +1,77 @@
+--- a/vllm_ascend/cpu_binding.py
++++ b/vllm_ascend/cpu_binding.py
+@@ -51,11 +51,44 @@
+         try:
+             out, _ = p.communicate(timeout=1000)
+         except subprocess.TimeoutExpired:
++            # SIGKILL is only acted on at a signal check point. A helper stuck in an
++            # uninterruptible kernel path -- e.g. migratepages against a full NUMA node
++            # -- can therefore ignore it for hours, which is what we observed. The reap
++            # below must be bounded as well, otherwise the 1000 s timeout above degrades
++            # into a hang that never returns and the engine never reaches READY.
+             p.kill()
+-            out, _ = p.communicate()
++            try:
++                out, _ = p.communicate(timeout=30)
++            except subprocess.TimeoutExpired:
++                logger.warning(
++                    "[cpu_binding] '%s' survived SIGKILL for 30 s; abandoning it. "
++                    "It may stay on the host until the kernel reclaims it.",
++                    cmd[0],
++                )
++                return "", -9
+     return out.decode(), p.returncode
+ 
+ 
++def _node_mem_free_bytes(numa_node: int) -> int | None:
++    """Bytes free on one NUMA node, or None when that node's meminfo is unreadable.
++
++    Readable from inside the container on the images we tested. The value is only a
++    hint -- the kernel will also reclaim page cache to make room -- and we compare
++    against MemFree alone, which is the conservative side of the comparison.
++    """
++    path = f"/sys/devices/system/node/node{numa_node}/meminfo"
++    try:
++        with open(path, encoding="utf-8") as fh:
++            for line in fh:
++                fields = line.split()
++                # e.g. "Node 6 MemFree:       17476068 kB"
++                if len(fields) >= 4 and fields[2].rstrip(":") == "MemFree":
++                    return int(fields[3]) * 1024
++    except (OSError, ValueError, IndexError):
++        return None
++    return None
++
++
+ class DeviceInfo:
+     def __init__(self):
+         self.npu_map_info: dict[str, dict[str, str]] = self.get_npu_map_info()
+@@ -659,6 +692,28 @@
+         if target_numa not in all_numa_nodes:
+             logger.warning("[migrate] NUMA node not found. npu=%s, numa=%s. ", npu, target_numa)
+             return
++        # migratepages has no fast failure mode: when the destination node cannot absorb
++        # this process's pages it spins in the kernel (direct reclaim) instead of
++        # returning an error, and the engine then blocks in bind_memory() forever -- see
++        # the bounded-reap change in execute_command() for the second half of that
++        # story. Check the two numbers we can read before paying that cost.
++        target_free = _node_mem_free_bytes(target_numa)
++        try:
++            wanted = psutil.Process(int(pid)).memory_info().rss
++        except Exception:  # noqa: BLE001 - the pid may already be gone
++            wanted = 0
++        if target_free is not None and wanted and target_free < wanted:
++            logger.warning(
++                "[migrate] NPU:%s -> NUMA [%s] skipped: the node has %.1f GiB free but this "
++                "rank holds %.1f GiB, so migratepages would not converge. The rank keeps "
++                "running with its current placement; set enable_cpu_binding=false to silence "
++                "this, or free memory on that node.",
++                npu,
++                target_numa,
++                target_free / 1024**3,
++                wanted / 1024**3,
++            )
++            return
+         # Bind memory to the NPU's NUMA node only to minimize cross-NUMA traffic.
+         logger.info("[migrate] NPU:%s -> NUMA [%s]", npu, target_numa)
+         execute_command(
