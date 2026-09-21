@@ -69,6 +69,7 @@
 > 实测：加固前后 **sha 逐字相同**（`a7ffff6be598`）⇒ **既没修它、也没让它更糟**。
 | `0001c-offload-per-group-bpc-hooks.patch.py` | `af2fefb8337fdf9fe1c5e55518f665b8` | 配置解析钩子（`blocks_per_chunk` 支持 `{"default":8,"swa":1}` 的字典形式） |
 | `0002-offload-cpu-pool-host-registered.patch.py` | `2c161a791fe99f17cce2e1139ffbdc3c` | `cpu_npu.py` 的替换版（`NPU_OFFLOAD_HOST_MEM=registered` 走 `aclrtHostRegister`；**注册失败自动回落 `pinned`**） |
+| ★ `0001-8card-offload-scheduler.patch.py` | `6a4f8dffcbb1f3ab4b6c5a1d749e6eaf` | **8 卡链专用的 `scheduler.py`**（= `027`/`042` 那份 `L3_8card/patched/scheduler.py` 的 md5 `f4de89d2…` + `043` 的 bpc 泄漏修复 5 个 hunk，`diff -u` **只含修复、零其它差异**）。<br>★ **8 卡挂载链请用这一份**：覆盖 `agents/L3_8card/patched/scheduler.py` 即完成上线阻塞。8 卡口径**未复核**【未确认】。 |
 
 ---
 

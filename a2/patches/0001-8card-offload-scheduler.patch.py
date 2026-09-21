@@ -62,7 +62,13 @@ from vllm.v1.outputs import KVConnectorOutput
 from vllm.v1.request import Request, RequestStatus
 
 # [SWA_pergroup] per-group `blocks_per_chunk` 的共享解析（与 spec/manager 同一份实现）。
-from pgp_manager import BPC_BY_GROUP_KEY, bpc_map_from_extra  # noqa: E402
+try:  # [L3_8card] 8 卡挂载链：pgp_manager 作为 vllm 子模块挂进去
+    from pgp_manager import BPC_BY_GROUP_KEY, bpc_map_from_extra  # noqa: E402
+except ImportError:  # pragma: no cover - 单卡 c2 的 PYTHONPATH 路径走上面那条
+    from vllm.v1.kv_offload.cpu.pgp_manager import (  # noqa: E402
+        BPC_BY_GROUP_KEY,
+        bpc_map_from_extra,
+    )
 
 logger = init_logger(__name__)
 
