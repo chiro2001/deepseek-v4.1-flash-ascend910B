@@ -39,32 +39,46 @@ du -sBG --apparent-size "$MODEL"/engram_int8/* | sort -n      # 11.4 / 91.6 / 11
 **[47]** *"…measure table footprint, lookup latency, transfer volume, and NUMA/bandwidth
 sensitivity under realistic concurrency."*
 
-We measured **4 of the 5** named quantities (A3, 8 ranks):
+We measured **all 5** named quantities (A3, 8 ranks for the first four; the NUMA/bandwidth
+one on one die and on a 3-die proxy, see below):
 
 * footprint: **206.0 GiB** (INT8 weights + FP32 group-32 scales, 2 layers);
 * lookup latency: hash **0.427 → 0.076 ms**, plan **0.261 → 0.068 ms** (numba JIT);
 * transfer volume, host-lookup path, per rank: `d2h` **0.19–3.41 ms**, `route`
   **1.34–2.89 ms** (TP0 largest — rank-0 role cost, not a fault);
 * realistic concurrency: C1…C64 sweep, 7 levels × 2 repeats, `ok=64/64`, service alive.
-* machine sensitivity we do have: A3 `host_mem_pool=1` (HCCS) vs A2 `host_mem_pool=0`
-  (PCIe); **NUMA/bandwidth sensitivity as such is not measured**.
-* **registration cost, measured on a single card** (four sizes spanning 512×, three
-  repetitions, anonymous *and* file-backed mappings):
+* machine sensitivity: A3 `host_mem_pool=1` (HCCS) vs A2 `host_mem_pool=0` (PCIe).
+* **NUMA / bandwidth — the fifth quantity, now measured on both a synthetic and the
+  production table** (device operator reading host DRAM through
+  `aclrtHostRegister(…, MAPPED)`; registration is outside every timed loop):
 
-  | block | 8 MiB | 128 MiB | 1 GiB | 4 GiB |
-  |---|---:|---:|---:|---:|
-  | ms/MiB (anonymous) | 11.08 | 11.38 | 11.46 | 11.45 |
-  | ms/MiB (file-backed) | 11.27 | 11.63 | 11.49 | 11.84 |
+  | arm | contiguous | uniform random row gather |
+  |---|---:|---:|
+  | synthetic 2 GiB, 20480 B rows, 1 die | **107 GB/s** | 95 GB/s (4096 rows) |
+  | synthetic, 3 dies | **115 GB/s total** — a per-**CPU-socket** cap (3 dies on 3 sockets reach 321 GB/s; 3 on 1 socket collapse to 39 each) | — |
+  | **production 206.0 GiB table, 256 B rows, 1 die** | **107.0 GB/s** | **7.55 GB/s** |
+  | production table, 3 dies (3/8-rank proxy) | 38.5 GB/s per die / **115.6 GB/s total** | 7.56 GB/s per die |
+  | production table, **hot-row skew** (80 % of queries into 0.1 % of rows) | — | **27.9–32.2 GB/s (2.6–4.3× uniform)** |
 
-  A 512× size step costs 529× the time, i.e. **linear** on that stack: **≈11.4 ms/MiB
-  ⇒ ≈40 minutes for a 206 GiB table per rank**.
+  Two things this reframes, both of which we would rather state than have discovered for us:
+  **row width is the dominant variable** — at 20480 B rows a gather behaves like a streaming
+  read, at the real 256 B rows it is a latency-bound scatter and costs **12.7×** — and
+  **hot-row caching does pay at production size** (2.6–4.3×), which the small synthetic table
+  had failed to show. A per-socket cap, not per-die contention, is what limits three ranks on
+  one socket (**2.8× worst case**), and the kernel's own first-touch placement put 2 of 3 dies
+  on one socket unaided.
 
-  **We then re-measured this on A3 hardware and the 40-minute figure did not survive.**
-  With a *materialised* file (100% blocks allocated) and an idle chip on driver 26.1.1:
-  1024 MiB → 799.7 ms, 4096 MiB → 3119.6 ms, 8192 MiB → 4839.0 ms, i.e.
-  **0.59–0.78 ms/MiB ⇒ 206 GiB ≈ 2.0–2.5 minutes per rank** — which reconciles with our own
-  A3 (133 s) and A2 (149.9 s) bring-up records. **The 18× outlier is the software stack of
-  that one container (driver 25.5.5), not the hardware.**
+  **Registration cost on the production table** (the earlier `≈11.4 ms/MiB ⇒ 40 min` figure
+  came from a *sparse* file on a **test VM** and did **not** survive re-measurement on real
+  hardware + a materialised file): one die **122.2 s / 0.580 ms/MiB** (99.9 s warm), and
+  upstream's exact `aclrtHostRegisterV2(MAPPED|PINNED)` call **83.9 s / 0.398 ms/MiB**. Three
+  dies registering the same 206 GiB concurrently: **240.9 / 241.3 / 238.9 s, all `ret=0`**
+  over 24 shard-registrations across two barrier-aligned rounds — **no `207001` and no
+  `507011`**, which are the two codes issue #16828 reports. That is a 3/8-rank proxy, not 8
+  ranks. Operational caveat worth carrying into the docs: the writable mapping the API
+  requires is **dirtied** by registration, so a bring-up writes the whole 206 GiB back
+  (`Dirty` ≈108–126 GiB, shard mtimes move, contents byte-identical), and
+  `posix_fadvise(DONTNEED)` silently drops 0 pages while any rank still maps the file.
 
   Two traps worth passing on, because we fell into both:
   * **A "file-backed" number is only as real as the file.** Our first cheap file result
@@ -304,8 +318,15 @@ All six categories exist with a command in our repository:
 * overlap: measured communication ∩ compute = **0.000 ms** at 32K decode, with the cause
   identified as a data dependency (`reports/comm-compute-overlap-cannbot.md`).
 * Caveat: the baseline for most of these is **our own stock configuration**, not upstream
-  `main`. A same-card, same-session comparison against upstream code is in progress for the
-  Engram gate function and will be posted when it is finished.
+  `main`. Where a same-card, same-session comparison against **upstream code copied
+  verbatim** exists, it is the Engram gate: five arms in one process, arms interleaved,
+  `--verify-verbatim` re-diffing both embedded copies against their sources. On the
+  production shape the two forms are **within 15 % on time in either direction** (the sign
+  flips between runs, so we report parity rather than a speedup) while **peak HBM is 0.52×**
+  at `max_num_batched_tokens = 2048` and **0.35×** at 8192 — and a third arm with the
+  chunking gate off proves the difference is the algorithm, not the file swap
+  (1.00–1.06× upstream on time, a constant 1.20× on peak HBM). Function level, eager,
+  synthetic fixed-seed inputs; no claim beyond that function.
 
 ```
 python3 tools/bench_concurrency.py --base-url http://127.0.0.1:8020 --model deepseek-v41 \

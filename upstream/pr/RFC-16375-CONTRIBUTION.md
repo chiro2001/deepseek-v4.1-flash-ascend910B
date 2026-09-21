@@ -491,13 +491,22 @@ all three runs** (420.0 MB vs 800.1 MB), and the time ratio is inside ±15% in a
 The 4.4–5.0× penalty at n ≤ 192 (5.5–7.2× on the earlier single-card run — same sign) is
 **not** caused by chunking. It is caused by `V41_ENGRAM_GATE_MAX_TOKENS` padding every call up
 to a static token ceiling (a deliberate graph-capture choice). That ceiling is the knob, so it
-was swept: `CHUNK` fixed at 512, `MAX_TOKENS` = 256 / 512 / 1024 / 2048 / 4096, n = 1 … 4096,
-one card, one process, every arm interleaved inside the same run, `reps=30` (raw rows
-`logs/raw/41-engram-gate-ceiling-{small,large}-a3c0.json`; full write-up
-`logs/41-20260921-engram-gate-ceiling-sweep.md`; harness
-`agents/T2_ceilings/bench/bench_engram_gate_head2head_sweep.py`, sha256 `66470619…` — the §3.1
-harness plus an additive `--ceiling-sweep` switch, with the five §3.1 arms re-measured unchanged
-in the same runs):
+was swept **twice: in eager mode, and inside a captured + replayed ACLGraph** — the second frame
+being the one that ships. Both sweeps fix `CHUNK` at 512, sweep `MAX_TOKENS` = 256 / 512 / 1024
+/ 2048 / 4096 over n = 1 … 4096, run one card / one process with every arm interleaved inside
+the same run, `reps=30`, and re-measure the §3.1 arms unchanged (eager raw rows
+`logs/raw/41-engram-gate-ceiling-{small,large}-a3c0.json`, write-up
+`logs/41-20260921-engram-gate-ceiling-sweep.md`, harness
+`agents/T2_ceilings/bench/bench_engram_gate_head2head_sweep.py`, sha256 `66470619…`);
+the graph harness imports *that* module's arms by path, so the two tables cannot diverge. It
+captures one graph per (arm, n) — the ceiling is a compile-time constant, so n *is* the captured
+batch size — with L = 1 / 4 / 16 / 40 back-to-back gate calls inside a single graph, replays it
+30 times, and validates every graph by `torch.equal` on the replayed output against the same
+arm's eager output (**126/126 cells exact, `max|d| = 0.00e+00`**; graph raw rows
+`logs/raw/43-gate-ceiling-graph-{small,large}-a3c{0,1}.json`, write-up
+`logs/43-20260921-gate-ceiling-in-graph.md`, harness
+`agents/T3_graphceil/bench/bench_gate_ceiling_graph.py`, sha256 `8761d4cf…`). **Eager** (median
+ms per call, die 3):
 
 | `MAX_TOKENS` | n=1 | n=8 | n=32 | n=192 | n=512 | n=1024 | n=2048 | n=4096 | peak HBM (small n) |
 |---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
@@ -506,31 +515,75 @@ in the same runs):
 | **2048 (shipped)** | 2.811 | 2.834 | 2.896 | 2.911 | 3.006 | 3.140 | 3.346 | — | 420 MB |
 | 4096 | 5.675 | 5.591 | 5.683 | 5.709 | 5.864 | 5.712 | 5.993 | 6.357 | 600 MB |
 
-An n = 8192 tail (over the shipped contract) was measured separately: `MAX_TOKENS=8192` runs
-zero-padded at **12.859 ms / 1120 MB** versus upstream's **13.295 ms / 3200.5 MB** (0.97× time,
-**0.35× HBM**).
+**In-graph**, same arms, L = 16 (median ms per call; parentheses = the capture's own pool peak
+MB). This is the production frame: the deployed model captures 40 layers in one graph, and an
+L = 40 control on a third die reproduces the table within 3.7% (pool peaks identical, i.e. the
+pool saturates):
+
+| `MAX_TOKENS` | n=1 | n=8 | n=32 | n=192 | n=512 | n=1024 | n=2048 | n=4096 | pool peak (small n) |
+|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| 512 | 0.679 | 0.688 | 0.690 | 0.742 | 0.787 | — | — | — | 285 MB |
+| 1024 | 1.303 | 1.322 | 1.329 | 1.399 | 1.529 | 1.548 | — | — | 330 MB |
+| **2048 (shipped)** | 2.597 | 2.629 | 2.662 | 2.752 | 2.853 | 2.944 | 3.185 | — | 420 MB |
+| 4096 | 5.224 | 5.298 | 5.206 | 5.358 | 5.611 | 5.581 | 5.899 | 6.365 | 600 MB |
+
+A n = 8192 tail (over the shipped contract) was measured in both frames: `MAX_TOKENS=8192` runs
+zero-padded at **12.859 ms / 1120 MB** eager and **12.771 ms** in-graph (pool peak 1120 MB at
+L = 1, 1440 MB at L = 4), versus upstream's **13.295 / 3200.5 MB** and
+**13.255 / 3520.5 MB** (0.96–0.97× time, **0.35–0.41× HBM**).
 
 Median ms per call; **“—” = the arm raises** (n > MAX is a contract violation, not a crash —
-the padder cannot shrink a dimension). Over the legal points the curve is a straight line:
-**t ≈ 0.1 + 0.69 × (MAX/512) ms, max residual 0.07 ms** (the same 512-row slope, 0.66–0.71 ms,
-reproduces on a second die), and the padded buffer costs ≈ 45 MB per 512 rows. There is **no
-knee above `CHUNK`**: on the n = 512 row the four ceilings are 0.871 / 1.636 / 3.006 / 5.864 ms,
-whose successive differences are 0.765 / 1.370 / 2.858 ms — one more 512-row chunk is a flat
-≈0.7 ms, because a padded row costs exactly what a real row costs inside the chunk loop. **The
-honest statement is therefore: the padding constant, not the chunking, is the cost — and here
-is its price list.**
+the padder cannot shrink a dimension). **Neither frame has a knee above `CHUNK`**, and the slope
+is the same in both: **in-graph t ≈ 0.011 + 0.651 × (MAX/512) ms** (n = 1 row; per-row slopes
+0.639–0.691 ms per 512 rows across two dies, max residual 0.05 ms) against eager's
+**t ≈ 0.122 + 0.648 × (MAX/512)** (n = 1 row, same run; per-row 0.648–0.693, and 0.660–0.710 in
+`logs/41`). Graph capture removes the
+intercept — mostly host dispatch, worth 0.11 ms at n = 1 — but *not* the slope: **a padded row
+costs what a real row costs, and it costs that inside a graph too.** The padded buffer costs
+≈ 45 MB per 512 rows in both frames (the graph pool peaks 0–160 MB above the eager single-call
+peak, saturating by L = 4). **The honest statement is therefore unchanged: the padding constant,
+not the chunking, is the cost — and here is its price list, now in the frame that ships.**
+
+**What the in-graph frame does change is the comparison with upstream — in our disfavour.** The
+verbatim upstream gate has no padding, so its eager number is mostly host dispatch at small n,
+and a captured graph deletes exactly that: upstream drops to **0.099 ms at n = 1** (5.5× below
+its 0.546 ms eager), 0.180 at n = 32, 0.270 at n = 192, and only reaches its eager value at
+n ≥ 512. Our arms, being pad/device-bound, gain 1–11% from capture. The in-graph ratios against
+upstream are therefore:
+
+| n | ours at the minimal ceiling `ceil(n/512)·512` | shipped `MAX=2048` | (eager, for contrast — minimal / shipped) |
+|---:|---:|---:|---:|
+| 1 | **6.84×** | **26.1×** | 1.32× / 4.76× |
+| 8 | 4.54× | 17.3× | 1.19× / 4.12× |
+| 32 | 3.83× | 14.8× | 1.20× / 4.24× |
+| 192 | 2.75× | 10.2× | 1.26× / 4.28× |
+| 512 | 1.41× | 5.11× | 1.38× / 4.81× |
+| 2048 | 0.97× | 0.97× | 1.00× / 1.00× |
+| 4096 | 0.95× (zero padding) | — (illegal) | 0.94× / — |
+
+The previous revision of this section quoted "**1.19–1.38× upstream instead of 4.12–4.78×**" for
+the minimal ceiling — that was an eager-only number and understates the ratio by 3–5×
+(die 6 reproduces every cell within 2%: 6.88× / 4.48× / 3.93× / 2.77× / 1.43× at 512, and
+5.11–26.4× for the shipped constant). The mechanism is not subtle: upstream's device work is ∝ n,
+ours is ∝ MAX.
 
 **Recommended value** — the smallest `CHUNK` multiple that covers the largest token count the
-captured graph can see, i.e. `MAX_TOKENS = max(CHUNK, ceil(B_max / CHUNK) * CHUNK)`:
+captured graph can see, i.e. `MAX_TOKENS = max(CHUNK, ceil(B_max / CHUNK) * CHUNK)`. This does
+**not** change with the frame; the in-graph data makes it sharper:
 
-* small-batch / decode-only graphs (`B_max ≤ 512`): **512** — 0.774–0.871 ms and 285 MB per
-  call, i.e. **1.19–1.38× upstream instead of 4.12–4.78×**;
+* small-batch / decode-only graphs (`B_max ≤ 512`): **512** — **0.679–0.816 ms** and 285–305 MB
+  per call in-graph (1.41× upstream at n = 512 … 6.84× at n = 1);
 * the shipped prefill contract (`max_num_batched_tokens = 2048`): **2048 is already that
-  minimum**, so keep it — the 4.2–4.8× at small n is then structural rather than a bug. A
-  2048-row graph costs 2.811–3.006 ms even for a single token, and the measured gap to a
-  512-row graph is **−2.0 ms / −135 MB per call**. The next knob after this constant is *which
-  ceiling each captured graph uses* (per-capture-size buckets, priced by the table above), not
-  a smaller single process-wide value.
+  minimum**, so keep it — the 5.1–26× at small n is then structural rather than a bug. A
+  2048-row graph costs 2.597–2.853 ms even for a single token, and the measured gap to a 512-row
+  graph is **−1.92 … −2.10 ms / −135 MB per call**, i.e. the same absolute gap as eager
+  (−2.02 … −2.18 ms) and a slightly *larger* ratio (3.6–3.9× vs 3.4–3.8×): **oversizing the
+  ceiling is device work and does not get cheaper when the frame is captured.** The next knob
+  after this constant is therefore *which* ceiling each captured graph uses
+  (per-capture-size buckets, priced by the tables above) — and in-graph that knob is worth
+  more, not less: a 2048-row graph serving a 1–192-token batch costs 10–26× upstream's device
+  work instead of the 4.1–4.8× the eager table suggests, not a smaller single process-wide
+  value.
 
 **One guard is worth adding:** `MAX_TOKENS=256` with `CHUNK=512` does not pad to 256 —
 `_gate_max_tokens()` silently falls back to `max(chunk, 4096)`, i.e. to the *worst* point on

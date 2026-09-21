@@ -53,6 +53,7 @@ Machine-class criterion that decides whether the device path is available at all
 
 | Machine | PCI id | CPU↔NPU | `host_mem_pool` | Observed |
 |---|---|---|---|---|
+| **A3 (910C), on the production table itself, 3 dies concurrently** (2026-09-21) | `19e5:d803` | HCCS | **1** | one die registers all 206.0 GiB in **122.2 s** (0.580 ms/MiB; 99.9 s warm) and upstream's `aclrtHostRegisterV2(MAPPED\|PINNED)` call in **83.9 s** (0.398 ms/MiB); **three dies registering it at once: 240.9 / 241.3 / 238.9 s — 24 shard-registrations, all `ret=0`, no `207001`, no `507011`**; a concurrent re-registration did **not** disturb the other dies' read bandwidth (≤0.8 %) |
 | A3 (910C) | `19e5:d803` | HCCS | **1** | 8 ranks × 206 GiB registered; bring-up time recorded as ≈133 s — **the span that number covers is not documented in our notes, see the cost caveat below** |
 | A2 (910B3) | `19e5:d802` | PCIe | **0** | full-table registration fails `ret=207001` after ~17 min (MemAvailable still 703 GiB); single rank succeeded (149.9 s / 159.5 s) |
 | 910C-class dev container, driver 25.5.5 | `19e5:d803` | HCCS | **1** | probe reports supported; **device read verified byte-for-byte** |
@@ -78,6 +79,23 @@ Two traps, both of which we fell into: a **sparse** file (built with `ftruncate`
 65× cheaper registration than a real one — check `st_blocks`; and the `host_mem_pool` flag
 reads `1` on the container *and* on A3 despite the 18× gap, so it does not predict cost.
 Measure on the machine you deploy on. Practical upshot: registering 1 GiB predicts the full-table time
+only if that 1 GiB is a *real* file on the *deployment* stack.
+
+**Two operational caveats the production-table run surfaced** (both measured, neither is a
+bug in anyone's code):
+
+1. **The API dirties what it maps.** A read-only VMA is rejected (`107017
+   ACL_ERROR_RT_INVALID_HANDLE`), so the mapping must be writable — and registering it marks
+   the pages dirty. A bring-up therefore writes the whole 206 GiB back (`Dirty` reached
+   108–126 GiB; shard mtimes moved, **contents stayed byte-identical**). `posix_fadvise(DONTNEED)`
+   returns 0 but frees **zero** pages while any rank still maps the file, so "register then
+   drop the cache" is not a workaround on this driver.
+2. **Row width, not table size, sets the read throughput.** Device reads through the
+   registration on the real table (256 B rows): **107 GB/s** contiguous but only **7.55 GB/s**
+   for a uniform random row gather — 12.7× below the same code on a synthetic 20480 B-row
+   table. **Skew reverses that**: 80 % of queries into 0.1 % of rows gives **2.6–4.3×**, so
+   *hot-row caching* (the clause [47] names) is worth answering for real workloads, and a
+   wide-row synthetic benchmark cannot answer it.
 well enough to tell "slow but progressing" from "stuck" before committing to the wait.
 
 ```bash

@@ -24,13 +24,19 @@
 
 完整清单见 [DATA-GAPS.md](DATA-GAPS.md)。一句话版本：
 
-**能补的 8 项补了 6 项**（A3 上空闲芯片上跑，四个子代理并行），**补不了的 5 项全是"环境不存在"**（无 W8A8 权重、无 A5、无多节点、A3 只剩 3 张空闲卡起不了 8 卡服务）+ 2 项要 A2 现场（我连不上，命令已备好）。
+**已补 17 项**（A3 空闲芯片上跑，多个子代理并行）；**本机还能做但未排 5 项**；
+**需要 8 卡整机 3 项**（A3 只剩 3 张空闲 die）；**需要 A2 现场 4 项**（当前无法访问 A2）；
+**环境不存在 5 项**（无 W8A8 权重、无 A5、无多节点）。补不了的都写清"为什么"，
+绝不用相邻数字顶替。
 
 | 上游要求 | 之前 | 现在 |
 |---|---|---|
 | RFC **[91]** 非连续 stride / 空批 / padded / prefill 尺寸的融合校验 | "**not measured**" | ✅ **32/32 + 5/5**：`n=0` 空批逐位一致、`n=4096` 图内外都测、非连续 stride / 倒序 / 重复位置 / int32 / 2-D fallback 全覆盖；**含 2 格如实报告的回退** |
 | RFC **[97]** 可复现对比（同卡同进程、上游 vs 我们） | 缺 control arm（"not in the script yet"） | ✅ **control arm 已实测**：换文件在时间上免费（1.00–1.06×）、**显存不免费**（恒定 1.20×）；A3 两次独立运行 + 旧单卡一次，三次同向 |
-| RFC **[47]** NUMA / 带宽敏感度 | "**not measured**" | ✅ 设备侧读 host DRAM：连续 **107 GB/s**、随机行 gather **96 GB/s**（1 die）；**3 die 并发摊到 59 GB/s**；跨 NUMA node 扫描 |
+| RFC **[47]** NUMA / 带宽敏感度 | "**not measured**" | ✅ **合成表**：连续 **107 GB/s**、随机行 gather 96 GB/s（1 die）；并发**按 CPU socket 封顶 ≈115 GB/s**（不是摊薄） |
+| RFC **[47]** 真实表尺寸与真实并发 | "on a **synthetic** table … **not** on the 206 GiB production table and not at 8 ranks" | ✅ **真实 206 GiB 表 + 3 die 并发**（3/8-rank 代理）：**24 次并发满表注册全 `ret=0`，无 207001/507011**；连续 107 GB/s 但**均匀 gather 只 7.55 GB/s**（真表行宽 256 B）；**热行 skew 有 2.6–4.3× 收益**（与合成表相反）；注册不扰动其它 die（≤0.8%） |
+| RFC **[90]** padding 天花板是多少 | "a ceiling closer to the real batch size … is **not measured here**" | ✅ **`t ≈ 0.1 + 0.69×(MAX/512) ms`，CHUNK 以上无拐点**；生产约束下 2048 已最优，小 batch 图最优 512（差 3.4–3.6×，只能靠 per-capture-size 分桶拿掉）；另发现 `MAX=256` 被静默抬到 4096 |
+| RFC **[90]** 同上，但**在生产帧（图内）** | 同上 | ✅ **图内曲线仍是直线**（斜率 0.639–0.691 ms/512 行，与 eager 同值），`MAX=512` vs 2048 的绝对差几乎不变 ⇒ **推荐值不变**。**但相对上游的比值必须用图内口径**：上游臂进图后 n=1 从 0.546 → 0.099 ms，真实比值 **1.41×（512）~ 6.84×（1）**、shipped 2048 是 **5.1×~26.1×**（eager 表写的 4.12–4.78× 偏低 3–5×）。126/126 格逐位一致 |
 | RFC [46]/[47] §3.3 host table registration 两条 API 的 A/B | "**not yet run**" | ✅ `aclrtHostRegister(MAPPED)` 与 `aclrtHostRegisterV2(MAPPED|PINNED)` **ret=0、设备侧逐字节读回一致** ⇒ 本机这一档**没有分岔** |
 | RFC [47] §3.3 token history update（上游 per-token Python vs 我们的 numba JIT） | "**not yet run**" | ✅ 生产 decode `n=128`：**1.68 ms → 0.074 ms（22.8×）**；per-token 走法 **1312×**；`torch.equal` 14/14 |
 
@@ -45,6 +51,10 @@
 | [37](logs/37-ngram-and-hostreg-ab.md) | ngram JIT + host-register 双 API | 22.8× / 1312×；两 API 无分岔；**206 GiB 满表仍未测** |
 | [38](logs/38-host-dram-bandwidth.md) | host DRAM 带宽 / 并发 / NUMA | 这是 RFC [47] 缺的最后一项 |
 | [39](logs/39-upstream-recheck-2.md) | 上游进度复查 | **#16925 已 mergeable**；维护者对 v1 图模式第三次表态 |
+| [40](logs/40-real-table-concurrency.md) | ★ **真实 206 GiB 表 + 3 die 并发** | **24 次满表注册全 `ret=0`**（无 207001/507011）；真表行宽 256 B ⇒ **均匀 gather 只 7.55 GB/s**，但**热行 2.6–4.3×**；还**更正了 logs/29 的"65× 是缓存冷热"** |
+| [41](logs/41-engram-gate-ceiling-sweep.md) | ★ engram gate 的 padding 天花板曲线 | `t ≈ 0.1 + 0.69×(MAX/512)`，无拐点；`MAX=256` 会被静默抬到 4096（坑） |
+| [42](logs/42-rope-index-hoist.md) | ★ 把 RoPE 的 int32 回退**消除掉** | 每次调用只 build 一次 index：**+20.7/+28.9 → −17.9/−17.7 µs**，27 格全为负；PR 分支 amend 成 `ed5b928c` |
+| [43](logs/43-gate-ceiling-in-graph.md) | ★★ ceiling 扫描搬进**生产帧**（ACLGraph） | 曲线仍是直线（斜率同 eager）⇒ 推荐值不变；**但"只慢 1.19–1.38×"是 eager 假象**，图内真实是 **1.41×~6.84×**、shipped 2048 是 **5.1×~26.1×** |
 
 ---
 

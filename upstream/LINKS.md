@@ -32,15 +32,29 @@
 
 ---
 
-## C. 本轮补的数据（2026-09-21 下午，A3 空闲芯片上跑）
+## C. 本轮补的数据（2026-09-21，A3 空闲芯片上跑）
 
 | # | 主题 | 链接 |
 |---|---|---|
 | 35 | RoPE 边界矩阵（RFC [91]）——32/32 + 5/5 | https://github.com/chiro2001/deepseek-v4.1-flash-ascend910B/blob/main/upstream/logs/35-rope-edge-cases.md |
 | 36 | Engram gate 的 control arm（RFC [97]） | https://github.com/chiro2001/deepseek-v4.1-flash-ascend910B/blob/main/upstream/logs/36-engram-gate-control-arm.md |
 | 37 | ngram JIT + host-register 双 API A/B | https://github.com/chiro2001/deepseek-v4.1-flash-ascend910B/blob/main/upstream/logs/37-ngram-and-hostreg-ab.md |
-| 38 | host DRAM 带宽 / 并发 / NUMA（RFC [47]） | https://github.com/chiro2001/deepseek-v4.1-flash-ascend910B/blob/main/upstream/logs/38-host-dram-bandwidth.md |
+| 38 | host DRAM 带宽 / 并发 / NUMA（RFC [47]，合成表） | https://github.com/chiro2001/deepseek-v4.1-flash-ascend910B/blob/main/upstream/logs/38-host-dram-bandwidth.md |
 | 39 | 上游进度复查（#16925 mergeable 等） | https://github.com/chiro2001/deepseek-v4.1-flash-ascend910B/blob/main/upstream/logs/39-upstream-recheck-2.md |
+| 40 | ★ **真实 206 GiB 表 + 3 die 并发**（RFC [47] 最硬的一条） | https://github.com/chiro2001/deepseek-v4.1-flash-ascend910B/blob/main/upstream/logs/40-real-table-concurrency.md |
+| 41 | ★ engram gate 的 padding 天花板曲线 + RoPE 两个尾巴 | https://github.com/chiro2001/deepseek-v4.1-flash-ascend910B/blob/main/upstream/logs/41-engram-gate-ceiling-sweep.md |
+| 42 | ★ 把 RoPE 的 int32 回退**消除掉**（改代码 + 重验） | https://github.com/chiro2001/deepseek-v4.1-flash-ascend910B/blob/main/upstream/logs/42-rope-index-hoist.md |
+| 43 | ★★ **ceiling 扫描搬进生产帧（ACLGraph）** + 8K 小表 + n>4096 探测 | https://github.com/chiro2001/deepseek-v4.1-flash-ascend910B/blob/main/upstream/logs/43-gate-ceiling-in-graph.md |
+
+> **40 号值得单独看**：真表行宽是 **256 B**（不是合成表的 20480 B），所以
+> **均匀随机 gather 只有 7.55 GB/s**（合成表 96）—— 但**热行 skew 在真表上反而有
+> 2.6–4.3× 收益**，与合成表结论相反。另外它还**更正了 `logs/29` 的一个结论**
+> （"65× 是缓存冷热" 被否证：两片 mincore 都是 1.00）。
+>
+> **43 号是唯一一个"更正会误导上游的数字"的**：`logs/41` 里"ceiling=512 只比上游慢
+> 1.19–1.38×"是 **eager 假象**；上游臂进图后 n=1 从 0.546 → **0.099 ms**（eager 的一半以上
+> 是 host 下发），于是图内真实比值是 **1.41×（512）~ 6.84×（1）**，shipped 2048 是
+> **5.1× ~ 26.1×**。**推荐值没变，但引用必须用图内口径。**
 
 ---
 

@@ -35,6 +35,7 @@ that registration returned success.
 
 | Machine class | PCI id | CPU↔NPU | `host_mem_pool` | registration accepted | **device read** | registration cost |
 |---|---|---|---|---|---|---|
+| 910C class (Atlas A3), **on the production 206.0 GiB table itself, 3 dies concurrently** (2026-09-21) | `19e5:d803` | HCCS | **1** | **24/24 shard-registrations `ret=0`, no `207001`, no `507011`** | **yes** | one die **122.2 s / 0.580 ms/MiB** (99.9 s warm); `aclrtHostRegisterV2(MAPPED\|PINNED)` **83.9 s / 0.398 ms/MiB**; three dies at once **240.9 / 241.3 / 238.9 s** — and one die re-registering the whole table **did not perturb** the others' read bandwidth (≤0.8 %) |
 | 910C class (Atlas A3), **re-measured 2026-09-21** | `19e5:d803` | HCCS | **1** | yes | **yes** | **0.59–0.78 ms/MiB** — 1/4/8 GiB real files, 100% blocks allocated (§5.1) |
 | 910C class (Atlas A3), bring-up record | `19e5:d803` | HCCS | **1** | yes | **yes** | 0.63 ms/MiB (8 ranks × 206 GiB in 133 s) — **consistent with the row above** |
 | 910B3 class (Atlas A2), bring-up record | `19e5:d802` | PCIe | **0** | full table **succeeded** in the single-rank probe (149.9 s = 0.71 ms/MiB); fails `ret=207001` at 8 ranks | yes at 1 rank | 0.71 ms/MiB |
@@ -50,6 +51,20 @@ while the physical chip is 12).
 > real-hardware rows agree with each other at 0.59–0.78 ms/MiB. **The flag tells you the
 > fast path exists; it does not tell you how fast it is — and neither does a single
 > container.** See §5.
+
+> ★★ **Two caveats from the production-table run that belong in any support matrix.**
+> (a) **The API dirties what it maps.** The mapping must be writable — a read-only VMA is
+> rejected with `107017 ACL_ERROR_RT_INVALID_HANDLE` — and registering it marks the pages
+> dirty, so a bring-up writes the whole table back to disk (`Dirty` reached 108–126 GiB;
+> shard mtimes move and their **contents stay byte-identical**). On the same driver,
+> `posix_fadvise(DONTNEED)` returns 0 but frees **zero** pages while any rank still maps the
+> file, so "register, then drop the page cache" does not work as a workaround.
+> (b) **Throughput of a host table is dominated by row width, not by the table size.** On the
+> real table (256 B rows) a device operator reads host DRAM at **107 GB/s** contiguous but
+> only **7.55 GB/s** for a uniform random row gather; the same code on a synthetic table with
+> 20480 B rows reached **95 GB/s**. Skew helps a lot at production width — 80 % of queries
+> into 0.1 % of rows gives **2.6–4.3×** — so *hot-row caching* is a latency question worth
+> answering for real workloads, and a wide-row synthetic benchmark will not answer it.
 
 ## 2. Cost model
 

@@ -99,7 +99,7 @@ prefix 命中 **96.4%**（从 0% 修好）· A 中位 **3.58** · KV 占用 <10%
 
 ---
 
-## 3.5 ★ 2026-09-21 下午新增：数据缺口补测（第二轮）
+## 3.5 ★ 2026-09-21 下午新增：数据缺口补测（第一、二轮）
 
 四个子代理并行跑在 A3-node1 的 **三个独占槽位**（c0=die3 / c1=die6 / c2=die7，
 `tools/a3_up.sh` 起容器、`tools/a3_chip.sh` 单次运行一把锁）。补料清单见
@@ -113,10 +113,17 @@ prefix 命中 **96.4%**（从 0% 修好）· A 中位 **3.58** · KV 占用 <10%
 | §3.3 host-register 双 API | 两条 API **ret=0 + 设备侧逐字节一致** ⇒ 本机无分岔 | [`37`](logs/37-20260921-ngram-and-hostreg-ab.md) |
 | §3.3 ngram JIT | 生产 decode `n=128` **22.8×**；per-token 走法 **1312×**；`torch.equal` 14/14 | [`37`](logs/37-20260921-ngram-and-hostreg-ab.md) |
 | 上游进度复查 | **#16925 已 mergeable**；维护者对 v1 图模式第三次表态 | [`39`](logs/39-upstream-recheck-2.md) |
+| ★★ **真实 206 GiB 表 + 3 die 并发** | **24 次并发满表注册全 `ret=0`，无 207001/507011**；真表行宽 256 B ⇒ **均匀 gather 只 7.55 GB/s**（合成表 96），但**热行 2.6–4.3×**；注册不扰动其它 die（≤0.8%）；**更正 `logs/29` 的"65× 是缓存冷热"**（两片 mincore 都 1.00） | [`40`](logs/40-20260921-real-table-concurrency.md) |
+| ★ engram gate 的 padding 天花板曲线 | `t ≈ 0.1 + 0.69×(MAX/512) ms`，**CHUNK 以上无拐点**；生产约束下 2048 已最优，小 batch 图最优 512；`MAX=256` 会被静默抬到 4096（坑） | [`41`](logs/41-20260921-engram-gate-ceiling-sweep.md) |
+| ★ **把 RoPE 的 int32 回退消除掉** | 每次调用只 build 一次 index ⇒ **+20.7/+28.9 → −17.9/−17.7 µs**，27 格全为负；PR 分支 amend 成 **`ed5b928c`**，组合分支重建为 **`4abfa85e`** | [`42`](logs/42-20260921-rope-index-hoist.md) |
 
 **两处顺带修正**：① `RFC-comment.md` 的 [91] 段从 "not measured" 收窄为"RoPE 已测、
 其余融合未测"；② 确认 `11.4 ms/MiB`（⇒40 分钟）**只属于测试 VM**，真机
 **0.59–0.78 ms/MiB**（206 GiB 实测 119.4 s）。
+
+**基础设施两条**（都写进 [`AGENTS.md`](AGENTS.md)）：① **跨机传文件走 coscli，不走 ssh**
+（§2.0，helper `pr/cos-xfer.sh`，大 JSON 先裁剪）；② A3 槽位容器现在挂载真实 Engram 表
+（§2.2.1，`/tables` 是 `rw` —— 只读 VMA 会被 `107017` 拒绝，纪律是只读用途 + 已知会弄脏页）。
 
 **发布**：材料已脱敏（`A3-node1→A3-node1`、去账号名）后推到用户发布仓
 `chiro2001/deepseek-v4.1-flash-ascend910B` 的 `upstream/` 目录（提交 `72fdcff`），
