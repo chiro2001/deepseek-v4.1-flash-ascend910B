@@ -72,15 +72,40 @@
 
 ---
 
-## 2. 需要 8 卡整机的（A3 当前空缺）
+## 2. 需要 8 卡整机的 —— **★ 2026-09-21 16:2x 解封**
 
-| # | 缺口 | 为什么需要 8 卡 | 备注 |
+**关键更正**：Phy-ID **8–15 一直是我们自己的** `dsv41-a3` 容器（不是别人的）。
+用户确认"其实没有在服务"，并同意停掉它用这 8 张卡。主代理已 `docker stop dsv41-a3`
+（**保留容器**，`docker start` 即可原样还原；还原脚本 `state/restore_dsv41_a3.sh`），
+8–15 现已全空 ⇒ **A3 空闲 12 张 die（3/5/6/7 + 8–15）**。
+
+> ⚠️ **踩点警告**：`serve_a2.sh` 里有 `docker rm -f "$NAME"`，所以**起消融服务必须换容器名**
+> （用 `abl-a*`），否则会把用户的 `dsv41-a3` 物理删掉 —— 它可写层里的
+> `/opt/dsv41/tools/enable_codex_responses.sh` 等手工补丁**不在挂载里，删了就永久没了**。
+
+| # | 缺口 | 为什么需要 8 卡 | 状态 |
 |---|---|---|---|
-| G9 | `RFC-16375-CONTRIBUTION.md` §5：**单会话 ablation**（一个 session 里逐 gate 开关，A1 harness） | `MODEL=... MODE=full bash scripts/run_test.sh` 走的是 TP8/EP8 服务；每换一次 gate 就要重启一次服务 | A3 上 die 0–5 被别人的服务占着（`VLLMEngineCore` / SGLang / 其他容器），**只剩 die 3 / 6 / 7 三张空闲**，起不了 8 卡服务 |
-| G10 | G7（`npugraph_ex` 分组件归因） | 同上 | —— |
-| G11 | G8（overlap 的 trace artifact） | 同上 | 若日后 A3 能整机空出，命令已写在 `RFC-16375-CONTRIBUTION.md` C16 |
+| G9 | `RFC-16375-CONTRIBUTION.md` §5：**单会话 ablation**（逐 gate 开关，A1 harness） | 要 TP8/EP8 服务；每换一次 gate 就要重启一次服务 | **【在补】** → 子代理 `T4_ablation`，`logs/44` |
+| G10 | G7（`npugraph_ex` 分组件归因） | 同上 | 【待排】8 卡已可用 |
+| G11 | G8（overlap 的 trace artifact，RFC line 104 明确要 trace） | 同上 + `PROFILE=1` | 【待排】8 卡已可用 |
+| G19 | engram gate 的**端到端（整 step）放大** | `logs/41` 的函数级 × 层数只是【推断】；RFC [90] 的收益要在 step 上看 | 【待排】注：**T4 的消融若含 `GATE_CHUNK=512` 臂，就顺带把这格补了** |
 
-> **可替代的次优做法**（如果用户希望本轮就动）：停掉 A3 上别人的容器后用 die 0–7 起一个 8 卡服务 —— 这需要用户确认，主代理**没有**擅自做。
+
+### 2.1 ★ 2026-09-21 16:5x 新发现：`CPU_BIND=1` 在本机**起不了服**（上游缺陷候选）
+
+用 8–15 起 8 卡服务时，8 个 rank 里有 **2 个卡死在 `migratepages`**（NPU12/13 → NUMA node 6），
+**不是慢，是不收敛**（3 分钟采样三点零进展：`MemFree` Δ+24 kB、`AnonPages` Δ−56 kB、`FilePages` Δ0）。
+根因：**node 6 只剩 22 MB 空闲（size 257 GB）、而每 rank 要迁 ~90 GB**，
+而 `vllm_ascend/cpu_binding.py:663` 的 `bind_memory()` **不检查目标节点空闲、无超时、失败不报错**。
+两个进程**`kill -9` 无效**、容器 `rm -f` 之后**仍在宿主上各烧一个核**。
+
+* 影响：**任何以生产口径（`CPU_BIND=1`）起的 8 卡服务在本机当前状态下都到不了就绪**
+  ⇒ 消融矩阵只能改用 `CPU_BIND=0`（口径已在 `logs/44` 表头逐字标注）。
+* 已写成独立 issue 草稿：`pr/issue-draft-cpu-binding-migratepages-hang.md`（**未提交**）。
+* 互证：`logs/38` §1.6（12:57）已记录 node6/node7 只剩 ~0.3 GB ⇒ **机器先存状态，非本次实验造成**。
+* **不是我们的环境问题就能忽略**：共享集群上 NUMA 不均是常态，而它把"一次配置问题"
+  升级为"宿主上永久漏两个核"——这正是值得上游修的地方。
+
 
 ---
 

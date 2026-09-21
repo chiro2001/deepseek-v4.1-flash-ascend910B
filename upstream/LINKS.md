@@ -14,6 +14,13 @@
 | ② | **PR：MoE mask 改范围比较**（正文可粘贴） | https://github.com/chiro2001/deepseek-v4.1-flash-ascend910B/blob/main/upstream/pr/PR-moe-mask-range.md |
 | ② | ↳ 对应分支（可直接开 PR） | https://github.com/chiro2001/vllm-ascend/compare/main...perf/moe-contiguous-expert-map |
 | ③ | **issue：上游死 import（cc1d）** | https://github.com/chiro2001/deepseek-v4.1-flash-ascend910B/blob/main/upstream/pr/issue-draft-cc1d-dead-import.md |
+| ④ | **issue：`enable_cpu_binding` 在目标 NUMA 节点满时永久挂死**（新，2026-09-21 16:5x） | https://github.com/chiro2001/deepseek-v4.1-flash-ascend910B/blob/main/upstream/pr/issue-draft-cpu-binding-migratepages-hang.md |
+
+> **④ 是这轮顺带挖出来的**：用 8 卡起服时 2 个 rank 卡死在 `migratepages`，
+> **不是慢、是不收敛**（3 分钟三点零进展），根因是**目标 NUMA 节点只剩 22 MB 而每 rank 要迁 ~90 GB**，
+> 而代码**不检查空闲、无超时、失败不报错**；两个进程 `kill -9` 无效、容器删了还在宿主上烧核。
+> 影响面：**任何 `CPU_BIND=1` 的 8 卡起服在这台机器当前状态下都到不了就绪**
+> ⇒ 消融矩阵改用 `CPU_BIND=0`（口径已逐字标注）。
 
 ---
 
