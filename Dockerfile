@@ -37,6 +37,8 @@ COPY patches/files/token_dispatcher_moemask.py /tmp/bake/token_dispatcher.py
 COPY patches/files/rope_dsv4.py             /tmp/bake/rope_dsv4.py
 COPY patches/files/block_table.py           /tmp/bake/block_table.py
 COPY patches/files/draft/                    /opt/dsv41/patches/draft/
+# codex / OpenAI Responses API 兼容补丁（运行时按需安装，见 tools/enable_codex_responses.sh）
+COPY patches/files/patch_deepseek_v41_frontend/ /opt/dsv41/patches/patch_deepseek_v41_frontend/
 COPY patches/files/token_dispatcher_moezero.py /opt/dsv41/patches/files/token_dispatcher_moezero.py
 COPY patches/files/indexer.py               /opt/dsv41/patches/files/indexer.py
 

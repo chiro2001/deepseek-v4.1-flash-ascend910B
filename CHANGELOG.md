@@ -1,5 +1,87 @@
 # CHANGELOG.md —— v3 → v4 → v5 → v6 → v7 → v8 逐项 diff
 
+# ★ v8.1（2026-09-21）—— codex / OpenAI Responses API 兼容：**一键使能**
+
+> 本包此前**不能**被 codex 直接连。原因不在 vLLM 的 Responses 端点（它在、也通），
+> 而在 **DSV4.1 前端编码器只认 chat-completions 的块词汇表**，而 codex 发的是
+> Responses 的词汇表。**三个缺陷里有两个是静默的**——这是本次最值得记的一点。
+
+## 0. 结论
+
+| 缺陷 | 修复前 | 修复后 |
+|---|---|---|
+| `input_text` 块 | 渲染成**字面量** `[Unsupported input_text]`，**HTTP 200 但用户的话没进模型** | 正常渲染 |
+| `developer` 角色（codex 放系统指令） | **HTTP 500**（`AssertionError: Invalid message for role 'developer'`） | 200 |
+| 正文里的 `<｜User｜>`/`<｜Assistant｜>` | 编码成**单个 token** ⇒ 可**伪造轮次边界** | 零宽空格转义（1 token → 6 token） |
+
+代码改动 **+105 / −5 行**，只动一个文件：
+`vllm_ascend/patch/platform/patch_deepseek_v41_frontend/encoding.py`
+（原版 md5 `d9f5ee08…` → 补丁版 md5 `c20ee3b6…`）
+
+## 1. 一键使能
+
+```bash
+docker exec dsv41-a3 bash /opt/dsv41/tools/enable_codex_responses.sh on       # 装（幂等，自动备份）
+docker exec dsv41-a3 bash /opt/dsv41/tools/enable_codex_responses.sh status   # PATCHED / STOCK
+docker exec dsv41-a3 bash /opt/dsv41/tools/enable_codex_responses.sh off      # 还原
+```
+
+**改的是容器可写层 ⇒ 需要重启服务才生效**；容器重建会丢，重跑脚本即可。
+⚠️ **重启前必须确认没有残留进程**——`VLLM::EngineCore` / `VLLM::Worker_TP*_EP*` 的进程名里
+**没有** `vllm serve`，`pkill -f "vllm serve"` **杀不到它们**；残留会持有 206 GiB host 注册
+与 pinned 内存，导致起服卡在 `rtsMallocHost 207001`（**连试几次都失败**，越试越脏）。
+最稳的是 `docker stop -t 10 <容器> && docker start <容器>`。
+
+## 2. 修在哪（**为什么不能修在 HTTP 层**）
+
+先试了最自然的做法：转译代理把 `input_text` → `text` 再转发。
+**失败** —— Responses 协议层有严格 pydantic 校验，返回 **239 条 validation errors**
+（`Input should be 'input_text'`）。⇒ 协议**要求**块类型就是 `input_text`，
+**翻译必须做在校验之后**，也就是 `encoding.py` 里。
+
+三处改动：
+
+1. **块类型别名**（`input_text`/`output_text`→`text`，`input_image`→`image_url`），
+   归一放在 `_process_image_blocks()` **入口** ⇒ 它对 `tool_result` 是递归的，
+   **嵌套块自动一起归一**；改写走 `{**block, ...}` **不动调用方 dict**；
+2. **`developer` 空内容不再 500**（原 `assert content` 改为渲染空块）；
+3. **控制 token 转义**：覆盖 `content`/`reasoning`/`reasoning_content`/块 `text`/
+   `tool_result` 内层/`tool_calls.arguments`；在**图片块替换之前**执行，
+   所以模块自己生成的 `IMAGE_PLACEHOLDER` 不被转义，且图片占位符的**既有报错契约保持不变**。
+
+## 3. 验证（全部实测）
+
+| 层级 | 内容 | 结果 |
+|---|---|---|
+| 单测 | `test_encoding.py` + 新增 `test_responses_compat.py`（15 例） | **51 passed** |
+| 单测 | `test_frontend.py`（需真 tokenizer） | **53 passed** |
+| HTTP | 直打 `/v1/responses`：纯串 / `input_text` / `developer` / 控制 token / **图片** | **5/5 通过** |
+| **真机** | `codex-cli 0.154.0`：单轮文本 / **工具调用** / **图片** / **多轮 resume** / **子代理** | **全通过** |
+| 语义 | 抓包 + 用服务端同一编码器还原 prompt，核对子代理实际收到什么 | 载荷逐字到达、结构计数正确、控制 token 已转义 |
+
+新增用例里**有三条是回归保护**：图片占位符仍报错、生成的占位符不被转义、既有 36 项不受影响。
+
+## 4. 新增文件
+
+| 文件 | 说明 |
+|---|---|
+| `patches/files/patch_deepseek_v41_frontend/encoding.py` | 补丁版全文（1071 行） |
+| `patches/files/patch_deepseek_v41_frontend/encoding.py.diff` | 与原版的 `diff -u`，**路径已规范化成 `a/`…`b/`，可直接给上游** |
+| `patches/files/patch_deepseek_v41_frontend/test_responses_compat.py` | 15 个单测 |
+| `patches/files/patch_deepseek_v41_frontend/README-integration.md` | 集成与验证报告 |
+| `tools/enable_codex_responses.sh` | 一键使能（`on`/`off`/`status`，幂等、备份、回滚） |
+
+## 5. 已知边界
+
+* **`reasoning.encrypted_content` 不支持**：vLLM 侧 `responses/utils.py:274` 直接 `raise`。
+  codex 每轮都带 `include: ["reasoning.encrypted_content"]`，但 vLLM **不产出**它，
+  所以当前不触发 —— **一旦上游开始产出，这条链会 400**。
+* **`developer`→`<｜User｜>`**：真正的系统提示走 `instructions` → 服务端构造成 `system`
+  消息（正确）；但 skills/permissions 落在 `<｜User｜>`，prompt 里会有**两个连续 user 轮次**。
+  既有设计，实测正常；改动会动到既有语义与单测，**未做**。
+* **`input_image` 必须带 `detail` 字段**，否则被 Responses 协议拒掉（400）。
+* 本补丁改的是 **vllm-ascend 上游代码** ⇒ 这三条是**通用缺陷**，天然适合向上游提 PR。
+
 # ★ v8（2026-09-20）—— Engram 完全入图：查表从 host 搬到 device，删掉整条 host 路径
 
 > 这是本包**第一次动 Engram 的执行位置**：表仍然 206 GiB 常驻 host DRAM（进不了 HBM），

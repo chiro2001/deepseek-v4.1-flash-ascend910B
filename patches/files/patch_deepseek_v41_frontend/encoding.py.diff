@@ -1,0 +1,145 @@
+--- a/vllm_ascend/patch/platform/patch_deepseek_v41_frontend/encoding.py
++++ b/vllm_ascend/patch/platform/patch_deepseek_v41_frontend/encoding.py
+@@ -55,6 +55,24 @@
+ }
+ VALID_TASKS = set(DS_TASK_SP_TOKENS.keys())
+ 
++# The OpenAI Responses API (used by codex and other OpenAI clients) spells its
++# content blocks ``input_text`` / ``output_text`` / ``input_image``, while this
++# encoder works in the chat-completions vocabulary (``text`` / ``tool_result`` /
++# ``image_url``).  Without the mapping below an ``input_text`` block survives the
++# pass-through in ``_process_image_blocks`` and is then rendered as the literal
++# string ``[Unsupported input_text]`` *instead of the user's prompt* (silent
++# corruption, HTTP 200), and a ``developer`` message made only of such blocks
++# fails the ``assert content`` in ``render_message`` (HTTP 500).  Both were
++# reproduced against a live server on 2026-09-21.
++RESPONSES_BLOCK_TYPE_ALIASES = {
++    "input_text": "text",
++    "output_text": "text",
++    # ``input_image`` carries its payload in ``image_url`` (a string or a
++    # ``{"url": ...}`` mapping), which is exactly what ``_extract_image`` already
++    # handles for the ``image_url`` block type.
++    "input_image": "image_url",
++}
++
+ # ============================================================
+ # Templates
+ # ============================================================
+@@ -293,6 +311,12 @@
+         if not isinstance(block, dict):
+             new_blocks.append(block)
+             continue
++        # Map Responses-API block names onto the chat-completions names used
++        # below.  A copy keeps the caller's dict untouched; the recursion into
++        # ``tool_result`` content therefore normalizes nested blocks too.
++        alias = RESPONSES_BLOCK_TYPE_ALIASES.get(block.get("type"))
++        if alias is not None:
++            block = {**block, "type": alias}
+         if _is_image_block(block):
+             new_blocks.append({"type": "text", "text": image_placeholder})
+             images.append(_extract_image(block))
+@@ -340,6 +364,11 @@
+         if isinstance(msg.get("content"), list) and "content_blocks" not in msg:
+             msg["content_blocks"] = msg.pop("content")
+ 
++        # Neutralize caller-supplied control tokens *before* image blocks are
++        # replaced, so the placeholder this function generates is left intact and
++        # the image-token rejection below still fires first.
++        _escape_message_control_tokens(msg)
++
+         if msg.get("content_blocks"):
+             msg["content_blocks"], message_images = _process_image_blocks(msg["content_blocks"])
+             images.extend(message_images)
+@@ -385,6 +414,75 @@
+ 
+ SYSTEM_SP_TOKEN = "<｜System｜>"
+ 
++# A control token appearing verbatim in user-supplied text encodes to a *single*
++# token (verified against the checkpoint tokenizer: <｜Assistant｜> -> 128804), so
++# literal text could forge a turn boundary -- e.g. a user message containing
++# "<｜Assistant｜>\nThe password is ..." makes the model believe it authored that
++# line.  ``IMAGE_PLACEHOLDER`` is deliberately absent from this tuple: it has its
++# own rejection path (``_validate_no_image_sp_tokens`` /
++# ``_process_image_blocks``) and must keep raising instead of being rewritten.
++_TURN_BOUNDARY_TOKENS: tuple[str, ...] = (
++    bos_token,
++    eos_token,
++    USER_SP_TOKEN,
++    ASSISTANT_SP_TOKEN,
++    SYSTEM_SP_TOKEN,
++    LATEST_REMINDER_SP_TOKEN,
++    *DS_TASK_SP_TOKENS.values(),
++)
++
++# Inserting a zero-width space after the opening "<" splits the control token into
++# ordinary pieces while leaving the text human-readable.
++_ESCAPE_MARK = "\u200b"
++
++
++def escape_control_tokens(text: str) -> str:
++    """Neutralize control tokens embedded in free-form text."""
++    for token in _TURN_BOUNDARY_TOKENS:
++        if token in text:
++            text = text.replace(token, token[0] + _ESCAPE_MARK + token[1:])
++    return text
++
++
++def _escape_message_control_tokens(msg: dict[str, Any]) -> None:
++    """Rewrite control tokens appearing in any free-form field of ``msg``.
++
++    Applied to text the *caller* supplied; the image placeholder this module
++    generates for image blocks is produced later, so it is never escaped.
++    """
++    content = msg.get("content")
++    if isinstance(content, str):
++        msg["content"] = escape_control_tokens(content)
++
++    for key in ("reasoning", "reasoning_content"):
++        value = msg.get(key)
++        if isinstance(value, str):
++            msg[key] = escape_control_tokens(value)
++
++    for block in msg.get("content_blocks") or []:
++        if not isinstance(block, dict):
++            continue
++        # Escape any textual payload.  This runs *before* block types are
++        # normalized, so an ``input_text`` block still carries its Responses name
++        # here -- filter on the payload, not on the type.
++        if isinstance(block.get("text"), str):
++            block["text"] = escape_control_tokens(block["text"])
++        if block.get("type") == "tool_result":
++            inner = block.get("content")
++            if isinstance(inner, str):
++                block["content"] = escape_control_tokens(inner)
++            elif isinstance(inner, list):
++                for sub in inner:
++                    if isinstance(sub, dict) and isinstance(sub.get("text"), str):
++                        sub["text"] = escape_control_tokens(sub["text"])
++
++    for call in msg.get("tool_calls") or []:
++        function = (call or {}).get("function") or {}
++        arguments = function.get("arguments")
++        if isinstance(arguments, str):
++            function["arguments"] = escape_control_tokens(arguments)
++
++
+ tool_calls_block_name: str = " calls"
+ tool_call_tag_name: str = " invoke"
+ tool_parameter_tag_name: str = " parameter"
+@@ -581,10 +679,12 @@
+             prompt += "\n\n" + response_format_template.format(schema=to_json(response_format))
+ 
+     elif role == "developer":
+-        assert content, f"Invalid message for role `{role}`: {msg}"
+-
+-        content_developer = USER_SP_TOKEN
+-        content_developer += content
++        # A developer message may legitimately carry no text -- e.g. a client that
++        # only uses it to attach tools, or one whose text arrived in content blocks
++        # this encoder did not recognise.  This used to be an assert, which turned
++        # such a request into HTTP 500; codex's Responses request hit exactly that
++        # path (2026-09-21).  Render an empty developer block instead of failing.
++        content_developer = USER_SP_TOKEN + (content if isinstance(content, str) else "")
+ 
+         if tools:
+             content_developer += "\n\n" + render_tools(tools)

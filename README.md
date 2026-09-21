@@ -301,6 +301,57 @@ DRAFT_GRAPH=1 DEVS="8 9 ..." bash scripts/serve_a3.sh   # A3
 `DSPARK_CAPTURE_NCTX_FIX=1`、`DSPARK_DISPATCH_QUERY_LEN_FIX=1`。
 排查细节与全部否证记录见 [`reports/draft-graph-investigation-20260920.md`](reports/draft-graph-investigation-20260920.md)。
 
+### 2.8 ★ 让 codex 直接连本服务（Responses API 兼容补丁）
+
+本包的 `tokenizer_mode=deepseek_v41` 走 vllm-ascend 的 DSV4.1 前端编码器，它只认
+**chat-completions** 的块词汇表（`text`/`tool_result`/`image_url`），而 **codex 等 OpenAI
+客户端**发的是 **Responses** 词汇表（`input_text`/`output_text`/`input_image`）。
+这个落差会让 codex **直连不可用**，而且**其中两条是静默的**：
+
+| 缺陷 | 症状 |
+|---|---|
+| `input_text` 块被渲染成**字面量** `[Unsupported input_text]` | **HTTP 200**，但**用户的话根本没进模型** |
+| codex 放系统指令的 `developer` 角色要求 content 非空 | **HTTP 500** |
+| `<｜User｜>`/`<｜Assistant｜>` 等控制 token 可从正文注入 | 实测可**伪造轮次边界** |
+
+**一键使能**（装进正在跑的容器，幂等、带备份与回滚）：
+
+```bash
+docker exec dsv41-a3 bash /opt/dsv41/tools/enable_codex_responses.sh on
+docker exec dsv41-a3 bash /opt/dsv41/tools/enable_codex_responses.sh status   # PATCHED / STOCK
+docker exec dsv41-a3 bash /opt/dsv41/tools/enable_codex_responses.sh off      # 还原
+```
+
+⚠️ **改的是容器可写层，需要重启服务才生效**；容器重建/换镜像会丢，重跑脚本即可。
+**重启前务必确认没有残留进程**（`VLLM::EngineCore` / `VLLM::Worker_*` 的进程名里**没有**
+`vllm serve`，`pkill -f "vllm serve"` 杀不到），否则起服会卡在 `rtsMallocHost 207001`：
+
+```bash
+docker exec <容器> bash -c 'ps -eo pid,args | grep -E "[V]LLM::|[v]llm serve"'   # 应输出空
+docker stop -t 10 <容器> && docker start <容器>
+```
+
+codex 侧配置（`~/.codex/config.toml`）：
+
+```toml
+model = "deepseek-v41"
+model_provider = "local-a3"
+approval_policy = "never"
+sandbox_mode = "danger-full-access"
+[model_providers.local-a3]
+name = "local-a3-vllm"
+base_url = "http://127.0.0.1:8020/v1"
+wire_api = "responses"
+```
+
+**A3 真机实测通过**：单轮文本、**工具调用**（shell）、**图片**（`view_image`）、
+**多轮会话**（`resume`）、**子代理**（`multi_agent_v1`）。
+补丁细节、验证方法、以及 4 条已知边界见
+[`patches/files/patch_deepseek_v41_frontend/README-integration.md`](patches/files/patch_deepseek_v41_frontend/README-integration.md)。
+
+> `input_image` 块**必须带 `detail` 字段**（`{"type":"input_image","image_url":"…","detail":"auto"}`），
+> 缺了会被 Responses 协议拒掉（400）。
+
 ## 3. 性能数据
 
 ### 3.1 单流延迟（128K 上下文）
@@ -609,6 +660,9 @@ msmodelslim 侧的 V4.1 W4A8 支持，含 hiaux 变体配方。
 | `BAT_TOKENS` 的 KV 代价 | 提到 8192 会让 KV cache 从 4.15M 降到 **2,823,080** tokens（activation 峰值 0.79→3.21 GiB，且默认 `GPU_UTIL` 为 0.92）。若改用 0.94 则是 3,088,412，但 prefill 会慢 6~7× —— 取舍见 §2.5 |
 | **KV 门槛 3Mi（3,145,728）** | **默认配置不再满足**：0.92 下 2,823,080（< 3M），0.94 下 3,088,412（> 3M 但 < 3Mi）。**这是用 KV 容量换 prefill 速度的主动取舍**；需要 3Mi 的场景应显式 `GPU_UTIL=0.94` 并接受 8 s 级首 token 延迟，或评估裁剪 `CAPTURE_SIZES` |
 | A2 与 A3 的性能差 | 硬件（含 HBM 带宽，两边同为 1600 GB/s/die）只能解释 ~15%，其余在 host 侧 |
+| **codex 直连** | **需先跑一次 §2.8 的一键使能补丁**：不装的话 Responses API 请求要么 **500**、要么**静默丢内容**（HTTP 200 但用户提问被替换成字面量 `[Unsupported input_text]`） |
+| `reasoning.encrypted_content` | **不支持**（vLLM 侧直接 `raise`）。codex 每轮都带 `include: ["reasoning.encrypted_content"]`，但 vLLM **不产出**它，所以当前不触发；**一旦上游开始产出，这条链会 400** |
+| 子代理的 skills/permissions | 走 `developer` 角色，被渲染成 `<｜User｜>` 轮次（不是 `<｜System｜>`）⇒ prompt 里会有**两个连续 user 轮次**。这是既有设计，实测模型表现正常 |
 
 细节与原始数据见 [`EXPECTED_PERF.md`](EXPECTED_PERF.md)、[`CORRECTNESS_STATUS.md`](CORRECTNESS_STATUS.md)、
 [`reports/`](reports/)。
