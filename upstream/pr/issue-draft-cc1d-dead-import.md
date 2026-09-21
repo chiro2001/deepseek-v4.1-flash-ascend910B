@@ -4,7 +4,9 @@
 - **形态**：issue（BugFix / 代码卫生 + 一个需要 maintainer 回答的问题）
 - **建议标题**：`[Bug][Ops] patch_triton.py still imports causal_conv1d_update_npu, removed by #14620`
 - **建议标签**：`bug`
-- **基线**：`main` = `c173a64a44dec4ba97aaba6277b1dfc1562eda19`
+- **基线**：`main` = `5fbcfaa9`（2026-09-21 复核：本文引用的两处行号
+  `patch_triton.py:326`（import）与 `:332`（warning）在新 main 上**仍然准确**，
+  line 57 的 PyTorch 绑定也仍在）
 - **状态**：草稿。**未提交**（用户要求：未经允许不发起 issue/PR）
 
 ---
@@ -145,7 +147,8 @@ have no hardware to check.
 
 ### Environment
 
-* `vllm-ascend` main `c173a64a44dec4ba97aaba6277b1dfc1562eda19`
+* `vllm-ascend` main `5fbcfaa9`（首次观察在 `c173a64a`；2026-09-21 在新 main 上复核过，
+  引用的两处行号仍然准确）
 * observed on 8 × Ascend 910B3 (A2) and 8 × Ascend 910C (A3/910C class), CANN 9.1.0
 * the reproduction above also runs on a single Ascend 910 (910C class, `19e5:d803`)
 
@@ -155,7 +158,7 @@ have no hardware to check.
 
 | 项 | 状态 |
 |---|---|
-| 基线 SHA 写对 | ✅ `c173a64a` |
+| 基线 SHA 写对 | ✅ `5fbcfaa9`（并在它上面复核过行号） |
 | `#14620` / `#15127` 引用与逐字引文 | ✅ 已从本地 checkout 核对 |
 | 复现命令可独立跑 | ✅ 脚本已在单卡机实测（`logs/raw/22-cc1d-repro/`） |
 | 不指控、只问 | ✅ 用"which of these is intended" |

@@ -5,6 +5,15 @@
 
 ---
 
+## ★ 先看这两份（2026-09-21 21:5x 更新）
+
+| 材料 | 链接 |
+|---|---|
+| ★★ **交接快照** —— 四份候选状态 / 用户待答问题 / 下一步 P0–P2 / 十条红线 | https://github.com/chiro2001/deepseek-v4.1-flash-ascend910B/blob/main/upstream/HANDOVER-2.md |
+| ★★ **提 PR 还缺什么** —— 四份候选逐条核对（哪份可发、哪份差哪一格） | https://github.com/chiro2001/deepseek-v4.1-flash-ascend910B/blob/main/upstream/PR-GAPS.md |
+
+---
+
 ## A. 三条"随时可发"的候选（等你授权）
 
 | # | 材料 | 链接 |

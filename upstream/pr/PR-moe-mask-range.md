@@ -1,7 +1,8 @@
 # PR 草稿（待评审后再发）
 
 - **目标仓**：`vllm-project/vllm-ascend`
-- **源分支**：`chiro2001:perf/moe-contiguous-expert-map`（远端 SHA `3a0c48c0`）
+- **源分支**：`chiro2001:perf/moe-contiguous-expert-map`，HEAD **`206d39c9`**
+  （已 push，基于 `upstream/main` = `5fbcfaa9`）
 - **标题**：`[Performance][MoE] Compare the routed-expert mask against the local expert range`
 - **RFC 归属**：[63] "Enable and tune the V4.1 routed-expert W8A8 paths on A2/A3 …
   including checkpoint packing, scale layouts, **dispatch/combine**, and expert GEMMs" —— **主归属**

@@ -1,3 +1,12 @@
+# HANDOVER —— 交接快照（2026-09-21 15:4x 版）
+
+> ⚠️ **有更新的版本：[`HANDOVER-2.md`](HANDOVER-2.md)（21:5x）—— 先读那个。**
+> 本文件仍然有效（资源可达性、本轮交付、坑表），但以下内容已被 HANDOVER-2 覆盖：
+> * **四份候选的最新状态**（① ② ③ 可发 / ④ 差一格实测）→ HANDOVER-2 §2
+> * **用户关于 `cpu_binding` 挂死的提问与答案**（是 Engram 导致的，但属上游两个功能互踩）→ HANDOVER-2 §3
+> * **logs/40–45 + docs/KV-CACHE-ACCOUNTING.md 的新结论** → HANDOVER-2 §4
+> * **跨机走 coscli / `/tables` rw 两条新约定** → HANDOVER-2 §7
+
 # HANDOVER —— 交接快照（2026-09-21 13:0x CST）
 
 > **给下一个接手的人（或压缩上下文后的自己）**。

@@ -349,7 +349,9 @@ so that the recommended NPU tests actually run? Thanks!
 - [x] **形状矩阵已填进 §5**（RFC [91]）：空批 n=0、n=1/8/192/2048/4096、非连续 stride、
       倒序、重复位置、int32、2-D fallback、draft_index=1..5、40 层 burst、spec step、
       ACLGraph 五尺寸（含 **n=4096 −384 µs**）、三种 profile 计数；
-      **32/32 + 5/5 checks 全过**，两个 int32 eager 小尺寸的**小回退**（+20.7 / +28.9 µs）已在 §5a 显式写出
+      **32/32 + 5/5 checks 全过**。⚠️ 更早一版这里有两格 int32 eager **回退**（+20.7 / +28.9 µs），
+      已在 `ed5b928c` 里**修掉**（index 每次调用只 build 一次）⇒ 现在是 **−17.9 / −17.7 µs**，
+      **27 个计时格全为负**。§5a 保留了这个"曾经回退"的记录（见该节末尾的说明）
 - [ ] 提 PR 后请 maintainer 打 `ready-precise`（正文末尾已写）
 
 ## ⚠️ 已知边界（必须在 PR 里说明，不能藏）
@@ -374,10 +376,15 @@ so that the recommended NPU tests actually run? Thanks!
    但那**只是一条可检验假设**（我们没在他们的实现上复现过）——
    详见 `PR16285-ROPE-OVERLAP-ANALYSIS.md` 的附录。**与本 PR 无关，别写进正文**，
    留给 Engram 那条线去沟通。
-6. **§5a 里有两格 PR 更慢**（int32 eager：n=192 连续 +20.7 µs、非连续 +28.9 µs）。
-   正文已经把这两格和归因（cos/sin 各 cast 一次）写出来了，**不要删**；如果评审追问，
-   可补的下一步是「把 cast 提到 `get_cos_and_sin_dsa()` 入口做一次」——但那是**另一个改动**，
-   不在本 PR 范围内（我们没测过它，别在正文里承诺）。
+6. ~~§5a 里有两格 PR 更慢~~ —— **已不再是问题**。
+   更早一版确实有两格 int32 eager 回退（n=192 连续 +20.7 µs、非连续 +28.9 µs），
+   根因是 `_rope_index_1d()` 被 cos 与 sin **各调一次**（int32 源要各做一次 cast）。
+   `ed5b928c` 把**展平后的 index 提到每次调用只 build 一次、两个方向共用**，
+   于是这两格变成 **−17.9 / −17.7 µs**；`use_cache=False` 那一路也一并只算一次。
+   **证据**：`logs/42-20260921-rope-index-hoist.md`（改前 32/32 → 改后 32/32 + 5/5，
+   27 个计时格全为负，device kernel 数 int32 由 4.00 降到 3.00）。
+   §5a 仍保留"曾经回退"的段落（并写明原因），因为那是这个 PR 的设计理由之一 ——
+   **不要删，但也不要再把它当成现存缺陷。**
 
 ---
 
