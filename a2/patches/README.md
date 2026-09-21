@@ -21,7 +21,25 @@
 
 | 文件 | md5 | 说明 |
 |---|---|---|
-| `0001-offload-scheduler.patch.py` | `15d5548e29af88da71570d5b48abddef` | **`scheduler.py` 的替换版**。★ **它是 D2 版的超集**（`grep -c offload_participat` = **15**），所以**只需挂这一份**，不要再叠加旧版 |
+| `0001-offload-scheduler.patch.py` | `986c9115c64f196072c7db76c24ca5f9` | **`scheduler.py` 的替换版**。★ **它是 D2 版的超集**（`grep -c offload_participat` = **15**），所以**只需挂这一份**，不要再叠加旧版。★ **2026-09-22 07:3x 已修 `blocks_per_chunk` 局部变量泄漏**（见下） |
+
+> ★★ **`0001` 的重要修复（2026-09-22 07:3x，`logs/039` §10 定性 + `logs/043` 修复）**：
+> 原版 `_build_store_jobs()` 里 **`blocks_per_chunk` 是个裸局部变量**，只在"收集 loop"里逐组赋值
+> ⇒ 收集 loop 结束时它停在**最后一个参与卸载的组**（本配置是 SWA，`bpc=1`）
+> ⇒ **spec loop 里 `bpc>1` 的组（group 0 full attention）每个 chunk 只搬 `1/bpc` 个 GPU block**，
+> 其余 unit 永不写入，**load 侧读到全 0 行**（实测 **448/512**）。
+>
+> **三条独立测量**：`src_spec` 的 `Σgroup_sizes = 44`（应 **72**）；group 0 实搬 **64** 个 block（应 **492**）；worker 侧 **448/512 读到全 0**。
+> **反例臂**：`bpc=1` 的 10 个 SWA 组 **65/65 全中** ⇒ 泄漏**只伤 `bpc>1` 的组**。
+>
+> **修法（两处成对）**：收集 loop 与 spec loop **各自**取 `bpc_g = group_config.blocks_per_chunk`
+> ⇒ 裸名在函数体内**彻底消失**；另加**两条 fail-closed 断言**（`bpc_g` 与本组一致 / `len(_units) == bpc_g`）。
+>
+> **单元自检 17 PASS / 0 FAIL**：修好件 `Σgroup_sizes = len(src) = len(dst) = 72`；
+> **反例臂（机械反修）逐字复现 `44 / group_sizes=[4,0,4×10]`**；两条断言在反修臂上**真的会炸**。
+>
+> ⚠️ **它是不是"上线阻塞"仍【未确认】**：`160 MiB` 臂在**同一份 448 行全 0** 下 BF16 输出 sha **逐字相同**
+> ⇒ 那些全 0 子块在该配置下**没有改变输出**。**端到端直接判据（`44→72`、`64→492`）正在跑。**
 | `0001b-offload-per-group-bpc-manager.patch.py` | `9f11c9ac0de0d77fbe6a212e42a9966a` | `PerGroupBPCManager`（池的格子 = 1 个 GPU block）+ **`logs/041` 的加固**（见下） |
 
 > ★ **2026-09-22 07:2x：`0001b` 已并入 `logs/041` 的加固**（原 md5 `3b64eb49…` → 新 `9f11c9ac…`）。

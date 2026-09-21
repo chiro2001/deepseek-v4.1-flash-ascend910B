@@ -31,6 +31,12 @@
 6. **⚠️ 这条不对称不是 ❌/✅ 的判别量**（两格同形），而且**我还没能把它判成缺陷**：见 §5 的口径冲突。
    `038` 的 ❌/✅ 翻转**不能**用卸载层的字节路径解释（两格字节行为完全相同）。
 7. **⛔ 8 卡（`027` 口径 `OFFLOAD_GB=56`）没跑** —— 卡时用在了 tiny 的守门员与那处不对称上。**线 1 的取回保真在 tiny 上是【实测·干净】，在 8 卡上仍是【未确认】。**
+8. **★★ 但那处不对称已经定性（§10）：是【实测】的真缺陷，根因是 `scheduler.py:1419` 的 `blocks_per_chunk` 局部变量泄漏**
+   ⇒ spec loop 里 `gpu_block_idx = chunk_idx * 1`、`for i in range(1)` ⇒ **每个 chunk 只搬 1 个 GPU block**。
+   三条独立测量一致（生产 spec `Σgroup_sizes=44 = n_keys`；worker 实搬 64 个 group-0 block；交叉核对 **492 该搬 vs 64 实搬 = 428 个从未被搬**），
+   而 `bpc=1` 的 10 个 SWA 组**65/65 全中**（= 判据的反例臂）。**修法一行，`dst_unit_ids` 要同步展开。**
+   ⚠️ **但它不是 `038` 那个 ❌/✅ 翻转的答案**（144/160 两格读到的全 0 行同量级），也不是"BF16 输出立刻错"的原因
+   （`h-t2` 在同一份 448 行全 0 的情况下 fill/replay sha 逐字相同）。它是**潜伏的正确性风险**，上线前必须修。
 
 ---
 
@@ -196,3 +202,70 @@ bash ~/projects/dsv41-upstream-pr/tools/a3_chip.sh c2 --timeout 1500 --name h-t 
       EXTRA_ARGS="--enforce-eager" bash /work/agents/H_kvcheck/scripts/run_arm_h.sh
 ```
 **锁退出码 75 = 没抢到锁，是重试不是失败。**
+
+---
+
+## 10. ★★★ §7-1 定性格结果：**(a) 成立 —— 真缺陷，根因是一个变量作用域泄漏**
+
+> 上一版这里写着"两路读数冲突 ⇒ 拒绝下结论"。**结论已出：(a)，且根因是静态可证的。**
+
+### 10.1 根因（【实测·静态】，一行代码）
+
+`agents/L3_8card/patched/scheduler.py::_build_store_jobs`（函数体 1360–1607）里
+`blocks_per_chunk` **只有一处赋值**，而它落在**前一个循环**里：
+
+```
+1419:  blocks_per_chunk = group_config.blocks_per_chunk   # ★ 在前一个"收集 loop"里，逐组赋值
+1421-1423: offload_block_ids = block_ids[start*bpc + bpc-1 : num_chunks*bpc : bpc]
+...
+1529:  gpu_block_idx = chunk_idx * blocks_per_chunk      # ★ 在"spec loop"里被使用
+1531:  for i in range(blocks_per_chunk):                 # ★ 但 spec loop 里【没有重新赋值】
+```
+
+`awk` 枚举该函数体内 `blocks_per_chunk` 的**全部**出现：`1362(注释) / 1415(注释) / 1419(赋值) / 1421 / 1422 / 1423 / 1477 / 1529 / 1531`
+⇒ **`1419` 是唯一赋值点**。收集 loop 结束时该变量停在**最后一个参与卸载的组**的值上 —— 本次配置是
+**group 11（SWA，`bpc=1`）**。
+
+⇒ 于是 spec loop 里：**`gpu_block_idx = chunk_idx * 1`、`for i in range(1)` ⇒ 每个 chunk 只搬 1 个 GPU block**，
+而 chunk 的其余 `bpc_g − 1` 个 block **根本没进 `src_spec`**；同时只用了该 key 的 `units[0]`（其余 7 个 unit 从未被写）。
+
+### 10.2 三条独立测量都指向同一个数（不是口径问题）
+
+| # | 测量 | 结果 |
+|---|---|---|
+| ① | **生产代码自己的 `src_spec`**（我不重推） | `n_src=44`、`Σgroup_sizes=44`、`group_sizes=[4,0,4,…,4]` ⇒ **每 chunk 恰好 1 个 block** |
+| ② | worker 侧真正搬走的 GPU block（`npu_row`） | group 0 共 **64** 个（= 16 job × 4 chunk × **1**） |
+| ③ | ★ **两条数据的交叉核对**（worker 的"实搬块" vs scheduler 的"该搬块"） | group 0：`seg` 并集 **492** 个非 0 block，**实搬只有 64 个 ⇒ 428 个从未被搬**；而 `bpc=1` 的 SWA 组是 **65/65 全中** |
+
+★ **判据本身的自校验**：`bpc=1` 的 10 个 SWA 组**逐项全中**（65 搬 / 65 该搬）。
+若这是"我的口径错"，SWA 组不可能全对 ⇒ **泄漏只伤 `bpc>1` 的组，正是 group 0（full attention）**。
+
+### 10.3 这就是那 448/512 的来源（与 load 侧对照）
+
+```
+store：每 chunk 只写 units[0]  ⇒  4 chunk × 1 = 4 个 unit 被写
+load ：按 _gcfg.blocks_per_chunk = 8 展开（scheduler.py:1181 bpc_g / :1259 _bpc）
+       ⇒  4 chunk × 8 = 32 个 unit 被读
+⇒ 32 − 4 = 28 个 unit/请求 从未被写（全 0）；16 请求合计 448 ← 与 worker 侧实测的 448/512 逐个吻合
+```
+
+### 10.4 ⚠️ 影响边界（必须与结论一起引用）
+
+| 项 | 判定 |
+|---|---|
+| 这是**真的口径缺陷**（store 少搬 `(bpc_g−1)/bpc_g` 的 full-attention KV） | ✅ **【实测】** |
+| 它**踩在"可上线"的 L5 路径上**（`bpc={"default":8,"swa":1}`） | ✅ **【实测】** |
+| 它**单独**能解释 `038` 的 ❌/✅ 翻转吗 | ⛔ **不能**：144 与 160 两格读到的全 0 行**同量级**（448/512 vs 448/512），而只有 144 炸 |
+| BF16 下会不会立刻出错 | ⚠️ **【实测·反证】不会立刻出错**：`h-t2`（160 MiB，✅）在**同一份 448 行全 0** 的情况下 fill/replay sha 逐字相同 ⇒ 这些全 0 子块**在该配置下没有改变输出** ⇒ 主代理 §2 那条锚点（027 的 BF16 输出正确）**与本次实测一致** |
+| 正确修法 | **一行**：在 spec loop 内补 `blocks_per_chunk = group_config.blocks_per_chunk`（或改用 `group_config.blocks_per_chunk` 显式引用）。**注意 `dst_unit_ids` 也要同步展开 `_units[i]`，否则 store/load 仍然不对称** |
+
+**⇒ 一句话**：**是 (a)，真缺陷、静态根因明确、修法一行；但它的"用户可见影响"在当前实测里被限制住了（两格同形），所以它不是 `038` 那个翻转的答案。**
+⇒ 它是**潜伏的正确性风险**（`bpc>1` 的组永远只搬 1/bpc），**必须在 A2 上线前修**，但**不能**拿它去解释首 token 翻转。
+
+### 10.5 这一格的教训（与 `kv_bytecheck` 那次同源）
+
+* 我的第一版读书是"探针读到 8 个非 0 `block_ids` ⇒ 生产只 append 1 个 ⇒ 冲突"，**当时拒绝下结论是对的**：
+  真正的解释是**两个读数都正确**——`block_ids` 确实有 8 个非 0（组配置没错），而 loop **只按 1 个 stride 去取**（变量泄漏）。
+  ⇒ 教训：**"两个读数冲突"不一定是"谁错了"，也可能是"它们量的不是同一件事"。**
+* 本格的判据**自带反例臂**（`bpc=1` 的 10 个 SWA 组必须全中）—— 这正是主代理要求的
+  "判据必须在反例臂上对称跑"。若没有这一格，我就会把"64 vs 492"写成探针缺陷。

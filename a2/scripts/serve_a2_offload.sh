@@ -28,13 +28,28 @@ GPU_UTIL=${GPU_UTIL:-0.90}
 PORT=${PORT:-8077}
 SERVED_NAME=${SERVED_NAME:-deepseek-v4-flash}
 
-# 池子：按 A2 的宿主余量（442 GiB）与 x6.945 乘数定
-#   32K x 16 并发  -> 16 GiB（宿主 ≈111 GiB）
-#   128K x 16 并发 -> 48 GiB（宿主 ≈333 GiB）
-OFFLOAD_GB=${OFFLOAD_GB:-16}
-MAX_LEN=${MAX_LEN:-40960}
+# ---------------------------------------------------------------- ★ 档位
+# 档 A（默认，8 卡真权重已验，logs/027）：
+#   128K x 16 并发 -> OFFLOAD_GB=56（57,344 unit = 实测需求 48,064 的 1.193x）
+#                     宿主实占 392.4 GiB（A2 余量 442 GiB 的 88%，⚠️ 紧）
+# 档 B（+L1，内存砍半）：加 P2_POOL_PATCH=1 + P2_COMP_JSON=<见 §2.2>
+#                     同样 OFFLOAD_GB=56 -> 宿主约 203.6 GiB（45%）
+#   32K x 16 并发  -> OFFLOAD_GB=10
+OFFLOAD_GB=${OFFLOAD_GB:-56}
+MAX_LEN=${MAX_LEN:-131072}
 MAX_SEQS=${MAX_SEQS:-16}
 BAT_TOKENS=${BAT_TOKENS:-2048}
+
+# ★ L1（池张量按需分配行数）—— ★★ 8 卡真权重实测 1.9895x（392.35 -> 197.21 GiB）
+#   defaults 到这里 = 档 B（推荐）；置 0 即回档 A
+#   P2_POOL_PATCH=1 时必须同时给对的 P2_COMP_JSON（与"张量数"匹配，给错会 fail-closed）
+P2_POOL_PATCH=${P2_POOL_PATCH:-1}
+# 16 张量几何的【实测·worker 侧真值】分量（8 卡真权重，8 rank x 9 行一致）
+P2_COMP_JSON=${P2_COMP_JSON:-'[[0],[1,2,3,4,5,6,7,8,9,10,11,12]]'}
+
+# ★ 池分配器加固（logs/041）：默认关；=1 把三种静默失败变成响亮 raise
+PGP_MGR_HARDEN=${PGP_MGR_HARDEN:-0}
+PGP_MGR_STATS=${PGP_MGR_STATS:-0}
 
 # 池后端：registered（aclrtHostRegister，推荐）/ pageable / pinned
 NPU_OFFLOAD_HOST_MEM=${NPU_OFFLOAD_HOST_MEM:-registered}
@@ -53,12 +68,18 @@ echo "=============================================================="
 echo "A2 DRAM KV 卸载起服"
 echo "=============================================================="
 echo "  模型          : $MODEL"
-echo "  池子          : ${OFFLOAD_GB} GiB（宿主实占 ≈$((OFFLOAD_GB * 7)) GiB）"
+if [ "$P2_POOL_PATCH" = "1" ]; then
+    echo "  池子          : ${OFFLOAD_GB} GiB（★ 档 B 宿主实占 ≈197 GiB，8 卡实测 1.9895x）"
+else
+    echo "  池子          : ${OFFLOAD_GB} GiB（档 A 宿主实占 ≈392 GiB，8 卡实测）"
+fi
 echo "  上下文/并发   : ${MAX_LEN} / ${MAX_SEQS}"
 echo "  池后端        : $NPU_OFFLOAD_HOST_MEM"
 echo "  blocks_per_chunk: $BLOCKS_PER_CHUNK"
 echo "  prefix_match_unit: $PREFIX_MATCH_UNIT"
 echo "  ENGRAM        : $ENGRAM"
+echo "  L1 (P2_POOL_PATCH): $P2_POOL_PATCH${P2_COMP_JSON:+  comp=$P2_COMP_JSON}"
+echo "  加固 PGP_MGR_HARDEN: $PGP_MGR_HARDEN（stats=$PGP_MGR_STATS）"
 echo "-------------------------------------------------------------"
 
 # ---------------------------------------------------------------- 补丁
@@ -94,6 +115,12 @@ export OFFLOAD_NPU_WORKER_PATCH=1
 export NPU_OFFLOAD_HOST_MEM
 export PREFIX_MATCH_UNIT
 export ENGRAM
+# ★ 可选项（默认关；不改默认行为）
+[ "$P2_POOL_PATCH" = "1" ] && export P2_POOL_PATCH=1 && export P2_WORKER_ROWS=1
+case "$P2_POOL_PATCH" in
+  1) : "${P2_COMP_JSON:?★ 开 L1 时必须给 P2_COMP_JSON（与张量数匹配，给错会 fail-closed）}"; export P2_COMP_JSON ;;
+esac
+export PGP_MGR_HARDEN PGP_MGR_STATS
 
 KV_ARGS="--prefix-match-unit $PREFIX_MATCH_UNIT \
 --kv-transfer-config {\"kv_connector\":\"OffloadingConnector\",\"kv_role\":\"kv_both\",\"kv_connector_extra_config\":{\"cpu_bytes_to_use\":$((OFFLOAD_GB * 1073741824)),\"blocks_per_chunk\":$BLOCKS_PER_CHUNK,\"spec_name\":\"NPUOffloadingSpec\",\"spec_module_path\":\"vllm_ascend.distributed.kv_transfer.kv_pool.kv_offload.native.npu\"}}"
@@ -103,6 +130,12 @@ echo "★ 起服后必须跑这三条自检（任一为 0 就停，别压测）�
 echo "    grep -c 'P1_pinned.*ret=0'            <serve.log>   # 期望 8"
 echo "    grep -c 'D2_offload'                  <serve.log>   # 期望 >0"
 echo "    grep -c 'alignment_chunk_count.*8'    <serve.log>   # 期望 >0（per-group 生效）"
+echo "  ★ 跑 L1 时再加两条："
+echo "    grep -c 'P2_poolsizing'               <serve.log>   # 期望 >0（L1 生效）"
+echo "    grep -a 'P2_WORKER_HOST_BYTES'        <serve.log>   # ★ 宿主实占（档 B 应 ≈1.927x 更省）"
+echo "  ★ 上线后监测（logs/027 判据 1 + logs/040 判据 2）："
+echo "    kv_offload_block_removed_total{medium=\"CPU\"} == 0"
+echo "    units_ratio >= 1.05（工作集 = cpu_cache_usage_perc x num_units）"
 echo "-------------------------------------------------------------"
 
 if [ "$DRY" = "1" ]; then
