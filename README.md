@@ -8,6 +8,45 @@ DeepSeek-V4.1-Flash 的 W4A8 量化推理服务，含完整补丁、一键起服
 
 ---
 
+## 0. 权重与配套件从哪里拿
+
+**本仓库不含模型权重**（见 §7）。权重与量化流水线在 ModelScope：
+
+| 内容 | 位置（同仓） | 与本地目录的对应 |
+|---|---|---|
+| **W4A8 量化权重 · 212.6 GB · 130 个文件** | <https://www.modelscope.cn/models/chiro2001/DeepSeek-V4.1-Flash-w4a8-Ascend> | 即本包要的 `v41-w4a8-engram-dr-vision-qrot-mtpq` |
+| ↳ 主干权重 | `quant_model_weights-*-of-00072.safetensors` + `.index.json` | 同名 |
+| ↳ Engram 表（INT8） | `engram_int8/`（4 个张量；两个大权重各**切成 6 片**，因平台单文件 50 GB 上限） | 同名（本地是软链，线上是分片） |
+| ↳ Engram 额外权重 | `engram_extra.safetensors`（600 MB） | ✅ 实测同尺寸 629 310 402 B |
+| ↳ **Vision（qrot 修复版）** | `vision-00001-of-00001.safetensors`（**顶层**，926 MB） | ✅ 实测同尺寸 970 564 624 B |
+| ↳ QuaRot | `optional/quarot.safetensors`（100 MB） | ✅ 实测同尺寸 104 857 696 B |
+| ↳ DSpark / MTPQ | `mtpq-*-of-00004.safetensors`（4 片） | 同名 |
+| ↳ 量化复现流水线 | `release/msmodelslim/`（recipe + 转换脚本 + 上游 patch） | 对应本包 `quant/REPRO_W4A8_QUANT.md` |
+| ↳ tokenizer / config | `tokenizer.json`、`tokenizer_config.json`、`config.json` … | 同名 |
+| 基座模型（FP8） | <https://www.modelscope.cn/models/deepseek-ai/DeepSeek-V4.1-Flash> | —— |
+
+> ✅ 上面带「实测」的三行是**线上与本地逐个比过文件大小**的（vision / quarot / engram_extra
+> 三个都完全一致），所以这个 ModelScope 仓就是本包要的那份权重。
+
+```bash
+# 拉权重（需先 `pip install modelscope`；会下 200+ GB，注意磁盘）
+# 语法：modelscope download <repo_id> --local-dir <目录>   （modelscope ≥ 1.16）
+modelscope download chiro2001/DeepSeek-V4.1-Flash-w4a8-Ascend \
+  --local-dir ./v41-w4a8-engram-dr-vision-qrot-mtpq
+
+# ★ 下完必须重组 Engram（分片不能直接起服），脚本随权重一起下载
+cd ./v41-w4a8-engram-dr-vision-qrot-mtpq/engram_int8
+bash reassemble_engram_weights.sh      # 逐片 sha256 → 拼接 → 结果再校验一次
+```
+
+> 重组脚本会**逐片校验 sha256、拼接、再校验还原结果与原始 sha256 一致**，
+> 不一致就报错退出、不留坏文件。校验通过后分片默认保留，加 `--delete-parts` 可删。
+>
+> 该脚本是**按本仓实际分片现生成**的（`tools/repack_to_modelscope_layout.sh --emit-parts`），
+> 不要拿别处的同名脚本套用 —— 里面嵌的 hash 必须与这批分片对应。
+
+---
+
 ## 1. 这个包解决什么问题
 
 官方镜像里的 vllm-ascend 能跑起 DeepSeek-V4.1-Flash，但在长上下文与高并发下有几处
@@ -716,6 +755,12 @@ README.md  REPRO.md  LICENSE  NOTICE
 **本包不含**：模型权重、tokenizer 文件、容器镜像、任何预编译二进制
 （PGO 产物由 `build_scripts/00_ensure_pgo.sh` 在目标机编译生成）。
 详见 [`NOTICE`](NOTICE)。
+
+**权重在这里**：<https://www.modelscope.cn/models/chiro2001/DeepSeek-V4.1-Flash-w4a8-Ascend>
+（212.6 GB；由 [deepseek-ai/DeepSeek-V4.1-Flash](https://www.modelscope.cn/models/deepseek-ai/DeepSeek-V4.1-Flash)
+量化而来，Apache-2.0 —— 与本包同许可，在 ModelScope 上按各自的许可分发）。
+该仓库同时承载**量化复现流水线**（`release/msmodelslim/`：recipe + 转换脚本 + 上游 patch），
+对应本包 `quant/REPRO_W4A8_QUANT.md` 的流程。
 
 ### 测试语料说明
 

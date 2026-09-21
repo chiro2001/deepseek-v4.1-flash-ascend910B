@@ -14,7 +14,7 @@
 | 机器 | A2：8×910B3 + Kunpeng-920，**宿主机**上执行 |
 | 权限 | `docker`（或 `sudo -n docker`）、`npu-smi` |
 | 基础镜像 | 已 `docker pull`（默认 `quay.nju.edu.cn/ascend/vllm-ascend:deepseek-v4.1-flash-openeuler`） |
-| 模型 | 你的 `v41-w4a8-engram-dr-vision-qrot-mtpq` 等价目录（**含 qrot 修复后的 vision 分片**） |
+| 模型 | `v41-w4a8-engram-dr-vision-qrot-mtpq` 等价目录（**含 qrot 修复后的 vision 分片**）<br>▸ 权重下载：<https://www.modelscope.cn/models/chiro2001/DeepSeek-V4.1-Flash-w4a8-Ascend>（212.6 GB）<br>▸ **下完必须先重组 Engram**：`cd engram_int8 && bash reassemble_engram_weights.sh`（两个大权重各 6 片，不重组直接起服会失败）<br>▸ 该仓同时含量化复现流水线（`release/msmodelslim/`），见 `quant/REPRO_W4A8_QUANT.md` |
 | 官方目录（可选） | `OFFICIAL_DIR`（视觉 23 例的图片）与 `ENC_DIR`（GSM8K 的 chat 模板）—— 都缺就只跑性能+容量+多 batch |
 | 磁盘 | 镜像层 ~20 GB + `cache/`（首次 static kernel 编译）若干 GB |
 | 网络 | **不需要外网**（GSM8K 需要本地 `datasets` 缓存 **+ 官方 `encoding` 目录**；缺任一个就跳过并标 `skipped`） |
