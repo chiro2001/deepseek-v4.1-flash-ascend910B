@@ -106,8 +106,8 @@ replay TTFT 4167 ms ≈ fill 4192 ms ⇒ **对服务质量零帮助**。
 | 路径 | 内容 |
 |---|---|
 | `patches/` | 四个可交付补丁 + 挂载说明 |
-| `docs/` | 池子容量账、KV8 方案与裁决 |
-| `logs/` | 关键实验日志（8 卡终验、per-group bpc、KV8 三步） |
+| `logs/` | 关键实验日志（8 卡终验、per-group bpc、KV8 裁决） |
+| `CHANGELOG.md` | 本分支相对 `main` 的逐项变更 |
 
 ---
 
