@@ -22,7 +22,19 @@
 | 文件 | md5 | 说明 |
 |---|---|---|
 | `0001-offload-scheduler.patch.py` | `15d5548e29af88da71570d5b48abddef` | **`scheduler.py` 的替换版**。★ **它是 D2 版的超集**（`grep -c offload_participat` = **15**），所以**只需挂这一份**，不要再叠加旧版 |
-| `0001b-offload-per-group-bpc-manager.patch.py` | `3b64eb4977f3302ed71e6c759c48740f` | `PerGroupBPCManager`（池的格子 = 1 个 GPU block） |
+| `0001b-offload-per-group-bpc-manager.patch.py` | `9f11c9ac0de0d77fbe6a212e42a9966a` | `PerGroupBPCManager`（池的格子 = 1 个 GPU block）+ **`logs/041` 的加固**（见下） |
+
+> ★ **2026-09-22 07:2x：`0001b` 已并入 `logs/041` 的加固**（原 md5 `3b64eb49…` → 新 `9f11c9ac…`）。
+> **默认行为逐字不变**（`PGP_MGR_HARDEN=0`），只多了一份只读记账。它带来两个可选的保险：
+>
+> | env | 默认 | 作用 |
+> |---|---|---|
+> | `PGP_MGR_HARDEN` | **0** | `1` = 把三种静默失败**变成响亮 raise**（缺容量 cap / 过期 free / 索引键被覆盖）；`2` = 更严 |
+> | `PGP_MGR_STATS` | `0`（`HARDEN=1` 时自动 1） | 打开只读计数器（`stale_free / dup_unit / oob_unit / over_budget / key_overwrite / used_mismatch`），`mgr_hardening_stats()` 取值 |
+>
+> **它的承诺边界**（`041` §0，请勿误读）：**只承诺"若配账层将来真坏，它会响"**（阳性对照 + 15/15 自检已证），
+> **不承诺**修任何现有 bug（`038` 那条 144 MiB 首 token 错**不在配账层**，开 L1 才是解法）。
+> 实测：加固前后 **sha 逐字相同**（`a7ffff6be598`）⇒ **既没修它、也没让它更糟**。
 | `0001c-offload-per-group-bpc-hooks.patch.py` | `af2fefb8337fdf9fe1c5e55518f665b8` | 配置解析钩子（`blocks_per_chunk` 支持 `{"default":8,"swa":1}` 的字典形式） |
 | `0002-offload-cpu-pool-host-registered.patch.py` | `2c161a791fe99f17cce2e1139ffbdc3c` | `cpu_npu.py` 的替换版（`NPU_OFFLOAD_HOST_MEM=registered` 走 `aclrtHostRegister`；**注册失败自动回落 `pinned`**） |
 
