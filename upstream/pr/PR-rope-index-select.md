@@ -1,7 +1,7 @@
 # PR 草稿（待评审后再发）
 
 - **目标仓**：`vllm-project/vllm-ascend`
-- **源分支**：`chiro2001:perf/rope-fused-index-select`，HEAD **`d4167f52`**（已 push，基于 `upstream/main` = `c173a64a`）
+- **源分支**：`chiro2001:perf/rope-fused-index-select`，HEAD **`ed5b928c`**（已 push，基于 `upstream/main` = `5fbcfaa9`）
 - **标题**：`[Performance][Attention] Fuse DSA RoPE index selection into a single index_select`
   （CI 强制 `\[(BugFix|Performance|Test|CI|Feature|Doc|Misc|Community|Refactor)\]`，本标题命中 `[Performance]`）
 - **前置**：follow-up to **#14428**（已合入；把 index+copy 融成 `torch.gather(..., out=)`）
@@ -85,6 +85,11 @@ still writes into the pre-allocated buffers without disturbing the rows beyond
 `num_tokens`.
 
 Local result: `13 passed` (12 new tests plus the pre-existing equivalence test).
+These were re-run on the current head with a small standalone driver, because
+the NPU container we use for the benchmarks ships a vLLM older than this branch
+and `tests/ut/conftest.py` cannot complete its platform stubs there; the driver
+imports the test module directly and supplies the two fixtures it needs. It
+does not replace CI (no collection, no parametrisation, no conftest stubs).
 
 **2. Op-level A/B profile (existing evidence, collected on our deployment)**
 
@@ -142,14 +147,29 @@ Here both frames agree in sign.
 
 | tokens | eager Δ (µs) | **ACLGraph replay Δ (µs)** |
 |---:|---:|---:|
-| 1 | −28.3 | **−6.0** |
-| 8 | −27.2 | **−11.9** |
-| 32 | −24.7 | **−7.8** |
-| 192 | −30.5 | **−17.5** |
-| 2048 | −139.0 | **−128.1** |
+| 1 | −8.9 | **−12.1** |
+| 8 | −8.0 | **−16.7** |
+| 192 | −28.3 | **−28.3** |
+| 2048 | −200.9 | **−199.4** |
+| 4096 | −390.8 | **−389.3** |
 
-(negative = this PR is faster; median of 60 iterations. The saving survives
+(negative = this PR is faster; median of 50 (eager) / 60 (graph) iterations, 40
+back-to-back calls inside one capture for the graph rows. The saving survives
 capture because it removes two *device* kernels, not host dispatch.)
+
+**3d. Kernel count per lookup, and the int32 variant** (same single card, both
+revisions driven in one process; 3 profiler steps × N calls, so the count is
+call-aligned):
+
+| positions | `main` | this PR |
+|---|---:|---:|
+| int64 (what every in-tree caller passes) | 6.00 | **2.00** |
+| int32 (the DFlash positions buffer dtype) | 7.00 | **3.00** |
+
+The int32 row is 7 → 3 rather than 6 → 2 because an int32 source needs one
+`.to(torch.int64)` per call, and this PR builds the flattened index **once per
+call** and hands the same tensor to the cos and the sin lookup, so that cast is
+paid once instead of once per direction.
 
 **4. Bit-exactness** — on this branch head, five token counts (1, 8, 32, 192,
 2048) × both branches (`use_cache=True` with `out=`, and `use_cache=False`)
@@ -171,7 +191,7 @@ paraphrase of them. Eager timings are the median of 50 reps; every "identical"
 below is `torch.equal == True` with `max_abs_diff = 0.000e+00`, never a
 tolerance. **32/32 checks pass, 0 fail** (a second harness adds **5/5** for the
 graph sweep in 5d), and the raw JSON is attached as
-`logs/raw/35-rope-edge-cases-*.json`.
+`logs/raw/42-rope-hoist-edge-a3.json` + `42-rope-hoist-graph-a3.json`.
 
 **5a. Shapes, strides, row order, dtype** (eager). "≡ `main`" = the two revisions
 agree; "≡ `full[pos]`" = the output also equals the pre-#14428 semantics
@@ -182,18 +202,18 @@ and the allocating `use_cache=False`) are checked per row.
 
 | positions | ≡ `main` | ≡ `full[pos]` | shape | tail | buf | eager Δ (µs) |
 |---|:--:|:--:|:--:|:--:|:--:|---:|
-| **n = 0 (empty batch)** | ✅ | ✅ | `(0,1,1,64)` | ✅ | ✅ | **−4.0** |
-| n = 1 | ✅ | ✅ | `(1,1,1,64)` | ✅ | ✅ | −7.8 |
-| n = 8 | ✅ | ✅ | `(8,1,1,64)` | ✅ | ✅ | −6.4 |
-| n = 192 | ✅ | ✅ | `(192,1,1,64)` | ✅ | ✅ | −26.2 |
-| n = 2048 | ✅ | ✅ | `(2048,1,1,64)` | ✅ | ✅ | −183.8 |
-| **n = 4096 (prefill = `max_num_batched_tokens`)** | ✅ | ✅ | `(4096,1,1,64)` | ✅ | ✅ | **−376.3** |
-| int32, n = 192, contiguous (dflash buffer dtype) | ✅ | ✅ | `(192,1,1,64)` | ✅ | ✅ | **+20.7** ⚠️ |
-| int32, n = 2048, contiguous (dflash dtype, n from the decode batch) | ✅ | ✅ | `(2048,1,1,64)` | ✅ | ✅ | −144.2 |
-| **int64, n = 192, non-contiguous strided view (stride 2)** | ✅ | ✅ | `(192,1,1,64)` | ✅ | ✅ | −30.7 |
-| int64, n = 192, descending row order (`flip`) | ✅ | ✅ | `(192,1,1,64)` | ✅ | ✅ | −12.1 |
-| int64, n = 192, repeated/duplicate positions (4 distinct rows) | ✅ | ✅ | `(192,1,1,64)` | ✅ | ✅ | −13.9 |
-| int32, n = 192, non-contiguous strided (sliced after the cast) | ✅ | ✅ | `(192,1,1,64)` | ✅ | ✅ | **+28.9** ⚠️ |
+| **n = 0 (empty batch)** | ✅ | ✅ | `(0,1,1,64)` | ✅ | ✅ | **−11.1** |
+| n = 1 | ✅ | ✅ | `(1,1,1,64)` | ✅ | ✅ | −8.9 |
+| n = 8 | ✅ | ✅ | `(8,1,1,64)` | ✅ | ✅ | −8.0 |
+| n = 192 | ✅ | ✅ | `(192,1,1,64)` | ✅ | ✅ | −28.3 |
+| n = 2048 | ✅ | ✅ | `(2048,1,1,64)` | ✅ | ✅ | −200.9 |
+| **n = 4096 (prefill = `max_num_batched_tokens`)** | ✅ | ✅ | `(4096,1,1,64)` | ✅ | ✅ | **−390.8** |
+| int32, n = 192, contiguous (dflash buffer dtype) | ✅ | ✅ | `(192,1,1,64)` | ✅ | ✅ | −17.9 |
+| int32, n = 2048, contiguous (dflash dtype, n from the decode batch) | ✅ | ✅ | `(2048,1,1,64)` | ✅ | ✅ | −190.4 |
+| **int64, n = 192, non-contiguous strided view (stride 2)** | ✅ | ✅ | `(192,1,1,64)` | ✅ | ✅ | −37.1 |
+| int64, n = 192, descending row order (`flip`) | ✅ | ✅ | `(192,1,1,64)` | ✅ | ✅ | −32.5 |
+| int64, n = 192, repeated/duplicate positions (4 distinct rows) | ✅ | ✅ | `(192,1,1,64)` | ✅ | ✅ | −31.8 |
+| int32, n = 192, non-contiguous strided (sliced after the cast) | ✅ | ✅ | `(192,1,1,64)` | ✅ | ✅ | −17.7 |
 | int64, n = 192, 2-D `[n,1]` | ✅ | ✅ (flattened) | `(192,1,1,64)` | — | — | fallback branch |
 | int64, n = 192, 2-D `[n,1]` strided (`as_strided`) | ✅ | ✅ (flattened) | `(192,1,1,64)` | — | — | fallback branch |
 | int64, n = 192, 2-D `[n,1]` transposed view | ✅ | ✅ (flattened) | `(192,1,1,64)` | — | — | fallback branch |
@@ -202,14 +222,16 @@ and the allocating `use_cache=False`) are checked per row.
 Two notes on 5a. The three 2-D rows are the cases this patch deliberately leaves
 on the 4-D `gather` fallback, so "identical" there means *behaviour unchanged*,
 not "the new path is faster" — and the last row confirms the PR does not change
-the pre-existing error for a shape the old formulation also rejected. Second,
-**the two ⚠️ rows are a real, small regression and they are not hidden here**:
-the PR casts inside `_rope_index_1d`, which both the cos and the sin call run, so
-an int32 index costs one extra cast kernel where the old code built its 4-D index
-once. The profiler counts in 5e confirm the +1 cast per direction. The reason it
-still nets out is that the int32 path that matters for throughput — the larger
-decode batch, 2048 rows — is **−144.2 µs**, and of course every one of these rows
-is bit-exact.
+the pre-existing error for a shape the old formulation also rejected. Second, an
+earlier revision of this patch made the two int32 rows **slower** (+20.7 / +28.9
+µs) for a reason worth recording: the flattened index was built inside the cos
+and the sin lookup separately, so an int32 source paid two `.to(torch.int64)`
+casts per call where the old 4-D formulation paid one. Two independent
+single-card runs reproduced the sign, and a per-op timing decomposition put the
+cost on the host side (the device-side lookup was already 22–28 µs *faster*, with
+2–3 fewer kernels). Building the flattened index once per call removes it: the
+rows are now −17.9 / −17.7 µs and the kernel count is 3.00 per call instead of
+4.00. No row in this table is a regression.
 
 **5b. `draft_index = 1..5`** (speculative decode). Each check also asserts that
 only `spec_runtime_buffer[cfg][group][K-1]` was written, that the *other* spec
@@ -217,11 +239,11 @@ rows were left untouched, and that the plain runtime buffer was not aliased.
 
 | K | n = 8 Δ (µs) | n = 192 Δ (µs) | bit-exact | correct spec row | other rows untouched |
 |---:|---:|---:|:--:|:--:|:--:|
-| 1 | −9.1 | −11.7 | ✅ | ✅ | ✅ |
-| 2 | −8.7 | −10.6 | ✅ | ✅ | ✅ |
-| 3 | −10.4 | −12.4 | ✅ | ✅ | ✅ |
-| 4 | −9.3 | −11.9 | ✅ | ✅ | ✅ |
-| 5 | −9.9 | −10.7 | ✅ | ✅ | ✅ |
+| 1 | −12.6 | −31.1 | ✅ | ✅ | ✅ |
+| 2 | −11.4 | −29.2 | ✅ | ✅ | ✅ |
+| 3 | −12.5 | −28.7 | ✅ | ✅ | ✅ |
+| 4 | −13.0 | −30.1 | ✅ | ✅ | ✅ |
+| 5 | −11.4 | −28.7 | ✅ | ✅ | ✅ |
 
 **5c. Real call sequence.** Back-to-back calls on one positions tensor (the
 40-layer burst a production step looks like), then a true spec step (1 main + 4
@@ -229,10 +251,10 @@ draft lookups):
 
 | case | `main` (µs) | this PR (µs) | Δ |
 |---|---:|---:|---:|
-| warm single call, n = 192 | 121.92 | 111.60 | −10.3 |
-| **40-layer burst, n = 192 (per call)** | 92.09 | 81.86 | **−10.2** |
-| **one spec step (1 main + 4 draft), total** | 493.40 | 448.21 | **−45.2** |
-| same, per lookup | 98.68 | 89.64 | −9.0 |
+| warm single call, n = 192 | 104.18 | 76.10 | −28.1 |
+| **40-layer burst, n = 192 (per call)** | 59.98 | 53.81 | **−6.2** |
+| **one spec step (1 main + 4 draft), total** | 340.49 | 288.58 | **−51.9** |
+| same, per lookup | 68.10 | 57.72 | −10.4 |
 
 The spec step also has a structural check: the main buffer and spec rows 0..3
 all equal `full_rope[pos]`, and the unused row 4 stays untouched — in both
@@ -243,11 +265,11 @@ replay time divided by the 40 lookups, median of 30 replays:
 
 | n | `main` (µs/call) | this PR (µs/call) | **Δ (µs/call)** | bit-exact after replay |
 |---:|---:|---:|---:|:--:|
-| 1 | 19.94 | 7.86 | **−12.1** | ✅ |
-| 8 | 25.07 | 7.78 | **−17.3** | ✅ |
-| 192 | 48.18 | 18.48 | **−29.7** | ✅ |
-| 2048 | 219.45 | 19.32 | **−200.1** | ✅ |
-| **4096** | **407.78** | **23.83** | **−384.0** | ✅ |
+| 1 | 19.93 | 7.86 | **−12.1** | ✅ |
+| 8 | 24.57 | 7.89 | **−16.7** | ✅ |
+| 192 | 44.93 | 16.64 | **−28.3** | ✅ |
+| 2048 | 218.63 | 19.25 | **−199.4** | ✅ |
+| **4096** | **411.61** | **22.32** | **−389.3** | ✅ |
 
 The edge-case run's own graph phase measures n = 192 independently as
 48.69 → 18.80 (−29.9 µs/call), which agrees with the swept value above to within
@@ -262,19 +284,28 @@ one sin lookup:
 | configuration | `main` | this PR | composition |
 |---|---:|---:|---|
 | int64, `use_cache=True` | **6.00** | **2.00** | `main`: `BroadcastTo` 6 + `Cast` 6 + `GatherElementsV2` 6 → PR: `IndexSelect_GatherV3` 6 |
-| int32, `use_cache=True` | 7.00 | 4.00 | `main`: the same three + `InplaceCopy_Cast` 3 → PR: `IndexSelect_GatherV3` 6 + `InplaceCopy_Cast` 6 |
+| int32, `use_cache=True` | 7.00 | **3.00** | `main`: the same three + `InplaceCopy_Cast` 3 → PR: `IndexSelect_GatherV3` 6 + `InplaceCopy_Cast` 3 |
 | int64, `draft_index=3` | 6.00 | 2.00 | identical to the int64 row — the draft path adds no kernel |
 
 i.e. **3 kernels per direction become 1**, and 6 per call become 2. The int32
-row is where the extra cast shows up: the PR pays one cast per direction
-(+2 per call) where the old code built its index once (+1), which is the
-mechanism behind the two ⚠️ rows in 5a. Why the old path costs *three* kernels
+row is where the cast shows up: an int32 source needs one `.to(torch.int64)`,
+and because the flattened index is built once per call that cast is paid once
+(+1), exactly as the old code did — the extra direction-local cast that an
+earlier revision paid is what produced the two ⚠️ rows in 5a. Why the old path costs *three* kernels
 per direction is confirmed separately: at the production table size it is
 always `BroadcastTo` + `Cast` + `GatherElementsV2`, independent of `n` and of
 whether positions are rebuilt per call (five probe configurations, see the
 attached probe log); at a small (8K) table `main` is *worse* (12 per call, because 3 extra
 `Transpose` per direction appear), which is another reason the smaller-table
 numbers in §3a and here are quoted for the production table only.
+
+> Measurement note, because it bit us once: the harness derives "kernels per
+> call" by dividing an active-step window by the number of steps, and that window
+> is not always call-aligned. Three repeated runs of the profiler phase gave
+> `main`/PR = 6.00/2.00 for int64 and 7.00/3.00 for int32 twice, and once a
+> drifted window that caught the gathers of a fourth call without its initial
+> cast (27 raw rows instead of 21). The table above quotes the two aligned runs;
+> the dedicated probe is call-aligned by construction and agrees.
 
 ### Overlap with #16285
 
@@ -306,7 +337,8 @@ so that the recommended NPU tests actually run? Thanks!
 
 ## 发送前的 checklist
 
-- [x] 单测已并入，本地 CPU 跑通（13 passed）
+- [x] 单测已并入，并在当前 head 上重跑 **13 passed / 0 failed**（用独立驱动器绕开容器里
+      损坏的 conftest，见正文 §1 末段；CI 仍是正式口径）
 - [x] `ruff check` / `ruff format --check` / `codespell` 全过（ruff 0.14.0）
 - [x] commit 带 `Signed-off-by:`（DCO），标题用上游格式 `[Performance] ...`
 - [x] 分支基于最新 `upstream/main`（`c173a64a`），已 push 到我们的 fork（`d4167f52`）
@@ -327,8 +359,11 @@ so that the recommended NPU tests actually run? Thanks!
    ⚠️ §3 的单卡是 **910C 类（PCI `19e5:d803`）**，驱动 25.5.5 / CANN 9.1.0；
    与 A2（`d802`）不是同一机型。§5 的矩阵跑在 **A3 的 `Ascend910_9382`** 上
    （torch_npu 2.10.0.post4），与 §3 又不是同一台机器。
-2. **单测只在本地 CPU harness 上跑过**（venv 里是 `torch 2.14.0+cpu` +
-   `torch_npu` 桩），真机 CI 仍待跑；本地结论是 13 passed。
+2. **单测在 CPU 与真机两个环境都跑过**：CPU harness 上是 13 passed（`torch 2.14.0+cpu` +
+   `torch_npu` 桩）；当前 head 又在 **A3 的 NPU 容器里**用 `pr/run_rope_ut_standalone.py`
+   重跑了一次，同样 **13 passed / 0 failed**。⚠️ 该驱动器**跳过了 conftest 的平台桩、
+   collection 与参数化**（容器里的 vLLM 比本分支旧，conftest 会在 `adapt_patch()` 处失败），
+   所以**正式口径仍是上游 CI**。
 3. 只覆盖 `rope_dsv4.py` 的 `get_cos_and_sin_dsa()`；
    `full_rope_*[pos]` 这类模式如果还在别处出现，**本 PR 不涉**（留给后续）。
 4. 与在途 **#16285** 改同一个函数（见附 A）：文本上会撞、逻辑上不撞。
@@ -365,13 +400,17 @@ so that the recommended NPU tests actually run? Thanks!
 `_rope_gather_rows(...)` 替换四处 `torch.gather`。
 
 合并后的文件与我们的文件逐行对比，差异**恰好等于它自己的 patch**（纯增量；
-见 `pr/PR16285-rope-resolution.patch`），并且：
+见 `pr/PR16285-rope-resolution.patch`）。★ **而且这不是纸上推演**：重建组合分支后
+用 `pr/PR16285-rope-composition-check.py` 在同一进程里驱动两个模块，结论是
+`ALL CHECKS PASSED` ——
 
-* 合并版跑我们那 12 个单测：**13 passed**；
 * 6 组配置（`use_cache` 两种 × `draft_index` × int32 × 2-D fallback）下，
-  base 与合并版输出 `torch.equal` 全等；
-* 合并版新增的 `cached_output_len` 语义（返回长度、pad 行 `cos=1/sin=0`、
-  缓冲区地址稳定）也全部成立。
+  base 与合并版输出 `torch.equal` 全等，且都等于表查表结果；
+* 合并版新增的 `cached_output_len` 语义（返回长度、token 行、pad 行 `cos=1/sin=0`、
+  缓冲区地址稳定、未触及行保持填充）六项全部成立。
+
+组合分支已经推到 fork（`4abfa85e`），与 `perf/rope-fused-index-select`
+（`ed5b928c`）配对，随时可重跑。
 
 ## 附 B：#16285 的另一层背景（给协调者）
 

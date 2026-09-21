@@ -111,7 +111,7 @@ Item ↔ evidence map. Details, caveats and commands are in §2 and §8.
 | RFC item | Short form of the item (see RFC for the full text) | What we hold | Status |
 |---|---|---|---|
 | **[46]** | Engram CPU offload: CPU-resident tables, bounded pinned staging, batched lookups, async H2D prefetch | CPU-resident INT8 tables (206.0 GiB) + batched lookups + overlap; the pinned-staging/H2D leg was **measured and rejected** in favour of device-side lookup over host-mapped DRAM | **Partial** (mechanism differs) |
-| **[47]** | Residency policy + measure footprint, lookup latency, transfer volume, NUMA/bandwidth sensitivity under concurrency | Footprint, lookup latency, transfer volume, per-rank spread, machine split, concurrent profile — **5 of 5 named quantities**: the NUMA/bandwidth one is measured on a synthetic table (single die 107 GB/s contiguous / 95 GB/s gather; **≈115 GB/s per CPU socket**, so 3 dies on 3 sockets scale to 321 GB/s while 3 on 1 socket fall to 39 GB/s each — `logs/38`) | **Partial** |
+| **[47]** | Residency policy + measure footprint, lookup latency, transfer volume, NUMA/bandwidth sensitivity under concurrency | Footprint, lookup latency, transfer volume, per-rank spread, machine split, concurrent profile — **5 of 5 named quantities**. The NUMA/bandwidth one now has **both frames**: on a *synthetic* 2 GiB table (single die **107 GB/s** contiguous / 95 GB/s gather; the cap is **per CPU socket ≈115 GB/s**, so 3 dies on 3 sockets scale to 321 GB/s while 3 on 1 socket fall to 39 GB/s each — `logs/38`) **and on the production 206.0 GiB table with 256 B rows** (contiguous 107.0 GB/s, but uniform random gather only **7.55 GB/s** — rows 80× narrower; hot-row skew **pays** here, 2.6–4.3×; 3 dies registering it concurrently all `ret=0`, no 207001/507011 — `logs/40`) | **Partial** |
 | **[48]** | Engram TP: explicit ownership; distinguish node-level table sharding from model TP | Full-table-per-rank + device index (`LOCAL_OWNER=fast`); cost of sharded registration measured (a2a+bcast ≈ 0.5 ms/step, net ceiling ≈ 6%) | **Partial** |
 | **[49]** | Eliminate duplicate queries across TP ranks; batch across Engram layers; empty-query ranks, collective ordering | Metadata `all_gather` and ids `all_to_all` removed from the decode path; `route` 2.462 → 0.058 ms/step (pre-graph device path → captured graph) | **Partial** |
 | **[50]** | Validate Engram offload/TP with SP, DCP, PD **and** graph replay | Graph replay: yes (decode, A3). SP / DCP / PD: **not covered** | **Partial** |
@@ -152,21 +152,59 @@ so it is shown in full; the other items follow in the same form.
 | 1 | table footprint | A3, INT8 table, 2 Engram layers | **206.0 GiB** in 4 shard files (11.4 / 91.6 / 11.4 / 91.6 GiB); INT8 weights + FP32 group-32 scales | `quant/README.md` L2; `CHANGELOG.md` v8 §0 |
 | 2 | lookup latency (host kernels, per step) | A3, 8 ranks, numba JIT on/off | hash **0.427 → 0.076 ms**, plan **0.261 → 0.068 ms** | `patches/README.md` §3 (0008); `reports/engram-jit-verified.md` |
 | 3 | transfer volume (host-lookup path, per rank) | A2 (910B3), decode, `ENGRAM_DEVICE_INDEX=0`, real weights, 8 ranks | `d2h` **0.19–3.41 ms**, `route` **1.34–2.89 ms** (TP0 largest; rank-0 role cost) | `reports/a2-draft-graph-20260920.md` §3.1 |
-| 4 | machine / bandwidth sensitivity — **incl. the NUMA + bandwidth sweep** | A2 (910B3) vs A3 (910C); then A3 host-DRAM read by a device operator through the legacy `aclrtHostRegister(…, MAPPED)` path, 1/2/3 dies concurrently, synthetic 2 GiB table, 20480 B rows (2026-09-21) | A2: PCI `19e5:d802`, PCIe, `host_mem_pool=0`, full-table registration fails `ret=207001`; A3: PCI `19e5:d803`, HCCS, `host_mem_pool=1`, 8 ranks × 206 GiB bring-up in ~133 s. **New — one die alone:** **107 GB/s** contiguous (1 GiB; 104 at 256 MiB, 66 at 16 MiB), **95 GB/s** random-row gather (4096 × 20480 B), **57 GB/s** at 512 rows; HBM anchor 601 / 724 GB/s ⇒ host DRAM is 5.6–7.6× slower. **Single-die bandwidth is flat across NUMA nodes 0–5 (≤0.7 %, two passes), but the cap is per CPU *socket*, not per die:** two dies reading from the same socket share ≈115 GB/s (57 each) while two dies on different sockets both keep 107 (214 total); three dies on three sockets reach **321 GB/s**, three dies on one socket collapse to 39 GB/s each (117 total). The kernel's own first-touch placement put 2 of the 3 dies on one socket unaided — under an unbound allocator, placement was worth 2.8× per die | `CHANGELOG.md` v8 §3.2, §3.3; `README.md` §1; **`logs/38-20260921-host-dram-bandwidth.md`** (topology evidence, method, caveats); raw JSON per run in **`logs/raw/38-host-dram-bw-*.json`** |
+| 4 | machine / bandwidth sensitivity — **incl. the NUMA + bandwidth sweep** | A2 (910B3) vs A3 (910C); then A3 host-DRAM read by a device operator through the legacy `aclrtHostRegister(…, MAPPED)` path, 1/2/3 dies concurrently — first synthetic 2 GiB / 20480 B rows, then **the production 206.0 GiB table, 256 B rows, 3 dies (3/8-rank proxy)** (2026-09-21) | A2: PCI `19e5:d802`, PCIe, `host_mem_pool=0`, full-table registration fails `ret=207001`; A3: PCI `19e5:d803`, HCCS, `host_mem_pool=1`, 8 ranks × 206 GiB bring-up in ~133 s. **New — one die alone, synthetic:** **107 GB/s** contiguous (1 GiB; 104 at 256 MiB, 66 at 16 MiB), **95 GB/s** random-row gather (4096 × 20480 B), **57 GB/s** at 512 rows; HBM anchor 601 / 724 GB/s ⇒ host DRAM is 5.6–7.6× slower. **Single-die bandwidth is flat across NUMA nodes 0–5 (≤0.7 %, two passes), but the cap is per CPU *socket*, not per die:** two dies reading from the same socket share ≈115 GB/s (57 each) while two dies on different sockets both keep 107 (214 total); three dies on three sockets reach **321 GB/s**, three dies on one socket collapse to 39 GB/s each (117 total). The kernel's own first-touch placement put 2 of the 3 dies on one socket unaided — under an unbound allocator, placement was worth 2.8× per die. **New ★ — the same quantities on the real 206.0 GiB table (rows are 256 B, not 20480 B; 3 free dies = 3/8 proxy):** registration one die **122.2 s / 0.580 ms/MiB** (reproduces the 119.4 s of `logs/29`; 99.9 s hot; **83.9 s / 0.398 ms/MiB** through upstream's `aclrtHostRegisterV2(MAPPED\|PINNED)`); **three dies registering it concurrently 240.9 / 241.3 / 238.9 s, all `ret=0`, no 207001 / 507011** (second run 227.0 / 247.5 / 247.6 s); contiguous read **107.0 GB/s** single-die and **38.5 GB/s per die (115.6 total)** with three dies; uniform random gather only **7.55 GB/s** on the real 256 B rows, and **7.5–7.7 GB/s** for the deployed weight+scale lookup; **hot-row skew pays here** (80 % of queries into 0.1 % of rows: 27.9–32.2 GB/s, 2.6–4.3× uniform) — the synthetic "no gain" was a small-table artefact; and **registration does not perturb peers** (one die re-registering all 206.0 GiB in 108.9 s moved the other two dies' eight read arms by ≤0.8 %). Caveats measured the same day: the writable mapping the API requires is **dirtied** by registration, so a bring-up writes the whole 206 GiB back (`Dirty` ≈108–126 GiB, mtimes move, content byte-identical), and `fadvise(DONTNEED)` silently drops 0 pages while ranks still map it | `CHANGELOG.md` v8 §3.2, §3.3; `README.md` §1; **`logs/38-20260921-host-dram-bandwidth.md`** (synthetic topology evidence, method, caveats) and **`logs/40-20260921-real-table-concurrency.md`** (real table, 3/8 proxy, side effects); raw JSON per run in **`logs/raw/38-host-dram-bw-*.json`** and **`logs/raw/40-real-table-*.json`** |
 | 5 | under realistic concurrency | A3, 1K prompt / 256 output, C1…C64 | 7 levels × 2 repeats, `ok=64/64`, service alive throughout | `CHANGELOG.md` §9; `results/bench/conc_dihuo_v8.json` |
 
-**Missing from [47]:** the NUMA / host-bandwidth sweep is now **measured** (row 4 above,
-`logs/38`), but on a *synthetic* 512 MiB / 2 GiB table with 20480 B rows and 1–3 dies —
-**not** on the 206 GiB production table and not at 8 ranks. Still unmeasured: bandwidth at
-the real table size and rank count; whether the 8-rank bring-up's concurrent registration
-perturbs steady-state bandwidth; and any real hot-row cache (the skewed-access arm showed
-no throughput gain at this table size). The machine-class split and the per-rank spread
-stand as before.
+**Missing from [47]:** the sweep is now **measured on the production table itself**
+(`logs/40`, 2026-09-21) rather than only on the synthetic 512 MiB / 2 GiB one — but at
+**3 dies, i.e. a 3/8-rank proxy** (only three dies are free on this box; the production
+service owns the other eight). On the real 206.0 GiB / four-shard table, whose rows are
+**256 B wide (not the synthetic 20480 B)**:
+
+* registration, one die: **122.2 s / 0.580 ms/MiB** as found (the `logs/29` 119.4 s figure,
+  reproduced to 2.3 %) and 99.9 s hot; upstream's exact
+  `aclrtHostRegisterV2(MAPPED|PINNED)` + `HostGetDevicePointer` call **83.9 s / 0.398 ms/MiB**
+  (all `ret=0`);
+* **three dies registering the same 206.0 GiB concurrently: 240.9 / 241.3 / 238.9 s (a second
+  run 227.0 / 247.5 / 247.6 s), every shard `ret=0`, no `207001` and no `507011`** — 24
+  registrations across two barrier-aligned rounds. The physical pages are shared
+  (`MAP_SHARED` page cache), so three dies do **not** need 3 × 206 GiB;
+* device reads with the registration held: **107.0 GB/s** contiguous (1 GiB) but only
+  **7.55 GB/s** on a uniform random gather of the real 256 B rows, and **7.5–7.7 GB/s** for
+  the deployed two-gather lookup shape (weight row + its scale row);
+* three dies reading concurrently: **38.5 GB/s per die = 115.6 GB/s total** contiguous
+  (the per-socket cap of `logs/38` reappears at the real size) and 7.56 GB/s per die uniform
+  gather;
+* **hot-row skew does pay at this size**, opposite to the synthetic arm: 80 % of queries into
+  0.1 % of rows (≈94 MiB of hot rows) gives **27.9–32.2 GB/s vs 7.5–10.8 GB/s uniform
+  (2.6–4.3×)**, 2.8× per die with three dies running. That is a *locality* effect on the
+  real 92 GiB shard, not an explicit hot-row cache (we implemented none);
+* **registration does not perturb the peers' steady state**: while one die unregistered and
+  re-registered all 206.0 GiB (108.9 s), the other two dies' per-arm medians moved by
+  **0.992–1.002 across all 8 read arms** (≤0.8 %).
+
+Two side effects found on the way, both in `logs/40`: registering the **writable** mapping
+the API requires marks the table's pages dirty, so a bring-up triggers a full **206 GiB
+write-back** (`Dirty` ≈ 108–126 GiB observed; the shards' mtimes move; a private-file control
+shows the content is byte-identical before/after). And `posix_fadvise(DONTNEED)` **silently
+does nothing** while any rank still maps the table (`rc=0`, 306 s spent, 0 of 24 M pages
+dropped — only `mincore` tells the truth).
+
+Still unmeasured: **8 ranks** (the 3-die figure above is a proxy, and the 8-rank mixed
+registration load cannot be extrapolated linearly), the **production access distribution**
+(the skew above is our model of a hot-row workload, not a measured trace), and end-to-end
+lookup at realistic batch shapes. The machine-class split and the per-rank spread stand as
+before.
 
 Row 4's new bandwidth numbers were measured through the **legacy `aclrtHostRegister`**
 with `MAPPED`; one control run repeated the same measurements through upstream's exact
 **`aclrtHostRegisterV2(MAPPED|PINNED)`** call (+ `aclrtHostGetDevicePointer`) and reproduced
 them within 0.9 % (`logs/38` §2.5), so the numbers are not an artefact of the entry point.
+On the **real table** (`logs/40`) the read arms were likewise taken through the legacy path
+with the registration held; the V2(`MAPPED|PINNED`) call was exercised there as a **separate
+full-table registration pass** (83.9 s, every shard `ret=0`, device pointer via
+`aclrtHostGetDevicePointer`), but the read arms were **not** repeated through it — that is
+still open.
 
 **Do these numbers apply to the upstream design?** No — they were measured on our
 host-mapped path. On the upstream `aclrtHostRegisterV2(MAPPED|PINNED)` path the analogous
@@ -179,7 +217,7 @@ stated again in §3.
 | Item | What we have | What is missing |
 |---|---|---|
 | **[46]** CPU-resident tables, bounded pinned staging, batched lookups, async H2D prefetch | CPU-resident INT8 tables (206.0 GiB) with batched lookups; the H2D leg is *removed* rather than overlapped — device operators index host-mapped DRAM directly. Removing the H2D/pinned leg moved decode concurrency-4 from **35.3 → 32.1 ms/step** and concurrency-1 from **29.5 → 28.4 ms/step** | We did not build the bounded-pinned-buffer + async-prefetch design the item names. If that design is required for A2 (where device-side lookup is unavailable), it is unbuilt on our side. No `hot-row caching` policy either |
-| **[47]** | See §2.1 — the NUMA/bandwidth sweep is now measured on a synthetic table (single die 107 GB/s contiguous / 95 GB/s gather; ≈115 GB/s per CPU socket under 1–3-die concurrency, `logs/38`) | Real 206 GiB table, 8-rank concurrent bandwidth, and an actual hot-row cache |
+| **[47]** | See §2.1 — the sweep is now measured **on the real 206.0 GiB table with 3 dies (3/8 proxy)**: 122.2 s single-die registration (83.9 s through upstream's `V2(MAPPED\|PINNED)`), **three concurrent full-table registrations 240.9 / 241.3 / 238.9 s all `ret=0` with no 207001 / 507011**, 107 GB/s single-die contiguous vs **7.55 GB/s** uniform gather on the real 256 B rows, **27.9–32.2 GB/s with hot-row skew (2.6–4.3× uniform)**, 115.6 GB/s total for three dies, and **≤0.8 % peer impact while one die re-registers the whole table** (`logs/40`); synthetic NUMA/socket sweep in `logs/38` | **8 ranks** (3/8 proxy here) and a **real production access trace** to replace our modelled skew; also the registration side effects in `logs/40` §6 (full-table write-back; `fadvise` silently ineffective) are measured but not yet worked around |
 | **[48]** | Explicit rule: one full table per rank, indexed on device (`LOCAL_OWNER=fast`), i.e. node-level sharding deliberately **not** used. Cost of the sharded alternative measured: `all_to_all` + `broadcast` ≈ **0.5 ms/step**, net gain ceiling ≈ 6% | Row/feature ownership split across ranks and projection reduction are not implemented in the measured path. "result redistribution" exists only as the plan we measured and rejected |
 | **[49]** | Removed metadata `all_gather` and ids `all_to_all` from the decode path. Pre-graph device path stepped `route` at **2.462 ms**; with the lookup inside the captured graph the host enqueues in **0.058 ms** (the remaining 0.695 ms of device work overlaps) | Empty-query-rank behaviour and collective ordering are not separately tested. "Batch queries across Engram layers" is not done (each layer is called per step) |
 | **[50]** | Graph replay: yes — per-batch-shape ACLGraph, zero-copy capture on the model's own buffers, `data_ptr`+shape validation before every replay | SP, DCP, PD: **not covered at all**. Token history, padding masks, persistent input-buffer refresh and transfer-event lifetimes under those configurations are untested |
@@ -448,25 +486,56 @@ At the model's real `max_num_batched_tokens` (2048) **our peak HBM is 0.52× of 
 all three runs** (420.0 MB vs 800.1 MB), and the time ratio is inside ±15% in all three runs
 — the entire point of the chunking gate is device activation, not latency.
 
-### 3.2.1 What the small-token rows actually show (and do not show)
+### 3.2.1 What the small-token rows actually show: the padding ceiling, measured
 
 The 4.4–5.0× penalty at n ≤ 192 (5.5–7.2× on the earlier single-card run — same sign) is
-**not** caused by chunking. It is caused by `V41_ENGRAM_GATE_MAX_TOKENS=2048` padding every
-call up to a static 2048-row shape (a deliberate graph-capture choice). An ablation that pads
-to 512 rows instead falls back to **0.77–0.85 ms**, i.e. into the same band as the upstream arm:
+**not** caused by chunking. It is caused by `V41_ENGRAM_GATE_MAX_TOKENS` padding every call up
+to a static token ceiling (a deliberate graph-capture choice). That ceiling is the knob, so it
+was swept: `CHUNK` fixed at 512, `MAX_TOKENS` = 256 / 512 / 1024 / 2048 / 4096, n = 1 … 4096,
+one card, one process, every arm interleaved inside the same run, `reps=30` (raw rows
+`logs/raw/41-engram-gate-ceiling-{small,large}-a3c0.json`; full write-up
+`logs/41-20260921-engram-gate-ceiling-sweep.md`; harness
+`agents/T2_ceilings/bench/bench_engram_gate_head2head_sweep.py`, sha256 `66470619…` — the §3.1
+harness plus an additive `--ceiling-sweep` switch, with the five §3.1 arms re-measured unchanged
+in the same runs):
 
-| tokens | upstream (ms) | ours, pad→512 (ms) | ratio | (02:17 run: ours pad→512) |
-|---:|---:|---:|---:|---:|
-| 1 | 0.587 | 0.772 | 1.32× | 0.972 |
-| 8 | 0.581 | 0.787 | 1.35× | 0.988 |
-| 32 | 0.581 | 0.789 | 1.36× | 1.002 |
-| 192 | 0.578 | 0.853 | 1.48× | 1.054 |
+| `MAX_TOKENS` | n=1 | n=8 | n=32 | n=192 | n=512 | n=1024 | n=2048 | n=4096 | peak HBM (small n) |
+|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| 512 | 0.774 | 0.820 | 0.824 | 0.859 | 0.871 | — | — | — | 285 MB |
+| 1024 | 1.417 | 1.455 | 1.499 | 1.558 | 1.636 | 1.697 | — | — | 330 MB |
+| **2048 (shipped)** | 2.811 | 2.834 | 2.896 | 2.911 | 3.006 | 3.140 | 3.346 | — | 420 MB |
+| 4096 | 5.675 | 5.591 | 5.683 | 5.709 | 5.864 | 5.712 | 5.993 | 6.357 | 600 MB |
 
-⇒ A reader comparing only the `CHUNK=512, MAX=2048` column would conclude our gate is 4–7×
-slower. **The honest statement is: the padding constant, not the chunking, is the cost, and
-it is tunable.** Note the residual: even the ablation still pads to 512 rows, so its 1.3–1.5×
-is pad work as well — a ceiling closer to the real batch size is the next knob, and it is
-**not measured here**.
+An n = 8192 tail (over the shipped contract) was measured separately: `MAX_TOKENS=8192` runs
+zero-padded at **12.859 ms / 1120 MB** versus upstream's **13.295 ms / 3200.5 MB** (0.97× time,
+**0.35× HBM**).
+
+Median ms per call; **“—” = the arm raises** (n > MAX is a contract violation, not a crash —
+the padder cannot shrink a dimension). Over the legal points the curve is a straight line:
+**t ≈ 0.1 + 0.69 × (MAX/512) ms, max residual 0.07 ms** (the same 512-row slope, 0.66–0.71 ms,
+reproduces on a second die), and the padded buffer costs ≈ 45 MB per 512 rows. There is **no
+knee above `CHUNK`**: on the n = 512 row the four ceilings are 0.871 / 1.636 / 3.006 / 5.864 ms,
+whose successive differences are 0.765 / 1.370 / 2.858 ms — one more 512-row chunk is a flat
+≈0.7 ms, because a padded row costs exactly what a real row costs inside the chunk loop. **The
+honest statement is therefore: the padding constant, not the chunking, is the cost — and here
+is its price list.**
+
+**Recommended value** — the smallest `CHUNK` multiple that covers the largest token count the
+captured graph can see, i.e. `MAX_TOKENS = max(CHUNK, ceil(B_max / CHUNK) * CHUNK)`:
+
+* small-batch / decode-only graphs (`B_max ≤ 512`): **512** — 0.774–0.871 ms and 285 MB per
+  call, i.e. **1.19–1.38× upstream instead of 4.12–4.78×**;
+* the shipped prefill contract (`max_num_batched_tokens = 2048`): **2048 is already that
+  minimum**, so keep it — the 4.2–4.8× at small n is then structural rather than a bug. A
+  2048-row graph costs 2.811–3.006 ms even for a single token, and the measured gap to a
+  512-row graph is **−2.0 ms / −135 MB per call**. The next knob after this constant is *which
+  ceiling each captured graph uses* (per-capture-size buckets, priced by the table above), not
+  a smaller single process-wide value.
+
+**One guard is worth adding:** `MAX_TOKENS=256` with `CHUNK=512` does not pad to 256 —
+`_gate_max_tokens()` silently falls back to `max(chunk, 4096)`, i.e. to the *worst* point on
+this curve (measured 5.677 ms at n = 1, identical to the `MAX=4096` arm). A declared value
+below `CHUNK` should raise, or floor to `CHUNK`, instead.
 
 ### 3.2.2 n = 4096 (beyond the shipped contract)
 

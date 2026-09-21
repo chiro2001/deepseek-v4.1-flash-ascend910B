@@ -207,7 +207,7 @@ done
 |---|---|
 | 规则 / 红线 / 环境 / 锁 | `AGENTS.md` |
 | 命令级上手 + 排障表 | `ONBOARDING.md` |
-| 日志索引（28 份） | `logs/README.md` |
+| 日志索引（32 份） | `logs/README.md` |
 | 状态看板 | `logs/01-...-session-status.md` |
 | 给上游的草稿 | `pr/` |
 | RFC 原文快照（引用基准） | `pr/refs/RFC-16375-body.md` |
