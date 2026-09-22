@@ -37,6 +37,11 @@ MAX_TOKENS=${MAX_TOKENS:-128}         # ★ 128 才有有效的投机读数（mt
 PROMPTS=${PROMPTS:-16}
 PROMPT_TOKENS=${PROMPT_TOKENS:-131072}
 REPLAY_PROMPT_TOKENS=${REPLAY_PROMPT_TOKENS:-65536}
+# ★★★ 2026-09-22 23:1x：**必须 3 轮**（`logs/083 §2`）。
+#   跨运行的 sha 比对已证无效（同配置两次独立运行 sha 就不同）⇒ 唯一可用的
+#   "逐字可复现"判据是**同运行内**的最后两轮（两轮都走池取回），那需要 rounds>=3。
+#   轮次语义（bench/kv_offload_client.py:348-404）：rounds[0]=fill，rounds[1..]=每轮 reset 后的重放。
+ROUNDS=${ROUNDS:-3}
 PORT=${PORT:-8050}
 
 # ---- G1/G2 用的输入路径 ----
@@ -105,7 +110,7 @@ CMD=(env TAG="$TAG" TIER="$TIER" GRAPH="$GRAPH" EAGER="$EAGER"
      OFFLOAD_BYTES="$OFFLOAD_BYTES" MAX_TOKENS="$MAX_TOKENS"
      DSA_SRC=D R8_KV8_DIR_D="$S/pkgs/pkg-kv8pf"
      PROMPTS="$PROMPTS" PROMPT_TOKENS="$PROMPT_TOKENS"
-     REPLAY_PROMPT_TOKENS="$REPLAY_PROMPT_TOKENS"
+     REPLAY_PROMPT_TOKENS="$REPLAY_PROMPT_TOKENS" ROUNDS="$ROUNDS"
      bash "$R8/scripts/run_arm_r8.sh")
 echo "--------------------------------------------------------------"
 say "三道门全过。将执行："
@@ -123,5 +128,7 @@ say "   3) model.py 用**合并版**（md5 应为 $(md5sum "$INSTALLED_MERGED" |
 say "   4) 捕获期 EE1016 = 0"
 say "★ 压测后跑自然语言判据（验收标准的一条）："
 say "   python3 a2/scripts/text_correctness_probe.py --base-url http://127.0.0.1:${PORT} --model deepseek-v41 --out <证据>"
+say "★ 以及**同运行内**的逐字可复现判据（替代跨运行 sha，见 logs/083 §2）："
+say "   python3 a2/scripts/check_same_run_replay.py $HOME/projects/dsv41-upstream-pr/agents/R_8card_int8/out/$TAG/*.client.json"
 echo ""
 exec "${CMD[@]}"
