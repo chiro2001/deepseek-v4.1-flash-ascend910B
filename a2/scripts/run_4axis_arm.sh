@@ -9,6 +9,8 @@
 #   G1 合并件新鲜度（a2/logs/081）—— 派生件过期 = 功能静默消失 / bugfix 静默回退
 #   G2 dsa 必须指向 graphsafe 包（a2/logs/082）—— 否则捕获期 EE1016 必炸
 #   G3 先看 dmesg（a2/logs/080）—— OOM 会伪装成"代码挂了"，把有效臂误判成失败
+#   G4 端口占用（a2/logs/099）—— ★ 两个 net=host 臂共用固定端口时，`health=200`
+#      会被**别的容器**满足 ⇒ 自检读到自己那份**空**日志 ⇒ 误判"补丁没挂上"（实测第三例）
 #
 # 用法（在 A3-node1 上）
 #   bash run_4axis_arm.sh                 # 用默认值起臂
@@ -116,6 +118,36 @@ say "G2 ✓ 起臂时会带：DSA_SRC=D R8_KV8_DIR_D=$S/pkgs/pkg-kv8pf（⇒ sha
 #   ★ 判据指纹：`grep -ac "capture failed" <serve.log>` > 0 且含 `LocalScalarDenseNpu`
 #     ⇒ 先查 `dsa_dir_D` 指向哪份、`rows_bound` 是否为 0，**不要**先怀疑 Engram/int8/池分量。
 say "G2b 起服后会自动断言 dsa_dir_D 含 $S（防「手工起臂漏 env」，logs/093）"
+
+# ---------------------------------------------------------------- G4 端口占用门
+# ★★★ 2026-09-23 01:xx **实测事故（`logs/099`）**：两条臂都用 `net=host` + 固定 `PORT=8050`，
+#   而前一条臂（`KEEP=1` 留着的容器）**仍在服务** ⇒ 后一条臂的起服判定
+#   `curl 127.0.0.1:8050/health` **立刻 200**（那是**别人的** 200）⇒ 自检读到的 `serve.log`
+#   还是全新空文件 ⇒ 报 `P1_pinned ret=0 行数=0（期望 128）` ⇒ **FATAL exit 9**，
+#   而且 `docker rm -f` 还因为容器 0.93s 后才创建而**打空** ⇒ 留下**孤儿容器**占卡占内存。
+#   ⇒ 本门：起臂前**断言端口空闲**；被占就 die（并告诉占用者是谁）。
+G4_PORT_CHECK=${G4_PORT_CHECK:-1}
+if [ "$G4_PORT_CHECK" = "1" ]; then
+    say "G4 端口占用门：断言 ${PORT} 空闲（防'health 200 被别的容器满足'，logs/099）"
+    _busy=""
+    if command -v ss >/dev/null 2>&1 && ss -ltn 2>/dev/null | grep -qE "[:.]${PORT}[[:space:]]"; then
+        _busy="ss"
+    elif command -v curl >/dev/null 2>&1 && curl -sf -m 3 "http://127.0.0.1:${PORT}/health" >/dev/null 2>&1; then
+        _busy="curl"
+    fi
+    if [ -n "$_busy" ]; then
+        echo "" >&2
+        echo "⛔⛔ [4axis][G4] 端口 ${PORT} 已被占用（判据来自 $_busy）—— 绝不能就这样起臂！" >&2
+        echo "   原因：本仓的臂都用 net=host ⇒ 别的容器在同一个 ${PORT} 上服务时，" >&2
+        echo "         起服判定会拿**别人的 health=200** 当自己的 ⇒ 自检读到空日志 ⇒ 误判 exit 9。" >&2
+        echo "   ⇒ 先找出并处理占用者：" >&2
+        echo "        docker ps --format '{{.Names}}\t{{.Status}}' | grep -v '^prbench'" >&2
+        echo "        ss -ltnp | grep ${PORT}" >&2
+        echo "   ⇒ 或者直接换个端口重跑：  PORT=$((PORT+1)) bash $0" >&2
+        exit 64
+    fi
+    say "G4 ✓ 端口 ${PORT} 空闲"
+fi
 
 # ---------------------------------------------------------------- G3 dmesg（OOM）
 say "G3 先看 dmesg（logs/080：OOM 会伪装成代码挂了）"
