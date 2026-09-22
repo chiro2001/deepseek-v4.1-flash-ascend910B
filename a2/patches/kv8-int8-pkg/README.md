@@ -13,7 +13,7 @@
 |---|---|---|---|
 | 1 | `vllm_ascend/core/deepseek_v41.py` | **`9db8e27c01fb8d17811de17680b4a0d8`** | `/vllm-workspace/vllm-ascend/vllm_ascend/core/deepseek_v41.py` |
 | 2 | `vllm_ascend/core/kv_cache_interface.py` | `7e17f7cae054f0b2339b41b7c3642f0e` | `…/vllm_ascend/core/kv_cache_interface.py` |
-| 3 | `vllm_ascend/models/deepseek_v41/model.py` | `fd7ff753a508c457e7f846ea589aaf7a` | `…/vllm_ascend/models/deepseek_v41/model.py` |
+| 3 | ★ **`vllm_ascend/models/deepseek_v41/model.py`**（**合并版**，见 §2bis） | **`c4b70d006a24e4493d07d9822f75aa8b`** | `…/vllm_ascend/models/deepseek_v41/model.py` |
 | 4 | `vllm_ascend/models/deepseek_v41/compressor.py` | `8a2be008ef405ab681728a275bcb5f77` | `…/vllm_ascend/models/deepseek_v41/compressor.py` |
 | 5 | `vllm_ascend/ops/triton/compressor/compressor_triton.py` | `9362e72e3ea12e8344c4485104eab837` | `…/vllm_ascend/ops/triton/compressor/compressor_triton.py` |
 | 6 | `vllm_ascend/attention/kv8_prefill_triton.py` | `796d0ff6eda03716f31c9994b8d8b221` | `…/vllm_ascend/attention/kv8_prefill_triton.py` |
@@ -40,6 +40,46 @@ capacity = max(kv_bytes + index_bytes, *(sum(_cache_plane_sizes(specs[n])) for n
 capacity = max(kv_bytes + index_bytes, _alias_max, _draft_size)   # ★ 含 draft
 ```
 ⇒ **本目录用的是它**（差 32 行；`grep -c "draft-aware"` = 1）。
+
+---
+
+## 2bis. ★★★ 2026-09-22 16:3x：`model.py` 必须是**合并版**（生产 + KV8），否则会**打掉生产补丁**
+
+### 我最初发错的那份（`fd7ff753`）为什么错
+`fd7ff753` = `X_integrate/pkg-kv8pf` 的那份 = **镜像原版 + KV8 那 3 处接线**。
+但 **A2 的生产 `model.py` 不是镜像原版** —— 发布包自己的 `patches/files/model.py` 是 **`0a7dfb21`**
+（正是 A2 启动日志 `BUILD_INFO` 里那行），它**比镜像多 5 处生产改动**。
+⇒ 若直接挂 `fd7ff753`，**那 5 处生产改动会被静默打掉**；
+而在 `PATCH_MODE=mount` 下，生产块**也**挂同一个容器路径 ⇒ **Duplicate mount point**（`048` 踩过）。
+
+### 修法：**合并版**（`c4b70d00`）
+用 `R_8card_int8/patch/merge_model.py` 把它合出来 —— 它的方法**自带自证**：
+```
+① 从 (镜像版 d22eec4c → pkg-kv8pf 版 6a1b7885) 现算统一 diff（n=3 上下文）
+② ★ 同一条 diff 先回放到「镜像版」上，必须**逐字节得到 pkg-kv8pf 版**（自证）
+③ 再把同一条 diff 应用到**生产版**（0a7dfb21）上
+```
+**产物**：`c4b70d006a24e4493d07d9822f75aa8b`（1333 行）
+```
+[merge] ★ 自证①：diff 回放到镜像版 ⇒ 与 pkg-kv8pf 版逐字节相同 ✅
+[merge] ★ 生产版 3 个锚点全部唯一命中 ✅
+[merge]   OK  import 了 swa_plane_kwargs / long_kv_plane_kwargs
+[merge]   OK  get_kv_cache_spec 用了 swa_plane_kwargs() / SWASpec 带 scale_dim
+[merge]   OK  long-KV 用 long_kv_plane_kwargs()
+[merge] AST OK：7763 个节点，1333 行
+[merge] 生产版 → 产物的差异行数 = 9（期望 = 3 个 hunk 的 ± 行数之和）
+[merge] 输入 md5: img=d22eec4c kv8=6a1b7885 prod=0a7dfb21
+```
+⇒ ★ 与生产版的差异**恰好 9 行 = KV8 那 3 处接线**（其余生产改动**原样保留**）。
+
+### ★★ 顺带加的一道门（`make_shadow_pkg.sh`）
+若 `PATCH_MODE=mount` ⇒ 生产块**也会**挂 `model.py` ⇒ 两个 `-v` 同路径 ⇒ docker 报
+`Duplicate mount point`。⇒ 生成器现在**提前 die**，把失败变响亮、可读（而不是让 docker 抛原始错）。
+
+### ⚠️ 剩下的 5 个件**不冲突**（已逐条核过）
+生产侧的挂载清单里只有 `model.py` 与我的 7 个件重名；
+`core/deepseek_v41.py` / `core/kv_cache_interface.py` / `compressor.py` /
+`compressor_triton.py` / `kv8_prefill_triton.py` / `dsa_v41.py` **都不在生产清单里**。
 
 ---
 

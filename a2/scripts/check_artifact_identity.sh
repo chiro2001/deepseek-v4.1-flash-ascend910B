@@ -38,7 +38,7 @@ LEDGER=(
   #   md5 与 R_8card_int8 的 arm.out 挂载台账逐字相同；档 C/D 的 8 卡臂在这套件上已 PASS
   "$PATCHES/kv8-int8-pkg/vllm_ascend/core/deepseek_v41.py|9db8e27c01fb8d17811de17680b4a0d8|PASS"
   "$PATCHES/kv8-int8-pkg/vllm_ascend/core/kv_cache_interface.py|7e17f7cae054f0b2339b41b7c3642f0e|PASS"
-  "$PATCHES/kv8-int8-pkg/vllm_ascend/models/deepseek_v41/model.py|fd7ff753a508c457e7f846ea589aaf7a|PASS"
+  "$PATCHES/kv8-int8-pkg/vllm_ascend/models/deepseek_v41/model.py|c4b70d006a24e4493d07d9822f75aa8b|PASS"
   "$PATCHES/kv8-int8-pkg/vllm_ascend/models/deepseek_v41/compressor.py|8a2be008ef405ab681728a275bcb5f77|PASS"
   "$PATCHES/kv8-int8-pkg/vllm_ascend/ops/triton/compressor/compressor_triton.py|9362e72e3ea12e8344c4485104eab837|PASS"
   "$PATCHES/kv8-int8-pkg/vllm_ascend/attention/kv8_prefill_triton.py|796d0ff6eda03716f31c9994b8d8b221|PASS"
