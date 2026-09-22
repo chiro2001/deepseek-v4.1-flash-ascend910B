@@ -84,6 +84,35 @@ if { [ "$KV8_SWA" = "1" ] || [ "$KV8_RING_FP16" = "1" ] || [ "$KV8_FULL" = "1" ]
     GRAPH_SAFE=1
 fi
 
+# ★★★ 2026-09-22 16:4x：**档位判定 + 未验证组合 fail-closed**
+#   起因：T_draftceiling 的 8 卡「档 D」臂因为 runner **少挂了一个 model.py**，
+#         实际跑的是档 C —— 而**没有任何报错**。它的容量读数 427,643（档 C 的数）
+#         与它自称的档 D（应 485,610）矛盾，是靠这条才对出来的。
+#   => 本脚本现在：① **自报档位**；② 拒绝**未验证的组合**（宁可拒绝，不要静默跑成别的档）。
+#
+#   已验证的档位（8 卡真权重实测的 HBM 容量指纹）：
+#     档 B : SWA=0 RING=0 FULL=0            => 427,643
+#     档 C : SWA=1 RING=1 FULL=0            => 427,643（★ 与档 B **相同**，容量区分不了 B/C）
+#     档 D : SWA=1 RING=1 FULL=1 PREFILL=1  => 485,610
+#   ★ 所以：**容量只能区分「档 D」与「非档 D」** —— 若你预期 485,610 却拿到 427,643，
+#     那就是**静默降档**（零件没挂上、或某个开关没生效）。
+_tier=B
+if [ "$KV8_SWA" = "1" ] && [ "$KV8_RING_FP16" = "1" ] && [ "$KV8_FULL" = "0" ]; then _tier=C; fi
+if [ "$KV8_SWA" = "1" ] && [ "$KV8_RING_FP16" = "1" ] && [ "$KV8_FULL" = "1" ]; then _tier=D; fi
+_tier_ok=1
+if [ "$KV8_SWA" = "1" ] && [ "$KV8_RING_FP16" = "0" ]; then _tier=UNVERIFIED-swa-without-ring; _tier_ok=0; fi
+if [ "$KV8_FULL" = "1" ] && [ "$KV8_SWA" = "0" ]; then _tier=UNVERIFIED-full-without-swa; _tier_ok=0; fi
+if [ "$KV8_PREFILL" = "1" ] && [ "$KV8_FULL" = "0" ]; then _tier=UNVERIFIED-prefill-without-full; _tier_ok=0; fi
+if [ "$_tier_ok" = "0" ]; then
+    echo " 这是**未经实测的组合**：$_tier" >&2
+    echo "   已验证的只有三条（见 logs/048 / 050）：" >&2
+    echo "     档 B：SWA=0 RING=0 FULL=0            => 427,643" >&2
+    echo "     档 C：SWA=1 RING=1 FULL=0            => 427,643（与 B 相同）" >&2
+    echo "     档 D：SWA=1 RING=1 FULL=1 PREFILL=1  => 485,610" >&2
+    echo "   => 拒绝起服（宁可拒绝，也不要静默跑成另一个档）。" >&2
+    exit 2
+fi
+
 # 池后端：registered（aclrtHostRegister，推荐）/ pageable / pinned
 NPU_OFFLOAD_HOST_MEM=${NPU_OFFLOAD_HOST_MEM:-registered}
 
@@ -108,6 +137,7 @@ else
 fi
 echo "  上下文/并发   : ${MAX_LEN} / ${MAX_SEQS}"
 echo "  池后端        : $NPU_OFFLOAD_HOST_MEM"
+echo "  ★★ 档位        : $_tier（**容量指纹**：B/C=427,643，D=485,610 —— 起服后核对）"
 echo "  blocks_per_chunk: $BLOCKS_PER_CHUNK"
 echo "  prefix_match_unit: $PREFIX_MATCH_UNIT"
 echo "  ENGRAM        : $ENGRAM"
