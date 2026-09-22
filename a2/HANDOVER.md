@@ -85,6 +85,49 @@
 ★ **口径纪律（新）**：两臂 cumulative 分母不同（`num_drafts` 166 vs 214）⇒ **只能比 interval 行**，且**必须剔除 interval #1**（只含 warmup 的 3 个 draft 步，会给出假的 `1.00/0%`）。
 
 ### ★★★ ②c 的实测结论（**2026-09-22 15:3x**，`t-dc2-c-C3`）
+
+### ⛔⛔ **2026-09-22 17:1x 重大更正：过去所有标着 "graph" 的臂，draft 都没真的进图**
+
+> **起因**：`c1_offload_x_draftgraph_1die` 在单卡上造了含 **draft 版三文件**的包，
+> 结果打出 `Wrapping draft model with ACLGraphWrapper: runtime_mode=FULL` ——
+> 而这条 INFO 在 `reports/two-corrections-draftgraph-gatehoist.md` 里记的是「全日志 **0 次**」。
+> **主代理独立复核，全部为真：**
+>
+> ```
+> ① 所有 tiny 影子包里的 dspark_proposer.py md5 全是 dac256ad… = stock：
+>      C2_draft64/pkg/dfix2c / DS_draft_graph_int8/pkg-dsi / X_integrate/pkg / T_draftceiling/pkg/B
+>    stock 第 75 行 =  `self.use_cuda_graph = False`（硬禁，无条件覆盖基类）
+> ② T_draftceiling/scripts/run_2c_arm.sh:117  **硬编码 DRAFT_GRAPH=0**
+> ③ D_draftINT8/scripts/d_arm.sh:61           写死 SPEC enforce_eager:true
+>      ⇒ 它的 GRAPH=1 只是【主模型入图 + draft 永远 eager】
+> ```
+> ⇒ ★★ **过去所有标着 "graph" 的臂 —— `DS/ds-graph2`、`C2/c2c-*-graph`、`T` 的全部臂 ——
+> 都是"主模型入图 + draft eager"，没有一条真的把 draft 放进图里。**
+>
+> **连带更正三条口径**：
+> 1. `logs/064`（②a 单卡跑通）的 `ds-graph2` —— **它的 "入图" 指主模型入图，不是 draft 入图**；
+> 2. 本文件前面写的"8 卡全部 18 条臂 `DRAFT_GRAPH=0`"**低估了问题**：
+>    真正的情况是**连 `DRAFT_GRAPH=1` 的臂也没让 draft 进图**；
+> 3. `063` 那句"单卡能替代图模式兼容"—— 对**主模型**图成立，对 **draft** 图**此前从未被测过**。
+>
+> ★ **要真让 draft 入图，必须同时满足三件**（缺一即静默退回 stock）：
+> ```
+> a) 装 draft 版三文件  spec_decode/dspark_proposer.py（解除 line 75 硬禁）
+>                       spec_decode/llm_base_proposer.py
+>                       attention/dsa_v1.py
+> b) DSPARK_GRAPH_CAPTURE_METADATA=1
+> c) DSPARK_CAPTURE_VALUE_FIX=1
+> ```
+> ★ **起服后必须证伪"draft 没进图"**（三条判据）：
+> ```
+> grep -c "Wrapping draft model with ACLGraphWrapper" <serve.log>   # 期望 >= 8（8 rank）
+> grep -oE "runtime_mode=(FULL|NONE)" <serve.log> | sort | uniq -c  # dg1 应见 FULL
+> grep -oE "DSPARK_GRAPH_CAPTURE_METADATA=[01]|DSPARK_CAPTURE_VALUE_FIX=[01]" <serve.log> | sort -u
+> ```
+> **第 1 条为 0 ⇒ 这一格【未验证】，不是"通过"。**
+>
+> ★ **唯一在 A3 上真跑过 draft 图的地方**：`agents/C1_offload_draftgraph/`（本日 17:1x 建的包，
+> 含 draft 三文件 + 内容级断言）。`C2_int8_draftgraph` 也在同日用它跑通了档 C × draft 图。
 ```
 ②c 真的生效了（早停闸命中）：group 清单 (12, 'DeepseekV41DraftSWASpec', 64, ...) ✅
 ★ 但容量反而降：427,643 → 406,425（−5%），而 050/051 的预测是 595,404（+39%）⇒ ★ 该预测作废
