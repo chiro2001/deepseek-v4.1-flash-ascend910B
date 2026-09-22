@@ -163,7 +163,7 @@ KV8_SWA=1 KV8_RING_FP16=1 KV8_FULL=1 KV8_PREFILL=1    # 同理自动置 APC_ALIG
 
 ---
 
-## 4. ★★ 两条「解开 draft 天花板」的路 —— ②a 与 ②c（**②a 已实测优于 ②c**）
+## 4. ★★ 两条「解开 draft 天花板」的路 —— **②a 已实测失败，交付推荐是 ②c**
 
 > ### ★★★ 2026-09-22 14:5x：【实测】②a（draft INT8，block **保持 128**）
 > ```
@@ -177,10 +177,19 @@ KV8_SWA=1 KV8_RING_FP16=1 KV8_FULL=1 KV8_PREFILL=1    # 同理自动置 APC_ALIG
 > 8 卡预测：②c = 777,318（×1.8177）   ②a = 817,898（★ ×1.9126）
 > tiny 实测：②c = 36,825               ②a = 39,846（★ 逐字命中模型）
 > ```
-> ⇒ ★★ **②a 是唯一能碰到原始 ×1.84 目标的那条路**（预测 ×1.9126）。
-> ⏳ **但仍缺 Q3（接受率）** —— ②a **动的是投机解码本身**（换 draft 的 KV dtype），
-> 必须做 `SpecDecoding` 四项的 A/B 且 `max_tokens >= 64`；
-> **在它出来之前，不要按「②a 可上线」收口**。详见 `logs/059` §4ter。
+> ⇒ **算术上 ②a 是唯一能碰到原始 ×1.84 目标的那条路**（预测 ×1.9126）——
+> ★★★ **但 Q3 实测失败，②a 不可用**（`logs/056`）：
+> ```
+> RuntimeError: The previous device metadata submission has not been released
+>   @ worker/device_metadata.py:74（触发形状 num_scheduled_tokens=6 + 5 个 spec token）
+> ②a 臂：16/16 请求失败、0 条 SpecDecoding 读数
+> 对照臂（同包同参数，唯一变量 DRAFT_INT8=0）：ok=16/16、sha 0ebccb55b30c…（与 054 四臂逐字相同）
+> ```
+> ⇒ ★★ **②a 特有，不是 harness**。**【推断】病灶**：draft 面的 attention 实现在 `dsa_v1.py::AscendDSAImpl`，
+> 而 KV8 的量化存取（`kv8_swa_store` / `kv8_ori_plane`）**只写在 `dsa_v41.py`**
+> （主代理独立核实：`dsa_v1.py` 命中 **0**、`dsa_v41.py` 命中 **3 + 7**）⇒ 那条路**没有量化读写**。
+> ⇒ ★ **②a 不是「物理不可行」，而是「要先把 KV8 的量化存取移植进 `dsa_v1.py`」** —— 那是一处**新的、更大的改动**，
+> **不在本轮范围** ⇒ **②a 退回研究项**。
 
 ### ②c 的细节（**仍是 ②a 失败时的回落**，8 卡端到端在 c0 排队）
 

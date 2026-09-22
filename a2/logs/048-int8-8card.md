@@ -422,6 +422,34 @@ fi
 它**不能**被读作"int8 已证明保真"，**也不能**被读作"int8 有缺陷"。
 真正的保真判据仍是 **KV 级逐字节**（`kv_bytecheck.py`）—— 本任务 ⏳ **未跑**。
 
+### 7.3.0b ★★ 口径纪律（主代理 2026-09-22 13:2x 定；与 `logs/062` 一致）
+
+```
+✗ 不要写："int8 已被证明保真"、"取回与全量重算逐字一致"
+✓ 可以写："取回后自身可复现（16/16）；与全量重算的差异仅出现在极少数 prompt 的空白类 token 上"
+✓ 必须写："真正的保真判据（KV 级逐字节，kv_bytecheck.py）本轮【未跑】"
+```
+★ 理由（**这是本文最重要的一句话之一**）：本任务手上只有**两条非回归证据**
+（① `fill` 轮五臂逐字相同；② 热 replay 相对 **BF16 hot** 逐字相同），
+**一条正面证据都没有**。它们足以**排除**"int8 引入了新差异"这个假说，
+**不足以**把"保真"证出来。
+★ 独立复核：主代理从原始 `client.json` 自己读了 `per_prompt_token_evidence`，**四臂全部对上**，
+并独立确认 `r8-a-tierB-graph` 的 meta 里 `R8_KV8 / KV8_SWA / RING_FP16 / KV8_PREFILL` **四个开关全 0**
+（= 真的是 BF16 无损池，承重前提成立）。详见 `logs/062`。
+
+★ **档 D 的 p9 这一格**（`'\n'`/`'_'` vs `' '`）**仍是唯一悬着的实质问题**，主代理给的判决路径：
+```
+1. ★★ KV 级逐字节比对（唯一能把"保真"与"近平局"分开的判据，且与 max_tokens 无关）—— **优先**
+2. 若 KV 字节相同而输出仍不同 ⇒ 差异在下游（attention/算子的数值路径）
+3. ✗ 不要靠"多跑几条 max_tokens=1 的 prompt"定案 —— 那是放大偶然性，不是提高判别力
+```
+★ 本任务**没有完成第 1 条**：8 卡链的 worker 真入口是 `NPUOffloadingWorker.transfer_async(job_id, src_spec, dst_spec)`
+（描述符缓冲 + 批量拷贝），要逐字节比对必须重建它的指针表 —— 这超出了本轮剩余的卡时预算
+⇒ **如实标【未确认】**（不用相邻数字顶替）。已有的探针资产与它们的已知洞：
+`agents/F_fidelity/probe/f_pool_audit.py`（`036` 用过，12,928 次 mismatch=0；**盲点：只证"搬的字节没乱"、
+不证"块被搬到了该在的行"**）、`agents/L3_8card/scripts/kv_bytecheck.py`（**不可复用**：它 hook 的
+`store`/`load` 在现行代码里不存在 ⇒ 会打"已装"但比对 0 次，见 `agents/H_kvcheck/DESIGN.md` §1.1）。
+
 #### 7.3.1 三组 sha 与冷臂自证
 
 | 臂（档 C、eager、同几何、同 COMP，**唯一差别 = 池大小**） | 池 | `CPU→GPU` | `hits` | `BlockStored:CPU` | replay1 sha | replay TTFT p50 |
