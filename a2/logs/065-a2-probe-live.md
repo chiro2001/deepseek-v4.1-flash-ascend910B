@@ -1,7 +1,9 @@
 # 065 — ★★★ **A2 实机探测：唯一阻塞解除**（`aclrtHostRegister` 路线在 A2 上可用）
 
 > 2026-09-22 16:10 CST。**执行：用户**（在 A2 宿主 `~/projects/dsv41-a2-repro-kv8-offloading/` 下跑）。
-> 脚本：`a2/scripts/a2_one_shot_probe.sh`（sha256 `f88672b317521ec9fcd61c2c5faef0282ea9f6b6d37201bac7214689d2327740`）。
+> 脚本：`a2/scripts/a2_one_shot_probe.sh`。
+> ★ 本次跑的是 **`f88672b317521ec9fcd61c2c5faef0282ea9f6b6d37201bac7214689d2327740`**（**修复前**）；
+> **§3 修了那个静默失败之后**是 **`a4113ff4e2cc6510572be77835c984f50b5422150e13518251482b870bc2b443`** ⇒ **补跑大档必须用后者**。
 > 口径：`A2_CONTAINER=dsv41-a2 A2PROBE_FLOOR_GIB=300 LIGHT=1`。
 > 标记：【实测】/【推断】/【未确认】。
 
