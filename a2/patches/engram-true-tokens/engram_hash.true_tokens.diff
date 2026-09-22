@@ -1,0 +1,116 @@
+--- a/engram_hash.py	2026-09-22 21:26:02.814326627 +0800
++++ b/engram_hash.py	2026-09-22 21:26:02.815326611 +0800
+@@ -17,6 +17,32 @@
+ _HISTORY_SLAB_MIN_TOKENS = 16
+ 
+ 
++# ==== [ENGRAM-TRUE-TOKENS] 卸载取回前缀的**精确**修补（见 a2/docs/ENGRAM-OFFLOAD-EXACT-FIX.md）====
++# 门控：VLLM_V41_ENGRAM_TRUE_TOKENS = 0（默认，行为与今天逐字相同）/ 1 = 缺页回填 + 计数 /
++#       2 = 覆写陈旧槽位。★ 开了它，影子包必须挂 `engram_repair.py`，否则起服即 ImportError
++#       （响亮失败；绝不静默降级）。
++_ENGRAM_TRUE_TOKENS = int(os.environ.get("VLLM_V41_ENGRAM_TRUE_TOKENS", "0") or 0)
++if _ENGRAM_TRUE_TOKENS:
++    from .engram_repair import apply_repairs as _engram_apply_repairs
++    from .engram_repair import build_prev_tok as _engram_build_prev_tok
++
++
++def _engram_true_tokens_mode() -> int:
++    return _ENGRAM_TRUE_TOKENS
++
++
++def _engram_true_tokens_note(stats, n):
++    if _PAGELESS_WARNED[0] or not stats:
++        return
++    _PAGELESS_WARNED[0] = True
++    print(
++        "[ENGRAM-TRUE-TOKENS] mode=%s 首次修补：n=%s 计数=%s"
++        "（absent = 本会 KeyError 的槽位；mismatch = 镜像里是别人的 token 的槽位）"
++        % (_ENGRAM_TRUE_TOKENS, n, stats),
++        flush=True,
++    )
++
++
+ # ==== [ENGRAM-PAGELESS] 镜像缺页的语义（2026-09-22 21:0x 的 P0 修复）====
+ # 背景（实测）：`ENGRAM=1` + DRAM 卸载时，被卸载池**取回**的前缀块从未流经
+ # `update()` ⇒ page 镜像 `pages/page_present` 里缺页 ⇒ 老代码 `raise KeyError(err)`
+@@ -305,7 +331,9 @@
+                     print(f"[ENGRAM-JIT] selftest failed, falling back to stock: {_exc}",
+                           flush=True)
+ 
+-    def update(self, input_ids, positions, request_ids, block_table, block_size):
++    def update(
++        self, input_ids, positions, request_ids, block_table, block_size, prev_tok=None
++    ):
+         """All arguments are CPU tensors; page numbers come from full SWA KV."""
+         if input_ids.numel() == 0:
+             # Idle DP and empty prefill still follow the collective contract,
+@@ -317,7 +345,7 @@
+             )
+         if self._jit_ok:
+             return self._engram_update_jit(
+-                input_ids, positions, request_ids, block_table, block_size
++                input_ids, positions, request_ids, block_table, block_size, prev_tok
+             )
+         compressed = self.token_map[input_ids]
+         mask = valid_engram_token_mask(
+@@ -447,7 +475,9 @@
+         )
+         return int(ret[0]), int(ret[1]), int(ret[2]), int(ret[3])
+ 
+-    def _engram_update_jit(self, input_ids, positions, request_ids, block_table, block_size):
++    def _engram_update_jit(
++        self, input_ids, positions, request_ids, block_table, block_size, prev_tok=None
++    ):
+         # 热路径：只做必要的事。_hash_mode() 的检查已挪到 __init__。
+         n = input_ids.shape[0]
+         if n == 0:
+@@ -470,6 +500,37 @@
+         offsets = self._jit_np["offsets"]
+         pages = self._jit_pages
+         present = self._jit_page_present
++        # ==== [ENGRAM-TRUE-TOKENS] 在 kernel 之前按**读者坐标**回填缺页/覆写陈旧槽位 ====
++        # 必须在 kernel 之前：kernel 的 step-1 会对"本步第一次写到的页"做整行复位，
++        # 放在后面会被擦掉；而我们先把页标成 present=1，kernel 就不会再复位它。
++        repair_stats = None
++        if prev_tok is not None and _ENGRAM_TRUE_TOKENS:
++            repair_stats = {}
++            oob_rep = _engram_apply_repairs(
++                pages, present, tm, bt, req, pos, prev_tok, bs, self.lookback,
++                self.image_token_id, self.image_pad_token_id,
++                _ENGRAM_TRUE_TOKENS, repair_stats,
++            )
++            if oob_rep >= 0:
++                # 与 kernel 的 oob 路径同款：扩容后重跑（页写幂等）
++                cap = max(int(oob_rep) + 1, int(pages.shape[0] * 1.5) + 1024)
++                newp = np.full((cap, bs), -1, np.int64)
++                newq = np.zeros(cap, np.uint8)
++                old = pages.shape[0]
++                newp[:old] = pages
++                newq[:old] = present
++                self._jit_pages = newp
++                self._jit_page_present = newq
++                pages, present = newp, newq
++                repair_stats = {}
++                _engram_apply_repairs(
++                    pages, present, tm, bt, req, pos, prev_tok, bs, self.lookback,
++                    self.image_token_id, self.image_pad_token_id,
++                    _ENGRAM_TRUE_TOKENS, repair_stats,
++                )
++                self.pageless_history_rows = getattr(self, "pageless_history_rows", 0)
++        self.engram_true_token_stats = repair_stats
++        # ==== /[ENGRAM-TRUE-TOKENS] ====
+         for _attempt in range(4):
+             ret = _engram_update_kernel(
+                 tm, ii, pos, req, bt, bs, n, self.pad_id,
+@@ -506,6 +567,11 @@
+             _pageless_note(err, int(miss_rows), self.pad_id)
+             if _pageless_strict():
+                 raise KeyError(err)
++        if repair_stats:
++            self.engram_true_token_total = getattr(self, "engram_true_token_total", 0)
++            for _k, _v in repair_stats.items():
++                self.engram_true_token_total += int(_v)
++            _engram_true_tokens_note(repair_stats, n)
+         if fell_back:
+             self.scalar_history_fallbacks = getattr(self, "scalar_history_fallbacks", 0) + 1
+         # 每个 n 缓存一对 torch 视图：decode 的 n 基本恒定，省掉两次 from_numpy 分发
