@@ -107,10 +107,13 @@ bash a2/scripts/serve_a2_offload.sh
 > ⇒ "未被本步写过的槽"里的内容是【别家组的遗留字节】
 > ```
 >
-> **证据（与 dtype 无关的同一段代码）**：
+> **证据（与 dtype 无关的同一段代码；主代理已逐行核实 `core/deepseek_v41.py:135-200`）**：
+> - ★ **源码原文**：`aliases = [state[slot_idx]] + swa[slot_idx :: len(full)]`，
+>   而每个 alias 的 placement 都是 **`CachePlacement(name, 0, capacity)`** ⇒
+>   **state 与它同 slot 的每个 SWA/draft 别名都在 `offset 0`、共用同一段 capacity**；
+> - 【实测·代码事实】分配路径 **无清零**（`grep 'zero_|fill_(0)|memset|aclrtMemset'` = **0 命中**）；
 > - 【实测·镜像自带函数复算】`034 §2.1` 的表：**纯 BF16 几何下** slot 0–2 的 `capacity=131072`，
 >   binding 写着 **"ring 与 SWA 别名同值并列"** ⇒ **别名关系在量化之前就存在**；
-> - 【实测·代码事实】`plan_cache_slots` 注释原文 *"Different groups overlay a slot at distinct live block IDs"*；
 > - 【实测】C0 臂的 `pre_nz = 16640 = 66560/4` **逐字节吻合 int8 SWA 页**。
 >
 > **★ 两种几何的失败方式完全不同**：
@@ -228,13 +231,18 @@ A 臂只读结构臂实测：g12(draft) 只引用张量 [12,13,14]，【不引�
 >                         g0 full  ↑g1 state  ↑g2..g11 SWA         ↑g12 draft
 >   ⇒ g1(state) 用的就是 g2..g11(SWA) 与 g12(draft) 那同一批张量 12/13/14
 >
-> 【镜像源码链】
->   plan_cache_slots docstring:
->     "Place source KV/index tuples, state and SWA in four shared layer slots."
->     "Different groups overlay a slot at distinct live block IDs"
->   aliases = [state[slot_idx]] + swa[slot_idx::len(full)] + draft…
->   KVCacheTensor(size=…, shared_by=[该 slot 全部 placement], block_stride=slot.page_size_bytes)
->   ★ 分配路径无清零：grep 'zero_|fill_(0)' 在 deepseek_v41.py 与 patch_kv_cache_utils.py = 0 命中
+> 【镜像源码链 —— 主代理已逐行核实 `core/deepseek_v41.py:135-200`】
+>   # ★ aliases 把 state 与 SWA/draft 放在同一个 slot 里：
+>   aliases = ([state[slot_idx]] if slot_idx < len(state) else []) + swa[slot_idx :: len(full)]
+>   capacity = max(kv_bytes + index_bytes, *(sum(_cache_plane_sizes(specs[n])) for n in aliases))
+>   placements = [
+>       CachePlacement(kv_name,            0,        kv_bytes),
+>       CachePlacement(index_name,         kv_bytes, capacity - kv_bytes),
+>       ★ *(CachePlacement(name,           0,        capacity) for name in aliases),   ← ★★ offset 全为 0
+>   ]
+>   ⇒ ★★ state 与它同 slot 的每个 SWA/draft 别名【都在 offset 0、共用同一段 capacity】
+>   KVCacheTensor(size=…, shared_by=[p.name for p in slot.placements], block_stride=slot.page_size_bytes)
+>   ★ 分配路径无清零：grep 'zero_|fill_(0)|memset|aclrtMemset' 在 deepseek_v41.py = **0 命中**（已核实）
 > ```
 >
 > ★ **两条边界（避免过度解读）**：
