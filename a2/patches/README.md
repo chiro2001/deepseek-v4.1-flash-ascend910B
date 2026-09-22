@@ -196,3 +196,22 @@ grep -c "alignment_chunk_count.*8"   serve.log   # 期望 > 0（per-group bpc �
 | 3 | `×6.945` 宿主乘数 | 【实测】A3 8 卡 / 单卡 tiny 两处一致；**A2 要重测** |
 | 4 | per-group bpc 的 8 卡验证 | ⏳ **进行中**（`logs/027`） |
 | 5 | `state` 组跳过的**数值正确性** | 只做了语义推断（与 GPU 前的缓存路径一致），**没做精度对比** |
+
+---
+
+## ★★ `0004-draft-block64.patch.py` —— ②c：draft 的块大小 128→64（**默认关**）
+
+| | |
+|---|---|
+| md5 | （见 `scripts/check_artifact_identity.sh`） |
+| 作用 | 给 **draft 组**单独的 `block_size`（env `VLLM_V41_DRAFT_BLOCK`，默认 128 = **逐字旧行为**）；
+并把 `plan_cache_slots` 的 draft 几何检查从**相等**放宽成**整除**（`swa % draft == 0`） |
+| 改动面 | **2 个文件 / 2 处**：`models/deepseek_v41/dspark.py`（加 `__init__` 读 env）+ `core/deepseek_v41.py`（放宽检查） |
+| 前提 | 需要**已经打过 KV8 的 `core/deepseek_v41.py`**（阴影包版）+ R 的 draft-aware 槽位补丁 |
+| 收益 | ★ 预测 **HBM ×1.8177**（8 卡 427,643 → **777,318**）；tiny **20,826 → 19,247（B 档降）/ 23,651 → 36,825（D 档涨）** |
+| 风险 | ★ **无精度风险**（保持 BF16）；窗口跨 2 块（算子/块表/KV manager **都无 ≤1 块假设**，`051 §2` + `054` 实测）；
+  DRAM 池 **+5.0%**（`sw_chunks` 1→2） |
+| 证据 | `logs/051`（改动清单 + 三臂单元自检）、`logs/054`（单 die 7 臂：输出逐字节不变、投机提案 4367/4367 逐条相同、图模式过）、
+  ★ 8 卡端到端 **⏳ 在 c0 排队** |
+| 用法 | `python3 0004-draft-block64.patch.py --core <影子包/core/deepseek_v41.py> --dspark <镜像/models/deepseek_v41/dspark.py> --out-dir <patched>` |
+

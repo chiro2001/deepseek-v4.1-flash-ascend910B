@@ -80,6 +80,25 @@
 | `0001b-offload-per-group-bpc-manager.patch.py` | `9f11c9ac0de0d77fbe6a212e42a9966a` | `J_mgrhardening` + 8 卡臂 | ✅ |
 | `0001c-offload-per-group-bpc-hooks.patch.py` | `af2fefb8337fdf9fe1c5e55518f665b8` | 8 卡臂 | ✅ |
 
+### 1.2b ★★ `0004-draft-block64.patch.py`（②c：draft 块 128→64，**交付推荐路线的补丁**）
+
+| md5 | 跑过的臂 | 结果 |
+|---|---|---|
+| `6d29845ea0d7abc432591d69db7fad17` | ★ **单 die 7 条臂**（`054`，tiny 几何 + 真 draft 组）：
+`c2c-{b128,b64,b128-graph,b64-graph,d128,d64,neg-b64}` | ✅ **Q1 输出逐字节不变**（B/D 各 7 轮 sha 同、跨臂 16/16）/
+**Q2 投机提案 4367/4367 逐条相同** / **Q3 容量双向逐字命中模型** / 图模式 `EE1016=0` / 阳性对照臂当场炸引擎 |
+| 同上 | ⏳ **8 卡真权重端到端** | ⏳ **在 c0 排队**（`T_draftceiling` 的 `chain_2c_v3`） |
+
+⇒ ★★ **这条的身份是「单 die PASS、8 卡未跑」**，而机械门只有 `PASS / 未确认 / 作废` 三档 ⇒
+**按「未确认」处理**（`--strict` 会挡住）—— **这是对的**：
+单 die 的证据覆盖了 **几何 / 寻址 / 不崩 / 图捕获 / 输出不变**，
+但**不覆盖 8 卡绝对 token 数（777,318）与真权重数值**。
+⇒ ★ **8 卡端到端一落地，就把它改成 `PASS` 并更新本表**（同时更新 `check_artifact_identity.sh` 的 LEDGER）。
+
+★ **为什么它必须随包发布**：它是**当前交付推荐**（②c）的补丁；
+而此前它只存在于 `agents/T_draftceiling/patch/`，**不在发布包里** ⇒ A2 上线时**拿不到**
+（这正是本轮查出的一个交付缺口，已补）。
+
 ★ **`0001-8card` 与 `0001` 的关系**：前者 = 后者 + 5 个 hunk（8 卡链自己的适配），
 `logs/043b` 已给出"零其它差异"的对账。
 ★ **两者都已并入 `[APC_ALIGN]`**（`grep -c _apc_align_mode` = 2）—— 这正是 `logs/048` §4 里

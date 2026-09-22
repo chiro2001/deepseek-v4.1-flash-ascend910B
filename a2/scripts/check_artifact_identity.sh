@@ -37,6 +37,8 @@ LEDGER=(
   "$PATCHES/0001-offload-scheduler.patch.py|79001c2671fdbdcd8386cd4684ed4761|PASS"
   "$PATCHES/0001-8card-offload-scheduler.patch.py|f3a7a0053fc6c639150fdde2a2509a63|PASS"
   "$PATCHES/0002-offload-cpu-pool-host-registered.patch.py|2c161a791fe99f17cce2e1139ffbdc3c|PASS"
+  # ★ ②c 的补丁：单 die 三问已过（`054`）；★ 8 卡端到端在 c0 排队 ⇒ 标"未确认"（门会挡住 --strict 发布，符合事实）
+  "$PATCHES/0004-draft-block64.patch.py|6d29845ea0d7abc432591d69db7fad17|未确认"
   "$PATCHES/0001b-offload-per-group-bpc-manager.patch.py|9f11c9ac0de0d77fbe6a212e42a9966a|PASS"
   "$PATCHES/0001c-offload-per-group-bpc-hooks.patch.py|af2fefb8337fdf9fe1c5e55518f665b8|PASS"
   # ★ 只在发布仓里有的历史件（见 ARTIFACT-IDENTITY.md §1.4）；工作区没有 ⇒ 用 [ -f ] 兜
