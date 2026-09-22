@@ -18,6 +18,7 @@
 set -uo pipefail
 
 HERE=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
+A2DIR=$(cd "$HERE/.." && pwd)            # a2/ 自己（补丁可能在 a2/patches 或 a2/publish）
 REPO=$(cd "$HERE/../.." && pwd)          # dsv41-release/
 
 # ---------------------------------------------------------------- 参数
@@ -129,8 +130,21 @@ fi
 echo "-------------------------------------------------------------"
 
 # ---------------------------------------------------------------- 补丁
-# 三个补丁文件（本目录的 ../patches/）
-PDIR="$REPO/a2/patches"
+# ★ 四种布局都自动认（否则 A2 上第一条命令就会卡在"缺补丁"）：
+#     $REPO/a2/patches          （发布包 dsv41-release 的布局）
+#     $REPO/a2/publish          （开发工作区的布局）
+#     $A2/patches / $A2/publish （脚本被单拷出去用的情形）
+PDIR=""
+for _c in "$REPO/a2/patches" "$REPO/a2/publish" "$A2DIR/patches" "$A2DIR/publish"; do
+    if [ -f "$_c/0001-offload-scheduler.patch.py" ]; then PDIR=$_c; break; fi
+done
+if [ -z "$PDIR" ]; then
+    echo "✗ 找不到补丁目录（试过 \$REPO/a2/{patches,publish} 与 \$A2/{patches,publish}）" >&2
+    echo "  \$REPO=$REPO  \$A2DIR=$A2DIR" >&2
+    echo "  可用 PDIR=<含 0001-offload-scheduler.patch.py 的目录> 直接指定。" >&2
+    exit 2
+fi
+echo "✓ 补丁目录：$PDIR"
 for f in 0001-offload-scheduler.patch.py 0001b-offload-per-group-bpc-manager.patch.py \
          0001c-offload-per-group-bpc-hooks.patch.py 0002-offload-cpu-pool-host-registered.patch.py; do
     if [ ! -f "$PDIR/$f" ]; then

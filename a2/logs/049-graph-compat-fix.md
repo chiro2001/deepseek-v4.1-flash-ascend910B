@@ -286,6 +286,10 @@ table_rows = torch.index_select(block_table[:num_reqs].to(torch.int64), 0, b_of_
 另外把构造恒等表的 `.repeat(num_reqs, 1)` 也换成 `.expand(...).contiguous()`（同样的防御理由）。
 ★ 补丁现在**断言源码里不含 `.repeat_interleave(`**（`apply_graphsafe.py` 自检第 7 条），防止回归。
 
+**原始证据已落盘**：`raw/049-d-graph-repeatinterleave-segfault.txt`
+（31 行 / md5 `ba43b897ef3c6878c5af52fb7da0b0cc`，走 `cos-xfer` 拉回；内容含 `Segfault encountered`
+×2 + 完整调用栈 + `aclnnRepeatInterleaveIntWithDim` + `Worker proc ... died unexpectedly`）。
+
 ### 4.6 ★ 自检**自己**踩的两个坑（都伪装成"全错"）
 
 1. `scratch` 是 **PA_BBND `(pages, block_size, 1, dim)`**，算子读 `[页, 页内偏移, 0, :]`；
@@ -364,7 +368,26 @@ replay p50 = 1,608.2 ms vs fill p50 = 19,880.0 ms  ⇒ 12.36×
 ★ **硬约束**：本补丁与所有推荐配置**保留 `--speculative-config`**；任何"关掉 spec 绕开问题"的写法
 在本任务里**不作为推荐**（只可作诊断对照臂并显式标注）。049 §6 的复现命令里没有 `SPEC_ON=0`。
 
-### 5.5 决策臂（§3.2 的运行期确认）—— 待回填
+### 5.5 档 D 图模式（`sg-c-d-graph`）与决策臂 —— 进行中
+
+档 D 的判据表（★ 含 §8.4 新增的第 0 条）：
+
+| # | 判据 | 期望 |
+|---|---|---|
+| **0** ★ | **起服第一格**：`Engine core initialization failed` / `Segfault` / `Worker proc died` | 必须**全为 0**（不得记成"捕获失败/EE1016"） |
+| ① | 捕获成功、`/health` OK、`EE1016=0` | ✅ |
+| ② | 容量不退化 | 与档 D eager 逐个数字比较 |
+| ③ | 四条判据（`BlockStored:CPU` / `CPU→GPU>0` / `hits>0` / replay≫fill） | ✅ |
+| ④ ★★ | **`replay1 sha` == 同几何 eager 臂**（判据⑤ 的最强单条形态） | 逐字节相同 |
+| ⑤ | 冷算参考（池 1 MiB 臂的 replay sha） | 与池臂 replay 逐字节相同 |
+| ⑥ | 判据⑨ SpecDecoding 四项 | 与基线 `1.50 / 0.500 / 10.0%` 逐字相同 |
+| ⑦ | `[SG-PPR] cmp_graph_safe` 的页数 | 捕获期与 replay 都**由 shape 决定**（不是 `ppr=1`） |
+
+★ **预期**：档 D 在补丁下应当**起服成功且输出与 eager 逐字节相同**（因为 cmp 面已改成
+"按选择重建"、页数由 shape 决定）；若 `replay1 sha` 与 eager 不符 ⇒ 那是**新分支算错**，
+必须回到 §2.2 重审，**不得**写成"能起服就算过"。
+
+决策臂（`sg-c-d-cmplegacy`，只修窗口面）：
 
 预期（依 §3.2 的源码级结论）：**能起服 + 输出与冷算参考不符**（(c) 静默）。
 若它输出**正确** ⇒ 说明那条路没被走到 ⇒ **按空判据处理**，不得写成"没问题"。
@@ -394,6 +417,87 @@ python3 scripts/summarize_sg.py
 ## §7 诚实边界
 
 * §3 的 (b)/(c) 在跑决策臂之前是**【未确认】**（torch 层已实测是响亮失败，算子层未测）。
+  ★ 已更新：§3.2 给出**源码级**答案 **(c)**；运行期确认见 §5.5。
 * 档 C/D 的 8 卡图模式结论见 §5（本文件在臂跑完后回填；未回填的一律视为【未确认】）。
 * `SG_TRACE_PPR` 的 `capturing=` 标签来自 `torch.npu.is_current_stream_capturing()`（host 查询、无同步）；
   若该 API 在该 CANN 版本不可用，探针会静默降级为 `capturing=None`（不影响修复本身）。
+
+---
+
+## §8 ★★ md5 台账：一个 md5 一行 —— 哪条臂跑过它、结果如何
+
+> **事故本身**：`dsa_v41.py` 一晚上换了三轮 md5，而"档 C 图模式 PASS"那一格是在 `22cbf20c…`
+> 上拿到的、发布件却写成了另一个文件；**没有任何机械门拦着这个错**。
+> 下面这张表是**事实**（从每条臂自己的 `arm.out` 台账 + 引擎日志机械抽取）。
+
+| md5 | 是什么 | 哪些臂真的挂过它 | 结果 |
+|---|---|---|---|
+| `75f4e565adc1b12c854a0a01271b6c4d` | **基底**（`X_integrate/pkg-kv8pf` 原版，无图安全） | （未被任何本任务臂单独挂载；作 diff 参照） | — |
+| `83508822b8556c5f2e55bbeaa4fd82ff` | 第 1 版补丁（上界分支；无诊断开关/无探针/无捕获期路由） | 只过了**离线自检**，**没上过卡** | 离线 PASS；【未上机】 |
+| `1cc9e9923cc19749872cfb2e4decc4b7` | 第 2 版（+ `SG_CMP_LEGACY` / `SG_TRACE_PPR`） | **没上过卡** | 【未上机】★ 曾被误写成"8 卡实测件"，已作废 |
+| **`22cbf20c2544dd2ac6cb991a84806c42`** | 第 3 版（+ 捕获期也走 bound 分支 `_sg_is_capturing`） | ★ **`sg-a-c-graph`（档 C 图模式）**、`sg-a-d-graph`（档 D 图模式） | **档 C：rc=0、EE1016=0、判据①③④⑤⑨ 全绿**；档 D：**rc=9 segfault**（§4.5，根因 = `repeat_interleave`，与本版判据无关） |
+| `94aeebb757d6d5708268754481a05e0a` | 第 4 版（把 `repeat_interleave` 换成 `index_select`、`repeat` 换 `expand`） | `sg-c-d-graph` 等（**进行中**） | 【未确认】—— 见 §5.5 |
+
+### 8.1 ★ `22cbf20c…` 的处置：**已按 md5 逐字节重建找回**
+
+它已不在盘上（被 `mkpkg.sh` 覆盖），但**重建成功且 md5 逐字节相等**：
+```python
+# 从 patch/dsa_v41.graphsafe.py（94aeebb7）反向还原那两处 cmp 面的 op
+#   index_select → repeat_interleave、expand+contiguous → repeat
+reconstructed md5 = 22cbf20c2544dd2ac6cb991a84806c42   ✅ 与 arm.out 台账逐字相同
+→ 落盘为 patch/dsa_v41.graphsafe.22cbf20c.py
+```
+★ 标签：【实测·重建】——**md5 相等即逐字节等价**，但它不是"从容器里捞出来的原件"，如实标注。
+
+### 8.2 ★★ 档 C 的 PASS 是否受换版影响？—— **机械证明：不受影响**
+
+`22cbf20c` → `94aeebb7` 的差异**全部落在 cmp（long-KV）面的图安全分支内**：
+
+```
+difflib.SequenceMatcher 的非 equal opcodes（旧文件行号）：
+  replace old[929:931] → new[929:942]
+  insert  old[955:954] → new[966:968]
+  replace old[958:958] → new[972:973]
+cmp 图安全分支 = 旧件 904..960；窗口面上界分支 = 旧件 547..567
+★ 落在 cmp 分支之外的变更 = 无
+★ 窗口面上界分支内变更 = 无（该段 md5 两版逐字节相同：ee56cfd93480f54d6e98c698971770a6）
+```
+而**档 C 根本不走 cmp 面**（`R8_KV8=0` ⇒ long-KV 是 BF16 ⇒ `source_scale is None` ⇒
+`_kv8_cmp_plane` 不被调用）⇒ **档 C 的窗口面代码在 `22cbf20c` 与 `94aeebb7` 上逐字节相同**。
+
+⇒ **档 C 的 PASS 用的是 `22cbf20c`（已含捕获期路由那一版），且该 PASS 对 `94aeebb7` 同样成立**
+—— 但**发布口径仍必须按 md5 走机械门**（§8.3），所以 `sg-c-c-graph-b` 是**必要判据**，不是可选项。
+
+### 8.3 ★★ 发布门（机械）：`scripts/check_publish_md5.py`
+
+把"发布件必须是某条 PASS 臂挂过的 md5"变成一条命令（读 `arm.out` 台账 + `rc` + 引擎日志，
+检出 `capture failed / EE1016 / Segfault / Engine core initialization failed / Worker proc died`）：
+
+```
+$ python3 scripts/check_publish_md5.py --candidate <要发布的 dsa_v41.py>
+arm                   mounted md5                           rc  证据
+sg-a-c-graph          22cbf20c2544dd2ac6cb991a84806c42       0  干净
+sg-a-d-graph          22cbf20c2544dd2ac6cb991a84806c42       9  ★ Segfault encountered
+有 PASS 记录的 md5：22cbf20c… ← sg-a-c-graph
+候选件 md5 = 94aeebb7…  →  [gate] DENY ⛔ 没有任何 PASS 臂挂过这个 md5
+```
+⇒ **当前状态：`94aeebb7` 还不能发布**；`sg-c-d-graph`（或 `sg-c-c-graph-b`）跑过它之后门才会开。
+退出码：`0` = ALLOW / `2` = DENY / `3` = 输入缺失。
+
+### 8.4 ★ 本次新增的两条判据（第一格真机臂给的新教训）
+
+1. **起服第一格必须单独成判据**：`Engine core initialization failed` / `Segfault` /
+   `Worker proc ... died` **必须为 0**；这一格失败**不得**被记成"捕获失败"或 `EE1016`
+   （本次就是这么被误读的方向）。⇒ 已并入 `check_publish_md5.py` 的证据扫描，
+   并在 §5.5 的档 D 判据表里单列。
+2. **判据⑤ 的最强单条形态**：`sg-c-d-graph` 的 **`replay1 sha` 必须与"同几何 eager 臂"逐字节相同**
+   （档 C 已经做到：`bc2e797a…` 图 == eager）。
+
+### 8.5 `_sg_is_capturing()` 的降级路径（显式判据）
+
+`torch.npu.is_current_stream_capturing()` 在本镜像里存在（`torch_npu/npu/graphs.py:67`），
+且 8 卡臂的 `[SG-PPR]` 打出 **`capturing=True`** ⇒ **A3 上确实可用**【实测】。
+* 若某环境上该 API 抛异常 ⇒ 我们的实现**退回 legacy**（`_kv8_graph_rows_bound` 在
+  `num_prefills>0` 时返回 `(False, None)`）⇒ 捕获期会**响亮地** `EE1016`（安全失败，不静默错）；
+* 判据写法：`[SG-PPR] ... capturing=` 必须出现且非 `None`；若为 `None`/缺行 ⇒ **本臂结论无效**。
+* A2 是否同样可用：**同 wheel，【推断】可用**；A2 首次起服时用这一行确认（不需要额外成本）。
