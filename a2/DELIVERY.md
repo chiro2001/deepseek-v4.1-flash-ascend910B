@@ -200,6 +200,49 @@ A 臂只读结构臂实测：g12(draft) 只引用张量 [12,13,14]，【不引�
 逐字节复核：23,142×369,280 + 34,714×131,072×3 + 28,929×147,712 = 26,469,138,432 B ✅ 与日志相同
 ```
 
+### 2.0d ★★★ 档 B 的**最终可发布措辞**（`042` + `045` 两条独立路径互证后的口径）
+
+> **档 B（纯 BF16，L5+L1）**：宿主 **392.35 → 197.21 GiB（1.9895×）【实测】**；
+> **L1 不改变任何输出 token【实测·同长度跨臂 16/16 sha 逐字节相同】**；
+> ⚠️ **但这两条不构成"取回数值绝对正确"的证明** —— 三条限定必须同时在：
+>
+> | # | 限定 | 说明 |
+> |---|---|---|
+> | **(i)** | **1.9895× 是"容量"结论** | 与"ring 读到什么"无关 |
+> | **(ii)** | **L1 只证"跨臂非回归"** | 不证绝对值 |
+> | **(iii)** | **8 卡真权重的 KV 级逐字节比对仍未做** | 【未确认】 |
+>
+> **为什么 (ii) 不能升级成"绝对正确"**：
+> ① 纯 BF16 下 `state` ring 与 SWA 平面**共享同一 slot 页池**且**块号回收不清零**
+>    → "共享页池 + 块号跨组回收 + 不清零"三个要素一个不少（**与 dtype 无关**）；
+> ② BF16 的失败形态是"**有限但错**"（`nan=0, inf=0, |absmax|=3.84`）→ **无可观测信号**
+>    ⇒ sha 相同**排除不了**"两边都读到别家字节"；
+> ③ 本轮两臂 `BlockRemoved:GPU = 201,822`（**逐字相同**）⇒ 回收**确实被大量触发过**，
+>    而输出仍逐字节相同 ⇒ **既不能证明无害（BF16 无声），也不能排除它需要更长生成才显形** ⇒ **【未确认】**。
+>
+> **别名事实的两条独立证据**：
+>
+> ```
+> 【K_l1_8card 的 worker 侧真值（8 rank 逐字相同，就在 042 原始数据里）】
+>   group→tensor_idx = [[0..11], [12,13,14], [12,13,14,15] ×10, [12,13,14]]
+>                         g0 full  ↑g1 state  ↑g2..g11 SWA         ↑g12 draft
+>   ⇒ g1(state) 用的就是 g2..g11(SWA) 与 g12(draft) 那同一批张量 12/13/14
+>
+> 【镜像源码链】
+>   plan_cache_slots docstring:
+>     "Place source KV/index tuples, state and SWA in four shared layer slots."
+>     "Different groups overlay a slot at distinct live block IDs"
+>   aliases = [state[slot_idx]] + swa[slot_idx::len(full)] + draft…
+>   KVCacheTensor(size=…, shared_by=[该 slot 全部 placement], block_stride=slot.page_size_bytes)
+>   ★ 分配路径无清零：grep 'zero_|fill_(0)' 在 deepseek_v41.py 与 patch_kv_cache_utils.py = 0 命中
+> ```
+>
+> ★ **两条边界（避免过度解读）**：
+> 1. 这是**模型层（HBM slot 池）**的暴露面，**不是 L1 引入的**（`027` 的臂同样如此）；
+>    L1 在**卸载池（DRAM）**侧反而有行区间冲突的 **fail-closed 校验**；
+> 2. **形态说明**：8 卡链的 16 张布局是"每平面一张张量、state 与 SWA 落在同号张量的不同行"，
+>    与 `plan_cache_slots` 的 4-packed-slot **不是同一形态** —— 但三个要素**一个不少** ⇒ **结论相同**。
+
 ### 2.1 为什么 L1 能省一半
 
 镜像里 16 张 canonical 张量**每张都分到 `num_cpu_blocks` 行**，但一个 slot 号同时只服务**一个组**
