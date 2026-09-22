@@ -208,3 +208,20 @@ KV8_SWA=1 KV8_RING_FP16=1 KV8_FULL=1 KV8_PREFILL=1  bash a2/scripts/serve_a2_off
 ```
 
 **回退**：`VLLM_V41_APC_ALIGN=0` 或 `KV8_*=0` ⇒ 逐字回到档 B。
+> ★ **逐槽算术已可复跑**（`python3 a2/agents/T_draftceiling/slot_arith.py`，不占卡、不 import torch）：
+> **四个锚点全部闭合**【实测】——
+> ```
+> tiny 档C 33,279/33,295 (−0.047%)   tiny 档D 43,444/43,469 (−0.058%)
+> 8卡  档C 427,643/427,643 (0.000%)  8卡  档D 485,551/485,610 (−0.012%)
+> ```
+> ★ **A2 池的结构事实**：`540,928 = 3 × 131,072(draft 窗口面) + 147,712(long_kv+index)`
+> ⇒ **容量天花板是被"3 个投机解码的窗口页"钉死的，不是被量化精度钉死的。**
+>
+> ★ **四条能解开天花板的路线**（`050`）：
+> | 路 | 收益（8 卡） | 改动面 | 风险 |
+> |---|---|---|---|
+> | **⑤a 关投机解码** | **×1.9122** | **零代码** | 丢 spec-decode 吞吐 |
+> | **②c draft block 128→64（保 BF16）** | **×1.9104** | 2–3 处 | ⚠️ **引入"窗口跨块"新形态**（主代理已核实：draft 与 target 共用同一个 SWA cache 类，`sliding_window=128`） |
+> | **②a draft 也 int8** | ×1.9122 | 3 处 | ⚠️ 依赖 `S_graphfix`（draft 走 prefill 分支的 `.item()`） |
+> | ③c draft 做 per-request scratch | ×1.9122 | 中等 | ⚠️ graph-stable |
+> ★ **②b（draft FP16）零收益**（FP16/BF16 同为 2 B/token，页还是 131,072）—— 已判死。
