@@ -445,7 +445,30 @@ def _sg_ppr_trace(tag: str, **fields) -> None:
     print(f"[SG-PPR] {tag} capturing={capturing} {payload}", flush=True)
 
 
-def _kv8_graph_rows_bound(swa, query_rows: int):
+_SG_CAPTURING_OK = [None]  # None = 未探测；False = 该 API 在本机不可用
+
+
+def _sg_is_capturing() -> bool:
+    """[S_graphfix] ``torch.npu.is_current_stream_capturing()`` - host query, no sync.
+
+    ★ 这个信号**只影响捕获期的 dummy 批**（它的 ``is_prefilling`` 不可信）。若该 API
+    在本机不可用，我们**退回 legacy**（= 旧行为、图捕获期会响亮地 EE1016），
+    绝不"猜"，以免把真 prefill 误路由到新分支。
+    """
+    if _SG_CAPTURING_OK[0] is False:
+        return False
+    try:
+        import torch as _t
+
+        ok = bool(_t.npu.is_current_stream_capturing())
+        _SG_CAPTURING_OK[0] = True
+        return ok
+    except Exception:  # noqa: BLE001
+        _SG_CAPTURING_OK[0] = False
+        return False
+
+
+def _kv8_graph_rows_bound(swa, query_rows: int, num_reqs: int):
     """[S_graphfix] Host-only per-request query-row bound; ``(False, None)`` = legacy.
 
     ``graph_safe`` says "this batch's rows are decode rows, so the rebuild must not
@@ -458,15 +481,25 @@ def _kv8_graph_rows_bound(swa, query_rows: int):
     single request's query length.  Prefill batches return the legacy path on
     purpose: prefill is eager, its ``.item()`` was measured cheap (logs/033), and
     this task forbids changing its geometry.
+
+    ★ Capture must take the bound branch too.  During ``_dummy_run`` the batch is a
+    synthetic decode batch whose ``is_prefilling`` flags are derived from request
+    bookkeeping the dummy run does not own, so ``num_prefills`` there is *not* a
+    trustworthy classifier - and capture is exactly what the defect broke.  The
+    recorded constants stay valid on replay because ``rows_bound`` is then the
+    graph's own uniform query length (``uniform_decode_query_len`` = 1 + spec
+    tokens), which is what every replayed step of that graph uses.
     """
     if not _kv8_graph_safe_enabled():
-        return False, None
-    if int(getattr(swa, "num_prefills", 0) or 0) > 0:
         return False, None
     bound = int(getattr(swa, "max_query_len", 0) or 0)
     if bound <= 0 or bound > int(query_rows):
         bound = int(query_rows)
-    return True, max(1, bound)
+    bound = max(1, bound)
+    if int(getattr(swa, "num_prefills", 0) or 0) > 0 and not _sg_is_capturing():
+        # Real eager prefill batch: keep the legacy geometry and its fused kernel.
+        return False, None
+    return True, bound
 
 
 def kv8_ori_plane(
@@ -893,9 +926,20 @@ class DeepseekV41EagerAttentionImpl:
             block = safe // block_size
             offset = safe % block_size
             # Row ``i`` belongs to request ``i // reps`` in the padded batch (uniform
-            # spec-decode query length).  ``repeat_interleave`` is a device op with a
-            # static output shape: no host round trip.
-            table_rows = block_table[:num_reqs].to(torch.int64).repeat_interleave(reps, dim=0)
+            # spec-decode query length): a device op with a static output shape, so no
+            # host round trip.
+            #
+            # ★ Do **not** use ``repeat_interleave`` here.  On this CANN build the
+            # aclnn op ``aclnnRepeatInterleaveIntWithDim`` segfaults while serialising
+            # its tiling context (``Segfault encountered ... TilingContextToJson``),
+            # which killed all 8 workers at once on the first tier-D graph arm
+            # (2026-09-22 11:2x, raw/049-d-graph-repeatinterleave-segfault.txt).
+            # ``index_select`` is the same shape and is already the load-bearing
+            # primitive for the KV8 gathers in this file.
+            b_of_row = torch.arange(rows, device=indices.device, dtype=torch.int64) // reps
+            table_rows = torch.index_select(
+                block_table[:num_reqs].to(torch.int64), 0, b_of_row
+            )
             phys = torch.gather(table_rows, 1, block)
             keys = kv8_gather_rows(kv_i8, phys, offset)
             scales = kv8_gather_rows(kv_scale, phys, offset)
@@ -919,10 +963,14 @@ class DeepseekV41EagerAttentionImpl:
             ).view(rows, 1)
             columns = torch.arange(topk, dtype=torch.int32, device=indices.device).view(1, topk)
             renumbered = torch.where(valid, row_base + columns, torch.full_like(columns, -1))
+            # Every request's row is the **same** identity over its own segment
+            # (the renumbered indices already carry the per-row base), so build it
+            # by broadcast rather than ``repeat``/``repeat_interleave``.
             table = (
                 torch.arange(segments, dtype=torch.int32, device=indices.device)
                 .view(1, segments)
-                .repeat(num_reqs, 1)
+                .expand(num_reqs, segments)
+                .contiguous()
             )
             return scratch, table, renumbered.unsqueeze(1)
         # Prefill / multi query-row batch: the topk sets differ per query row, so
@@ -969,7 +1017,7 @@ class DeepseekV41EagerAttentionImpl:
         # [S_graphfix] Host-only gate + per-request row bound (no D2H, no
         # capture-time *value*): decode-shaped batches take the bound branch
         # above, real prefill batches keep the legacy eager branch.
-        graph_safe, rows_bound = _kv8_graph_rows_bound(metadata.swa, q.shape[0])
+        graph_safe, rows_bound = _kv8_graph_rows_bound(metadata.swa, q.shape[0], num_reqs)
         _sg_ppr_trace(
             "native_attention",
             num_reqs=num_reqs,

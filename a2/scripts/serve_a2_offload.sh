@@ -64,7 +64,7 @@ APC_ALIGN=${APC_ALIGN:-0}
 
 # ★★ int8 的图安全补丁（logs/049 / patches/kv8-graphsafe/）
 #   不打开 ⇒ 档 C/D 在 FULL_DECODE_ONLY 下【捕获期直接炸】（EE1016）
-#   ★ 前提：挂上 patches/kv8-graphsafe/dsa_v41.py（md5 1cc9e992…）
+#   ★ 前提：挂上 patches/kv8-graphsafe/dsa_v41.py（md5 94aeebb7…）
 GRAPH_SAFE=${GRAPH_SAFE:-0}
 
 # ★ 开了 int8 就必须同时开 APC 对齐（否则 D/F 几何会翻 token，logs/047）
@@ -79,7 +79,7 @@ if { [ "$KV8_SWA" = "1" ] || [ "$KV8_RING_FP16" = "1" ] || [ "$KV8_FULL" = "1" ]
    && [ "$GRAPH_SAFE" = "0" ] && [ "${GRAPH:-1}" != "0" ]; then
     echo "⚠⚠ 你开了 int8 + 图模式但 GRAPH_SAFE=0 ⇒ 自动置 1" >&2
     echo "   （否则档 C/D 在 FULL_DECODE_ONLY 下捕获期会炸 EE1016，logs/049）" >&2
-    echo "   前提：已挂 patches/kv8-graphsafe/dsa_v41.py（md5 1cc9e992…）" >&2
+    echo "   前提：已挂 patches/kv8-graphsafe/dsa_v41.py（md5 94aeebb7…）" >&2
     GRAPH_SAFE=1
 fi
 

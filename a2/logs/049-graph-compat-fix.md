@@ -134,8 +134,9 @@ else:                          # ← 旧 prefill 支（.item()），逐字未动
 第 `i` 行第 `t` 个选择 → 合成下标 `i·topk + t` ⇒ scratch 页 `i·per_req + t//block_size`、
 页内偏移 `t % block_size`（`per_req·block_size == topk` 时**精确**）；scratch 表 = `rows·per_req` 页恒等表。
 
-* 行→请求映射：`block_table[:num_reqs].repeat_interleave(reps, dim=0)`（`reps=rows//num_reqs`），
-  这是 device 的**静态形状** op，无 D2H；
+* 行→请求映射：`torch.index_select(block_table[:num_reqs], 0, arange(rows)//reps)`（`reps=rows//num_reqs`），
+  这是 device 的**静态形状** op，无 D2H。★ **不要用 `repeat_interleave`** —— 它的 aclnn 实现
+  在本镜像上 segfault（§4.5 有第一现场）；
 * 所有标量来自 shape/config ⇒ capture 与 replay 都安全；
 * 旧 fallback（`cache_seq_lens.max().item()`）与档 D 的 Triton 路**逐字保留**，只是新路径不再走它们。
 
@@ -257,7 +258,35 @@ decode 批 + max_query_len=6 ⇒ bound 6
 纯 decode（max_query_len=1）⇒ bound 1
 ```
 
-### 4.5 ★ 自检**自己**踩的两个坑（都伪装成"全错"）
+### 4.5 ★★ 自检的**边界**：它抓不到"设备算子本身崩"（第一次档 D 图臂就这么死的）
+
+第一版图安全分支里，我用 `block_table[...].repeat_interleave(reps, dim=0)` 做"行 → 请求"的映射。
+**补丁自检、离线穷举、阳性对照全过**，但 8 卡上起服时：
+
+```
+!!!!!!! Segfault encountered !!!!!!!
+  File "<unknown>", line 0, in aclnnOpInfoRecord::TilingContextToJson(...)
+  File "<unknown>", line 0, in CommonOpExecutorRun(...)
+  File "<unknown>", line 0, in aclnnRepeatInterleaveIntWithDim        ← ★ 就是它
+(EngineCore) ERROR ... Worker proc VllmWorker-5 died unexpectedly, shutting down executor
+→ 8 个 worker 同时死 ⇒ "Engine core initialization failed"
+```
+
+⇒ **CANN 的 `aclnnRepeatInterleaveIntWithDim`（int64、dim=0）在本镜像上 segfault**
+（崩在它自己的 tiling-context JSON 序列化路径）。
+**教训（写下来给后人）**：`ast` 抽真函数 + CPU 穷举**只能证明"逻辑对"**，
+**证明不了"这个算子在设备上能用"** —— 这一格只有真机臂能给。原始证据
+`raw/049-d-graph-repeatinterleave-segfault.txt`。
+
+**修法**（同样是 device op，但换成这个文件里已经在用的原语）：
+```python
+b_of_row = torch.arange(rows, device=indices.device, dtype=torch.int64) // reps
+table_rows = torch.index_select(block_table[:num_reqs].to(torch.int64), 0, b_of_row)
+```
+另外把构造恒等表的 `.repeat(num_reqs, 1)` 也换成 `.expand(...).contiguous()`（同样的防御理由）。
+★ 补丁现在**断言源码里不含 `.repeat_interleave(`**（`apply_graphsafe.py` 自检第 7 条），防止回归。
+
+### 4.6 ★ 自检**自己**踩的两个坑（都伪装成"全错"）
 
 1. `scratch` 是 **PA_BBND `(pages, block_size, 1, dim)`**，算子读 `[页, 页内偏移, 0, :]`；
    第一版写成 `scratch[page, off]` ⇒ 拿到 `(1,dim)` ⇒ 全错（**假阴**）；

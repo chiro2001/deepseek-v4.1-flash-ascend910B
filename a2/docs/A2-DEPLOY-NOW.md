@@ -9,12 +9,22 @@
 ## 0. 唯一的阻塞（只能你在 A2 上做）
 
 ```bash
-# 在 A2 的容器里（不占卡、不加载模型、约 5–10 分钟；--quick 约 2 分钟）
-bash a2/scripts/a2_one_shot_probe.sh
+# 在 A2 宿主上（脚本自己 docker exec 进服务容器）——**服务在跑也不用停**
+cd <dsv41-release>/a2/scripts
+A2_CONTAINER=dsv41-a2 A2PROBE_FLOOR_GIB=300 LIGHT=1 bash a2_one_shot_probe.sh
 ```
-**它回答四件事**：`host_mem_pool` / `aclrtMallocHost` 单次 vs 总量 / `pin_memory` / ★★ **`aclrtHostRegister` 能不能注册 + 能不能被 KV 拷贝用**。
+**它回答四件事**：`host_mem_pool` / `pin_memory` 单次 vs 总量 / ★★ **`aclrtHostRegister` 能不能注册** /
+★★★ **那块注册内存**能不能**真的走 H2D/D2H**（= β 路线的生死判据）。
 **为什么必须做**：A2 的 `host_mem_pool = 0`，且这个模型在 A2 上 **Engram 206 GiB 注册曾失败** ⇒ **A3 全绿不代表 A2 全绿**。
-**判读**：脚本末尾自带 `DECISION`。注册成功且拷贝逐字节一致 ⇒ `NPU_OFFLOAD_HOST_MEM=registered`；否则回落 `pinned` 并重新量池子上限。
+**判读**：脚本末尾自带 `DECISION`。**看的是 `★ 注册内存的设备往返判据 = True`**（H2H 通过不算数）
+⇒ 真 ⇒ `NPU_OFFLOAD_HOST_MEM=registered`；假 ⇒ 回落 `pinned` 并重新量池子上限。
+**耗时/占用**【实测·A3 同脚本】：`LIGHT=1`（默认）**18 s**、宿主峰值 ≈40 GiB、**显存只用一个 256 MiB 张量**。
+
+> ★★ **"占不占 NPU"（回答"能不能和服务共存"）**：**需要能用上设备**（`aclInit` + `aclrtSetDevice` + 一条 stream）
+> —— 这步省不掉；但**不加载模型、不跑算子、不做图捕获、不抢 HBM 的 KV 池**
+> ⇒ **可以和正在服务的 A2 共存**（`COPY_GIB=0` 可把显存占用归零）。详见 `logs/052`。
+> ⚠️ **旧版脚本已废弃**：它少了 `aclrtSetDevice`（会让 `aclrtMallocHost` 一律报 `107002`，看着像"A2 不能用 pinned"），
+> 而且 ctypes + `torch_npu` 同进程**会段错误**且**吞掉全部输出**（`logs/052` §1，A3 实测）。
 
 > ★ 探测**不需要因 int8 改动** —— 池后端（内存 API）与 KV 量化（页几何）是**正交**的两件事。
 
@@ -47,7 +57,7 @@ bash a2/scripts/serve_a2_offload.sh
 ```bash
 # 在档 B 之上：
 KV8_SWA=1 KV8_RING_FP16=1        # ← 脚本会自动置 APC_ALIGN=3 与 GRAPH_SAFE=1
-# ★ 前提：挂上 patches/kv8-graphsafe/dsa_v41.py（md5 1cc9e9923cc19749872cfb2e4decc4b7）
+# ★ 前提：挂上 patches/kv8-graphsafe/dsa_v41.py（md5 94aeebb757d6d5708268754481a05e0a）
 bash a2/scripts/serve_a2_offload.sh
 ```
 

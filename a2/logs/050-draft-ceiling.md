@@ -313,10 +313,105 @@ GPU KV cache size     = int(num_blocks / BPR × max_len)   （kv_cache_utils.py:
 
 ---
 
-## 7. 复跑方式（不占卡）
+## 7. ★★ ②c 的交付（**序 1**，保 BF16 / 保投机解码）—— 改动清单 + 单元自检
+
+### 7.1 ③（前置问题）`DSV4_BLOCK_SIZES` 里**有 64 吗** —— **有**
+
+`vllm_ascend/models/layer/attention/layer.py:32-56`（三套表，按硬件档案/压缩缓存能力选）：
+
+```
+_DSV4_BLOCK_SIZES            = {128: [[128,128, 8,32], [16640,131072]],
+                                64: [[ 64, 64, 4,16], [ 8320, 65536]],   ← ★ 有 64
+                                32: [[ 32, 32, 2, 8], [ 4160, 32768]]}
+_DSV4_COMPRESSED_BLOCK_SIZES = {128/64/32: …}      _DSV4_BLOCK_SIZES_A5_BF16 = {128/64/32: …}
+```
+
+列含义：`[0] = [mla, swa, c4_state, c128_state]`、`[1] = [page_size_padded_t1, t2]`。
+`AscendDeepseekV4SWACache.__init__` 取的 `[0][1]` **正是 `swa` 那一格** ⇒ 64 档的 SWA 值就是 64，
+且它的 `page_size_padded_t2 = 65,536` **恰好等于我们要的 draft 页大小**（64×512×2）
+⇒ **②c 是"改一个参数"，不是"新增一档"**。
+★ 上游 vLLM 的 `DeepseekV4SWACache.__init__` 本来就**硬编码 `self.block_size = 64`**
+（`vllm/v1/attention/backends/mla/sparse_swa.py:79`），后端 `get_supported_kernel_block_sizes() = [MultipleOf(64)]`
+⇒ **64 与 128 都是这批算子认的块大小**（128 反而是 Ascend 侧抬上去的）。
+
+### 7.2 【精确改动清单】2 个文件 / 2 处（生成器：`agents/T_draftceiling/patch/patch_draft_blk.py`）
+
+| # | 文件 | 锚点 | 改动 | 理由 |
+|---|---|---|---|---|
+| **①** | `vllm_ascend/models/deepseek_v41/dspark.py` | `class DeepseekV41DSparkSWACache(AscendDeepseekV4SWACache):`（:24） | 新增 `__init__`：`super().__init__(…)` 后 `self.block_size = int(os.environ.get("VLLM_V41_DRAFT_BLOCK","128"))`（校验 64 的正倍数） | `self.block_size` → `get_kv_cache_spec()` → `AscendSlidingWindowMLASpec(block_size=…)` → `DeepseekV41DraftSWASpec(block_size=spec.block_size)` → `real_page_size_bytes = (block//cr) × 1 × 512 × 2` ⇒ **128→131,072 / 64→65,536**。**target 的 40 层走另一个类，不受影响** |
+| **②** | `vllm_ascend/core/deepseek_v41.py::plan_cache_slots` | `draft_spec.block_size != swa_spec.block_size`（:241） | 改成 `swa_spec.block_size % draft_spec.block_size != 0` | ②c 之后 draft=64 / target=128。**只放宽"块大小相等"这一条**；`head_size` / `sliding_window` / `Σdraft ≤ capacity` 三条**一条不放松** |
+
+**不动的（逐条给理由）**：`AscendSlidingWindowMLASpec.real_page_size_bytes`（自动）、`reshape_cache`（逐字用 `spec.storage_block_size`）、
+`DeepseekV41MetadataBuilder.build()`（`storage_block_size/logical_block_size` **取自该组自己的 spec**，`dsa_v41.py:1252,1261`）、
+`slot_key`（按 `(ratio, storage_block_size)` 分键，64 自带一格）、
+卸载层 `p2_pool.py::compute_weights`（`tokens_per_block` 从 spec 现算 ⇒ `sw_chunks = cdiv(128,64) = 2`、`reachable_tail = 2+eagle = 3`；**无需改代码，但池配额要复算**）、
+`DeepseekV41DraftSWASpec.__post_init__`（仍强制 BF16 = ②c 要的）。
+★ **同槽混块先例**：state 组就是 **32 行页**与 128 行页共享同一个 block ID（`AscendCircularBufferSpec`, `STATE_RING_ROWS=32`）。
+★ **窗口跨块已判**：draft 的 `sliding_window=128` 在 block=64 下跨 2 块（带投机 133 token ⇒ 最坏 4 块），但
+①算子按**绝对 token 坐标**寻址（`block=pos//storage_block_size`，`dsa_v41.py:313-345`）；
+②块表是**全长行**（`max_num_blocks_per_req = cdiv(max_len, block)`）；
+③KV manager 的 `_contiguous_blocks_for_hit = cdiv(window−1, block)` 自动变 2
+⇒ **三处都没有"窗口 ≤ 1 块"假设**。唯一硬编码是 `kv8_ori_plane` 的 `pages_per_req = 2`，**它在 int8 平面上** ⇒ **②c（BF16 draft）不走它**。
+
+### 7.3 ★★ 单元自检（**三臂对称跑**，容器内 CPU、不占 die；`scripts/selfcheck_draft_blk.py`）
+
+| 判据 | `upstream`（纯上游） | `draftaware`（= R 的 capacity 补丁，**8 卡实测用的就是这件**） | **`patched`（②c）** |
+|---|---|---|---|
+| 档 B Σslot_pages | **540,928** ✅ | 540,928 ✅ | 540,928 ✅ |
+| 档 C Σ | **raise** ✅（= 8 卡实测到的同一条断言） | **540,928** ✅（×1.0000，与 8 卡逐字同） | 540,928 ✅ |
+| 档 D Σ | raise ✅ | **476,416** ✅（与 8 卡逐字同） | 476,416 ✅ |
+| `draft64` 档 C | raise ✅ | raise ✅（⇒ ②c 补丁**必需**） | ★ **369,280**（slots=[73,856×3, 147,712]） |
+| `draft64` 档 D | raise ✅ | raise ✅ | ★ **282,880**（slots=[**66,560×3**, 83,200] ⇒ **SWA binding**，draft 65,536 已不顶） |
+| 预测 `GPU KV cache size` | — | B 427,643 / C 427,643 / D 485,610 **三个都逐字命中实测** | ②c：C **595,404** / **D 777,318** |
+| 卸载池 Σ权重 | — | 20 | **21**（draft 组 2→3 ⇒ ★ 池需求 **+5.0%**） |
+| 无 draft 组（tiny 几何） | — | — | **逐字 no-op**（540,928 / 282,880）✅ |
+
+★ **判别力**：同一批判据在 `upstream`/`draftaware` 上**要么 raise、要么给出不同数** ⇒ 不是空断言（`AGENTS §5b` 第 3 条）。
+★ 一个细节：**②c-C 的 slots0–2 = 73,856**（不是 66,560）—— 因为档 C 的 long-KV 还是 BF16，
+`kv+index(73,856) > SWA(66,560) > draft(65,536)` ⇒ **②c 在档 C 上的收益来自"把 draft 拉到 kv+index 之下"**，在档 D 上才是"SWA binding"。
+
+### 7.4 真权重端到端臂（**在 c0 排队**；`scripts/chain_2c.sh`）
+
+```
+臂 1  t-dc2-b-D ：draft block 128（flag 关）= 基线，同几何同 workload
+臂 2  t-dc2-c-D ：draft block 64（flag 开）= ②c
+workload：8 × 4096 → max_tokens 64（★ 不是 max_tokens=1：那样 SpecDecoding 只有 ~10 个 drafted token，没有统计功效）
+交付判据（4 组）：
+  ① GPU KV cache size：基线 485,610 / ②c 777,318（【算术】预测）
+  ② ★ SpecDecoding 四项（Mean acceptance length / Drafted throughput / Avg Draft acceptance rate / Per-position）
+     与基线逐项对比，**不许回退**
+  ③ 四条功能判据：BlockStored:CPU / CPU→GPU>0 / hits>0 / replay ≪ fill
+  ④ 起服日志的 `KV 卸载 group 清单` 里 index 12 那项的块大小
+★ 工程说明：②c 的**生产形状**是"dspark.py 读 env"（§7.2 ①）；但 8 卡 runner 的 `inner.sh`
+  **只转发白名单 env**，无法把 `VLLM_V41_DRAFT_BLOCK` 递进容器 ⇒ 端到端臂用一个**等价的文件开关变体**
+  （`--variant core-only`：块大小覆写放在 spec 的 `__post_init__`，读 `/work/agents/T_draftceiling/draft_block_64.flag`）。
+  语义等价的依据：对 Ascend 的 DraftSWASpec 而言 **spec.block_size 是页几何的唯一来源**
+  （`real_page_size_bytes` / `reshape_cache` / metadata / 块表 / slot_key 全部由它派生），
+  dspark 里那个 `self.block_size` 只用来构造这个 spec。**两臂只有这一个变量的差别。**
+```
+
+---
+
+## 8. 复跑方式（不占卡）
 
 ```bash
 python3 a2/agents/T_draftceiling/slot_arith.py --json a2/agents/T_draftceiling/out/slot_arith.json
 #   → 逐槽目标/候选/binding + 4 点实测对账 + draft what-if（本日志 §1.2/1.4/1.5 的原始输出）
+
+# ★ ②c 的单元自检（三臂对称；容器内 CPU，不占 die）
+python3 a2/agents/T_draftceiling/patch/patch_draft_blk.py --core <core/deepseek_v41.py> \
+        --dspark <models/deepseek_v41/dspark.py> --out-dir <patched> [--variant core-only]
+for m in upstream draftaware patched; do
+  PYTHONPATH=<overlay-$m> python3 a2/agents/T_draftceiling/scripts/selfcheck_draft_blk.py --mode $m
+done
+#   → §7.3 的表（upstream/draftaware 会 raise 或给不同数 ⇒ 判据有判别力）
 ```
 原始数据：`logs/raw/050-draft-ceiling/{slot_arith.txt, slot_arith.json, kvsize_and_raises.txt}`。
+代码：`agents/T_draftceiling/{slot_arith.py, patch/patch_draft_blk.py, scripts/{selfcheck_draft_blk.py, chain_2c.sh, run_tiny_draft_probe.sh, tdc_selfcheck.py}}`。
+★ **tiny 的 mini 判别臂**（在 tiny 上合成 g12，三臂）：`GPU KV cache size` = **20,826（B，draft 在场）** →
+**int8 无补丁 arm 复现 8 卡同一条 `Aurora DSpark geometry` 断言（4 次）** → **int8 + R 的 draft-aware 补丁 = 20,826（×1.0000）**
+⇒ 与 8 卡档 C 的现象**逐字同构**（详见 `agents/T_draftceiling/out/t-tiny-draft-*.tdc_verdict.txt`）。
+★ **这两条 tiny 臂的诚实标注**：它们的 KV size 行**有效**（分配阶段打印），但两臂**都在 runner 的探针自检门上报 FATAL（rc=9）**
+（B 臂 `D2=0 scheduler=0`、Ci8fixC 臂同）—— 该门的判据是**卸载/卸载探针**，与本结论（页几何）无关。
+另有一条**中间臂**先跑了"int8 SWA + long-KV int8（= 档 D 几何）"得 **23,651**，我在同一批里补跑了**真正的档 C**（`long_kv_int8=False`，自检打印 `swa_int8=True / long_kv_int8=False`）才拿到 20,826
+—— ★ **这正是"不许用相邻数字顶替缺的那格"的一次实际应用**。

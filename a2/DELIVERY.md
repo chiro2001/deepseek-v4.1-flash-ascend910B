@@ -457,11 +457,12 @@ KV8_SWA=1 KV8_RING_FP16=1 KV8_FULL=1 KV8_PREFILL=1 \   # 档 D（容量 ×1.9133
 >    scratch 页 i*per_req + t//block_size、页内偏移 t%block_size，scratch 表取 rows*per_req 页的恒等表；
 >    全部标量来自 shape/config（不再用捕获期冻结的 max_cache_seq_len）。
 > ```
-> **成品（当前唯一在盘的版本）**：`a2/publish/kv8-graphsafe/dsa_v41.py` = md5 **`1cc9e9923cc19749872cfb2e4decc4b7`**（1749 行，
+> **成品（当前唯一在盘的版本）**：`a2/publish/kv8-graphsafe/dsa_v41.py` = md5 **`94aeebb757d6d5708268754481a05e0a`**（**1797** 行，
 > 含 role 分键 + prefill triton 接线 + 上述两条图安全改动；与 `S_graphfix/out/dsa_v41_graphsafe.py`、`S_graphfix/patch/dsa_v41.graphsafe.py` **逐字节相同**）；
-> **基底** = `S_graphfix/ref/dsa_v41_pkgkv8pf.py`（**`75f4e565adc1b12c854a0a01271b6c4d`**，1499 行）。
-> ⚠️ **更正**：本文早前写的 `22cbf20c…`（1782 行）是**中间版**，该文件**已不在盘**（被 `1cc9e992…` 取代）⇒ **一律以 `publish/kv8-graphsafe/` 为准**。
-> `pkg-ring` 那份（`9db97849…`，1319 行）**不含 prefill triton** ⇒ **档 D 请用上面的 1749 行版本**。
+> **基底** = `S_graphfix/ref/dsa_v41_pkgkv8pf.py`（**`75f4e565adc1b12c854a0a01271b6c4d`**，1499 行）⇒ **+301/−3 行**（`diff` 实测）。
+> ⚠️ **md5 沿革（两份都作废，别再引用）**：`22cbf20c…`（1782 行）= 中间版；**`1cc9e992…`（1749 行）= 含 `repeat_interleave` ⇒ 档 D 图臂 8 卡同时 segfault**（`049` §4）。
+> ⇒ **一律以 `publish/kv8-graphsafe/` 的 `94aeebb7…` 为准**；生成器 `apply_graphsafe.py` 已有第 7 条自检拦住这个回归。
+> `pkg-ring` 那份（`9db97849…`，1319 行）**不含 prefill triton** ⇒ **档 D 请用上面的 1797 行版本**。
 > ⇒ **档 C 零收益、档 D ×1.1356**（tiny 上是 ×1.4655 / ×1.9133）。
 >
 > **机制（`050` 逐槽算术，与 4 点实测闭合、误差 ≤0.06%）**：
@@ -483,7 +484,7 @@ KV8_SWA=1 KV8_RING_FP16=1 KV8_FULL=1 KV8_PREFILL=1 \   # 档 D（容量 ×1.9133
 > ⏳ **还差一条真权重端到端臂**（判据含 `SpecDecoding` 四项不降）—— 见 `logs/051`。
 >
 > ⇒ **`S_graphfix`（049）修图兼容；`T_draftceiling`（050）查 draft 天花板能否解开。**
-> ★★ **更新（`049` 已落盘 ⇒ 上面那句作废）**：档 C 的**图模式捕获期炸点已修**（`1cc9e992…`：`EE1016=0`、图/eager 输出 sha 逐字相同）
+> ★★ **更新（`049` 已落盘 ⇒ 上面那句作废）**：档 C 的**图模式捕获期炸点已修**（`94aeebb7…`：`EE1016=0`、图/eager 输出 sha 逐字相同）
 > ⇒ **档 C 可以上**（图模式可用 + 宿主 150.01 GiB），只是 **HBM 容量在 A2 真权重上仍是 ×1.0000**；
 > **档 D 在 `sg-a-d-graph` 判据（含输出正确性）出来之前仍不建议上** —— 越界读是**静默错**（源码级证据见本节上面）。
 

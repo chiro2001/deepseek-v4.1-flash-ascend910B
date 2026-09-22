@@ -331,9 +331,20 @@ N_CMP_FALLBACK = '''        if graph_safe and per_req * block_size == topk and r
             block = safe // block_size
             offset = safe % block_size
             # Row ``i`` belongs to request ``i // reps`` in the padded batch (uniform
-            # spec-decode query length).  ``repeat_interleave`` is a device op with a
-            # static output shape: no host round trip.
-            table_rows = block_table[:num_reqs].to(torch.int64).repeat_interleave(reps, dim=0)
+            # spec-decode query length): a device op with a static output shape, so no
+            # host round trip.
+            #
+            # ★ Do **not** use ``repeat_interleave`` here.  On this CANN build the
+            # aclnn op ``aclnnRepeatInterleaveIntWithDim`` segfaults while serialising
+            # its tiling context (``Segfault encountered ... TilingContextToJson``),
+            # which killed all 8 workers at once on the first tier-D graph arm
+            # (2026-09-22 11:2x, raw/049-d-graph-repeatinterleave-segfault.txt).
+            # ``index_select`` is the same shape and is already the load-bearing
+            # primitive for the KV8 gathers in this file.
+            b_of_row = torch.arange(rows, device=indices.device, dtype=torch.int64) // reps
+            table_rows = torch.index_select(
+                block_table[:num_reqs].to(torch.int64), 0, b_of_row
+            )
             phys = torch.gather(table_rows, 1, block)
             keys = kv8_gather_rows(kv_i8, phys, offset)
             scales = kv8_gather_rows(kv_scale, phys, offset)
@@ -357,10 +368,14 @@ N_CMP_FALLBACK = '''        if graph_safe and per_req * block_size == topk and r
             ).view(rows, 1)
             columns = torch.arange(topk, dtype=torch.int32, device=indices.device).view(1, topk)
             renumbered = torch.where(valid, row_base + columns, torch.full_like(columns, -1))
+            # Every request's row is the **same** identity over its own segment
+            # (the renumbered indices already carry the per-row base), so build it
+            # by broadcast rather than ``repeat``/``repeat_interleave``.
             table = (
                 torch.arange(segments, dtype=torch.int32, device=indices.device)
                 .view(1, segments)
-                .repeat(num_reqs, 1)
+                .expand(num_reqs, segments)
+                .contiguous()
             )
             return scratch, table, renumbered.unsqueeze(1)
         # Prefill / multi query-row batch: the topk sets differ per query row, so
@@ -555,7 +570,9 @@ def audit(text: str) -> list[str]:
         "if graph_safe and per_req * block_size == topk and rows % num_reqs == 0:" in text,
         "7 cmp 图安全分支没加上",
     )
-    need("repeat_interleave(reps, dim=0)" in text, "7 行→请求映射缺失")
+    need("b_of_row = torch.arange(rows, device=indices.device, dtype=torch.int64) // reps" in text,
+         "7 行→请求映射缺失")
+    need(".repeat_interleave(" not in text, "7 仍**调用** repeat_interleave（CANN 上会 segfault）")
     need(text.count("rows_bound=None,") == 1, "8 包装形参没加上")
     need(text.count("graph_safe=False,") == 1, "9 包装形参没加上")
 

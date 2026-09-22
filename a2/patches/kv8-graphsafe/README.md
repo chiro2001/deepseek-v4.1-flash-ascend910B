@@ -42,13 +42,36 @@
 
 | 文件 | md5 | 说明 |
 |---|---|---|
-| `dsa_v41.py` | **`1cc9e9923cc19749872cfb2e4decc4b7`** | ★ **成品**（= 与 8 卡上实测通过的那一份逐字节相同） |
-| （基底）`X_integrate/pkg-kv8pf/…/dsa_v41.py` | `75f4e565adc1b12c854a0a01271b6c4d` | 镜像是这个版本；本成品 = 它 **+253/−3** 行（1499 → 1749 行） |
+| `dsa_v41.py` | **`94aeebb757d6d5708268754481a05e0a`** | ★ **成品**（档 C 已 8 卡实测通过；**档 D 的候选**，其图臂在验） |
+| ~~`dsa_v41.py`（旧件，2026-09-22 11:2x 前）~~ | ~~`1cc9e9923cc19749872cfb2e4decc4b7`~~ | ⛔ **作废**（1749 行）：它含 `repeat_interleave` ⇒ **档 D 图臂 8 卡同时 segfault**（见下 §3.1） |
+| （基底）`X_integrate/pkg-kv8pf/…/dsa_v41.py` | `75f4e565adc1b12c854a0a01271b6c4d` | 镜像是这个版本；本成品 = 它 **+301/−3** 行（1499 → **1797** 行，`diff` 实测） |
 | （参考）`pkg-ring/…/dsa_v41.py` | `9db97849aaa5c7284a46f49ea2e81681` | 不含 prefill triton ⇒ **档 D 不要用这份** |
 | `apply_graphsafe.py` | — | **可重放的生成器**（幂等、9 个 exact-match 锚点）：`python3 apply_graphsafe.py --src <基底> --out <目标>` |
 | `patch_serve_sg.sh` | — | 容器接入（幂等，只加 3 行 export） |
 
 **★ 替换清单：`attention/dsa_v41.py` 一个文件**（其余 6~7 个 int8 挂载件不用动）。
+
+### 3.1 ⛔ 为什么旧 md5 作废（`049` §4，【实测】）
+
+```
+!!!!!!! Segfault encountered !!!!!!!
+  aclnnOpInfoRecord::TilingContextToJson(...)
+  CommonOpExecutorRun(...)
+  aclnnRepeatInterleaveIntWithDim          ← ★ 就是它（int64、dim=0）
+(EngineCore) ERROR Worker proc VllmWorker-5 died unexpectedly → 8 个 worker 同时死
+→ "Engine core initialization failed"      （起服就挂，不是捕获失败、不是 EE1016）
+```
+**修法**：把那条"行 → 请求"的映射从 `repeat_interleave` 换成**本文件里已经在用的原语**：
+```python
+b_of_row   = torch.arange(rows, device=indices.device, dtype=torch.int64) // reps
+table_rows = torch.index_select(block_table[:num_reqs].to(torch.int64), 0, b_of_row)
+```
+恒等表也从 `.repeat(num_reqs, 1)` 换成 `.expand(...).contiguous()`（同样的防御理由）。
+`apply_graphsafe.py` 现在有**第 7 条自检**：`need(".repeat_interleave(" not in text, ...)`
+⇒ 生成器本身就能拦住回归。
+
+> ★ **教训**：`ast` 抽真函数 + CPU 穷举**只能证明"逻辑对"**，**证明不了"这个算子在设备上能用"**。
+> 这一格只有真机臂能给 —— 补丁自检 / 离线穷举 / 阳性对照当时**全过**，真机上 8 卡一起 segfault。
 
 ---
 
