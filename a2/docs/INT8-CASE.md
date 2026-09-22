@@ -256,6 +256,17 @@ KV8_SWA=1 KV8_RING_FP16=1 KV8_FULL=1 KV8_PREFILL=1  bash a2/scripts/serve_a2_off
 > ★★ **决策（2026-09-22，用户）：保留投机解码。** A2 是单流/小并发场景，DSpark（接受长度中位 3.58）对单流吞吐不可替代
 > ⇒ **⑤a（关投机）已否决，只作诊断/归因臂**；所有交付路线必须在 `--speculative-config dspark` 开启下成立。
 >
+> ★★★ **2026-09-22 13:2x 追加：②c 的机制已在 slot 层实测（单 die，`054`）** ——
+> `capacity = max(kv+index, aliases_max, draft)` 这一行，四个臂逐字给出：
+> ```
+> 档 B（aliases_max=131072）:  draft 131072 → capacity 131072
+>                             draft  65536 → capacity 131072   ← ★ 纹丝不动（aliases 顶住）
+> 档 D（aliases_max= 66560）:  draft 131072 → capacity 131072   [draft-aware]（legacy 66560）
+>                             draft  65536 → capacity  66560   ← ★ 减半
+> ```
+> ⇒ **②c 在档 B 上只拿到副作用（draft 页数 130→259 ⇒ 容量 ×0.9242），在档 D 上才把 draft 拉下 binding ⇒ ×1.5570。**
+> ★ 这也把 `050` 那句"draft 是 slots 0–2 的 binding 项"从**算术推断**升级为 **slot 层直接实测**。
+>
 > ★ **保投机的三条能解开天花板的路线**（`050`，按投入产出排序）：
 > | 路 | 收益（8 卡） | 改动面 | 风险 |
 > |---|---|---|---|

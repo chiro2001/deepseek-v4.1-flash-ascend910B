@@ -157,6 +157,8 @@ KV8_SWA=1 KV8_RING_FP16=1 KV8_FULL=1 KV8_PREFILL=1    # 同理自动置 APC_ALIG
 | 精度风险 | **无**（不改 dtype，draft 仍 BF16） |
 | 改动面 | ★ **2 文件 / 2 处，默认关**（`dspark.py` 给 draft 自己的 `block_size`（env `VLLM_V41_DRAFT_BLOCK`）+ 放宽 `plan_cache_slots` 的**相等**检查为**整除**检查）—— 详见 `logs/051` |
 | 已落地的证据 | ★ **`64` 档本来就在算子的块大小表里**（`_DSV4_BLOCK_SIZES[64][0][1] == 64`、`page_size_padded_t2 == 65,536`）；**三臂对称单元自检全绿**（`upstream` raise / `draftaware` ×1.0000 与 8 卡逐字同 / **`patched` 档 C 369,280、档 D 282,880**） |
+| ★★★ **机制已在 slot 层实测**（单 die，`054`） | 四臂实测 `capacity = max(kv+index, aliases_max, draft)`：<br>• **档 B**：`aliases_max=131072` ⇒ draft 131072→65536 **capacity 纹丝不动（131072）** ⇒ 只拿到"draft 页数 130→259"的副作用 ⇒ **容量降 ×0.9242**<br>• **档 D**：`aliases_max=66560` ⇒ draft 131072→65536 **把 draft 从 binding 位置拉下来** ⇒ **capacity 131072→66560（减半）** ⇒ **容量涨 ×1.5570**<br>★ 且 `d128` 那行自带 `[draft-aware]`（`capacity=131072 legacy=66560`）⇒ **"draft 是 slots 0–2 的 binding 项"在 slot 层直接实测**，不再只是算术推断 |
+| ★ 单 die 数值判据（`054`） | **输出**：B/D 各 7 轮 sha 逐字节相同、逐 prompt 16/16、跨臂 16/16；**投机**：两臂 `MeanAccLen 1.685 / AvgDraftAcc 13.69%` 完全一致，**提案序列 4367/4367 逐条相同**；**图模式**：b64 捕获 23 s / b128 9 s，`EE1016=0` |
 | 已查清的风险 | 窗口跨 3~4 块（算子/块表/KV manager **都无假设**）；⚠️ 唯一硬编码 `kv8_ori_plane` 的 `pages_per_req=2` **只在 int8 平面上跑 ⇒ ②c 不走它** |
 | 副作用 | DRAM 池 `sw_chunks` 1→2 ⇒ 该组每段 unit 2→3 ⇒ 总需求 **+5.0%**（`OFFLOAD_GB=56` 要复算） |
 | ⏳ 还差什么 | **一条真权重端到端臂**（判据：容量 595,404（档 C）/ 777,318（档 D）+ 图捕获成功 + **`SpecDecoding` 四项不降** + sha 与冷算参考一致） |
