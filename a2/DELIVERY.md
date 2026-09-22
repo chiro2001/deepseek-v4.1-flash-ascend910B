@@ -429,6 +429,34 @@ KV8_SWA=1 KV8_RING_FP16=1 KV8_FULL=1 KV8_PREFILL=1 \   # 档 D（容量 ×1.9133
 > ```
 > ⇒ ★ **档 C 现在是一条可上线的配置**：图模式可用 + 宿主内存 ×1.3146（HBM 容量 ×1.0000）。
 > **⇒ 16×128K 的池从 197.21 GiB 降到 150.01 GiB，代价只有 int8 的 +1.3~1.8% decode 时延。**
+>
+> ### ★★★★★ 而且**图模式 vs eager 的输出 sha 逐字相同**（`048`，R 用最强判据确认）
+> ```
+> 图模式（sg-a-c-graph）replay1 sha = bc2e797ab069f09ced706696385dcf8bbd208e1dcf7c8586d15b0248a54f332f
+> eager  （r8-e1-tierC）  replay1 sha = bc2e797ab069f09ced706696385dcf8bbd208e1dcf7c8586d15b0248a54f332f
+> ★ 逐字相同
+> 其它判据也逐字相同：CPU→GPU = 2.1188968448e10 / hits = 901,120 / BlockStored:CPU = 29,436 / BlockRemoved:CPU = 0
+> 图模式 trace 也打出 33 行、每请求现读（131072→130048 / 65536→64512）⇒ 无"capture 冻结 host 值"
+> ```
+> ★ **为什么这是最强判据**：它的**唯一变量就是"图 vs eager"**。
+> 而 `037` 证明过这个服务在 `temperature=0` 下**同臂内都会抖**（32K 2/4、512 短 prompt 3/4 不同）——
+> ⇒ **在这样抖的环境里跨模式逐字相同**，说明两条路径在这条 workload 上数值等价。
+>
+> ### 档 C 上线的**必需件**（`S_graphfix`，`patch/apply_graphsafe.py`，env 门控默认关）
+> ```
+> ① kv8_ori_plane(..., rows_bound=)：新增上界分支 —— 窗口带起点仍在 device 上按真实 q_len 算，
+>    只有"每请求最多几页"这个 host 标量改成上界公式 (rows_bound + window - 1)//block_size + 2，
+>    rows_bound 来自 metadata.swa.max_query_len（引擎在 CPU 张量上算好的 Python int，不产生 D2H）。
+>    .item() 那条 prefill 分支【原样保留】（eager only）。
+> ② _kv8_cmp_plane(..., graph_safe=)：★ 同时修掉档 D 的"静默读错" ——
+>    新增"按 query 行私有一段"的 selection-based 分支，第 i 行第 t 个选择 → 合成下标 i*topk+t，
+>    scratch 页 i*per_req + t//block_size、页内偏移 t%block_size，scratch 表取 rows*per_req 页的恒等表；
+>    全部标量来自 shape/config（不再用捕获期冻结的 max_cache_seq_len）。
+> ```
+> **成品**：`S_graphfix/pkgs/pkg-kv8pf/…/dsa_v41.py` = md5 **`22cbf20c2544dd2ac6cb991a84806c42`**（1782 行，
+> 含 role 分键 + prefill triton 接线 + 上述两条图安全改动）；
+> `pkg-ring` 那份（`9db97849…`，1319 行）**不含 prefill triton** ⇒ **档 D 请用 `pkg-kv8pf` 那份**。
+> 镜像原版 md5 = `75f4e565adc1b12c854a0a01271b6c4d`。
 > ⇒ **档 C 零收益、档 D ×1.1356**（tiny 上是 ×1.4655 / ×1.9133）。
 >
 > **机制（`050` 逐槽算术，与 4 点实测闭合、误差 ≤0.06%）**：
