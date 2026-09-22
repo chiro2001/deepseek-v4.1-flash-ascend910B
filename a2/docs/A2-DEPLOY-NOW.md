@@ -17,6 +17,43 @@
 
 ---
 
+## ★★★ 先说清一件事：**A2 的模型与我们实测用的模型不是同一个**
+
+| | 模型目录 | 我们从哪里知道 |
+|---|---|---|
+| **A2 实际用的** | `/home/<user>/models/out/`**`v41-w4a8-flat`** | 用户 09-20/09-21 的启动命令（主机名 `a2`）；发布仓 `reports/a2-*.md` 里也是这个 |
+| **A3 上我们实测用的** | `~/models/out/`**`v41-w4a8-engram-dr-vision-qrot-mtpq`** | `logs/001` / `042` / `048` **全部 8 卡臂** |
+
+### 两者的共同点（**从 A2 自己的预检输出读出来的**，不是推断）
+```
+info    engram_layer_ids=[1, 14]  engram 权重条目=['engram_extra.safetensors', 'engram_int8']  optional/quarot=True
+OK    Engram 配置与权重都在（2 层）
+OK    有 mtpq 分片（4 个，推荐配置）   ← ★ **A2 也有 DSpark draft 组**
+OK    有 vision 分片 / OK 有 optional/quarot.safetensors
+```
+⇒ ★★ **A2 的模型有 Engram（2 层）与 mtpq（= DSpark draft 组）**
+⇒ 所以 **「draft 组顶住 slots 0–2」这个结构结论在 A2 上应当同样成立**
+（这正是 **档 C 在 A2 真权重上容量 ×1.0000** 的根因）
+
+### ⚠️ 但有一条**未确认**、且它会改数字
+**两个模型的 Engram 规模是否一致** —— A3 那份的 Engram 是 **int8 206 GiB**；
+A2 的 `flat` 版本**大小未知**（名字里的 「flat」 可能意味着某种精简）。
+⇒ Engram 占用不同 ⇒ **`Available KV cache memory` 不同** ⇒ 容量数字要按 A2 的实测量重算。
+
+### ★★ 上线第一个动作就是量这一行（**一行，起服早期就打印**）
+```bash
+grep -E 'Available KV cache memory|GPU KV cache size' <serve.log>
+```
+| A2 量到的 `Available` | 含义 |
+|---|---|
+| **≈ 14.40 GiB** | ★ 与 09-20 那次**逐字吻合** ⇒ 模型/配置没变 ⇒ 按 §B0 的方法换算期望值即可 |
+| 明显更大 | ⇒ 模型或 `GPU_UTIL` 变了（`flat` 可能省了 Engram）⇒ **容量会比 A3 好**，按 §B0 重算 |
+| 明显更小 | ⇒ ⚠️ 先查是不是 Engram 开了（`ENGRAM=1` 会多占宿主 + 显存）或 `GPU_UTIL` 调低了 |
+
+★ 注意 **`ENGRAM=0` 是我们起服脚本的默认**（因为 Engram + 卸载池曾撞 `207001`）——
+但 A2 的模型**带 Engram 权重**，`ENGRAM=0` 意味着**不加载那张表**
+⇒ **这也会让 `Available KV cache` 与「带 Engram 跑」时不同** ⇒ 量的时候**记下 `ENGRAM` 的值**。
+
 ## ★★ 三条命令走完（在 A2 上照抄即可）
 
 ```bash
@@ -28,11 +65,11 @@ A2_CONTAINER=dsv41-a2 A2PROBE_FLOOR_GIB=300 LIGHT=1 bash a2/scripts/a2_one_shot_
 PKG=<dsv41-release 路径> DST=$HOME/shadow-pkg bash a2/scripts/make_shadow_pkg.sh
 
 # ③ 干跑（**会打印真实挂载清单**）→ 起服
-DRY=1 SHADOW_PKG=$HOME/shadow-pkg MODEL=<模型目录> KV8_SWA=1 KV8_RING_FP16=1 \
+DRY=1 SHADOW_PKG=$HOME/shadow-pkg MODEL=<A2 的模型目录，见上方「A2 的模型」一节> KV8_SWA=1 KV8_RING_FP16=1 \
     bash a2/scripts/serve_a2_offload.sh
 #    ★ 看 `[a2-dry] MOUNTS(NN):` 里有没有那 **7 个 kv8-int8-pkg 件**（档 C/D 的必需件）
 
-SHADOW_PKG=$HOME/shadow-pkg MODEL=<模型目录> OFFLOAD_GB=56 MAX_LEN=131072 MAX_SEQS=16 \
+SHADOW_PKG=$HOME/shadow-pkg MODEL=<A2 的模型目录，见上方「A2 的模型」一节> OFFLOAD_GB=56 MAX_LEN=131072 MAX_SEQS=16 \
   NPU_OFFLOAD_HOST_MEM=registered KV8_SWA=1 KV8_RING_FP16=1 \
     bash a2/scripts/serve_a2_offload.sh
 ```
@@ -142,7 +179,7 @@ grep -c 'P2_poolsizing'               <serve.log>   # 期望 >0  ← L1 生效
 
 ### D. ★ 提交前的最后一道（**2026-09-22 新增**）
 ```bash
-DRY=1 SHADOW_PKG=$HOME/shadow-pkg MODEL=<模型目录> KV8_SWA=1 KV8_RING_FP16=1 \
+DRY=1 SHADOW_PKG=$HOME/shadow-pkg MODEL=<A2 的模型目录，见上方「A2 的模型」一节> KV8_SWA=1 KV8_RING_FP16=1 \
     bash a2/scripts/serve_a2_offload.sh | grep -E 'a2-dry.*MOUNTS'
 #   ★ 档 C/D 必须含那 7 个 kv8-int8-pkg 件（MOUNTS 条数约 24）
 ```
@@ -181,7 +218,7 @@ A2_CONTAINER=dsv41-a2 A2PROBE_FLOOR_GIB=300 LIGHT=1 bash a2_one_shot_probe.sh
 # 在 A2 本机从本仓库自己造（不依赖任何开发机）
 PKG=<dsv41-release 路径> DST=$HOME/shadow-pkg bash a2/scripts/make_shadow_pkg.sh
 # 干跑确认参数（不起服务）：
-DRY=1 SHADOW_PKG=$HOME/shadow-pkg MODEL=<模型目录> bash a2/scripts/serve_a2_offload.sh
+DRY=1 SHADOW_PKG=$HOME/shadow-pkg MODEL=<A2 的模型目录，见上方「A2 的模型」一节> bash a2/scripts/serve_a2_offload.sh
 ```
 
 生成器做 **5 处精确锚点插入**（锚点必须恰好命中一次，否则 **fail-closed 且不落盘**）+ 4 条 grep 自检；
@@ -194,7 +231,7 @@ DRY=1 SHADOW_PKG=$HOME/shadow-pkg MODEL=<模型目录> bash a2/scripts/serve_a2_
 ## 1. 档 B —— 现状，已验证
 
 ```bash
-MODEL=<模型目录> OFFLOAD_GB=56 MAX_LEN=131072 MAX_SEQS=16 \
+MODEL=<A2 的模型目录，见上方「A2 的模型」一节> OFFLOAD_GB=56 MAX_LEN=131072 MAX_SEQS=16 \
 BLOCKS_PER_CHUNK='{"default":8,"swa":1}' PREFIX_MATCH_UNIT=32 ENGRAM=0 \
 NPU_OFFLOAD_HOST_MEM=registered OFFLOAD_SCHED_PATCH=1 OFFLOAD_NPU_WORKER_PATCH=1 \
 bash a2/scripts/serve_a2_offload.sh
