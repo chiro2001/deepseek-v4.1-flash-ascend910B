@@ -209,20 +209,29 @@ DRY=1 SHADOW_PKG=$HOME/shadow-pkg MODEL=<A2 的模型目录，见上方「A2 的
 ```
 ⇒ 这一道能挡住「文件没进包」那一类缺口（本轮就抓到过三个）。
 
-## 0. ★★★ 阻塞已解除（2026-09-22 16:10 实机跑完）
+## 0. ★★★★★ 阻塞已解除（2026-09-22 16:32 实机跑完，**全档通过**）
 
-> **判据过了**：`★ 注册内存的设备往返判据 = True`（1 GiB 与 4 GiB 都过，且都是**真实 H2D→D2H 逐字节对账**）。
-> ⇒ **走 `NPU_OFFLOAD_HOST_MEM=registered`**，候选 β 成立。详见 **[`logs/065`](logs/065-20260922-a2-probe-live.md)**。
-> 顺带实测确认：**`host_mem_pool = 0`**（A2 真的没有 host 内存池 ⇒ 不能靠 `aclrtMallocHost` 撑池）、
-> 注册后 **H2D 5.5 → 20.4 GB/s（3.7×）**、单次 pinned **8 GiB 通过**。
->
-> ⚠️ **还差一格**：`LIGHT=1` 只探到 **4 GiB**，而池需要 **~49 GiB/worker**（`logs/027`）⇒
-> **补跑一次 `LIGHT=0`**（探 1/8/32/64 GiB，约 140 s，宿主峰值 ≈200 GiB，显存仍只 256 MiB）：
-> ```bash
-> A2_CONTAINER=dsv41-a2 A2PROBE_FLOOR_GIB=300 LIGHT=0 bash a2_one_shot_probe.sh
+> **判据全过**：**`1 / 8 / 32 / 64 GiB` 四档注册【全部 True】**，每档都做了**真实 H2D→D2H 逐字节对账**。
 > ```
-> **判读**：`register_64=True` ⇒ 池可整体注册（按 56 GiB/worker 配）；只有 `register_32` ⇒ 分片注册；
-> 只有 `register_8` ⇒ 池子必须 ≤8 GiB/worker。
+> [a2probe] 注册（匿名/普通内存）：1=True 8=True 32=True 64=True
+> [a2probe] 判读：⇒ 候选 β 可行：用 mmap + aclrtHostRegister(MAPPED) 做池子，把 cpu_npu.py 的 pin_memory 换掉
+> ```
+> ⇒ ★ **走 `NPU_OFFLOAD_HOST_MEM=registered`**。池需 **~49 GiB/worker**（`logs/027`）而 **64 GiB 单块可注册**
+> ⇒ **池可整体注册，不必分片**。
+>
+> | 实测项 | 值 |
+> |---|---|
+> | 注册上限 | **≥64 GiB ✅**（1/8/32/64 全过，含往返逐字节） |
+> | `host_mem_pool` | **0** ⇒ 不能靠 `aclrtMallocHost` 撑池（必须 registered） |
+> | H2D 提升 | pageable **5.3** → 注册后 **16–21 GB/s**（3–4×） |
+> | 单次 pinned | **32 GiB ✓**（`logs/012` 那条"(4,8] GiB 上限"**作废**） |
+> | 文件映射注册 | 1 / 8 GiB ✓（生产池**不走**这条，会回写磁盘） |
+> | 64 GiB 注册耗时 | 22.5 s（⇒ 【推断】392 GiB 池首注册 ≈137 s 一次性成本，可接受） |
+>
+> ★ 详见 **[`logs/065`](logs/065-20260922-a2-probe-live.md)**（含三次运行的全过程 + **三个脚本静默失败**的复盘）。
+> ⚠️ **仍有一条要盯的**（起服期，有现成判据）：本探针是**单进程单块**，生产是 **8 worker 各 ~49 GiB**
+> ⇒ **第一次起服时看 `[P1_pinned] CPU pool ... registered dev=... ret=0` 是否 8/8 都出现**，
+> 任一 worker 不是 `ret=0` ⇒ **停下来看，别直接压测**。
 
 <details><summary>原始命令与判读（保留作复跑参考）</summary>
 
