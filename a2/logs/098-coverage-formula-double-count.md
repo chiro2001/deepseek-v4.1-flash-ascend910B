@@ -113,3 +113,35 @@ else:                                     # 页已 present（镜像里有值）
 |---|---|---|
 | "Engram 在取回前缀的历史完全正确" | 用 `090` 的 **0.5%** 量化（`097` 已撤回） | ★ 现在有**唯一、可解释**的两个指标（**可用率 / 修复率**）+ **plan 口径**的 reason 分布 ⇒ 下一次带 `TRUE_TOKENS≥1` 的臂就能给出**可信**的覆盖率 |
 | `mode2` 臂的三条新事实 | — | ★ **`PAGELESS` 仍 8**（⇒ `mode=2` 修不了 `unavailable` 那类，`097 §2` 的预测【实测】成立）；★ `overwrote=3 / mismatch=3`（⇒ **能修的陈旧槽位是 3 个且都被改写**；且 `mismatch` 不是常数，要 per-arm 看）；★ 宿主 `7.130 GiB/rank`（与 `092` 逐字相同） |
+
+---
+
+## 5. ★ 附：final 臂与 fit 臂挂的 `engram_hash.py` **不同**（一个变量），主代理核实**行为等价**
+
+按 `089` 的纪律（"比数前先 diff 对手的**全部**变量"），主代理发现：
+
+| 臂 | 挂的 `engram_hash.py` | 备注 |
+|---|---|---|
+| `r8-4axis-fit`（3/3 那条） | `2c17545865c04d958209839cedc256cf` | 旧版（只含 `_TT_CUM`） |
+| `r8-4axis-final`（正在跑） | ★ `bf56bc134a67349ae4239056918c667d` | 新版（含 `planned/plan_ok/plan_avail`） |
+
+### 5.1 核实过程（可复算）
+
+```
+git -C dsv41-release show HEAD~6:a2/patches/engram-true-tokens/engram_hash.patched.py > /tmp/eh_old.py
+diff /tmp/eh_old.py <新版>  ⇒ 31 行 diff，**新增 18 行，集中在行 42..81**
+```
+逐行看这 18 行的**归属**：
+* `_TT_CUM = {...}`（**模块级 dict 定义**，含新增的三个键 `planned/plan_ok/plan_avail`）—— **定义本身无副作用**；
+* `_engram_true_tokens_note()` 的**函数体**（注释 + 打印格式里多两个 `%.3f`）——
+  ★ 该函数的**唯一调用点**在 `if repair_stats:` 分支内，而 `repair_stats` 只在
+  **`_ENGRAM_TRUE_TOKENS` 为真**时才非 `None`。
+
+### 5.2 结论
+
+> ★ **`VLLM_V41_ENGRAM_TRUE_TOKENS=0` 时**：`_TT_CUM` 被定义但**从不被使用**（无副作用），
+> `_engram_true_tokens_note()` **从不被调用** ⇒ **行为与旧版等价**。
+
+⇒ **`r8-4axis-final` 与 `r8-4axis-fit` 在这个变量上可比**（两臂都是 `TRUE_TOKENS=0`）。
+★ 但仍**如实标注**：这是**推断·强**（基于"调用点不可达"的代码事实），不是"两次跑的字节对比"。
+⇒ 若 final 的结果与 fit **不一致**，第一个要查的就是这个变量（而不是先怀疑别的）。
