@@ -118,6 +118,31 @@
 
 ### 1.4 `0003*`（KV8 读侧 rebuild 融合）—— ★ 只在**发布仓**里有，工作区 `publish/` 没有
 
+### 1.4b ★★ `kv8-int8-pkg/…/model.py`：发布件 md5 **≠** 8 卡实测件 md5（**已机械证明语义等价**）
+
+| 角色 | 文件 | md5 | 依据 |
+|---|---|---|---|
+| **8 卡实测件** | `agents/R_8card_int8/patched/model_merged.py` | **`6a1b78853103e57bacecb571694010a2`** | 档 D 的**全部** 8 卡臂（含 `r8-f1-tierD-graph`、`t-dc2-b-D2`）都挂的它 |
+| **当前发布件** | `publish/kv8-int8-pkg/vllm_ascend/models/deepseek_v41/model.py` | **`c4b70d006a24e4493d07d9822f75aa8b`** | ★ **从未在 8 卡上跑过**（在它上面跑过的是上面那个 md5） |
+
+**差异是什么（机械判据，不是肉眼看 diff）**：`diff` 有 34 行，**全部**落在同两处 ——
+① 一段关于 Engram `DEVICE-INDEX` 默认值的长注释；② `print`/日志的**文案**。
+
+```bash
+python3 a2/scripts/check_semantic_nodiff.py \
+  a2/agents/R_8card_int8/patched/model_merged.py \
+  a2/publish/kv8-int8-pkg/vllm_ascend/models/deepseek_v41/model.py
+# ⇒ 非注释/非字符串 token 数：7196 vs 7196
+# ⇒ ★ 逐 token 相同 ⇒ 两份文件语义零差异（只差注释与字符串字面量）   rc=0
+```
+
+**判据的判别力**（阳性对照）：拿两个真不同的件比 ⇒ 立刻报差异并 `rc=2`（见 §2）。
+
+⇒ **处置：保留 `c4b70d00…` 作为发布件**。理由：差异只在**文案**，而那段文案对 A2 操作者**有用**
+（它解释了"A2 默认关 Engram 算子入图"的判据是驱动侧 `host_mem_pool`）；
+**语义等价已有机械证明**，不属于"新版本没跑过"。
+⇒ ⚠️ **但纪律不变**：**任何再改这两个文件的人，必须重跑上面那条命令并把新 md5 登记到本表**（否则就退化成 §0 那次事故）。
+
 > ⚠️ 这两个件**不在 `scripts/prepare_publish.sh` 的 MAP 里** ⇒ 它们是发布仓里的历史遗留
 > （来自 `logs/026` 的 KV8_fuse 轮）。**当前档 C/D 不用它们** —— `kv8-graphsafe/dsa_v41.py`
 > 已经自带 prefill triton 接线（`grep -c _kv8_prefill_enabled` > 0）。
@@ -142,3 +167,14 @@ bash a2/scripts/check_artifact_identity.sh --strict    # 有任何"未在 PASS �
 它做两件事：
 1. 把 `publish/` 下每个件的**现盘 md5** 打出来（人对着本文核）；
 2. `--strict` 时，**本文 §1 里标 ⛔/⏳ 的件会挡住发布**。
+
+### 2.1 配套：`scripts/check_semantic_nodiff.py`（判"只差注释/文案"）
+
+```bash
+# 语义等价 ⇒ rc=0；有真差异 ⇒ rc=2（打印前 8 处 token 差异）
+python3 a2/scripts/check_semantic_nodiff.py <文件A> <文件B>
+```
+忽略 `COMMENT / NL / NEWLINE / INDENT / DEDENT / ENCODING / ENDMARKER / STRING / FSTRING_MIDDLE`；
+**不忽略** 名字、数字、运算符、关键字与 **f-string 里的表达式**。
+用途：给 §1.4b 那类"发布件 md5 ≠ 实测件 md5，但只差文案"的情形一个**机械判据**。
+★ 判别力已用阳性对照验过（两个真不同的件 ⇒ 报差异 + `rc=2`）。
