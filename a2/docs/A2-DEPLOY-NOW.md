@@ -1,8 +1,27 @@
-# A2 现在的部署选项（2026-09-22 11:2x）
+# A2 现在的部署选项（2026-09-22 13:0x）
 
-> **一句话**：**档 B（现状）与档 C（int8 省 47 GiB 内存）都是"实测可上线"的**；
-> 档 D 与 ②c 还在验。**唯一的阻塞仍然是 A2 本机的那条探测**。
+> **一句话**：**档 B / 档 C / 档 D 都已在 8 卡真权重上实测通过**（档 D 有一条"接受率需另测"的保留意见，见 §3）；
+> **②c 与档 D 的接受率还在验**。**唯一的阻塞仍然是 A2 本机的那条探测**（§0）。
 > 标记：**【实测】/【推断】/【未确认】**。
+
+---
+
+## ★★ 三条命令走完（在 A2 上照抄即可）
+
+```bash
+# ① 池后端探测（不占卡、不加载模型；服务在跑也不用停）—— **唯一的阻塞**
+A2_CONTAINER=dsv41-a2 A2PROBE_FLOOR_GIB=300 LIGHT=1 bash a2/scripts/a2_one_shot_probe.sh
+#    ★ 看 `★ 注册内存的设备往返判据 = True/False`（H2H 通过不算数）
+
+# ② 造 shadow-pkg（在 A2 本机；不依赖任何开发机）
+PKG=<dsv41-release 路径> DST=$HOME/shadow-pkg bash a2/scripts/make_shadow_pkg.sh
+
+# ③ 干跑 → 起服
+DRY=1 SHADOW_PKG=$HOME/shadow-pkg MODEL=<模型目录> bash a2/scripts/serve_a2_offload.sh
+SHADOW_PKG=$HOME/shadow-pkg MODEL=<模型目录> OFFLOAD_GB=56 MAX_LEN=131072 MAX_SEQS=16 \
+  NPU_OFFLOAD_HOST_MEM=registered bash a2/scripts/serve_a2_offload.sh
+```
+★ **这三条已在发布包布局下从 GitHub 全新 clone 验过一遍**（档 B 与档 C 两条路径都走通、发布仓零污染）—— 见 `logs/055` §5.0。
 
 ---
 
