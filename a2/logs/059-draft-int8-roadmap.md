@@ -77,9 +77,42 @@ return True, bound              # ★ 其余（含 spec-decode 的 q_len=6）走
 `[SG-PPR] native_attention capturing=True num_reqs=32 query_rows=192 num_prefills=0 max_query_len=6 ... rows_bound=6`
 —— **q_len=6 的捕获期批确实走上了新分支**。
 
-⚠️ **未确认的部分**：上面是**目标模型**的 trace。**draft 模型自己那次 `kv8_ori_plane` 调用**
-是否也满足 `num_prefills == 0`、以及 draft 的 `metadata.swa` 是否带 `max_query_len` ——
-**必须用真机臂验**，不能只看目标模型的证据。⇒ 已派 `D_draftINT8`（c1）。
+### 2.1 ★★★ 主代理把**分支路由**读完了：**②a 走的路已经被彻底旁路掉**（源码级）
+
+`a2/publish/kv8-graphsafe/dsa_v41.py:1660-1710`（**发布的 `94aeebb7` 那份**）：
+```python
+def kv8_ori_plane(..., rows_bound=None):
+    if rows_bound is not None:
+        # [S_graphfix] Decode-shaped batch (incl. spec decode): hand the host
+        # bound to the plain-torch rebuild.
+        return _kv8_ori_plane_decode(..., rows_bound=rows_bound)   # ★ 纯 torch，无 D2H
+    if query_rows == num_reqs:
+        return _kv8_ori_plane_decode(...)                          # 旧 decode 快路
+    return _kv8_pf_ori(..., max_q_len=query_rows)                  # ★ 唯一会走 Triton 的分支
+```
+`rows_bound` 的来源 `_kv8_graph_rows_bound()`（`:500-505`）：
+```python
+if not _kv8_graph_safe_enabled(): return False, None      # 开关关 ⇒ legacy
+bound = min(max_query_len or query_rows, query_rows); bound = max(1, bound)
+if num_prefills > 0 and not _sg_is_capturing():
+    return False, None                                    # ★ 只有真·eager prefill 才回 legacy
+return True, bound                                        # ★ 其余（含 spec-decode q_len=6）走 decode 路
+```
+⇒ **三条推理**：
+1. **主路径**：draft 的 `num_prefills` 在 decode 步必然是 **0** ⇒ 落 `return True, bound`
+   ⇒ `rows_bound is not None` ⇒ **纯 torch 的 decode 重建**，`_kv8_pf_ori`（Triton prefill kernel）**不会被调用**；
+2. ★ **即使 `num_prefills` 恰好 > 0**（如捕获期 dummy 批），**`_sg_is_capturing()` 为 True**
+   ⇒ 条件 `num_prefills > 0 and not capturing` **仍为 False** ⇒ **照样走 decode 路**；
+3. **捕获期实测**（`053`，单 die）：`capturing=True ... num_prefills=0 max_query_len=6 rows_bound=6`
+   —— **q_len=6 的批确实走上了新分支**。
+⇒ ★★ **`050` 那句「图捕获期必炸」是 `048` 时代（`GRAPH_SAFE` 还不存在）的结论，现已不适用。**
+⇒ **②a 的风险等级从「可能被挡」下调为「大概率直接能跑」**（【推断·强】）。
+
+⚠️ **仍必须真机验的两条**（推理替代不了实测 —— 本项目已栽过 `038`/`043`/`046` 几次）：
+- ★ draft 面的 `metadata.swa` **有没有 `max_query_len`**（没有 ⇒ `bound` 退成 `query_rows=192`，
+  仍走新路但**上界偏大**：多占 scratch，**不影响正确性**）；
+- ★ **反例臂**：`GRAPH_SAFE=0` 时**必须响亮地炸**（否则说明这条路没被走到，**判据无判别力**）。
+⇒ 已派 `D_draftINT8`（c1）做真机臂。
 
 ---
 
