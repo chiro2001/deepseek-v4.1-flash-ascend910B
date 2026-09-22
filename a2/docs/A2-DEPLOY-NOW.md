@@ -52,7 +52,13 @@ bash a2/scripts/serve_a2_offload.sh
 
 ---
 
-## 2. ★★ 档 C —— int8 省 47 GiB 内存（**已实测可上线**，比档 B 多省 24% 内存）
+## 2. ★★ 档 C —— int8 省 47 GiB 内存（**8 卡实测通过；★ 新 md5 上待一条复跑**）
+
+> ⚠️ **上线前必读（2026-09-22 12:0x）**：下面这些实测是在 **md5 `1cc9e992…`** 上得到的；
+> 而当前发布件是 **`94aeebb7…`**，它除了修档 D 的 segfault 之外，**还改了 `_kv8_graph_rows_bound`
+> —— 那正是档 C 走的窗口面**。⇒ **档 C 在 `94aeebb7…` 上还需要 `sg-c-c-graph-b` 一条复跑**
+> （判据 = `EE1016=0` + `replay1 sha` 与 eager 逐字相同）。复跑通过前，**档 C 按"待复跑"对待**。
+> 详见 `patches/kv8-graphsafe/README.md` §3.0「每条实测对应哪个 md5」。
 
 ```bash
 # 在档 B 之上：
