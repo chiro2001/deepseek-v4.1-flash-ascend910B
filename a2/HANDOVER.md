@@ -9,6 +9,41 @@
 
 ## 0. 一句话现状
 
+> ## ★★★★★ 2026-09-22 17:5x **Phase 1 通过：DRAM 卸载 × draft 入图 = 兼容**（全仓第一次真同开）
+>
+> 子代理 `a3_p1_offload_draftgraph`，A3 8 卡（Phy-ID 8-15），**主代理已逐条独立核实**。
+>
+> **① draft 真的进图了**（对称反例臂 —— 这条判据有判别力）：
+> ```
+>                                   P1-A (dg0)   P1-B (dg1)
+> ★ Wrapping draft model with ACLGraphWrapper    0     →     8     （= 8 rank，逐个）
+> ★ runtime_mode=FULL                            0     →     8
+>   DRAFT-GUARD: dspark_proposer.py 含图捕获实现   0     →     1（命中 2 处）
+>   DRAFT-GUARD: 容器内 DSPARK_GRAPH_CAPTURE_METADATA  0  →     1
+> ```
+> ★ 用的是 **shadow-pkg 自带的 draft 三文件**（`5565afed…`），不是 tiny 包 ——
+> 所以 **8 卡链的 `DRAFT_GRAPH=1` 是真的 draft 入图**（与 tiny 包不同，见下面的回撤小节）。
+>
+> **② 卸载判据两臂逐字相同 ⇒ draft 入图对卸载零扰动**（主代理独立复读）：
+> ```
+> CPU→GPU     21,519,269,888  ==  21,519,269,888
+> GPU→CPU    158,559,371,264  == 158,559,371,264
+> hits           901,120      ==    901,120
+> BlockStored:CPU 29,436      ==     29,436      BlockRemoved:CPU = 0（两臂）
+> 宿主池       197.21 GiB     ==  197.21 GiB     GPU KV = 427,643（两臂）
+> ```
+> ★ 这些数与 `logs/022` / `048` 的历史臂**逐字相同** ⇒ 基线干净可比。
+> ⇒ ★★ **"DMA 完成 vs 图重放读 KV 的时序"这个核心风险 = 未发生。**
+>
+> **③ 性能（已从 wall 扣掉 prefill，看纯 decode）**：
+> ```
+> fill   decode_only  47.96s → 45.62s   −4.88%      Σttft 对照差 −0.03%
+> replay decode_only  16.79s → 15.07s   ★ −10.24%   Σttft 对照差 −0.53%
+> ```
+> ⚠️ **诚实边界：每臂各 1 个样本**（Σttft 两臂差 0.03%/0.53% 说明环境可比，但收益待复跑）。
+> **④ 稳态 A 健康**：dg1 = 3.39 / 3.03 / 3.41（远高于 1.0 的静默失效指纹）。
+> **⑤ 未覆盖**：`concurrency>1`（本轮 `concurrency=1`，P0-C 的 conc≥16 坏状态未触及）、未加 int8（那是 Phase 3）。
+
 > ★★★ **2026-09-22 16:00 最新（本轮最大的一条）**：**档 D + ②c 读到 `777,318` tokens**
 > —— 与 `050`/`051` 的预测**逐字命中**，= **×1.8177 vs 档 B（427,643）**。
 > `R8_SLOT_TRACE` 同时给出机制实测：`slot0–2 capacity = max(33280+8320, 66560, 65536) = 66560`（= `aliases_max` binding）、

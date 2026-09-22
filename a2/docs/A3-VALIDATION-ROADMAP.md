@@ -93,6 +93,29 @@ quant_model_weights.safetensors.index.json OK
 
 ### Phase 1 —— ★★ 卸载 × `DRAFT_GRAPH=1`（A3 8 卡，**最大的未知**）
 
+> ## ✅ **2026-09-22 17:5x 已完成 —— 通过**（子代理 `a3_p1_offload_draftgraph`；主代理逐条独立核实）
+>
+> | 判据 | P1-A（`dg0`） | **P1-B（`dg1`）** |
+> |---|---|---|
+> | ★ `Wrapping draft model with ACLGraphWrapper` | **0** | **8**（= 8 rank 逐个） |
+> | ★ `runtime_mode=FULL` | 0 | **8** |
+> | `DRAFT-GUARD: dspark_proposer.py 含图捕获实现` | 0 | **1**（命中 2 处） |
+> | `DRAFT-GUARD: 容器内 DSPARK_GRAPH_CAPTURE_METADATA` | 0 | **1** |
+> | `CPU→GPU` | 21,519,269,888 | **21,519,269,888**（逐字相同） |
+> | `GPU→CPU` | 158,559,371,264 | **158,559,371,264** |
+> | `hits` | 901,120 | **901,120** |
+> | `BlockStored:CPU` / `BlockRemoved:CPU` | 29,436 / **0** | 29,436 / **0** |
+> | 宿主池 / `GPU KV cache size` | 197.21 GiB / 427,643 | **197.21 GiB / 427,643** |
+> | ★ decode 纯耗时（扣掉 prefill） | fill 47.96s / replay 16.79s | ★ **fill 45.62s（−4.88%）/ replay 15.07s（−10.24%）** |
+> | 稳态 A | 3.26 / 3.33 / 4.33 | 3.39 / 3.03 / 3.41 |
+>
+> ⇒ ★★ **两个轴兼容；卸载判据零扰动；decode 有正收益**。
+> ⇒ ★★ **"DMA 完成 vs 图重放读 KV 的时序"这个核心风险 = 未发生。**
+> ★ P1-A 的 `0` 就是反例臂 ⇒ 判据有判别力（不是"看不见所以全 0"）。
+> ⚠️ **每臂各 1 个样本**；`Σttft` 两臂差 0.03%/0.53% 说明环境可比，但 −4.88% / −10.24% 待复跑。
+> ⚠️ **未覆盖**：`concurrency>1`、未加 int8。
+> ★ 用的是 **shadow-pkg 自带的 draft 三文件**（`5565afed…`）⇒ **不是** tiny 包那种"stock dspark"。
+
 **为什么是第一优先**：这两个轴**从未同开**（全仓 18 条 8 卡臂全是 `DRAFT_GRAPH=0`），
 而 A2 生产**正是 `DRAFT_GRAPH=1`**。
 
