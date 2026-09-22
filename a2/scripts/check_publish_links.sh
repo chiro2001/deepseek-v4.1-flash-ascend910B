@@ -28,7 +28,10 @@ IDX=$REL/a2/logs/README.md
 
 echo "[links] 检查发布仓：$REL/a2/logs/"
 
-REFS=$(grep -oE '\]\([0-9]{3}-[a-z0-9-]+\.md\)' "$IDX" | sed 's/](\(.*\))/\1/' | sort -u)
+# ★★ 2026-09-22 19:1x **补字母后缀**：编号不止 3 位数字，还有 `066b`/`066c`/`066d`/`043b`
+#   第一版用 `[0-9]{3}-` ⇒ **看不到 `066b-*.md` 这类链接** ⇒ 那三条死链被**漏报**了
+#   （同一时刻 `prepare_publish.sh` 的改名正则也漏了同一个后缀 —— 两处同源，必须同时改）。
+REFS=$(grep -oE '\]\([0-9]{3}[a-z]?-[a-z0-9-]+\.md\)' "$IDX" | sed 's/](\(.*\))/\1/' | sort -u)
 total=0; miss=0
 while IFS= read -r r; do
   [ -z "$r" ] && continue
