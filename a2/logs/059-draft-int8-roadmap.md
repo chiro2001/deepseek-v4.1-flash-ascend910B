@@ -83,7 +83,59 @@ return True, bound              # ★ 其余（含 spec-decode 的 q_len=6）走
 
 ---
 
-## 3. ① 改动面（`050` 给的 3 处，待 `D_draftINT8` 核源码）
+## 3. 改动面 —— ★★ 主代理逐行核了源码：**大概率是 2 处，不是 3 处**
+
+（下面是 2026-09-22 13:5x 主代理对 `a2/agents/KV8_swa/shadow/vllm_ascend/core/` 的逐行核对，
+该 shadow 就是**档 C 已经在用的那一份**。）
+
+### 3.1 必须改的两处
+| # | 位置 | 动作 | 依据 |
+|---|---|---|---|
+| 1 | `deepseek_v41.py::DeepseekV41DraftSWASpec.__post_init__`（`:106-112`） | **放行 int8 + scale** | 现在硬卡 `dtype != bfloat16 ⇒ raise "Aurora DSpark requires one uncompressed BF16 KV plane"`。★ 紧邻的 `DeepseekV41SWASpec.__post_init__`（`:92-97`）**已给出 int8 的校验模板**，照写即可 |
+| 2 | `dspark.py::DeepseekV41DSparkSWACache.get_kv_cache_spec` | 传 `dtype=int8, scale_dim=4, scale_dtype=fp16` | 见 3.2 —— 页大小公式**已经通用化** |
+
+### 3.2 ★★ `kv_cache_interface.py` **不用改**（`050` 归的第 3 处其实早已就位）
+`KV8_swa/shadow/.../kv_cache_interface.py:178-196`：
+```python
+class AscendSlidingWindowMLASpec(SlidingWindowMLASpec):
+    # KV8: an INT8 SWA plane carries its per-group dequant scales inside the
+    # same page, exactly like ``AscendMLAAttentionSpec`` does for the shared
+    # long-KV plane and like the indexer already does for its key cache.
+    scale_dim: int = 0
+    scale_dtype: torch.dtype = torch.int8
+
+    @property
+    def real_page_size_bytes(self) -> int:
+        return self.storage_block_size * self.num_kv_heads * (
+            self.head_size * get_dtype_size(self.dtype)
+            + self.scale_dim * get_dtype_size(self.scale_dtype))
+```
+⇒ 代进 draft：`128 × 1 × (512×1 + 4×2) = 66,560 B` —— **与 `050` 的算术逐字吻合**
+⇒ **这正是任务书里"存储侧复用 `AscendMLAAttentionSpec` 的 `scale_dim` 机制"那句话的落点**。
+
+### 3.3 ★★ `plan_cache_slots` 的 draft 检查 —— 源码级确认**会通过**（余量恰好为 0）
+`KV8_swa/shadow/.../deepseek_v41.py:240-248`：
+```python
+if (draft_spec.block_size != swa_spec.block_size          # 128 == 128 ✅
+    or draft_spec.head_size != swa_spec.head_size          # 512 == 512 ✅
+    or draft_spec.sliding_window != swa_spec.sliding_window # 128 == 128 ✅
+    or sum(_cache_plane_sizes(draft_spec)) > capacity):     # 66,560 <= 66,560 ✅（**恰好相等**）
+    raise ValueError("Aurora DSpark geometry must match target SWA and fit its existing slot")
+```
+⇒ 四个条件全过，**第 4 条的余量恰好为 0** —— 这是 `050 §1.2` 那句
+"②a 的 draft 页 66,560 与 ②c 的 65,536 **都顶不过/顶平 `swa=66,560`**"的**源码级确认**。
+
+⚠️ **仍是【推断】**：以上是读源码得出的；**必须真机确认它真的不 raise**（若 raise，把报错原文贴回来）。
+⇒ 仍要按 `051 §3` 做**三臂对称自检**（`upstream` / `draftaware` / `patched`）——
+只有那样才能证明"没改别的地方也刚好能跑"，而不是"我改对了"。
+
+### 3.4 两档都要试
+`KV8_swa` 那份是**档 C 的 shadow**；tier D 要用 `pkg-kv8pf`（带 long-KV int8）。
+★ **②a 在档 C 上也有收益**（626,488 = **×1.4650**）⇒ 别只做 D。
+
+---
+
+## 3bis （原 `050` 给的 3 处，保留以便对照）
 
 | # | 位置 | 动作 |
 |---|---|---|

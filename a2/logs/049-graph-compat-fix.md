@@ -533,7 +533,16 @@ python3 scripts/summarize_sg.py
 
 * §3 的 (b)/(c) 在跑决策臂之前是**【未确认】**（torch 层已实测是响亮失败，算子层未测）。
   ★ 已更新：§3.2 给出**源码级**答案 **(c)**；运行期确认见 §5.5。
-* 档 C/D 的 8 卡图模式结论见 §5（本文件在臂跑完后回填；未回填的一律视为【未确认】）。
+* **已完成**：档 C 图模式（两个 md5）、档 D 图模式（含与 eager 逐字节）、档 D 同几何 A/B、
+  离线自检（穷举+阳性对照）、算子层越界行为的源码级证据、发布门。
+* **【未完成】**（截至本文件落盘，链仍在跑）：
+  * `sg-c-c-eager`（判据⑦ 反例臂：档 C + eager + **补丁关**）；
+  * `sg-c-c-eager-on`（判据⑥ 直接对照：档 C + eager + **补丁开**）；
+  * `sg-c-c-cold`（判据⑤ 的**冷算参考**：池 1 MiB）。
+  ⇒ 这三格**一律标【未完成】**，不得写成通过；判据⑥ 的"prefill 输出与延迟不变"目前只有
+  **§2/§4 的机制性论证 + 旧支逐字未动**（A 段逐比特 + D 段路由），**没有**本轮的真机 eager 对照读数。
+* 档 D 的**接受率**（用户关心的"保投机"）在本轮几何下**样本不足**（§5.4.1），
+  需另一条同几何 + `max_tokens≥64` 的基线（`T_draftceiling` ②c）才能下结论。
 * `SG_TRACE_PPR` 的 `capturing=` 标签来自 `torch.npu.is_current_stream_capturing()`（host 查询、无同步）；
   若该 API 在该 CANN 版本不可用，探针会静默降级为 `capturing=None`（不影响修复本身）。
 
@@ -590,6 +599,9 @@ cmp 图安全分支 = 旧件 904..960；窗口面上界分支 = 旧件 547..567
 —— 但**发布口径仍必须按 md5 走机械门**（§8.3），所以 `sg-c-c-graph-b` 是**必要判据**，不是可选项。
 
 ### 8.3 ★★ 发布门（机械）：`scripts/check_publish_md5.py`
+
+★ 该门的**完整输出**（含二维台账）已落盘：`raw/049-publish-gate.txt`
+（31 行 / md5 `cecf5bcab60b8a1926b3b89c1590da24`）。
 
 把"发布件必须是某条 PASS 臂挂过的 md5"变成一条命令（读 `arm.out` 台账 + `rc` + 引擎日志，
 检出 `capture failed / EE1016 / Segfault / Engine core initialization failed / Worker proc died /
