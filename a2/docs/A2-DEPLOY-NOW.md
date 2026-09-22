@@ -1,5 +1,28 @@
 # A2 现在的部署选项（2026-09-22 15:3x）
 
+# ⛔⛔ **第 6 条窗口前必读（2026-09-22 21:1x 新增）：`ENGRAM` 是硬约束，不能靠"关掉它"换稳定**
+#
+# > 用户原话：「**我必须要开 ENGRAM**，否则模型能力下降严重并不可接受。」
+#
+# ⇒ 本文件里任何"为了先跑通而设 `ENGRAM=0`"的写法**只能用于排查**，**不能当上线方案**。
+#   三条路现在**全部**是 `ENGRAM=1`：
+#
+# | 路 | 配置（都带 `ENGRAM=1` + `DRAFT_GRAPH=1` + `ENGRAM_DEVICE_INDEX=0`） | 担保级别 |
+# |---|---|---|
+# | 路 1 | 档 B，**不开卸载**（= A2 生产现状） | ★★★【实测】现状可用（Vision 23/23、GSM8K 198/200） |
+# | 路 2 | 档 B + **卸载**，依赖本轮修复 | ★★☆ **待 A3 端到端验证**（见下） |
+# | 路 3 | 档 C（`KV8_SWA=1 KV8_RING_FP16=1`）+ 卸载 | ★☆☆ 最激进（`ENGRAM × int8` **从未同开过**） |
+#
+# ★★ **路 2 的前置修复已落地**（`patches/files/{engram_hash.py,engram_jit_kernel.py}`，commit `21e7d99`）：
+#   把 Engram page 镜像的「缺页」从 `raise KeyError` 改成**与「槽位 = -1」同义的 barrier**
+#   （该行该 shift 起保持 `pad_id`、**哈希照常计算**），并加计数器 `pageless_history_rows`。
+#   机制与代价见 [`logs/075`](../logs/075-20260922-engram-pageless-fix.md)：
+#   **这是有界降级**（每个"取回边界"最多 `1+(lookback-1)=4` 个位置的 Engram 历史退化成 pad），
+#   **不是零精度损失**；零损失版（把边界前几个 token 的真实 id 从 runner 侧送进 `update()`）
+#   正在单独设计（`docs/ENGRAM-OFFLOAD-EXACT-FIX.md`）。
+#   ★ **上车前提**：A3 上同形态臂 replay `failed=0` + `KeyError=0` + `ENGRAM-PAGELESS` 计数 > 0。
+#   ★ 起服不需要额外开关；要恢复旧的致命行为（fail-closed 体检）用 `V41_ENGRAM_PAGELESS_STRICT=1`。
+
 # ⛔ **第 5 条窗口前必读（2026-09-22 20:5x 新增，已修）：交付脚本曾把「档 B 起服」静默跑成「没有卸载」**
 #
 # `a2/scripts/serve_a2_offload.sh` 里 `if [ 开了 int8 ] ... fi` 的 `fi` 落错位置，把
