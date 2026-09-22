@@ -289,6 +289,24 @@ if [ "$KV8_SWA" = "1" ] || [ "$KV8_FULL" = "1" ] || [ "$KV8_RING_FP16" = "1" ]; 
         echo "   （或去掉 KV8_* 只跑档 B）" >&2
         exit 2
     fi
+fi
+#
+# ★★★ 2026-09-22 20:5x —— **修掉一个我自己引入的 P0 静默降级（本日第 7 次同类）**
+#
+#   现象【实测·本机 DRY=1 对照，唯一变量 = 有没有 KV8_*】：
+#     * 档 C（`KV8_SWA=1 KV8_RING_FP16=1`）⇒ `[a2-dry] MOUNTS(24)`，4 个卸载补丁都在；
+#     * 档 B（不带 KV8_*）            ⇒ `[a2-dry] MOUNTS(2)`，**4 个卸载补丁一个都没挂**。
+#   静态定位：上面那个 `if [ int8 ]; then` 的 `fi` 原本落在**本段末尾**，把
+#     「shadow 存在性检查 + 拷补丁 + `export OFFLOAD_*_PATCH=1` + `export P2_*`」
+#     **整段吞进了 int8 分支** ⇒ 只要不开 int8，这些 export 一条都不执行：
+#       - `OFFLOAD_SCHED_PATCH` / `OFFLOAD_NPU_WORKER_PATCH` 不导出 ⇒ 影子包按 `:-0` 读
+#         ⇒ **卸载调度器与 registered 池补丁都不挂** ⇒ 起服能成、但**没有 DRAM 卸载**；
+#       - `P2_POOL_PATCH` / `P2_COMP_JSON` 不导出 ⇒ 影子包按 `P2_POOL_PATCH=0` 读
+#         ⇒ **L1（池张量按需分配行数）失效** ⇒ 宿主实占回到 ≈392 GiB（档 B 应为 ≈197 GiB）。
+#   为什么危险：两条都不会报错，服务照常 READY —— 正是本项目一直在防的"静默降级"。
+#   ⇒ 现在：① shadow 存在性/拷补丁/公共 export **移出** int8 分支（只有 `A2_*` 名字在里面）；
+#           ② 起服前把这两个补丁开关**断言成 1**（拿不到就 exit 2，宁可响亮失败）；
+#           ③ DRY=1 时**断言真实 MOUNTS 里必须出现那 4 个卸载补丁文件**（本 bug 的回归门）。
 
 if [ ! -d "$SHADOW" ]; then
     echo "⚠ 找不到 shadow-pkg（$SHADOW）—— 请设 SHADOW_PKG=<路径>" >&2
@@ -315,12 +333,24 @@ case "$P2_POOL_PATCH" in
 esac
 export PGP_MGR_HARDEN PGP_MGR_STATS
 
+# ★ 起服前断言：这两个开关必须真的是 1（上面那段曾被 int8 分支吞掉过 ⇒ 加硬门）
+for _req in OFFLOAD_SCHED_PATCH OFFLOAD_NPU_WORKER_PATCH; do
+    if [ "${!_req:-0}" != "1" ]; then
+        echo "⛔ ${_req}='${!_req:-<unset>}' —— 卸载补丁不会挂进容器。" >&2
+        echo "   这会让服务**照常起来但完全没有 DRAM 卸载**（静默降级）。" >&2
+        echo "   ⇒ 拒绝起服。请检查本脚本的 export 段是否被条件分支吞掉。" >&2
+        exit 2
+    fi
+done
+
 # ★★ 名字对齐（**这是一个静默 no-op 的坑**，见 logs/055 §7）：
 #   `VLLM_V41_*` 只在**容器内**有意义；宿主上导出它们**一个字节都到不了容器**
 #   （容器环境由 shadow-pkg 的 inner.sh 建立）。
 #   所以这里导出的是 **shadow 认的那套宿主名 `A2_*`**，由 inner.sh 在**容器内**转成 `VLLM_V41_*`。
 #   ⇒ 若哪天 shadow 换了一套名字，这里就会**静默退回档 B**（跑得起来、但没有 int8 效果）。
 #     为此下面加了一道**起服前**的自检门（拒绝静默失效），起服后还有一条**回读校验**（见脚本末尾的自检清单）。
+#   ★ 注意：这一块**只在开了 int8 时**才导出（A2_* 名字对档 B 没有意义）。
+if [ "$KV8_SWA" = "1" ] || [ "$KV8_FULL" = "1" ] || [ "$KV8_RING_FP16" = "1" ]; then
 export A2_KV8_SWA="$KV8_SWA" \
        A2_RING_FP16="$KV8_RING_FP16" \
        A2_KV8="$KV8_FULL" \
@@ -366,10 +396,27 @@ if [ "$DRY" = "1" ]; then
     echo "[DRY] ↓↓↓ 转调 shadow-pkg 的 DRY_RUN（这一步会打印**真实 MOUNTS**）↓↓↓"
     #   ★ 必须用 **$SHADOW** 自己的 scripts/ —— 不能用 $REPO（那是**本脚本所在仓**，
     #     与 shadow 不是同一个目录；2026-09-22 实测在这里踩过 rc=127）。
-    ( cd "$SHADOW" && DRY_RUN=1 MODEL="$MODEL" IMAGE="$IMAGE" GPU_UTIL="$GPU_UTIL" PORT="$PORT" \
+    #   ★★★ 2026-09-22 20:5x：把子进程输出**收进变量**，除了打印，还要**断言挂载清单**。
+    #     起因：档 B 下 4 个卸载补丁**一个都没挂**而 dry-run 照样 rc=0 打印 "OK"（见上方 P0 注释）。
+    #     判据就是 MOUNTS 里那 4 个绝对路径 —— 缺任一 ⇒ 拒绝（这是本 bug 的回归门）。
+    _dry_out=$( cd "$SHADOW" && DRY_RUN=1 MODEL="$MODEL" IMAGE="$IMAGE" GPU_UTIL="$GPU_UTIL" PORT="$PORT" \
         SERVED_NAME="$SERVED_NAME" MAX_LEN="$MAX_LEN" MAX_SEQS="$MAX_SEQS" \
         BAT_TOKENS="$BAT_TOKENS" KV_ARGS_EXTRA="$KV_ARGS" \
-        bash scripts/serve_a2.sh ) || { echo "⛔ shadow 的 DRY_RUN 失败（rc=$?）—— 上面就是原因" >&2; exit 2; }
+        bash scripts/serve_a2.sh 2>&1 )
+    _dry_rc=$?
+    printf '%s\n' "$_dry_out"
+    [ "$_dry_rc" = "0" ] || { echo "⛔ shadow 的 DRY_RUN 失败（rc=$_dry_rc）—— 上面就是原因" >&2; exit 2; }
+    _miss=0
+    for _f in 0001-offload-scheduler.patch.py 0001b-offload-per-group-bpc-manager.patch.py \
+              0001c-offload-per-group-bpc-hooks.patch.py 0002-offload-cpu-pool-host-registered.patch.py; do
+        printf '%s\n' "$_dry_out" | grep -q -- "$_f" || { echo "⛔ MOUNTS 里缺卸载补丁：$_f" >&2; _miss=1; }
+    done
+    if [ "$_miss" != "0" ]; then
+        echo "   ⇒ 起服会**跑起来但没有 DRAM 卸载**（静默降级）⇒ 拒绝放行。" >&2
+        echo "     查：本脚本的 export 段是否被条件分支吞掉；或影子包是否认 OFFLOAD_SCHED_PATCH。" >&2
+        exit 2
+    fi
+    echo "[DRY] ✓ 4 个卸载补丁都在真实 MOUNTS 里（$([ "$KV8_SWA$KV8_FULL$KV8_RING_FP16" = "000" ] && echo '档 B' || echo '档 C/D')）"
     echo "[DRY] ↑↑↑ 以上是真实挂载清单 ↑↑↑"
     exit 0
 fi
