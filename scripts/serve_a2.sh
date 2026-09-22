@@ -34,7 +34,14 @@ HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PKG="$(cd "$HERE/.." && pwd)"
 
 MODEL=${MODEL:-}
-IMAGE=${IMAGE:-dsv41-a2:v8}
+# ★★★ 2026-09-22 21:4x：默认镜像升到 **v9** —— v9 起烘焙了 ENGRAM×卸载 的 P0 修复
+#   （`patches/files/{engram_hash.py,engram_jit_kernel.py}`：镜像缺页从 `KeyError`
+#    降级为 barrier，见 `a2/logs/075`）。
+#   ⇒ 若沿用 v8（不含修复），`ENGRAM=1 + 卸载` 会在 replay 轮 `KeyError(2486)` 引擎死。
+#   ★ 这条"默认值必须跟着修复走"的纪律，正是本日反复出现的失败模式（`065` §3/`074`：
+#     开关/文件送不到 = 静默降级）。`a2/scripts/serve_a2_offload.sh` 里还有一道
+#     **起服前指纹门**会在 5 秒内把"镜像里没有修复"这件事抓出来并拒绝起服。
+IMAGE=${IMAGE:-dsv41-a2:v9}
 NAME=${NAME:-dsv41-a2}
 PORT=${PORT:-8100}
 # [SERVED_NAME] `--served-model-name`（API 请求 body 里的 `"model"` 字段）。

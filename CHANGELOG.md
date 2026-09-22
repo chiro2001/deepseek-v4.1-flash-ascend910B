@@ -1,5 +1,51 @@
 # CHANGELOG.md —— v3 → v4 → v5 → v6 → v7 → v8 逐项 diff
 
+# ★★ v9（2026-09-22 21:4x）—— **`ENGRAM=1` × DRAM 卸载 的 P0 修复**（A2 上线的硬前提）
+
+> ## 为什么必须升到 v9
+>
+> `ENGRAM=1` + 卸载 时，**只要发生一次前缀取回，replay 轮引擎就死**（`a2/logs/073`）：
+> ```
+> KeyError: 2486 @ models/deepseek_v41/engram_hash.py:463  _engram_update_jit
+> ⇒ 8/8 rank 同值 ⇒ 异常从 forward 逃逸 ⇒ device-metadata 标志永久置位 ⇒ EngineDeadError
+> ```
+> 根因（`a2/logs/075`）：Engram 的 page 镜像（`pages/page_present`）**只由"流经
+> `update()` 的 token"写入**；被卸载池**取回**的前缀块从未流经 `update()` ⇒ 命中边界
+> （block 对齐：`num_computed_tokens=56320 = 32×1760`）上第一个续算 token 需要的
+> lookback 前 1–3 个位置**必然**落在已取回的旧块里 ⇒ 缺页 ⇒ 老代码 `raise KeyError`。
+>
+> ## 改了什么（只有两个文件）
+>
+> | 文件 | 改动 |
+> |---|---|
+> | `vllm_ascend/models/deepseek_v41/engram_jit_kernel.py` | 缺页**不再中止本批**：该行按 `-1` barrier 取 `pad_id` 历史；★ **哈希照常算**（老代码用 `err_page` 当算哈希的开关 ⇒ 一个缺页会让**整批**没有哈希）；新增第 4 个返回值 `miss_rows` |
+> | `vllm_ascend/models/deepseek_v41/engram_hash.py` | `miss_rows>0` ⇒ 累加 `pageless_history_rows` + **一次性**打印 `[ENGRAM-PAGELESS]`；**非 JIT（torch）路径同样修**（新增 `_mirror_row()`：缺页补一行全 `-1` 的 barrier 行）；`V41_ENGRAM_PAGELESS_STRICT=1` 可恢复旧的致命行为 |
+>
+> md5：`engram_hash.py` `3a842bbb…` → **`240c5a04…`**；`engram_jit_kernel.py` `1add256a…` → **`6668d3fe…`**
+> （同步更新 `patches/MD5SUMS` 与 `patches/vllm-ascend/MD5SUMS`）。
+>
+> ## 代价（诚实标注）
+>
+> ★ 这是**有界降级**，不是零精度损失：每个"取回边界"最多 `1+(lookback-1)=4` 个 token
+> 位置的 Engram 历史退化成 `pad`（= "序列从此处开始"的语义）。零损失版（把边界前 1–3 个
+> token 的**真实 id** 从 runner 侧送进 `update()`）在单独设计中。**A3 端到端验证【未完成】**：
+> 判据 = 同形态臂 replay `failed=0` + `KeyError=0` + `ENGRAM-PAGELESS` 计数 > 0。
+>
+> ## 怎么用（A2）
+>
+> ```bash
+> cd ~/projects/dsv41-a2-repro-kv8-offloading/deepseek-v4.1-flash-ascend910B
+> git pull --ff-only
+> bash a2/scripts/check_image_fingerprint.sh dsv41-a2:v8   # 10 秒：确认 v8 缺哪些文件（只读、不拉镜像）
+> IMAGE_TAG=dsv41-a2:v9 bash scripts/build_image.sh        # 约 3–6 分钟（基础镜像已在本地）
+> IMAGE=dsv41-a2:v9 bash a2/scripts/serve_a2_offload.sh    # 起服（起服前有指纹门）
+> ```
+> ★ `scripts/serve_a2.sh` 的 `IMAGE` 默认值已同步升到 **`dsv41-a2:v9`**；
+> ★ `a2/scripts/serve_a2_offload.sh` 新增**起服前指纹门**：`ENGRAM=1` 时会比对
+> host 侧权威副本与镜像内实际那份的 md5，不一致就 **exit 2**（5 秒），
+> 避免"照常起服、30 分钟后 replay 才炸"。
+> ★ 新增 `a2/scripts/check_image_fingerprint.sh`：10 秒回答"这个镜像与当前发布包差哪些文件"。
+
 # ★ v8.1（2026-09-21）—— codex / OpenAI Responses API 兼容：**一键使能**
 
 > 本包此前**不能**被 codex 直接连。原因不在 vLLM 的 Responses 端点（它在、也通），

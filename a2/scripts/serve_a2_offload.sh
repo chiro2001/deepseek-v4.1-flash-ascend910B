@@ -367,6 +367,69 @@ fi
 KV_ARGS="--prefix-match-unit $PREFIX_MATCH_UNIT \
 --kv-transfer-config {\"kv_connector\":\"OffloadingConnector\",\"kv_role\":\"kv_both\",\"kv_connector_extra_config\":{\"cpu_bytes_to_use\":$((OFFLOAD_GB * 1073741824)),\"blocks_per_chunk\":$BLOCKS_PER_CHUNK,\"spec_name\":\"NPUOffloadingSpec\",\"spec_module_path\":\"vllm_ascend.distributed.kv_transfer.kv_pool.kv_offload.native.npu\"}}"
 
+# ---------------------------------------------------------------- ★★★ 起服前指纹门（2026-09-22 21:2x）
+# 为什么必须有这道门：`ENGRAM=1` + 卸载的那条 P0（镜像缺页 ⇒ KeyError ⇒ 引擎死，`logs/073`）
+# 的修复是**改在 `patches/files/engram_hash.py` + `engram_jit_kernel.py`** 上的。而 A2 默认
+# `PATCH_MODE=baked` ⇒ 容器里读的是**镜像里烘焙的那份**。⇒ 若镜像还是旧的（`dsv41-a2:v8`），
+# **修复一个字节都到不了容器**，而症状要等 30 分钟起服 + 一轮 replay 压测才出现
+# （= 又一个静默降级）。所以这里在起服前 5 秒把两件事对齐：
+#     host 侧权威副本（$SHADOW/patches/files/*.py） vs 镜像里实际那份
+# 不一致 ⇒ **拒绝起服**（宁可响亮失败，也不要白等 30 分钟）。
+_pf_check() {
+    local _f="$1" _cp="$2"
+    local _want _tgt
+    _want=$(md5sum "$_f" 2>/dev/null | cut -d' ' -f1)
+    if [ -z "$_want" ]; then
+        echo "⚠ 指纹门：找不到 $_f —— 跳过这一项（无法核对镜像里的 $_cp）" >&2
+        return 0
+    fi
+    # ★ 先确认镜像**本地存在**：否则 `docker run` 会去 registry **拉取**（A2 上可能挂几分钟，
+    #   甚至真的把几十 GB 拉下来）。这一步只读本地镜像表，零网络。
+    if ! docker image inspect "$IMAGE" >/dev/null 2>&1; then
+        echo "" >&2
+        echo "⛔⛔⛔ 指纹门不通过：**本地没有镜像 $IMAGE**" >&2
+        echo "   ⇒ 它要么还没 build，要么名字写错了。请先：" >&2
+        echo "       IMAGE_TAG=dsv41-a2:v9 bash scripts/build_image.sh" >&2
+        echo "     然后用同样的 IMAGE 起服（见 a2/logs/075）。" >&2
+        exit 2
+    fi
+    # ★ 注意：下面只用 **单个 -c**，且 md5sum 的路径是镜像内绝对路径；
+    #   `docker run --rm --entrypoint md5sum <img> <path>` 在路径不存在时**非零退出**，
+    #   这里靠空值区分"读不到"与"值不同"。
+    _tgt=$(docker run --rm --entrypoint md5sum "$IMAGE" "$_cp" 2>/dev/null | cut -d' ' -f1)
+    if [ "$_want" = "$_tgt" ]; then
+        echo "  ✓ 指纹门 $_cp  $_tgt"
+        return 0
+    fi
+    echo "" >&2
+    echo "⛔⛔⛔ 指纹门不通过：镜像 $IMAGE 里的 $_cp" >&2
+    echo "     镜像里 = ${_tgt:-<读不到：镜像不存在或路径不同>}" >&2
+    echo "     期望值 = $_want   （来自 $_f）" >&2
+    echo "" >&2
+    # ★★★ 这里**绝对不能用反引号**（`...`）：shell 会把提示文字里那两条命令**真的执行掉**，
+    #   而其中一条正是本脚本自己 ⇒ **自我递归**（2026-09-22 21:0x 实测：进程树自己套了 10+ 层，
+    #   跑飞的形态是"输出里混进 build_image 的日志"）。用单引号 + 纯文本。
+    echo '   ★ 这意味着 **ENGRAM × 卸载 的 P0 修复不在这个镜像里**（见 a2/logs/075 / 073）：' >&2
+    echo '     ENGRAM=1 + 卸载时，一旦发生取回就会 KeyError(2486) ⇒ 引擎死。' >&2
+    echo '   ⇒ 二选一：' >&2
+    echo '     (a) 用带修复的镜像起服（推荐）：' >&2
+    echo '           IMAGE_TAG=dsv41-a2:v9 bash scripts/build_image.sh' >&2
+    echo '           IMAGE=dsv41-a2:v9 OFFLOAD_GB=85 ENGRAM=1 bash a2/scripts/serve_a2_offload.sh' >&2
+    echo '     (b) 或者显式 ENGRAM=0 起服（**质量降级**，只用于排查，见 A2-DEPLOY-NOW 第 6 条）。' >&2
+    exit 2
+}
+
+if [ "${ENGRAM:-1}" = "1" ]; then
+    echo "-------------------------------------------------------------"
+    echo "★ 起服前指纹门（ENGRAM=1）：核对镜像里是否带 ENGRAM×卸载 的 P0 修复"
+    _pf_check "$SHADOW/patches/files/engram_hash.py" \
+              "/vllm-workspace/vllm-ascend/vllm_ascend/models/deepseek_v41/engram_hash.py"
+    _pf_check "$SHADOW/patches/files/engram_jit_kernel.py" \
+              "/vllm-workspace/vllm-ascend/vllm_ascend/models/deepseek_v41/engram_jit_kernel.py"
+    echo "  ⇒ 两项一致：镜像里确实带着修复（缺页会被降级成 barrier，而不是 KeyError）"
+    echo "-------------------------------------------------------------"
+fi
+
 echo "-------------------------------------------------------------"
 echo "★ 起服后必须跑这三条自检（任一为 0 就停，别压测）："
 echo "    grep -c 'P1_pinned.*ret=0'            <serve.log>   # 期望 8"
