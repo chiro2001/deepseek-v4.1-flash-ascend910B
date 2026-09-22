@@ -227,6 +227,29 @@ if (draft_spec.block_size != swa_spec.block_size          # 128 == 128 ✅
 ★ 另外一条源码级校准（`S_graphfix` 核的）：`MeanAccLen = 1 + accepted / num_drafts`
 ⇒ **`MeanAccLen` 的分母是「draft 步数」而不是 token 数**。
 ⇒ 同几何下三条臂的 `num_drafts` 应当可比；**若某条臂的 `num_drafts` 明显不同，那本身就先报警**（workload 没跑成一样的）。
+
+## 4bis. ★ 2026-09-22 14:3x：②a 的**第一次真机尝试**（`D_draftINT8`，c1）—— 失败在一行 `import`
+
+**结果**：`ddi-d-i8-eager` 与 `ddi-d-i8-graph` 两条臂**都在 61 s 内 rc=11**（服务没起来）。
+**确切失败点**（主代理从 `out/ddi-d-i8-*.crash.txt` 读的原始栈）：
+```
+NameError: name 'os' is not defined. Did you forget to import 'os'
+  File ".../pkg-ddi/shadow/vllm_ascend/models/deepseek_v41/dspark.py", line 65, in get_kv_cache_spec
+```
+**根因**：那份 `dspark.py` 的**文件头没有 `import os`**，而补丁在 `get_kv_cache_spec` 内部用了
+`os.getpid()` / `os.environ.get("VLLM_V41_DRAFT_INT8", ...)`（探针代码）。**一行修复。**
+
+★★ **定性：这不是「②a 被机制挡住」，而是「补丁的构造缺陷」** ——
+探针代码引入了新依赖却没加 import。⇒ **不计入 ②a 的机制判决**，修完重跑。
+
+★ **同时拿到一条源码级的正面结论**（`D_draftINT8` 自己查的，写在它的注释里）：
+> 父类的 dtype 来自 **`get_dsv4_attn_kv_dtype()`**（**A2/A3 恒为 BF16，非全局 `KV_DTYPE` 开关**）
+> ⇒ 用独立 env 门控，**不会**顺带改动 target 的 40 个 SWA 层。
+⇒ ★ **这比主代理上一轮的推断更安全**：不存在「改 draft 会顺带改 target」的风险
+⇒ **②a 的改动面确实是「只动 draft 一处」**（与 §3 的逐行核对一致）。
+
+⚠️ **一条流程提醒**：修 import 后**必须重建包并确认新包 md5 变了** ——
+`048` 记过一个坑：**幂等补丁「已打过就跳过」会让修好的块装不进去**。
 ## 5. 建议的路线顺序（**取代 `050`/`051` 的"②c 序 1"**）
 
 ```
