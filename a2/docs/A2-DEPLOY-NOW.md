@@ -163,7 +163,26 @@ KV8_SWA=1 KV8_RING_FP16=1 KV8_FULL=1 KV8_PREFILL=1    # 同理自动置 APC_ALIG
 
 ---
 
-## 4. ②c —— draft block 128→64（保留投机、无精度风险，**在验**）
+## 4. ★★ 两条「解开 draft 天花板」的路 —— ②a 与 ②c（**②a 已实测优于 ②c**）
+
+> ### ★★★ 2026-09-22 14:5x：【实测】②a（draft INT8，block **保持 128**）
+> ```
+> ddi-d-i8-graph（tier D）: capture_finished=1 ee1016=0 not_supported=0 capture_failed=0   ← ★ 图捕获成功
+> probe: block=128 dtype=torch.int8 scale_dim=4 page_bytes=66560                        ← ★ draft 页 66,560
+> GPU KV cache size = 39,846   ← ★ 与零参数模型的预测【逐字相同】
+> ```
+> ★★ **算术上 ②a 严格优于 ②c**（两者 Σ 相同 = 282,880，但 ②a 的 BPR 更小 = 2471 vs 2600，
+> 因为 **②a 保持 block=128、没有「窗口跨块」的副作用**）：
+> ```
+> 8 卡预测：②c = 777,318（×1.8177）   ②a = 817,898（★ ×1.9126）
+> tiny 实测：②c = 36,825               ②a = 39,846（★ 逐字命中模型）
+> ```
+> ⇒ ★★ **②a 是唯一能碰到原始 ×1.84 目标的那条路**（预测 ×1.9126）。
+> ⏳ **但仍缺 Q3（接受率）** —— ②a **动的是投机解码本身**（换 draft 的 KV dtype），
+> 必须做 `SpecDecoding` 四项的 A/B 且 `max_tokens >= 64`；
+> **在它出来之前，不要按「②a 可上线」收口**。详见 `logs/059` §4ter。
+
+### ②c 的细节（**仍是 ②a 失败时的回落**，8 卡端到端在 c0 排队）
 
 | | 值 |
 |---|---|

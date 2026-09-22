@@ -250,6 +250,51 @@ NameError: name 'os' is not defined. Did you forget to import 'os'
 
 ⚠️ **一条流程提醒**：修 import 后**必须重建包并确认新包 md5 变了** ——
 `048` 记过一个坑：**幂等补丁「已打过就跳过」会让修好的块装不进去**。
+
+## 4ter. ★★★ 2026-09-22 14:5x：【实测】②a **图捕获成功**、**draft 页 66,560**、**容量逐字命中模型**
+
+`D_draftINT8`（c1）修掉那行 `import os` 后重跑，**第一批数就出来了**（tier D，tiny 几何）：
+
+```
+### arm=ddi-d-i8-graph tier=D graph=1 draft_int8=1 graph_safe=1 ready_s=85 died=0
+capture_finished=1  ee1016=0  not_supported=0  capture_failed=0        ← ★★★ 图捕获成功
+[DDI-2a-PROBE v1] draft-spec ... env='1' -> block=128 storage_block=128
+                  dtype=torch.int8  scale_dim=4  page_bytes=66560   ← ★ 页大小 = 66,560（int8+scale）
+GPU KV cache size: 39,846 tokens                                     ← ★ 容量
+[R8-SLOTS] slot=0 kv=33280 index=8320 aliases_max=66560 draft=66560 capacity=66560
+[R8-SLOTS] slot=3 kv=66560 index=16640 aliases_max=66560 draft=0   capacity=83200
+```
+
+### ① ★★★ Q1（图捕获）**通过** —— 主代理上一轮的源码级推断被真机证实
+`049` 那条「只改判据、让 spec-decode 批走 capture-safe 上界分支」的修法，
+**确实覆盖了 draft 自己的那次 `kv8_ori_plane` 调用** ⇒ `050` 列的「②a 图捕获期必炸」**已不成立**。
+
+### ② ★★★ Q2（容量）**逐字命中** —— 零参数模型现在 **12/12**
+
+| 臂（tiny 几何，max_len=8192 / avail=1GiB） | Σslot_pages | BPR | 模型 | 实测 |
+|---|---:|---:|---:|---:|
+| 档 D 基线（draft BF16/128） | 476,416 | 780 | 23,651 | **23,651** ✅ |
+| ②c（draft BF16/**64**） | 282,880 | 844 | 36,825 | **36,825** ✅ |
+| ★ **②a（draft INT8/128）** | **282,880** | **780** | **39,846** | ★ **39,846** ✅ |
+
+★ **②a 的 Σ 与 ②c 完全相同（282,880）、但 BPR 更小（780 < 844）** ——
+这正是 §1 那句「**②a 用更小的 BPR 赢、与页容量无关**」在**第三种几何**上的独立证实。
+⇒ ★★ **②a 在 tiny 上（39,846）也严格优于 ②c（36,825）**。
+
+### ③ 8 卡预测（按已验证的模型外推）
+```
+档 B 基线       Σ=540,928 BPR=2471 ⇒ 427,643   ×1.0000
+档 C 基线       Σ=540,928 BPR=2471 ⇒ 427,643   ×1.0000
+档 D 基线       Σ=476,416 BPR=2471 ⇒ 485,610   ×1.1355
+②c (BF16/64)  Σ=282,880 BPR=2600 ⇒ 777,318   ×1.8177
+★②a (int8/128) Σ=282,880 BPR=2471 ⇒ 817,898   ★ ×1.9126   ← ★ 超过原始 ×1.84 目标
+```
+
+### ④ ⏳ 还差什么：**Q3（接受率）** —— 这才是 ②a 真正的风险面
+`054` 已证 ②c 的 draft 提案序列 **4367/4367 逐条相同**（它没动投机）；
+而 **②a 动的就是投机**（换 draft 的 KV dtype）⇒ **必须做 `SpecDecoding` 四项的 A/B**，
+且**必须 `max_tokens ≥ 64`**（`max_tokens=1` 只有 ~15 个 drafted token，无统计功效）。
+
 ## 5. 建议的路线顺序（**取代 `050`/`051` 的"②c 序 1"**）
 
 ```
