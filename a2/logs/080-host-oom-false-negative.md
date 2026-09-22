@@ -56,7 +56,39 @@ A 臂报出来的"**fill 9/16 → replay 0/16 → EngineDead**"看起来像又�
 
 ---
 
-## 3. ⚠️ 还没有答的一格（**我怀疑但未确认**）
+## 3. ✅ 已答：`V41_ENGRAM_ROW_IDS` **确实到了容器**（我原来的怀疑是**判据口径**的问题）
+
+我一开始怀疑它没送出去（因为 `inner.sh` 里 grep 不到）—— **这个怀疑是错的**，当场核实如下：
+
+```
+# 宿主的 shadow（挂载源）
+$ grep -c set_engram_row_tokens $SHADOW/patches/files/model.py      → 1
+$ md5sum $SHADOW/patches/files/model.py                            → 33c05aaf2ff3378f386cd9734a2d62ab
+# 容器内
+$ docker exec r8-p3b-true1-rowids1 sh -c 'grep -c set_engram_row_tokens .../models/deepseek_v41/model.py; md5sum .../model.py'
+                                                                   → 1 / 33c05aaf…（逐字节相同）
+# ★ worker 进程自己的 environ
+$ docker exec <ctr> sh -c 'tr "\0" "\n" < /proc/<VllmWorker_pid>/environ | grep -E "ROW_IDS|TRUE_TOKENS"'
+V41_ENGRAM_ROW_IDS=1
+VLLM_V41_ENGRAM_TRUE_TOKENS=1
+```
+
+⇒ ★★ **判据口径要改**：这两个 env 是通过 **`docker run -e`** 传进容器的，**不是**由影子包的 `inner.sh` 平台 export
+⇒ **`grep inner.sh` 查不到它们是正常现象，不能当"没送出去"**。
+正确的查法是 **容器内读进程 environ**（上面那条），或 `docker exec <ctr> env | grep`。
+
+★ 这条本身值得记：`065 §3` 的原话是"开关送不到 = 静默降级"，但**"怎么查它送没送到"也有两种口径**，
+用错口径会得出**假的"没送到"** —— 那是同一族错误的镜像版本。
+
+### 3.1 顺带确认：**沉默 = 成功**（不是"没跑"）
+
+| 日志 | 何时打 | 含义 |
+|---|---|---|
+| `[ENGRAM-ROW-TOKENS]` | **只在发布失败时**打一次 ERROR | 没打 = 发布成功 |
+| `[ENGRAM-TRUE-TOKENS] mode=… 首次修补：n=… 计数=…` | 只在 `repair_stats` **非空**（真发生了 absent/mismatch）时打一次 | 没打 = 本次没找到需要修补的槽位 |
+⇒ 所以 `p3a`（`TRUE_TOKENS=0`，按设计不做修补）**本就应该一条都不打** —— 与实测一致。
+
+<details><summary>（历史记录，保留我当时的错误怀疑）</summary>
 
 `V41_ENGRAM_ROW_IDS=1` 我**没有**在容器的 `inner.sh` 里找到 export：
 ```
@@ -73,6 +105,8 @@ grep -aE "ENGRAM|ROW-IDS|TRUE" <arm>.serve_a2.log → 只有 [A2-ENGRAM-ROW-IDS]
 docker exec <ctr> sh -c 'for p in $(pgrep -f VllmWorker); do tr "\0" "\n" < /proc/$p/environ | grep -E "ROW_IDS|TRUE_TOKENS"; done'
 ```
 ★ 若它**没送出去** ⇒ `p3a` 这一格等于"patch 挂了但代码没跑"⇒ A/B 必然测不出差异（又一次"开关送不到"，`065 §3` 同族）。
+
+</details>
 
 ---
 
