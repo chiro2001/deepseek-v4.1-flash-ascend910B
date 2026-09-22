@@ -220,8 +220,43 @@ KV8_SWA=1 KV8_RING_FP16=1 KV8_FULL=1 KV8_PREFILL=1  bash a2/scripts/serve_a2_off
 > ★ **四条能解开天花板的路线**（`050`）：
 > | 路 | 收益（8 卡） | 改动面 | 风险 |
 > |---|---|---|---|
-> | **⑤a 关投机解码** | **×1.9122** | **零代码** | 丢 spec-decode 吞吐 |
-> | **②c draft block 128→64（保 BF16）** | **×1.9104** | 2–3 处 | ⚠️ **引入"窗口跨块"新形态**（主代理已核实：draft 与 target 共用同一个 SWA cache 类，`sliding_window=128`） |
+> | **⑤a 关投机解码** | ★★ **×2.0188**（**863,318** token） | **零代码** | 丢 spec-decode 吞吐【未确认多少】 |
+> | **②c draft block 128→64（保 BF16）** | **×1.8177**（**777,318**） | 2–3 处 | 风险已查清（见下） |
 > | **②a draft 也 int8** | ×1.9122 | 3 处 | ⚠️ 依赖 `S_graphfix`（draft 走 prefill 分支的 `.item()`） |
 > | ③c draft 做 per-request scratch | ×1.9122 | 中等 | ⚠️ graph-stable |
 > ★ **②b（draft FP16）零收益**（FP16/BF16 同为 2 B/token，页还是 131,072）—— 已判死。
+>
+> ### ★★ `050` 的"零参数精确容量模型"（**6 个实测点逐字命中，不是拟合**）
+> ```
+> num_blocks        = avail // Σslot_pages − 1          （−1 = null block）
+> 每请求块数 BPR    = cdiv(max_len, block)              ← full 组
+>                     + 1                              ← state 组
+>                     + 10 × P_swa                     ← 10 个 target SWA 组
+>                     + P_draft                        ← draft 组（关投机时为 0）
+>   P_x = cdiv(min(window − 1 + max_in_flight, max_len), block_x) + 1
+>   max_in_flight = max_concurrent_batches(2) × max_num_batched_tokens(8192)
+> tokens = int(num_blocks / BPR × max_len)
+> ```
+> | 格 | Σ | BPR | 预测 | 实测 |
+> |---|---:|---:|---:|---:|
+> | tiny B/C/D | 540,928 / 369,280 / 282,880 | 715 | 22,719 / 33,295 / 43,469 | **逐字 ✅** |
+> | 8 卡 B / C | 540,928 | 2,471 | 427,643 | **逐字 ✅** |
+> | 8 卡 D | 476,416 | 2,471 | 485,610 | **逐字 ✅** |
+> | **⑤a（预告）** | **282,880** | **2,341** | ★ **863,318** | ⏳ 待验 |
+> | **②c（预告）** | **282,880** | **2,600** | **777,318** | ⏳ 待验 |
+>
+> ★ **⑤a 为什么这么好**：draft 不只是"自己占一页"，**它同时是 slots 0–2 的 binding 项**
+> ```
+> 档 D 现状：slot0-2 = max(kv+idx 41,600, state 65,536, swa 66,560, draft 131,072) = 131,072
+> ⑤a 关spec：slot0-2 = max(41,600, 65,536, 66,560)                               =  66,560  ← 跟着缩
+> ```
+>
+> ★ **②c 的风险（已查清，不是"未知"）**：
+> 1. **算子是绝对 token 坐标寻址**（`block = pos // storage_block_size`、`page = table[b, block]`），
+>    **块表是全长行**（`cdiv(max_len, block)`，与窗口无关）⇒ 窗口跨块不影响寻址；
+> 2. **KV manager 无假设**（`max_admission_blocks_per_request` 按块数记 ⇒ draft 每请求页数 130→259）；
+> 3. ⚠️ **唯一硬编码**：`kv8_ori_plane` 的 decode 分支写死 `pages_per_req = 2`（注释"at most two pages"）
+>    ⇒ block=64 时最多 3 页。**但那条只在 int8 平面上跑 ⇒ ②c（draft 保 BF16）不走它**；
+>    **只有「②a + ②c 组合」才需要把它改成 `cdiv(window, block) + 1`**。
+> 4. 两个**可量化副作用**：HBM 收益从 ×1.91 掉到 **×1.8177**；DRAM 池 `sw_chunks` 1→2 ⇒ 该组每段 unit 2→3
+>    ⇒ 按 `042 §3` 反解总需求 **+4.8%**（`OFFLOAD_GB=56` 要复算）。
