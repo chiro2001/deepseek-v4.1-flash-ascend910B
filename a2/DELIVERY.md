@@ -394,6 +394,23 @@ KV8_SWA=1 KV8_RING_FP16=1 KV8_FULL=1 KV8_PREFILL=1 \   # 档 D（容量 ×1.9133
 
 ### ⛔⛔ 4.0b **8 卡图模式阻塞（`048`）：档 C/D 在生产的 `FULL_DECODE_ONLY` 下捕获期直接炸**
 
+> ## ⛔⛔⛔ 先把 §4.0 的容量结论作废（`048`，**8 卡真权重实测**）
+>
+> ```
+> 档 B（纯 BF16）      ：GPU KV cache size = 427,643 tokens
+> 档 C（int8 SWA+ring16）：GPU KV cache size = 427,643 tokens   ← ★ 逐字相同 ⇒ ×1.0000
+> ```
+> ⇒ **int8 在 A2 的真权重几何下【零容量收益】**（tiny 上是 ×1.4655）。
+> **根因**：**draft 组（DSpark 的 SWA）的 BF16 窗口面 = 131,072 B，正好等于 long-KV+index 槽位页的原有大小**
+> ⇒ `capacity = max(kv+index, aliases, draft)` 里 **draft 顶住前 3 个槽** ⇒ int8 的收益被完全抵消
+> （源码硬卡：`DeepseekV41DraftSWASpec.__post_init__` 要求 `dtype == bfloat16`）。
+> ★★ **tiny 测不出的原因**：**tiny 没有 draft 组**
+> （`num_nextn_predict_layers = 0` vs 真权重 **3** ⇒ 13 组 vs 12 组）
+> ⇒ `plan_cache_slots` 的 draft 分支整段跳过。
+>
+> ⇒ **`S_graphfix`（049）修图兼容；`T_draftceiling`（050）查 draft 天花板能否解开。**
+> **在此之前：本包的档 C / 档 D 标记为「仅 tiny 几何成立、A2 真权重零容量收益 + 图模式起不来」。**
+
 ```
 档 C 在 8 卡 + FULL_DECODE_ONLY 下：
   capture failed: Not_Supported(EE1016): Synchronizing a stream failed.

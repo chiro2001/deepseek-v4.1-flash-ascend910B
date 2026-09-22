@@ -1,5 +1,41 @@
 # int8 KV 容量杠杆：一页论证（`logs/044`→`047`）
 
+> ## ⛔⛔ **2026-09-22 10:3x 重大更正（`048`）：本页的 ×1.4655 / ×1.9133 在 A2 真权重几何下不成立**
+>
+> `R_8card_int8` 在 **8 卡真权重**上实测：
+> ```
+> 档 B（纯 BF16）      ：GPU KV cache size = 427,643 tokens
+> 档 C（int8 SWA+ring16）：GPU KV cache size = 427,643 tokens   ← ★ 逐字相同 ⇒ ×1.0000
+> ```
+> ⇒ **int8 在 8 卡真权重上【零容量收益】**（tiny 上是 ×1.4655）。
+>
+> **根因（已确证）**：**draft 组（DSpark 投机解码的 SWA）把槽位页顶住了**
+> ```python
+> # vllm_ascend/core/deepseek_v41.py:51-56
+> class DeepseekV41DraftSWASpec(AscendSlidingWindowMLASpec):
+>     """DSpark SWA owned by G12, aliasing target slots at distinct block IDs."""
+>     def __post_init__(self):
+>         if self.dtype != torch.bfloat16 or ...:
+>             raise ValueError("Aurora DSpark requires one uncompressed BF16 KV plane")
+> ```
+> draft 的 **BF16 窗口面 = 131,072 B**，**正好等于 long-KV+index 槽位页的原有大小**
+> ⇒ `plan_cache_slots` 的 `capacity = max(kv+index, aliases, draft)` 里 **draft 顶住前 3 个槽**
+> ⇒ int8 让 `Σstate`/`Σswa` 缩小的收益被**完全抵消**。
+>
+> ★★ **为什么 tiny 六轮全绿也没发现**：**tiny 没有 draft 组**
+> ```
+> tiny  config: num_nextn_predict_layers = 0, dspark_target_layer_ids = []
+> 真权重 config: num_nextn_predict_layers = 3  ⇒ 多一个 draft 组（13 组 vs 12 组）
+> ```
+> ⇒ `plan_cache_slots` 的 draft 分支**整段跳过** ⇒ **这一格从没被跑过**。
+>
+> ★ **另一个独立阻塞（`048`/`049`）**：int8 在 **`FULL_DECODE_ONLY`（生产配置）** 下**捕获期直接炸**
+> （`dsa_v41.py:436` 的 `.item()` 被 spec-decode 误判走 prefill 分支 ⇒ `EE1016`）。
+> ⇒ **两个障碍缺一不可**：容量收益被 draft 顶掉、图兼容性卡在一个 `.item()`。
+>
+> **⇒ 本页下方的 ×1.4655 / ×1.9133 只在"无 draft 组的几何"下成立**（tiny / 关掉 DSpark 的配置）。
+> **A2 是否可用取决于 `logs/050`（`T_draftceiling`）能否解开 draft 的天花板。**
+
 > **读者**：决定"要不要开 int8"的人。**一句话**：`×1.4655` / `×1.9133` 的容量**已实测拿到**，
 > 代价是**每个命中请求多算 ≤1023 个 token**，且 **store 侧零改动、池需求不变**。
 > 结论标记：【实测】/【推断】/【未确认】。
