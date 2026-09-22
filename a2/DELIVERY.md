@@ -407,7 +407,41 @@ max_cache_hit_length = (n - 1) - ((n - 1) % ratio)
 ★ 接力点（精确到行）：pgp_scheduler.py:1200 附近的
   num_chunks = cdiv(num_cached_tokens, tokens_per_chunk) 与 update_num_hit_chunks
   必须与"少两个 token"同时自洽。
-⇒ 正在由 Q_apcrecord 做（改的是 043 修过的同一函数族 ⇒ 021 五条必须重跑）
+⇒ 由 `Q_apcrecord` 做（改的是 043 修过的同一函数族 ⇒ 021 五条必须重跑）
+
+### ★★★ 4.2a-2 修法已落地并实测通过（`047`，**主代理已从原始 client.json 独立核实**）
+
+**修法 = 两处成对（缺一必炸，`P_ringfix` 的 ④ 单独开就是这样炸的）**：
+
+```
+(P1) OffloadingConnectorScheduler._lookup：
+     max_hit_size_tokens 按模型自己的 compress_ratio 向下对齐
+     ⇒ 命中边界由 4095 → 4094（apc-trace 实测 `cap=4094 (old=4095)`）
+
+(P2) ★ is_store_reachable_swa_chunk：
+     reachable_tail = sw_chunks + eagle + 1   （1 → 2）
+     ⇒ 每个 1024 段保留【2 个】尾 chunk，覆盖"任意 ratio 对齐边界"所需的窗口块集合
+
+为什么必须成对（Q_apcrecord 的推导，用实测的 31/30 反解出 W=128 而不是假设）：
+  ④ 单独开 ⇒ 边界推到 4094 ⇒ SWA 窗口 [1024k−129, 1024k−3] 跨两个块 {8k−2, 8k−1}
+  而 store 侧只保留段尾 8k−1 ⇒ chunk 8k−2 【从未被存】⇒ prepare_load 断言 "Block … not found in cache"
+```
+
+**实测结果（`047`，主代理从原始 `client.json` 独立核实）**：
+
+| 臂 | 几何 | **J2** | 容量 |
+|---|---|---|---|
+| `q-a1-D-align` | D 几何 + 对齐 | **✅ mism=0** | — |
+| `q-a2-D-bigpool` | D 几何 + 大池 | **✅ mism=0** | — |
+| **`q-a3-D-grid144`** | **D 几何 + 池 144 MiB** | ★ **✅ mism=0**（`fill = replay = 24b570535f58…`，**与冷算参考逐字相同**） | ★ **33,295 不变（×1.4655 保住）** |
+
+★ 该臂 ring 探针：**`nan_rows = 32→0`（21 次）** ⇒ 每步整环重写、NaN 全消。
+
+**⇒ ★★ 这是今晚最大的突破：int8 的容量杠杆（×1.4655）第一次在 D 几何上数值正确。**
+
+**⏳ 待确认（`Q_apcrecord` 第 2 报）**：**F 几何（43,469）是否也 ✅**、**C0 守门员**、
+**`021` 五条 + 新倍率**（P2 把 `reachable_tail` 从 1 改成 2 ⇒ **`021` 的 4.89× 会变成多少** ——
+这个数决定 A2 的池需求要重算多少）。
 ```
 
 **为什么它是根因（三条，都实测）**：
