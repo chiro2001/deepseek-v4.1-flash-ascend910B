@@ -1,4 +1,4 @@
-# A2 现在的部署选项（2026-09-22 13:0x）
+# A2 现在的部署选项（2026-09-22 15:3x）
 
 > **一句话**：**档 B / 档 C / 档 D 的"容量 + 功能三判据"都已在 8 卡真权重上实测通过**；
 > ★★ **但有两条挂在台面上的保留意见**（2026-09-22 14:2x 新增第 2 条，**正在定性**）；
@@ -27,12 +27,23 @@ A2_CONTAINER=dsv41-a2 A2PROBE_FLOOR_GIB=300 LIGHT=1 bash a2/scripts/a2_one_shot_
 # ② 造 shadow-pkg（在 A2 本机；不依赖任何开发机）
 PKG=<dsv41-release 路径> DST=$HOME/shadow-pkg bash a2/scripts/make_shadow_pkg.sh
 
-# ③ 干跑 → 起服
-DRY=1 SHADOW_PKG=$HOME/shadow-pkg MODEL=<模型目录> bash a2/scripts/serve_a2_offload.sh
+# ③ 干跑（**会打印真实挂载清单**）→ 起服
+DRY=1 SHADOW_PKG=$HOME/shadow-pkg MODEL=<模型目录> KV8_SWA=1 KV8_RING_FP16=1 \
+    bash a2/scripts/serve_a2_offload.sh
+#    ★ 看 `[a2-dry] MOUNTS(NN):` 里有没有那 **7 个 kv8-int8-pkg 件**（档 C/D 的必需件）
+
 SHADOW_PKG=$HOME/shadow-pkg MODEL=<模型目录> OFFLOAD_GB=56 MAX_LEN=131072 MAX_SEQS=16 \
-  NPU_OFFLOAD_HOST_MEM=registered bash a2/scripts/serve_a2_offload.sh
+  NPU_OFFLOAD_HOST_MEM=registered KV8_SWA=1 KV8_RING_FP16=1 \
+    bash a2/scripts/serve_a2_offload.sh
 ```
-★ **这三条已在发布包布局下从 GitHub 全新 clone 验过一遍**（档 B 与档 C 两条路径都走通、发布仓零污染）—— 见 `logs/055` §5.0。
+★ **这三条已在发布包布局下从 GitHub 全新 clone 验过**（档 B / 档 C 两条路径都走通、**dry-run 能打出真实挂载**、发布仓零污染）—— 见 `logs/055` §5.0 / §5bis。
+
+> ### ★★★ 2026-09-22 15:3x：**档 C/D 的挂载件从 1 个变成 7 个**（一个已修的交付缺口）
+> 此前文档只写"挂 `kv8-graphsafe/dsa_v41.py` 就能起档 C" —— **那是错的**：
+> 档 C/D 实跑时挂的是 **7 个整文件**，而发布包里原本**只有 1 个**。
+> ⇒ 已新增 `patches/kv8-int8-pkg/`（6 个整文件 + README，md5 与 `arm.out` 台账**逐字相同**），
+> 并由 `make_shadow_pkg.sh` 在检测到 `A2_KV8` / `A2_KV8_SWA` / `A2_RING_FP16` 时**自动挂上 7 个**，
+> **缺一个就 die**（不静默降级成档 B）。详见 [`logs/055`](../logs/055-a2-launch-path.md) §5bis。
 
 ---
 

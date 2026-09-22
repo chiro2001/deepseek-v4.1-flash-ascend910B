@@ -38,12 +38,22 @@ A2_CONTAINER=dsv41-a2 A2PROBE_FLOOR_GIB=300 LIGHT=1 bash a2_one_shot_probe.sh
 
 ```bash
 PKG=<本仓库路径> DST=$HOME/shadow-pkg bash a2/scripts/make_shadow_pkg.sh
-# 然后干跑（不起服务）确认参数：
-DRY=1 SHADOW_PKG=$HOME/shadow-pkg MODEL=<模型目录> bash a2/scripts/serve_a2_offload.sh
+# 然后干跑（不起服务）：★ 会打印**真实挂载清单**
+DRY=1 SHADOW_PKG=$HOME/shadow-pkg MODEL=<模型目录> KV8_SWA=1 KV8_RING_FP16=1 \
+    bash a2/scripts/serve_a2_offload.sh
+#    ★ 看 `[a2-dry] MOUNTS(NN):` 里有没有那 7 个 kv8-int8-pkg 件
 ```
 
 生成器做 **5 处精确锚点插入**（锚点必须恰好命中一次，否则 **fail-closed 且不落盘**）+ 4 条 grep 自检；
 并且 **不会写 dsv41-release 一个字节**（已实测）。详见 [`logs/055-a2-launch-path.md`](logs/055-a2-launch-path.md)。
+
+> ★★★ **2026-09-22 15:3x：档 C/D 的挂载件从 1 个变成 7 个**（一个已修的交付缺口）
+> 此前文档只写"挂 `kv8-graphsafe/dsa_v41.py` 就能起档 C" —— **那是错的**。
+> 档 C/D 实跑时挂的是 **7 个整文件**（`core/deepseek_v41.py` / `core/kv_cache_interface.py` /
+> `models/deepseek_v41/{model,compressor}.py` / `ops/triton/compressor/compressor_triton.py` /
+> `attention/kv8_prefill_triton.py` / `attention/dsa_v41.py`），而发布包里原本**只有最后 1 个**。
+> ⇒ 已新增 **`patches/kv8-int8-pkg/`**（6 个整文件 + README，md5 与 8 卡臂的 `arm.out` 挂载台账**逐字相同**），
+> 并由 `make_shadow_pkg.sh` 在检测到 int8 开关时**自动挂上 7 个**，**缺一个就 die**。
 * **为什么必须做**：A2 的 `host_mem_pool = 0`，且这台机器上 **Engram 206 GiB 注册曾撞 `207001`**
   ⇒ **A3 全绿不代表 A2 全绿**；它决定池子走 `registered` 还是回落 `pinned`。
 * **看哪一行**：`★ 注册内存的设备往返判据 = True/False`（**H2H 通过不算数**）。
