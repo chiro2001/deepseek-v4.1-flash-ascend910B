@@ -1,6 +1,21 @@
 #!/usr/bin/env python3
 """自然语言文本正确性探针 —— 补 `071 §A1` / `072 §1` 那个"从未做过的语义判据"。
 
+## ★★★ 2026-09-22 23:5x 修掉两个**会让好模型看起来是坏的**的接口缺陷
+
+**缺陷 1：用了 raw `/v1/completions` 打 instruct 模型**（A3 实测）
+  首版走 `/v1/completions` ⇒ 对 instruct 模型只会**续写**、且经常返回空回答
+  ⇒ 实测只 **3/10** 通过。换 `/v1/chat/completions`（带 system 提示）后 **9/10**，
+  剩下那 1 个是**截断**（见缺陷 2）。⇒ 默认改成 **chat**（`--api chat`），
+  `--api raw` 保留给 base 模型。
+
+**缺陷 2：`max_tokens` 太小 ⇒ 把"啰嗦但正确"判成"错"**（A3 实测）
+  那道"反转字符串"题，模型先写了 200 多字的解题步骤，**被 `max_tokens=64` 截断**
+  （`finish_reason=length`），于是关键词还没出现就被判失败。
+  ⇒ 现在：① 默认 `--max-tokens 256`；② ★ **遇到 `finish_reason=length` 且关键词没命中时，
+     自动用 `max_tokens*4` 重试一次**，并在证据里标 `retried_for_length`。
+  ⇒ 这样"判错"与"被截断"不再混淆（与 `079 §3` 的"判据口径"教训同族）。
+
 ## 为什么要这个文件（本仓的原话）
 
 `a2/logs/072` §1：
@@ -84,11 +99,22 @@ def post(base_url: str, path: str, payload: dict, timeout: float = 600.0):
         return {"http": -1, "wall_s": time.time() - t0, "body": None, "error": repr(e)[:400]}
 
 
-def gen(base_url: str, model: str, prompt: str | list[int], max_tokens: int,
-        timeout: float = 600.0):
-    return post(base_url, "/v1/completions", {
-        "model": model, "prompt": prompt, "max_tokens": max_tokens,
-        "temperature": 0.0, "stream": False,
+SYSTEM = "你是一个乐于助人的中文助手。请**直接给出答案**，不要展开分析过程，不要写解题步骤。"
+
+
+def gen(base_url: str, model: str, prompt: str, max_tokens: int,
+        timeout: float = 600.0, api: str = "chat"):
+    """★ 默认走 chat：对 instruct 模型这是**唯一**正确的接口（见文件头缺陷 1）。"""
+    if api == "raw":
+        return post(base_url, "/v1/completions", {
+            "model": model, "prompt": prompt, "max_tokens": max_tokens,
+            "temperature": 0.0, "stream": False,
+        }, timeout)
+    return post(base_url, "/v1/chat/completions", {
+        "model": model,
+        "messages": [{"role": "system", "content": SYSTEM},
+                     {"role": "user", "content": prompt}],
+        "max_tokens": max_tokens, "temperature": 0.0, "stream": False,
     }, timeout)
 
 
@@ -96,7 +122,11 @@ def text_of(resp) -> str:
     if not resp.get("body"):
         return ""
     try:
-        return resp["body"]["choices"][0]["text"]
+        ch = resp["body"]["choices"][0]
+        # chat 模式在 message.content；raw 模式在 text
+        if "message" in ch:
+            return (ch["message"] or {}).get("content") or ""
+        return ch.get("text") or ""
     except Exception:  # noqa: BLE001
         return ""
 
@@ -118,22 +148,34 @@ def run_questions(a, out: dict) -> int:
     rows = []
     n_pass = 0
     for i, (q, must) in enumerate(QUESTIONS):
-        r = gen(a.base_url, a.model, q, a.max_tokens, a.timeout)
+        r = gen(a.base_url, a.model, q, a.max_tokens, a.timeout, a.api)
         ans = text_of(r)
         hit = any(m in ans for m in must)
+        # ★ 缺陷 2 的修法：被 max_tokens 截断且没命中 ⇒ 用 4× tokens 重试一次
+        #   （否则"啰嗦但正确"会被判成"错" —— A3 实测那道反转字符串题就是这样）
+        retried = False
+        if not hit and finish_of(r) == "length":
+            r2 = gen(a.base_url, a.model, q, a.max_tokens * 4, a.timeout, a.api)
+            ans2 = text_of(r2)
+            if any(m in ans2 for m in must):
+                r, ans, hit, retried = r2, ans2, True, True
         n_pass += int(hit)
         flag = "✓" if hit else "✗"
         print(f"[{i:2d}] {flag} http={r['http']} wall={r['wall_s']:.2f}s "
-              f"fin={finish_of(r)!r}")
+              f"fin={finish_of(r)!r}{'  ★重试过(原被截断)' if retried else ''}")
         print(f"     Q: {q}")
         print(f"     A(原文): {ans!r}")
         if not hit:
             print(f"     ★ 期望包含其中之一: {must}")
             if r.get("error"):
                 print(f"     ★ http 错误: {r['error']}")
+            if finish_of(r) == "length":
+                print("     ★ 注意：这仍是 finish_reason=length ⇒ 可能是**截断**而不是答错；"
+                      "调大 --max-tokens 再看")
         rows.append({"q": q, "must_contain": must, "answer": ans, "pass": hit,
                      "http": r["http"], "wall_s": r["wall_s"],
-                     "finish_reason": finish_of(r), "error": r.get("error")})
+                     "finish_reason": finish_of(r), "error": r.get("error"),
+                     "retried_for_length": retried})
     out["questions"] = {"rows": rows, "n_pass": n_pass, "n": len(QUESTIONS)}
     print("-" * 78)
     print(f"模式 1 结果：{n_pass}/{len(QUESTIONS)} 通过")
@@ -155,7 +197,8 @@ def run_prefix_pair(a, out: dict) -> int:
     outs = []
     rows = []
     for k in range(a.repeats):
-        r = gen(a.base_url, a.model, prefix + "\n\n" + PREFIX_QUESTION, a.max_tokens, a.timeout)
+        r = gen(a.base_url, a.model, prefix + "\n\n" + PREFIX_QUESTION,
+                a.max_tokens, a.timeout, a.api)
         t = text_of(r)
         outs.append(t)
         rows.append({"round": k, "answer": t, "http": r["http"],
@@ -185,7 +228,11 @@ def main() -> int:
     ap.add_argument("--model", default="deepseek-v41")
     ap.add_argument("--mode", default="all",
                     choices=["all", "questions", "prefix-pair"])
-    ap.add_argument("--max-tokens", type=int, default=64)
+    # ★ 默认 256：instruct 模型会先写几句再给答案，64 会被截断（A3 实测踩到，见文件头缺陷 2）
+    ap.add_argument("--max-tokens", type=int, default=256)
+    ap.add_argument("--api", default="chat", choices=["chat", "raw"],
+                    help="★ chat = /v1/chat/completions（instruct 模型必须用这个）；"
+                         "raw = /v1/completions（只给 base 模型）")
     ap.add_argument("--prefix-tokens", type=int, default=2048,
                     help="模式 2 的近似前缀长度（按字符粗算，中文≈1 token/字）")
     ap.add_argument("--repeats", type=int, default=3)

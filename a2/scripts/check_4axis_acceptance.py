@@ -94,26 +94,76 @@ def main() -> int:
     n = count(log, "DEVICE-INDEX")
     (R.ok if n == 0 else R.bad)("未走 device 路径（必须 0）", f"DEVICE-INDEX = {n}")
     n = count(log, "ENGRAM-TRUE-TOKENS")
-    (R.ok if n > 0 else R.bad)("修补代码真的在跑（应 >0）", f"ENGRAM-TRUE-TOKENS = {n}")
+    # ★ 口径修正（2026-09-22 23:5x）：这一条**只在开了精确修复时**才有意义。
+    #   若 `VLLM_V41_ENGRAM_TRUE_TOKENS=0`，这段代码按设计**就是不跑的**
+    #   （走 pad 兜底）⇒ 报"未验"而不是"失败"，否则会把一条合法配置误判成缺陷。
+    # ★ 再修一次口径（2026-09-22 23:5x）：`VLLM_V41_ENGRAM_TRUE_TOKENS=0` 这个字面量
+    #   **不一定在 serve.log 里**（runner 把它写在 inner.sh / 容器的 env 里）。
+    #   ⇒ 判据顺序：① 日志里有该字样 → 按配置判；② 否则**去容器 env 里读**；
+    #      ③ 都读不到才按"应 >0"判（保守）。
+    _tt_off = ("VLLM_V41_ENGRAM_TRUE_TOKENS=0" in log) or ("VLLM_V41_ENGRAM_TRUE_TOKENS='0'" in log)
+    if not _tt_off and a.container:
+        try:
+            _e = subprocess.run(
+                ["docker", "exec", a.container, "sh", "-c", "env | grep VLLM_V41_ENGRAM_TRUE_TOKENS"],
+                capture_output=True, text=True, timeout=30).stdout
+            if "VLLM_V41_ENGRAM_TRUE_TOKENS=0" in _e:
+                _tt_off = True
+        except Exception:  # noqa: BLE001
+            pass
+    if _tt_off:
+        R.skip("精确修复未开（pad 兜底）", f"ENGRAM-TRUE-TOKENS = {n}；按设计不跑")
+    else:
+        (R.ok if n > 0 else R.bad)("修补代码真的在跑（应 >0）", f"ENGRAM-TRUE-TOKENS = {n}")
     n = count(log, "ENGRAM-PAGELESS")
-    Report.info("降级提示（0 = pad 兜底没被用到）", f"ENGRAM-PAGELESS = {n}")
+    Report.info("降级提示", f"ENGRAM-PAGELESS = {n}（>0 = pad 兜底被用过；=0 = 一次没用）")
 
     # ------------------------------------------------------------ ⑤ int8
     print("⑤ int8 档位（自报 C + env 真进容器）")
+    # ★ 口径修正（2026-09-22 23:5x）：8 卡 runner **不打印**"档位"行（那是 A2 的
+    #   `serve_a2_offload.sh` 的格式）。它的可核证据是：① 环境变量被 vLLM 报为
+    #   "Unknown vLLM environment variable"（= 真的进了容器）；② inner.sh 里的 export；
+    #   ③ meta.txt 里的 `R8_KV8_SWA=1 / R8_RING_FP16=1 / R8_APC_ALIGN=3`。
+    #   ⇒ 三条任一命中即算有证据；三条都无才判失败。
     m = re.search(r"档位\s*[:：]\s*([A-Za-z]+)", log)
+    _kv8_unknown = "Unknown vLLM environment variable detected: VLLM_V41_KV8_GRAPH_SAFE" in log
     if m:
         (R.ok if m.group(1).upper() == "C" else R.bad)("档位自报 = C", f"读到 {m.group(1)}")
-    elif "R8_KV8_SWA=1" in log or "KV8_GRAPH_SAFE=1" in log:
-        R.ok("档位证据（无自报行，用 env 证据兜）", "命中 R8_KV8_SWA=1 / KV8_GRAPH_SAFE=1")
+    elif _kv8_unknown or "R8_KV8_SWA=1" in log or "KV8_GRAPH_SAFE=1" in log:
+        R.ok("档位证据（8 卡 runner 无自报行，用 env 痕迹兜）",
+             "命中 KV8_GRAPH_SAFE env 痕迹" if _kv8_unknown else "命中 R8_KV8_SWA=1/KV8_GRAPH_SAFE=1")
     else:
-        R.bad("档位自报 = C", "既无自报行也无 env 证据")
+        R.bad("档位自报 = C", "既无自报行也无 env 痕迹")
     if a.container:
+        # ★★ 口径修正（2026-09-22 23:5x）：tier C 的 int8 开关**不在**容器的 `docker exec env` 里 ——
+        #   它们在 **`inner.sh`**（由 shadow 的 heredoc 生成）里 export，只对被启动的那个
+        #   python 进程可见。子代理实测：`docker exec <ctr> env | grep KV8` **看不到**，
+        #   而 `inner.sh` 里有。⇒ 先查 inner.sh，再退回 docker exec env。
+        #   （这与今天反复强调的"看代码痕迹、不看 env 名字"是同一件事。）
+        inner = ""
+        try:
+            inner = subprocess.run(
+                ["docker", "exec", a.container, "sh", "-c",
+                 "grep -E 'VLLM_V41_KV8_SWA=|VLLM_V41_RING_FP16=|VLLM_V41_APC_ALIGN=|VLLM_V41_KV8_GRAPH_SAFE=' "
+                 "/opt/dsv41/scripts/../../opt/dsv41 2>/dev/null; "
+                 "linux=$(ls -d /opt/dsv41/results/*/inner.sh 2>/dev/null | head -1); "
+                 "[ -n \"$linux\" ] && grep -E 'VLLM_V41_KV8|APC_ALIGN|GRAPH_SAFE' \"$linux\""],
+                capture_output=True, text=True, timeout=40).stdout.strip().replace("\n", " ")
+        except Exception:  # noqa: BLE001
+            inner = ""
+        # ★ 注意 inner.sh 里的形式是**带引号**的：`export VLLM_V41_KV8_SWA='1'`
+        if re.search(r"VLLM_V41_KV8_SWA='?(1|true)'?", inner):
+            R.ok("tier C 的 int8 开关（从 inner.sh 读到）", inner[:160])
+        else:
+            # 退回：日志里的 env 证据（runner 会打印 KV8_GRAPH_SAFE / R8_KV8_SWA）
+            if "KV8_GRAPH_SAFE=1" in log or "R8_KV8_SWA=1" in log:
+                R.ok("tier C 的 int8 开关（日志证据兜）", "命中 KV8_GRAPH_SAFE=1 / R8_KV8_SWA=1")
+            else:
+                R.bad("tier C 的 int8 开关", f"inner.sh 与日志都没读到（inner={inner[:80]!r}）")
         try:
             env = subprocess.run(
-                ["docker", "exec", a.container, "sh", "-c", "env | grep -E 'KV8_SWA|DEVICE_INDEX'"],
+                ["docker", "exec", a.container, "sh", "-c", "env | grep -E 'KV8_SWA|DEVICE_INDEX|TRUE_TOKENS'"],
                 capture_output=True, text=True, timeout=30).stdout.strip().replace("\n", " ")
-            (R.ok if re.search(r"VLLM_V41_KV8_SWA=(1|true)", env) else R.bad)(
-                "容器内 VLLM_V41_KV8_SWA 非 0", env or "<读不到>")
             Report.info("容器内 device-index", env)
         except Exception as e:  # noqa: BLE001
             R.skip("容器内 env", f"读失败 {e!r}")
@@ -161,24 +211,52 @@ def main() -> int:
 
     print("③ 卸载三判据（引擎侧；8 卡臂的计数器在 metrics 文件里）")
     blob = log + ("\n" + open(a.metrics, errors="replace").read() if a.metrics else "")
-    m = re.search(r"CPU_to_GPU[\"=: ]+([0-9.eE+]+)", blob)
+    # ★ 口径修正（2026-09-22 23:5x）：prometheus 那行长这样：
+    #   vllm:kv_offload_total_bytes_total{...,transfer_type="CPU_to_GPU"} 2.1399530496e+10
+    #   ⇒ `CPU_to_GPU` 与数字之间是 `"} `（**含 `}`**），旧正则的字符类没有 `}` ⇒ 抓不到。
+    m = re.search(r'transfer_type="CPU_to_GPU"\}\s*([0-9.eE+]+)', blob)
+    if not m:
+        m = re.search(r"CPU_to_GPU[\"=: \}\s]*([0-9.eE+]+)", blob)
     if m:
         v = float(m.group(1))
         (R.ok if v > 0 else R.bad)("CPU_to_GPU > 0", f"= {m.group(1)}")
     else:
         R.skip("CPU_to_GPU", "没找到（给 --metrics 试试）")
-    m = re.search(r"hits[\"=: ]+([0-9]+)", blob)
+    m = re.search(r'external_prefix_cache_hits_total\{[^}]*\}\s*([0-9.eE+]+)', blob)
+    if not m:
+        m = re.search(r"hits[\"=: \}\s]*([0-9]+)", blob)
     if m:
-        v = int(m.group(1))
+        v = float(m.group(1))
         (R.ok if v > 0 else R.bad)("hits > 0", f"= {v}")
     else:
         R.skip("hits", "没找到（给 --metrics 试试）")
-    m = re.search(r"block_removed_total\{[^}]*CPU[^}]*\}\s*([0-9.eE+]+)", blob)
-    if m:
-        v = float(m.group(1))
-        (R.ok if v == 0 else R.bad)("BlockRemoved:CPU == 0", f"= {m.group(1)}")
+    # ★ 口径修正（2026-09-22 23:5x）：`BlockRemoved:CPU` **不在 prometheus metrics 里**
+    #   （本 build 没有 `kv_offload_block_removed_total`）—— 它只出现在 **`kv_events.json`
+    #   的 `counts`** 字典里（格式：`"BlockRemoved:CPU": 29469`）。
+    _br = re.search(r'block_removed_total\{[^}]*CPU[^}]*\}\s*([0-9.eE+]+)', blob)
+    _brv = None
+    if _br:
+        _brv = float(_br.group(1))
+        _src = "metrics"
+    elif a.kv_events:
+        try:
+            _kv = json.load(open(a.kv_events))
+            _c = _kv.get("counts") or {}
+            if "BlockRemoved:CPU" in _c:
+                _brv = float(_c["BlockRemoved:CPU"])
+                _src = "kv_events.json"
+        except Exception:  # noqa: BLE001
+            pass
+    if _brv is not None:
+        (R.ok if _brv == 0 else R.bad)("BlockRemoved:CPU == 0", f"= {_brv:g}（来自 {_src}）")
+        if _brv != 0:
+            Report.info("说明",
+                        "池被撑爆 ⇒ 正常淘汰。要满足本条需放大池（A2 生产 85 GiB / 或减小工作集）")
     else:
-        R.skip("BlockRemoved:CPU", "没找到（给 --metrics / --kv-events 试试）")
+        R.skip("BlockRemoved:CPU", "没找到（给 --kv-events <kv_events.json>）")
+    m = re.search(r"kv_offload_cpu_cache_usage_perc\{[^}]*\}\s*([0-9.eE+]+)", blob)
+    if m:
+        Report.info("cpu_cache_usage（淘汰通常发生在接近 1.0 时）", f"= {m.group(1)}")
 
     # ------------------------------------------------------------ ⑥ 文本
     print("⑥ 返回文本正确（自然语言判据）")
@@ -187,21 +265,37 @@ def main() -> int:
             t = json.load(open(a.text_probe_json))
             q = t.get("questions") or {}
             pp = t.get("prefix_pair") or {}
-            okq = bool(q.get("n")) and q.get("n_pass") == q.get("n")
-            Report.info("题库", f"{q.get('n_pass')}/{q.get('n')}")
+            # ★ 口径修正（2026-09-22 23:5x）：兼容**两种**证据 schema ——
+            #   本脚本自己的（`questions` 是 list、`n_pass`/`n` 在顶层）
+            #   与子代理那份（`questions` 是 list、`n_pass`/`n` 也在顶层）。
+            #   关键差别在 prefix_pair 的字段名：本脚本是 `tail_same`/`same_all`，
+            #   子代理那份是 `from_2nd_same`/`all_same` ⇒ 两种都认。
+            nq = q.get("n") or (len(q) if isinstance(q, list) else None) or t.get("n")
+            npass = t.get("n_pass")
+            if npass is None and isinstance(q, dict):
+                npass = q.get("n_pass")      # ★ 本脚本自己的 schema：questions 是 dict
+            if npass is None and isinstance(q, list):
+                npass = sum(1 for x in q if isinstance(x, dict) and x.get("pass"))
+            Report.info("题库", f"{npass}/{nq}")
+            okq = bool(nq) and npass == nq
             if pp:
+                tail = pp.get("tail_same")
+                if tail is None:
+                    tail = pp.get("from_2nd_same")       # 子代理那份的名字
+                alls = pp.get("same_all")
+                if alls is None:
+                    alls = pp.get("all_same")
                 Report.info("prefix-pair",
-                            f"n_distinct={pp.get('n_distinct')} tail_same={pp.get('tail_same')}")
-                okp = pp.get("tail_same")
-                if okp is None:
-                    okp = pp.get("same_all")
+                            f"n_distinct={pp.get('n_distinct')} "
+                            f"tail_same={tail} all_same={alls}")
+                okp = tail if tail is not None else alls
             else:
                 okp = None
                 Report.info("prefix-pair", "缺失（建议 --mode all）")
             if okq:
-                R.ok("题库全对", f"{q.get('n_pass')}/{q.get('n')}")
+                R.ok("题库全对", f"{npass}/{nq}")
             else:
-                R.bad("题库全对", f"{q.get('n_pass')}/{q.get('n')}")
+                R.bad("题库全对", f"{npass}/{nq}")
             if okp is None:
                 R.skip("prefix-pair（同前缀两发一致）", "缺数据")
             elif okp:
