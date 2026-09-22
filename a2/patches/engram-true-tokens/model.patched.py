@@ -353,7 +353,18 @@ def _engram_build_prev_tok(pos_host, requests, n, lookback):
             r = int(req)
             if not (0 <= r < len(ncomp)) or int(ncomp[r]) != first:
                 return None
-        return build_prev_tok(ntok, pos_np, req_np, lookback, ids)
+        # ★★★ 2026-09-22 22:1x **必修**：`build_prev_tok` 返回的是
+        #   ``(prev_tok, stats)`` 二元组，这里**必须取 [0]**。
+        #   第一版直接把整个元组返回 ⇒ 下游 `engram_repair.apply_repairs` 里
+        #   `prev_tok[row, sh]` 抛
+        #   ``TypeError: tuple indices must be integers or slices, not tuple``
+        #   ⇒ worker 起服后**第一个请求**就死（A3 实测：`p3b-true1-rowids1`，
+        #   `serve.log:2143`，`True_Tokens=1` 首次 `apply_repairs` 即崩）。
+        #   ★ 这个 bug 是 **A/B 臂抓到的**（pad 版 `True_Tokens=0` 不调用这条路径 ⇒ 全绿），
+        #     正是"新轴必须单变量上、并留反例臂"这条纪律的价值。
+        #   统计量（build 阶段自己的 `unavailable`）本版不单独上报；真正有意义的
+        #   计数在 `apply_repairs` 的 `absent/mismatch/filled/overwrote` 里。
+        return build_prev_tok(ntok, pos_np, req_np, lookback, ids)[0]
     except Exception:  # noqa: BLE001  ★ 任何异常都退回"今天的行为"，绝不把异常带进 forward
         return None
 

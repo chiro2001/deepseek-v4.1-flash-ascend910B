@@ -32,7 +32,7 @@ for f in model_runner_v1.patched.py model.patched.py engram_hash.patched.py engr
 done
 rm -rf "$_tmp"; trap - EXIT
 
-for t in test_true_tokens_repair.py test_repair_plan.py; do
+for t in test_callsite_contract.py test_true_tokens_repair.py test_repair_plan.py; do
     echo "=============================================================="
     echo "== $t"
     echo "=============================================================="

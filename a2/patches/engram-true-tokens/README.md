@@ -30,6 +30,19 @@
 沿用旧的会把旧文案带回容器 ⇒ 这里统一按新基线重生成。
 ★ 应用补丁后请**再跑一次** `bash tests/run_all.sh`（已重跑，全绿）。
 
+## 0d. ★★★ 2026-09-22 22:1x **必修**：`model.patched.py` 的**调用点契约** bug（第一版会把元组当 `prev_tok` 传下去）
+
+| 项 | 内容 |
+|---|---|
+| 现象 | A3 实测（臂 `p3b-true1-rowids1`，`True_Tokens=1`）：**起服成功、第一个请求就崩** |
+| 报错 | `TypeError: tuple indices must be integers or slices, not tuple` @ `engram_repair.py:160`（`tok = int(prev_tok[row, sh])`），栈经 `engram_hash.py:509` → `apply_repairs`（`serve.log:2143`） |
+| 根因 | `engram_repair.build_prev_tok()` 返回 **`(prev_tok, stats)` 二元组**，而 `model.patched.py` 的调用点写成 `return build_prev_tok(...)` ⇒ **整个元组**被当 `prev_tok` 传进 `apply_repairs` |
+| ★ 为什么单测抓不到 | `test_true_tokens_repair.py` 是**隔离**测 `apply_repairs`（自造规范的 2-D 数组喂进去），**从不经过调用点** ⇒ **单测全绿、真实链路一跑就死** |
+| ★★ 是什么抓到的 | **A/B 臂本身**：`True_Tokens=0`（pad 版）**不调用这条路径** ⇒ 全绿；只有 `=1` 的臂才踩上 ⇒ 这条纪律（"新轴必须单变量上、并留反例臂"）当场兑现 |
+| 修法 | 调用点改为 `return build_prev_tok(...)[0]`（`+ [0]`，一行） |
+| 新 md5 | `model.patched.py` → ★ **`0f9feba129a8f28c9707b40d4109e92b`**；`model.host_rows.diff` 已按同基线重生成（94 行，`patch -p1` 应用后与 patched **逐字节相同** 且编译通过） |
+| 新防线 | ★ `tests/test_callsite_contract.py`（**调用点契约测试**）：① 断言出货模块返回的是 `(arr, stats)` 且 `arr` 可按 `[row, sh]` 索引；② 断言调用点那行**以 `[0]` 结尾**；③ **反向验证**——把元组直接喂 `apply_repairs` **必须抛 TypeError**；④ 对照——正确的 2-D 数组必须正常返回。已并入 `tests/run_all.sh` |
+
 ## 0c. ★★ 2026-09-22 21:3x **必修**：`model_runner_v1.patched.py` 曾 `py_compile` 不过
 
 | 项 | 内容 |
