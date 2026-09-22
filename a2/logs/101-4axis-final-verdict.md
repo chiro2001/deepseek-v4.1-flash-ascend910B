@@ -24,7 +24,7 @@
 | 2 | `fill` 与 `replay` 两轮 `requests_failed = 0`（**带冒号**精确模式判异常） | `fill 6/0 · replay1 6/0 · replay2 6/0`；`KeyError:`=0、`Traceback`=0 | ✅ |
 | 3 | 卸载三判据：`CPU_to_GPU>0`、`hits>0`、★ **`BlockRemoved:CPU==0`** | `CPU_to_GPU=1.7008429056e+10`（**17.0 GB**）、`hits=724,224`、★ **`BlockRemoved:CPU` 键不存在 ⇒ 该事件 0 次** | ✅ |
 | 4 | draft 真入图：`Wrapping = 8` 且 A 不恒 1.0 | `Wrapping draft model with ACLGraphWrapper` = **8**；A = **6.00 / 2.62 / 4.09** | ✅ |
-| 5 | int8：档位自报 C + 容器内 `VLLM_V41_KV8_SWA` 非 0 | ★ `meta.txt`: **`tier=C`** + `R8_KV8_SWA=1 R8_RING_FP16=1 R8_APC_ALIGN=3`；`inner.sh`: `VLLM_V41_KV8_SWA='1' / APC_ALIGN='3' / KV8_GRAPH_SAFE='1'`；容器内 `dsa_v41.py=94aeebb7`（**graphsafe**，`rows_bound=14`） | ✅ |
+| 5 | int8：档位自报 C + 容器内 `VLLM_V41_KV8_SWA` 非 0 | ★ `meta.txt`: **`tier=C`** + `R8_KV8_SWA=1 R8_RING_FP16=1 R8_APC_ALIGN=3`；`inner.sh`: `VLLM_V41_KV8_SWA='1' / APC_ALIGN='3' / KV8_GRAPH_SAFE='1'`；容器内 `dsa_v41.py=94aeebb7`（**graphsafe**；★ 运行期 `rows_bound=6`，见 `102` 的更正——原写 14 是把 `grep -c` 行数当成了运行期值） | ✅ |
 | 6 | ★ **返回文本正确**（自然语言 + 同前缀两发 + 冷算基线对比） | ★ **在同一个容器上**（8051）：题库 **10/10**、`prefix-pair` **三发逐字相同**（`distinct=1`）；★ 三发里 round0 是**冷算**、round1/2 是**取回** ⇒ **冷算基线 == 取回结果** | ✅ |
 | 7 | 每条标【实测】/【推断】/【未确认】+ 列缺口 | 本文 + `§4` 缺口表 | ✅ |
 
@@ -61,7 +61,7 @@
 | 门 | 内容 | 本轮是否真的挡下过东西 |
 |---|---|---|
 | **G1** 合并件新鲜度（`081`） | 用同一套输入重新合并并与已安装件逐字节比对 | ✅ 本轮报过"合并件新鲜 9a2d782c"（并在 `081` 时挡下过期件） |
-| **G2** graphsafe dsa（`082`/`093`） | 断言指定的那份是 graphsafe 版（`rows_bound=14`） | ✅ `94aeebb7` |
+| **G2** graphsafe dsa（`082`/`093`） | 断言指定的那份是 graphsafe 版（判据是 `grep -c rows_bound ≥1` = **行数**；运行期真值 `=6`，见 `102`） | ✅ `94aeebb7` |
 | ★ **G2b** 实际挂载断言（`093`） | 起臂后轮询 `meta.txt` 的 `dsa_dir_D` 必须含 `S_graphfix` | ★ **首次实战：`G2b ✓ 实际挂的 dsa 是 graphsafe 版`** |
 | **G3** dmesg/OOM（`080`） | 起臂前看 `Killed process` 与 `MemAvailable` | ✅ `MemAvailable=1574 GiB` 放行 |
 | ★ **G4** 端口占用（`099`） | 起臂前断言端口空闲（防"`health=200` 是别人的"） | ★ **首次实战：`G4 ✓ 端口 8051 空闲`** |

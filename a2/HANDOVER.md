@@ -26,7 +26,7 @@
 容器              r8-r8-4axis-final  Up（KEEP=1 保留，PORT=8051，/health=200）
 端口              8050=空闲 / 8051=被 final 占用 / 8052=空闲
 内存              MemAvailable ≈ 1149 GiB（★ 起 8 卡臂前建议 ≥1400，见 §3-G3）
-本机发布仓 HEAD    8887e26（feat/kv8-dram-offload-pending，227 提交）
+本机发布仓 HEAD    698ce4d（feat/kv8-dram-offload-pending，228 提交）
 ★ A3 的 clone       ~/projects/dsv41-release-git = 233973e ← **落后**，用前先 git pull --ff-only
 ```
 
@@ -78,7 +78,7 @@
 | 门 | 内容 | 落地处 |
 |---|---|---|
 | **G1** 合并件新鲜度 | 用同一套输入重新合并并与已安装件逐字节比对 | `a2/scripts/check_merged_fresh.sh` |
-| **G2** graphsafe dsa | 断言指定的那份是 graphsafe 版（`rows_bound≥1`） | `a2/scripts/run_4axis_arm.sh` |
+| **G2** graphsafe dsa | 断言指定的那份是 graphsafe 版（`grep -c rows_bound ≥1` = **行数**，不是运行期值） | `a2/scripts/run_4axis_arm.sh` |
 | ★ **G2b** 实际挂载断言 | 起臂后轮询 `meta.txt` 的 `dsa_dir_D` 必须含 `S_graphfix` | 同上 |
 | **G3** dmesg / OOM | 起臂前看 `Killed process` 与 `MemAvailable`（≥1400 建议） | 同上 |
 | ★ **G4** 端口占用 | 起臂前断言端口空闲（防"`health=200` 是别人的"） | 同上 |
@@ -143,7 +143,7 @@
 ```
 本机工作区      ~/projects/dsv41/                  （不是 git 仓）
 发布仓          ~/projects/dsv41/dsv41-release    （chiro2001/deepseek-v4.1-flash-ascend910B）
-                分支 feat/kv8-dram-offload-pending  HEAD=8887e26  提交数=227
+                分支 feat/kv8-dram-offload-pending  HEAD=698ce4d  提交数=228
   ★ 发布流程    cd a2 && PUBLISH=1 bash scripts/prepare_publish.sh
                 cd ../dsv41-release && git add -A && 零泄漏扫描 && git commit && git push
 A3 远端         A3-node1；本任务用 Phy-ID 8–15（1–7 是别的租户）

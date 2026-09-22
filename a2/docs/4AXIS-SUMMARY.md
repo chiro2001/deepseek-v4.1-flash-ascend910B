@@ -25,7 +25,15 @@
 
 | 特性 | 状态 | 证据 |
 |---|---|---|
-| **int8 KV（档 C）** | ✅ 开 | `inner.sh`：`KV8_SWA='1'` / `RING_FP16='1'` / `APC_ALIGN='3'` / `KV8_GRAPH_SAFE='1'`；`meta.txt`：`tier=C`；容器内 `dsa_v41.py=94aeebb7`（graphsafe 版，`rows_bound=14`） |
+| **int8 KV（档 C）** | ✅ 开 | `inner.sh`：`KV8_SWA='1'` / `RING_FP16='1'` / `APC_ALIGN='3'` / `KV8_GRAPH_SAFE='1'`；`meta.txt`：`tier=C`；容器内 `dsa_v41.py=94aeebb7`（graphsafe 版；★ **运行期 `rows_bound=6`**，见下方更正） |
+
+> ★ **更正（2026-09-23 02:1x，`logs/102` 审核）**：此前多处写的 **`rows_bound=14` 是误读**。
+> `a2/scripts/run_4axis_arm.sh:102` 的判据是 `_rb=$(grep -c "rows_bound" "$GRAPHSAFE_DSA")` ——
+> 它数的是**文件里含该字样的行数**（S_graphfix 那份恰好 14 行，X_integrate 那份 0 行），
+> **不是运行期值**。运行期真值来自 `[SG-PPR]` 热路径 trace：**`rows_bound=6`（1032 次）或空（312 次），全仓不存在 `rows_bound=14`**。
+> ⇒ 该门（G2）**本身有效**（它只断言"≥1 行、说明是 graphsafe 那份"），但**不能把 14 当运行期读数引用**。
+> 这与本仓红线第 10 条同族（`079 §3` 提示文本自污染 / `093` 跑错文件 / `099` 别人的 health / `100` pgrep 自匹配）：
+> **计数器的口径必须在引用它的那一句话里被说清**。
 | **draft 入图** | ✅ 开 | `Wrapping draft model with ACLGraphWrapper` = **8**；接受长度 A = **6.00 / 2.62 / 4.09**（不恒 1.0） |
 | **Engram** | ✅ 开 | `ENGRAM=1`；`ENGRAM_DEVICE_INDEX=0`（与 A2 生产一致） |
 | **DRAM 卸载** | ✅ 开 | `cpu_bytes_to_use=23,068,672,000`（21.5 GiB 记账）；`bpc={"default":8,"swa":1}`；池后端 `registered` |
@@ -83,6 +91,14 @@
 
 ★ 峰值在 **cc=4**；cc=8 的 p90 涨到 **17.3 s**（拐点）。
 ★ **回退归因**：`TRUE_TOKENS` 只占 **+0.07 ms/步 = 0.12%**（`bneck` 的 `hash` 计时器 same-steps 对比）⇒ 【推断·强】**回退来自 int8 本身**；【未确认】仍缺"档 C + `TRUE_TOKENS=0`"一格。
+
+★★ **本节比值（0.591/0.508/0.538×，吞吐口径）与 `logs/102`（`ms/step` 口径）不是同一件事，别混读**：
+`102` 用标准 quote 探针实测 —— 当前四轴单流 **8K 75.911 / 32K 77.325 / 128K 80.168 ms/step**，
+对同一台 A3-node1、同一份 p15 工具的 **2026-09-16 基线 30.45 / 31.52 / 30.92 ms/step** 是 **2.49× / 2.45× / 2.59×**；
+并已把回退**单变量归因到 int8 档 C**（带卸载+Engram+draft 入图的档 B 臂 = 31.114 ms/step，**与基线持平**），
+增量 100% 落在 `[bneck] d2h`（**14.306 → 63.207**，即 `prepare_engram` 的 D2H 排水口）⇒
+可修方向 = **把 ids 的 D2H 提前一步发出**，而不是优化 int8 kernel。
+★ 注意流传的 `36.9 → 23.9/24.9 ms/step` 出自 `draft_ab.py --seq-len 1032`（≈1K、单批、in-process），**不同口径**。
 ★ **卸载加速**：`fill 178.4 → replay1 24.9 → replay2 19.6 s` ⇒ **约 9.1×**（TTFT 侧 `21,250 → 474 ms` ⇒ **约 45×**）。
 
 ---

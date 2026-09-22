@@ -164,7 +164,16 @@ CMD=(env TAG="$TAG" TIER="$TIER" GRAPH="$GRAPH" EAGER="$EAGER"
      ENGRAM="$ENGRAM" DRAFT_GRAPH="$DRAFT_GRAPH"
      ENGRAM_DEVICE_INDEX="$ENGRAM_DEVICE_INDEX"
      OFFLOAD_BYTES="$OFFLOAD_BYTES" MAX_TOKENS="$MAX_TOKENS"
-     DSA_SRC=D R8_KV8_DIR_D="$S/pkgs/pkg-kv8pf"
+     # ★★★ 2026-09-23 02:5x 修正（实测教训）：此前这里**硬编码** `R8_KV8_DIR_D="$S/pkgs/pkg-kv8pf"`
+     #   ⇒ 调用方若想换 dsa 实现（例如 `agents/CHUNKVIEW/pkg-kv8pf` 的 chunk 连续视图版 `d84f087c`），
+     #   **环境变量会被这里覆盖** ⇒ 挂上去的还是 S 原版 `94aeebb7`。
+     #   事故现场：`r8-chunkview` 臂起服后容器内 md5 = `94aeebb7`（= 原版），**整臂无效**，
+     #   若没被指纹门抓到就会白烧 25 min ⇒ 这正是 `logs/081`/`093` 同族的"改了没生效"。
+     #   ⇒ 改成**尊重调用方的显式设定**（`${VAR:-默认}`），默认行为**逐字不变**。
+     # ★★★ 2026-09-23 04:0x 修正：`DSA_SRC` 此前**硬编码 D** ⇒ 调用方无法切到 `F`（融合件）。
+     #   而 `run_arm_r8.sh:233` 读的正是 `DSA_SRC`（不是 `R8_DSA_SRC`）⇒ 融合臂永远挂不上。
+     #   ⇒ 改成 `${VAR:-默认}`，**默认行为逐字不变**。
+     DSA_SRC="${DSA_SRC:-D}" R8_KV8_DIR_D="${R8_KV8_DIR_D:-$S/pkgs/pkg-kv8pf}"
      PROMPTS="$PROMPTS" PROMPT_TOKENS="$PROMPT_TOKENS"
      REPLAY_PROMPT_TOKENS="$REPLAY_PROMPT_TOKENS" ROUNDS="$ROUNDS"
      KEEP="$KEEP"
@@ -214,19 +223,64 @@ for _i in $(seq 1 240); do
         _d=$(grep -aoE "dsa_dir_D=\S+" "$_meta" 2>/dev/null | head -1)
         if [ -n "$_d" ]; then
             _g2b_done=1
+            # ★★★ 2026-09-23 02:5x **判据修正（实测误判）**：
+            #   原先的判据是 `case "$_d" in *S_graphfix*)` —— 即**按路径字符串**断言。
+            #   但我们的**性能修复件**（`agents/CHUNKVIEW/pkg-kv8pf` 的 chunk 连续视图版 `d84f087c`
+            #   = `S_graphfix`/`94aeebb7` **下游衍生 + 1 hunk**）路径里**不含** `S_graphfix`
+            #   ⇒ 门把"正确的替换件"**误判成"挂错份"**，FATAL 停臂。
+            #   （现场：容器内 md5 = `d84f087c` 是对的，而门却报"不是 graphsafe 版"。）
+            #   ⇒ **改成内容判据**：① 路径含 `S_graphfix` **或** ② 路径在显式白名单
+            #      `R8_DSA_ALLOW_DIRS`（冒号分隔）里 **或** ③ 容器内那份**同时含**
+            #      `rows_bound`（≥1）与 `VLLM_V41_KV8_GRAPH_SAFE` 两个标记 —— 即"它真是 graphsafe 谱系"。
+            #   ★ 这仍然是 fail-closed：**三个条件都不满足**才 FATAL。
+            _dsadir=${_d#dsa_dir_D=}
+            _g2b_ok=0; _g2b_why=""
             case "$_d" in
-                *S_graphfix*)
-                    say "G2b ✓ 实际挂的 dsa 是 graphsafe 版：$_d" ;;
-                *)
-                    echo "" >&2
-                    echo "⛔⛔ [4axis][G2b] 实际挂的 dsa **不是** graphsafe 版：" >&2
-                    echo "     $_d" >&2
-                    echo "   ⇒ 图捕获期会报『capture failed: LocalScalarDenseNpu.cpp:23』+ EE1016×8（logs/093 实测）。" >&2
-                    echo "   ⇒ 请停掉这一臂，带上这两个 env 重起：" >&2
-                    echo "        DSA_SRC=D R8_KV8_DIR_D=$S/pkgs/pkg-kv8pf" >&2
-                    echo "      （或直接用本脚本 —— 它已经内置）" >&2
-                    ;;
+                *S_graphfix*) _g2b_ok=1; _g2b_why="路径含 S_graphfix" ;;
             esac
+            if [ "$_g2b_ok" = "0" ] && [ -n "${R8_DSA_ALLOW_DIRS:-}" ]; then
+                _oldIFS=$IFS; IFS=':'
+                for _al in $R8_DSA_ALLOW_DIRS; do
+                    [ -n "$_al" ] || continue
+                    case "$_dsadir" in *"$_al"*) _g2b_ok=1; _g2b_why="命中白名单 $_al"; break ;; esac
+                done
+                IFS=$_oldIFS
+            fi
+            if [ "$_g2b_ok" = "0" ]; then
+                # 内容判据：容器内那份是否同时含 graphsafe 的两个标记
+                _cfile="/vllm-workspace/vllm-ascend/vllm_ascend/attention/dsa_v41.py"
+                # ★★★ 2026-09-23 03:1x **第二个实测误判**：此前这里用 `docker exec "$TAG"`，
+                #   但 runner 起的容器名是 **`r8-$TAG`**（见 `run_arm_r8.sh:44 NAME=${NAME:-r8-$TAG}`）
+                #   ⇒ `docker exec r8-merged` 打空 ⇒ `_rb/_gs` 全是空 ⇒ **内容判据永远不过** ⇒ 又一次误杀。
+                #   ⇒ 改成**两级探测**：先试 `r8-$TAG`，再试 `$TAG`（兼容手工起臂时的命名）。
+                _ctr=""
+                for _cand in "r8-$TAG" "$TAG"; do
+                    if docker inspect "$_cand" >/dev/null 2>&1; then _ctr="$_cand"; break; fi
+                done
+                if [ -n "$_ctr" ]; then
+                    _rb=$(docker exec "$_ctr" grep -c "rows_bound" "$_cfile" 2>/dev/null | tr -d "\r")
+                    _gs=$(docker exec "$_ctr" grep -c "VLLM_V41_KV8_GRAPH_SAFE" "$_cfile" 2>/dev/null | tr -d "\r")
+                    _cmd5=$(docker exec "$_ctr" md5sum "$_cfile" 2>/dev/null | cut -d' ' -f1)
+                else
+                    _rb=""; _gs=""; _cmd5=""
+                fi
+                if [ "${_rb:-0}" -ge 1 ] && [ "${_gs:-0}" -ge 1 ]; then
+                    _g2b_ok=1
+                    _g2b_why="内容判据：容器内 md5=$_cmd5 含 rows_bound×${_rb} + KV8_GRAPH_SAFE×${_gs}（graphsafe 谱系）"
+                fi
+            fi
+            if [ "$_g2b_ok" = "1" ]; then
+                say "G2b ✓ 实际挂的 dsa 是 graphsafe 谱系：$_d（$_g2b_why）"
+            else
+                echo "" >&2
+                echo "⛔⛔ [4axis][G2b] 实际挂的 dsa **不在 graphsafe 谱系**：" >&2
+                echo "     $_d" >&2
+                echo "     （内容判据也没过：容器内 rows_bound×${_rb:-?} KV8_GRAPH_SAFE×${_gs:-?} md5=${_cmd5:-?}）" >&2
+                echo "   ⇒ 图捕获期会报『capture failed: LocalScalarDenseNpu.cpp:23』+ EE1016×8（logs/093 实测）。" >&2
+                echo "   ⇒ 请停掉这一臂，带上这两个 env 重起：" >&2
+                echo "        DSA_SRC=D R8_KV8_DIR_D=$S/pkgs/pkg-kv8pf" >&2
+                echo "      （或把自定义件目录加进 R8_DSA_ALLOW_DIRS —— 冒号分隔）" >&2
+            fi
         fi
     fi
     # 捕获期指纹（只用 runner 自己打印的那个 serve.log 路径）
