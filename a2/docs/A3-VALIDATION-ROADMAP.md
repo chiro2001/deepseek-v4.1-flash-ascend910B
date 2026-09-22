@@ -137,8 +137,37 @@ MAX_LEN=1048576  MAX_SEQS=4  OFFLOAD_GB=85  BAT_TOKENS=2048  DRAFT_GRAPH=1
 | 起服 | 无 `EE1016`、无 `507057` |
 | ★ 档位自报 | dry-run 里 `档位 : C`（显示 B ⇒ 开关没生效） |
 | 功能三判据 | 全中 |
-| ★ **输出不翻 token** | 与同时段的 `KV8_*=0` 臂比，同一 prompt 的 token 一致（`047` 的 mode3 保证） |
+| ★★ **输出不翻 token —— 必须显式带 `APC_ALIGN=3`** | 见下面的实测更正 |
 | 投机四数 | 不劣于同时段对照臂 |
+
+> ### ⚠️⚠️ 2026-09-22 17:4x 实测更正（`logs/066`，单卡 c2）
+>
+> **Phase 3 的"输出不翻 token"这条判据会给出假阳性和误导性失败** —— 取决于有没有 `APC_ALIGN=3`：
+>
+> | 臂 | 档 | `APC_ALIGN` | `fill_sha` | `replay_sha` | match |
+> |---|---|---|---|---|---|
+> | `c2-tc-dg1` / `c2-tc-dg0` | **C** | **缺** | `e27369ec…` | `e27369ec…` | ✅ True |
+> | ★ `c2-td-dg1` | **D** | **缺** | `e27369ec…` | **`81629185…`** | ⛔ False（`mismatched=[4,5,7]`） |
+> | ★ `c2-td-dg0` | **D** | 缺 | `e27369ec…` | **`81629185…`** | ⛔ False（同 `[4,5,7]`） |
+> | `c2-tb-dg1` | **B** | — | `e27369ec…` | `e27369ec…` | ✅ True ← **无 int8 = match** |
+> | `c2-td-dg1-pmu128` | D | 缺 | `e27369ec…` | `81629185…` | ⛔ False（**`PREFIX_MATCH_UNIT=128` 无效**） |
+>
+> **三条判别性推理**：
+> 1. **档 B match / 档 D 不 match ⇒ int8 特有**；
+> 2. **档 D 三条臂的 `replay_sha` 逐字相同（`81629185…`）⇒ 与 draft 图无关，且高可复现**；
+> 3. **`PREFIX_MATCH_UNIT=128` 无效 ⇒ 不是命中粒度问题**。
+>
+> **根因【推断，强】= 那个 overlay 缺 `APC_ALIGN` 实现**（`048 §11.2` 早已明示"不设 ⇒ int8 会翻 token"）：
+> ```
+> grep -rln VLLM_V41_APC_ALIGN agents/C2_int8_draftgraph/pkg/   = 空
+> 两条臂 server.log 里 APC_ALIGN 横幅 = 0 行
+> ```
+> ★ **档 C 是"侥幸通过"**（`PMU=32` + 512-token prompt 恰好落在栅格上）⇒ **拿它当"档 C 没问题"是假阳性**。
+>
+> ### ✅ 对 A2 的影响：**不会踩**
+>
+> `a2/scripts/serve_a2_offload.sh` 在"开了任一 int8"时**自动置 `APC_ALIGN=3`**（并打印警告）。
+> ⇒ ★ **任何绕过 `serve_a2_offload.sh`、自己拼 `--kv-transfer-config` 的跑法，都必须手动带 `APC_ALIGN=3`。**
 
 **3b：档 D**（再加 `KV8_FULL=1 KV8_PREFILL=1`）—— 这是第二个必需件（`model.py`）的验证点：
 
