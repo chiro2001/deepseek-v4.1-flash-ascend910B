@@ -209,7 +209,22 @@ DRY=1 SHADOW_PKG=$HOME/shadow-pkg MODEL=<A2 的模型目录，见上方「A2 的
 ```
 ⇒ 这一道能挡住「文件没进包」那一类缺口（本轮就抓到过三个）。
 
-## 0. 唯一的阻塞（只能你在 A2 上做）
+## 0. ★★★ 阻塞已解除（2026-09-22 16:10 实机跑完）
+
+> **判据过了**：`★ 注册内存的设备往返判据 = True`（1 GiB 与 4 GiB 都过，且都是**真实 H2D→D2H 逐字节对账**）。
+> ⇒ **走 `NPU_OFFLOAD_HOST_MEM=registered`**，候选 β 成立。详见 **[`logs/065`](logs/065-20260922-a2-probe-live.md)**。
+> 顺带实测确认：**`host_mem_pool = 0`**（A2 真的没有 host 内存池 ⇒ 不能靠 `aclrtMallocHost` 撑池）、
+> 注册后 **H2D 5.5 → 20.4 GB/s（3.7×）**、单次 pinned **8 GiB 通过**。
+>
+> ⚠️ **还差一格**：`LIGHT=1` 只探到 **4 GiB**，而池需要 **~49 GiB/worker**（`logs/027`）⇒
+> **补跑一次 `LIGHT=0`**（探 1/8/32/64 GiB，约 140 s，宿主峰值 ≈200 GiB，显存仍只 256 MiB）：
+> ```bash
+> A2_CONTAINER=dsv41-a2 A2PROBE_FLOOR_GIB=300 LIGHT=0 bash a2_one_shot_probe.sh
+> ```
+> **判读**：`register_64=True` ⇒ 池可整体注册（按 56 GiB/worker 配）；只有 `register_32` ⇒ 分片注册；
+> 只有 `register_8` ⇒ 池子必须 ≤8 GiB/worker。
+
+<details><summary>原始命令与判读（保留作复跑参考）</summary>
 
 ```bash
 # 在 A2 宿主上（脚本自己 docker exec 进服务容器）——**服务在跑也不用停**
@@ -230,6 +245,8 @@ A2_CONTAINER=dsv41-a2 A2PROBE_FLOOR_GIB=300 LIGHT=1 bash a2_one_shot_probe.sh
 > 而且 ctypes + `torch_npu` 同进程**会段错误**且**吞掉全部输出**（`logs/052` §1，A3 实测）。
 
 > ★ 探测**不需要因 int8 改动** —— 池后端（内存 API）与 KV 量化（页几何）是**正交**的两件事。
+
+</details>
 
 ---
 
