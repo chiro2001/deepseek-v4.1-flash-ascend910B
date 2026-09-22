@@ -31,9 +31,15 @@ model_runner_v1.py:3735-3737   capture 期 _dummy_run 把 optimistic_seq_lens_cp
 （131072/128 = 1024）⇒ **表只有 1 列**。
 
 ⇒ 这是**捕获期冻结的"值"**（`max_cache_seq_len`）而不是**上界**，正是本任务禁止的形态。
-★ **它怎么死已经定案（§3.2，源码级、不占卡）**：**(c) 静默算错** —— 算子对 block table 的列宽
-**按构造没有**任何"列宽 ≥ 最大块号"的检查（host checker 只查 dtype/维度/非空/dim0==batch），
-device kernel 直接按 `bIdx * 列宽 + blkTableIdx` 取址 ⇒ 列宽 1 时可寻址到几百 ⇒ 越界读 GM 当页号。
+★ **它怎么死已经定案（§3.2 源码级 + §5.5.3 运行期）**：算子对 block table 的列宽**按构造没有**
+"列宽 ≥ 最大块号"的检查（host checker 只查 dtype/维度/非空/dim0==batch），device kernel 直接按
+`bIdx * 列宽 + blkTableIdx` 取址 ⇒ 列宽 1 时可寻址到几百。
+★★ **运行期实测结果是"响亮地崩"而不是"静默算错"**（更正我在第 1 报里的说法）：
+`sg-c-d-cmplegacy` 臂在**第一个真实请求**上打 `SUSPECT REMOTE ERROR, error code 507057`
+（`rtEventSynchronize ... suspect remote error`）⇒ 引擎死。
+机制上仍然是"越界读表拿到垃圾页号"，只是那个垃圾页号再乘 `cmpKvStride0` 落到了未映射地址 ⇒
+**设备故障**。★ 但**这不保证总是响亮的**：若垃圾页号恰好落在已映射内存里，同一缺陷就会**静默算错**
+（这也是我把它按"必须修"处理、而不是"反正会崩"处理的原因）。
 
 ★ **限定（同样重要）**：**窗口（SWA）面没有这个问题** —— `fused_ori_plane2` 的 `ppr` 来自
 `max_q_len=query_rows`（一个 **shape**），是 capture/replay 都安全的粗上界。**只有 cmp 面坏。**
@@ -383,14 +389,78 @@ replay p50 = 1,608.2 ms vs fill p50 = 19,880.0 ms  ⇒ 12.36×
 | ⑥ | 判据⑨ SpecDecoding 四项 | 与基线 `1.50 / 0.500 / 10.0%` 逐字相同 |
 | ⑦ | `[SG-PPR] cmp_graph_safe` 的页数 | 捕获期与 replay 都**由 shape 决定**（不是 `ppr=1`） |
 
-★ **预期**：档 D 在补丁下应当**起服成功且输出与 eager 逐字节相同**（因为 cmp 面已改成
-"按选择重建"、页数由 shape 决定）；若 `replay1 sha` 与 eager 不符 ⇒ 那是**新分支算错**，
-必须回到 §2.2 重审，**不得**写成"能起服就算过"。
+#### 5.5.1 档 D 图模式：**起服成功**（`94aeebb7…`）—— ✅【实测】
 
-决策臂（`sg-c-d-cmplegacy`，只修窗口面）：
+```
+RUN_ID      = r8_sg-c-d-graph_20260922_113107（md5 = 94aeebb757d6d5708268754481a05e0a，arm.out 台账已记）
+捕获        = Capturing CUDA graphs (decode, FULL): 100%|██████████| 9/9 [06:11]
+判据 0      = EE1016 0 / Segfault 0 / Engine core initialization failed 0 / Worker proc died 0  ✅
+就绪        = /health = 200；static_kernel 无降级
+判据 ②      = GPU KV cache size 485,610 tokens  ← ★ 与 R 的档 D 臂 r8-c2-tierD-graph 的 485,610 **逐字相同**
+判据 ③      = BlockStored:CPU=29,436 / CPU→GPU=12,105,678,848 B (>0) / hits=901,120 (>0) / BlockRemoved:CPU=0
+              replay p50 1,458.8 ms vs fill p50 18,776.2 ms = **12.87×**
+              池记账三条路径一致：P1 = L1③ = 297.18 GiB
+判据 ⑦      = ★★ **捕获期的 cmp 面页数由 shape 决定，不再是 ppr=1**：
+              `[SG-PPR] cmp_graph_safe capturing=True num_reqs=32 rows=192 per_req=4 segments=768`
+              `[SG-PPR] cmp_graph_safe capturing=True num_reqs=32 rows=192 per_req=8 segments=1536`
+              `[SG-PPR] native_attention capturing=True num_reqs=32 query_rows=192 num_prefills=0`
+              `                          max_query_len=6 swa_mcs=6 cmp_mcs∈{0,3,6} rows_bound=6`
+              ⇒ §0 那条 **(c) 静默读错**（表宽 1 列 + 索引几百）在捕获期**已被消灭**
+```
 
-预期（依 §3.2 的源码级结论）：**能起服 + 输出与冷算参考不符**（(c) 静默）。
-若它输出**正确** ⇒ 说明那条路没被走到 ⇒ **按空判据处理**，不得写成"没问题"。
+#### 5.5.2 判据④（与同几何 eager 逐字节）—— ✅【实测】**逐字节相同**
+
+| | 档 D **图模式**（本补丁） | 档 D **eager**（R 的 `r8-f1-tierD-eager`） |
+|---|---|---|
+| 几何 | 16 × 131072 → replay 65536 | **同** |
+| `fill` sha | `d524172f9f5ae36806151ca2bb9d0a311bbe94fa5ad27f001be5c4ac962aa0af` | **同** |
+| `replay1` sha | **`8600507eb6b43bfa16d41a24f86c898573209d8f0361e3fffe93526b29007807`** | **`8600507eb6b43bfa16d41a24f86c898573209d8f0361e3fffe93526b29007807`** |
+| replay p50 | 1,458.8 ms | 1,463.8 ms |
+| `GPU KV cache size` | 485,610 | 485,610 |
+| SpecDecoding | ⚠️ **实测**：`Mean acceptance length 1.00 / Accepted 0 / Drafted 15 / Avg 0.0%` | **`1.00 / 0 / 15 / 0.0%`（与图模式逐字相同）** |
+
+⇒ **档 D：图模式输出 == eager 输出（逐字节）** ⇒ 新 cmp 分支**算得对**，不是"起来了但算错"。
+⇒ 判据⑨ 在档 D 上同样成立：**投机仍在工作、图与 eager 零差异**。
+
+★ **一条必须如实标注的观察**（不是本补丁引入，但用户应知道）：本几何下档 D 的接受率读数
+（1.00 / 0 / 15 / 0.0%）**低于档 C 的 1.50 / 10.0%**，而 R 的档 D **eager** 臂给出**完全相同**的
+1.00 / 0 / 15 / 0.0% ⇒ **这是"档 D 的 eager 行为"，与图模式/本补丁无关**。
+★ 但它**样本极小**（Drafted 仅 15 个 token、`max_tokens=1`），**不足以判定档 D 降低了接受率**；
+若用户要"档 D 保投机"的证据，应另跑**专门的接受率 A/B**（不同几何、`max_tokens` 拉长）。
+⇒ 本文件**不**对"档 D 的接受率"下结论，只声明"图模式 == eager"。
+
+#### 5.5.3 决策臂 `sg-c-d-cmplegacy`（只修窗口面，cmp 面留在捕获期路径）—— ✅【实测】引擎崩
+
+```
+起服/捕获 = 成功（窗口面已修 ⇒ 不再 EE1016；cmp 面在捕获期不报错）
+warmup    = ok（25.4 s）
+第一个真实请求 = ★ 引擎死：
+  Worker_TP*.ERROR ... synchronize: NPUEvent.cpp:215 NPU function error: SUSPECT REMOTE ERROR, error code is 507057
+  EE9999: rtEventSynchronize execution failed, reason=suspect remote error
+  EngineCore: Encountered a fatal error ⇒ 客户端 failed=2（fill/replay 均 500 EngineDeadError）
+```
+
+⇒ **§4 的答案（运行期）**：在**本配置**下，旧 cmp 面**不是静默算错，而是设备故障 + 引擎死**（响亮失败）。
+这与 §3.2 的源码级分析一致：越界读 *表* 本身通常只读到同进程垃圾（不崩），
+**是那个垃圾"页号"再乘 `cmpKvStride0` 去取 KV 时才落到未映射地址 ⇒ 507057**。
+★ **但不能据此说"这个缺陷安全"**：垃圾页号落在已映射内存时就是**静默算错** ⇒
+结论仍是"必须修"，只是**危险形态从『必然静默』更正为『可能崩、也可能静默』**。
+★ A/B 对照臂 `sg-d-d-short-on`（**同短几何 2×8192→4096 + 补丁开**）—— ✅【实测】跑通：
+
+| | `sg-c-d-cmplegacy`（cmp 面留旧路径） | `sg-d-d-short-on`（补丁开） |
+|---|---|---|
+| 几何 | 2 × 8192 → replay 4096 | **同** |
+| 起服 / 捕获 | 成功 | 成功 |
+| 第一个真实请求 | **引擎崩**（`507057 SUSPECT REMOTE ERROR`），`failed=2` | ✅ `failed=0` |
+| `fill` / `replay` sha | **无**（未产出） | `b3eeeaba32b01e3a…` / `87a5e4fda548c29b…` |
+| 进程级致命证据 | `Segfault/engine-init 0` 但 `SUSPECT REMOTE ERROR ≥1` | **0** |
+| rc | 0（客户端级；引擎已死） | **0（真跑通）** |
+
+⇒ **同几何对照成立**：唯一差别是补丁开关 ⇒ 旧 cmp 面的失败**是补丁修掉的那个缺陷**，不是几何差异。
+
+**原始证据（已落盘，走 `cos-xfer` 拉回）**：
+* `raw/049-cmp-legacy-ab.txt`（20 行，md5 `605a4c549b98a0aab0a4412433b4219c`）
+* `raw/049-tierD-graph-vs-eager.txt`（41 行，md5 `2c36d80195c9bf1e00c7b77fe311ae1a`）
 
 ---
 

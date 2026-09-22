@@ -455,7 +455,7 @@ KV8_SWA=1 KV8_RING_FP16=1 KV8_FULL=1 KV8_PREFILL=1 \   # 档 D（容量 ×1.9133
 >    只有"每请求最多几页"这个 host 标量改成上界公式 (rows_bound + window - 1)//block_size + 2，
 >    rows_bound 来自 metadata.swa.max_query_len（引擎在 CPU 张量上算好的 Python int，不产生 D2H）。
 >    .item() 那条 prefill 分支【原样保留】（eager only）。
-> ② _kv8_cmp_plane(..., graph_safe=)：★ 同时修掉档 D 的"静默读错" ——
+> ② _kv8_cmp_plane(..., graph_safe=)：★ 同时修掉档 D 的**越界读**（后果**两种都可能**：静默算错 / 崩引擎；见下）——
 >    新增"按 query 行私有一段"的 selection-based 分支，第 i 行第 t 个选择 → 合成下标 i*topk+t，
 >    scratch 页 i*per_req + t//block_size、页内偏移 t%block_size，scratch 表取 rows*per_req 页的恒等表；
 >    全部标量来自 shape/config（不再用捕获期冻结的 max_cache_seq_len）。
@@ -489,7 +489,14 @@ KV8_SWA=1 KV8_RING_FP16=1 KV8_FULL=1 KV8_PREFILL=1 \   # 档 D（容量 ×1.9133
 > ⇒ **`S_graphfix`（049）修图兼容；`T_draftceiling`（050）查 draft 天花板能否解开。**
 > ★★ **更新（`049` 已落盘 ⇒ 上面那句作废）**：档 C 的**图模式捕获期炸点已修**（`94aeebb7…`：`EE1016=0`、图/eager 输出 sha 逐字相同）
 > ⇒ **档 C 可以上**（图模式可用 + 宿主 150.01 GiB），只是 **HBM 容量在 A2 真权重上仍是 ×1.0000**；
-> **档 D 在 `sg-a-d-graph` 判据（含输出正确性）出来之前仍不建议上** —— 越界读是**静默错**（源码级证据见本节上面）。
+> ~~**档 D 在 `sg-a-d-graph` 判据（含输出正确性）出来之前仍不建议上** —— 越界读是**静默错**~~
+> ★★ **更新（2026-09-22 12:3x，`sg-c-d-graph` 已出数）**：档 D 在发布件 `94aeebb7…` 上**已全绿** ——
+> 起服+捕获 9/9、`EE1016/Segfault/engine-init` 全 0、容量 **485,610**（与 R 的档 D 臂逐字相同）、
+> 四条判据全中（`CPU→GPU` 12.11 GB>0 / `hits` 901,120>0 / `BlockRemoved:CPU`=0 / replay **12.87×**）、
+> ★ **`replay1 sha` 与同几何 eager 臂逐字节相同**（`8600507eb6b43bfa…`）、且 `[SG-PPR]` 证明捕获期 cmp 面页数由 shape 决定（768/1536 页）。
+> ⚠️ **另一条更正**：越界读的后果**不是单一形态** —— 决策臂 `sg-c-d-cmplegacy` 实测到的是**崩引擎**
+> （`507057 SUSPECT REMOTE ERROR`，第一个真实请求即死），同几何 A/B（唯一差别=补丁开关）证明因果。
+> ⇒ **正确表述 = "可能崩、也可能静默算错"**；⇒ **档 D 仍必须验 sha**（不能只看起服成功）。
 
 ```
 档 C 在 8 卡 + FULL_DECODE_ONLY 下：

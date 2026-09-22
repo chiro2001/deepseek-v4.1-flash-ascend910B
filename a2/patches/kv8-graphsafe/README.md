@@ -20,7 +20,7 @@
    ⇒ 走"整段压缩前缀重建"，页数来自 cache_seq_lens.max().item()（D2H）；
    而档 D 的 VLLM_V41_KV8_PREFILL=1 会把它换成 fused_cmp_plane3(ppr=ceil(max_cache_seq_len/bs))，
    这个 mcs 是【捕获期 _dummy_run 的 seq_lens=max_query_len=6】算出来的 ⇒ ppr≈1 页，
-   而 replay 的压缩前缀有几百块 ⇒ ★ 不炸但静默读错
+   而 replay 的压缩前缀有几百块 ⇒ ★ **越界读**（后果**两种都可能**，见 §6.1：★ 实测到的是**崩引擎**）
    ★ [SG-PPR] 探针实测（8 rank 一致）：capturing=True 时 cmp_mcs=6 ⇒ ppr = ceil(6/128) = 1
 ```
 
@@ -122,7 +122,8 @@ table_rows = torch.index_select(block_table[:num_reqs].to(torch.int64), 0, b_of_
 
 ## 6. ⚠️ 两个必须知道的边界
 
-1. ★★★ **`[SG-PPR]` 证明档 D 的 cmp 面在捕获期 `ppr=1`**（实测），**且"越界读会怎样"已定案 = (c) 静默错**
+1. ★★★ **`[SG-PPR]` 证明档 D 的 cmp 面在捕获期 `ppr=1`**（实测）；
+   **"越界读会怎样" = ★ 两种形态都可能：可能崩、也可能静默算错**（2026-09-22 12:2x **更正**，原写"(c) 静默错"过强）
    —— **源码级证据，零占卡**（`S_graphfix` 的 `raw/049-op-bounds-evidence.txt`；主代理已独立核实内核那一段）：
 
    ```
@@ -142,11 +143,32 @@ table_rows = torch.index_select(block_table[:num_reqs].to(torch.int64), 0, b_of_
       //                          ↑ 行偏移（= bIdx × 列宽）        ↑ 列偏移（可达几百）
       //  ★ 没有任何一处检查 blkTableIdx < cmpMaxBlockNumPerBatch
       ⇒ 列宽=1 而 blkTableIdx=300 时索引 = bIdx + 300 ⇒ 直接越界读 GM，无检查
-      ⇒ 读到同进程 GM（通常不触发 MMU 故障）⇒ 垃圾值被当成"页号"去取 KV 行 ⇒ ★ 静默算错
-      （只有"垃圾页号 × cmpKvStride0"恰好落到未映射页时才退化成崩溃）
+      ⇒ ① 读【表】时通常只读到同进程垃圾 ⇒ 不触发 MMU 故障
+         ⇒ 垃圾值被当成"页号"去取 KV 行
+      ⇒ ② ★ 但那个垃圾"页号"要再乘 `cmpKvStride0` 去取 KV 行：
+            落在**已映射**内存 ⇒ ★ **静默算错**；
+            落在**未映射**地址 ⇒ ★ **设备故障、引擎死**（`507057 SUSPECT REMOTE ERROR`）
    ```
    ⇒ ★ **标签：【实测·源码级】**（静态、可复核、可重复）。
-   ⇒ **决策臂 `sg-a-d-cmplegacy` 的价值从"分 (b)/(c)"降级为"运行期复现 (c)"**
-     （预期：起服成功 + 输出错；若它居然输出正确，说明那条路没被走到 ⇒ 当**空判据**如实报告，而不是"没问题"）。
+   ⇒ ★★ **运行期实测（`sg-c-d-cmplegacy`，2026-09-22 12:2x）= 落在"崩"这一支**：
+     ```
+     起服/捕获 = 成功（窗口面已修 ⇒ 不再 EE1016）
+     warmup    = ok（25.4 s）
+     第一个真实请求 = ★ 引擎死：
+       NPUEvent.cpp:215 NPU function error: SUSPECT REMOTE ERROR, error code is 507057
+       EE9999: rtEventSynchronize execution failed, reason=suspect remote error
+       ⇒ 客户端 fill/replay 都 failed=2（500 EngineDeadError）
+     ```
+   ⇒ ★★ **严格同几何 A/B（唯一差别 = 补丁开关）证明因果**：
+     ```
+     A 臂 sg-c-d-cmplegacy（cmp 面留旧路径）：fill/replay 全失败，507057
+     B 臂 sg-d-d-short-on （同几何 + 补丁开）：rc=0；致命证据计数=0；
+                                              fill ok=2 sha=b3eeeaba32b01e3a… / replay ok=2 sha=87a5e4fda548c29b…
+     ```
+     ⇒ 旧 cmp 面的失败**就是这个补丁修掉的那个缺陷**，不是几何/别的差异。
+   ⇒ ★★★ **对上线口径的两条影响**：
+     1. **档 D 必须同时验 sha** —— 不能只看"起服成功"。
+        现在还多了第二条理由：**这条缺陷可能以"崩"的形式出现在第一个真实请求上**（本次就是）。
+     2. **不许用"反正会崩所以安全"来自我安慰** —— 落到已映射内存时它是**静默**的。
 2. ★ **调度器侧的 trace 只证明"调度器没冻结"** —— 它打在 EngineCore（图**外**），
    **不能**证明"图内部的值没被冻结"。图内部那一格由 `[SG-PPR]` 回答（答案：**`ppr=1`，被抓死**）。

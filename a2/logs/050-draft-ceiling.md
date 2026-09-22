@@ -347,6 +347,10 @@ _DSV4_COMPRESSED_BLOCK_SIZES = {128/64/32: …}      _DSV4_BLOCK_SIZES_A5_BF16 =
 卸载层 `p2_pool.py::compute_weights`（`tokens_per_block` 从 spec 现算 ⇒ `sw_chunks = cdiv(128,64) = 2`、`reachable_tail = 2+eagle = 3`；**无需改代码，但池配额要复算**）、
 `DeepseekV41DraftSWASpec.__post_init__`（仍强制 BF16 = ②c 要的）。
 ★ **同槽混块先例**：state 组就是 **32 行页**与 128 行页共享同一个 block ID（`AscendCircularBufferSpec`, `STATE_RING_ROWS=32`）。
+★ **块表宽度也独立**（②c 的隐藏风险，已静态排除）：`v1/worker/gpu_model_runner.py:7269-7292` 把
+  `max_num_blocks_per_req = spec.max_num_blocks_per_req(...)` **每组各算一份**（`max_num_blocks` 是 list），
+  传给 `gpu_input_batch.py:186` 的 `MultiGroupBlockTable(max_num_blocks=…)` ⇒ **每个组有自己的表宽**
+  （draft 组 2080 vs 其余 1040），不会因为 draft 的表变长而挤掉别的组、也不会被裁。
 ★ **窗口跨块已判**：draft 的 `sliding_window=128` 在 block=64 下跨 2 块（带投机 133 token ⇒ 最坏 4 块），但
 ①算子按**绝对 token 坐标**寻址（`block=pos//storage_block_size`，`dsa_v41.py:313-345`）；
 ②块表是**全长行**（`max_num_blocks_per_req = cdiv(max_len, block)`）；
