@@ -32,6 +32,16 @@ GRAPH=${GRAPH:-1}
 EAGER=${EAGER:-0}
 ENGRAM=${ENGRAM:-1}                   # ★ 硬约束
 DRAFT_GRAPH=${DRAFT_GRAPH:-1}
+# ★★★ 2026-09-22 23:3x **必修（配置）**：必须显式 `ENGRAM_DEVICE_INDEX=0`
+#   ① A2 生产就是 0（用户 09-20/09-21 的启动命令）；`a2/scripts/serve_a2_offload.sh` 也默认 0
+#   ② 更关键：`_prepare_engram_device()` **不调用** `self.engram_history.update()`
+#      ⇒ device-index 一开，**`075`/`077` 修的整条 host 路径（含 pageless 修复、
+#         TRUE_TOKENS 精确修补、mismatch 计数）全被绕过** ⇒ 跑出来的"通过"**不代表**
+#         我们要验收的那条路（典型"判据没覆盖需求"）
+#   ③ `logs/069` 实测：A3 上 device-index 打开 ⇒ Engram 表注册 183 GiB ⇒ `EH0012` + 池拿不到预算
+#   实测对照（同一天的两条臂）：`p3b2` 是 DEVICE-INDEX=0 ⇒ `ENGRAM-TRUE-TOKENS` 8 行；
+#                                `r8-4axis`（未设 ⇒ auto）是 **1** ⇒ `ENGRAM-TRUE-TOKENS` **0 行**
+ENGRAM_DEVICE_INDEX=${ENGRAM_DEVICE_INDEX:-0}
 OFFLOAD_BYTES=${OFFLOAD_BYTES:-23068672000}   # ≈21.5 GiB 记账（够触发取回，又留内存余量，见 logs/080）
 MAX_TOKENS=${MAX_TOKENS:-128}         # ★ 128 才有有效的投机读数（mt=1 时 A 恒 ~1.5）
 PROMPTS=${PROMPTS:-16}
@@ -59,6 +69,7 @@ say() { echo "[4axis] $*"; }
 echo "=============================================================="
 echo "四轴同开启动脚本（ENGRAM=1 × 卸载 × 档C int8 × draft入图）"
 echo "  TAG=$TAG TIER=$TIER GRAPH=$GRAPH ENGRAM=$ENGRAM DRAFT_GRAPH=$DRAFT_GRAPH"
+echo "  ★ ENGRAM_DEVICE_INDEX=$ENGRAM_DEVICE_INDEX （必须 0：否则 host 路径整段被绕过，见脚本头注释）"
 echo "  OFFLOAD_BYTES=$OFFLOAD_BYTES ($((OFFLOAD_BYTES/1073741824)) GiB)"
 echo "=============================================================="
 
@@ -107,6 +118,7 @@ fi
 # ---------------------------------------------------------------- 起臂
 CMD=(env TAG="$TAG" TIER="$TIER" GRAPH="$GRAPH" EAGER="$EAGER"
      ENGRAM="$ENGRAM" DRAFT_GRAPH="$DRAFT_GRAPH"
+     ENGRAM_DEVICE_INDEX="$ENGRAM_DEVICE_INDEX"
      OFFLOAD_BYTES="$OFFLOAD_BYTES" MAX_TOKENS="$MAX_TOKENS"
      DSA_SRC=D R8_KV8_DIR_D="$S/pkgs/pkg-kv8pf"
      PROMPTS="$PROMPTS" PROMPT_TOKENS="$PROMPT_TOKENS"
@@ -126,6 +138,10 @@ say "   1) [R8-INT8] ... dsa=D=带 role 分键   （不是 dsa=C=原样）"
 say "   2) KV8_GRAPH_SAFE=1"
 say "   3) model.py 用**合并版**（md5 应为 $(md5sum "$INSTALLED_MERGED" | cut -d' ' -f1)）"
 say "   4) 捕获期 EE1016 = 0"
+say "   ★★ 5) 容器内 ENGRAM_DEVICE_INDEX 必须是 0，且日志里 **不应** 出现 [DEVICE-INDEX]："
+say "        docker exec <ctr> sh -c 'env | grep ENGRAM_DEVICE'" 
+say "        grep -ac 'DEVICE-INDEX' <serve.log>    # ★ 必须 0（=1 说明走了 device 路径，host 路径被绕过）"
+say "        grep -ac 'ENGRAM-TRUE-TOKENS' <serve.log>  # ★ 应 >0（证明修补代码真的在跑）"
 say "★ 压测后跑自然语言判据（验收标准的一条）："
 say "   python3 a2/scripts/text_correctness_probe.py --base-url http://127.0.0.1:${PORT} --model deepseek-v41 --out <证据>"
 say "★ 以及**同运行内**的逐字可复现判据（替代跨运行 sha，见 logs/083 §2）："
