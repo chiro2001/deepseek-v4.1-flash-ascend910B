@@ -1,15 +1,16 @@
 # int8 KV 容量杠杆：一页论证（`logs/044`→`047`）
 
-> ## ⛔⛔ **2026-09-22 10:3x 重大更正（`048`）：本页的 ×1.4655 / ×1.9133 在 A2 真权重几何下不成立**
+> ## ⚠️⚠️ **2026-09-22 10:4x 更正（`050` 的逐槽算术）：不是"零收益"，是「档 C ×1.000 / 档 D ×1.1356」**
 >
-> `R_8card_int8` 在 **8 卡真权重**上实测：
+> **`R_8card_int8` 的两条 8 卡真权重实测**：
 > ```
-> 档 B（纯 BF16）      ：GPU KV cache size = 427,643 tokens
-> 档 C（int8 SWA+ring16）：GPU KV cache size = 427,643 tokens   ← ★ 逐字相同 ⇒ ×1.0000
+> 档 B（纯 BF16）             ：GPU KV cache size = 427,643 tokens
+> 档 C（int8 SWA+ring16）     ：GPU KV cache size = 427,643 tokens  ← ★ 逐字相同 ⇒ ×1.0000
+> 档 D（+ KV8 双平面）        ：GPU KV cache size = 485,610 tokens  ← ★ **×1.1356**
 > ```
-> ⇒ **int8 在 8 卡真权重上【零容量收益】**（tiny 上是 ×1.4655）。
+> ⇒ **档 C 零收益；档 D 有 ×1.1356**（tiny 上是 ×1.4655 / ×1.9133）。
 >
-> **根因（已确证）**：**draft 组（DSpark 投机解码的 SWA）把槽位页顶住了**
+> **根因（`050` 的逐槽算术，与 4 点实测闭合）**：**draft 组把 slots 0–2 的页顶住了**
 > ```python
 > # vllm_ascend/core/deepseek_v41.py:51-56
 > class DeepseekV41DraftSWASpec(AscendSlidingWindowMLASpec):
@@ -18,9 +19,15 @@
 >         if self.dtype != torch.bfloat16 or ...:
 >             raise ValueError("Aurora DSpark requires one uncompressed BF16 KV plane")
 > ```
-> draft 的 **BF16 窗口面 = 131,072 B**，**正好等于 long-KV+index 槽位页的原有大小**
-> ⇒ `plan_cache_slots` 的 `capacity = max(kv+index, aliases, draft)` 里 **draft 顶住前 3 个槽**
-> ⇒ int8 让 `Σstate`/`Σswa` 缩小的收益被**完全抵消**。
+> | slot | 候选（档 B → 档 C → 档 D） | capacity B / C / D | binding |
+> |---|---|---|---|
+> | **slot0–2（×3）** | kv+index(r2) 73,856→73,856→**41,600**；state 131,072→**65,536**；swa×10 131,072→**66,560**；**draft 131,072（不变）** | **131,072 / 131,072 / 131,072** | 档 B：**state=swa=draft 三并列**；档 C/D：**draft 独占** |
+> | **slot3（×1）** | kv+index(r1) **147,712→147,712→83,200**；swa×10 131,072→66,560 | **147,712 / 147,712 / 83,200** | 档 B/C/D：**long_kv+index**（与 draft 无关） |
+> | **Σ** | | **540,928 / 540,928 / 476,416** B/block | **×1.0000 / ×1.0000 / ×1.1354** |
+>
+> ⇒ **档 C 零收益的机制**：档 B 的 slots0–2 **本来就已经是 131,072**（state FP32 = SWA BF16 = draft BF16 **三并列**）；
+> 档 C 只把 state/SWA 压到 65,536/66,560，**draft 仍 131,072** ⇒ **页逐字不变**。
+> ⇒ **档 D 有收益的机制**：它把 **slot3 的 `long_kv+index` 从 147,712 压到 83,200**（那一格与 draft 无关）。
 >
 > ★★ **为什么 tiny 六轮全绿也没发现**：**tiny 没有 draft 组**
 > ```
@@ -29,12 +36,21 @@
 > ```
 > ⇒ `plan_cache_slots` 的 draft 分支**整段跳过** ⇒ **这一格从没被跑过**。
 >
-> ★ **另一个独立阻塞（`048`/`049`）**：int8 在 **`FULL_DECODE_ONLY`（生产配置）** 下**捕获期直接炸**
-> （`dsa_v41.py:436` 的 `.item()` 被 spec-decode 误判走 prefill 分支 ⇒ `EE1016`）。
-> ⇒ **两个障碍缺一不可**：容量收益被 draft 顶掉、图兼容性卡在一个 `.item()`。
+> ★★ **而且 `T_draftceiling` 顺手纠正了我两处算术**：
+> 1. **slot3 的 `kv+index` 是 147,712（不是 73,856）** —— 73,856 是 slot0–2 的 ratio-2 值，且**它根本不 binding**；
+> 2. **FP16 draft 一分钱都省不下来** —— FP16 与 BF16 同为 2 B/token，页还是 131,072。
 >
-> **⇒ 本页下方的 ×1.4655 / ×1.9133 只在"无 draft 组的几何"下成立**（tiny / 关掉 DSpark 的配置）。
-> **A2 是否可用取决于 `logs/050`（`T_draftceiling`）能否解开 draft 的天花板。**
+> ★ **实测对账（4 点闭合，误差 ≤0.06%）**：
+> ```
+> tiny 档C 33,279/33,295  tiny 档D 43,444/43,469  8卡 档C 427,643/427,643  8卡 档D 485,551/485,610
+> ```
+>
+> ★ **另一个独立阻塞**：档 C 在 **`FULL_DECODE_ONLY`** 下**捕获期炸**（`dsa_v41.py:436` 的 `.item()` 被 spec-decode 误判 ⇒ `EE1016`）；
+> **而档 D 那次捕获成功**（该臂 serve.log 里 `EE1016` 计数 = 0）—— 两者的差别需要 `S_graphfix`（049）说清。
+>
+> **⇒ 若 draft 也能缩到 ≤73,856（档 C）/ ≤66,560（档 D），可恢复到 ×1.4648 / ×1.9122**【推断】
+> （`T_draftceiling` 说**不需要 int8**：64 行块的 BF16 draft（65,536）也行 ⇒ ×1.9104）。
+> **⇒ 见 `logs/050` 的四条路线评估。**
 
 > **读者**：决定"要不要开 int8"的人。**一句话**：`×1.4655` / `×1.9133` 的容量**已实测拿到**，
 > 代价是**每个命中请求多算 ≤1023 个 token**，且 **store 侧零改动、池需求不变**。
