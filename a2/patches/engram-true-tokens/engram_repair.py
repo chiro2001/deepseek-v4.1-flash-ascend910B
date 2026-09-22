@@ -38,7 +38,13 @@
 
 from __future__ import annotations
 
+import os as _os
+
 import numpy as np
+
+# ★ [ENGRAM-PREVTOK-DIAG] 只打印**前几次**调用的逐槽位明细（避免刷屏）。
+#   `V41_ENGRAM_PREVTOK_DIAG=0` 关闭；`=N` 打印前 N 次调用（默认 3）。
+_PREVTOK_DIAG = {"calls": 0}
 
 
 def plan_repair_slots(positions, request_ids, lookback):
@@ -214,16 +220,54 @@ def build_prev_tok(num_tokens, positions, request_ids, lookback, token_ids_cpu):
     n = int(len(positions))
     lb = int(lookback)
     out = np.full((n, lb), -1, np.int64)
-    stats = {"unavailable": 0}
+    # ★★★ 2026-09-23 00:5x：**为什么"拿不到"**必须分类计数（logs/090 点名的唯一手段）
+    #   实测背景（logs/088/090）：`unavailable=1194 / 计划 1200` ⇒ 精确修复**有效覆盖率仅 0.5%**，
+    #   而**光看 `unavailable` 这个总数无法定因** —— 可能是 `q<0`、`q>=ntok`、或 `tok<0` 三种，
+    #   修法完全不同（改口径 / 改发布 / 无解）。而且两种 `ntok` 模型算出来能差 6 倍
+    #   （`ntok=p0` ⇒ 0 个不可用；`ntok=p0-5` ⇒ 6 个全不可用）⇒ **必须实测**。
+    #   ⇒ 这里把三类分开计数，并**每个 rank 只打前 `_DIAG_CALLS` 次**的逐槽位明细
+    #     （默认 3 次；`V41_ENGRAM_PREVTOK_DIAG=0` 可关，`>0` 可改次数）。
+    stats = {"unavailable": 0, "unavail_q_neg": 0, "unavail_q_ge_ntok": 0,
+             "unavail_tok_neg": 0, "planned": 0}
+    _diag_limit = int(_os.environ.get("V41_ENGRAM_PREVTOK_DIAG", "3") or 3)
+    _diag_call = _PREVTOK_DIAG["calls"]
+    _PREVTOK_DIAG["calls"] = _diag_call + 1
+    _diag = _diag_call < _diag_limit
     for r in range(n):
         row = int(request_ids[r])
         ntok = int(num_tokens[row]) if 0 <= row < int(num_tokens.shape[0]) else 0
         for sh in range(1, lb):
             q = int(positions[r]) - sh
-            if q < 0 or q >= ntok:
+            stats["planned"] += 1
+            if q < 0:
+                stats["unavail_q_neg"] += 1
+                stats["unavailable"] += 1
+                if _diag:
+                    print("[ENGRAM-PREVTOK-DIAG] call=%d r=%d sh=%d q=%d ntok=%d reason=q_neg"
+                          % (_diag_call, r, sh, q, ntok), flush=True)
+                continue
+            if q >= ntok:
+                stats["unavail_q_ge_ntok"] += 1
+                stats["unavailable"] += 1
+                if _diag:
+                    print("[ENGRAM-PREVTOK-DIAG] call=%d r=%d sh=%d q=%d ntok=%d "
+                          "pos0=%d reason=q_ge_ntok (q-ntok=%d)"
+                          % (_diag_call, r, sh, q, ntok, int(positions[r]), q - ntok),
+                          flush=True)
                 continue
             tok = int(token_ids_cpu[row, q])
             if tok < 0:  # PLACEHOLDER_TOKEN_ID（vllm.v1.sample.rejection_sampler）等
+                stats["unavail_tok_neg"] += 1
+                stats["unavailable"] += 1
+                if _diag:
+                    print("[ENGRAM-PREVTOK-DIAG] call=%d r=%d sh=%d q=%d ntok=%d tok=%d "
+                          "reason=tok_neg" % (_diag_call, r, sh, q, ntok, tok), flush=True)
                 continue
             out[r, sh] = tok
+    if _diag_call < _diag_limit:
+        print("[ENGRAM-PREVTOK-DIAG] call=%d 汇总 n=%d 计划=%d 不可用=%d "
+              "(q_neg=%d q_ge_ntok=%d tok_neg=%d)"
+              % (_diag_call, n, stats["planned"], stats["unavailable"],
+                 stats["unavail_q_neg"], stats["unavail_q_ge_ntok"], stats["unavail_tok_neg"]),
+              flush=True)
     return out, stats
