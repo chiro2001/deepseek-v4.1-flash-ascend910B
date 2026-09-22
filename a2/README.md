@@ -29,6 +29,21 @@
 cd <本仓库>/a2/scripts
 A2_CONTAINER=dsv41-a2 A2PROBE_FLOOR_GIB=300 LIGHT=1 bash a2_one_shot_probe.sh
 ```
+
+### 0.1b ★★ 然后是第二步：造 shadow-pkg（**此前这一步会卡住**）
+
+`serve_a2_offload.sh` 依赖 **shadow-pkg**，而 shadow-pkg 原来**只存在于开发机上、从没进过发布包**
+⇒ 池后端探测全绿之后，第二条命令仍会立刻打印「⚠ 找不到 shadow-pkg」。
+**现已补上生成器**（在 A2 本机从本仓库自己造，不依赖任何开发机）：
+
+```bash
+PKG=<本仓库路径> DST=$HOME/shadow-pkg bash a2/scripts/make_shadow_pkg.sh
+# 然后干跑（不起服务）确认参数：
+DRY=1 SHADOW_PKG=$HOME/shadow-pkg MODEL=<模型目录> bash a2/scripts/serve_a2_offload.sh
+```
+
+生成器做 **5 处精确锚点插入**（锚点必须恰好命中一次，否则 **fail-closed 且不落盘**）+ 4 条 grep 自检；
+并且 **不会写 dsv41-release 一个字节**（已实测）。详见 [`logs/055-a2-launch-path.md`](logs/055-a2-launch-path.md)。
 * **为什么必须做**：A2 的 `host_mem_pool = 0`，且这台机器上 **Engram 206 GiB 注册曾撞 `207001`**
   ⇒ **A3 全绿不代表 A2 全绿**；它决定池子走 `registered` 还是回落 `pinned`。
 * **看哪一行**：`★ 注册内存的设备往返判据 = True/False`（**H2H 通过不算数**）。

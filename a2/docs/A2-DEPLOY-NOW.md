@@ -30,6 +30,25 @@ A2_CONTAINER=dsv41-a2 A2PROBE_FLOOR_GIB=300 LIGHT=1 bash a2_one_shot_probe.sh
 
 ---
 
+## 0b. ★★ 第二步：造 shadow-pkg（**此前这一步会卡住**）
+
+`serve_a2_offload.sh` 依赖 **shadow-pkg**，而它原来**只存在于开发机**（`~/projects/dsv41-upstream-pr/shadow-pkg`，
+手工改出来的、**从没进过发布包**）⇒ 探测即使全绿，**第二条命令也会立刻打印「⚠ 找不到 shadow-pkg」并退出**。
+
+```bash
+# 在 A2 本机从本仓库自己造（不依赖任何开发机）
+PKG=<dsv41-release 路径> DST=$HOME/shadow-pkg bash a2/scripts/make_shadow_pkg.sh
+# 干跑确认参数（不起服务）：
+DRY=1 SHADOW_PKG=$HOME/shadow-pkg MODEL=<模型目录> bash a2/scripts/serve_a2_offload.sh
+```
+
+生成器做 **5 处精确锚点插入**（锚点必须恰好命中一次，否则 **fail-closed 且不落盘**）+ 4 条 grep 自检；
+**不写 dsv41-release 一个字节**（已实测）。详见 `logs/055-a2-launch-path.md`。
+★ **注意**：这份 shadow **与开发机上那份不等价**（开发机还含别的任务的注入块）
+⇒ **不要拿开发机的 arm 结论直接套 A2 的 shadow**（见 `patches/ARTIFACT-IDENTITY.md`）。
+
+---
+
 ## 1. 档 B —— 现状，已验证
 
 ```bash
