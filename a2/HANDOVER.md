@@ -24,9 +24,18 @@
 
 | 槽位 | 现在跑什么 | 备注 |
 |---|---|---|
-| **c0** | ★ `t-dc2-c-C2`（档 C + ②c 重跑，容器 `r8-t-dc2-c-C2`，15:12 起） | **8 卡臂走 c0 锁 + Phy-ID 8–15**；★ 已置 `VLLM_V41_KV8_GRAPH_SAFE='1'` |
+| **c0** | ★ `t-dc2-c-C3`（**真·②c**，`--variant b64` 无条件写死，15:28 起） | **8 卡臂走 c0 锁 + Phy-ID 8–15** |
 | **c1** | `DS_draft_graph_int8`（②a 病行探针） | |
-| **c2** | 空闲（die 7） | |
+| **c2** | 空闲（die 7） | 主代理已归还（曾用于 `ds-remap2`） |
+
+### ★★★ 本轮最大的一条已结案：**"档 D 降低接受率"被实测否掉**（`t-dc2-b-D2`，`GRAPH_SAFE=1`）
+```
+档 D ：稳态 interval MeanAccLen 2.69 / AvgDraftAcc 33.8% / Per-pos .591 .355 .290 .237 .215
+档 C基线：                         2.46 /              29.2% /          .509 .311 .264 .208 .170
+⇒ ★ 档 D 每位都更高（容量 485,610 第二次独立复现、fill 8/8、sha fill==replay）
+```
+★ 此前 `max_tokens=1` 下的 `1.00/0%`（D）与 `1.50/10%`（C）是**口径假象 + 样本量差异**（`Drafted` 10 vs 15），**不是缺陷**。
+★ **口径纪律（新）**：两臂 cumulative 分母不同（`num_drafts` 166 vs 214）⇒ **只能比 interval 行**，且**必须剔除 interval #1**（只含 warmup 的 3 个 draft 步，会给出假的 `1.00/0%`）。
 
 | 子代理 | 状态 |
 |---|---|
@@ -56,7 +65,20 @@ t-dc2-c-C2       档 C + ②c（GRAPH_SAFE=1）    ⏳ **重跑中**（15:12 起
 ⇒ 根因是 T 的 runner **从不设 `GRAPH_SAFE`**（`grep` 零命中），用的是从 `R_8card_int8` 抄的模板默认值 **0**。
 ⚠️ **别搞混**：`logs/t-dc2-b-D.client.log`（13:43）是更早一臂的残留，不是 15:01 那轮的读数。
 
-**(2) `t-dc2-c-C`（档 C + ②c）—— 死在 `rejection_sampler_triton_warmup` 内部（★ 主代理读源码补的一格）**
+**(2) ★ ②c 从来没生效过（2026-09-22 15:2x 主代理独立查出，T 已确认并修好）**
+```
+t-dc2-c-C2 的卸载层 group 清单：(12, 'DeepseekV41DraftSWASpec', 128, 3, ...)   ← ★ 还是 128
+容量 427,643 == 基线 t-dc2-a-C；CPU→GPU / GPU_to_CPU 两臂逐字相同（2.348023808e+09）
+```
+根因是**两条门控都空**：① `VLLM_V41_DRAFT_BLOCK` 没进 `inner.sh`（白名单不转发）；
+② ★ **flag 文件路径假设错了** —— `run_2c_arm.sh` 把 flag 建在**宿主** `$T/`，而 core 读的是**容器内**
+`/work/agents/T_draftceiling/draft_block_64.flag`，而 `r8-*` 容器（由 `serve_a2.sh` 起）**没有 `/work` 挂载** ⇒ 静默回落 128。
+⇒ **T 的修法（绕开所有挂载/env 假设）**：新增 `--variant b64`，把 `block_size=64` **无条件写进被挂载的 core 文件本身**
+（`e2e-b64/deepseek_v41_core.py`，md5 `2b1dc8b4…`）⇒ "这一臂是不是 ②c"与**文件**绑定，不可能被挂载假设吃掉；
+并按建议加了**早停闸**（起服后解析 group 清单，draft 块不是 64 就立刻 `exit 9`，不浪费 25 min）。
+★ **重跑臂 `t-dc2-c-C3` 正在 c0**（15:28 起）—— **这条才真正回答"②c 能否碰到 ×1.84"**。
+
+**(2b) `t-dc2-c-C` 的 rc=9 —— 死在 `rejection_sampler_triton_warmup` 内部（★ 主代理读源码补的一格）**
 ```
 Worker-6 died unexpectedly (exit code: None)   ← 信号带走，无 Python traceback；其他 7 个是被 EngineCore 连坐
 崩点 = kernel_warmup.py:44 "Starting Triton kernel warmup." 之后、第一个 "complete" 之前
@@ -66,6 +88,8 @@ Worker-6 died unexpectedly (exit code: None)   ← 信号带走，无 Python tra
 同臂的 `/dev/shm`（1007G 可用）与宿主内存（1605 GiB available）**都已排除**。
 ★ **待分开的两种解释**：(a) draft block=64 这个**新形状**触发 / (b) **②c 补丁本身**触发
 ⇒ 判据臂 = **"补丁在、形状不变（block 仍 128）"**（已建议给 `T`）。
+★ **2026-09-22 15:2x 更新**：这一格的优先级**降到 ②c 之后** —— 若 `c-C3`（同样是 draft=64）能跑通，
+则"draft=64 会崩 warmup"这条**直接被推翻**。
 
 ---
 
