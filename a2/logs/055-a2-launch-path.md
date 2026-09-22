@@ -176,6 +176,55 @@ $ cd dsv41-release && git status --porcelain
    ⇒ **不要**拿 A3 的 arm 结论直接套到 A2 的 shadow 上（这条同样是"身份"问题，见 `patches/ARTIFACT-IDENTITY.md`）；
 3. 起服的**实际效果**仍未在 A2 上验过（§4 只是"路径可走通"，不是"跑得对"）。
 
+## 5bis. ★★★ 2026-09-22 15:2x：又查出**两个**同源缺口（比 §1 那两个更隐蔽）
+
+### 缺口 ②：档 C/D 需要 **7 个**挂载件，发布包里只发布了 **1 个**
+
+`serve_a2_offload.sh` + `make_shadow_pkg.sh` 原先只覆盖 **4 个卸载件 + `dsa_v41.py`**；
+而档 C/D 在 8 卡上真跑时挂的是 **7 个整文件**（来源：`R_8card_int8` 的 `arm.out` 挂载台账）：
+```
+core/deepseek_v41.py                       ★ 不在发布包
+core/kv_cache_interface.py                 ★ 不在发布包
+models/deepseek_v41/model.py               ★ 不在发布包
+models/deepseek_v41/compressor.py          ★ 不在发布包
+ops/triton/compressor/compressor_triton.py ★ 不在发布包
+attention/kv8_prefill_triton.py            ★ 不在发布包
+attention/dsa_v41.py                       ✓ 唯一在的（kv8-graphsafe/）
+```
+⇒ ★★ **A2 拿到发布包，起不了档 C/D** —— 与 §1 的 shadow-pkg 缺失、以及 `0004` 的 ②c 补丁缺失**同一类**。
+
+★ **而且就算找到那 6 个文件，也有一格坑**：`pkg-kv8pf` 里的 `core/deepseek_v41.py`（`b9ae8151`）
+的槽位容量是 `max(kv+index, aliases)` —— **不含 draft 项** ⇒ 真权重 13 组会 raise
+`Aurora DSpark geometry must match target SWA and fit its existing slot`
+（**正是 `050` 记录的那 6 条 raise 臂**）。必须用 R 的 **`9db8e27c`**
+（`capacity = max(kv+index, _alias_max, _draft_size)`）。
+
+**修法（已完成）**：
+1. 新增 **`a2/publish/kv8-int8-pkg/`**（6 个整文件 + README），md5 **与 `arm.out` 台账逐字相同**；
+2. `prepare_publish.sh` MAP 补 7 项 ⇒ 进发布仓的 `patches/kv8-int8-pkg/`；
+3. ★ **`make_shadow_pkg.sh` 接入挂载块**：检测到 `A2_KV8` / `A2_KV8_SWA` / `A2_RING_FP16`
+   任一开启 ⇒ 把这 7 个文件一起挂进去，**缺文件直接 die**（不静默降级成档 B）；
+4. `check_artifact_identity.sh` LEDGER 补这 7 条（标 `PASS` —— 由 `sg-c-c-graph-b` /
+   `sg-c-d-graph` 两条 8 卡 PASS 臂 + `ddi-*` 单 die 臂背书）。
+
+### 缺口 ③：★ **dry-run 从来没验到挂载块**（验证盲区）
+`DRY=1` 在 `serve_a2_offload.sh` 里**调用 shadow 之前就 `exit 0`** ⇒
+shadow 的 `MOUNTS` 组装**一次都没跑过** ⇒ 于是「挂载块到底生不生效」**在 dry-run 里完全没被验证**。
+⇒ 修法：`DRY=1` 现在**转调 shadow 自己的 `DRY_RUN=1`**，把**真实挂载清单**打出来。
+★ 顺手踩到一个 rc=127：必须用 **`$SHADOW` 自己的 `scripts/`**，
+不能用 `$REPO`（那是**本脚本所在仓**，与 shadow 不是同一个目录）。
+
+**实测（全新 clone + 档 C dry-run）**：
+```
+[serve_a2] [A2-INT8] 已挂 7 个整文件件（6 个来自 …/patches/kv8-int8-pkg/vllm_ascend + dsa_v41.py）
+[a2-dry] MOUNTS(24): … -v …/kv8-int8-pkg/vllm_ascend/core/deepseek_v41.py:…/core/deepseek_v41.py:ro …
+         （7 个 int8 件逐条可见，路径全部正确）
+```
+
+★★ **三个缺口（§1 的 shadow-pkg / §5bis 的 7 件 / 0004 的 ②c 补丁）的共同点**：
+**都不会在任何测试里报错**，只会让 A2 上线的人**在第一步卡住**。
+⇒ 这就是为什么「**发布包级验证**」必须**独立于「臂级验证」**做一次（本轮做的就是这件事）。
+
 ## 6. 交付
 
 | 件 | 位置 | md5 |

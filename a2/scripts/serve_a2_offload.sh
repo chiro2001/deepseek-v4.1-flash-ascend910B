@@ -243,6 +243,19 @@ if [ "$DRY" = "1" ]; then
     echo "  OFFLOAD_GB=$OFFLOAD_GB MAX_LEN=$MAX_LEN MAX_SEQS=$MAX_SEQS \\"
     echo "  KV_ARGS_EXTRA='$KV_ARGS' \\"
     echo "  bash scripts/serve_a2.sh"
+    # ★★★ 2026-09-22 15:3x 补一道**验证盲区**：
+    #   此前 DRY=1 在这里就 exit 0 ⇒ **shadow 的 MOUNTS 组装一次都没跑过**
+    #   ⇒ "挂载块是否真的生效"在 dry-run 里**完全没被验证**（2026-09-22 实测踩到）。
+    #   现在把 shadow 自己也用 DRY_RUN=1 跑一遍，把**真实挂载清单**打出来。
+    echo
+    echo "[DRY] ↓↓↓ 转调 shadow-pkg 的 DRY_RUN（这一步会打印**真实 MOUNTS**）↓↓↓"
+    #   ★ 必须用 **$SHADOW** 自己的 scripts/ —— 不能用 $REPO（那是**本脚本所在仓**，
+    #     与 shadow 不是同一个目录；2026-09-22 实测在这里踩过 rc=127）。
+    ( cd "$SHADOW" && DRY_RUN=1 MODEL="$MODEL" IMAGE="$IMAGE" GPU_UTIL="$GPU_UTIL" PORT="$PORT" \
+        SERVED_NAME="$SERVED_NAME" MAX_LEN="$MAX_LEN" MAX_SEQS="$MAX_SEQS" \
+        BAT_TOKENS="$BAT_TOKENS" KV_ARGS_EXTRA="$KV_ARGS" \
+        bash scripts/serve_a2.sh ) || { echo "⛔ shadow 的 DRY_RUN 失败（rc=$?）—— 上面就是原因" >&2; exit 2; }
+    echo "[DRY] ↑↑↑ 以上是真实挂载清单 ↑↑↑"
     exit 0
 fi
 
