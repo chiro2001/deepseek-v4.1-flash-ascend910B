@@ -309,8 +309,8 @@ table_rows = torch.index_select(block_table[:num_reqs].to(torch.int64), 0, b_of_
 
 ## §5 8 卡真权重实测（c0 = Phy-ID 8–15）
 
-★ 状态：§5.1–§5.5.3 均为 **【实测】**；三条辅助臂（`c-eager` / `c-eager-on` / `c-cold`）**【未完成】**，
-见 §7。
+★ 状态：§5.1–§5.5.3 均为 **【实测】**；★ **三条辅助臂里 `c-eager` 已跑完**（见 **§7.1**，判据⑦ 反例臂，输出 sha 与正例臂**逐字相同**）；
+⏳ 剩下两条（`c-eager-on` / `c-cold`）仍 **【未完成】**，见 §7。
 
 臂（脚本 `scripts/chain_sg.sh`，每条自带 `flock` 排队）：
 
@@ -532,6 +532,30 @@ R8_GRAPH_SAFE=1 SG_TRACE_PPR=1 bash scripts/chain_sg.sh
 python3 scripts/summarize_sg.py
 ```
 
+
+### 7.1 ★★ 判据⑦ 反例臂 `sg-c-c-eager`：**【实测·已跑完】**（2026-09-22 15:5x，主代理从原始 `client.json` 回填）
+
+**开关（从 `meta.txt` 逐字读出）**：`tier=C  graph=0  eager=1  R8_GRAPH_SAFE=0`
+⇒ ★ 这正是判据⑦ 要的：**档 C + eager + 补丁关**（对照 = `sg-c-c-graph-b`，C + graph + 补丁开）。
+
+```
+[fill]    wall=318.0s  ttft.p50=19,770.7 ms  failed=0  sha=d524172f9f5ae368...
+[replay1] wall= 25.6s  ttft.p50= 1,599.6 ms  failed=0  sha=bc2e797ab069f09ced...
+EE1016 = 0（eager 不捕获，符合预期）
+```
+
+★★★ **两条关键读数**：
+1. **`fill` sha = `d524172f9f5ae368...`** —— 与 `sg-c-c-graph-b`（正例臂）**逐字相同**；
+2. **`replay1` sha = `bc2e797ab069f09ced...`** —— 也与正例臂**逐字相同**。
+
+⇒ ★ **判据⑦ 的含义**：**关掉补丁 + eager，输出与开补丁 + 图模式逐字相同** ⇒
+**补丁不改变数值结果**（它只改「页数这个 host 标量从哪来」，不改算法）。
+⇒ ★ 这也**反向支撑判据⑥**：既然「补丁关」与「补丁开」在同几何下输出相同，
+那么 `c-eager-on`（补丁开 + eager）与 `c-eager`（补丁关 + eager）的对比**预期也应当相同** ——
+★ **但那一格仍标【未完成】**（没有直接读数，不用推断顶替）。
+
+⚠️ **边界**：本条只验了**输出 sha 与两条判据**；`c-eager-on` / `c-cold` 两格仍【未完成】。
+
 ## §7 诚实边界
 
 * §3 的 (b)/(c) 在跑决策臂之前是**【未确认】**（torch 层已实测是响亮失败，算子层未测）。
@@ -539,7 +563,7 @@ python3 scripts/summarize_sg.py
 * **已完成**：档 C 图模式（两个 md5）、档 D 图模式（含与 eager 逐字节）、档 D 同几何 A/B、
   离线自检（穷举+阳性对照）、算子层越界行为的源码级证据、发布门。
 * **【未完成】**（截至本文件落盘，链仍在跑）：
-  * `sg-c-c-eager`（判据⑦ 反例臂：档 C + eager + **补丁关**）；
+  * ~~`sg-c-c-eager`（判据⑦ 反例臂：档 C + eager + **补丁关**）~~ ⇒ ★★ **已跑完，见 §7.1**（主代理回填）；
   * `sg-c-c-eager-on`（判据⑥ 直接对照：档 C + eager + **补丁开**）；
   * `sg-c-c-cold`（判据⑤ 的**冷算参考**：池 1 MiB）。
   ⇒ 这三格**一律标【未完成】**，不得写成通过；判据⑥ 的"prefill 输出与延迟不变"目前只有
