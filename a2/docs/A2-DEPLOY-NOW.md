@@ -47,6 +47,53 @@ SHADOW_PKG=$HOME/shadow-pkg MODEL=<模型目录> OFFLOAD_GB=56 MAX_LEN=131072 MA
 
 ---
 
+## ★★ 判据账（2026-09-22 16:0x）—— **上线后照着这张表核**
+
+### A. 目标要求的「三判据」（**DRAM 卸载到底有没有生效**）
+
+| # | 判据 | 档 B | 档 C | 档 D | 怎么核 |
+|---|---|---|---|---|---|
+| 1 | `BlockStored(medium=CPU) > 0`（**能存**） | 29,436 | 29,436 | 29,436 | `curl :PORT/metrics | grep kv_offload_store` |
+| 2 | `CPU→GPU` 搬了字节（**能取**） | 21.52 GB | **21.19 GB** | 12.11 GB | `grep kv_offload_load_bytes_total` |
+| 3 | `external_prefix_cache_hits > 0`（**真命中**） | 901,120 | 901,120 | 901,120 | `grep external_prefix_cache_hits_total` |
+| ★ | **replay ÷ fill**（**取回比重算快**） | 12.87× | **12.50×** | **12.87×** | 两次 TTFT 之比 |
+| ★ | `BlockRemoved(medium=CPU) == 0`（**没被踢**） | 0 | 0 | 0 | `grep kv_offload_block_removed` |
+
+★ **全部为 8 卡真权重实测**（`logs/042` / `048` / `050`）；**上线后必须自己再核一遍**，
+因为 A2 的池后端（`registered` vs `pinned`）与 A3 不同。
+
+### B. 容量判据（**先记下期望值，再对比**）
+
+| 档 | HBM `GPU KV cache size` 期望 | 宿主实占期望 | 依据 |
+|---|---:|---:|---|
+| 档 B | **427,643** | **197.21 GiB** | `logs/042` |
+| 档 C | **427,643**（★ 与档 B 相同 —— **容量不涨是正常的**，收益在宿主） | **150.01 GiB** | `logs/048` |
+| 档 D | **485,610** | **144.63 GiB** | `logs/050` / `R_8card_int8` |
+| ②c（预测） | **777,318** | 待测 | `logs/051`（**8 卡端到端在跑**） |
+
+> ⚠️ ★ **最容易误判的一格**：**档 C 的 HBM 容量与档 B 逐字相同**（427,643）——
+> 因为 slots 0–2 的 binding 是 **draft 组（BF16）**，int8 只压得动第 4 个 slot。
+> ⇒ **别拿「容量没变」当「int8 没生效」**（`053` 专门记过这个陷阱）。
+> ★ int8 的收益要**看宿主内存**（197.21 → 150.01 GiB）或 `[R8-SLOTS]` 的 slot 数值。
+
+### C. 服务健康判据（**起服后先看这三条**）
+
+```bash
+grep -c 'P1_pinned.*ret=0'            <serve.log>   # 期望 8   ← 池后端生效
+grep -c 'D2_offload'                  <serve.log>   # 期望 >0  ← 卸载层装载
+grep -c 'alignment_chunk_count.*8'    <serve.log>   # 期望 >0  ← per-group bpc 生效
+grep -c 'P2_poolsizing'               <serve.log>   # 期望 >0  ← L1 生效
+```
+★ 任一为 0 ⇒ **停，别压测**（脚本末尾也会打印这几条）。
+
+### D. ★ 提交前的最后一道（**2026-09-22 新增**）
+```bash
+DRY=1 SHADOW_PKG=$HOME/shadow-pkg MODEL=<模型目录> KV8_SWA=1 KV8_RING_FP16=1 \
+    bash a2/scripts/serve_a2_offload.sh | grep -E 'a2-dry.*MOUNTS'
+#   ★ 档 C/D 必须含那 7 个 kv8-int8-pkg 件（MOUNTS 条数约 24）
+```
+⇒ 这一道能挡住「文件没进包」那一类缺口（本轮就抓到过三个）。
+
 ## 0. 唯一的阻塞（只能你在 A2 上做）
 
 ```bash
