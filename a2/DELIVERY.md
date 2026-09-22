@@ -405,6 +405,16 @@ KV8_SWA=1 KV8_RING_FP16=1 KV8_FULL=1 KV8_PREFILL=1 \   # 档 D（容量 ×1.9133
 > 档 C（int8 SWA+ring16） ：GPU KV cache size = 427,643 tokens   ← ★ 逐字相同 ⇒ ×1.0000
 > 档 D（+ KV8 双平面）    ：GPU KV cache size = 485,610 tokens   ← ★ **×1.1356**
 > ```
+>
+> ### ★★★ 但 int8 在 A2 上**有一条 HBM 之外的收益：宿主内存 197.21 → 150.01 GiB（×1.3146）**
+> ```
+> 档 B（16 张量，Σpage=910,208 B）：per-worker 24.65 GiB ×8 = 197.21 GiB
+> 档 C（20 张量，Σpage=832,128 B）：per-worker 18.75 GiB ×8 = ★ 150.01 GiB
+> ⇒ ★ 省 47.20 GiB = ×1.3146（同样的 OFFLOAD_GB=56）
+> ```
+> **机制**：SWA 平面真的缩了（`pages=[65536,8192,128,…,1024,…]`，Σpage 910,208→**832,128**），
+> 而 `worker_kv_bytes_per_block` 仍是 131,072 ⇒ **L1 的行空间变小**。
+> ★★ **⇒ int8 在 A2 上的真实价值是"省 DRAM 池"，不是"HBM 装更多 token"**（tiny 无 draft 组，表现不同）。
 > ⇒ **档 C 零收益、档 D ×1.1356**（tiny 上是 ×1.4655 / ×1.9133）。
 >
 > **机制（`050` 逐槽算术，与 4 点实测闭合、误差 ≤0.06%）**：
