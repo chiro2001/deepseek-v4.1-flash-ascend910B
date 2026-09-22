@@ -100,6 +100,59 @@ python3 $R8/patch/merge_model.py \
 
 ---
 
+## 4b. ★★★ 同一格**当天第二次**踩到：合并件又（这次是反方向的）过期了
+
+修完 §3 之后我紧接着修了另一个 bug（`engram_repair` 的调用点契约，见 `logs/082` 与
+`patches/engram-true-tokens/README.md §0d`）：`model.py` 的调用点从
+`return build_prev_tok(...)` 改成 `return build_prev_tok(...)[0]`。
+⇒ **`--prod` 一变，刚合并好的那份立刻过期**：
+
+```
+$ grep -n "return build_prev_tok(" <R8>/patched/model_merged.py
+358:        return build_prev_tok(ntok, pos_np, req_np, lookback, ids)     ← ★ 没有 [0]
+$ md5sum <R8>/patched/model_merged.py
+5567746663c9ddb054fb41f567bc9f22      （= 基于旧 prod 33c05aaf 的那份）
+$ md5sum <影子包>/patches/files/model.py
+0f9feba129a8f28c9707b40d4109e92b      （prod 已经换成带 [0] 的了）
+```
+
+⇒ ★★ **`--prod` 换版本 ⇒ 合并件过期 ⇒ 又变回"第一个请求抛 `TypeError`"**。
+这正是 §0 那句话的镜像版本：**不只是"用旧的 prod 会丢功能"，而是"prod 一更新，合并件就不新鲜"**。
+
+### 处置：① 重新合并（用当前 prod）② **加一道新鲜度门**
+
+```
+$ python3 merge_model.py --img model.img.py --kv8 pkg-kv8pf/…/model.py \
+        --prod shadow-pkg/patches/files/model.py --out patched/model_merged.py
+[merge] 输入 md5: img=e5d2490e kv8=fd7ff753 prod=0f9feba1
+[merge] ★ 产物 … md5=5c990b04b7c3306920d837483b0dbd11 行数=1404
+```
+| 项 | 值 |
+|---|---|
+| 新合并件 md5 | ★ **`5c990b04b7c3306920d837483b0dbd11`** |
+| 调用点 | `return build_prev_tok(...)[0]` ✅ |
+| `set_engram_row_tokens` / `swa_plane_kwargs` / `long_kv_plane_kwargs` | 1 / 2 / 2 ✅ |
+| `py_compile` | OK ✅ |
+| 旧的（stale）备份 | `patched/model_merged.py.stale-214613`（md5 `5567746663…`） |
+
+### 新门：`a2/scripts/check_merged_fresh.sh`（不占卡、不启容器）
+
+**做法**：用**同一套输入**重新合并到临时文件，与已安装的那份逐字节比对；
+因为 `merge_model.py` 自带自证（diff 回放镜像版必须逐字节等于 kv8 版 + 锚点唯一命中），
+所以"重新合并"本身是可信操作，不是猜。
+
+**双向实测**：
+| 场景 | 结果 |
+|---|---|
+| 已安装 = 新鲜 | `✓ 新鲜：合并件 == 用当前输入重新合并的结果` ⇒ **rc=0** |
+| 已安装 = 旧的 stale 件 | `⛔ 合并件已过期` + `差异行数 = 13` ⇒ **rc=1**，并打印处置命令 |
+
+★ **一个自己踩的弱判据**：第一版标志位对比只比 `grep -c "return build_prev_tok("` ⇒
+**带不带 `[0]` 都是 1 行** ⇒ 抓不到本次事故。已改成**按行内容判**（`case ... in *")[0]"*`）。
+⇒ 教训：**"计数相等"经常不等于"内容相同"**（与 `043` 的"单向判据失效"同族）。
+
+---
+
 ## 5. 给下一臂的检查清单（进 `logs/080` 那道"先看 dmesg"门之后的第二步）
 
 ```
