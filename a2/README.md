@@ -277,14 +277,15 @@ grep -a 'P2_WORKER_HOST_BYTES'      <serve.log>   # ★ 宿主实占
 >    ⇒ ★★ **交付推荐仍是 ②c**；②a 退回**研究项**（`logs/056` / `logs/059`）。
 > 3. **A2 本机的池后端探测仍是唯一阻塞**（§0.1）—— 只能在那台机器上做。
 
-### 当前正在跑的（都不踢锁）
+### 当前正在跑的（2026-09-22 16:1x，都不踢锁）
 ```
-c0：R 的 r8-g1-tierC-graph（图 vs eager 同口径）+ 其后 B-cold / cold2 / D-graph / KV 级逐字节
-     S 的 sg-c-c-eager → c-eager-on → c-cold（三格【未完成】，如实标注）
-     ②c 的 8 卡端到端（t-dc2-b-D → t-dc2-c-D）排队
-c1：★★ ②a 的 Q3（ddi-d-bf16-e 基线 → ddi-d-i8-* 的 SpecDecoding A/B，max_tokens=64）
+c0：★★ ②c 的 8 卡端到端（t-dc2-b-D 基线 → t-dc2-c-D ②c）★ 关键路径，13:36 起
+     （其后：R 的 B-cold / cold2 / D-graph / KV 级逐字节；S 的 c-cold 【未完成】那格）
+c1：②a 的诊断臂（定位那行"病行"；不影响交付结论 —— ②a 已出局）
 c2：空闲
 ```
+★ **档 C 的判据⑦ 反例臂已跑完**（补丁关 + eager）：`fill`/`replay1` 两枚 sha 与正例臂**逐字相同**
+⇒ **补丁不改变数值结果**（`logs/049` §7.1）。剩 `c-eager-on` / `c-cold` 两格【未完成】。
 
 > ★★ **一条已经定性的事**（2026-09-22 14:5x）：此前「热 replay ≠ 冷算参考（2/16 prompt）」
 > **不是 int8 缺陷** —— 决定性证据是**档 B（BF16 无损池）的热臂给出与档 C 逐字相同的退化 token**，
