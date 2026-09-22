@@ -415,6 +415,20 @@ KV8_SWA=1 KV8_RING_FP16=1 KV8_FULL=1 KV8_PREFILL=1 \   # 档 D（容量 ×1.9133
 > **机制**：SWA 平面真的缩了（`pages=[65536,8192,128,…,1024,…]`，Σpage 910,208→**832,128**），
 > 而 `worker_kv_bytes_per_block` 仍是 131,072 ⇒ **L1 的行空间变小**。
 > ★★ **⇒ int8 在 A2 上的真实价值是"省 DRAM 池"，不是"HBM 装更多 token"**（tiny 无 draft 组，表现不同）。
+>
+> ### ★★★ 而且**档 C 的图模式阻塞已解开**（`049`，`S_graphfix`）
+> ```
+> sg-a-c-graph.serve_a2.log（8 卡真权重 + FULL_DECODE_ONLY）：
+>   EE1016 计数 = 【0】                    ← ★ 图捕获不再炸（此前 dsa_v41.py:436 的 .item() 必炸）
+>   GPU KV cache size: 427,643 tokens     ← 档 C 的正确容量
+>   ✓ static_kernel 无降级
+> 四条判据（主代理从原始 client.json / metrics 独立核实）：
+>   external_prefix_cache_hits_total = 901,120   ← ★ 与档 B【逐字相同】⇒ 真命中
+>   CPU→GPU = 21.19 GB（> 0）                    ⇒ 真取回
+>   fill_out_sha256 = d524172f…                  ← ★ 与档 B【逐字相同】
+> ```
+> ⇒ ★ **档 C 现在是一条可上线的配置**：图模式可用 + 宿主内存 ×1.3146（HBM 容量 ×1.0000）。
+> **⇒ 16×128K 的池从 197.21 GiB 降到 150.01 GiB，代价只有 int8 的 +1.3~1.8% decode 时延。**
 > ⇒ **档 C 零收益、档 D ×1.1356**（tiny 上是 ×1.4655 / ×1.9133）。
 >
 > **机制（`050` 逐槽算术，与 4 点实测闭合、误差 ≤0.06%）**：
