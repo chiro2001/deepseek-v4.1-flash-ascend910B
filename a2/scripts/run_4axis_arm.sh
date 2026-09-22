@@ -104,6 +104,14 @@ else
   die "G2: $GRAPHSAFE_DSA 看起来不是 graphsafe 版（rows_bound=$_rb 开关=$_gs，期望都 >=1）"
 fi
 say "G2 ✓ 起臂时会带：DSA_SRC=D R8_KV8_DIR_D=$S/pkgs/pkg-kv8pf（⇒ shadow 打印 'dsa=D=带 role 分键'）"
+# ★★★ 2026-09-23 00:4x **G2b：起服后断言「实际挂的」就是我指定的那份**（logs/093 的实测事故）
+#   事故：`r8-4axis-mode2` 臂**手工起**、没带 `DSA_SRC=D R8_KV8_DIR_D=…` ⇒ runner 的
+#   `R8_KV8_DIR_D` 默认指向 `X_integrate/pkg-kv8pf`（**rows_bound=0，没有 graphsafe**）
+#   ⇒ 图捕获期 `capture failed: LocalScalarDenseNpu.cpp:23` + `EE1016` ×8、容器死。
+#   ★ 而 G2 只检查了"我指定的那份是 graphsafe"，**没检查 runner 真的挂了它** ⇒ 这个洞要补。
+#   ★ 判据指纹：`grep -ac "capture failed" <serve.log>` > 0 且含 `LocalScalarDenseNpu`
+#     ⇒ 先查 `dsa_dir_D` 指向哪份、`rows_bound` 是否为 0，**不要**先怀疑 Engram/int8/池分量。
+say "G2b 起服后会自动断言 dsa_dir_D 含 $S（防「手工起臂漏 env」，logs/093）"
 
 # ---------------------------------------------------------------- G3 dmesg（OOM）
 say "G3 先看 dmesg（logs/080：OOM 会伪装成代码挂了）"
@@ -153,4 +161,53 @@ say "     --client $HOME/projects/dsv41-upstream-pr/agents/R_8card_int8/out/$TAG
 say "     --metrics $HOME/projects/dsv41-upstream-pr/agents/R_8card_int8/out/$TAG/*.metrics_after.txt \\"
 say "     --container $TAG --text-probe-json <textprobe.json>"
 echo ""
-exec "${CMD[@]}"
+# ---------------------------------------------------------------- G2b：起臂后断言 dsa_dir_D
+# ★ 不能再用 `exec`（那样就没机会做事后检查了）⇒ 改成"后台起臂 + 前 20 分钟盯 meta/serve.log"。
+#   一旦发现 (a) dsa_dir_D 不含 S_graphfix，或 (b) 捕获期 `capture failed ... LocalScalarDenseNpu`
+#   ⇒ 立刻**响亮地喊出来**（并把判据指纹一并打印），避免又白等 20–40 分钟（logs/093 的实测事故）。
+_meta="$HOME/projects/dsv41-upstream-pr/agents/R_8card_int8/out/$TAG/$TAG.meta.txt"
+_srvlog=""
+"${CMD[@]}" &
+_arm_pid=$!
+say "已起臂（pid=$_arm_pid）；开始盯 G2b（dsa_dir_D）+ 捕获期指纹；最多盯 40 分钟"
+_g2b_done=0
+for _i in $(seq 1 240); do
+    sleep 10
+    if [ "$_g2b_done" = "0" ] && [ -f "$_meta" ]; then
+        _d=$(grep -aoE "dsa_dir_D=\S+" "$_meta" 2>/dev/null | head -1)
+        if [ -n "$_d" ]; then
+            _g2b_done=1
+            case "$_d" in
+                *S_graphfix*)
+                    say "G2b ✓ 实际挂的 dsa 是 graphsafe 版：$_d" ;;
+                *)
+                    echo "" >&2
+                    echo "⛔⛔ [4axis][G2b] 实际挂的 dsa **不是** graphsafe 版：" >&2
+                    echo "     $_d" >&2
+                    echo "   ⇒ 图捕获期会报『capture failed: LocalScalarDenseNpu.cpp:23』+ EE1016×8（logs/093 实测）。" >&2
+                    echo "   ⇒ 请停掉这一臂，带上这两个 env 重起：" >&2
+                    echo "        DSA_SRC=D R8_KV8_DIR_D=$S/pkgs/pkg-kv8pf" >&2
+                    echo "      （或直接用本脚本 —— 它已经内置）" >&2
+                    ;;
+            esac
+        fi
+    fi
+    # 捕获期指纹（只用 runner 自己打印的那个 serve.log 路径）
+    if [ -z "$_srvlog" ] && [ -d "$PKG/results" ]; then
+        _srvlog=$(ls -dt "$PKG"/results/*"$TAG"_*/ 2>/dev/null | head -1)serve.log
+        [ -f "$_srvlog" ] || _srvlog=""
+    fi
+    if [ -n "$_srvlog" ] && [ -f "$_srvlog" ]; then
+        if grep -aq "capture failed" "$_srvlog" 2>/dev/null && grep -aq "LocalScalarDenseNpu" "$_srvlog" 2>/dev/null; then
+            echo "" >&2
+            echo "⛔⛔ [4axis][指纹] 捕获期出现『capture failed … LocalScalarDenseNpu.cpp:23』" >&2
+            echo "   ⇒ 这就是 logs/093 的指纹：**dsa 不是 graphsafe 版**。" >&2
+            echo "   ⇒ 先查： grep -aoE 'dsa_dir_D=\S+' $_meta" >&2
+            echo "   ⇒ 不要先去怀疑 Engram / int8 开关 / 池分量（都已实测排除，logs/093 §2.1）。" >&2
+            break
+        fi
+    fi
+    kill -0 "$_arm_pid" 2>/dev/null || { say "臂已结束（pid 退出）"; break; }
+done
+wait "$_arm_pid"
+exit $?
