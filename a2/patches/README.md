@@ -215,3 +215,33 @@ grep -c "alignment_chunk_count.*8"   serve.log   # 期望 > 0（per-group bpc �
   ★ 8 卡端到端 **⏳ 在 c0 排队** |
 | 用法 | `python3 0004-draft-block64.patch.py --core <影子包/core/deepseek_v41.py> --dspark <镜像/models/deepseek_v41/dspark.py> --out-dir <patched>` |
 
+### ★★★ 两个 variant（`clean` vs `core-only`）**是否等价** —— 已用源码 + 实测双重确认
+
+| variant | 改在哪 | 用途 |
+|---|---|---|
+| **`clean`**（默认，**生产形状**） | `dspark.py` 加 `__init__` 读 env `VLLM_V41_DRAFT_BLOCK` → 传给 `get_kv_cache_spec()` | ★ **A2 上线用这个** |
+| `core-only` | 把覆写放进 `DraftSWASpec.__post_init__`（读一个**文件** flag） | ★ **8 卡端到端臂用这个** —— 因为 8 卡 runner 的 `inner.sh` **只转发白名单 env**，递不进 `VLLM_V41_DRAFT_BLOCK` |
+
+★ **推导链**（主代理 2026-09-22 16:1x 独立核实）：
+```
+两者最终都让 spec.block_size = 64（只是一个改在 dspark、一个改在 spec 自身）
+而块表行数是【从 spec 现算】的：
+    vllm/v1/kv_cache_interface.py:740
+        def max_num_blocks_per_req(self, vllm_config, max_len):
+            return cdiv(max_len, self.block_size) + self.num_speculative_blocks
+                                                ^ spec 自己的 block_size
+调用点：worker/model_runner_v1.py:5245
+    max_num_blocks_per_req = kv_cache_group.kv_cache_spec.max_num_blocks_per_req(...)
+                            ^ 就是那个 spec
+=> 只要 spec.block_size = 64，块表行数就按 64 算 —— 两个 variant 在这一点上没有差别
+```
+
+★★ **而且这条路径的「活性」有实测**：`C2_draft64` 的**阳性对照臂**（`c2c-neg-b64`）
+故意强制 `max_num_blocks_per_req` 按 **128** 算（而 spec.block_size=64）⇒ **不一致** ⇒
+第一个 4096-token 请求就把 EngineCore 打死（`could not broadcast (65,) into (64,)`）。
+⇒ ★ 这个对照臂**反过来证明了「块表确实按 spec.block_size 走」**（如果这条路径不活，它就不会炸）。
+
+⇒ ★★ **结论：`core-only`（8 卡臂）与 `clean`（生产）在块大小这条路径上等价** ⇒
+**8 卡端到端臂的结论可以代表生产形状**（但仍要等它跑完，见 `logs/051`）。
+
+
