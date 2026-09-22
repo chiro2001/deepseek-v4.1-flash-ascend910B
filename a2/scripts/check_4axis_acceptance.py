@@ -56,6 +56,9 @@ def main() -> int:
     ap.add_argument("--container", default="")
     ap.add_argument("--text-probe-json", default="")
     ap.add_argument("--kv-events", default="")
+    ap.add_argument("--arm-launch-log", default="",
+                    help="runner 的启动日志（含 VLLM_V41_ENGRAM_TRUE_TOKENS 的原值）"
+                         "，例如 agents/R_8card_int8/logs/<tag>.serve_a2.log")
     a = ap.parse_args()
 
     try:
@@ -102,6 +105,25 @@ def main() -> int:
     #   ⇒ 判据顺序：① 日志里有该字样 → 按配置判；② 否则**去容器 env 里读**；
     #      ③ 都读不到才按"应 >0"判（保守）。
     _tt_off = ("VLLM_V41_ENGRAM_TRUE_TOKENS=0" in log) or ("VLLM_V41_ENGRAM_TRUE_TOKENS='0'" in log)
+    _tt_known = False
+    if _tt_off:
+        _tt_known = True
+    # ★★★ 2026-09-23 00:5x **判据修正**：原来"判不了"就直接 `bad` ——
+    #   而本脚本自己的设计原则是「没证据 ⇒ 标**未验**，不算通过」。实测事故：
+    #   `r8-4axis-fit` 臂的容器已被 runner 清理（`KEEP=0`），我误传了别的容器名
+    #   ⇒ 查不到它的 `VLLM_V41_ENGRAM_TRUE_TOKENS=0` ⇒ 被**误判成失败**（其实那臂是对的）。
+    #   ⇒ 现在：① 先从容器的 **两个** 内核接口读；② 再读 `--arm-launch-log`（runner 的启动日志，
+    #      它一定含 `VLLM_V41_ENGRAM_TRUE_TOKENS=`）；③ **都读不到 ⇒ skip（未验），不判失败**。
+    if a.arm_launch_log:
+        try:
+            _ll = open(a.arm_launch_log, errors="replace").read()
+            _m = re.search(r"VLLM_V41_ENGRAM_TRUE_TOKENS=(\d+)", _ll)
+            if _m:
+                _tt_known = True
+                if _m.group(1) == "0":
+                    _tt_off = True
+        except Exception:  # noqa: BLE001
+            pass
     if not _tt_off and a.container:
         try:
             _e = subprocess.run(
@@ -109,10 +131,16 @@ def main() -> int:
                 capture_output=True, text=True, timeout=30).stdout
             if "VLLM_V41_ENGRAM_TRUE_TOKENS=0" in _e:
                 _tt_off = True
+                _tt_known = True
+            elif "VLLM_V41_ENGRAM_TRUE_TOKENS=" in _e:
+                _tt_known = True
         except Exception:  # noqa: BLE001
             pass
     if _tt_off:
         R.skip("精确修复未开（pad 兜底）", f"ENGRAM-TRUE-TOKENS = {n}；按设计不跑")
+    elif not _tt_known:
+        R.skip("修补代码是否在跑（判不了）",
+               f"ENGRAM-TRUE-TOKENS = {n}；★ 没给 --container/--arm-launch-log ⇒ **未验**（不判失败）")
     else:
         (R.ok if n > 0 else R.bad)("修补代码真的在跑（应 >0）", f"ENGRAM-TRUE-TOKENS = {n}")
     n = count(log, "ENGRAM-PAGELESS")
@@ -245,6 +273,18 @@ def main() -> int:
             if "BlockRemoved:CPU" in _c:
                 _brv = float(_c["BlockRemoved:CPU"])
                 _src = "kv_events.json"
+            elif _c:
+                # ★★★ 2026-09-23 00:5x **口径修正（这一条差点把"最强形式的达成"判成"未验"）**：
+                #   `kv_events.json` 的 `counts` 只收录**出现过的事件类型** ⇒
+                #   **键不存在 = 该事件一次都没发生 = 0**（`logs/096` 的 `r8-4axis-fit` 实测：
+                #   池降到 `cpu_cache_usage=0.7465` 后 `BlockRemoved:CPU` 的键**直接消失**，
+                #   而 `PROMPTS=8` 那条是 `500`）。
+                #   ⇒ 这不是"数据缺失"，这是"事件数为 0"的**最强形式**。
+                #   ★ 但要防止"拿了一个空/错的文件"也被当成 0 ⇒ 只在 `counts` **非空**
+                #     且**至少见过一个 Block 事件**时才这样判。
+                if any(k.startswith("Block") for k in _c):
+                    _brv = 0.0
+                    _src = "kv_events.json（★ 键不存在 ⇒ 该事件 0 次）"
         except Exception:  # noqa: BLE001
             pass
     if _brv is not None:
