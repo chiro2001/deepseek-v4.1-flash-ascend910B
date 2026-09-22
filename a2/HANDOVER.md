@@ -128,6 +128,39 @@
 >
 > ★ **唯一在 A3 上真跑过 draft 图的地方**：`agents/C1_offload_draftgraph/`（本日 17:1x 建的包，
 > 含 draft 三文件 + 内容级断言）。`C2_int8_draftgraph` 也在同日用它跑通了档 C × draft 图。
+
+#### ⚠️⚠️ **同一条更正的回撤（17:2x）—— 我把它推得太宽了，P1 纠正得对**
+
+> 我上一条把"所有 graph 臂都是假 draft 入图"推到了**所有包**。`a3_p1_offload_draftgraph` 实测反驳：
+> **不同的包，draft 文件集不同**，必须分开看。
+>
+> | 包 | `dspark_proposer.py` md5 | 判据行 | draft 能进图吗 |
+> |---|---|---|---|
+> | **`shadow-pkg`**（8 卡链 / A2 生产链用的那个） | **`5565afed…`** | 第 188 行 = **`self.use_cuda_graph = bool(...)`（计算式）** | ★★ **能** |
+> | `X_integrate/pkg` | `dac256ad…` = stock | 第 75 行 = `= False`（硬禁） | ⛔ 不能 |
+> | `T_draftceiling/pkg/B`、`C2/pkg/dfix2c`、`DS/pkg-dsi` | `dac256ad…` = stock（或路径不存在） | 同上 | ⛔ 不能 |
+>
+> **而且 8 卡链有硬门，不会静默通过**（`serve_a2.sh:1346-1357`，主代理已逐行核实）：
+> ```
+> DRAFT-GUARD：DRAFT_GRAPH=1 时
+>   grep -c "DSPARK_GRAPH_CAPTURE_METADATA" dspark_proposer.py  < 1  => die
+>   容器内 DSPARK_GRAPH_CAPTURE_METADATA != 1                     => die
+> ```
+> ⇒ **"stock dspark + `DRAFT_GRAPH=1`" 在 8 卡链上根本起不了服** —— 与 tiny 包（无此门）不同。
+> 所以 **8 卡上的 `DRAFT_GRAPH=1` 是真的 draft 入图**。
+>
+> ★ **还核实了一条对 A2 上线的影响**：`make_shadow_pkg.sh` 从 `$PKG/patches/files/*` 建**软链**，
+> 而发布仓的 `patches/files/draft/{dsa_v1,dspark_proposer,llm_base_proposer}.py`
+> **在 git 里且已 tracked**（md5 `371bb023…` / `5565afed…` / `a24076eb…`，与 A3 shadow-pkg **逐字相同**）。
+> ⇒ **用户从 GitHub clone 造的 shadow 是完整的，能装 draft 三文件。**（我一度以为这里有缺口，实测后撤回。）
+>
+> ⇒ **正确的教训**：**"draft 入图"的判据必须以那三条为准**（`Wrapping` 行数 / `runtime_mode` / `DRAFT-GUARD` 两行），
+> **且要分清是哪个包** —— 而不是笼统地说"过去的臂都假"。
+>
+> | 场景 | 结论 |
+> |---|---|
+> | tiny 包（`X` / `C2` / `DS` / `T/pkg`）标 "graph" | ⛔ **主模型入图 + draft eager**（P1 的原始发现，成立） |
+> | **8 卡链 `shadow-pkg`** | ✅ **draft 真入图**（有 DRAFT-GUARD 硬门） |
 ```
 ②c 真的生效了（早停闸命中）：group 清单 (12, 'DeepseekV41DraftSWASpec', 64, ...) ✅
 ★ 但容量反而降：427,643 → 406,425（−5%），而 050/051 的预测是 595,404（+39%）⇒ ★ 该预测作废
