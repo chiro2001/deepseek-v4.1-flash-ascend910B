@@ -130,6 +130,43 @@ grep -a 'P2_WORKER_HOST_BYTES'      <serve.log>   # ★ 宿主实占
 
 ---
 
+## 5.0 ★★★ 追加验证（13:0x）：**从 GitHub 全新 clone 跑一遍整条链**（模拟 A2 现场）
+
+§3 的 dry-run 用的是**本地工作区**（`a2/publish/`），而 A2 拿到的是**发布包**（`a2/patches/`）。
+两者布局不同 ⇒ 我用 `git clone` **真拉了一份发布仓**（`feat/kv8-dram-offload-pending`）再跑一遍：
+
+```
+$ git clone --depth 1 -b feat/kv8-dram-offload-pending <repo> dsv41-release
+$ md5sum 三个脚本
+  40e495e83d198393ea544215dbc4fd50  a2/scripts/a2_one_shot_probe.sh
+  9cfd7a9fd2dea5c9284e4ca634d2364b  a2/scripts/make_shadow_pkg.sh
+  dc8d30679be172badb58c71090e19f3a  a2/scripts/serve_a2_offload.sh
+  ★ 与工作区 md5 **逐字一致** ⇒ 发布仓里的就是验过的那份，没有"发布时掉包"
+
+$ PKG=$PWD DST=$HOME/tmp/relcheck/shadow bash a2/scripts/make_shadow_pkg.sh     # 第二步
+  ✓ 造好（5 处锚点插入 + 4 条 grep 自检全过）
+
+$ DRY=1 SHADOW_PKG=… MODEL=… bash a2/scripts/serve_a2_offload.sh               # 第三步（档 B）
+  ✓ 补丁目录：…/dsv41-release/a2/patches          ← ★ 自动识别到**发布包布局**（不是 publish/）
+  ✓ 四个补丁文件已就位
+  [DRY] KV_ARGS_EXTRA='--prefix-match-unit 32 --kv-transfer-config {...}'
+
+$ DRY=1 … KV8_SWA=1 KV8_RING_FP16=1 bash a2/scripts/serve_a2_offload.sh        # 第三步（档 C）
+  ⚠⚠ 你开了 int8 但 APC_ALIGN=0 ⇒ 自动置 3
+  ⚠⚠ 你开了 int8 + 图模式但 GRAPH_SAFE=0 ⇒ 自动置 1
+  ★ int8 档 C: SWA=1 ring16=1 / ★ APC_ALIGN=3 / ★ GRAPH_SAFE=1
+  ⇒ ★ **静默 no-op 的两个门都按预期自动补上并告警**（§7 修的那条）
+
+$ cd dsv41-release && git status --porcelain
+  （零输出）⇒ ★ **发布仓一个字节没被写**
+```
+
+★ 还核了一条：全新 clone 里 `a2/patches/kv8-graphsafe/dsa_v41.py` = **`94aeebb757d6d5708268754481a05e0a`**
+（与 `ARTIFACT-IDENTITY.md` 台账、与 8 卡实测件**逐字一致**）。
+
+**⇒ 结论**：A2 拿到的三个脚本 + 两份补丁目录，**在发布包布局下能完整走通**（探测→造 shadow→干跑/起服），
+且**档 B 与档 C 两条路径都验过**。
+
 ## 5. 诚实边界
 
 1. ★ **`make_shadow_pkg.sh` 只在本地（<workstation>）dry-run 验证过** ⇒
