@@ -374,9 +374,31 @@ if [ "$HOST_MODE" = "1" ]; then
     echo "[a2probe] docker cp 失败" >&2; exit 70; }
   PYDIR=/root          # 文件映射测试的临时文件落在容器里
   PY_RUN=/root/a2_pinned_probe.py
+  # ★★★ 2026-09-22 16:2x **Bug 修复（静默失败，已实机踩到）**：
+  #   `docker exec` **不继承宿主环境变量** ⇒ 容器内 LIGHT 回落默认 "1"、
+  #   A2PROBE_FLOOR_GIB 回落 "120"（用户给的 300 被丢掉）。
+  #   症状：`LIGHT=0 bash ...` 的输出与 `LIGHT=1` **逐字相同**（只探 1/4 GiB），
+  #         而 DECISION 还在提示"重跑 LIGHT=0 再定池子上限" ⇒ **用户会以为跑过了、其实永远拿不到大档**。
+  #   （与 A3 runner 上反复出现的"env 白名单不转发"是同一类坑。）
+  #   ⇒ 显式用 `-e` 把这三个开关送进容器，**并在容器内回显**（见下面的 effective 自检）。
+  EXEC_ENV=(
+    -e "LIGHT=${LIGHT:-1}"
+    -e "COPY_GIB=${COPY_GIB:-0.25}"
+    -e "A2PROBE_FLOOR_GIB=${A2PROBE_FLOOR_GIB:-120}"
+  )
   run_py() {
-    $DOCKER exec -i "$A2_CONTAINER" bash -lc '
+    $DOCKER exec -i "${EXEC_ENV[@]}" "$A2_CONTAINER" bash -lc '
       source /usr/local/Ascend/ascend-toolkit/set_env.sh >/dev/null 2>&1 || true
+      # ★ effective 自检：把容器内真正生效的开关打出来（证伪"又是没转发"）
+      echo "[a2probe][in-container] LIGHT=${LIGHT:-<unset!>} COPY_GIB=${COPY_GIB:-<unset!>} A2PROBE_FLOOR_GIB=${A2PROBE_FLOOR_GIB:-<unset!>}"
+      # ★★ fail-closed：三个开关**必须**都在。少任何一个都说明转发又断了 ——
+      #    宁可当场报错，也不要静默回落默认值（默认 LIGHT=1 会让"大档"永远探不到）。
+      for _v in LIGHT COPY_GIB A2PROBE_FLOOR_GIB; do
+        if [ -z "${!_v:-}" ]; then
+          echo "[a2probe] ⛔ 环境变量 $_v 没有传进容器 ⇒ 拒绝运行（否则会静默降级）。" >&2
+          exit 65
+        fi
+      done
       exec python3 "$@"
     ' -- "$@"
   }

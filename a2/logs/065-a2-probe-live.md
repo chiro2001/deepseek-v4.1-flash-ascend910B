@@ -71,7 +71,38 @@ Mem: total 754 GiB / used 315 / available 438 / buff-cache 260      ← ★ 服�
 
 ---
 
-## 3. ⚠️ 唯一的缺口：**大档没探**（`LIGHT=1` 的上限是 4 GiB）
+## 3. ★★★ 一次**静默失败**：`LIGHT=0` 根本没生效（已修，教训记这里）
+
+16:15 用户按指引跑了 `LIGHT=0`，**输出与 `LIGHT=1` 逐字相同**（仍然只探 1/4 GiB），
+而 DECISION 还在提示"重跑 `LIGHT=0` 再定池子上限" ⇒ ★ **会让用户无限重跑、永远拿不到大档**。
+
+**根因**【实测】：
+```bash
+$DOCKER exec -i "$A2_CONTAINER" bash -lc '...'     # ★ docker exec 不继承宿主环境变量！
+```
+⇒ 容器里 `LIGHT` 回落默认 `"1"`、`A2PROBE_FLOOR_GIB` 回落 `"120"`（**用户给的 300 也被丢掉**）。
+`COPY_GIB` 恰好默认同值，所以只有前两个暴露。
+
+**为什么这是本轮最值得记的一条**：它与 8 卡 runner 上反复出现的
+**"env 白名单不转发"**（`VLLM_V41_DRAFT_BLOCK` / `R8_SLOT_TRACE` / `VLLM_V41_*`）是**同一类坑** ——
+**开关送不进去时，程序不会报错，只会安静地跑默认值**。
+
+**修法**（`scripts/a2_one_shot_probe.sh`，2026-09-22 16:2x）：
+1. 用 `-e` 显式把 `LIGHT` / `COPY_GIB` / `A2PROBE_FLOOR_GIB` 送进容器；
+2. 容器内**回显实际生效值**：`[a2probe][in-container] LIGHT=... COPY_GIB=... A2PROBE_FLOOR_GIB=...`；
+3. ★ **fail-closed**：三个开关少任何一个 ⇒ 打印 `⛔ 环境变量 X 没有传进容器` 并 `exit 65`，
+   **拒绝运行**（宁可当场失败，也不要静默降级）。
+
+**验证**（正反两向都做了，在 A3 的 `prbench-c2` 上）：
+```
+传 -e   ⇒ in-container: LIGHT=0 FLOOR=300        ✅
+不传    ⇒ in-container: LIGHT=<unset> FLOOR=<unset>
+故意少传一个 ⇒ ⛔ 环境变量 A2PROBE_FLOOR_GIB 没有传进容器 ⇒ 拒绝运行  rc=65   ✅
+```
+
+---
+
+## 3b. ⚠️ 因此仍未探到的缺口：**大档**（`LIGHT=1` 的上限是 4 GiB）
 
 DECISION 段的 `None` **不是失败，是"没探"** —— 源码：
 ```python
@@ -79,7 +110,7 @@ step4_register(acl, stream, [1, 4] if LIGHT else [1, 8, 32, 64])
 ```
 ⇒ `LIGHT=1` 只探 1 / 4 GiB。而**A2 的池需要 ~49 GiB/worker**（`logs/027`：`OFFLOAD_GB=56` ⇒ 宿主实占 392.4 GiB = **49.05 GiB/worker × 8**）。
 
-**⇒ 必须补跑一次**（`A2PROBE_FLOOR_GIB=300 LIGHT=0`）：
+**⇒ 必须补跑一次**（`A2PROBE_FLOOR_GIB=300 LIGHT=0`，**用修好的脚本**；跑前先确认容器内回显的那一行）：
 * 会探 **1 / 8 / 32 / 64 GiB** 的注册 + 文件映射 1 / 8 GiB；
 * 按本次余量（438 GiB available、floor 300）**四档都满足 `ok_floor` 的前置条件**（需要 `438−g > 300`，即 `g < 138`）；
 * 【实测·A3 同脚本】耗时 **140 s**、宿主峰值 ≈ 200 GiB、显存峰值仍只 256 MiB；
