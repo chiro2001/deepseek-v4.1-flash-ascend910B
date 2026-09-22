@@ -1,179 +1,235 @@
-# A2 主线交接（★ 2026-09-22 06:3x 全面重写）
+# A2 主线交接（★ 2026-09-22 15:0x 全面重写）
 
-> **接手先读这四份**：本文件 → [`README.md`](README.md) → [`AGENTS.md`](AGENTS.md) → **[`docs/A2-GO-LIVE.md`](docs/A2-GO-LIVE.md)**（上线清单，含全部参数与判据）。
-> 日志索引：**[`logs/README.md`](logs/README.md)**（001–040）。旧工作区 `../upstream-v41/` **已冻结、只读**。
+> **接手先读这四份**：本文件 → [`README.md`](README.md) → [`AGENTS.md`](AGENTS.md) → **[`docs/A2-DEPLOY-NOW.md`](docs/A2-DEPLOY-NOW.md)**（上线清单，含全部参数与判据）。
+> 日志索引：**[`logs/README.md`](logs/README.md)**（001–063）。旧工作区 `../upstream-v41/` **已冻结、只读**。
+> ★★ **本机时钟比 A3 快约 7 分钟**（两边都是 CST +0800，是漂移）—— 判断远端进度**只能**读远端 `date` + 日志字节增长，别用本机时间做减法。
+> 标记约定：**【实测】** = 有原始数据；**【推断】** = 代码/算式推出但没直接测；**【未确认】** = 没跑到。**不许用相邻数字顶替缺的那格。**
 
 ---
 
 ## 0. 一句话现状
 
-**线 1（DRAM 卸载）已可上线**：A2 的参数由 8 卡真权重定死，`OFFLOAD_GB=56`、replay **14.31×**、`BlockRemoved:CPU=0`。
-**线 2（KV8/int8）已实现且容量达标（×1.9133），但卡在一个正确性否决点上**（见 §4）。
-**唯一阻塞上线的是 A2 本机的探测**（`aclrtHostRegister` 在 A2 上能不能用）——**只能用户在 A2 上跑**。
-
----
-
-## 1. ★★ A2 上线的参数（**已由 8 卡真权重实测**，`logs/027`）
-
-```bash
-MODEL=<模型目录> \
-OFFLOAD_GB=56 \                 # 57,344 unit = 实测需求 48,064 的 1.193×
-MAX_LEN=131072 \
-MAX_SEQS=16 \
-BLOCKS_PER_CHUNK='{"default":8,"swa":1}' \
-PREFIX_MATCH_UNIT=32 \          # 必须；否则撞 tokens_per_block=32 % tokens_per_hash=128
-NPU_OFFLOAD_HOST_MEM=registered \
-OFFLOAD_SCHED_PATCH=1 OFFLOAD_NPU_WORKER_PATCH=1 \
-bash a2/scripts/serve_a2_offload.sh
-```
-
-| 项 | 实测值 | 依据 |
-|---|---|---|
-| 池 unit 需求（16 请求 × 128K） | **48,064 unit**（= 23.5 unit/1024token/请求，**不是** `019` 模型的 19） | `027` §3 |
-| `OFFLOAD_GB=56` 的余量 | **1.193×**（宿主 **≈389 GiB**，A2 余量 442 GiB 的 88%，⚠️ 紧） | `027` §4 |
-| replay / fill TTFT | **1,420.6 / 18,202.6 ms = 12.81×**（×1.2 池 ⇒ **14.31×**） | `027` §B / `B2` |
-| `CPU→GPU` | **25.69 GB**（208 load job） | `027` |
-| `BlockRemoved:CPU` | **0**（上线监测判据） | `027` |
-
-**⚠️ 64 × 128K 在 A2 上不可行**（1.000× = 1,272.9 GiB）——**这是结论，不是缺口。**
-
----
-
-## 2. ★★ 两条运维判据（**都来自实测，都会咬人**）
-
-| # | 现象 | 判据 |
-|---|---|---|
-| **1** | **欠配不是"命中率下降"，是"级联归零"**（0.802×/0.844×/0.852× 三条臂**全部 0 命中**，没有中间态） | 盯 **`kv_offload_block_removed_total{medium="CPU"} == 0`** |
-| **2** | ★ **1.000× 临界容量会静默 NaN**（第一压缩层 hidden 全 NaN ⇒ 首 token 错），而**1.000× 与 1.11× 的现成监测指标逐字相同** ⇒ **指标看不见这一类** | **`OFFLOAD_GB` 必须留 ≥1.2× 余量**；建议追加 `units_ratio ≥ 1.05`（`038` §11.2） |
-
----
-
-## 3. ★ 必须知道的独立发现：`temperature=0` 下服务**不确定**（`logs/037`）
-
-```
-同一 prompt + 每次先 /reset_prefix_cache，连发 4 次（max_tokens=1）：
-  32K prompt      ⇒ 2/4 首 token 不同（'。\n' vs '_'）
-  ★ 512 短 prompt ⇒ 3/4 不同（短 prompt 也抖！）
-  关投机后重复请求 4/4 稳定，但 prefill 路径仍抖
-  finish_reason=length（不是 EOS 口径）
-```
-⇒ **所有基于文本 sha 的判据（fill/replay、cold/replay、甚至 cold/cold）全部失效**。
-⇒ **用户报的"服务质量下降"里有一部分与 KV 容量无关** —— 需要给 A2 一个"确定性配置"（`037` §缓解）。
-⇒ **任何"数值正确性"的判断必须走 KV 级字节判据**，不能看输出。
-
----
-
-## 4. ★★ 线 2（int8）的**否决点**与其四次改写的定位链
-
-int8 的容量**是真的**（`033` 真起服实测：`22,719 → 33,295（×1.4655）→ 43,469（×1.9133）`），
-prefill 硬伤**已解**（`033`：+45~105 ms → +0.00~0.06 ms），精度达标（`034`：ring FP16 的误差甚至低于 bf16 地板）。
-**但有一个正确性否决点，且四次定位都推翻/修正了上一轮**：
-
-| 轮 | 结论 | 状态 |
-|---|---|---|
-| `035` | "int8 平面经**池往返不保真**" | ⛔ **被 `036` 证伪** |
-| `036` | "池往返**逐字节保真**"（**12,928 次**全字节比较 `mismatch=0`）；真凶 = "int8 SWA 面 + 对齐 prompt ⇒ 1 行 decode" | ⛔ **修点被 `038` 证伪** |
-| `038` | `kv8_ori_plane` 的 decode 快路径**算术正确**（**1440 次逐行核对**）；真凶 = **"池 unit 数 == 工作集（1.000×）"** | ★ **当前口径** |
-| `040` | 机制（"同一行 → 两 block"）的**确证**在跑 | ⏳ `I_unitprobe` |
-
-**`038` 的关键实测**：
-```
-池 144 MiB（1152 unit = 1.000×） ⇒ ❌ 第一压缩层 NaN、37/40 层 hidden 全 NaN、首 token 静默错
-池 160 MiB（1280 unit = 1.11×）  ⇒ ✅ 0 NaN
-★ 两臂的 BlockRemoved=10 / CPU→GPU 字节(231,669,760) / 主要事件计数【逐字相同】
-```
-**纯 BF16 不复现**（同样"1 行 decode 命中"路径 ⇒ ✅ 0 NaN）——**为什么 int8 会踩 = `038` 未确认格**。
-
-**已交付的防护**：`agents/G_kv8fix/kv8_nan_guard.py`（**写侧 fail-fast**，把"静默算错"变成"响亮失败"）。
-
----
-
-## 5. 容量杠杆总表（每条都实测过，含被推翻的）
-
-| 杠杆 | 机制 | 倍数 | 状态 |
-|---|---|---|---|
-| **L5** | per-group `blocks_per_chunk`（SWA 条目粒度） | **4.89×** | ✅ 可上线（`021` 五判据全过 + `027` 8 卡验证） |
-| **L1** | 池张量按"引用它的组真正需要的行数"分配 | **1.96×** | ✅ 可上线（`030`；**不是 `029` 推测的 16×**） |
-| **L2** | 记账单位诚实化（原来低估 6.944×） | 口径 | ✅ 让 `OFFLOAD_GB` 旋钮说真话（`032`） |
-| ~~**L6**~~ | 8 份 worker 副本合成 1 份 | — | ⛔ **暂不推进**（`032`：上游两道门都关着） |
-| **ring16** | compressor state ring F32→FP16 | ×1.684（**KV8 的乘数**，单独 = ×1.000） | ✅ 精度白送、误差不随长度累积（`034`） |
-| **SWA-quant / KV8** | int8 双平面 | ×1.4655 / ×1.9133 | ⛔ **卡在 §4 的否决点** |
-
-**合并账**（`035` 实测，**注意"14×"的两种口径**）：
-```
-HBM 侧：22,719 → 43,469 = ×1.9133
-池侧  ：910,208 → 329,131 B/unit = ×2.766
-合并  ：L5 4.89× × 2.766 ≈ 13.52×（对预测 14.0× 是 96.2%）
-差异可解释：HBM 的页几何比（1.4655）≠ 池的 Σpage 比（1.378），两者本不是同一个量
-```
-
----
-
-## 6. 环境与资源
-
-| 资源 | 状态 |
+| 线 | 状态 |
 |---|---|
-| `ssh A3-node1` | ✅ 免密；**ControlMaster 会僵死** ⇒ 用 `-o ControlPath=none` |
-| 单卡槽位 | c0 = die3 / c1 = die6 / c2 = die7（`a3_chip.sh <c0\|c1\|c2> --name N -- <cmd>`，**退出码 75 = 没抢到锁**） |
-| Phy-ID 8–15 | 8 卡实验用（**先 `npu-smi info`**） |
-| **A2** | ⛔ **我连不上，只能靠用户粘贴**（这是唯一阻塞） |
-| 传输 | `tools/cos-xfer.sh`（**不要 scp**） |
+| **线 1 · DRAM KV 卸载** | ✅ **可上线** —— 8 卡真权重，档 B/C/D **三判据全绿** |
+| **线 2 · KV8 / int8** | ⚠️ **能力已通、容量目标部分达成**：档 C **×1.0000**、档 D **×1.1356**（目标 **×1.84**） |
+| **唯一阻塞上线** | ⛔ **A2 本机的池后端探测** —— 只有用户能在 A2 上跑（§6 第 1 条） |
+
+**线 2 的关键背景**（一句话）：容量上不去**不是 int8 的错**，是 **draft 组（BF16 / block=128）顶死 slots 0–2**；
+**唯一还活着的解法是 ②c（draft block 128→64，保 BF16）**，预测把 HBM 推到 **×1.8177**，其 8 卡端到端**正在 c0 跑**（§6 第 2 条）。
 
 ---
 
-## 7. 当前进行中 / 待办
+## 1. 现场状态（远端时间 2026-09-22 15:1x）
 
-| # | 事项 | 谁 | 状态 |
-|---|---|---|---|
-| 1 | **线 1 的 KV 级逐字节保真验证**（决定 A2 能否上线） | `H_kvcheck` | ⏳ `logs/039` |
-| 2 | **`038` 机制确证**（unit 行复用）+ BF16 临界判定 + 行级 provenance 自检 | `I_unitprobe` | ⏳ `logs/040` |
-| 3 | **A2 上的探测**（`bash a2/scripts/a2_one_shot_probe.sh`） | **用户** | ⛔ **唯一阻塞** |
-| 4 | "确定性配置"（`037` §缓解：关投机 / 关图 的 2×2） | 待派 | ⏳ |
-| 5 | ★★ **`ring 页读到别家平面字节`**（`044`/`045`，**与 dtype 无关的结构性缺陷**） | `P_ringfix` | ⏳ `046` 实现中 |
-| 5b | ★ **档 B（纯 BF16）也在暴露面上**（31/32 行/步，实测）——是**潜伏缺陷、非现行故障** | — | ⚠️ 已写进 `DELIVERY.md` 前置警告 |
-
----
-
-## 7b. ★★★ 今晚最完整的一条因果链（`035`→`045`，**五轮推翻自己的结论**）
-
-> 这条链值得单独记，因为它示范了"**每轮都推翻上一轮，但证据越来越硬**"的排查方式。
-
-| 轮 | 当时的结论 | 被谁推翻 / 如何 |
+| 槽位 | 现在跑什么 | 备注 |
 |---|---|---|
-| `035` | "int8 平面经池往返**不保真**" | ⛔ `036`：12,928 次逐字节全等，`mismatch=0` |
-| `036` | "池往返逐字节保真；真凶 = int8 SWA 面 + 对齐 prompt ⇒ 1 行 decode" | ⛔ `038`：1,440 次逐行核对，读侧算术**正确** |
-| `038` | "真凶 = 池 unit 数 == 工作集（临界容量）" | ⛔ `040`：**只对 `XL1=0` 成立**，`L1` 一开即消失；且 D/F 几何的池只用 54–60% |
-| `040` | "机制指向 state 行步长（66,560）≠ 卸载拷贝（65,536）" | ⛔ `043`：`state` 组**不参与卸载**（DMA 侧 34 条 ROWCHK 零命中）；改那行是**实测 no-op** |
-| `043` | "ring 探针 `ring_calls=0` ⇒ 那个函数没被调" | ⛔ `044`：**探针自己的 bug**（`sys.meta_path` 多 target 永久摘除）|
-| `044` | "真凶 = 命中只刷 1/32 行 × **FP16 让残余变 NaN**" | ⛔ `045`：FP16 **写侧 0 NaN**（100 万+ 元素零例外）；真凶是 **ring 页里"别家平面"的残留字节** |
-| **`045`** | ★★★ **`plan_cache_slots` 让 state ring 与 10 个 SWA 平面共享同一物理页、块号回收不清零 ⇒ ring 读到别家的字节**；**与 dtype 无关**（档 B 也 31/32 行/步）；int8 只是把它**解读成 NaN** | ★ **当前口径** |
+| **c0** | ★ `t-dc2-c-C2`（档 C + ②c 重跑，容器 `r8-t-dc2-c-C2`，15:12 起） | **8 卡臂走 c0 锁 + Phy-ID 8–15**；★ 已置 `VLLM_V41_KV8_GRAPH_SAFE='1'` |
+| **c1** | `DS_draft_graph_int8`（②a 病行探针） | |
+| **c2** | 空闲（die 7） | |
 
-**这条链的四个方法论要点**（已全部写进 `AGENTS.md` §5b）：
-1. 先装 hook 再 import 目标模块；
-2. **只打"已装载"的探针 = 未验证**（要打版本号 + 热路径 trace + **替换后的函数名/地址**）；
-3. **判据必须在反例臂/正确臂上对称跑**（阳性对照 / 对称实验）；
-4. **`sys.meta_path` 一个 target 一个 finder**（多 target 时永久摘除会让其余钩子静默失效）。
+| 子代理 | 状态 |
+|---|---|
+| **`T_draftceiling`** | ⏳ **running**（③c2 重跑中） |
+| **`DS_draft_graph_int8`** | ⏳ **running**（②a，c1）—— 已复现 Q3 失败（`failed=1`、容量 39,846），探针已装 |
+| `R_8card_int8` | ✅ **completed 收官**（048，8 条臂全绿） |
+| `S_graphfix` / `C1_graph1die` / `C2_draft64` / `D_draftINT8` / `G_kv8fix` / `H_kvcheck` / `J_mgrhardening` / `KV8_p0` / `P2_poolsizing` | ✅ completed |
 
-**⇒ 今晚有 5 个探针坑、5 次结论被推翻，全部源于"判据没有判别力却被当结论"。**
+**`T_draftceiling` 的三臂（`chain_2c_v5`）当前的账**：
+
+```
+t-dc2-a-C        档 C 基线                    ✅ 已过（★ 它的 runner 少挂 model.py ⇒ 实际就是档 C）
+t-dc2-c-C        档 C + ②c(draft64)           ⛔ rc=9 起服失败 —— ★ 已定性，见下
+t-dc2-b-D-legacy 档 D（GRAPH_SAFE=0）         ⛔ 起服成功但首个请求崩 507057 —— ★ 已定性，见下（已按建议改名存档）
+t-dc2-c-C2       档 C + ②c（GRAPH_SAFE=1）    ⏳ **重跑中**（15:12 起）—— ★ 这条才回答"②c 能否碰到 ×1.84"
+```
+
+### ★★★ 两条已定性的失败（**主代理独立核实，2026-09-22 15:0x–15:1x**）
+
+**(1) `t-dc2-b-D`（档 D / `GRAPH_SAFE=0`）—— 不是新缺陷，就是 `049` 判死的那一格**
+```
+起服 ✅ / 容量 485,610 ✅ / warmup ✅ / fill 轮 ⛔ 8/8 全失败（rc=0 是假象）
+栈：llm_base_proposer.py:1043 _propose → SUSPECT REMOTE ERROR → 507057 → EngineDeadError
+```
+⇒ `049` §5.5.3 的反例臂 `sg-c-d-cmplegacy`（**预期失败**，用来证明补丁必要）**逐字同款**；
+⇒ ★ 同时段 `R` 的 `r8-f1-tierD-graph`（**`GRAPH_SAFE=1`**）**rc=0 全绿** ⇒ **唯一变量就是那个开关**（第三次独立复现）。
+⇒ 根因是 T 的 runner **从不设 `GRAPH_SAFE`**（`grep` 零命中），用的是从 `R_8card_int8` 抄的模板默认值 **0**。
+⚠️ **别搞混**：`logs/t-dc2-b-D.client.log`（13:43）是更早一臂的残留，不是 15:01 那轮的读数。
+
+**(2) `t-dc2-c-C`（档 C + ②c）—— 死在 `rejection_sampler_triton_warmup` 内部（★ 主代理读源码补的一格）**
+```
+Worker-6 died unexpectedly (exit code: None)   ← 信号带走，无 Python traceback；其他 7 个是被 EngineCore 连坐
+崩点 = kernel_warmup.py:44 "Starting Triton kernel warmup." 之后、第一个 "complete" 之前
+```
+生产 `kernel_warmup()` 的顺序是 `rejection_sampler → penalties → rms → deepseek_v41_indexer`，
+而 **`_run_warmup` 的日志是跑完之后才打的** ⇒ **死在四种 warmup 里的第一个**；
+同臂的 `/dev/shm`（1007G 可用）与宿主内存（1605 GiB available）**都已排除**。
+★ **待分开的两种解释**：(a) draft block=64 这个**新形状**触发 / (b) **②c 补丁本身**触发
+⇒ 判据臂 = **"补丁在、形状不变（block 仍 128）"**（已建议给 `T`）。
 
 ---
 
-## 8. 关键路径
+## 2. 硬性红线（**违反即回滚**）
+
+| # | 规则 |
+|---|---|
+| **1** | ★★ **绝不发 PR / issue / 评论**（用户未授权）；只写草稿与**自己的** repo |
+| **2** | **绝不 push 到 `vllm-project/vllm-ascend`**；只能推 `chiro2001/*` |
+| **3** | **绝不写 `upstream-v41/`**（已冻结只读）；新产物一律落 **`a2/`** |
+| **4** | **绝不碰** `dsv41-a3`（保持 `Exited`）/ `mooncake-master` / 别人的容器 / **Phy-ID 0–7** |
+| **5** | 占卡走锁：`bash ~/projects/dsv41-upstream-pr/tools/a3_chip.sh <c0\|c1\|c2> --name X -- <cmd>`；**退出码 75 = 没抢到锁，不是失败** |
+| **6** | **绝不手设 `ASCEND_RT_VISIBLE_DEVICES`**（由槽位脚本注入） |
+| **7** | **绝不用 `/tmp`**：`source ~/projects/dsv41/a2/scripts/tmpdir.sh <任务名>` |
+| **8** | ★★ **起服前先 `df -h /dev/shm`**（满 ⇒ `OSError: [Errno 28]` 在 `SemLock`，**极易误判成"补丁坏了"**） |
+| **9** | 写算子 / kernel 前**必须先查 cannbot**（`AGENTS.md` §6） |
+| **10** | 结论必须标 **【实测】/【推断】/【未确认】**；**不许用相邻数字顶替缺的那格** |
+| **11** | 传文件走 `tools/cos-xfer.sh`（**不要 scp**） |
+| **12** | ★★ **交付配置必须保留投机解码**；**⑤a（关投机换容量）已由用户否决** |
+| **13** | ★★ **看进度要用远端 `date` + 日志字节增长**；本机时钟快 ~7 min |
+| **14** | ★★ **引用一个东西之前先 `ls` / `md5sum`**（本轮踩过两次：引用不存在的工具、发错版本的 `model.py`） |
+| **15** | 始终用**简体中文**回复 |
+
+---
+
+## 3. 两条主线的完成度
+
+### 3.1 线 1 · DRAM KV 卸载 ✅ 可上线（8 卡真权重）
+
+| 判据 | 档 B | 档 C | 档 D |
+|---|---|---|---|
+| `BlockStored:CPU` | 29,436 | 29,436 | 29,436 |
+| `CPU→GPU` | 21.52 GB | 21.19 GB | 12.11 GB |
+| `hits` | 901,120 | 901,120 | 901,120 |
+| **replay÷fill** | 12.87× | 12.50× | 12.87× |
+| `BlockRemoved:CPU` | 0 | 0 | 0 |
+| 图模式 | ✅ | ✅ | ✅ |
+
+★ **int8 的真实收益是宿主内存，不是 HBM 容量**：**197.21 → 150.01 GiB（×1.3146）**。
+
+### 3.2 线 2 · KV8 / int8 —— 能力通、目标部分达成
+
+| | 结果 |
+|---|---|
+| "读侧不反量化喂原算子" | ✅ PA_BBND scratch + identity block table（**TND 路线实测不存在**） |
+| 图兼容（Phase 1.2/1.3 卡点） | ✅ 已解（`049` 的 `GRAPH_SAFE`，档 C/D 都过捕获） |
+| ★ **×1.84 目标** | ⛔ **未达**：A2 真权重 **档 C ×1.0000**、**档 D ×1.1356** |
+| 根因 | **draft 组（BF16/block=128）顶死 slots 0–2**（`050` 零参数模型 **13/13 逐字命中**） |
+
+**三条"解开 draft 天花板"的路**：
+
+* ★ **②c（draft block 128→64，保 BF16）预测 ×1.8177** —— **唯一活路**，8 卡端到端在跑；
+* ②a（draft 也 INT8，预测 ×1.9126）—— **已实测否决**（见 §4.1）；
+* ③c（per-request scratch）—— 未做。
+
+---
+
+## 4. 本轮最重要的三条因果链
+
+### 4.1 ②a（draft 也 INT8）—— **Q1/Q2 过、Q3 死**（`056`）
+
+```
+Q1 图捕获 ✅ capture_finished=1 / EE1016=0   ← 顺带推翻 050 的"必炸"判断（049 已覆盖 draft 面）
+Q2 容量 ✅ page_bytes=66560；tiny 档 D 23,651→39,846 逐字命中模型（13/13）
+Q3 ⛔ RuntimeError: The previous device metadata submission has not been released
+       @ worker/device_metadata.py:74（触发：num_scheduled_tokens=6 + 5 spec token）
+       ①eager 臂也挂同一条 ⇒ ★ 与"入图"无关，是【请求路径】的问题
+       ②对照臂（唯一变量 DRAFT_INT8=0）全绿 ⇒ ②a 特有
+```
+**诊断臂**把泄漏点定位到 `submit#2`（只 1 个任务、`group_id` 在 target 的 7 任务里从未出现 ⇒ 来自 **draft 侧 builder**）。
+⚠️ **"病灶 = `dsa_v1.py` 缺量化存取"已降级为【推断】**（探针钩错类：真身是 `DSAAttention`；首个异常在日志里看不见）。
+
+### 4.2 "热 ≠ 冷" —— **一条判据整体作废**（`062`）
+
+> **BF16 无损池的 hot 也 != cold**（3/16）⇒ "热 == 冷逐字相同"测的是**路径**不是**保真**，**与 int8 无关**。
+
+⇒ int8 的非回归由两条独立证据支撑（`fill` 轮五臂逐字相同、热 replay 相对 **BF16 hot** 逐字相同）；
+**正面保真判据（KV 级逐字节）仍未跑** —— 那是**新探针工程**（要重建 `transfer_async` 的指针表），需独占 c0 一轮。
+
+### 4.3 档 C 基线的投机读数 —— **`max_tokens=1` 是无效口径**（`T`）
+
+```
+档 C 基线：MeanAccLen 2.46 / AvgDraftAcc 29.2% / Drafted 530
+max_tokens=1：MeanAccLen 1.50 / AvgDraftAcc 10%
+⇒ ★ 用 max_tokens=1 判断接受率无效（候选近平局、样本量不足）
+```
+
+---
+
+## 5. 交付物状态（**已推送 GitHub**）
+
+**`chiro2001/deepseek-v4.1-flash-ascend910B` → 分支 `feat/kv8-dram-offload-pending`**（最新 `2eeee4b`，工作区干净）。
+
+关键件：
+
+```
+a2/docs/A2-DEPLOY-NOW.md   ★★ 上线清单（三条命令 + 判据账 + 档位门 + 回滚表 + 跨芯片外推 + A2 模型差异）
+a2/DELIVERY.md             ★ 交付单一入口
+a2/publish/kv8-graphsafe/dsa_v41.py    ★ 档 C/D 必需件 md5 94aeebb7…（已实测）
+a2/publish/kv8-int8-pkg/   ★ 档 C/D 的另外 6 个挂载件（7 件齐全，含合并版 model.py c4b70d00…）
+a2/publish/0004-draft-block64.patch.py ★ ②c 的补丁
+a2/scripts/a2_one_shot_probe.sh  ★ A2 上第一条命令（探测池后端）
+a2/scripts/make_shadow_pkg.sh    ★ 从发布包自己造 shadow（含 7 件挂载 + 防重复挂载门）
+a2/scripts/check_artifact_identity.sh ★ 交付件身份台账的机械门
+a2/logs/README.md          ★ 日志索引（001–063，0 死链）
+```
+
+### ★ 本轮修掉的七个"静默缺口"（都不会在任何测试里报错，只让上线的人第一步卡住）
+
+| # | 缺口 |
+|---|---|
+| ① | shadow-pkg 只存在于开发机 |
+| ② | 档 C/D 需 7 个挂载件而包里只有 1 个 |
+| ③ | ②c 补丁不在包里 |
+| ④ | dry-run 从来没验到挂载块 |
+| ⑤ | ★ `model.py` 会打掉 A2 的 5 处生产补丁（是我自己引入的） |
+| ⑥ | 档位静默降档 |
+| ⑦ | **A2 的模型与 A3 实测的不是同一个**（`v41-w4a8-flat` vs `v41-w4a8-engram-dr-vision-qrot-mtpq`；共同点：都有 Engram 2 层 + mtpq 4 分片） |
+
+---
+
+## 6. 下一步（按优先级）
+
+| # | 事项 | 谁 | 说明 |
+|---|---|---|---|
+| **1** | ★★ **A2 本机的池后端探测** | **用户** | `cd <dsv41-release>/a2/scripts` 后跑 `A2_CONTAINER=dsv41-a2 A2PROBE_FLOOR_GIB=300 LIGHT=1 bash a2_one_shot_probe.sh` → 看 **`★ 注册内存的设备往返判据 = True/False`**（**H2H 通过不算数**） |
+| **2** | ★★ **等 `t-dc2-b-D`（档 D）出数** | `T_draftceiling` | 同时定性 ②c 起服失败 + 给档 D 的投机四数 |
+| **3** | ★★ **②c 的 8 卡端到端**（`t-dc2-c-C` 重跑或定性） | `T_draftceiling` | **决定线 2 能否碰到 ×1.84** |
+| **4** | ⏳ **②a 的"病行"探针**（钩到 `DSAAttention` 真身，而非上一轮钩错的类） | ★ **已派出**：`DS_draft_graph_int8`（**c1**，~85–141 s/臂） | 抓 `submit#2` 那条 1-task 提交的首个异常；**判据必须在 `DRAFT_INT8=1`/`=0` 对称臂上都跑** |
+| **5** | ⏳ **KV 级逐字节保真**（`048`/`062` 都标【未跑】） | 待派 | 新探针工程，需独占 c0 一轮 |
+
+---
+
+## 7. 关键路径
 
 ```
 a2/
 ├── HANDOVER.md            ← 本文件（每次大进展后重写）
-├── AGENTS.md              ← 红线 / 环境 / cannbot 索引（§6 必读）
-├── docs/A2-GO-LIVE.md     ← ★★ 上线清单（参数、判据、回滚、容量边界）
-├── logs/README.md         ← ★★ 日志索引（001–040，每份都有一行摘要）
+├── AGENTS.md              ← 红线 / 环境 / §5b 探针纪律（9 条）/ cannbot 索引
+├── DELIVERY.md            ← 交付单一入口
+├── docs/A2-DEPLOY-NOW.md  ← ★★ 上线清单
+├── docs/A2-GO-LIVE.md     ← 详细参数与判据
+├── logs/README.md         ← ★★ 日志索引（001–063，每份一行摘要）
 ├── logs/NNN-*.md          ← 实验日志（【实测】/【推断】/【未确认】）
 ├── logs/raw/NNN-*/        ← 原始数据
-├── publish/README.md      ← ★ 可交付补丁集 + 参数定值 + 就绪度
+├── publish/               ← ★ 可交付补丁集 + 参数定值 + 就绪度
 ├── scripts/
 │   ├── a2_one_shot_probe.sh   ← ★ A2 上跑这一条（探测 + DECISION）
-│   └── prepare_publish.sh     ← 脱敏 + 泄漏扫描 + 落 dsv41-release
+│   ├── make_shadow_pkg.sh     ← 造 shadow（7 件挂载 + 防重复挂载门）
+│   └── tmpdir.sh              ← ★ 临时空间协议
 └── agents/<代号>/         ← 每个子代理的工作区
 ```
 
 **对外**：`chiro2001/deepseek-v4.1-flash-ascend910B` → 分支 **`feat/kv8-dram-offload-pending`**
 （⚠️ **未经用户允许，不发 PR / 不发 issue / 不评论**）
+
+---
+
+## 8. 必读的五份日志（按重要度）
+
+| 顺序 | 文件 | 作用 |
+|---|---|---|
+| 1 | `logs/050-20260922-draft-ceiling.md` | ★★★ draft 天花板 + 零参数容量模型（13/13 命中） |
+| 2 | `logs/056-20260922-draft-int8-1die.md` | ★★ ②a 的完整判决（Q1/Q2 过、Q3 死） |
+| 3 | `logs/062-20260922-hot-cold-verdict.md` | ★★★ "热≠冷"的定性（判据判别力不足，非 int8 缺陷） |
+| 4 | `logs/055-20260922-a2-launch-path.md` | ★★ 上线路径打通的三个缺口 |
+| 5 | `logs/063-20260922-single-die-substitution.md` | ★ "单卡能否替代 8 卡"的规范化答案 |

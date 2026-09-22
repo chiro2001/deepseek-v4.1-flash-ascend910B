@@ -392,6 +392,48 @@ workload：8 × 4096 → max_tokens 64（★ 不是 max_tokens=1：那样 SpecDe
   语义等价的依据：对 Ascend 的 DraftSWASpec 而言 **spec.block_size 是页几何的唯一来源**
   （`real_page_size_bytes` / `reshape_cache` / metadata / 块表 / slot_key 全部由它派生），
   dspark 里那个 `self.block_size` 只用来构造这个 spec。**两臂只有这一个变量的差别。**
+
+### 7.5 ★★★ 第一格实测（**档 C 基线**，`t-dc2-a-C`，2026-09-22 13:36–13:43）
+
+**口径**：8 卡真权重、`FULL_DECODE_ONLY` 图模式、DSpark 开、`8 × 4096 → max_tokens 64`、
+`--kv-cache-memory-bytes 4294967296 --max-model-len 133120 --gpu-memory-utilization 0.92`，池 `OFFLOAD_BYTES=60,666,413,056`。
+
+| 判据 | 实测 | 说明 |
+|---|---|---|
+| `GPU KV cache size` | **427,643 tokens** | = **档 C**（Σ=540,928）★ 与【算术】预测逐字相同 |
+| draft 组块大小 | `(12, 'DeepseekV41DraftSWASpec', 128, 3)` | draft=128（②c 的基线） |
+| **SpecDecoding**（引擎日志 interval 行） | **MeanAccLen 2.46** / AcceptedThroughput 4.93 tok/s / DraftedThroughput 16.85 tok/s / **Accepted 155** / **Drafted 530** / **Per-pos 0.509, 0.311, 0.264, 0.208, 0.170** / **AvgDraftAcc 29.2%** | 【实测】 |
+| **原始计数器**（prometheus，cumulative） | `num_drafts 214` / `num_draft_tokens 1070` / `num_accepted_tokens 304` | 【实测】 |
+| 派生 | **MeanAccLen = 1 + 304/214 = 2.421**；**AvgDraftAcc = 304/1070 = 28.4%**；每步草稿 **5.00 token**（= `num_spec_tokens` 5） | 【实测】 |
+
+★★ **这一格的意义（直接推翻一个悬案）**：同一套几何、同一个模型，**`max_tokens=1` 时读到的接受率是 1.50 / 10.0%**
+（`R_8card` 档 B）或 1.00 / 0.0%（`S_graphfix`/`R_8card` 档 D），而**真实 workload（每请求 64 步 decode）下是 2.46 / 29.2%**
+⇒ **两者差 1.6×~2.9×** ⇒ **【实测】"档位降低接受率"这类结论绝不能用 `max_tokens=1` 的读数来支撑**；
+它主要是"每个请求只 decode 一步"的口径假象。
+★ 另外：`num_drafts 214` vs `Drafted 530` 说明**日志里的 `Drafted` 是 token 数（`num_draft_tokens`）、不是步数**
+—— `MeanAccLen` 的分母是**步数**、`AvgDraftAcc` 的分母是**token 数**，两个分母不同（源码 `v1/spec_decode/metrics.py:114,110`）。
+**⇒ 跨臂比较时必须同时给 `num_drafts`**，否则分母不同就不可比（本轮判据已把它列进去）。
+
+**诚实边界**：这一格是**档 C 基线**，不是档 D；②c 臂（`t-dc2-c-C`）与档 D 臂（`t-dc2-b-D`，**挂 `model_merged.py`**）当时**还在 c0 排队** ⇒
+"②c 的投机四项不回退"与"C vs D 的接受率差"两条**尚未出数**（见 §7.6 的队列）。
+
+### 7.6 ★ 一个必须留档的工程坑（**"档位被静默降级"**）
+
+第一次端到端臂（`t-dc2-b-D`）我用自己的 runner 起服，**结果是档 C 而不是档 D**（容量 427,643 而非 485,610）。
+根因链条（**每一环都是静默的**）：
+```
+`serve_a2.sh:1001-1003`  只在 `R8_MERGED_MODEL` 指向**存在的文件**时才挂 models/deepseek_v41/model.py
+  ⇒ 我的 runner 没设这个变量
+  ⇒ `core/deepseek_v41.long_kv_plane_kwargs()` **从未被调用**（唯一调用点在 model.py:582）
+  ⇒ 长 KV 保持 BF16 ⇒ 实际是档 C（Σ=540,928）
+  ⇒ 容量 427,643 与「档 D 应有的 485,610」相差 12% —— ★ **这是唯一露出来的信号**
+```
+★ **判据的力量**：如果不是"容量必须逐字等于预测值"这条硬判据，这条臂会被当成档 D 写进日志。
+⇒ 已固化成三条防线（写进 `scripts/run_2c_arm.sh`）：
+① `KV8LONG=1` 时**必须**找到 `model_merged.py`，否则 `exit 64`（**不静默降档**）；
+② 起服前打印 **"本臂 = 档 C / 档 D"** + `model_merged.py` 的 md5；
+③ 每臂的证据里都带 **draft 组块大小**与 **`GPU KV cache size` 对预测值的比对**。
+★ 也提醒后人：**R 的 `run_arm_r8.sh` 会挂 `model.py`，自建 runner 不会** —— 两边的档位语义不一样。
 ```
 
 ---
