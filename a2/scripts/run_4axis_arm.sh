@@ -52,6 +52,10 @@ REPLAY_PROMPT_TOKENS=${REPLAY_PROMPT_TOKENS:-65536}
 #   "逐字可复现"判据是**同运行内**的最后两轮（两轮都走池取回），那需要 rounds>=3。
 #   轮次语义（bench/kv_offload_client.py:348-404）：rounds[0]=fill，rounds[1..]=每轮 reset 后的重放。
 ROUNDS=${ROUNDS:-3}
+# ★★★ 2026-09-23 01:xx：`KEEP=1` 必须能转发到 runner —— 否则容器跑完就被删，
+#   而"**在同一条臂上**跑自然语言文本判据"（目标里'同一臂内同时满足'的严格口径）
+#   正需要**容器活着**。★ 默认 0（保持 runner 的原行为，不改变任何既有语义）。
+KEEP=${KEEP:-0}
 PORT=${PORT:-8050}
 
 # ---- G1/G2 用的输入路径 ----
@@ -131,6 +135,7 @@ CMD=(env TAG="$TAG" TIER="$TIER" GRAPH="$GRAPH" EAGER="$EAGER"
      DSA_SRC=D R8_KV8_DIR_D="$S/pkgs/pkg-kv8pf"
      PROMPTS="$PROMPTS" PROMPT_TOKENS="$PROMPT_TOKENS"
      REPLAY_PROMPT_TOKENS="$REPLAY_PROMPT_TOKENS" ROUNDS="$ROUNDS"
+     KEEP="$KEEP"
      bash "$R8/scripts/run_arm_r8.sh")
 echo "--------------------------------------------------------------"
 say "三道门全过。将执行："

@@ -46,6 +46,17 @@ import numpy as np
 #   `V41_ENGRAM_PREVTOK_DIAG=0` 关闭；`=N` 打印前 N 次调用（默认 3）。
 _PREVTOK_DIAG = {"calls": 0}
 
+# ★★★ 2026-09-23 00:2x **[plan 口径 DIAG]**（logs/097 的改动单）：
+#   为什么必须补这一层：`build_prev_tok` 的 DIAG 扫的是 **`n×lookback` 全表**（绝大多数格子
+#   **本步根本不需要**），而"能不能修"只取决于 **`plan_repair_slots` 给出的 ≤6 个计划槽位**。
+#   两个口径实测能给出**相反**的印象（例：全表 `q_ge_ntok` 占 75%，而计划槽位里可能一个都不缺）。
+#   ⇒ `build_prev_tok` 把每个 `(row, shift)` 的"为什么拿不到"编码进 `_PREVTOK_CODES`，
+#     `apply_repairs` **只对计划槽位**打印 + 计数（这才是判据）。
+REASON_OK, REASON_Q_NEG, REASON_Q_GE_NTOK, REASON_TOK_NEG = 0, 1, 2, 3
+_REASON_NAME = {1: "q_neg", 2: "q_ge_ntok", 3: "tok_neg"}
+_PREVTOK_CODES = {"code": None}
+_PLAN_DIAG = {"calls": 0}
+
 
 def plan_repair_slots(positions, request_ids, lookback):
     """返回本步需要检查/回填的槽位 ``(rows, shifts)``（**不含 shift=0**）。
@@ -144,6 +155,18 @@ def apply_repairs(
     cap = int(pages.shape[0])
     bs = int(block_size)
     tm = token_map
+    _snap = {k: int(stats.get(k, 0)) for k in
+             ("absent", "filled", "mismatch", "overwrote", "unavailable", "oob")}
+    # ★★★ [plan 口径 DIAG]（logs/097）：只对**计划槽位**统计/打印 —— 这才是"我真正要修的
+    #   格子拿到值了吗"的判据（`build_prev_tok` 那个 `n×lookback` 全表口径不是）。
+    #   `planned` = 本次真正遍历的计划槽位数（覆盖率的分母）；reason 从 `_PREVTOK_CODES` 取。
+    stats["planned"] = stats.get("planned", 0) + len(rows)
+    _pd_limit = int(_os.environ.get("V41_ENGRAM_PLAN_DIAG", "3") or 3)
+    _pd_call = _PLAN_DIAG["calls"]
+    _PLAN_DIAG["calls"] = _pd_call + 1
+    _pd = _pd_call < _pd_limit
+    _codes = _PREVTOK_CODES.get("code")
+    _pd_reason = {1: 0, 2: 0, 3: 0}
     # ★ 本步**首次接触**的页：`was_absent=True` 表示"整行由我们初始化" ⇒ 该页后续
     #   槽位必须**直接写**（它们是同一次初始化的一部分），不能走"和镜像比对"的分支
     #   ——否则同一页里第 2/3 个槽位会因为我们刚写的值与被复位掉的 -1 不同而被误记成
@@ -151,21 +174,41 @@ def apply_repairs(
     first_touch: dict[int, bool] = {}
     for row, sh in zip(rows, shifts):
         q = int(positions[row]) - int(sh)
+        _rc = 0
+        if _codes is not None and row < _codes.shape[0] and sh < _codes.shape[1]:
+            _rc = int(_codes[row, sh])
         if q < 0:
+            if _rc:
+                _pd_reason[_rc] = _pd_reason.get(_rc, 0) + 1
+            if _pd:
+                print("[ENGRAM-PLAN-DIAG] call=%d r=%d sh=%d q=%d reason=q_neg"
+                      % (_pd_call, row, sh, q), flush=True)
             continue
         page = int(block_table[int(request_ids[row]), q // bs])
         # ★ 与 kernel 的读路径**同款守卫**：负页号/越界一律不动（kernel 那边对
         #   page<0 会静默 pad；对 page>=cap 会走 oob 扩容后重跑）。绝不写到
         #   pages[-1]（numpy 负索引）上去。
         if page < 0:
+            if _pd:
+                print("[ENGRAM-PLAN-DIAG] call=%d r=%d sh=%d q=%d page=%d reason=page_neg"
+                      % (_pd_call, row, sh, q, page), flush=True)
             continue
         if page >= cap:
             if page > oob_page:
                 oob_page = page
+            if _pd:
+                print("[ENGRAM-PLAN-DIAG] call=%d r=%d sh=%d q=%d page=%d reason=page_oob"
+                      % (_pd_call, row, sh, q, page), flush=True)
             continue
         tok = int(prev_tok[row, sh])
         if tok < 0:
+            if _rc:
+                _pd_reason[_rc] = _pd_reason.get(_rc, 0) + 1
             stats["unavailable"] = stats.get("unavailable", 0) + 1
+            if _pd:
+                print("[ENGRAM-PLAN-DIAG] call=%d r=%d sh=%d q=%d page=%d tok=%d reason=%s"
+                      % (_pd_call, row, sh, q, page, tok, _REASON_NAME.get(_rc, "unknown")),
+                      flush=True)
             continue
         comp = int(tm[tok])
         if tok == int(image_token_id) or tok == int(image_pad_token_id):
@@ -194,6 +237,28 @@ def apply_repairs(
                     stats["overwrote"] = stats.get("overwrote", 0) + 1
     if oob_page >= 0:
         stats["oob"] = stats.get("oob", 0) + 1
+    # ★★★ [plan 口径覆盖率]（logs/097 §3）：**唯一可解释的分母** = 本次真正遍历的计划槽位数。
+    #   ★ 这里给**两个**比率，因为它们回答**两个不同问题**（单测实测会分叉：
+    #     `mismatch=3/unavailable=0` 时"修复率"=0 但"可用率"=1 ⇒ 只给一个数会误判）：
+    #       `可用率 = 1 - unavailable/planned`  → "真 token 拿到了吗"（拿到才可能比对/覆盖）
+    #       `修复率 = (filled+overwrote)/planned` → "真的写进去了吗"
+    #   ★★ **不能**把 `absent` 也加进分子（logs/097 §3 的公式 `absent+filled+overwrote` 有这个 bug，
+    #      单测实测分母 3 给出 `2.000`）：`absent` 与 `filled` 记的是**同一个槽位**
+    #      （`absent` = "这个页在镜像里缺"，`filled` = "且我们把它写了"）⇒ 相加就是**双计**。
+    _d = {k: int(stats.get(k, 0)) - _snap[k] for k in _snap}
+    _plan_ok = _d["filled"] + _d["overwrote"]
+    _planned = len(rows)
+    stats["plan_ok"] = stats.get("plan_ok", 0) + _plan_ok
+    stats["plan_scanned"] = stats.get("plan_scanned", 0) + _planned
+    stats["plan_avail"] = stats.get("plan_avail", 0) + (_planned - _d["unavailable"])
+    if _pd:
+        _avail = ((_planned - _d["unavailable"]) / _planned) if _planned else float("nan")
+        _fix = (_plan_ok / _planned) if _planned else float("nan")
+        print("[ENGRAM-PLAN-DIAG] call=%d 汇总 planned=%d 本次=%s "
+              "★可用率=%.3f ★修复率=%.3f 不可用=%d (q_neg=%d q_ge_ntok=%d tok_neg=%d)"
+              % (_pd_call, _planned, _d, _avail, _fix, _d["unavailable"],
+                 _pd_reason.get(1, 0), _pd_reason.get(2, 0), _pd_reason.get(3, 0)),
+              flush=True)
     return oob_page
 
 
@@ -227,8 +292,13 @@ def build_prev_tok(num_tokens, positions, request_ids, lookback, token_ids_cpu):
     #   （`ntok=p0` ⇒ 0 个不可用；`ntok=p0-5` ⇒ 6 个全不可用）⇒ **必须实测**。
     #   ⇒ 这里把三类分开计数，并**每个 rank 只打前 `_DIAG_CALLS` 次**的逐槽位明细
     #     （默认 3 次；`V41_ENGRAM_PREVTOK_DIAG=0` 可关，`>0` 可改次数）。
+    # ★★ 2026-09-23 00:2x（logs/097 改动单 §2）：这个计数 = **`n×lookback` 全表扫描**格数，
+    #   不是"计划槽位" ⇒ 键名从 `planned` 改为 `scanned`（避免把全表数当分母）。
+    #   真正的 plan 口径分母在 `apply_repairs` 的 `stats["planned"]`。
     stats = {"unavailable": 0, "unavail_q_neg": 0, "unavail_q_ge_ntok": 0,
-             "unavail_tok_neg": 0, "planned": 0}
+             "unavail_tok_neg": 0, "scanned": 0}
+    # 每个 (row, shift) 的"为什么拿不到"编码（喂给 apply_repairs 的 plan 口径 DIAG）
+    codes = np.zeros((n, lb), np.int8)
     _diag_limit = int(_os.environ.get("V41_ENGRAM_PREVTOK_DIAG", "3") or 3)
     _diag_call = _PREVTOK_DIAG["calls"]
     _PREVTOK_DIAG["calls"] = _diag_call + 1
@@ -238,10 +308,11 @@ def build_prev_tok(num_tokens, positions, request_ids, lookback, token_ids_cpu):
         ntok = int(num_tokens[row]) if 0 <= row < int(num_tokens.shape[0]) else 0
         for sh in range(1, lb):
             q = int(positions[r]) - sh
-            stats["planned"] += 1
+            stats["scanned"] += 1
             if q < 0:
                 stats["unavail_q_neg"] += 1
                 stats["unavailable"] += 1
+                codes[r, sh] = REASON_Q_NEG
                 if _diag:
                     print("[ENGRAM-PREVTOK-DIAG] call=%d r=%d sh=%d q=%d ntok=%d reason=q_neg"
                           % (_diag_call, r, sh, q, ntok), flush=True)
@@ -249,6 +320,7 @@ def build_prev_tok(num_tokens, positions, request_ids, lookback, token_ids_cpu):
             if q >= ntok:
                 stats["unavail_q_ge_ntok"] += 1
                 stats["unavailable"] += 1
+                codes[r, sh] = REASON_Q_GE_NTOK
                 if _diag:
                     print("[ENGRAM-PREVTOK-DIAG] call=%d r=%d sh=%d q=%d ntok=%d "
                           "pos0=%d reason=q_ge_ntok (q-ntok=%d)"
@@ -259,15 +331,18 @@ def build_prev_tok(num_tokens, positions, request_ids, lookback, token_ids_cpu):
             if tok < 0:  # PLACEHOLDER_TOKEN_ID（vllm.v1.sample.rejection_sampler）等
                 stats["unavail_tok_neg"] += 1
                 stats["unavailable"] += 1
+                codes[r, sh] = REASON_TOK_NEG
                 if _diag:
                     print("[ENGRAM-PREVTOK-DIAG] call=%d r=%d sh=%d q=%d ntok=%d tok=%d "
                           "reason=tok_neg" % (_diag_call, r, sh, q, ntok, tok), flush=True)
                 continue
             out[r, sh] = tok
     if _diag_call < _diag_limit:
-        print("[ENGRAM-PREVTOK-DIAG] call=%d 汇总 n=%d 计划=%d 不可用=%d "
+        # ★ 口径提醒（logs/097）：这里是 **`n×lookback` 全表**，不是计划槽位！
+        print("[ENGRAM-PREVTOK-DIAG] call=%d ★扫描口径(全表 n×lookback) n=%d 扫描=%d 不可用=%d "
               "(q_neg=%d q_ge_ntok=%d tok_neg=%d)"
-              % (_diag_call, n, stats["planned"], stats["unavailable"],
+              % (_diag_call, n, stats["scanned"], stats["unavailable"],
                  stats["unavail_q_neg"], stats["unavail_q_ge_ntok"], stats["unavail_tok_neg"]),
               flush=True)
+    _PREVTOK_CODES["code"] = codes
     return out, stats

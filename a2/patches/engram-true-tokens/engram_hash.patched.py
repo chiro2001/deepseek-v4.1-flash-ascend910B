@@ -39,8 +39,11 @@ def _engram_true_tokens_mode() -> int:
 #     也就无法判定要不要升到 mode=2。
 #   ⇒ 现在：① 独立的旗标；② **按键累计**（不再只加一个总数）；
 #            ③ 累计量变化就再打一次（带上调用次数），且 `mismatch` 一旦出现**立即**打。
-_TT_CUM = {"calls": 0, "absent": 0, "filled": 0, "mismatch": 0,
-           "overwrote": 0, "unavailable": 0, "oob": 0}
+# ★★ 2026-09-23 00:2x（logs/097 改动单 §3）：加 `planned` / `plan_ok` —— 让"覆盖率"有
+#   **唯一、可解释的分母**（= 真正遍历的计划槽位数，即 `plan_repair_slots` 的 ≤6/请求），
+#   而不是拿 `build_prev_tok` 的 `n×lookback` 全表当分母（那是另一个口径，见 logs/097 §3）。
+_TT_CUM = {"calls": 0, "planned": 0, "plan_ok": 0, "plan_avail": 0, "absent": 0,
+           "filled": 0, "mismatch": 0, "overwrote": 0, "unavailable": 0, "oob": 0}
 _TT_LAST_SIG = [None]
 _TT_LOG_EVERY = int(os.environ.get("V41_ENGRAM_TRUE_TOKENS_LOG_EVERY", "200") or 200)
 
@@ -56,17 +59,26 @@ def _engram_true_tokens_note(stats, n):
     if not stats:
         return
     _TT_CUM["calls"] += 1
-    for _k in ("absent", "filled", "mismatch", "overwrote", "unavailable", "oob"):
+    for _k in ("planned", "plan_ok", "plan_avail", "absent", "filled", "mismatch",
+               "overwrote", "unavailable", "oob"):
         if _k in stats:
             _TT_CUM[_k] = _TT_CUM.get(_k, 0) + int(stats[_k])
     sig = (_TT_CUM["absent"], _TT_CUM["filled"], _TT_CUM["mismatch"], _TT_CUM["overwrote"])
     force = _TT_CUM["mismatch"] > 0 and _TT_LAST_SIG[0] != sig
     if _TT_LAST_SIG[0] is None or force or (_TT_CUM["calls"] % _TT_LOG_EVERY == 0):
         _TT_LAST_SIG[0] = sig
+        _pl = _TT_CUM.get("planned", 0)
+        # ★ 两个比率回答两个问题（见 engram_repair.apply_repairs 的注释；只给一个会分叉误判）
+        _avail = (_TT_CUM.get("plan_avail", 0) / _pl) if _pl else float("nan")
+        _fix = (_TT_CUM.get("plan_ok", 0) / _pl) if _pl else float("nan")
         print(
-            "[ENGRAM-TRUE-TOKENS] mode=%s 累计(调用%s次) n=%s 本次=%s 累计=%s"
-            "（absent=本会 KeyError 的槽位；mismatch=镜像里是别人的 token 的槽位）"
-            % (_ENGRAM_TRUE_TOKENS, _TT_CUM["calls"], n, stats, dict(_TT_CUM)),
+            "[ENGRAM-TRUE-TOKENS] mode=%s 累计(调用%s次) n=%s 本次=%s 累计=%s "
+            "★plan口径 可用率=%s 修复率=%s (planned=%s)"
+            "（absent=本会 KeyError 的槽位；mismatch=镜像里是别人的 token 的槽位；"
+            "可用率=真token拿到没 修复率=真写进去没；planned=计划槽位数，见 logs/097）"
+            % (_ENGRAM_TRUE_TOKENS, _TT_CUM["calls"], n, stats, dict(_TT_CUM),
+               ("%.3f" % _avail) if _pl else "n/a",
+               ("%.3f" % _fix) if _pl else "n/a", _pl),
             flush=True,
         )
 
