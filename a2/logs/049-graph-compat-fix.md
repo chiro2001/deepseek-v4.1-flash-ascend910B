@@ -307,7 +307,10 @@ table_rows = torch.index_select(block_table[:num_reqs].to(torch.int64), 0, b_of_
 
 ---
 
-## §5 8 卡真权重实测（c0 = Phy-ID 8–15）【进行中，结果回填】
+## §5 8 卡真权重实测（c0 = Phy-ID 8–15）
+
+★ 状态：§5.1–§5.5.3 均为 **【实测】**；三条辅助臂（`c-eager` / `c-eager-on` / `c-cold`）**【未完成】**，
+见 §7。
 
 臂（脚本 `scripts/chain_sg.sh`，每条自带 `flock` 排队）：
 
@@ -548,7 +551,7 @@ python3 scripts/summarize_sg.py
 
 ---
 
-## §8 ★★ md5 台账：一个 md5 一行 —— 哪条臂跑过它、结果如何
+## §8 ★★ md5 台账（**二维：档 × md5**）—— 哪条臂跑过它、结果如何
 
 > **事故本身**：`dsa_v41.py` 一晚上换了三轮 md5，而"档 C 图模式 PASS"那一格是在 `22cbf20c…`
 > 上拿到的、发布件却写成了另一个文件；**没有任何机械门拦着这个错**。
