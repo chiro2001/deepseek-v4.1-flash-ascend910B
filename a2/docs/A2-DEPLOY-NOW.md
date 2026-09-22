@@ -95,13 +95,18 @@ KV8_SWA=1 KV8_RING_FP16=1 KV8_FULL=1 KV8_PREFILL=1    # 同理自动置 APC_ALIG
 | 收益 | ★ **HBM ×1.8177**（**777,318** token，相对档 B 427,643） |
 | 保留投机解码 | ✅ |
 | 精度风险 | **无**（不改 dtype，draft 仍 BF16） |
-| 改动面 | 2–3 处（`dspark.py` 给 draft 独立 block_size + 放宽 `plan_cache_slots` 的相等检查） |
+| 改动面 | ★ **2 文件 / 2 处，默认关**（`dspark.py` 给 draft 自己的 `block_size`（env `VLLM_V41_DRAFT_BLOCK`）+ 放宽 `plan_cache_slots` 的**相等**检查为**整除**检查）—— 详见 `logs/051` |
+| 已落地的证据 | ★ **`64` 档本来就在算子的块大小表里**（`_DSV4_BLOCK_SIZES[64][0][1] == 64`、`page_size_padded_t2 == 65,536`）；**三臂对称单元自检全绿**（`upstream` raise / `draftaware` ×1.0000 与 8 卡逐字同 / **`patched` 档 C 369,280、档 D 282,880**） |
 | 已查清的风险 | 窗口跨 3~4 块（算子/块表/KV manager **都无假设**）；⚠️ 唯一硬编码 `kv8_ori_plane` 的 `pages_per_req=2` **只在 int8 平面上跑 ⇒ ②c 不走它** |
-| 副作用 | DRAM 池 `sw_chunks` 1→2 ⇒ 该组每段 unit 2→3 ⇒ 总需求 **+4.8%**（`OFFLOAD_GB=56` 要复算） |
+| 副作用 | DRAM 池 `sw_chunks` 1→2 ⇒ 该组每段 unit 2→3 ⇒ 总需求 **+5.0%**（`OFFLOAD_GB=56` 要复算） |
+| ⏳ 还差什么 | **一条真权重端到端臂**（判据：容量 595,404（档 C）/ 777,318（档 D）+ 图捕获成功 + **`SpecDecoding` 四项不降** + sha 与冷算参考一致） |
 
 ---
 
 ## 5. 落地顺序建议
+
+> ★★ **硬约束（用户决策 2026-09-22）：保留投机解码。** A2 是单流场景，DSpark 的收益不可替代
+> ⇒ **⑤a（关投机换容量）已否决**；下表每一档、每一条待验路线都在 `--speculative-config dspark` 下成立。
 
 ```
 1. ★ 先跑 A2 的探测（a2_one_shot_probe.sh）⇒ 决定池后端

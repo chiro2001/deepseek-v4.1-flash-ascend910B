@@ -84,11 +84,31 @@
 
 ## 6. ⚠️ 两个必须知道的边界
 
-1. ★★ **`[SG-PPR]` 证明档 D 的 cmp 面在捕获期 `ppr=1`**（实测），
-   **而"越界读会怎样"在算子层仍【未确认】**：
-   * **torch/ATen 层**：★ **响亮失败**（【实测·不占卡】`torch.gather` / 高级索引 / `index_select` / 数据平面越界**全部报错**，见 `raw/049-oob-probe.log`）；
-   * **算子层（档 D 生产路径）**：⚠️ **最可能是静默错** —— `cmp_block_table` 是**直接喂给 `npu_sparse_flash_mla` 的 GM 描述符**，
-     索引由 device 侧取址产生 ⇒ 偏移落到 buffer 之外会读到**同进程其它已分配张量**（同进程 VA 通常不触发 MMU 故障）。
-   ⇒ **由决策臂 `sg-a-d-cmplegacy` 定案**（窗口面已修 ⇒ 能起服；cmp 面留在捕获期路径 ⇒ 看它"炸"还是"静默错"）。
+1. ★★★ **`[SG-PPR]` 证明档 D 的 cmp 面在捕获期 `ppr=1`**（实测），**且"越界读会怎样"已定案 = (c) 静默错**
+   —— **源码级证据，零占卡**（`S_graphfix` 的 `raw/049-op-bounds-evidence.txt`；主代理已独立核实内核那一段）：
+
+   ```
+   ① host 侧 checker（op_host/checkers/paged_attention_checker.cpp:23-40）
+      CheckBlockTable 只查四件事：dtype==int32 / 维度数==2 / 每维非空 / dim0==batch size
+      ★ 没有任何一处把「列宽」和「kernel 会寻址到的最大块号」做比较
+      ⇒ 列宽 = 1 的表【通过全部 host 校验】⇒ (b) 响亮失败被排除
+
+   ② tiling（op_host/sparse_flash_mla_tiling.cpp:896）
+      cmpMaxBlockNumPerBatch_ = cmpBlockTable.tensor->GetStorageShape().GetDim(1)   ← 就是列宽
+
+   ③ ★★ device kernel（op_kernel/arch22/sparse_flash_mla_csa_block_vector.h:544-552）—— 主代理逐行核实：
+      if (realS2Idx < 0 || realS2Idx >= s2IdLimit) { return -1; }   ← 唯一的界检查：查【位置】
+      int64_t blkTableIdx = realS2Idx / constInfo.paCmpBlockSize;
+      realKeyGmOffset =
+          cmpBlockTableGm_.GetValue(runInfo.bIdx * constInfo.cmpMaxBlockNumPerBatch + blkTableIdx) * ...
+      //                          ↑ 行偏移（= bIdx × 列宽）        ↑ 列偏移（可达几百）
+      //  ★ 没有任何一处检查 blkTableIdx < cmpMaxBlockNumPerBatch
+      ⇒ 列宽=1 而 blkTableIdx=300 时索引 = bIdx + 300 ⇒ 直接越界读 GM，无检查
+      ⇒ 读到同进程 GM（通常不触发 MMU 故障）⇒ 垃圾值被当成"页号"去取 KV 行 ⇒ ★ 静默算错
+      （只有"垃圾页号 × cmpKvStride0"恰好落到未映射页时才退化成崩溃）
+   ```
+   ⇒ ★ **标签：【实测·源码级】**（静态、可复核、可重复）。
+   ⇒ **决策臂 `sg-a-d-cmplegacy` 的价值从"分 (b)/(c)"降级为"运行期复现 (c)"**
+     （预期：起服成功 + 输出错；若它居然输出正确，说明那条路没被走到 ⇒ 当**空判据**如实报告，而不是"没问题"）。
 2. ★ **调度器侧的 trace 只证明"调度器没冻结"** —— 它打在 EngineCore（图**外**），
    **不能**证明"图内部的值没被冻结"。图内部那一格由 `[SG-PPR]` 回答（答案：**`ppr=1`，被抓死**）。
