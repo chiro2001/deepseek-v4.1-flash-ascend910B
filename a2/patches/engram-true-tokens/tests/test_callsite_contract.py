@@ -48,12 +48,47 @@ def _model_patched_path() -> str:
     raise FileNotFoundError("找不到 model.patched.py（试过 patches/ 与同级目录）")
 
 
+def _hash_patched_path() -> str:
+    here = os.path.dirname(os.path.abspath(__file__))
+    for c in (os.path.join(here, "..", "patches", "engram_hash.patched.py"),
+              os.path.join(here, "..", "engram_hash.patched.py")):
+        if os.path.exists(c):
+            return os.path.abspath(c)
+    raise FileNotFoundError("找不到 engram_hash.patched.py（试过 patches/ 与同级目录）")
+
+
 def main() -> int:
     print("=" * 78)
     print("调用点契约测试：build_prev_tok 的返回形状 vs apply_repairs 的期望")
     print("=" * 78)
 
     R = repair_helpers()
+
+    # ---- 1b. ★ 计数上报必须"能落到日志"（本仓实测踩过：只打一次的提示承载判据）
+    print("\n① b 计数上报口径（logs/083：一次性提示不能承载判据）")
+    src_hash = open(_hash_patched_path(), encoding="utf-8").read()
+    # ★ 用 AST 判"函数体里真的没引用它"，**不要**用 `grep 字符串` ——
+    #   我第一版就是 grep，结果被我自己的注释（"旧实现把 `_PAGELESS_WARNED[0]` 共用…"）
+    #   判成"仍在共用" ⇒ **假失败**。这与 logs/079 §3 的"判据被自己的文本污染"是同一个坑，
+    #   一天之内第二次出现 —— 结论：**判代码要用 AST/语法树，不要用字符串搜索**。
+    import ast as _ast
+    _tree = _ast.parse(src_hash)
+    _fn = next((n for n in _ast.walk(_tree)
+                if isinstance(n, _ast.FunctionDef) and n.name == "_engram_true_tokens_note"), None)
+    chk(_fn is not None, "找得到 `_engram_true_tokens_note` 函数定义")
+    _uses = set()
+    if _fn is not None:
+        for n in _ast.walk(_fn):
+            if isinstance(n, _ast.Name):
+                _uses.add(n.id)
+            elif isinstance(n, _ast.Attribute):
+                _uses.add(n.attr)
+    chk("_PAGELESS_WARNED" not in _uses,
+        f"★ 函数体（AST）里不再引用 `_PAGELESS_WARNED`；实际引用={sorted(_uses)[:8]}")
+    chk("_TT_CUM" in src_hash and "mismatch" in src_hash,
+        "存在按键累计 `_TT_CUM`（含 mismatch）")
+    chk("_TT_LOG_EVERY" in src_hash,
+        "有 `V41_ENGRAM_TRUE_TOKENS_LOG_EVERY` 节流（避免刷屏又不丢判据）")
 
     # ---- 1. 出货模块的返回形状必须就是 (arr, stats)，且 arr 可按 [row, sh] 索引
     print("\n① 出货模块 `build_prev_tok` 的返回形状")

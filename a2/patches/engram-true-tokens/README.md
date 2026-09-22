@@ -43,6 +43,20 @@
 | 新 md5 | `model.patched.py` → ★ **`0f9feba129a8f28c9707b40d4109e92b`**；`model.host_rows.diff` 已按同基线重生成（94 行，`patch -p1` 应用后与 patched **逐字节相同** 且编译通过） |
 | 新防线 | ★ `tests/test_callsite_contract.py`（**调用点契约测试**）：① 断言出货模块返回的是 `(arr, stats)` 且 `arr` 可按 `[row, sh]` 索引；② 断言调用点那行**以 `[0]` 结尾**；③ **反向验证**——把元组直接喂 `apply_repairs` **必须抛 TypeError**；④ 对照——正确的 2-D 数组必须正常返回。已并入 `tests/run_all.sh` |
 
+## 0e. ★★★ 2026-09-22 23:1x **必修**：计数上报口径 —— **一次性提示不能承载判据**
+
+| 项 | 内容 |
+|---|---|
+| 现象 | A3 实测（`p3b2-true1-rowids1`）：`[ENGRAM-TRUE-TOKENS]` 只落了 **`计数={'unavailable': 6}`**，**`absent/filled/mismatch` 累计值一次都没落盘** |
+| 根因 | ① `_engram_true_tokens_note()` 与 pageless 提示**共用** `_PAGELESS_WARNED[0]` 的"只打一次"旗标；② 第一次调用是 **warm-up decode（n=6）** ⇒ 那一次必然全是 `unavailable` ⇒ 之后所有更有信息量的调用都被"只打一次"吞掉 |
+| ★ 后果（很具体） | **`mismatch > 0`（"镜像里是别人的 token" = 陈旧页静默算错）至今没有真机读数** ⇒ **无法判定要不要升 `mode=2`**（`ENGRAM-OFFLOAD-EXACT-FIX.md` §2 的残余静默点②） |
+| 修法 | ① **独立旗标**；② **按键累计** `_TT_CUM`（六键）；③ 打印规则 = 首次 + 累计四元组变化后每 `V41_ENGRAM_TRUE_TOKENS_LOG_EVERY`（默认 200）次再打 + ★ **`mismatch` 一出现立刻打**；④ `self.engram_true_token_stats_cum` **按键累计**（原来 `engram_true_token_total` 只留总数，**丢掉分解**） |
+| 新防线 | `tests/test_callsite_contract.py` 增加"计数上报口径"检查：用 **AST** 断言 `_engram_true_tokens_note` 函数体**不引用** `_PAGELESS_WARNED`，并断言存在 `_TT_CUM` / `LOG_EVERY` |
+| ★ 写检查时又踩一次 | 第一版用 `grep 字符串` 判"不引用"，被**我自己的注释**判成假失败（与 `a2/logs/079 §3` 同一天第二次）⇒ **判代码要用 AST；字符串搜索只适合判"存在性"，不适合判"不存在"** |
+
+★ 与 `0d` 的关系：两者都是**"模块各自都对、接起来/上报口径不对"**这一类；
+`0d` 让第一个请求**崩**（响亮），`0e` 让判据**永远拿不到数**（静默 —— 更危险）。
+
 ## 0c. ★★ 2026-09-22 21:3x **必修**：`model_runner_v1.patched.py` 曾 `py_compile` 不过
 
 | 项 | 内容 |

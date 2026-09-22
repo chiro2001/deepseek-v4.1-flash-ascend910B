@@ -31,16 +31,44 @@ def _engram_true_tokens_mode() -> int:
     return _ENGRAM_TRUE_TOKENS
 
 
+# ★★★ 2026-09-22 23:xx **修掉一个判据缺口**（A3 实测暴露）：
+#   旧实现把"只打一次"的旗标 `_PAGELESS_WARNED[0]` **和 pageless 提示共用**，
+#   而第一次调用通常是 **warm-up decode（n=6）** ⇒ 日志里只留下
+#   `计数={'unavailable': 6}`，**`absent/filled/mismatch` 的累计值永远没落盘**
+#   ⇒ `mismatch > 0`（"陈旧页 = 静默算错"）**至今没有真机读数**，
+#     也就无法判定要不要升到 mode=2。
+#   ⇒ 现在：① 独立的旗标；② **按键累计**（不再只加一个总数）；
+#            ③ 累计量变化就再打一次（带上调用次数），且 `mismatch` 一旦出现**立即**打。
+_TT_CUM = {"calls": 0, "absent": 0, "filled": 0, "mismatch": 0,
+           "overwrote": 0, "unavailable": 0, "oob": 0}
+_TT_LAST_SIG = [None]
+_TT_LOG_EVERY = int(os.environ.get("V41_ENGRAM_TRUE_TOKENS_LOG_EVERY", "200") or 200)
+
+
 def _engram_true_tokens_note(stats, n):
-    if _PAGELESS_WARNED[0] or not stats:
+    """把这一次的计数并进累计量，并在"有信息量"的时候打印。
+
+    ★ 判据口径：**只打一次**的提示不能承载判据（本函数原来就是这么错的）。
+    现在打印规则：① 首次；② 累计四元组 (`absent/filled/mismatch/overwrote`) 变化后，
+    每 `V41_ENGRAM_TRUE_TOKENS_LOG_EVERY`（默认 200）次调用再打一次；
+    ③ ★ `mismatch` 一出现**立刻**打（它是"陈旧页 = 静默算错"的唯一信号）。
+    """
+    if not stats:
         return
-    _PAGELESS_WARNED[0] = True
-    print(
-        "[ENGRAM-TRUE-TOKENS] mode=%s 首次修补：n=%s 计数=%s"
-        "（absent = 本会 KeyError 的槽位；mismatch = 镜像里是别人的 token 的槽位）"
-        % (_ENGRAM_TRUE_TOKENS, n, stats),
-        flush=True,
-    )
+    _TT_CUM["calls"] += 1
+    for _k in ("absent", "filled", "mismatch", "overwrote", "unavailable", "oob"):
+        if _k in stats:
+            _TT_CUM[_k] = _TT_CUM.get(_k, 0) + int(stats[_k])
+    sig = (_TT_CUM["absent"], _TT_CUM["filled"], _TT_CUM["mismatch"], _TT_CUM["overwrote"])
+    force = _TT_CUM["mismatch"] > 0 and _TT_LAST_SIG[0] != sig
+    if _TT_LAST_SIG[0] is None or force or (_TT_CUM["calls"] % _TT_LOG_EVERY == 0):
+        _TT_LAST_SIG[0] = sig
+        print(
+            "[ENGRAM-TRUE-TOKENS] mode=%s 累计(调用%s次) n=%s 本次=%s 累计=%s"
+            "（absent=本会 KeyError 的槽位；mismatch=镜像里是别人的 token 的槽位）"
+            % (_ENGRAM_TRUE_TOKENS, _TT_CUM["calls"], n, stats, dict(_TT_CUM)),
+            flush=True,
+        )
 
 
 # ==== [ENGRAM-PAGELESS] 镜像缺页的语义（2026-09-22 21:0x 的 P0 修复）====
@@ -567,10 +595,17 @@ class PagedNgramHistory:
             _pageless_note(err, int(miss_rows), self.pad_id)
             if _pageless_strict():
                 raise KeyError(err)
+        # ★ 2026-09-22 23:xx：改成**按键累计**（原来只累加一个总数 ⇒ 丢掉 absent/mismatch
+        #   的分解，而 `mismatch` 正是"陈旧页静默算错"的唯一信号）。
         if repair_stats:
-            self.engram_true_token_total = getattr(self, "engram_true_token_total", 0)
+            self.engram_true_token_stats_cum = getattr(
+                self, "engram_true_token_stats_cum", {}
+            )
             for _k, _v in repair_stats.items():
-                self.engram_true_token_total += int(_v)
+                self.engram_true_token_stats_cum[_k] = (
+                    int(self.engram_true_token_stats_cum.get(_k, 0)) + int(_v)
+                )
+            self.engram_true_token_total = sum(self.engram_true_token_stats_cum.values())
             _engram_true_tokens_note(repair_stats, n)
         if fell_back:
             self.scalar_history_fallbacks = getattr(self, "scalar_history_fallbacks", 0) + 1
