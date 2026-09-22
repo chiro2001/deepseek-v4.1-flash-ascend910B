@@ -1,6 +1,7 @@
 # SPDX-License-Identifier: MIT
 # Adapted from the DeepSeek V4.1 reference inference/engram.py.
 from dataclasses import dataclass
+import os
 
 import numpy as np
 import torch
@@ -14,6 +15,34 @@ from .engram_jit_kernel import (  # [ENGRAM-JIT-HASH]
 from sympy import isprime
 
 _HISTORY_SLAB_MIN_TOKENS = 16
+
+
+# ==== [ENGRAM-PAGELESS] 镜像缺页的语义（2026-09-22 21:0x 的 P0 修复）====
+# 背景（实测）：`ENGRAM=1` + DRAM 卸载时，被卸载池**取回**的前缀块从未流经
+# `update()` ⇒ page 镜像 `pages/page_present` 里缺页 ⇒ 老代码 `raise KeyError(err)`
+# ⇒ **引擎死**（a2/logs/073 + 072 §3.3：`KeyError: 2486`，`num_computed_tokens=56320`）。
+# 现在：缺页 = 与「槽位 = -1」**同义的 barrier**（该行该 shift 起保持 pad_id，哈希照算），
+# 并记入 `pageless_history_rows`。`V41_ENGRAM_PAGELESS_STRICT=1` 可恢复旧的致命行为。
+_PAGELESS_WARNED = [False]
+
+
+def _pageless_strict() -> bool:
+    return os.environ.get("V41_ENGRAM_PAGELESS_STRICT", "0") == "1"
+
+
+def _pageless_note(page, n_rows, pad_id):
+    """首次缺页时打印一次（响亮但不刷屏）—— 不静默降级。"""
+    if _PAGELESS_WARNED[0]:
+        return
+    _PAGELESS_WARNED[0] = True
+    print(
+        "[ENGRAM-PAGELESS] 镜像缺页：第 %s 页不在 Engram 的 page 镜像里（%s 行）。"
+        "已按 barrier 语义用 pad_id=%s 填历史并继续（**不再 KeyError**）。"
+        "典型成因：前缀经 DRAM 卸载池取回，其块从未流经本进程的 update()。"
+        "要恢复旧的致命行为请设 V41_ENGRAM_PAGELESS_STRICT=1。"
+        % (page, n_rows, pad_id),
+        flush=True,
+    )
 
 
 # ==== [hash-ab] 同会话 A/B 开关（文件驱动，默认 fast）====
@@ -345,9 +374,11 @@ class PagedNgramHistory:
                 offsets = previous[rows] % block_size
                 with torch.device("cpu"):
                     unique_pages, slab_indices = torch.unique(page_ids, return_inverse=True)
-                # Reachable pages must exist, just as in the row path. Inactive
-                # rows never read past an image or unwritten-token barrier.
-                slab = torch.stack([self.pages[page] for page in unique_pages.tolist()])
+                # ★ [ENGRAM-PAGELESS] 缺页不再 KeyError：_mirror_row 会补一行全 -1
+                #   （= barrier），与 JIT kernel 的语义一致。
+                slab = torch.stack(
+                    [self._mirror_row(page, block_size) for page in unique_pages.tolist()]
+                )
                 values = slab[slab_indices, offsets]
                 present = values >= 0
                 history[rows[present], shift] = values[present]
@@ -406,7 +437,7 @@ class PagedNgramHistory:
             self._jit_vals, self._jit_rows, self._jit_pid, self._jit_offb,
             self._jit_prs, self._jit_act,
         )
-        return int(ret[0]), int(ret[1]), int(ret[2])
+        return int(ret[0]), int(ret[1]), int(ret[2]), int(ret[3])
 
     def _engram_update_jit(self, input_ids, positions, request_ids, block_table, block_size):
         # 热路径：只做必要的事。_hash_mode() 的检查已挪到 __init__。
@@ -445,6 +476,7 @@ class PagedNgramHistory:
             err = ret[0]
             oob = ret[1]
             fell_back = ret[2]
+            miss_rows = ret[3]
             if oob < 0:
                 break
             # 页号超出容量：扩容后重跑（页写幂等，部分写入无副作用）
@@ -459,8 +491,13 @@ class PagedNgramHistory:
             pages, present = newp, newq
         else:
             raise RuntimeError("Engram JIT page capacity could not be satisfied")
-        if err >= 0:
-            raise KeyError(err)
+        # ★ [ENGRAM-PAGELESS] 缺页不再是致命错误：kernel 已按 barrier 语义给了 pad 历史，
+        #   哈希也已算出。这里只计数 + 一次性提示（严格模式下才恢复旧行为）。
+        if miss_rows:
+            self.pageless_history_rows = getattr(self, "pageless_history_rows", 0) + int(miss_rows)
+            _pageless_note(err, int(miss_rows), self.pad_id)
+            if _pageless_strict():
+                raise KeyError(err)
         if fell_back:
             self.scalar_history_fallbacks = getattr(self, "scalar_history_fallbacks", 0) + 1
         # 每个 n 缓存一对 torch 视图：decode 的 n 基本恒定，省掉两次 from_numpy 分发
@@ -472,20 +509,33 @@ class PagedNgramHistory:
         return views
     # ==== /[ENGRAM-JIT-HASH] 方法 ============================================
 
+    def _mirror_row(self, page, block_size):
+        """返回镜像里该页的行；★ 缺页时补一行全 ``-1``（= barrier）而不是抛 KeyError。
+
+        [ENGRAM-PAGELESS] 与 `engram_jit_kernel.py` 的缺页语义一一对应：
+        缺页等价于「这个槽位的 token 不可知」⇒ 该 shift 及其之后取 `pad_id`。
+        `V41_ENGRAM_PAGELESS_STRICT=1` 时恢复旧的 `KeyError`（给需要 fail-closed 的臂用）。
+        """
+        row = self.pages.get(page)
+        if row is None:
+            self.pageless_history_rows = getattr(self, "pageless_history_rows", 0) + 1
+            _pageless_note(page, 1, self.pad_id)
+            if _pageless_strict():
+                raise KeyError(page)
+            row = torch.full((block_size,), -1, dtype=torch.int64, device="cpu")
+            self.pages[page] = row
+        return row
+
     def _small_batch_history(
         self, tokens, positions, request_ids, block_table, block_size, position_list
     ):
         """n-gram history for ``tokens < _HISTORY_SLAB_MIN_TOKENS`` rows.
 
         Vectorised first: one ``torch.stack`` per call and no per-pair dispatch.
-        ``_vectorized_history`` refuses (returns None) when a page that the
-        scalar walk would read is absent from the mirror -- the pair indexing
-        touches every in-range (row, shift) slot while the scalar walk stops at
-        the first barrier, so the two disagree on which pages must exist. Only
-        then does this fall back to the original row/shift walk, which keeps the
-        engine's behaviour (including a KeyError for a page the walk does reach)
-        bit-identical. The fallback page ids come from the pair indexing above,
-        so it needs no per-pair ``block_table`` read.
+        ★ [ENGRAM-PAGELESS] 缺页现在**不再**让 ``_vectorized_history`` 返回 None：
+        `_mirror_row` 会给缺的页补一行全 ``-1``（= barrier），语义与 JIT kernel 一致。
+        标量走法仍然保留（`scalar_history_fallbacks` 仍会计数），但缺页已经不是它的
+        bail-out 条件 ⇒ 它现在只在显式走 stock 分支时被用到。
         """
         history, flat_pages = self._vectorized_history(
             tokens, positions, request_ids, block_table, block_size
@@ -502,7 +552,11 @@ class PagedNgramHistory:
                 previous = position - shift
                 if previous < 0:
                     break
-                token = self.pages[flat_pages[base + shift]][previous % block_size]
+                # ★ [ENGRAM-PAGELESS] 缺页 ⇒ _mirror_row 给一行全 -1 ⇒ 下面 `token < 0`
+                #   即 barrier（与"未写入的 token"同一条路径）。
+                token = self._mirror_row(flat_pages[base + shift], block_size)[
+                    previous % block_size
+                ]
                 if token < 0:
                     break
                 history[row, shift] = token
@@ -511,10 +565,10 @@ class PagedNgramHistory:
     def _vectorized_history(self, tokens, positions, request_ids, block_table, block_size):
         """Index all ``tokens * lookback`` history slots in one pass.
 
-        Returns ``(history, None)`` on success and ``(None, flat_pages)`` -- the
-        row-major page id of every (row, shift) slot -- when a page the scalar
-        walk could reach is missing from the mirror, in which case the caller has
-        to use the scalar walk.
+        ★ [ENGRAM-PAGELESS] 缺页不再导致 ``(None, flat_pages)``：缺页由
+        `_mirror_row` 补成全 ``-1`` 的 barrier 行（并计入 `pageless_history_rows`）。
+        返回值第二项保留为 ``None`` 仅是历史形状，调用方（`_small_batch_history`）
+        仍按原样处理。
         """
         lookback = self.lookback
         previous = positions.unsqueeze(1) - shift_index(lookback)
@@ -527,10 +581,9 @@ class PagedNgramHistory:
         flat_pages = pages.flatten().tolist()
         slab = []
         for page in flat_pages:
-            mirrored = self.pages.get(page)
-            if mirrored is None:
-                return None, flat_pages
-            slab.append(mirrored)
+            # ★ [ENGRAM-PAGELESS] 缺页 ⇒ 补一行全 -1（barrier），不再返回 None
+            #   （返回 None 会把控制权交给标量走法，而那条路以前会 KeyError）。
+            slab.append(self._mirror_row(page, block_size))
         slab = torch.stack(slab)
         slots = (previous % block_size).flatten().view(-1, 1)
         values = slab.gather(1, slots).view(tokens, lookback)
