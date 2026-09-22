@@ -2,8 +2,12 @@
 
 > 2026-09-22 16:10 CST。**执行：用户**（在 A2 宿主 `~/projects/dsv41-a2-repro-kv8-offloading/` 下跑）。
 > 脚本：`a2/scripts/a2_one_shot_probe.sh`。
-> ★ 本次跑的是 **`f88672b317521ec9fcd61c2c5faef0282ea9f6b6d37201bac7214689d2327740`**（**修复前**）；
-> **§3 修了那个静默失败之后**是 **`a4113ff4e2cc6510572be77835c984f50b5422150e13518251482b870bc2b443`** ⇒ **补跑大档必须用后者**。
+> ★ **三次运行用了三个脚本版本**（记清，否则会把"没测"读成"失败"）：
+> * 16:10 `LIGHT=1` ⇒ `f88672b317521ec9fcd61c2c5faef0282ea9f6b6d37201bac7214689d2327740`（**初版**）
+> * 16:15 与 16:24 两次 `LIGHT=0` ⇒ `a4113ff4e2cc6510572be77835c984f50b5422150e13518251482b870bc2b443`
+>   （只修了 §3 的"env 没转发"；**§3b.0 那个"注册段被整段跳过"的 bug 还在**）
+> * ★ **当前（含 §3 + §3b.0 两个修复）= `b42d74a7d905f48fd32b587d9f1f327102f28a674490993da1775c58cb342455`**
+>   ⇒ **补跑大档必须用这个**（已按 §3b.0 的判据在 A3 上真机验证过）
 > 口径：`A2_CONTAINER=dsv41-a2 A2PROBE_FLOOR_GIB=300 LIGHT=1`。
 > 标记：【实测】/【推断】/【未确认】。
 
@@ -106,6 +110,45 @@ $DOCKER exec -i "$A2_CONTAINER" bash -lc '...'     # ★ docker exec 不继承�
 
 ## 3b. ⚠️ 因此仍未探到的缺口：**大档**（`LIGHT=1` 的上限是 4 GiB）
 
+### ★★★ 3b.0 第二次实机失败（16:2x）：`LIGHT=0` 生效了，但**注册那段被整段跳过**（已修 + 已真机验证）
+
+`LIGHT=0` 这次开关确实进了容器（回显 `LIGHT=0 COPY_GIB=0.25 A2PROBE_FLOOR_GIB=300` ✅），
+但输出里 **`step4` / `step5` 一行都没有**，DECISION 反而给出：
+```
+注册（匿名/普通内存）：1=None 8=None 32=None 64=None
+⇒ 注册不可用但 pinned 总量可以 ⇒ 走候选 α（分片 pinned）    ← ★★ 这是**反结论**
+```
+
+**根因**【实测】：**`step1b`（累加 pinned）会故意吃到 `FLOOR_GIB` 为止，而 torch 的 host pinned
+分配器不把内存还给 OS**。日志证据链：
+```
+吃到 309 × 256 MiB = 77.2 GiB 后   MemAvailable = 300.1   ← floor 恰是 300
+held.clear() + gc.collect() 之后
+step4 起始                          MemAvailable = 300.0   ← ★ 没还回去
+```
+⇒ 它后面**每一个** `ok_floor(g)` = `(MemAvailable − g) > FLOOR` **都恒为假** ⇒ `step4/step5` 被整段跳过。
+⇒ 后果：**整轮跑完，"注册路线能不能用"这一格（本轮最关键的一格）根本没测**，
+而 DECISION 还把它说成"注册不可用 ⇒ 走候选 α"。
+
+**修法**（两处）：
+1. ★ **把 `step1b` 固定放到最后** —— 它本来就是"吃到 floor 为止"的收尾测试；
+2. ★ **区分"跳过"与"失败"**：被 `ok_floor` 跳过时置 `register_not_measured`，
+   DECISION 改判为「⏹ **注册路线根本没测到**（这**不是**『注册不可用』）」。
+
+**真机验证**【实测·A3 c2 / `prbench-c2`，floor=1191 GiB **故意让 `step1b` 触底**】：
+```
+step3 pageable
+→ ★ step4 register 1 GiB ✓ / 4 GiB ✓（判据 True）
+→ step5 register-file 1 GiB ✓
+→ ★ step1b（最后）  30 × 256 MiB = 7.5 GiB（触到 floor 1191）
+```
+⇒ 新顺序下 `step4` 正常跑；**旧顺序下 `step1b` 会先把 MemAvailable 压到 1191，
+`step4` 的 `ok_floor(1)` = `1190 > 1191` 为假 ⇒ 必然跳过**（= 用户看到的那份输出）。
+⇒ ★ **这就是那次失败的最小复现 + 修复的判别性证据。**
+验证用的脚本 sha256 与本地一致（`b42d74a7…`）；c2 锁已交还、无残留进程、测试目录已删。
+
+---
+
 DECISION 段的 `None` **不是失败，是"没探"** —— 源码：
 ```python
 step4_register(acl, stream, [1, 4] if LIGHT else [1, 8, 32, 64])
@@ -114,7 +157,9 @@ step4_register(acl, stream, [1, 4] if LIGHT else [1, 8, 32, 64])
 
 **⇒ 必须补跑一次**（`A2PROBE_FLOOR_GIB=300 LIGHT=0`，**用修好的脚本**；跑前先确认容器内回显的那一行）：
 * 会探 **1 / 8 / 32 / 64 GiB** 的注册 + 文件映射 1 / 8 GiB；
-* 按本次余量（438 GiB available、floor 300）**四档都满足 `ok_floor` 的前置条件**（需要 `438−g > 300`，即 `g < 138`）；
+* ⚠️ **修正之前的说法**：我原先写"438 GiB available、floor 300 ⇒ 四档都满足 `ok_floor`"——**那是错的**，
+  因为**前面的 `step1b` 会把 MemAvailable 压到 floor**（§3b.0）。修好顺序后这个前置条件才真正成立
+  （注册段先跑、那时 MemAvailable ≈ 439 > 300 + 64）；
 * 【实测·A3 同脚本】耗时 **140 s**、宿主峰值 ≈ 200 GiB、显存峰值仍只 256 MiB；
 * ⚠️ 它会在宿主上真分配最多 64 GiB 并锁页 ⇒ 跑的时候**别同时压测 A2 的服务**。
 

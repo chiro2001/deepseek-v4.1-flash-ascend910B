@@ -219,6 +219,9 @@ def step4_register(acl, stream, sizes_gib: list[float]) -> None:
     for g in sizes_gib:
         if not ok_floor(g):
             say("register", f"⏹ MemAvailable 不足，跳过 {g} GiB")
+            # ★ 2026-09-22 16:3x：**区分"跳过"与"失败"** —— 旧版 DECISION 把"没测到"
+            #   显示成"注册不可用 ⇒ 走候选 α"，会让人得出反结论。
+            RESULTS["register_not_measured"] = True
             break
         nb = int(round(g * (1 << 30)))
         host = torch.zeros(nb, dtype=torch.int8, device="cpu", pin_memory=False)
@@ -256,6 +259,7 @@ def step5_register_mmap(acl, stream, sizes_gib: list[float], path_root: str) -> 
         nb = int(round(g * (1 << 30)))
         if not ok_floor(g):
             say("register-file", f"⏹ MemAvailable 不足，跳过 {g} GiB")
+            RESULTS["register_file_not_measured"] = True   # ★ 同上：区分"跳过"与"失败"
             break
         path = os.path.join(path_root, f"a2probe-{int(g)}gib.map")
         try:
@@ -306,8 +310,6 @@ def main(argv: list[str]) -> int:
     if mode in ("all", "pinned"):
         say("step1", "—— (a) 单次 pinned 分配（每档独立进程更干净，这里逐档释放）")
         step1_pinned_single([1, 4, 8] if LIGHT else [1, 4, 8, 16, 32])
-        say("step1b", "—— (b) 多次小分配累加（256 MiB）")
-        step1b_pinned_multi(256, 32 if LIGHT else 128)
     if mode in ("all", "copy"):
         say("step3", "—— (c) 普通 pageable host 内存能不能 DMA")
         step3_pageable(acl, stream, 1.0)
@@ -315,6 +317,17 @@ def main(argv: list[str]) -> int:
         step4_register(acl, stream, [1, 4] if LIGHT else [1, 8, 32, 64])
         say("step5", "—— (e) Engram 同款：文件 + MAP_SHARED + 注册（只到 8 GiB：文件映射会回写磁盘）")
         step5_register_mmap(acl, stream, [1] if LIGHT else [1, 8], work)
+    # ★★★ 2026-09-22 16:3x **顺序修复（第二次实机踩到的静默失败）**：
+    #   `step1b`（累加 pinned）**故意吃到 `FLOOR_GIB` 为止**，而 torch 的 host pinned
+    #   分配器**不把内存还给 OS** —— 实测：吃满后 `held.clear() + gc.collect()`，
+    #   `MemAvailable` 仍停在 **300.0 GiB**（floor 就是 300）。
+    #   ⇒ 它后面**每一个** `ok_floor()` 门都恒为假 ⇒ `step4`/`step5`（★ 注册路线的生死判据）
+    #     **被整段跳过**，而 DECISION 还把它显示成"注册不可用 ⇒ 走候选 α"（**误导**）。
+    #     后果：整轮跑完，**最重要的那一格根本没测**。
+    #   ⇒ **把 `step1b` 固定放在最后** —— 它本来就是"吃到 floor 为止"的收尾测试。
+    if mode in ("all", "pinned"):
+        say("step1b", "—— (b) 多次小分配累加（256 MiB）★ 故意放最后：它会吃到 floor 为止，且 pinned 不还给 OS")
+        step1b_pinned_multi(256, 32 if LIGHT else 128)
 
     print("\n[a2probe] ================= DECISION =================", flush=True)
     print(f"[a2probe] 单次 pinned：4 GiB={RESULTS.get('pinned_single_4')} "
@@ -329,7 +342,16 @@ def main(argv: list[str]) -> int:
           f"registered={RESULTS.get('register_copy_ok')} "
           f"registered-file={RESULTS.get('register_file_copy_ok')}", flush=True)
     print("[a2probe] 判读：", flush=True)
-    if RESULTS.get("register_32") or RESULTS.get("register_64"):
+    # ★ 2026-09-22 16:3x：**先判"有没有真的测到"** —— 旧版把"被跳过"当成"不可用"。
+    _reg_any = any(RESULTS.get(f"register_{g}") or RESULTS.get(f"register_{g}") is False
+                   for g in (1, 4, 8, 32, 64))
+    if (RESULTS.get("register_not_measured") or RESULTS.get("register_file_not_measured")) and not _reg_any:
+        print("[a2probe]   ⇒ ⏹ 注册路线**根本没测到**（MemAvailable 被前面的分配占住 ⇒ 每个档位都被"
+              " `ok_floor` 跳过）。", flush=True)
+        print("[a2probe]      ★★ 这**不是**『注册不可用』！判读前必须重跑：把 `A2PROBE_FLOOR_GIB` 调低"
+              "（或停掉服务腾内存）后再跑一次。", flush=True)
+        print("[a2probe]      修好的脚本已把『累加 pinned』固定放在最后 ⇒ 正常情况不会再出现这一格。", flush=True)
+    elif RESULTS.get("register_32") or RESULTS.get("register_64"):
         print("[a2probe]   ⇒ 候选 β 可行：用 mmap + aclrtHostRegister(MAPPED) 做池子，"
               "把 cpu_npu.py 的 pin_memory 换掉（见 logs/014 §4）", flush=True)
     elif RESULTS.get("register_8"):
