@@ -276,6 +276,31 @@ DRY=1 SHADOW_PKG=$HOME/shadow-pkg MODEL=<A2 的模型目录，见上方「A2 的
 ★ **注意**：这份 shadow **与开发机上那份不等价**（开发机还含别的任务的注入块）
 ⇒ **不要拿开发机的 arm 结论直接套 A2 的 shadow**（见 `patches/ARTIFACT-IDENTITY.md`）。
 
+> ### ★★★ 2026-09-22 16:4x：**"全新 clone → 造 shadow → dry-run"已端到端验证过**
+>
+> 起因：前面连续两次交付的脚本都带**静默失败**（`logs/065` §3 / §3b.0），
+> 所以这次**不再只做静态检查**，而是从 GitHub **全新 clone** 真跑一遍：
+> ```bash
+> git clone --depth 1 -b feat/kv8-dram-offload-pending \
+>   https://github.com/chiro2001/deepseek-v4.1-flash-ascend910B.git "$D/repo"
+> PKG="$D/repo" DST="$D/shadow-pkg" bash "$D/repo/a2/scripts/make_shadow_pkg.sh"       # ✓ rc=0
+> DRY=1 SHADOW_PKG="$D/shadow-pkg" MODEL=<假模型> ... bash .../serve_a2_offload.sh      # ✓ rc=0
+> ```
+> **验证到的两件事**（都是"照抄能不能跑通"的关键）：
+> 1. **档 B 路径**：`[a2-dry] OK` + 参数行齐全；
+> 2. ★★ **档 C 路径**（`A2_KV8_SWA=1 A2_RING_FP16=1`）：打出
+>    ```
+>    [serve_a2] [A2-INT8] 已挂 7 个整文件件（6 个来自 .../kv8-int8-pkg/vllm_ascend + dsa_v41.py）
+>    [a2-dry] MOUNTS(16): -v .../shadow-pkg/scripts:/opt/dsv41/scripts:ro
+>                         -v .../core/deepseek_v41.py:...  -v .../core/kv_cache_interface.py:...
+>                         -v .../models/deepseek_v41/model.py:...      ← ★★ 少了它 SWA 会静默退回 BF16
+>                         -v .../models/deepseek_v41/compressor.py:... -v .../ops/triton/...:...
+>                         -v .../attention/kv8_prefill_triton.py:...   -v .../attention/dsa_v41.py:...
+>    ```
+> 3. **副作用已核对**：整个验证**没有污染 `dsv41-release`**（`git status --short` 为空）——
+>    印证了生成器"不写发布仓一个字节"的承诺。
+> ⇒ ★ **"用户照抄能跑通"这件事，现在有实测依据，不再只是设计意图。**
+
 ---
 
 ## 1. 档 B —— 现状，已验证
