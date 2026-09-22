@@ -13,7 +13,7 @@
 #
 # 可选环境变量：
 #   BASE_IMAGE  基础镜像（默认 quay.nju.edu.cn/ascend/vllm-ascend:deepseek-v4.1-flash-openeuler）
-#   IMAGE_TAG   产出镜像名（默认 dsv41-a2:v8）
+#   IMAGE_TAG   产出镜像名（默认 dsv41-a2:v9）
 #   NO_CACHE    1 = 不使用构建缓存
 #   SKIP_PGO    1 = 不打包 PGO 产物（镜像会小 30 MB）
 # =============================================================================
@@ -24,7 +24,11 @@ PKG="$(cd "$HERE/.." && pwd)"
 cd "$PKG"
 
 BASE_IMAGE=${BASE_IMAGE:-quay.nju.edu.cn/ascend/vllm-ascend:deepseek-v4.1-flash-openeuler}
-IMAGE_TAG=${IMAGE_TAG:-dsv41-a2:v8}
+# ★★★ 2026-09-22 21:4x：默认升到 **v9** —— v9 起烘焙了 ENGRAM×卸载 的 P0 修复
+#   （`patches/files/{engram_hash.py,engram_jit_kernel.py}`，见 `a2/logs/075`/`077`）。
+#   ★ 必须与 `scripts/serve_a2.sh` / `scripts/run_test.sh` 的默认值**三处一致** ——
+#     否则 `tools/selfcheck_pkg.sh` 会当场报「镜像 tag 不一致」而拒发（本日实测它抓到过一次）。
+IMAGE_TAG=${IMAGE_TAG:-dsv41-a2:v9}
 CACHE_ARGS=()
 [ "${NO_CACHE:-0}" = "1" ] && CACHE_ARGS+=(--no-cache)
 

@@ -40,7 +40,10 @@ PKG="$(cd "$HERE/.." && pwd)"
 cd "$PKG"
 
 MODEL=${MODEL:-}
-IMAGE=${IMAGE:-dsv41-a2:v8}
+# ★★★ 2026-09-22 21:4x：与 `scripts/serve_a2.sh` / `scripts/build_image.sh` 一起升到 **v9**
+#   （v9 起烘焙了 ENGRAM×卸载 的 P0 修复，见 a2/logs/075/077）。
+#   ★ 三处必须一致 —— `tools/selfcheck_pkg.sh` 会检查，不一致直接拒发（本日实测抓到过）。
+IMAGE=${IMAGE:-dsv41-a2:v9}
 PORT=${PORT:-8100}
 # [SERVED_NAME] API 请求 body 里的 `"model"` 字段。必须与起服时的
 # `--served-model-name` 一致（`serve_a2.sh` 里同名 env，默认 deepseek-v41）。
