@@ -392,6 +392,30 @@ KV8_SWA=1 KV8_RING_FP16=1 KV8_FULL=1 KV8_PREFILL=1 \   # 档 D（容量 ×1.9133
    `CPU→GPU=0`、`hits=0`、`BlockRemoved:CPU=1502`（池溢出 ⇒ 走整段重算 ⇒ sha 当然等于冷算参考）。
    ⇒ **任何命中臂必须 `CPU→GPU > 0` 且 `hits > 0`**（已固化成结构性判据 `judge_047.py` ①e）。
 
+### ⛔⛔ 4.0b **8 卡图模式阻塞（`048`）：档 C/D 在生产的 `FULL_DECODE_ONLY` 下捕获期直接炸**
+
+```
+档 C 在 8 卡 + FULL_DECODE_ONLY 下：
+  capture failed: Not_Supported(EE1016): Synchronizing a stream failed.
+    Reason: Stream (stream_id=31) during the capture stage is not supported.
+  Python 栈（8 rank 逐字一致）：
+    capture_model → dsa_v41.py:898 → :711 → :797 → ★ dsa_v41.py:436 in kv8_ori_plane
+第 436 行：pages_per_req = int(((...).max().item())   ← 宿主同步
+  旁边代码自己写着 `# Prefill: ... Eager only, hence the host syncs`
+根因：`if query_rows == num_reqs` 的判据在【spec-decode】下不成立
+  （捕获时每请求 6 行 query = num_spec_tokens 5 + 1 ⇒ 误走 prefill 分支 ⇒ 撞 .item()）
+```
+★ **不是今天的补丁引入的**（`[APC_ALIGN]` 在调度器侧、不在被捕获的 forward 里）——
+是 **int8 KV8 代码自身的既存缺陷**。
+★ **解释了为什么单卡 tiny 六轮全绿**：tiny 上从没同时具备 `int8 + spec-decode + 图模式`。
+★ **正在修**（`S_graphfix`）：改 decode 分支判据 + 消除该分支的 `.item()`。
+**⇒ 修好之前，档 C/D 只能 `--enforce-eager` 运行。**
+
+★ **R_8card_int8 顺带修掉两个只在真权重上暴露的问题**：
+1. **槽位页被 draft 顶爆**（`int8` 让 `Σstate`/`Σswa` 缩小 ⇒ 页低于 draft 的 BF16 窗口面
+   ⇒ 上游 `raise Aurora DSpark geometry must match...`）—— tiny 只有 12 组（无 draft 组），**从没跑过**；
+2. **8 卡链自己挂了一份生产 `model.py`**，KV8 接线也在 `model.py` 里 ⇒ `Duplicate mount point`。
+
 ---
 
 ## 4.1b ⛔ 本包**曾不含**的两项（历史记录，保留以便追溯）

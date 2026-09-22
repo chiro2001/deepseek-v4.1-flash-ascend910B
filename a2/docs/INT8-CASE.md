@@ -90,12 +90,56 @@ python3 a2/scripts/selftest_apc_align.py                     # 38 PASS / 0 FAIL�
 
 | # | 事项 | 状态 |
 |---|---|---|
-| **1** | ★★ **8 卡真权重 + 图模式（生产是 `FULL_DECODE_ONLY`）未验** | ⏳ `R_8card_int8` 在跑（`048`）；★ mode3 只需 1 个 host 标量（`apc_align_unit`），但仍需确认图捕获不冻结它 |
+| **1** | ⛔⛔ **8 卡真权重 + 图模式（生产是 `FULL_DECODE_ONLY`）→ 捕获期直接炸** | ★ **这是当前唯一的阻塞**（见 §5.1） |
 | **2** | ★ **短 prompt（<1024 token）在 mode3 下不再命中池** | 【未确认】：请求照常重算、**无正确性影响**；若将来要服务短 prompt 需另设更小的对齐单位 |
 | **3** | ★★ **`J2 ✅` 本身不能单独当判据** | 已固化成结构性判据：**任何命中臂必须 `CPU→GPU > 0` 且 `hits > 0`**（否则是"池溢出→整段重算→sha 当然等于冷算参考"的假阳性） |
 
 **另**：档 C 的 `dsa_v41.py` 必须带 **scratch role 分键**（`035` §3.3 的静默覆盖 bug），
 否则测出来的是"档 C + 一个已知静默 bug"的混合体。
+
+### 5.1 ⛔⛔ 图模式阻塞（`048`，8 卡真权重实测）
+
+```
+档 C（KV8_SWA=1 RING_FP16=1 APC_ALIGN=3）在 8 卡 + FULL_DECODE_ONLY 下，图捕获阶段炸：
+  Worker_TP0..7 同时：
+    capture failed: Not_Supported(EE1016): Synchronizing a stream failed.
+      Reason: Stream (stream_id=31) during the capture stage is not supported.
+  Python 栈（8 rank 逐字一致）：
+    model_runner_v1.py:5594 capture_model → dsa_v41.py:898 forward
+      → :711 _attention → :797 _native_attention → ★ dsa_v41.py:436 in kv8_ori_plane
+
+第 436 行（宿主同步）：
+  pages_per_req = int(((lens - 1) // block_size - window_start // block_size + 1).max().item())
+★ 旁边代码自己写着 `# Prefill: ... Eager only, hence the host syncs`
+  ⇒ 该分支被假定"只在 eager 的 prefill 里跑"，但图捕获时被走到了。
+
+根因（分支判据）：
+  if query_rows == num_reqs:   # ← decode 分支（device-side、capture-safe）
+  else:                        # ← prefill 分支（.item() ⇒ 捕获期炸）
+  捕获时是【spec-decode 的 decode 批】（num_spec_tokens=5 ⇒ 每请求 6 行 query）
+  ⇒ query_rows = 6 × num_reqs ≠ num_reqs ⇒ 【误走 prefill 分支】
+★ 判据：speculative-config 里 num_speculative_tokens=5；
+  且档 B（纯 BF16）同一条链、同样图模式、同样 spec 配置【捕获成功】
+  （BF16 的 SWA 平面不走 kv8_ori_plane）。
+```
+
+★ **这不是今天的补丁引入的**：`[APC_ALIGN]` 在调度器侧、**不在被捕获的 forward 里**。
+它是 **int8 KV8 代码自身的既存缺陷**（`if query_rows == num_reqs` 在 spec-decode 下不成立）。
+
+★ **也解释了为什么单卡 tiny 六轮全绿**：tiny 上**从来没同时具备**
+`int8 + spec-decode + 图模式` 这三个条件 —— **这是单卡验证的盲区**，
+说明"必须在 8 卡真权重 + 真实 spec 配置上图模式跑一次"这一步不可替代。
+
+★ **另两个只在真权重上暴露的真问题**（`R_8card_int8` 已定位并修好）：
+1. **槽位页被 draft 顶爆**：int8 让 `Σstate`/`Σswa` 同时缩小 ⇒ 页缩到 draft 的 BF16 窗口面以下
+   ⇒ 上游 `raise Aurora DSpark geometry must match target SWA and fit its existing slot`。
+   **tiny 只有 12 组（无 draft 组）⇒ 这一格从没被跑过**；用 `patch_slots_draft.py` 把容量改成
+   `max(kv+index, aliases, draft)` 后已通过。
+2. **8 卡链自己挂了一份生产 `model.py`**，而 KV8 接线也在 `model.py` 里 ⇒ `Duplicate mount point`；
+   用 `merge_model.py`（difflib 现算 3 个 hunk + 自证）合成后已通过。
+
+**⇒ 修法**（`S_graphfix` 在做）：把 decode 分支的判据改成 spec-decode aware，并消除该分支内的 `.item()`。
+**在它修好之前，档 C / 档 D 只能以 `--enforce-eager` 运行**（性能代价另算）。
 
 ---
 
