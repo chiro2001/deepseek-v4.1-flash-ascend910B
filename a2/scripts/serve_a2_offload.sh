@@ -62,11 +62,25 @@ KV8_PREFILL=${KV8_PREFILL:-0}  # 1 = prefill 融合 kernel（档 D）
 # ★ APC 对齐：0 = 旧行为；3 = 段栅格（推荐，档 C/D 必开）
 APC_ALIGN=${APC_ALIGN:-0}
 
+# ★★ int8 的图安全补丁（logs/049 / patches/kv8-graphsafe/）
+#   不打开 ⇒ 档 C/D 在 FULL_DECODE_ONLY 下【捕获期直接炸】（EE1016）
+#   ★ 前提：挂上 patches/kv8-graphsafe/dsa_v41.py（md5 1cc9e992…）
+GRAPH_SAFE=${GRAPH_SAFE:-0}
+
 # ★ 开了 int8 就必须同时开 APC 对齐（否则 D/F 几何会翻 token，logs/047）
 if { [ "$KV8_SWA" = "1" ] || [ "$KV8_RING_FP16" = "1" ] || [ "$KV8_FULL" = "1" ]; } \
    && [ "$APC_ALIGN" = "0" ]; then
     echo "⚠⚠ 你开了 int8 但 APC_ALIGN=0 ⇒ 自动置 3（D/F 几何否则会翻 token，logs/047）" >&2
     APC_ALIGN=3
+fi
+
+# ★ 开了 int8 + 图模式（GRAPH=1）就必须同时开 GRAPH_SAFE
+if { [ "$KV8_SWA" = "1" ] || [ "$KV8_RING_FP16" = "1" ] || [ "$KV8_FULL" = "1" ]; } \
+   && [ "$GRAPH_SAFE" = "0" ] && [ "${GRAPH:-1}" != "0" ]; then
+    echo "⚠⚠ 你开了 int8 + 图模式但 GRAPH_SAFE=0 ⇒ 自动置 1" >&2
+    echo "   （否则档 C/D 在 FULL_DECODE_ONLY 下捕获期会炸 EE1016，logs/049）" >&2
+    echo "   前提：已挂 patches/kv8-graphsafe/dsa_v41.py（md5 1cc9e992…）" >&2
+    GRAPH_SAFE=1
 fi
 
 # 池后端：registered（aclrtHostRegister，推荐）/ pageable / pinned
@@ -100,13 +114,17 @@ echo "  L1 (P2_POOL_PATCH): $P2_POOL_PATCH${P2_COMP_JSON:+  comp=$P2_COMP_JSON}"
 echo "  加固 PGP_MGR_HARDEN: $PGP_MGR_HARDEN（stats=$PGP_MGR_STATS）"
 if [ "$KV8_SWA" = "1" ] || [ "$KV8_RING_FP16" = "1" ] || [ "$KV8_FULL" = "1" ]; then
     if [ "$KV8_FULL" = "1" ]; then
-        echo "  ★ int8 档 D: SWA=$KV8_SWA ring16=$KV8_RING_FP16 full=$KV8_FULL prefill=$KV8_PREFILL（容量 ×1.9133）"
+        echo "  ★ int8 档 D: SWA=$KV8_SWA ring16=$KV8_RING_FP16 full=$KV8_FULL prefill=$KV8_PREFILL"
+        echo "     容量（A2 真权重，logs/048）: HBM ×1.1356（485,610 token，档 B 427,643）; 宿主待测"
     else
-        echo "  ★ int8 档 C: SWA=$KV8_SWA ring16=$KV8_RING_FP16（容量 ×1.4655）"
+        echo "  ★ int8 档 C: SWA=$KV8_SWA ring16=$KV8_RING_FP16"
+        echo "     容量（A2 真权重，logs/048）: HBM ×1.0000（427,643，与档 B 逐字相同）; ★ 宿主 197.21→150.01 GiB（×1.3146）"
     fi
-    echo "  ★ APC_ALIGN=$APC_ALIGN（3 = 段栅格；档 C/D 的必需前提）"
+    echo "  ★ APC_ALIGN=$APC_ALIGN（3 = 段栅格；档 C/D 的必需前提，logs/047）"
+    echo "  ★ GRAPH_SAFE=$GRAPH_SAFE（1 = 图安全补丁；档 C/D 图模式必需，logs/049）"
+    echo "     ⚠️ 注意：tiny 上的 ×1.4655/×1.9133【不适用于 A2】——A2 多一个 draft 组（logs/050）"
 else
-    echo "  int8            : 关（档 B，容量 ×1.000 + L1）"
+    echo "  int8            : 关（档 B，HBM ×1.000 + L1）"
 fi
 echo "-------------------------------------------------------------"
 
@@ -154,7 +172,8 @@ export VLLM_V41_KV8_SWA="$KV8_SWA" \
        VLLM_V41_RING_FP16="$KV8_RING_FP16" \
        VLLM_V41_KV8="$KV8_FULL" \
        VLLM_V41_KV8_PREFILL="$KV8_PREFILL" \
-       VLLM_V41_APC_ALIGN="$APC_ALIGN"
+       VLLM_V41_APC_ALIGN="$APC_ALIGN" \
+       VLLM_V41_KV8_GRAPH_SAFE="$GRAPH_SAFE"
 
 KV_ARGS="--prefix-match-unit $PREFIX_MATCH_UNIT \
 --kv-transfer-config {\"kv_connector\":\"OffloadingConnector\",\"kv_role\":\"kv_both\",\"kv_connector_extra_config\":{\"cpu_bytes_to_use\":$((OFFLOAD_GB * 1073741824)),\"blocks_per_chunk\":$BLOCKS_PER_CHUNK,\"spec_name\":\"NPUOffloadingSpec\",\"spec_module_path\":\"vllm_ascend.distributed.kv_transfer.kv_pool.kv_offload.native.npu\"}}"
