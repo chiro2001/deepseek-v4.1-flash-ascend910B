@@ -17,6 +17,7 @@
 | **Q2 投机解码退化了没有？** | **不是"没退化"，是"逐字不变"**：四臂 `drafts=4239 / drafted=21195 / accepted=2902`、`MeanAccLen=1.685`、`AvgDraftAcc=13.69%`、`per-pos[0]=0.685` **完全一致**；★ 更硬的一条：draft **提案 token 序列 4367/4367 次逐条相同**（探针直读，eager；graph 臂 1875/1875 同样逐条相同）。**【实测】** | §4 |
 | **Q3 容量真的涨了吗？** | **B 档是"降"、D 档是"涨"，两个方向都逐字命中 050 的零参数模型** —— 这正是模型的**符号判别力**：B **20,826 → 19,247（×0.9242）**、D **23,651 → 36,825（×1.5570）**。**【实测】** | §5 |
 | **判据有没有判别力？** | **有，而且是"当场炸"级**：反例臂（故意把 draft **块表行宽按 128 行块**算）**第一个 4096-token 请求就把 EngineCore 打死**（`ValueError: could not broadcast input array from shape (65,) into shape (64,)`），输出 sha 变、提案数 4367→**3**、请求 ok=0。**【实测】** | §6 |
+| **为什么"B 降 D 涨"？** | **slot 层的直接读数**：B 档 `aliases_max=131,072` 本来就顶住 ⇒ ②c 砍 draft **`capacity` 纹丝不动**、只拿到 draft 每请求页数 65→129 的副作用（BPR 780→844 ⇒ 降）；D 档 `aliases_max=66,560` ⇒ ②c 把 draft 拉下 binding 位 ⇒ **`capacity` 131,072→66,560（减半）** ⇒ 涨。★ `c2c-d128` 那行自带 **`[draft-aware]`**（`legacy_capacity=66560`）⇒ "draft 是 slots 0–2 的 binding 项"从**算术推断升为 slot 层实测**。**【实测】** | §5.4 |
 | **tiny 能否替代 8 卡？** | **能替代"几何 / 寻址 / 不崩 / 图捕获 / 输出不变"这 5 维**，**不能替代**"真权重数值 / TP8 通信 / 卸载池与命中路径 / 8 卡绝对 token 数 / 多头接受长度"这 5 维。**【实测 + 未确认】** | §7 |
 
 ---
@@ -100,6 +101,8 @@
 | `Per-position acceptance rate`（pos0..4） | `0.685,0,0,0,0` | `0.685,0,0,0,0` | `0.685,0,0,0,0` | `0.685,0,0,0,0` | 同上 |
 | `drafts / drafted / accepted` | 4239 / 21195 / 2902 | 同 | 同 | 同 | 同上 |
 | `Accepted / Drafted throughput`（日志行逐条） | 见 `arms/*.specdecode_lines.txt` | — | — | — | 同量级 |
+
+图模式两臂（同样的 `drafts=1819 / drafted=9095 / accepted=1246`，`MeanAccLen=1.685`）见 §6.4。
 
 ★ **统计功效先自证**：基线**不是地板** —— pos0 接受率 **0.685**、`MeanAccLen 1.685`
 ⇒ 若 64 臂把 draft 读坏，这几项会明显塌（这正是它在 tiny 上**能**验 Q2 的原因；`mt=64` 下共 21,195 个 drafted token）。
@@ -230,6 +233,12 @@ EngineCore: ValueError: could not broadcast input array from shape (65,) into sh
 ⇒ vllm.v1.engine.exceptions.EngineDeadError（引擎死，后续请求全失败）
 ```
 
+★ **一个必须说清的边界（免得后人以为"slot 表也能看到它"）**：反例臂的 `[R8-SLOTS]` 行**与干净 b64 臂逐字相同**
+（`draft=65536 capacity=131072 legacy_capacity=131072`）—— 因为被注入的缺陷在 **`max_num_blocks_per_req()`**，
+而 `[R8-SLOTS]` 打的是 **`plan_cache_slots()` 的页容量**，**两者不是同一条路径**。
+⇒ 反例臂的判别证据是 **`ValueError: could not broadcast … (65,) into (64,)` + 引擎死 + 提案数 4367→3**，
+**不是** slot 行。（这正好也是一条纪律：**一个 trace 打不出来 ≠ 缺陷不在**，要看对人。）
+
 ### 6.3 读法
 
 | 观察 | 含义 |
@@ -239,6 +248,20 @@ EngineCore: ValueError: could not broadcast input array from shape (65,) into sh
 | 输出 sha / 提案序列 / 请求成功率 / 容量**四个判据全动** | ⇒ 判据有判别力；反过来说，§3/§4 里"两臂逐字相同"才**是**有效信息 |
 
 ### 6.4 图模式那一格（附带发现，**不是 ②c 的问题**）
+
+| 起服证据 | `c2c-b64-graph`（②c） | `c2c-b128-graph`（基线） |
+|---|---|---|
+| 图捕获 | **`Graph capturing finished in 23 secs, took 1.59 GiB`**（`Capturing CUDA graphs (decode, FULL): 25/25`） | **`… in 9 secs, took 1.59 GiB`** |
+| `EE1016`（捕获期宿主同步那类错误） | **0 次** | **0 次** |
+| `GPU KV cache size` | **19,247**（与 eager 的 b64 逐字一致） | **20,826**（与 eager 的 b128 逐字一致） |
+| 输出 sha（2 冷 + 1 连发轮） | `0ebccb55…` ×3，distinct=1 | `0ebccb55…` ×3，distinct=1 |
+| 累计 SpecDecoding 计数 | `drafts=1819 / drafted=9095 / accepted=1246`（`MeanAccLen=1.685`） | **逐字相同**（1819 / 9095 / 1246） |
+| 周期性日志行（10 s 一条，样本量级） | `Mean acceptance length 1.97 / Accepted 19 tokens/s / Drafted 97.49 tokens/s` | **`Mean acceptance length 2.00 / Accepted 194 tokens / Drafted 970 tokens / AvgDraftAcc 20.0%`** |
+⇒ ★ **②c 在单 die 的图模式下也不炸**（捕获成功、`EE1016=0`、容量与 sha 与 eager 逐字一致）。
+⇒ ★ 顺带一条**回应"档 D/②c 是否保投机"的读数**：这里的图模式臂在 **970 个 drafted token** 的样本上读到
+**`Mean acceptance length 2.00` / `AvgDraftAcc 20.0%`**，与 8 卡 `max_tokens=1` 那批（`1.00 / 15 tokens drafted`，
+`050 §3` 里那条近乎空请求）**完全不同量级** ⇒ 【实测】**只要给足样本，这条服务的投机解码是正常工作的**；
+`max_tokens=1` 的读数**不能**用来判断"投机解码是否有效"。
 
 | 对比 | 结果 | 读法 |
 |---|---|---|
@@ -264,7 +287,7 @@ EngineCore: ValueError: could not broadcast input array from shape (65,) into sh
 | **②c 的几何** | 4/4 容量点逐字命中（含**符号相反**的两格：B 降、D 涨） |
 | **寻址正确性** | 输出 sha 逐字节 + 提案序列逐条（4367/4367）+ 四个 SpecDecoding 汇总数完全一致 |
 | **窗口跨块** | workload 真的走到 65 项块表 / 2–4 块的窗口（§2 末），且**没有崩、没有错** |
-| **图模式** | `Capturing CUDA graphs (decode, FULL) 0/25` 真的捕获；容量/sha 与 eager 一致；②c 在图模式下同样是逐条不变量 |
+| **图模式** | b64/b128 两臂都 **`Graph capturing finished`（23 s / 9 s）**、`EE1016=0`、容量 19,247 / 20,826（与 eager 逐字一致）、逐条提案 1875/1875 相同（§6.4） |
 | **判据判别力** | 阳性对照臂当场炸（§6） |
 
 ### 7.2 **不能**替代的（必须由 8 卡臂回答）
@@ -292,7 +315,7 @@ EngineCore: ValueError: could not broadcast input array from shape (65,) into sh
 | 件 | 位置 |
 |---|---|
 | 本日志 | `a2/logs/054-20260922-draft64-1die.md` |
-| 原始数据（7 臂 + chain.log + analysis.txt + 脚本快照） | `a2/logs/raw/054-c2-draft64/`（1.4 MB；server.log 与 draft_calls 已 gzip） |
+| 原始数据（**7 臂** + chain.log + analysis.txt + 脚本快照） | `a2/logs/raw/054-c2-draft64/`（1.5 MB；`arms/` 下 7 个臂名齐全 —— b128/b64/d128/d64/neg-b64/b64-graph/b128-graph；server.log 与 draft_calls 已 gzip） |
 | 臂脚本（容器内） | `a2/agents/C2_draft64/scripts/c2_arm.sh`（+ `c2_arm_graph.sh` / `c2_neg_control.sh`） |
 | 链驱动（主机侧，串行 + rc=75 退避） | `a2/agents/C2_draft64/scripts/c2_chain.sh` |
 | 影子包生成（复用 TDC 生成器 + 注入探针 + 可选故意缺陷） | `a2/agents/C2_draft64/scripts/build_pkg.py` |
@@ -330,4 +353,21 @@ python3 ~/projects/dsv41-upstream-pr/agents/C2_draft64/scripts/analyze_arms.py \
 
 ## 10. 本条日志的 md5
 
-`md5sum 054-20260922-draft64-1die.md` ⇒ **见文件末尾行**（现算，见下）。
+为了避免"把 md5 写进文件会让 md5 变化"这个自指问题，本节用一条**可复算的约定**：
+
+> **本文件的 md5 = 把下面那行 md5 里的 32 位十六进制全部替换成 `0` 之后，对全文求 `md5sum`。**
+
+验证命令（在 `a2/logs/` 下）：
+
+```bash
+sed 's/^[0-9a-f]\{32\}  /00000000000000000000000000000000  /' 054-20260922-draft64-1die.md | md5sum
+```
+
+结果（**现算**，2026-09-22 13:1x CST）：
+
+```
+cd5127f0f9a51fcae4115744bf589161  054-20260922-draft64-1die.md
+```
+
+★ 任何读者都可以用上面同一条命令复算；本页若被改动（加入"约定段"之外的内容），该值会随之变化。
+另：判据本身的原始输出以 `logs/raw/054-c2-draft64/analysis.txt` 与 `arms/*` 为准，它们不受本页文字编辑影响。

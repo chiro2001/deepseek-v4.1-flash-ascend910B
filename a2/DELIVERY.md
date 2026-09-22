@@ -441,7 +441,10 @@ KV8_SWA=1 KV8_RING_FP16=1 KV8_FULL=1 KV8_PREFILL=1 \   # 档 D（容量 ×1.9133
 > ⇒ ★ **档 C 现在是一条可上线的配置**：图模式可用 + 宿主内存 ×1.3146（HBM 容量 ×1.0000）。
 > ⚠️ **但上面这条结论是在 md5 `1cc9e992…` 上得到的**；当前发布件是 **`94aeebb7…`**，
 > 它除了修档 D 的 segfault，**还改了 `_kv8_graph_rows_bound`（= 档 C 走的窗口面）**
-> ⇒ **档 C 需要 `sg-c-c-graph-b` 一条复跑**才算在发布件上成立。见 `patches/kv8-graphsafe/README.md` §3.0。
+> ✅ **2026-09-22 13:0x 已解除**：`sg-c-c-graph-b`（档 C，8 卡，md5 `94aeebb7…`）**全绿**，且
+> `fill` `d524172f…` / `replay1` `bc2e797a…` 两枚 sha 与 `22cbf20c` 那轮**逐字节相同**
+> ⇒ **"改动能平移"这条【推断】已被实测坐实**；`hits` 901,120 / `load_bytes` 21.19 GB / **12.50×**。
+> 同 md5 上档 D 也全绿（`sg-c-d-graph`）。见 `patches/ARTIFACT-IDENTITY.md` §1.1。
 > **⇒ 16×128K 的池从 197.21 GiB 降到 150.01 GiB，代价只有 int8 的 +1.3~1.8% decode 时延。**
 >
 > ### ★★★★★ 而且**图模式 vs eager 的输出 sha 逐字相同**（`048`，R 用最强判据确认）

@@ -28,7 +28,9 @@ fi
 # 台账（见 publish/ARTIFACT-IDENTITY.md §1）：
 #   路径|期望 md5|状态（PASS / 未确认 / 作废）
 LEDGER=(
-  "$PATCHES/kv8-graphsafe/dsa_v41.py|94aeebb757d6d5708268754481a05e0a|未确认"
+  # ★★ 2026-09-22 13:0x：档 C（`sg-c-c-graph-b`）与档 D（`sg-c-d-graph`）**都在这个 md5 上跑过且全绿**
+  #    ⇒ 状态从"未确认"升为 PASS。见 publish/ARTIFACT-IDENTITY.md §1.1。
+  "$PATCHES/kv8-graphsafe/dsa_v41.py|94aeebb757d6d5708268754481a05e0a|PASS"
   "$PATCHES/kv8-graphsafe/apply_graphsafe.py|4be07bea6cc3127eb8715a1da81f583a|PASS"
   "$PATCHES/kv8-graphsafe/adapt_runner.py|d8e8864ea60ccc7e92d5d82b9e7050af|PASS"
   "$PATCHES/kv8-graphsafe/patch_serve_sg.sh||PASS"

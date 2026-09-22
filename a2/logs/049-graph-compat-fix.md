@@ -321,7 +321,23 @@ table_rows = torch.index_select(block_table[:num_reqs].to(torch.int64), 0, b_of_
 | `sg-a-c-graph-b` | C | 图 | on | 判据⑧ 复跑同 sha | 排队中 |
 | `sg-b-c-eager-on` / `sg-b-d-eager-on` | C / D | eager | **on** | **判据⑥ 的直接对照**（同挂载、只差开关） | 待跑 |
 
-### 5.1 判据①（★ 核心）：档 C + `FULL_DECODE_ONLY` 起服 —— ✅【实测】
+### 5.1 判据①（★ 核心）：档 C + `FULL_DECODE_ONLY` 起服 —— ✅【实测】（两个 md5 上都验过）
+
+★ **两条臂、两个 md5，读数逐字相同**（这就是"档 C 在发布件 `94aeebb7` 上也成立"的证据）：
+
+| | `sg-a-c-graph`（md5 `22cbf20c…`） | `sg-c-c-graph-b`（md5 **`94aeebb7…`**，发布件） |
+|---|---|---|
+| 致命证据（EE1016/Segfault/SUSPECT/engine-init） | 0 | **0** |
+| 捕获 | 9/9 | **9/9** |
+| `GPU KV cache size` | 427,643 | **427,643**（逐字相同） |
+| `BlockStored:CPU` | 29,436 | **29,436** |
+| `CPU→GPU` | 21,188,968,448 B | **21,188,968,448 B**（逐字相同） |
+| `hits` | 901,120 | **901,120**（逐字相同） |
+| replay / fill p50 | 1,608.2 / 19,880.0 ms（12.36×） | 1,594.8 / 19,936.0 ms（12.50×） |
+| fill sha | `d524172f9f5ae368…` | **`d524172f9f5ae368…`**（逐字相同） |
+| replay sha | `bc2e797ab069f09c…` | **`bc2e797ab069f09c…`**（逐字相同） |
+
+⇒ **换版（`22cbf20c` → `94aeebb7`）对档 C 是实测 no-op**（比 §8.2 的静态证明更强的证据）。
 
 ```
 EE1016 / capture failed 计数 = 0            （修复前：8 rank 同时炸，栈在 dsa_v41.py:436）
@@ -369,8 +385,37 @@ replay p50 = 1,608.2 ms vs fill p50 = 19,880.0 ms  ⇒ 12.36×
   ⇒ 与两条基线**逐字相同** ⇒ 投机仍在工作、零退化【实测】
 ```
 
+#### 5.4.1 ★★ 「档 D 的 1.00 vs 档 C 的 1.50」到底是不是退化？—— **明确结论：不是，属测量假象**
+
+先看**指标的源码定义**（`vllm/v1/spec_decode/metrics.py:113-117`，容器内逐行核过）：
+```python
+mean_acceptance_length = 1 + (num_accepted_tokens / num_drafts)     # num_drafts = **draft 步数**
+draft_acceptance_rate  = num_accepted_tokens / num_draft_tokens * 100
+acceptance_rates       = np.sum(pos_matrix, axis=0) / num_drafts
+```
+⇒ **`Mean acceptance length` 的分子只有"接受了几件事"，分母是"发生了几次 draft"**，
+且带 `+1` 的地板。代入两臂读数：
+
+```
+档 C：Accepted 1 / Drafted 10 / mean 1.50  ⇒ 1 + 1/2 = 1.50  ⇒ num_drafts = 2（2 次 draft，接受 1）
+档 D：Accepted 0 / Drafted 15 / mean 1.00  ⇒ 1 + 0/N = 1.00  ⇒ ★ 只是"零接受"的地板值
+档 D eager：Accepted 0 / Drafted 15 / mean 1.00  ← 与档 D 图模式**逐字相同**
+```
+
+**结论（明确表态）**：
+1. **同意主代理的判断方向 —— 这两个数不可比、不构成"档 D 掉接受率"的证据**；
+2. 但**机制要说准**：不是"只发生了 1 个 decode step"，而是
+   **① `mean_acceptance_length` 带 `+1` 地板、分母是 draft 步数**；
+   **② 两臂的差别只有"接受了 1 个 token vs 0 个 token"这一个事件**（draft 步数 2 vs 3 也不同）；
+3. **更强的反证**：档 D 的 **eager** 臂给出**完全相同的 `1.00 / 0 / 15 / 0.0%`**
+   ⇒ 这个读数与图模式、与本补丁**无关**；
+4. ⇒ 本任务**的判据⑨ 用"图模式 vs eager 逐字相等"**（这是有判别力的），
+   **不用绝对值**；"档 D 是否保投机"要看 `T_draftceiling` 的同几何 + `max_tokens≥64` 基线。
+⇒ 该格标注：**【样本不足·不足以判定档 D 是否保投机】**，**不得**写成"档 D 降低接受率"。
+
 ★ **读数偏低的解释（避免误读）**：`max_tokens=1` + 16×131K 长上下文下草案本来就很难被接受，
-**三条臂给出同一个 1.50 / 10.0%** ⇒ 这条判据的判别力在"**与基线逐字相等**"，不在绝对数值。
+三层读数（档 C、档 D 图、档 D eager）都在 `Accepted ≤ 1 / Drafted ≤ 15` 的量级上
+⇒ 这条判据的判别力在"**与基线逐字相等**"，不在绝对数值。
 ★ **硬约束**：本补丁与所有推荐配置**保留 `--speculative-config`**；任何"关掉 spec 绕开问题"的写法
 在本任务里**不作为推荐**（只可作诊断对照臂并显式标注）。049 §6 的复现命令里没有 `SPEC_ON=0`。
 
@@ -500,13 +545,19 @@ python3 scripts/summarize_sg.py
 > 上拿到的、发布件却写成了另一个文件；**没有任何机械门拦着这个错**。
 > 下面这张表是**事实**（从每条臂自己的 `arm.out` 台账 + 引擎日志机械抽取）。
 
-| md5 | 是什么 | 哪些臂真的挂过它 | 结果 |
-|---|---|---|---|
-| `75f4e565adc1b12c854a0a01271b6c4d` | **基底**（`X_integrate/pkg-kv8pf` 原版，无图安全） | （未被任何本任务臂单独挂载；作 diff 参照） | — |
-| `83508822b8556c5f2e55bbeaa4fd82ff` | 第 1 版补丁（上界分支；无诊断开关/无探针/无捕获期路由） | 只过了**离线自检**，**没上过卡** | 离线 PASS；【未上机】 |
-| `1cc9e9923cc19749872cfb2e4decc4b7` | 第 2 版（+ `SG_CMP_LEGACY` / `SG_TRACE_PPR`） | **没上过卡** | 【未上机】★ 曾被误写成"8 卡实测件"，已作废 |
-| **`22cbf20c2544dd2ac6cb991a84806c42`** | 第 3 版（+ 捕获期也走 bound 分支 `_sg_is_capturing`） | ★ **`sg-a-c-graph`（档 C 图模式）**、`sg-a-d-graph`（档 D 图模式） | **档 C：rc=0、EE1016=0、判据①③④⑤⑨ 全绿**；档 D：**rc=9 segfault**（§4.5，根因 = `repeat_interleave`，与本版判据无关） |
-| `94aeebb757d6d5708268754481a05e0a` | 第 4 版（把 `repeat_interleave` 换成 `index_select`、`repeat` 换 `expand`） | `sg-c-d-graph` 等（**进行中**） | 【未确认】—— 见 §5.5 |
+★ **二维（档 × md5）** —— 门的语义是"这个 md5 在真机上跑过且干净"，
+**不等于**"两个档都在这个 md5 上验过"：
+
+| md5 | 是什么 | 档 | 跑过的臂 | 结果 |
+|---|---|---|---|---|
+| `75f4e565adc1b12c854a0a01271b6c4d` | **基底**（pkg-kv8pf 原版，无图安全） | — | 无（仅作 diff 参照） | — |
+| `83508822b8556c5f2e55bbeaa4fd82ff` | 第 1 版（上界分支） | — | 无 | 离线 PASS；**【未上机】** |
+| `1cc9e9923cc19749872cfb2e4decc4b7` | 第 2 版（+2 个诊断 env） | — | 无 | **⛔ 从未上机** ★ 曾被误写成"8 卡实测件"，已作废 |
+| **`22cbf20c2544dd2ac6cb991a84806c42`** | 第 3 版（+ 捕获期路由） | **C** | `sg-a-c-graph` | ✅ 全绿（§5.1 左列） |
+| （同上） | | **D** | `sg-a-d-graph` | ❌ rc=9 **segfault**（§4.5，根因 `repeat_interleave`，与判据无关） |
+| **`94aeebb757d6d5708268754481a05e0a`** | 第 4 版（`index_select` / `expand` 替换） | **C** | `sg-c-c-graph-b` | ✅ **全绿，且读数与 `22cbf20c` 逐字相同**（§5.1 右列） |
+| （同上） | | **D** | `sg-c-d-graph`、`sg-d-d-short-on` | ✅ 全绿（含 **graph==eager 逐字节**、同几何 A/B） |
+| （同上） | | D（**反例·诊断**） | `sg-c-d-cmplegacy` | ⚪ **预期失败**：`507057 SUSPECT REMOTE ERROR` 崩引擎（§5.5.3，证明补丁必要） |
 
 ### 8.1 ★ `22cbf20c…` 的处置：**已按 md5 逐字节重建找回**
 
@@ -541,18 +592,29 @@ cmp 图安全分支 = 旧件 904..960；窗口面上界分支 = 旧件 547..567
 ### 8.3 ★★ 发布门（机械）：`scripts/check_publish_md5.py`
 
 把"发布件必须是某条 PASS 臂挂过的 md5"变成一条命令（读 `arm.out` 台账 + `rc` + 引擎日志，
-检出 `capture failed / EE1016 / Segfault / Engine core initialization failed / Worker proc died`）：
+检出 `capture failed / EE1016 / Segfault / Engine core initialization failed / Worker proc died /
+SUSPECT REMOTE ERROR / EngineDeadError`）：
 
 ```
-$ python3 scripts/check_publish_md5.py --candidate <要发布的 dsa_v41.py>
-arm                   mounted md5                           rc  证据
-sg-a-c-graph          22cbf20c2544dd2ac6cb991a84806c42       0  干净
-sg-a-d-graph          22cbf20c2544dd2ac6cb991a84806c42       9  ★ Segfault encountered
-有 PASS 记录的 md5：22cbf20c… ← sg-a-c-graph
-候选件 md5 = 94aeebb7…  →  [gate] DENY ⛔ 没有任何 PASS 臂挂过这个 md5
+$ python3 scripts/check_publish_md5.py --candidate <dsa_v41.py> --tier C     # 档 C 发布
+  22cbf20c… × 档 C  → ✅ PASS
+        ✅ sg-a-c-graph
+  22cbf20c… × 档 D  → ❌ 有失败臂
+        ❌ sg-a-d-graph（!!!!!!! Segfault encountered !!!!!!!）
+  94aeebb7… × 档 C  → ✅ PASS
+        ✅ sg-c-c-graph-b
+  94aeebb7… × 档 D  → ✅ PASS（另有诊断反例臂）
+        ✅ sg-c-d-graph        ✅ sg-d-d-short-on
+        ⚪ sg-c-d-cmplegacy（诊断臂，预期失败：SUSPECT REMOTE ERROR）
+  候选件 md5 = 94aeebb7…   该 md5 已验证通过的档 = ['C', 'D']   要求 = C
+  [gate] ALLOW ✅ —— 该 md5 在**档 C** 上有 PASS 臂背书
 ```
-⇒ **当前状态：`94aeebb7` 还不能发布**；`sg-c-d-graph`（或 `sg-c-c-graph-b`）跑过它之后门才会开。
+⇒ **当前状态：`94aeebb7` 在档 C 与档 D 上都 ALLOW**（两档各有 PASS 臂）。
 退出码：`0` = ALLOW / `2` = DENY / `3` = 输入缺失。
+★ **两个设计要点**（都是本次事故逼出来的）：
+1. **档敏感**：不带 `--tier` 只说"某个档验过"，发布必须带 `--tier C` 或 `--tier D`；
+2. **不能只看 rc**：诊断臂的**客户端 rc = 0**（引擎死在服务端）⇒ 门必须以"**致命证据为空**"为**必需**条件，
+   而"诊断臂"的识别也走**运行期证据**（探针打出 `cmp_legacy_triton` 行），不靠 tag 名字或 env 字符串。
 
 ### 8.4 ★ 本次新增的两条判据（第一格真机臂给的新教训）
 

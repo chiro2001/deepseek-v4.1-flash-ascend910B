@@ -153,13 +153,12 @@ replay TTFT 4167 ms ≈ fill 4192 ms ⇒ **对服务质量零帮助**。
 
 ### 2.3 「待测」的含义（★ 已收窄）
 
-**档 C 已经 8 卡实测通过**（`logs/048`/`049`）：图模式捕获期炸点已修，宿主内存省 47.20 GiB，
-HBM 容量与档 B 逐字相同，输出 sha 与 eager 逐字相同。
-> ⚠️ **但那批实测是在 md5 `1cc9e992…` 上得到的**；当前发布件是 **`94aeebb7…`**，
-> 它除了修档 D 的 segfault，**还改了 `_kv8_graph_rows_bound`（= 档 C 走的窗口面）**
-> ⇒ ★ **档 C 在发布件上还需要 `sg-c-c-graph-b` 一条复跑**（判据：`EE1016=0` + `replay1 sha` 与 eager 逐字相同）。
-> 复跑通过前，档 C 按"待复跑"对待；档 B **不受影响**（它不挂这一件）。
-> 见 `patches/kv8-graphsafe/README.md` §3.0「每条实测对应哪个 md5」。
+**档 C 已在发布件上验完**（`logs/048`/`049` + 13:0x 的 `sg-c-c-graph-b`）：图模式捕获期炸点已修，
+宿主内存省 47.20 GiB，HBM 容量与档 B 逐字相同，输出 sha 与 eager 逐字相同。
+> ✅ **md5 对号已完成**：`sg-c-c-graph-b`（档 C，8 卡，md5 **`94aeebb7…`**）全绿，且
+> `fill`/`replay1` 两枚 sha 与 `22cbf20c` 那轮**逐字节相同** ⇒ **"改动能平移"这个【推断】已被实测坐实**。
+> 档 D 也在同一个 md5 上全绿（`sg-c-d-graph`，含 `replay1 sha == 同几何 eager`）。
+> 见 `patches/kv8-graphsafe/README.md` §3.0 与 `patches/ARTIFACT-IDENTITY.md` §1.1。
 
 **还差判据的只有档 D**：
 1. **档 D 的图模式四条判据 + 输出 sha**（`sg-c-d-graph`，`logs/049`）；

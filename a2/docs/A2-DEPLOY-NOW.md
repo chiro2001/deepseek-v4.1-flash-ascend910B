@@ -90,13 +90,17 @@ bash a2/scripts/serve_a2_offload.sh
 
 ---
 
-## 2. ★★ 档 C —— int8 省 47 GiB 内存（**8 卡实测通过；★ 新 md5 上待一条复跑**）
+## 2. ★★ 档 C —— int8 省 47 GiB 内存（★ **8 卡实测通过，发布件已复跑**）
 
-> ⚠️ **上线前必读（2026-09-22 12:0x）**：下面这些实测是在 **md5 `1cc9e992…`** 上得到的；
-> 而当前发布件是 **`94aeebb7…`**，它除了修档 D 的 segfault 之外，**还改了 `_kv8_graph_rows_bound`
-> —— 那正是档 C 走的窗口面**。⇒ **档 C 在 `94aeebb7…` 上还需要 `sg-c-c-graph-b` 一条复跑**
-> （判据 = `EE1016=0` + `replay1 sha` 与 eager 逐字相同）。复跑通过前，**档 C 按"待复跑"对待**。
-> 详见 `patches/kv8-graphsafe/README.md` §3.0「每条实测对应哪个 md5」。
+> ✅ **2026-09-22 13:0x 解除警示**：此前那条"新 md5 上待复跑"**已完成** ——
+> `sg-c-c-graph-b`（档 C 图模式，8 卡，md5 **`94aeebb7…`**）**全绿**，且与 `22cbf20c` 那轮**逐字节相同**：
+> ```
+> 捕获 9/9 [00:54] · EE1016=0 · 容量 427,643（= 档 B）
+> fill  sha = d524172f9f5ae368…   ← ★ 与 22cbf20c 那轮逐字相同
+> replay1 sha = bc2e797ab069f09ced… ← ★ 与 22cbf20c 那轮逐字相同
+> hits 901,120 / load_bytes 21,188,968,448 B / replay 1,594.8 ms vs fill 19,936.0 ms = 12.50×
+> ```
+> ⇒ **档 C 在发布件上已成立**。详见 `patches/kv8-graphsafe/README.md` §3.0 与 `patches/ARTIFACT-IDENTITY.md` §1.1。
 
 ```bash
 # 在档 B 之上：

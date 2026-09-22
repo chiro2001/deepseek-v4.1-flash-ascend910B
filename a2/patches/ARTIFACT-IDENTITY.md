@@ -41,7 +41,10 @@
 | `1cc9e992…` | **无** | ⛔ **从未在 8 卡上跑过**（却被 `DELIVERY.md` 误写成"与 8 卡实测件逐字节相同"） | 已作废 |
 | **`22cbf20c…`** | `sg-a-c-graph`（档 C 图模式，8 卡，11:05） | ★ **PASS**：`EE1016=0` + 四条判据 + `replay1 sha` 与 eager 逐字相同 | ★ 已**重建**落盘：`a2/agents/S_graphfix/patch/dsa_v41.graphsafe.22cbf20c.py`（md5 逐字节相等 = 等价，但**不是**从容器捞出的原件，按【实测·重建】标注） |
 | **`22cbf20c…`** | `sg-a-d-graph`（档 D 图模式，8 卡，11:27） | ⛔ **FAIL**：起服 segfault（`aclnnRepeatInterleaveIntWithDim`） | 同上 |
-| **`94aeebb7…`** | `sg-c-d-graph` / `sg-c-c-graph-b` | ⏳ **在跑**（`chain_sg_c.sh`） | ★ 当前发布件 |
+| **`94aeebb7…`** | `sg-c-d-graph`（档 D 图模式，8 卡） | ✅ **全绿**：判据 0 全 0 / 捕获 9/9 / 容量 485,610（= R）/ 四条判据 / ★ **replay1 sha == 同几何 eager 逐字节** | ★ 当前发布件 |
+| **`94aeebb7…`** | `sg-c-c-graph-b`（**档 C 图模式，8 卡，13:0x**） | ✅ **全绿**：捕获 9/9 [00:54] / `EE1016=0` / 容量 **427,643**（= 档 B）/ **`fill` sha `d524172f…`、`replay1` sha `bc2e797a…` 与 `22cbf20c` 那轮逐字相同** / `hits` 901,120 / `load_bytes` 21,188,968,448 B / **12.50×**（1,594.8 vs 19,936.0 ms） | ★ 当前发布件 |
+| **`94aeebb7…`** | `sg-c-d-cmplegacy`（档 D 反例：cmp 面留旧路径） | ⛔ **FAIL（预期）**：`507057 SUSPECT REMOTE ERROR`，第一个真实请求即崩引擎 | 证明补丁必要 |
+| **`94aeebb7…`** | `sg-d-d-short-on`（同几何 + 补丁开） | ✅ rc=0、致命证据 0、`fill` `b3eeeaba…` / `replay` `87a5e4fd…` | ★ 同几何 A/B 的 B 臂 |
 
 ### ★★ 档 C 的 PASS 能不能平移到 `94aeebb7…`？——**主代理独立复核：能**（但发布仍走机械门）
 
