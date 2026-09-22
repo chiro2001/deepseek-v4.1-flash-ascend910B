@@ -83,12 +83,16 @@ echo "  一致 $same / 不一致 $diff / 缺文件 $miss"
 
 # ---------------------------------------------------------------- 4) 关键两项高亮
 echo "--------------------------------------------------------------"
+# ★ 期望值**从包里现推**（不写死）：md5 会随任何一次措辞级改动而变，
+#   写死就会出现"提示里的数字过期"这种本日第 N 次同类漂移。
+_w1=$(awk -F'\t' '$2=="models/deepseek_v41/engram_hash.py"{print $1}' "$CHK")
+_w2=$(awk -F'\t' '$2=="models/deepseek_v41/engram_jit_kernel.py"{print $1}' "$CHK")
 _k1=$(printf '%s\n' "$_out" | awk -v p="$ASCEND_PKG/models/deepseek_v41/engram_hash.py" '$2==p{print $1}')
 _k2=$(printf '%s\n' "$_out" | awk -v p="$ASCEND_PKG/models/deepseek_v41/engram_jit_kernel.py" '$2==p{print $1}')
 echo "★ ENGRAM×卸载 P0 修复（a2/logs/075）载体："
-echo "    engram_hash.py        镜像=${_k1:-<缺>}"
-echo "    engram_jit_kernel.py  镜像=${_k2:-<缺>}"
-if [ "$_k1" = "240c5a0444a1434a33d80341ea50e1d3" ] && [ "$_k2" = "6668d3fe3c6333b47e9dde3df7cfe03a" ]; then
+echo "    engram_hash.py        镜像=${_k1:-<缺>}  期望=$_w1"
+echo "    engram_jit_kernel.py  镜像=${_k2:-<缺>}  期望=$_w2"
+if [ -n "$_w1" ] && [ "$_k1" = "$_w1" ] && [ -n "$_w2" ] && [ "$_k2" = "$_w2" ]; then
     echo "    ⇒ ✅ 带修复（ENGRAM=1 + 卸载 可以起服）"
 else
     echo "    ⇒ ⛔ 不带修复：ENGRAM=1 + 卸载 会在 replay 轮 KeyError(2486) 引擎死（logs/073）"

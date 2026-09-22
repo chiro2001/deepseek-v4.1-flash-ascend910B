@@ -31,13 +31,21 @@ def _pageless_strict() -> bool:
 
 
 def _pageless_note(page, n_rows, pad_id):
-    """首次缺页时打印一次（响亮但不刷屏）—— 不静默降级。"""
+    """首次缺页时打印一次（响亮但不刷屏）—— 不静默降级。
+
+    ★★★ **这段文字本身是判据的一部分，所以措辞受约束（2026-09-22 实测踩过）**：
+    第一版写的是「…并继续（**不再 KeyError**）」⇒ 交付脚本里那条
+    `grep -c 'KeyError' <serve.log>` **把这条提示也数了进去** ⇒ 8 个 rank 打出 8 条提示，
+    判据读成 `KeyError=8`（看起来像引擎又炸了 8 次），而真正的异常计数是 **0**。
+    ⇒ 规矩：**运行期打印的文本里不得出现裸的 `KeyError` / `Traceback` / `EngineDead` 子串**；
+    判据一律用带冒号的精确模式 `KeyError:`（真异常长这样）。
+    """
     if _PAGELESS_WARNED[0]:
         return
     _PAGELESS_WARNED[0] = True
     print(
         "[ENGRAM-PAGELESS] 镜像缺页：第 %s 页不在 Engram 的 page 镜像里（%s 行）。"
-        "已按 barrier 语义用 pad_id=%s 填历史并继续（**不再 KeyError**）。"
+        "已按 barrier 语义用 pad_id=%s 填历史并继续（**不再抛错**）。"
         "典型成因：前缀经 DRAM 卸载池取回，其块从未流经本进程的 update()。"
         "要恢复旧的致命行为请设 V41_ENGRAM_PAGELESS_STRICT=1。"
         % (page, n_rows, pad_id),

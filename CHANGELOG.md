@@ -21,7 +21,9 @@
 > | `vllm_ascend/models/deepseek_v41/engram_jit_kernel.py` | 缺页**不再中止本批**：该行按 `-1` barrier 取 `pad_id` 历史；★ **哈希照常算**（老代码用 `err_page` 当算哈希的开关 ⇒ 一个缺页会让**整批**没有哈希）；新增第 4 个返回值 `miss_rows` |
 > | `vllm_ascend/models/deepseek_v41/engram_hash.py` | `miss_rows>0` ⇒ 累加 `pageless_history_rows` + **一次性**打印 `[ENGRAM-PAGELESS]`；**非 JIT（torch）路径同样修**（新增 `_mirror_row()`：缺页补一行全 `-1` 的 barrier 行）；`V41_ENGRAM_PAGELESS_STRICT=1` 可恢复旧的致命行为 |
 >
-> md5：`engram_hash.py` `3a842bbb…` → **`240c5a04…`**；`engram_jit_kernel.py` `1add256a…` → **`6668d3fe…`**
+> md5：`engram_hash.py` `3a842bbb…` → **`dc63b40b…`**（21:3x 只改了一处提示措辞，语义未变）；`engram_jit_kernel.py` `1add256a…` → **`6668d3fe…`**
+> ★ 提示措辞为何也要改：第一版提示里写了「不再 KeyError」，而交付脚本的判据是 `grep -c KeyError`
+> ⇒ **提示自己把判据数进 8 条**（看起来像引擎炸了 8 次，实际 0 次，A3 实测）。见 `a2/logs/077`。
 > （同步更新 `patches/MD5SUMS` 与 `patches/vllm-ascend/MD5SUMS`）。
 >
 > ## 代价（诚实标注）
