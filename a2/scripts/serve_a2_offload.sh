@@ -145,7 +145,31 @@ BLOCKS_PER_CHUNK=${BLOCKS_PER_CHUNK:-'{"default":8,"swa":1}'}
 # ★ 必须：否则撞 tokens_per_block=32 % tokens_per_hash=128
 PREFIX_MATCH_UNIT=${PREFIX_MATCH_UNIT:-32}
 
-ENGRAM=${ENGRAM:-0}      # ★ 首版建议 0（Engram + 卸载池 曾撞 207001）
+# ★★★ 2026-09-22 17:5x **默认值改正（本日第 6 次"静默降级"，而且这次是我自己引进的）**
+#
+#   背景：
+#     * A2 **生产默认是 `ENGRAM=1`**（`shadow-pkg/scripts/serve_a2.sh:127` 的
+#       `ENGRAM=${ENGRAM:-1}`）；用户的 `run_test.sh` **不传 ENGRAM** ⇒ **生产 Engram 是开的**。
+#     * 而本脚本此前默认 `ENGRAM=0`，注释写的是"首版建议 0（Engram + 卸载池曾撞 207001）"。
+#     ⇒ ★ **照本脚本的默认值上线，会把 Engram 静默关掉** —— 质量下降但**没有任何报错**，
+#       而这正是本日反复出现的失败模式（`logs/065` §3 / §3b.0：开关送不到、程序安静地跑默认值）。
+#
+#   那条 207001 的旧证据（`logs/001` §4.2）：`ENGRAM=1` 时**连 32 MiB** 的
+#   `aclrtMallocHostWithCfg` 都失败、**8/8 worker 全部命中** ⇒ 不是"容量不够"，
+#   是**驱动侧 pinned/注册资源争用**。★ 但那条测的是**旧池后端（`pin_memory`）**；
+#   本脚本现在用的是 `aclrtHostRegister(MAPPED)`（`NPU_OFFLOAD_HOST_MEM=registered`），
+#   而 Engram 的 206 GiB 表**用的正是同一个 API** ⇒ **旧结论既不能证明现在会挂、
+#   也不能证明现在不会挂【未确认】**。
+#
+#   ⇒ 因此：**默认与生产一致（1）**；要降级必须**显式** `ENGRAM=0`，并会**打印响亮警告**。
+#     宁可响亮失败，也不要静默降级（响亮失败可回滚，静默降级会带着错误假设跑下去）。
+ENGRAM=${ENGRAM:-1}
+if [ "${ENGRAM:-1}" = "0" ]; then
+    echo "⚠⚠⚠ 你显式设了 ENGRAM=0 —— 这是**质量降级**，不是默认行为。" >&2
+    echo "    A2 生产默认是 ENGRAM=1（Engram 2 层 + 206 GiB 表是模型的一部分）；" >&2
+    echo "    关掉它是为了规避旧的 207001 争用（logs/001 §4.2，**旧池后端下**的现象）。" >&2
+    echo "    若你只是想让首版跑通，请确认你接受这个降级，并把它记在变更单里。" >&2
+fi
 DRY=${DRY:-0}
 
 echo "=============================================================="
