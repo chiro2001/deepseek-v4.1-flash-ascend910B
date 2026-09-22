@@ -157,6 +157,24 @@ echo "✓ 四个补丁文件已就位（md5 见 a2/patches/README.md）"
 # shadow-pkg 的补丁目录（serve_a2.sh 的 PATCH_MODE=mount 从这里挂）
 SHADOW=${SHADOW_PKG:-$HOME/projects/dsv41-upstream-pr/shadow-pkg}
 PATCHDIR="$SHADOW/patches/files/offload_dsv41"
+
+# ★★ 自检门：开了 int8 但 shadow 不认 `A2_*` ⇒ **拒绝起服**（宁可响亮失败，不要静默跑成档 B）
+if [ "$KV8_SWA" = "1" ] || [ "$KV8_FULL" = "1" ] || [ "$KV8_RING_FP16" = "1" ]; then
+    _shadow_ok=0
+    for _f in "$SHADOW/scripts/serve_a2.sh"; do
+        [ -f "$_f" ] || continue
+        grep -q "A2_KV8_SWA" "$_f" && _shadow_ok=1
+        grep -q "A2_GRAPH_SAFE" "$_f" || _shadow_ok=0
+    done
+    if [ "$_shadow_ok" != 1 ]; then
+        echo "⛔ 你开了 int8（KV8_SWA=$KV8_SWA KV8_FULL=$KV8_FULL RING_FP16=$KV8_RING_FP16），" >&2
+        echo "   但这个 shadow-pkg **不认 A2_* 环境变量** ⇒ int8 会**静默失效**（跑起来是档 B）。" >&2
+        echo "   修法：用当前版本的生成器重造 shadow：" >&2
+        echo "     PKG=$REPO DST=$SHADOW bash $A2DIR/scripts/make_shadow_pkg.sh" >&2
+        echo "   （或去掉 KV8_* 只跑档 B）" >&2
+        exit 2
+    fi
+
 if [ ! -d "$SHADOW" ]; then
     echo "⚠ 找不到 shadow-pkg（$SHADOW）—— 请设 SHADOW_PKG=<路径>" >&2
     echo "  （补丁必须经 shadow-pkg 挂载；不要直接改 dsv41-release/scripts/serve_a2.sh）" >&2
@@ -182,12 +200,24 @@ case "$P2_POOL_PATCH" in
 esac
 export PGP_MGR_HARDEN PGP_MGR_STATS
 
-export VLLM_V41_KV8_SWA="$KV8_SWA" \
-       VLLM_V41_RING_FP16="$KV8_RING_FP16" \
-       VLLM_V41_KV8="$KV8_FULL" \
-       VLLM_V41_KV8_PREFILL="$KV8_PREFILL" \
-       VLLM_V41_APC_ALIGN="$APC_ALIGN" \
-       VLLM_V41_KV8_GRAPH_SAFE="$GRAPH_SAFE"
+# ★★ 名字对齐（**这是一个静默 no-op 的坑**，见 logs/055 §7）：
+#   `VLLM_V41_*` 只在**容器内**有意义；宿主上导出它们**一个字节都到不了容器**
+#   （容器环境由 shadow-pkg 的 inner.sh 建立）。
+#   所以这里导出的是 **shadow 认的那套宿主名 `A2_*`**，由 inner.sh 在**容器内**转成 `VLLM_V41_*`。
+#   ⇒ 若哪天 shadow 换了一套名字，这里就会**静默退回档 B**（跑得起来、但没有 int8 效果）。
+#     为此下面加了一道**起服前**的自检门（拒绝静默失效），起服后还有一条**回读校验**（见脚本末尾的自检清单）。
+export A2_KV8_SWA="$KV8_SWA" \
+       A2_RING_FP16="$KV8_RING_FP16" \
+       A2_KV8="$KV8_FULL" \
+       A2_KV8_PREFILL="$KV8_PREFILL" \
+       A2_APC_ALIGN="$APC_ALIGN" \
+       A2_GRAPH_SAFE="$GRAPH_SAFE"
+# 挂载 dsa_v41.py 的开关：**开了 GRAPH_SAFE 就必须挂**，否则开关是空的（同款静默 no-op）
+export A2_KV8_GRAPHSAFE="$GRAPH_SAFE"
+# 生成 shadow 时若用的是别处的补丁目录，这里可覆盖
+[ -n "${A2_KV8_DSA:-}" ] && export A2_KV8_DSA
+
+fi
 
 KV_ARGS="--prefix-match-unit $PREFIX_MATCH_UNIT \
 --kv-transfer-config {\"kv_connector\":\"OffloadingConnector\",\"kv_role\":\"kv_both\",\"kv_connector_extra_config\":{\"cpu_bytes_to_use\":$((OFFLOAD_GB * 1073741824)),\"blocks_per_chunk\":$BLOCKS_PER_CHUNK,\"spec_name\":\"NPUOffloadingSpec\",\"spec_module_path\":\"vllm_ascend.distributed.kv_transfer.kv_pool.kv_offload.native.npu\"}}"
@@ -197,7 +227,10 @@ echo "★ 起服后必须跑这三条自检（任一为 0 就停，别压测）�
 echo "    grep -c 'P1_pinned.*ret=0'            <serve.log>   # 期望 8"
 echo "    grep -c 'D2_offload'                  <serve.log>   # 期望 >0"
 echo "    grep -c 'alignment_chunk_count.*8'    <serve.log>   # 期望 >0（per-group 生效）"
-echo "  ★ 跑 L1 时再加两条："
+echo "  ★★ 开了 int8 时**必查这条**（否则你会以为在跑档 C，其实在跑档 B）：
+    INNER=\$(dirname <serve.log>)/inner.sh
+    grep -m1 -a 'VLLM_V41_KV8_SWA=' "\$INNER"    # 期望它不是 0（= env 真的进了容器）
+  ★ 跑 L1 时再加两条："
 echo "    grep -c 'P2_poolsizing'               <serve.log>   # 期望 >0（L1 生效）"
 echo "    grep -a 'P2_WORKER_HOST_BYTES'        <serve.log>   # ★ 宿主实占（档 B 应 ≈1.927x 更省）"
 echo "  ★ 上线后监测（logs/027 判据 1 + logs/040 判据 2）："

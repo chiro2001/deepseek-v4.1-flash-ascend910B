@@ -146,3 +146,52 @@ grep -a 'P2_WORKER_HOST_BYTES'      <serve.log>   # ★ 宿主实占
 | shadow 生成器 | `a2/scripts/make_shadow_pkg.sh` | 见 `check_artifact_identity.sh` |
 | 起服脚本（补丁目录自动识别） | `a2/scripts/serve_a2_offload.sh` | 同上 |
 | 本日志 | `a2/logs/055-20260922-a2-launch-path.md` | — |
+
+---
+
+## 7. ★★ 顺手挖出的**第三个**静默 no-op：`VLLM_V41_*` 在宿主上导出**到不了容器**
+
+做完 §2 之后我顺手核对"档 C 到底能不能从这个脚本起来"，发现一个**同类的静默失败**：
+
+```bash
+# serve_a2_offload.sh 原来这样导出（宿主上）：
+export VLLM_V41_KV8_SWA="$KV8_SWA" VLLM_V41_RING_FP16="$KV8_RING_FP16" \
+       VLLM_V41_KV8="$KV8_FULL"    VLLM_V41_KV8_PREFILL="$KV8_PREFILL" \
+       VLLM_V41_APC_ALIGN="$APC_ALIGN" VLLM_V41_KV8_GRAPH_SAFE="$GRAPH_SAFE"
+```
+**这四个变量只在容器内有意义**（容器里的 python 读 `os.environ`），
+而容器环境是由 shadow 的 `inner.sh` 在**容器内**建立的
+⇒ **宿主上导出它们，一个字节都到不了容器**。
+
+⇒ 后果：`KV8_SWA=1 bash serve_a2_offload.sh` **跑得起来、日志上还写着"★ int8 档 C"**，
+但容器里 `VLLM_V41_KV8_SWA` 根本不存在 ⇒ **实际跑的是档 B**。
+这**正是本项目反复踩的那一类**（`048` 的"影子包 `grep -c VLLM_V41 = 0` ⇒ 不进 inner.sh 即静默 no-op"）。
+
+### 7.1 修法（两道门，一前一后）
+
+| # | 门 | 行为 |
+|---|---|---|
+| **起服前** | `serve_a2_offload.sh` 新增**自检门** | 开了 `KV8_*` 但 shadow 的 `serve_a2.sh` **不认 `A2_*`** ⇒ **⛔ 拒绝起服**（exit 2），提示用当前生成器重造 shadow；★ 该门**放在 `cp` 补丁之前** ⇒ **零副作用**就拒绝 |
+| **起服后** | 自检清单补一条 | `grep -m1 -a 'VLLM_V41_KV8_SWA=' "$(dirname <serve.log>)/inner.sh"` —— ★ 变量名与取值**真的进了容器**才算数 |
+
+同时把宿主上导出的**名字对齐**到 shadow 认的那一套：`A2_KV8_SWA` / `A2_RING_FP16` / `A2_KV8` /
+`A2_KV8_PREFILL` / `A2_APC_ALIGN` / `A2_GRAPH_SAFE` / `A2_KV8_GRAPHSAFE`（挂 `dsa_v41.py` 用）。
+生成器的 `inner.sh` 注入块把它们在**容器内**翻成 `VLLM_V41_*`。
+
+### 7.2 两臂实测【实测】
+
+```
+臂1（正例）：档 C + 当前生成器造的 shadow
+  ★ int8 档 C: SWA=1 ring16=1
+  ✓ 补丁目录：…/a2/publish
+  [DRY] 将要执行：… KV_ARGS_EXTRA='--prefix-match-unit 32 --kv-transfer-config {...}' …
+
+臂2（反例）：档 C + 一个把 A2_* 改名成 XX_* 的 shadow
+  ⛔ 你开了 int8（KV8_SWA=1 KV8_FULL=0 RING_FP16=0），
+     但这个 shadow-pkg **不认 A2_* 环境变量** ⇒ int8 会**静默失效**（跑起来是档 B）。
+     修法：用当前版本的生成器重造 shadow：PKG=… DST=… bash …/make_shadow_pkg.sh
+  $ ls …/shadow-old/patches/files/offload_dsv41
+  ls: cannot access '…': No such file or directory     ← ★ 零副作用（门在 cp 之前）
+```
+
+★ **判据有判别力**：同一个脚本、同一组 `KV8_*`，只有 shadow 的变量名不同 ⇒ 一边过、一边被拒。
