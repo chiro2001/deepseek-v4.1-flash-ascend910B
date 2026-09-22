@@ -370,6 +370,49 @@ pages = [65536,8192,128]×3 + [131072,16384,256] + [131072]×3 + [147712]（Σ=9
 ③ NaN 进入池化输出 ⇒ 被 _write_compressed_source 写进 long-KV（lat nan=79–93）⇒ 翻 token
 ```
 
+### 4.2a ★★★★ **真正的根因（`046`，定位到一行）：APC 命中长度没按压缩比对齐**
+
+> **这一条比 §4.2/§4.2b 更根本，而且它是「数据缺失」而不是「数据污染」。**
+
+```
+# vllm/v1/core/kv_cache_manager.py:253-259（★ 上游注释自己写着这个限制）
+# NOTE: When all tokens hit the cache, we must recompute the last token
+# to obtain logits. Thus, set max_cache_hit_length to prompt_length - 1.
+# This can trigger recomputation of an entire block, rather than just
+# the single last token, because allocate_slots() requires
+# num_computed_tokens to be block-size aligned. Removing this limitation
+# could slightly improve performance in the future.
+max_cache_hit_length = request.num_tokens - 1        # ← ★ 只对齐到 block_size，【不知道压缩比】
+
+# ★ 修法（候选 D，ratio>1 才生效；ratio=1 逐字 no-op）：
+max_cache_hit_length = (n - 1) - ((n - 1) % ratio)
+```
+
+**为什么它是根因（三条，都实测）**：
+
+```
+① 上游只对齐到 block_size ⇒ 4096-token prompt 的命中长度 = 4095（奇数）
+   ⇒ ratio=2 的压缩组（group 2047）跨在命中边界上
+② fill 轮：该组的 tokens(4094,4095) 都在段内 ⇒ 用【真投影】
+   replay 轮：只有 4095 在段内，4094 必须从 ring 补
+   ★ 而 ring 是 prefix_cacheable=False、【不参与卸载】（009/043）⇒ 那一行【真缺失】
+   ⇒ 所以不是「垃圾字节」，是「数据缺失」 ⇒ ★ 这解释了为什么「清页/置 0」治不好
+③ 冷算臂全是 32 个 fill 步（pre=0/used=4096）⇒ 【一次 residual 读都没有】
+   ⇒ 所以它 ✅ 与 ring dtype 无关 ⇒ ★ 这一条把前面所有困惑一次性对齐了
+```
+
+**★ 候选 D 的优势（一处修掉两个问题）**：
+
+| # | 它修掉什么 |
+|---|---|
+| **①** | **int8 的 ❌（D/F 几何）** —— 对齐后走与 fill 轮**同一条 `SINGLE_BLOCK/NO_PAD` 分支** ⇒ **构造性成立**（不是"运气"） |
+| **②** | ★★ **`ring F32` 那条独立潜伏缺陷** —— 因为它的根因**就是**"跨命中边界的组要靠 ring 补一行"；**对齐之后永远不需要补** |
+
+**代价**：每个命中请求多算 ≤1 个 token（0.02%）；`hits` 65,520→65,504（−0.02%）；
+**容量一个字节不动**；**不碰 kernel、不碰调度语义、不清任何页**。
+★ **`ratio=1` 的模型下 `(n-1) % 1 == 0` ⇒ 逐字 no-op** ⇒ 安全。
+⚠️ **注意**：它改的是 **`vllm/`（上游核心）而非 `vllm_ascend/`** ⇒ 合并进发布包时需**额外评审**。
+
 ### 4.2b ★★★ 更深一层的根因（`045`，**字节级实测**）：**ring 读到的是别家平面的字节**
 
 `O_fp16nan` 把上面的机制**又推进了一层**——而且**推翻了"FP16 溢出"这个解释**：
