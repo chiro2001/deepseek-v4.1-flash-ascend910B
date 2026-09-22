@@ -13,7 +13,24 @@
 
 ---
 
-## 0. 一句话
+## 0. ★★★ 判决（2026-09-22 20:33，`p2f` 跑完）
+
+**崩的不是"Engram × replay 长度"，是「Engram × 卸载取回」。**
+
+| 臂 | `ENGRAM` | 池 | **是否有池命中** | **replay** | `KeyError` | leakage | `EngineDead` |
+|---|---:|---:|---|---:|---:|---:|---:|
+| `p1b-tierB-dg1-offload` | 0 | 56 GiB | 有（`hits=901,120`） | **failed=0** | 0 | 0 | 0 |
+| **`p2e-engram1-dev0-dg1-offload`** | **1** | **56 GiB** | 有 | ★ **failed=13** | 32 | 32 | 6 |
+| ★ **`p2f-engram1-dev0-tinypool`** | **1** | **1 MiB** | ★ **无**（TTFT 9.2 s ≈ 重算） | ★★ **failed=0** | ★ 0 | ★ 0 | ★ 0 |
+
+⇒ ★★★ **`p2e` 与 `p2f` 的【唯一变量 = 池大小（56 GiB vs 1 MiB）⇒ 即"是否发生取回"】**，
+两条臂的其余配置**逐字相同**（同 runner / 同几何 / 同 `ENGRAM=1` / 同 `DEVICE_INDEX=0` / 同 `DRAFT_GRAPH=1`）。
+⇒ ★★ **§4 与 §10.4 的【推断·强】升为【实测】：是"取回前缀"引起 Engram 报缺页。**
+⇒ ⛔ **这是发布阻塞项**：A2 一上卸载，**只要发生取回就会踩**。
+
+---
+
+## 0.1 一句话（先前的表述）
 
 **`ENGRAM=1` + 卸载 + draft入图（`ENGRAM_DEVICE_INDEX=0`）—— 起服成功、fill 轮 16/16 成功，
 但 ★★ replay 轮 13/16 失败、引擎死**，根因是 **Engram 的 host 路径**：
@@ -207,4 +224,70 @@ p2b / p2d2               1      8/4       0/5         0
         ⇒ 用户的"A2 服务在正常用"（真实自然语言）是【当前唯一的语义证据】，
           但它是 A2 现网（【无卸载】）⇒ 不能覆盖"卸载开启后"这一格。
         ⇒ ★ 窗口里第 8 道门（段落 4 的 Q() 命令）用的就是自然语言 ⇒ 保留，且它是**唯一**的语义判据。
+```
+
+---
+
+## 10. ★★★ 根因精确到一行（主代理读 `engram_jit_kernel.py`）
+
+### 10.1 `KeyError(2486)` 里那个数是什么
+
+```
+engram_jit_kernel.py:63-65  （函数 docstring 原文）
+    """页写 + n-gram 历史 + 哈希。返回 (err_page, oob_page, fell_back)。
+    ...
+    ★ err_page >= 0 : 标量回退时读到缺页 → 调用方抛 KeyError
+```
+⇒ ★★ **`2486` 是一个【缺页的页号】**（不是行号、不是 token id、不是错误码）。
+
+### 10.2 那一页为什么"缺"
+
+```python
+# engram_jit_kernel.py:148-158 —— "缺页回退：标量走法"
+fell_back = 1
+for r in range(n):
+    for sh in range(lookback):
+        p = positions[r] - sh
+        if p < 0: break
+        page = flat[r * lookback + sh]
+        ★ if page_present[page] == 0:      # ← 这一页不在 Engram 自己的 present 表里
+              err_page = page
+              break
+```
+⇒ ★★ **`page_present[page] == 0`** —— 即 **Engram 认为"它要读的那一页 KV 没被写进它的视野"**。
+
+### 10.3 ★★★ 与"卸载"的连接点（**机制链条完整了**）
+
+```
+① engram_hash.update() 的 docstring 原文：
+     "All arguments are CPU tensors; ★ page numbers come from full SWA KV."
+② 而 `flat`（页号表）是从 **block_table** 推出来的（`flat[r*lookback+sh]` 对应位置 p 的页）
+③ ★ replay 轮里，前缀是【从 DRAM 池取回】的 ⇒ 那部分 KV 页的写入路径**与 fill 轮不同**
+④ ⇒ Engram 拿到的 page_present 表里，**取回前缀所涉及的页**没有被标为 present
+⑤ ⇒ 命中"缺页" ⇒ `err_page = 2486` ⇒ 逃逸 ⇒ 引擎死
+```
+★ **为什么 fill 轮没事**：fill 是完整 prefill ⇒ 全部页都由本进程写入 ⇒ `page_present` 全 1。
+
+### 10.4 这条与 `071 §A1` 的关系
+
+★ **它是 `071 §A1`（"取回路径从未被逐字节验证"）的第一个【实际后果】**：
+```
+A1 说：计数器级证据（CPU→GPU>0 / hits>0）证明"搬了"，不证明"搬来的东西被下游正确看待"。
+⇒ ★★ 本格就是一个实例：**字节搬到了，但 Engram 的 page_present 表不知道那些页已经可用**
+  ⇒ 下游（Engram hash）读到一个"它认为不存在"的页 ⇒ 报缺页 ⇒ 崩。
+```
+⚠️ **诚实边界**：以上 ③–⑤ 是**【推断·强】**（链条每一步都有源码/日志支撑，但**没有逐步对照实验**）。
+★ **判开它的实验正在跑**（`p2f`：`ENGRAM=1` + `DEVICE_INDEX=0` + **池 1 MiB（无命中）** + 同几何）：
+```
+p2f 也崩 KeyError ⇒ ★ 与"取回"无关 ⇒ 是 Engram × replay(65536) 本身
+p2f 不崩        ⇒ ★★★ 确认是"取回前缀"引起 ⇒ A2 一上卸载就会踩（发布阻塞项）
+```
+
+### 10.5 一个值得记的**设计意涵**
+
+```
+Engram 的 JIT 路径有两套走法：① slab 快速路径 ② ★ 标量回退（遇缺页即上报）
+⇒ 设计者**已经预期到"缺页"**（所以有专门的回退分支 + KeyError 上报）
+⇒ 但**容器的调用方（model.py:1092）没有处理这个 KeyError** ⇒ 它一路逃逸到引擎
+⇒ ★ 修复的两条路：a) 让取回路径也更新 page_present；b) 在调用方捕获并走 host 路径
 ```
