@@ -270,6 +270,53 @@ DRY=1 SHADOW_PKG=$HOME/shadow-pkg MODEL=<A2 的模型目录，见上方「A2 的
 
 ## 0. ★★★★★ 阻塞已解除（2026-09-22 16:32 实机跑完，**全档通过**）
 
+> ### ⚠️⚠️ 起服前必读：`DRAFT_GRAPH` 的默认值是 **0**，而 A2 生产现在是 **1**
+>
+> ```
+> shadow-pkg/scripts/serve_a2.sh:223    DRAFT_GRAPH=${DRAFT_GRAPH:-0}
+> ```
+> ⇒ **本节下面给的命令里没有 `DRAFT_GRAPH=1` ⇒ 照抄会把 draft 从入图退回 eager，
+>   单流 88.7 → 54.7 tok/s（−38%）**。这不是报错，是**静默降级**（本日第 5 次同类）。
+>
+> ★ **实测确认透传是通的**（2026-09-22 17:0x，`DRY=1` 对照）：
+> ```
+> 不传            ⇒ [a2-dry] ... DRAFT_GRAPH=0
+> DRAFT_GRAPH=1   ⇒ [a2-dry] ... DRAFT_GRAPH=1     ← 前缀赋值会继承环境，不会被丢掉
+> ```
+> 所以**必须显式带上**（A2 现在就是这个配置）。
+>
+> #### `DRAFT_GRAPH=1` 在 A2 上是已知可用的（有实测）
+> | 项 | 值 | 依据 |
+> |---|---|---|
+> | 单流 decode | **54.7 → 88.7 tok/s（+62%）** | `reports/a2-draft-graph-20260920.md` |
+> | ms/step | **−30.5（−47%）** | 同上（`[bneck] hp` 64.6–65.3 → 34.0–34.8） |
+> | 稳态 A | **3.03** | 同上（健康区间 2.8–3.1） |
+> | 精度 | Vision **23/23**、GSM8K **198/200** | `reports/draft-graph-investigation-20260920.md` §4.6 |
+>
+> #### ⚠️ 两条**未验证**的边界（都写在这里，别踩）
+> 1. ★★ **`DRAFT_GRAPH=1` + int8 **从未同时开过****（2026-09-22 17:0x 全仓 grep 确认：
+>    没有任何一条臂同时带 `DRAFT_GRAPH=1` 和 `VLLM_V41_KV8*`）。
+>    而 **int8 与"投机解码"的交织是有名的坑** —— 见 §0b「int8 × 投机解码的两个失败形态」。
+> 2. **P0-C（`DRAFT_GRAPH=1` + 并发 ≥16 ⇒ 引擎进入不可恢复坏状态）** 只在 **1 次观测**里出现、
+>    6 轮未复现 ⇒ A2 的 `MAX_SEQS=4`（`capture_max=32`）**结构上够不到 conc≥16** ⇒ 【推断】安全，
+>    但这是"够不到"，不是"已证明安全"。
+
+> ### 0b. ★★★ int8 × 投机解码：A3 上实测的**两个失败形态**（`048` / `049`）
+>
+> 注意：这里说的是 **"投机解码（draft eager）+ int8"**，不是 "draft 入图 + int8"（后者从未测）。
+>
+> | # | 形态 | 触发时机 | 表现 | 根因 | 修法 |
+> |---|---|---|---|---|---|
+> | **①** | **捕获期 `EE1016`** | 起服、图捕获时（**档 C/D 都中**） | 8 rank **逐字相同**：<br>`Not_Supported(EE1016): Synchronizing a stream failed.`<br>`Reason: Stream (stream_id=31) during the capture stage is not supported.` | 两处 int8 读路径靠 **`query_rows == num_reqs`** 分"decode 快路/prefill 慢路"；spec-decode 下 decode 批是 `num_reqs × (1+5) = 6×` 行 ⇒ 判据为假 ⇒ 误入慢路 ⇒ 慢路里的 **`.item()`** 在捕获期做 host 同步<br>（`dsa_v41.py:436 kv8_ori_plane`） | `GRAPH_SAFE=1` + 挂 `dsa_v41.py`（`94aeebb7…`） |
+> | **②** | **首个真实请求 `507057`** | 起服成功、warmup 过、**第一个真请求** | `SUSPECT REMOTE ERROR, error code is 507057` → `EngineDeadError`，客户端 `failed=2` | **档 D 专有**：cmp 面留旧路径时，block table 列宽不足 ⇒ 越界读表拿到垃圾"页号" ⇒ 乘 `cmpKvStride0` 落到**未映射地址** ⇒ 设备故障<br>★ **也可能静默算错**（垃圾页号落在已映射内存时） | 同上（`GRAPH_SAFE=1`） |
+>
+> ★ **对 A2 的直接含义**：A2 现在 `DRAFT_GRAPH=1`（draft 入图）。
+> 形态 ① 的判据失效来自 **target 捕获期**（`query_rows` 是 spec-decode 造成的 6 倍），
+> **与 draft 入不入图无关** ⇒ **A2 一开 int8 就会撞 ①**，除非 `GRAPH_SAFE=1`。
+> `serve_a2_offload.sh` 现在会在"开了 int8 + 图模式"时**自动置 `GRAPH_SAFE=1`**（并打印警告）。
+> ⚠️ 但 `GRAPH_SAFE` 的修复**只在 `DRAFT_GRAPH=0` 的 8 卡臂上验过** ⇒
+> **`DRAFT_GRAPH=1` + int8 是全新组合**【未确认】⇒ 建议先上档 B（见下面的分步）。
+
 > **判据全过**：**`1 / 8 / 32 / 64 GiB` 四档注册【全部 True】**，每档都做了**真实 H2D→D2H 逐字节对账**。
 > ```
 > [a2probe] 注册（匿名/普通内存）：1=True 8=True 32=True 64=True
