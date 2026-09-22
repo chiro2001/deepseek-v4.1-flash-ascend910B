@@ -40,6 +40,29 @@ OK    有 vision 分片 / OK 有 optional/quarot.safetensors
 A2 的 `flat` 版本**大小未知**（名字里的 「flat」 可能意味着某种精简）。
 ⇒ Engram 占用不同 ⇒ **`Available KV cache memory` 不同** ⇒ 容量数字要按 A2 的实测量重算。
 
+### ★ 上线前的**第 0 步**：先跑模型自检（**它已经存在，别绕过**）
+
+发布包里有 **`tools/check_model_dir.sh`** —— 它检查的正是我们关心那几项：
+```
+Engram 配置与权重都在（2 层）/ 有 mtpq 分片 / 有 vision 分片 / 有 optional/quarot.safetensors
+WARN  无法判定 vision 是否为 qrot 修复版（若未修复，视觉约 10/23 而非 23/23）
+```
+★ **`scripts/run_test.sh` 会自动调它**（预检阶段），但**我们给出的三条命令直接调 `serve_a2_offload.sh`、绕过了它**。
+⇒ **上线前先单独跑一次**：
+```bash
+bash tools/check_model_dir.sh <A2 的模型目录>
+```
+★ 看两件事：
+1. **`Engram … 2 层` + `有 mtpq 分片（4 个）`** ⇒ 与 A3 那份模型的**结构一致**（见上一节）；
+2. ⚠️ 那条 **`WARN 无法判定 vision 是否为 qrot 修复版`** —— 若是未修复版，**视觉只有 ~10/23**。
+   ★ **怎么确认/怎么修**（⚠️ 如实说明：那两条命令名写在 `check_model_dir.sh` 的 WARN 文案里，
+   但**这两个工具在本发布包里没有** —— 我一开始照抄了文案，核对时发现它们不存在）：
+   * 包里**能用的**是 `tools/vision_accuracy_check.py` ⇒ 起服后直接跑它，
+     看 **`cases: 23  pass: 23`**（我们 `047`/`048` 的实测口径就是它）；
+   * 若它是 **~10/23** ⇒ 那是 vision 的 qrot 未修复 ⇒
+     **向用户报这个结论**（工具在别处，本包不含）—— ★ **不要**自己伪造一个修复流程。
+
+### ★★ 上线第一个动作就是量这一行（**一行，起服早期就打印**）
 ### ★★ 上线第一个动作就是量这一行（**一行，起服早期就打印**）
 ```bash
 grep -E 'Available KV cache memory|GPU KV cache size' <serve.log>
