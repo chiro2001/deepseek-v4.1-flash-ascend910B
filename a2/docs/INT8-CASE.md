@@ -333,7 +333,7 @@ KV8_SWA=1 KV8_RING_FP16=1 KV8_FULL=1 KV8_PREFILL=1  bash a2/scripts/serve_a2_off
 > | 路 | 收益（8 卡） | 改动面 | 风险 |
 > |---|---|---|---|
 > | **① ②c draft block 128→64（保 BF16、保投机）★ 改动清单已定稿** | **×1.8177**（**777,318**） | ★ **2 文件 / 2 处，默认关**（见 `051`） | 风险已查清：窗口跨块（`051` §2 三条判据）；DRAM 池 **+5.0%** |
-> | ~~② ②a draft 也 int8~~ ⛔ **已实测失败** | ~~×1.9126~~ | 2–3 处 | ★★★ **`056` 实测：容量 ✅ / 图捕获 ✅ / 但引擎在第一个 spec-decode step 就死**（`The previous device metadata submission has not been released`）；同包同参数、唯一变量 `DRAFT_INT8=0` 的对照臂**全绿 16/16** ⇒ ②a 特有。**【推断】病灶** = draft 面走 `dsa_v1.py`（**无 KV8 量化存取**），而 `kv8_swa_store`/`kv8_ori_plane` **只在 `dsa_v41.py`** ⇒ **要移植量化存取才行，不在本轮范围** |
+> | ~~② ②a draft 也 int8~~ ⛔ **已实测失败** | ~~×1.9126~~ | 2–3 处 | ★★★ **`056` 实测：容量 ✅ / 图捕获 ✅ / 但引擎在第一个 spec-decode step 就死**（`The previous device metadata submission has not been released`）；同包同参数、唯一变量 `DRAFT_INT8=0` 的对照臂**全绿 16/16** ⇒ **②a 特有**。★ 诊断臂把泄漏点定位到 **`submit#2`**（只 1 个任务、`group_id` 在 target 的 7 任务里从未出现 ⇒ 来自 **draft 侧 builder**）⇒ 「release 缺口在 draft 侧 execute 路径」**有实测支撑**。⚠️ 但「病灶 = `dsa_v1.py` 缺量化存取」**已降级为【推断】**（探针钩错了类：真身是 `DSAAttention`，`ops/dsa.py:35`；且首个异常在日志里看不见）⇒ **病因未证实**，只到「②a 在单 die tiny 上不可用」 |
 > | **③ ③c draft 做 per-request scratch** | ×1.9122 | 中等 | ⚠️ graph-stable |
 > | ~~④ ⑤a 关投机解码~~ | ~~×2.0188（863,318）~~ | 零代码 | ★ **已否决**（用户决策）—— 数据只用于证明"draft 组是 slots0–2 的 binding" |
 > ★ **②b（draft FP16）零收益**（FP16/BF16 同为 2 B/token，页还是 131,072）—— 已判死。

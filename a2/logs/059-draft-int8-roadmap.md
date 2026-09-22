@@ -327,11 +327,28 @@ GPU KV cache size: 39,846 tokens                                     ← ★ 容
 > 对照臂（同包同参数，唯一变量 DRAFT_INT8=0）：ok=16/16 / ttft.p50=738.1 ms / sha 0ebccb55b30c…（与 054 四臂逐字相同）
 > ```
 > ⇒ ★★ **②a 特有，不是 harness**。
-> ★ **【推断】病灶**：draft 面的 attention 实现在 `dsa_v1.py::AscendDSAImpl`，
-> 而 KV8 的量化存取（`kv8_swa_store` / `kv8_ori_plane`）**只写在 `dsa_v41.py`**
-> （主代理独立核实：`dsa_v1.py` 命中 **0**、`dsa_v41.py` 命中 **3 + 7**）。
-> ⇒ ★ **②a 不是「物理不可行」**，而是**要先把 KV8 的量化存取移植进 `dsa_v1.py`** ——
-> 一处**新的、更大的改动**，**不在本轮范围** ⇒ **②a 退回研究项**。
+> ⚠️⚠️ **2026-09-22 16:1x 更正（`D_draftINT8` 主动提出，主代理采纳）**：
+> 下面那条「病灶在 `dsa_v1.py`」**降级为【推断】，不再是已证实的病因** ——
+> 它的探针钩在 `dsa_v1.py::AscendDSAImpl` 上，**横幅打出来了但从未被调用**
+> （真身是 `models/layer/attention/layer.py::DSAAttention`，`ops/dsa.py:35`），
+> 且**首个异常在日志里彻底看不见**（`tuple` / `AttributeError` / `npu_scatter` / `ori_kv` 命中全 0）。
+> ⇒ ★ **本日志只到「②a 在单 die tiny 上不可用」（足以否决交付选项），不到「病因已定位」。**
+>
+> ★ 而**诊断臂确实拿到了一条硬证据**（保留）：**泄漏点是 `submit#2`** ——
+> ```
+> submit#1 in_flight=False tasks=7 → release#1 ✅
+> submit#2 in_flight=False tasks=1 frontiers=[(2, …)]      → ★★ 无 release#2
+> submit#3 in_flight=True  tasks=7（与 #1 逐字相同的 7 个）  → ⛔ 抛 RuntimeError
+> ```
+> `submit#2` 的 `group_id` 在 target 的 7 任务提交里**一次都没出现过** ⇒ 来自 **draft 侧 builder**
+> ⇒ 「release 缺口在 **draft 侧 execute 路径**」这条**有实测支撑**。
+>
+> ~~★ **【推断】病灶**：draft 面的 attention 实现在 `dsa_v1.py::AscendDSAImpl`，~~
+> ~~而 KV8 的量化存取（`kv8_swa_store` / `kv8_ori_plane`）**只写在 `dsa_v41.py`**~~
+> ~~（主代理独立核实：`dsa_v1.py` 命中 **0**、`dsa_v41.py` 命中 **3 + 7**）。~~
+> ~~⇒ ★ **②a 不是「物理不可行」**，而是**要先把 KV8 的量化存取移植进 `dsa_v1.py`** ——
+> 一处**新的、更大的改动**，**不在本轮范围** ⇒ **②a 退回研究项**。~~
+> ⇒ ★ **②a 退回研究项**（这一句仍成立；只是**理由从"病因已定位"改成"至少一种生产形状下不可用"**）。
 
 ⇒ ★★ **规则（判决后）**：**交付推荐 = ②c**（序 1）；**②a 需先完成量化存取移植**才值得再评估。
 ★ 理由：②c 的 Q3 是**实测过**的（而且是最强形态 —— 提案序列逐条相同），

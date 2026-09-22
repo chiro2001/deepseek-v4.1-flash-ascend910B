@@ -243,11 +243,26 @@ KV8_SWA=1 KV8_RING_FP16=1 KV8_FULL=1 KV8_PREFILL=1    # 同理自动置 APC_ALIG
 > ②a 臂：16/16 请求失败、0 条 SpecDecoding 读数
 > 对照臂（同包同参数，唯一变量 DRAFT_INT8=0）：ok=16/16、sha 0ebccb55b30c…（与 054 四臂逐字相同）
 > ```
-> ⇒ ★★ **②a 特有，不是 harness**。**【推断】病灶**：draft 面的 attention 实现在 `dsa_v1.py::AscendDSAImpl`，
-> 而 KV8 的量化存取（`kv8_swa_store` / `kv8_ori_plane`）**只写在 `dsa_v41.py`**
-> （主代理独立核实：`dsa_v1.py` 命中 **0**、`dsa_v41.py` 命中 **3 + 7**）⇒ 那条路**没有量化读写**。
-> ⇒ ★ **②a 不是「物理不可行」，而是「要先把 KV8 的量化存取移植进 `dsa_v1.py`」** —— 那是一处**新的、更大的改动**，
-> **不在本轮范围** ⇒ **②a 退回研究项**。
+> ⇒ ★★ **②a 特有，不是 harness**。
+>
+> ★★ **诊断臂进一步定位到「泄漏的那一次提交」**（`056` §4.4b）：
+> ```
+> submit#1 in_flight=False tasks=7 → release#1 ✅
+> submit#2 in_flight=False tasks=1 frontiers=[(2, …)]      → ★★ 无 release#2   ← 泄漏点
+> submit#3 in_flight=True  tasks=7（与 #1 逐字相同的 7 个）  → ⛔ 抛 RuntimeError
+> ```
+> ★ `submit#2` 的形状与其余每次**都不同**（**只 1 个任务**、`group_id` 在 target 的 7 任务提交里**一次都没出现过**）
+> ⇒ 来自**另一个 builder（draft 侧）** ⇒ 「**release 缺口在 draft 侧的 execute 路径上**」这条
+> **从推断升到有实测支撑**。
+>
+> ⚠️⚠️ **但「病灶是 `dsa_v1.py` 缺量化存取」这条必须降级**（`D_draftINT8` **主动**提出，主代理采纳）：
+> 它的探针钩在 `dsa_v1.py::AscendDSAImpl` 上，**横幅打出来了但从未被调用** ——
+> 真身是 `models/layer/attention/layer.py::DSAAttention`（`ops/dsa.py:35`）。
+> 而且**首个异常在日志里彻底看不见**（`tuple` / `AttributeError` / `npu_scatter` / `ori_kv` 命中**全 0**）。
+> ⇒ **正确的说法**：「要移植量化存取」是**【推断】，不是已证实的病因**；
+> 下一个探针 target 应该是 **`DSAAttention`**，**不是** `dsa_v1.py`。
+> ⇒ ★★ **别把「病因已证实」写进文档** —— 本条目只到「**②a 在单 die tiny 上不可用**」
+> （**足以否决交付选项**），**不到「病因已定位」**。
 
 ### ②c 的细节（**仍是 ②a 失败时的回落**，8 卡端到端在 c0 排队）
 
