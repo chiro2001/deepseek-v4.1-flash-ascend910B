@@ -14,7 +14,11 @@
 ⇒ **「DMA 完成」与「图重放读 KV」之间的时序风险未发生。**
 
 ★ **但顺手撞到一个比 Phase 1 更严重的 P0**：**`ENGRAM=1`（= A2 生产配置）与卸载池在 A3 上无法共存**，
-而且**有两种互不重叠的失败模式**。本文 §3–§6 是这一部分 —— **它是发布阻塞项**。
+而且**有三种互不重叠的失败模式**。本文 §3–§6 是这一部分。
+
+★★★ **而它的适用范围必须收窄**：**A2 已被用户实测为通过**（8 进程并发注册 392 GiB 全过、零 `207001`，
+在 Engram 加载状态下）⇒ **这条 P0 是「A3 特有」，不是「A2 上线的前提」**（详见 §6.2）。
+★ 同一格在两台机器上给出**相反**结论 —— 这是本文最重要的方法论结论。
 
 ---
 
@@ -156,15 +160,17 @@ logs/016 诚实边界第 7 条原文：「本轮没有用 ENGRAM=1 复测」
 ⇒ ★★ **`ENGRAM` 是唯一的判别变量**（`bc` 与 `p2c` 之间只差 `DRAFT_GRAPH`，两者都 ✅
 ⇒ **「`DRAFT_GRAPH` × 小池」这个交互不存在**）。
 
-### 3.3 两种失败模式（**互不重叠**，且与 `logs/001 §4.2` 记的都不是同一个）
+### 3.3 三种失败模式（**互不重叠**，且与 `logs/001 §4.2` 记的都不是同一个）
 
-| 池 | 起服 | 推理 | 失败码 | 栈的第一现场 |
+| 池 / 后端 | 起服 | 推理 | 失败码 | 栈的第一现场 |
 |---|---|---|---|---|
-| **56 GiB** | ⛔ 捕获期挂 | — | **`207001` ×43** | `build_request_ids` → `torch.repeat_interleave` |
-| **1 MiB** | ✅（`health=200`） | ⛔ 首个长请求卡死 | **`EH0012` → `hdc disconnect` / `507901`** | kernel launch submit |
-| 1 MiB + `ENGRAM=0` | ✅ | ✅ | — | — |
+| **56 GiB / registered** | ⛔ 捕获期挂 | — | **`207001` ×43** | `build_request_ids` → `torch.repeat_interleave` |
+| **1 MiB / registered** | ✅（`health=200`） | ⛔ 首个长请求卡死 | **`EH0012` → `hdc disconnect` / `507901`** | kernel launch submit |
+| ★ **56 GiB / pageable** | ✅（`health=200`） | ⛔ fill 轮 `failed=15` | **`EH0012` ×9 → `hdc disconnect`** | `aclnnInplaceCopy` |
+| 1 MiB / registered + **`ENGRAM=0`** | ✅ | ✅ | — | — |
 
 ★ 第三种 `507899`/`100000`（只读 VMA）是**独立现象**，见 §3.5。
+★★ **三种失败（`ENGRAM=1`）的共同点：`EH0012` 都出现（2 / 2 / 9 次），而三个 `ENGRAM=0` 臂都是 0** ⇒ 见 §3.8。
 
 **1 MiB 臂的完整现象**（它比 56 GiB 臂更难发现）：
 ```
@@ -266,6 +272,72 @@ Invalid_Argument(EH0012): aclrtAllocatorGetByStream failed. Parameter stream is 
 
 ---
 
+
+### 3.8 ★★★ 第四臂（`pageable` 后端）：**换后端不能解决，因为 `EH0012` 与后端无关**
+
+**动机**：`publish/0002` 的 `cpu_npu.py:80` 已有 **`pageable`** 分支（**完全不调用 `aclrtHostRegister`**）
+⇒ 若 `207001` 是"抢注册预算"，换后端应能彻底避开。**零代码改动**，一条臂即可判。
+
+**做法**：`NPU_OFFLOAD_HOST_MEM=pageable` + `ENGRAM=1` + 池 56 GiB，其余与 `p2` 逐字相同。
+
+**结果**：
+```
+★ 开关确实生效：`[P1_pinned] CPU pool backend = pageable (NPU_OFFLOAD_HOST_MEM)` × 8 rank（判据：必须打出这行）
+★ 207001 = 0        ← 完全避开注册争用（预期内）
+★ EH0012 = 9        ← ★ 仍然出现，而且比 registered 臂（2 次）更多
+起服：✅ Application startup complete / GPU KV cache size 427,643
+压测：⛔ fill 轮 failed=15 / replay1 failed=16，tok/s=0.0
+栈  ：aclnnInplaceCopy → rtsLaunchKernelWithHostArgs execution failed, reason=hdc disconnect
+```
+
+#### 3.8.1 ★★★ 四臂合并对照表（`EH0012` 的判别条件被钉死）
+
+| 臂 | ENGRAM | 后端 | `EH0012` | `207001` | 起服 | 推理 |
+|---|---|---|---|---|---|---|
+| `p1a` / `p1b` | 0 | registered | **0** / **0** | 0 | ✅ | ✅ |
+| `p2c` | 0 | registered | **0** | 0 | ✅ | ✅ |
+| `p2` | **1** | registered 56 GiB | **2** | 43 | ⛔ | — |
+| `p2b` | **1** | registered 1 MiB | **2** | 0 | ✅ | ⛔ |
+| ★ `p2d2` | **1** | **pageable** 56 GiB | **9** | **0** | ✅ | ⛔ |
+
+⇒ ★★★ **结论：`EH0012` 是 `ENGRAM=1` 专属，且与 host 内存后端无关**
+（`registered` 与 `pageable` 两种后端、56 GiB 与 1 MiB 两种池，**三种组合的 `ENGRAM=1` 全部出现 `EH0012`，
+而三个 `ENGRAM=0` 臂全部为 0**）。
+⇒ ★★ **这推翻了本日志早期的推断**（"`EH0012` 可能是注册争用的更早一次表现"）——
+`pageable` 后端**一个字节都没注册**，`207001` 也是 0，`EH0012` **照样出现**。
+⇒ ★ **也修正了 §3.7 对 `068` 的判断**：`068` 的修法（`repeat_interleave(output_size=)`）
+针对的是 **`p2`（56 GiB registered）那一条栈**；而 **`EH0012 → hdc disconnect` 这条链与 `repeat_interleave` 无关**
+（`p2d2` 的栈落在 `aclnnInplaceCopy`），**两条链需要分别修**。
+
+#### 3.8.2 ★ 顺带确认：`EH0012` 仍然出现在 **KV cache 建立之前**
+```
+EH0012 @ 11:16:17 / 11:16:18（日志钟）→ 远端 19:16:17 / 19:16:18
+GPU KV cache size 行 @ 11:17:06       → 远端 19:17:06
+压测崩 @ 11:19:32                      → 远端 19:19:32
+```
+⇒ 与 `p2` / `p2b` **同一形态**（`EH0012` 早于 KV cache、崩溃在之后）⇒ 三个 `ENGRAM=1` 臂**完全一致的时序**。
+
+#### 3.8.3 ★★ 自检门缺陷（本轮的判据失效第 7 条，已记入 §4）
+`run_arm_r8.sh:247-248` 的硬门是 `P1_pinned.*ret=0 >= 8`，**按 `registered` 写的**；
+而 `pageable` **压根不注册** ⇒ `ret=0` 恒为 0 ⇒ **引擎明明起好了却被自己的门杀 `exit 9`**（第一次尝试的 `p2d`）。
+**修法**（**只改我自己的副本，不动共享文件**）：复制 runner 到
+`agents/A3_p1_offload_draftgraph/scripts/run_arm_r8_pageable.sh`，在 248 行后加 5 行分支：
+```
+if [ "${NPU_OFFLOAD_HOST_MEM:-registered}" = "pageable" ]; then
+  N_P1=$(grep -ac "CPU pool backend = pageable" "$SRVLOG" 2>/dev/null || true)
+  N_P1RANK=$(grep -a "CPU pool backend = pageable" "$SRVLOG" 2>/dev/null | grep -aoE "Worker_TP[0-9]+" | sort -u | wc -l)
+fi
+```
+（`diff` 实测：**唯一改动就是这 5 行**。）★ 这就是 §4 第 7 条 ——
+**自检门必须能表达"换后端后的正确行为"**，否则它会把正确答案判成失败。
+
+### 3.9 ★ `pinned` 臂：**按新证据跳过**（理由写明）
+
+原计划复验 `logs/001 §4.2` 当年的 `pinned` 后端。§3.8 拿到"**`EH0012` 与后端无关**"后，
+`pinned`（第三种后端）**预期同形**，且它是 `aclrtMallocHost` 路径、在 A2 上本来就是被规避的那条
+（`014` 的结论：A2 不要用 `allocHost` 撑大池）⇒ **投入产出比低，本轮不做**，如实记在此处。
+
+
 ## 4. 判据失效清单（本轮踩到的，按 `AGENTS.md §5b` 归档）
 
 | # | 失效形态 | 本轮实例 | 修法 |
@@ -303,15 +375,32 @@ Invalid_Argument(EH0012): aclrtAllocatorGetByStream failed. Parameter stream is 
 
 ## 6. 下一步（按价值排序）
 
-### 6.1 一条实验定生死（最优先）
+### 6.1 ★★ 两条链要分别修（§3.8 把这个判断改精确了）
 
 ```
-前提：068 的修法落地（repeat_interleave(output_size=) 或设备侧 searchsorted 搬进 eager 路径）
-臂 A：修 + ENGRAM=1 + 池 56 GiB   → 判据：ret=0 = 128 / 207001 = 0 / 起服成功
-臂 B：修 + ENGRAM=1 + 池 1 MiB    → 判据：起服 + ★ fill 轮跑完（不卡死）+ EH0012 = 0
-★ 两条都过 ⇒ Engram 可共存 ⇒ A2 上线方案成立
-★ 只有 A 过 ⇒ 「能起服但推理崩」仍在 ⇒ 还要查 EH0012
-★ 两条都不过 ⇒ 必须在「卸载」与「Engram」之间二选一（★ 这是【用户决策】，不是工程决策）
+链① 207001（只对 registered + 大池）：
+   栈 = build_request_ids → torch.repeat_interleave
+   修法 = 068 的 output_size= / 设备侧 searchsorted       ✅ 对症
+   判据 = ret=0 行数 = 128 且 207001 = 0 且起服成功
+
+链② EH0012 → hdc disconnect（★ 对所有 ENGRAM=1 组合）：
+   栈 = aclrtAllocatorGetByStream: stream is not registered with the allocator
+        → rtsLaunchKernelWithHostArgs / aclnnInplaceCopy → hdc disconnect（507901）
+   修法 = ★ 未知（068 的修法不覆盖它 —— 见 §3.7 / §3.8.1）
+   判据 = EH0012 = 0 且 fill 轮跑完（failed=0）
+
+★ 两条都过 ⇒ Engram 可共存 ⇒ A3 上也成立
+★ 只有①过 ⇒ 仍然「能起服但推理崩」
+★ 两条都不过 ⇒ A3 上必须在「卸载」与「Engram」之间二选一（★ 用户决策）
+★ ⚠️ 但**对 A2 而言这一步不是前提** —— 见 §6.2（A2 已实测通过）
+```
+
+★ **最省的下一条实验**：**`ENGRAM=1` + 无卸载池**（8 卡、同几何）。
+它能把"链②**是否依赖池**"分开：
+```
+若也崩 ⇒ 链② 是「Engram + 8 卡 + 图」本身的问题（与池无关）⇒ 修点在 Engram
+若正常 ⇒ 链② 是「Engram × 池」的组合问题 ⇒ 修点在两者交互
+★ 需要一个小改：我的 runner 副本里把 --kv-transfer-config 摘掉（本轮未做，留给下一位）
 ```
 
 ### 6.2 ★★★ A2 已被用户实测：**通过**（本节是最重要的适用范围更正）
@@ -399,16 +488,19 @@ ENGRAM=1 + 56 GiB 臂：注册成功 74.68 GiB（= 池的 62%），其余回落 
   ~/projects/dsv41-upstream-pr/agents/R_8card_int8/out/<TAG>/
 ```
 
-### 7.1 本日累计跑的臂（5 条）
+### 7.1 本日累计跑的臂（7 条，含 1 条被自己的门误杀）
 
 ```
-P1-A（ENGRAM=0, DG=0, 56 GiB）  ✅  rc=0
-P1-B（ENGRAM=0, DG=1, 56 GiB）  ✅  rc=0   ← ★ draft 入图，卸载判据逐字相同
-p2  （ENGRAM=1, DG=1, 56 GiB）  ⛔  捕获期 207001×43
-p2b （ENGRAM=1, DG=1, 1 MiB）   ⛔  起服成功、首个长请求 hdc disconnect
-p2c （ENGRAM=0, DG=1, 1 MiB）   ✅  rc=0   ← ★ 分离臂
+P1-A  （ENGRAM=0, DG=0, registered 56 GiB）  ✅  rc=0
+P1-B  （ENGRAM=0, DG=1, registered 56 GiB）  ✅  rc=0   ← ★ draft 入图，卸载判据逐字相同
+p2    （ENGRAM=1, DG=1, registered 56 GiB）  ⛔  捕获期 207001×43
+p2b   （ENGRAM=1, DG=1, registered 1 MiB）   ⛔  起服成功、首个长请求 hdc disconnect
+p2c   （ENGRAM=0, DG=1, registered 1 MiB）   ✅  rc=0   ← ★ 分离臂
+p2d   （ENGRAM=1, DG=1, pageable  56 GiB）   ⛔ **被自检门误杀 exit 9**（门按 registered 写的）
+★ p2d2（ENGRAM=1, DG=1, pageable   56 GiB）  ⛔  起服成功、fill 轮 failed=15（EH0012×9）
 ```
 现场：容器已全清、`c0.lock` 已交还、宿主 `/dev/shm` 归零（1007 G 全空）。
+★ `pinned` 后端臂**未跑**，理由见 §3.9。
 
 ---
 

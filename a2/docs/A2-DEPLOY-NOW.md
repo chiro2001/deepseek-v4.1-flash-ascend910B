@@ -1,5 +1,48 @@
 # A2 现在的部署选项（2026-09-22 15:3x）
 
+# ⛔⛔⛔ **窗口前必读：`ENGRAM_DEVICE_INDEX` 必须显式设 `0` —— 不设就会走进 A3 那条崩掉的路**
+
+> **2026-09-22 19:4x 主代理发现（这是本晚第 7 次"默认值 ≠ 生产"的静默降级，后果最严重的一次）。**
+>
+> ```
+> shadow-pkg/scripts/serve_a2.sh:153    ENGRAM_DEVICE_INDEX=${ENGRAM_DEVICE_INDEX:-auto}
+> ★ A2 生产（用户 09-20 / 09-21 的启动命令）  ENGRAM_DEVICE_INDEX=0
+>   （reports/a2-draft-graph-20260920.md:106：「ENGRAM_DEVICE_INDEX=0，因 ret=207001 在 A2 上不可用」）
+> ★ 而本交付脚本此前【完全不设这个变量】⇒ 继承 shadow 的 `auto`
+> ```
+>
+> ## 为什么 `auto` 在 A2 上会把它**打开**（而这是危险的）
+>
+> ```
+> ① auto 的探针 = engram_device_index.py::probe_host_mapping_capability
+>    ★ 它只测一件事：aclrtHostRegister(4 KiB 页) 能否被接受
+> ② ★★ 而 A2 的实测是【1/8/32/64 GiB 注册全过】（logs/065 §3c）
+>    ⇒ 探针在 A2 上【会通过】⇒ auto 会把 device-index【打开】
+> ③ ★★★ 而 A3 上正是这条路崩的（logs/069 实测原文）：
+>      [DEVICE-INDEX] 能力探测通过：host mapping registered
+>      [DEVICE-INDEX] Engram 表已映射为设备可寻址：L1=384006168行, L14=384016682行
+>      ⇒ 注册 183 GiB ⇒ EH0012 × N ⇒ 起服失败（大池）或推理崩（小池）
+>    ★ 决定性对照：A3 上 `ENGRAM=1 + pageable`（【一个字节都不注册】）照样出 EH0012 × 9
+>      ⇒ ★★ 那个失败与池的 host 内存后端【无关】，是 **device-index 路径本身**
+> ```
+>
+> ⇒ ★★ **统一解释：A2 生产之所以一直没问题，就是因为它显式关掉了 device-index。**
+> ⇒ ★★ **而 `auto` 会在 A2 上把它打开 ⇒ 正好走进 A3 那条崩掉的路。**
+>
+> ## 处置
+>
+> 1. ★★ **默认值已改成与生产一致（`0`）**；显式给 `auto`/`1` 会**打印响亮警告**并列出上面三条依据。
+> 2. ★★ **窗口命令必须显式写 `ENGRAM_DEVICE_INDEX=0`**（即使脚本已有默认 —— 显式写能在 dry-run 里一眼核到）。
+> 3. ★ **上线判据新增一道**（放在最前面，因为 `EH0012` 出现在 KV cache 建立**之前**）：
+>    ```
+>    grep -c 'EH0012' <serve.log>          # ★ 必须 0
+>    grep -c 'hdc disconnect' <serve.log>  # ★ 必须 0
+>    grep -c 'DEVICE-INDEX' <serve.log>    # ★ 期望 0（证明 device-index 真的关着）
+>    ```
+>    ⚠️ 若 `EH0012` 出现 ⇒ **立刻回滚**，不要等到压测（它意味着后面必然崩）。
+
+---
+
 # ✅ **原「发布阻塞项」已解除（2026-09-22 19:0x，A2 实机实测）：`ENGRAM=1` + 卸载池 = 可以共存**
 
 > ## ★★★ 决定性结果：A2 的三期并发注册探针【全部通过】

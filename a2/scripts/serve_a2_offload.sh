@@ -170,6 +170,45 @@ if [ "${ENGRAM:-1}" = "0" ]; then
     echo "    关掉它是为了规避旧的 207001 争用（logs/001 §4.2，**旧池后端下**的现象）。" >&2
     echo "    若你只是想让首版跑通，请确认你接受这个降级，并把它记在变更单里。" >&2
 fi
+
+# ★★★ 2026-09-22 19:4x **默认值第二次修正（后果比 ENGRAM 那条更严重）**
+#
+#   实测链路：
+#     * `shadow-pkg/scripts/serve_a2.sh:153`   `ENGRAM_DEVICE_INDEX=${ENGRAM_DEVICE_INDEX:-auto}`
+#       ⇒ **不显式给，就是 `auto`**。
+#     * ★ 而 A2 **生产是显式 `ENGRAM_DEVICE_INDEX=0`**（用户 09-20/09-21 的启动命令，
+#       以及 `reports/a2-draft-graph-20260920.md` 第 106 行："`ENGRAM_DEVICE_INDEX=0`，
+#       因 `ret=207001` 在 A2 上不可用"）⇒ **生产把这条路关着**。
+#     * `auto` 的探针（`engram_device_index.py:probe_host_mapping_capability`）**只测
+#       `aclrtHostRegister` 一个 4 KiB 页能否被接受** —— 而 **A2 的实测是
+#       1/8/32/64 GiB 全过**（`logs/065` §3c）⇒ ★★ **A2 上探针会通过 ⇒ `auto` 会把
+#       device-index 打开**。
+#     * ★★★ 而 **A3 上正是这条路崩的**（`logs/069`，实测原文）：
+#         ```
+#         [DEVICE-INDEX] 能力探测通过：host mapping registered
+#         [DEVICE-INDEX] Engram 表已映射为设备可寻址：L1=384006168行, L14=384016682行
+#         ⇒ 注册 183 GiB ⇒ EH0012 + 池拿不到注册预算 ⇒ 起服失败 / 推理崩
+#         ```
+#       A3 上 `ENGRAM=1 + pageable`（**一个字节都不注册**）**照样出 `EH0012`×9** ⇒
+#       证明那个失败**与池的 host 内存后端无关，是 device-index 路径本身**。
+#   ⇒ ★★ 结论：**A2 生产之所以"一直没问题"，就是因为它显式关掉了 device-index。**
+#      而本脚本此前**完全不设**这个变量 ⇒ 继承 shadow 的 `auto` ⇒
+#      **在 A2 上会把它打开** ⇒ **正好走进 A3 那条崩掉的路**。
+#   ⇒ 因此：**默认与生产一致（0）**；显式给 `auto`/`1` 会**打印响亮警告**并说明依据。
+ENGRAM_DEVICE_INDEX=${ENGRAM_DEVICE_INDEX:-0}
+case "${ENGRAM_DEVICE_INDEX}" in
+    0|"off"|"false"|"no") : ;;   # 与生产一致 ⇒ 静默通过
+    *)
+        echo "⚠⚠⚠ 你把 ENGRAM_DEVICE_INDEX 设成了 ${ENGRAM_DEVICE_INDEX} —— 而 A2 生产用的是 0。" >&2
+        echo "    依据（实测）：" >&2
+        echo "      * auto 的探针只测 aclrtHostRegister(4 KiB) 能否被接受；" >&2
+        echo "      * A2 实测 1/8/32/64 GiB 注册全过（logs/065 §3c）⇒ auto 会【打开】device-index；" >&2
+        echo "      * 而 A3 上正是这条路崩的：Engram 表注册 183 GiB ⇒ EH0012 + 池拿不到预算" >&2
+        echo "        （logs/069；A3 上 ENGRAM=1+pageable 一个字节都不注册，照样 EH0012×9）。" >&2
+        echo "    ⇒ 除非你有明确的验收目的，否则请用 ENGRAM_DEVICE_INDEX=0。" >&2
+        ;;
+esac
+export ENGRAM_DEVICE_INDEX
 DRY=${DRY:-0}
 
 echo "=============================================================="
