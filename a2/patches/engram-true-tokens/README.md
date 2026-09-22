@@ -11,7 +11,7 @@
 | `engram_hash.patched.py` | 打完补丁的 `engram_hash.py`（完整文件） | `…/models/deepseek_v41/engram_hash.py:rw`（**替换生产那份挂载**） |
 | `engram_hash.true_tokens.diff` | 同上，unified diff（+38 行） | — |
 | `model.patched.py` / `model.host_rows.diff` | `model.py`：交接点 + 行序校验 + 传参（+60 行） | `…/models/deepseek_v41/model.py:rw` |
-| `model_runner_v1.patched.py` / `model_runner_v1.publish.diff` | runner：发布 host token 表（+30 行；基线 md5 `9d84d9b073aeece3fd3bbc143ba20567`） | `/vllm-workspace/vllm-ascend/vllm_ascend/worker/model_runner_v1.py:ro` |
+| `model_runner_v1.patched.py` / `model_runner_v1.publish.diff` | runner：发布 host token 表（+30 行；基线 md5 `9d84d9b073aeece3fd3bbc143ba20567`）⇒ patched md5 ★ **`a94887de05bb63370a6604260b358101`** | `/vllm-workspace/vllm-ascend/vllm_ascend/worker/model_runner_v1.py:ro` |
 
 ★ `engram_repair.py` 既是**出货件**又是**单测的被测对象**（`tests/_loader.py` 直接 import 本文件），
 避免"测的是一份、跑的是另一份"。
@@ -29,6 +29,19 @@
 原 `.diff` 因此带 8 行上下文偏移（仍能应用），但 `.patched.py` 是**整文件**，
 沿用旧的会把旧文案带回容器 ⇒ 这里统一按新基线重生成。
 ★ 应用补丁后请**再跑一次** `bash tests/run_all.sh`（已重跑，全绿）。
+
+## 0c. ★★ 2026-09-22 21:3x **必修**：`model_runner_v1.patched.py` 曾 `py_compile` 不过
+
+| 项 | 内容 |
+|---|---|
+| 现象 | `SyntaxError: name '_ENGRAM_ROW_TOKENS_DISABLED' is used prior to global declaration`（第 3011 行） |
+| 根因 | `_model_forward()` 里第 2999 行**先读**该全局，而 `global` 声明写在下面的 `except` 里 ⇒ Python 要求 `global` 出现在该作用域**任何使用之前** |
+| 后果 | **import 期就崩、起服必挂**（不是运行期才出问题） |
+| ★ 陷阱 | `ast.parse()` **能过**（所以只做 AST 检查会漏）；只有 `py_compile` / `compile()` 的 **symtable** 阶段才报 |
+| 修法 | 把 `global _ENGRAM_ROW_TOKENS_DISABLED` **提到 `_model_forward()` 函数体顶部**（`assert forward_context is not None` 之后），删掉 `except` 里那一行 —— **纯 hoist，无语义变化** |
+| 新 md5 | `a94887de05bb63370a6604260b358101`（= A3 上正在跑的那份，**逐字节对齐**） |
+| 已加的防线 | `tests/run_all.sh` 新增**门 0：py_compile 全部交付件**（`model_runner_v1.patched.py` / `model.patched.py` / `engram_hash.patched.py` / `engram_repair.py`），并说明"AST 检查会漏" |
+| 自洽性 | `model_runner_v1.publish.diff` 已按同一基线重生成；实测 `patch -p1` 应用后与 `model_runner_v1.patched.py` **逐字节相同**且 `py_compile` 通过 |
 
 ## 1. 环境变量（两层名字，方向单向）
 

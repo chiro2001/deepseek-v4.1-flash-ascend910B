@@ -2981,6 +2981,10 @@ class NPUModelRunner(GPUModelRunner):
         assert self.model is not None
         forward_context = get_forward_context()
         assert forward_context is not None
+        # ★ [arm077 修复] `global` 必须出现在本函数的**任何读取之前**，
+        #   否则是 SyntaxError（"name ... is used prior to global declaration"）
+        #   —— 原交付件把 `global` 写在下面的 `except` 里，`py_compile` 直接失败。
+        global _ENGRAM_ROW_TOKENS_DISABLED
 
         model_inputs: dict[str, Any] = {
             "input_ids": input_ids,
@@ -3008,8 +3012,6 @@ class NPUModelRunner(GPUModelRunner):
                     reason="model_forward",
                 )
             except Exception as _exc:  # noqa: BLE001
-                global _ENGRAM_ROW_TOKENS_DISABLED
-
                 _ENGRAM_ROW_TOKENS_DISABLED = True
                 logger.error(
                     "[ENGRAM-ROW-TOKENS] 发布 host token 表失败（只报一次，之后不再尝试）：%r",
