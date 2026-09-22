@@ -388,6 +388,28 @@ max_cache_hit_length = request.num_tokens - 1        # ← ★ 只对齐到 bloc
 max_cache_hit_length = (n - 1) - ((n - 1) % ratio)
 ```
 
+**⛔ 但修法**落不下去**（`046` 实测，精确到行）**：
+```
+四处设边界的位置逐一判决（5 条臂）：
+  ① kv_cache_manager.py:259            ⇒ binding（apc-trace 显示 cap=4094 old=4095）
+  ② sched/scheduler.py:2674            ⇒ 本例 4095≠4096，分支不触发
+  ③ simple_kv_offload/manager.py:261   ⇒ 本臂不走这条实现
+  ★ ④ offloading/scheduler.py:864-873  ⇒ ★ 唯一真正 binding
+     （V4.1 有 10 个 SWA 组 ⇒ 必然触发；实测 pre 4095 → 4094）
+★ 只启用 ①② 时 J2 仍 ❌ 14/16（p-a6-D-min）⇒ 真正决定 num_computed_tokens 的是 ④
+⛔ ④ 一启用就炸：
+   AssertionError: Block b'…' not found in cache
+     ← prepare_load（v1/kv_offload/cpu/manager.py:138）
+     ← scheduler.py:1001 update_state_after_alloc → pgp_scheduler.py:1243 prepare_load
+   ⇒ 发动机死、15/16 请求失败
+【推断·与代码逐行对齐】连接器用 req_status.update_num_hit_chunks(num_computed + num_hit) 记账，
+  只接受 n-1 这一种"少一个 token"的边界；n-2 会推出一个它认为"已命中、但 store 侧从未写过"的 chunk key。
+★ 接力点（精确到行）：pgp_scheduler.py:1200 附近的
+  num_chunks = cdiv(num_cached_tokens, tokens_per_chunk) 与 update_num_hit_chunks
+  必须与"少两个 token"同时自洽。
+⇒ 正在由 Q_apcrecord 做（改的是 043 修过的同一函数族 ⇒ 021 五条必须重跑）
+```
+
 **为什么它是根因（三条，都实测）**：
 
 ```
