@@ -21,7 +21,34 @@
 
 | 文件 | md5 | 说明 |
 |---|---|---|
-| `0001-offload-scheduler.patch.py` | `986c9115c64f196072c7db76c24ca5f9` | **`scheduler.py` 的替换版**。★ **它是 D2 版的超集**（`grep -c offload_participat` = **15**），所以**只需挂这一份**，不要再叠加旧版。★ **2026-09-22 07:3x 已修 `blocks_per_chunk` 局部变量泄漏**（见下） |
+| `0001-offload-scheduler.patch.py` | `79001c2671fdbdcd8386cd4684ed4761` | **`scheduler.py` 的替换版**。★ **它是 D2 版的超集**（`grep -c offload_participat` = **15**），所以**只需挂这一份**，不要再叠加旧版。<br>★ 07:3x 已修 `blocks_per_chunk` 局部变量泄漏；★ **09:3x 已并入 `[APC_ALIGN]`（`logs/047`）** —— 见下 |
+
+> ★★★ **`0001` 的第二次修复（2026-09-22 09:3x）：`[APC_ALIGN]` 压缩层命中长度对齐**（`logs/047`）
+>
+> **根因**（`Q_apcrecord` 定位到一行）：上游 `kv_cache_manager.py` 的
+> `max_cache_hit_length = request.num_tokens - 1` **只对齐到 `block_size`、不知道模型的压缩比**
+> ⇒ 4096-token prompt 的命中边界 = **4095（奇数）** ⇒ `compress_ratio=2` 的组**跨在命中边界上**
+> ⇒ replay 时必须回读 compressor **state ring** 里 token 4094 那一行，
+> 而 ring 组 `prefix_cacheable=False`、**不参与卸载** ⇒ **那一行的原始投影从未被存过**
+> ⇒ int8 几何把它**解读成 NaN** ⇒ 翻 token（D/F 几何 ❌ 14/16、15/16）。
+>
+> **修法**：命中长度向下对齐到**段栅格**（= 参与卸载的 full-attention 组的 `tokens_per_chunk`，
+> V4.1 = 1024，运行期从 `alignment_tokens` 现算、**非硬编码**）。`4096 → 3072`
+> ⇒ **落点正好是 store 侧已经保留的段尾 chunk** ⇒ ★ **store 侧零改动、池需求不变**。
+>
+> | env | 默认 | 作用 |
+> |---|---|---|
+> | `VLLM_V41_APC_ALIGN` | **0** | `0` = 逐字旧行为；**`3` = 段栅格模式（推荐）**；`2` = 对齐到 ratio（**已否决**，需 store 侧配套、池 +24%） |
+>
+> ★ **两道安全门**：
+> 1. `alignment_tokens is None`（多值/不可用）⇒ 退回 0（逐字旧行为）；
+> 2. ★ **必须真有压缩组**（`compress_ratio > 1`）才启用 ⇒ **普通模型（ratio=1）逐字 no-op**
+>    （不加这道门会把普通模型的命中窗口也对齐到 1024 —— 纯性能回退且与根因无关）。
+>
+> **实测（`047`，单卡 tiny）**：D ❌14/16 → **✅ 0/16**、F ❌15/16 → **✅ 0/16**、
+> C0 保持 ✅、**容量 33,295 / 43,469 一字不变**、**反例臂 `=0` 逐字复现 ❌ 与 `6a47dd65f1ff`**、
+> `021` 变长前缀不回归且 **4.89× 倍率不变**。
+> **离线自检**：`python3 a2/scripts/selftest_apc_align.py` ⇒ **38 PASS / 0 FAIL**（两版各 19）。
 
 > ★★ **`0001` 的重要修复（2026-09-22 07:3x，`logs/039` §10 定性 + `logs/043` 修复）**：
 > 原版 `_build_store_jobs()` 里 **`blocks_per_chunk` 是个裸局部变量**，只在"收集 loop"里逐组赋值
@@ -69,7 +96,7 @@
 > 实测：加固前后 **sha 逐字相同**（`a7ffff6be598`）⇒ **既没修它、也没让它更糟**。
 | `0001c-offload-per-group-bpc-hooks.patch.py` | `af2fefb8337fdf9fe1c5e55518f665b8` | 配置解析钩子（`blocks_per_chunk` 支持 `{"default":8,"swa":1}` 的字典形式） |
 | `0002-offload-cpu-pool-host-registered.patch.py` | `2c161a791fe99f17cce2e1139ffbdc3c` | `cpu_npu.py` 的替换版（`NPU_OFFLOAD_HOST_MEM=registered` 走 `aclrtHostRegister`；**注册失败自动回落 `pinned`**） |
-| ★ `0001-8card-offload-scheduler.patch.py` | `6a4f8dffcbb1f3ab4b6c5a1d749e6eaf` | **8 卡链专用的 `scheduler.py`**（= `027`/`042` 那份 `L3_8card/patched/scheduler.py` 的 md5 `f4de89d2…` + `043` 的 bpc 泄漏修复 5 个 hunk，`diff -u` **只含修复、零其它差异**）。<br>★ **8 卡挂载链请用这一份**：覆盖 `agents/L3_8card/patched/scheduler.py` 即完成上线阻塞。8 卡口径**未复核**【未确认】。 |
+| ★ `0001-8card-offload-scheduler.patch.py` | `f3a7a0053fc6c639150fdde2a2509a63` | **8 卡链专用的 `scheduler.py`**（= `L3_8card/patched/scheduler.py` 的 `f4de89d2…` + `043` 的 bpc 泄漏修复 + **`047` 的 `[APC_ALIGN]`**）。<br>★ **8 卡挂载链请用这一份**：覆盖 `agents/L3_8card/patched/scheduler.py` 即可。<br>⚠️ **8 卡口径未复核**【未确认】（`R_8card_int8` 正在验）。 |
 
 ---
 

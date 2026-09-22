@@ -51,6 +51,24 @@ P2_COMP_JSON=${P2_COMP_JSON:-'[[0],[1,2,3,4,5,6,7,8,9,10,11,12]]'}
 PGP_MGR_HARDEN=${PGP_MGR_HARDEN:-0}
 PGP_MGR_STATS=${PGP_MGR_STATS:-0}
 
+# ---------------------------------------------------------------- ★ int8 档（logs/047）
+# 档 C（容量 ×1.4655）：SWA 页 INT8 + ring16 + APC 对齐
+# 档 D（容量 ×1.9133）：再加 KV8 双平面 + prefill 融合
+# ★ 前置：VLLM_V41_APC_ALIGN=3 是它们能正确工作的前提（否则 D/F 几何会翻 token）
+KV8_SWA=${KV8_SWA:-0}        # 1 = SWA 页 INT8（档 C 起）
+KV8_RING_FP16=${KV8_RING_FP16:-0}  # 1 = state ring FP32→FP16（档 C 的必需前置）
+KV8_FULL=${KV8_FULL:-0}      # 1 = long-KV 也 INT8（档 D）
+KV8_PREFILL=${KV8_PREFILL:-0}  # 1 = prefill 融合 kernel（档 D）
+# ★ APC 对齐：0 = 旧行为；3 = 段栅格（推荐，档 C/D 必开）
+APC_ALIGN=${APC_ALIGN:-0}
+
+# ★ 开了 int8 就必须同时开 APC 对齐（否则 D/F 几何会翻 token，logs/047）
+if { [ "$KV8_SWA" = "1" ] || [ "$KV8_RING_FP16" = "1" ] || [ "$KV8_FULL" = "1" ]; } \
+   && [ "$APC_ALIGN" = "0" ]; then
+    echo "⚠⚠ 你开了 int8 但 APC_ALIGN=0 ⇒ 自动置 3（D/F 几何否则会翻 token，logs/047）" >&2
+    APC_ALIGN=3
+fi
+
 # 池后端：registered（aclrtHostRegister，推荐）/ pageable / pinned
 NPU_OFFLOAD_HOST_MEM=${NPU_OFFLOAD_HOST_MEM:-registered}
 
@@ -80,6 +98,16 @@ echo "  prefix_match_unit: $PREFIX_MATCH_UNIT"
 echo "  ENGRAM        : $ENGRAM"
 echo "  L1 (P2_POOL_PATCH): $P2_POOL_PATCH${P2_COMP_JSON:+  comp=$P2_COMP_JSON}"
 echo "  加固 PGP_MGR_HARDEN: $PGP_MGR_HARDEN（stats=$PGP_MGR_STATS）"
+if [ "$KV8_SWA" = "1" ] || [ "$KV8_RING_FP16" = "1" ] || [ "$KV8_FULL" = "1" ]; then
+    if [ "$KV8_FULL" = "1" ]; then
+        echo "  ★ int8 档 D: SWA=$KV8_SWA ring16=$KV8_RING_FP16 full=$KV8_FULL prefill=$KV8_PREFILL（容量 ×1.9133）"
+    else
+        echo "  ★ int8 档 C: SWA=$KV8_SWA ring16=$KV8_RING_FP16（容量 ×1.4655）"
+    fi
+    echo "  ★ APC_ALIGN=$APC_ALIGN（3 = 段栅格；档 C/D 的必需前提）"
+else
+    echo "  int8            : 关（档 B，容量 ×1.000 + L1）"
+fi
 echo "-------------------------------------------------------------"
 
 # ---------------------------------------------------------------- 补丁
@@ -121,6 +149,12 @@ case "$P2_POOL_PATCH" in
   1) : "${P2_COMP_JSON:?★ 开 L1 时必须给 P2_COMP_JSON（与张量数匹配，给错会 fail-closed）}"; export P2_COMP_JSON ;;
 esac
 export PGP_MGR_HARDEN PGP_MGR_STATS
+
+export VLLM_V41_KV8_SWA="$KV8_SWA" \
+       VLLM_V41_RING_FP16="$KV8_RING_FP16" \
+       VLLM_V41_KV8="$KV8_FULL" \
+       VLLM_V41_KV8_PREFILL="$KV8_PREFILL" \
+       VLLM_V41_APC_ALIGN="$APC_ALIGN"
 
 KV_ARGS="--prefix-match-unit $PREFIX_MATCH_UNIT \
 --kv-transfer-config {\"kv_connector\":\"OffloadingConnector\",\"kv_role\":\"kv_both\",\"kv_connector_extra_config\":{\"cpu_bytes_to_use\":$((OFFLOAD_GB * 1073741824)),\"blocks_per_chunk\":$BLOCKS_PER_CHUNK,\"spec_name\":\"NPUOffloadingSpec\",\"spec_module_path\":\"vllm_ascend.distributed.kv_transfer.kv_pool.kv_offload.native.npu\"}}"

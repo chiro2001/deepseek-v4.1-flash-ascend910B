@@ -349,6 +349,53 @@ def resolve_mamba_align_size(
     return mamba_align_size
 
 
+# --------------------------------------------------------------------------- #
+# [APC_ALIGN] 压缩层的命中长度对齐（`logs/047`，`Q_apcrecord`）
+#
+# 根因：上游 `kv_cache_manager.py` 的 `max_cache_hit_length = num_tokens - 1`
+#   只对齐到 `block_size`、【不知道模型的压缩比】⇒ 4096-token prompt 的命中边界
+#   = 4095（奇数）⇒ `compress_ratio=2` 的组跨在命中边界上
+#   ⇒ replay 时必须回读 compressor state ring 里 token 4094 那一行，
+#     而 state ring 组 `prefix_cacheable=False`、【不参与卸载】
+#   ⇒ 那一行的原始投影【从未被存过】⇒ int8 几何把它解读成 NaN ⇒ 翻 token（D/F ❌）。
+#
+# 修法：把命中长度向下对齐到【段栅格】= 参与卸载的 full-attention 组的
+#   `tokens_per_chunk`（V4.1 = 1024，运行期从 `kv_group_configs` 现算、非硬编码）。
+#   4096 → 命中边界 3072 ⇒ 落点正好是 store 侧【已经保留的段尾 chunk】
+#   ⇒ ★ store 侧零改动（`tail_extra = 0`），池需求不变（`021` 的 4.89× 不变）。
+#
+# 门控：`VLLM_V41_APC_ALIGN`，默认 0 = 逐字旧行为；`=3` = 段栅格模式。
+#   `ratio == 1` 时逐字 no-op（`(n-1) % 1 == 0`）⇒ 不影响其他模型。
+# 实测（`logs/047`，单卡 tiny）：D ❌14/16 → ✅0/16、F ❌15/16 → ✅0/16、
+#   C0 保持 ✅、容量 33,295 / 43,469 一字不变、反例臂 `=0` 逐字复现 ❌ 与 `6a47dd65f1ff`。
+# --------------------------------------------------------------------------- #
+def _apc_align_mode() -> int:
+    return _env_int("VLLM_V41_APC_ALIGN", 0, 0)
+
+
+def _apc_align_hit(cfg: "SchedulerOffloadConfig", value: int) -> int:
+    """把「池里能取回多少 token」向下对齐到段栅格（旧行为 = 原样返回）。"""
+    unit = int(getattr(cfg, "apc_align_unit", 0) or 0)
+    if unit <= 1 or value <= 0:
+        return value
+    return (value // unit) * unit
+
+
+def _apc_has_compressed_group(kv_cache_config: KVCacheConfig) -> bool:
+    """★ 只在**真的存在压缩组**（`compress_ratio > 1`）时才启用对齐。
+
+    为什么加这道门：`alignment_tokens` 对**任何**带 full-attention 组的模型都存在
+    （普通模型 = `block_size × bpc`，例如 1024）。若不加门，`VLLM_V41_APC_ALIGN=3`
+    会把**普通模型**的命中窗口也从 `n-1` 对齐到 1024 —— 那是纯粹的性能回退，
+    而且与"ring 跨边界"这个根因无关。
+    ⇒ 门控 = 至少一个组 `compress_ratio > 1`（V4.1 的 ratio-2 组）⇒ 普通模型逐字 no-op。
+    """
+    for group in kv_cache_config.kv_cache_groups:
+        if int(getattr(group.kv_cache_spec, "compress_ratio", 1) or 1) > 1:
+            return True
+    return False
+
+
 class SchedulerOffloadConfig(NamedTuple):
     kv_group_configs: tuple[GroupOffloadConfig, ...]
     blocks_per_chunk: int
@@ -356,6 +403,8 @@ class SchedulerOffloadConfig(NamedTuple):
     offload_prompt_only: bool
     # [SWA_pergroup] True ⇒ `blocks_per_chunk` 是 per-group 的（unit 池模式）。
     per_group_bpc: bool = False
+    # [APC_ALIGN] 段栅格（token 数）；0 = 关闭（逐字旧行为）。
+    apc_align_unit: int = 0
 
     @classmethod
     def from_spec(
@@ -527,6 +576,19 @@ class SchedulerOffloadConfig(NamedTuple):
             ),
             offload_prompt_only=spec.offload_prompt_only,
             per_group_bpc=bpc_map is not None,
+            # [APC_ALIGN] 段栅格 = 上面现算的 `alignment_tokens`
+            #   （= 参与卸载的 full-attention 组的 tokens_per_chunk，V4.1 = 1024）。
+            #   `alignment_tokens` 为 None（多值/不可用）时退回 0 ⇒ 逐字旧行为（安全）。
+            #   ★ 另加"必须真有压缩组"的门 ⇒ 普通模型（ratio=1）逐字 no-op。
+            apc_align_unit=(
+                int(alignment_tokens)
+                if (
+                    _apc_align_mode() >= 3
+                    and alignment_tokens
+                    and _apc_has_compressed_group(kv_cache_config)
+                )
+                else 0
+            ),
         )
 
 
@@ -951,6 +1013,12 @@ class OffloadingConnectorScheduler:
                 max_hit_size_tokens = round_down(
                     max_hit_size_tokens, self._mamba_align_size
                 )
+
+        # [APC_ALIGN] 压缩层的命中长度必须落在【段栅格】的整数倍上，
+        #   否则重算段会跨池化组边界（4096-token prompt 的 4095 ⇒ 组 (4094,4095) 跨边界
+        #   ⇒ 必须回读 state ring 里从未被存过的那一行 ⇒ int8 几何下翻 token）。
+        #   默认 `VLLM_V41_APC_ALIGN=0` ⇒ `apc_align_unit=0` ⇒ 逐字 no-op。
+        max_hit_size_tokens = _apc_align_hit(self.config, max_hit_size_tokens)
 
         num_hit_tokens: int = 0
         defer_lookup = False
