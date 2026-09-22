@@ -34,6 +34,15 @@ LEDGER=(
   "$PATCHES/kv8-graphsafe/apply_graphsafe.py|4be07bea6cc3127eb8715a1da81f583a|PASS"
   "$PATCHES/kv8-graphsafe/adapt_runner.py|d8e8864ea60ccc7e92d5d82b9e7050af|PASS"
   "$PATCHES/kv8-graphsafe/patch_serve_sg.sh||PASS"
+  # ★★★ 2026-09-22 15:2x：档 C/D 的另外 6 个整文件挂载件（此前发布包里只有 dsa_v41.py）
+  #   md5 与 R_8card_int8 的 arm.out 挂载台账逐字相同；档 C/D 的 8 卡臂在这套件上已 PASS
+  "$PATCHES/kv8-int8-pkg/vllm_ascend/core/deepseek_v41.py|9db8e27c01fb8d17811de17680b4a0d8|PASS"
+  "$PATCHES/kv8-int8-pkg/vllm_ascend/core/kv_cache_interface.py|7e17f7cae054f0b2339b41b7c3642f0e|PASS"
+  "$PATCHES/kv8-int8-pkg/vllm_ascend/models/deepseek_v41/model.py|fd7ff753a508c457e7f846ea589aaf7a|PASS"
+  "$PATCHES/kv8-int8-pkg/vllm_ascend/models/deepseek_v41/compressor.py|8a2be008ef405ab681728a275bcb5f77|PASS"
+  "$PATCHES/kv8-int8-pkg/vllm_ascend/ops/triton/compressor/compressor_triton.py|9362e72e3ea12e8344c4485104eab837|PASS"
+  "$PATCHES/kv8-int8-pkg/vllm_ascend/attention/kv8_prefill_triton.py|796d0ff6eda03716f31c9994b8d8b221|PASS"
+  "$PATCHES/kv8-int8-pkg/README.md||PASS"
   "$PATCHES/0001-offload-scheduler.patch.py|79001c2671fdbdcd8386cd4684ed4761|PASS"
   "$PATCHES/0001-8card-offload-scheduler.patch.py|f3a7a0053fc6c639150fdde2a2509a63|PASS"
   "$PATCHES/0002-offload-cpu-pool-host-registered.patch.py|2c161a791fe99f17cce2e1139ffbdc3c|PASS"
