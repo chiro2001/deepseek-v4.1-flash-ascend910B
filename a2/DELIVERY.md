@@ -341,14 +341,31 @@ pages = [65536,8192,128]×3 + [131072,16384,256] + [131072]×3 + [147712]（Σ=9
 ### 4.0 档 C / 档 D 的配置（**已验证**，`047`）
 
 ```bash
-# 在档 B 之上再加：
-export VLLM_V41_APC_ALIGN=3      # ★ 段栅格对齐（store 零改动 / 池需求不变）
-export VLLM_V41_KV8_SWA=1 \      # SWA 页 INT8（档 C）
-       VLLM_V41_RING_FP16=1 \    #  ★ ring16 是它的前置
-       VLLM_V41_KV8=1 \          # KV8 双平面（档 D 才有）
-       VLLM_V41_KV8_PREFILL=1    # prefill 融合（档 D 才有）
+# ★ 起服脚本已内置（a2/scripts/serve_a2_offload.sh），直接给这几个 env：
+KV8_SWA=1 KV8_RING_FP16=1 \                 # 档 C（容量 ×1.4655）
+KV8_SWA=1 KV8_RING_FP16=1 KV8_FULL=1 KV8_PREFILL=1 \   # 档 D（容量 ×1.9133）
+# APC_ALIGN 会自动置 3（若开了 int8 却没给；脚本会打印告警）
 # ★ 必挂 0001（scheduler 卸载补丁）——否则 assert isinstance(kv_cache_spec, FullAttentionSpec) 必炸
+# ★ 开 int8 后 P2_COMP_JSON 要换成 20 张量那套：[[0,2,3,4,5,6,7,8,9,10,11],[1]]
 ```
+
+**`[APC_ALIGN]` 已内联进 `publish/0001`（发布包自包含，不再是运行时补丁模块）**：
+| 文件 | md5 |
+|---|---|
+| `patches/0001-offload-scheduler.patch.py` | `79001c2671fdbdcd8386cd4684ed4761` |
+| `patches/0001-8card-offload-scheduler.patch.py`（8 卡链用这份） | `f3a7a0053fc6c639150fdde2a2509a63` |
+
+★ **两道安全门**（内联时新增第 2 道）：
+```
+① alignment_tokens is None（多值/不可用）⇒ 退回 0（逐字旧行为）
+② ★ 必须真有压缩组（compress_ratio > 1）才启用
+   —— 不加这道门，VLLM_V41_APC_ALIGN=3 会把【普通模型】的命中窗口也对齐到 1024
+      （alignment_tokens 对任何带 full-attention 组的模型都存在）
+      ⇒ 纯性能回退、且与"ring 跨边界"这个根因无关
+   ⇒ 普通模型（ratio=1）逐字 no-op
+```
+★ **离线自检**：`python3 a2/scripts/selftest_apc_align.py` ⇒ **38 PASS / 0 FAIL**（两版各 19），
+**并在发布仓库的副本上复跑通过**（证明脱敏没改坏补丁）。
 
 | 档 | 容量 | tiny `GPU KV cache size` | 16×128K 的池宿主 | J2 |
 |---|---:|---:|---:|---|
