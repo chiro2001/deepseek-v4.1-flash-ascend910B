@@ -309,6 +309,8 @@ def get_engram_host_inputs():
 # ★ `ids / num_tokens / num_computed` 都是 runner 侧**进程级、按请求行维护**的数组
 #   （零拷贝视图，逐请求原地更新）；`step` 只作日志/诊断，**不当门控**。
 _ENGRAM_ROW_TOKENS = {"ids": None, "num_tokens": None, "num_computed": None, "step": -1}
+# ★ [ENGRAM-PREVTOK-ERR] 计数"构造 prev_tok 失败"的次数（原来静默 return None，见下面那段注释）
+_PREVTOK_ERR = {"n": 0}
 
 
 def set_engram_row_tokens(ids=None, num_tokens=None, num_computed=None, step=-1, reason=None):
@@ -365,7 +367,25 @@ def _engram_build_prev_tok(pos_host, requests, n, lookback):
         #   统计量（build 阶段自己的 `unavailable`）本版不单独上报；真正有意义的
         #   计数在 `apply_repairs` 的 `absent/mismatch/filled/overwrote` 里。
         return build_prev_tok(ntok, pos_np, req_np, lookback, ids)[0]
-    except Exception:  # noqa: BLE001  ★ 任何异常都退回"今天的行为"，绝不把异常带进 forward
+    except Exception as _exc:  # noqa: BLE001
+        # ★★★ 2026-09-23 00:5x：**这里原来是静默 `return None`** ——
+        #   那是本仓反复出现的失败模式（`logs/079 §3` 同族：沉默 ≠ 没跑）：
+        #   一旦 `build_prev_tok` 抛异常（行越界 / 行宽不符 / numpy 不连续…），
+        #   整条"精确修补"就此**静默停用**，而日志里**一个字都没有**，
+        #   从外面看和"没开 TRUE_TOKENS"完全一样。
+        #   ⇒ 现在：**计数 + 每个 rank 只打印前 3 次**（含异常类型与首帧，便于定位）。
+        #   ★ 为什么不是硬 raise：A2 生产是"宁可降级也不许挂"的场景；
+        #     但它**绝不静默**（与 `engram_hash` 里 pageless 提示的处理一致）。
+        _PREVTOK_ERR["n"] = _PREVTOK_ERR["n"] + 1
+        if _PREVTOK_ERR["n"] <= 3:
+            import traceback as _tb
+            _fr = _tb.extract_tb(_exc.__traceback__)[-1] if _exc.__traceback__ else None
+            print("[ENGRAM-PREVTOK-ERR] #%d 发布/构造 prev_tok 失败 ⇒ **精确修补静默停用**（退化为 pad 兜底）："
+                  "%s: %s @ %s:%s"
+                  % (_PREVTOK_ERR["n"], type(_exc).__name__, _exc,
+                     (getattr(_fr, "filename", "?") if _fr else "?"),
+                     (getattr(_fr, "lineno", "?") if _fr else "?")),
+                  flush=True)
         return None
 
 
