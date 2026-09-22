@@ -56,6 +56,28 @@ PGP_MGR_STATS=${PGP_MGR_STATS:-0}
 # 档 C（容量 ×1.4655）：SWA 页 INT8 + ring16 + APC 对齐
 # 档 D（容量 ×1.9133）：再加 KV8 双平面 + prefill 融合
 # ★ 前置：VLLM_V41_APC_ALIGN=3 是它们能正确工作的前提（否则 D/F 几何会翻 token）
+#
+# ★★★ 2026-09-22 16:5x **防"用内部名当外部接口"**（这是本日第 4 次同类静默失败，见 logs/065 §3/§3b.0）
+#   本脚本有两套名字，方向是**单向**的：
+#       用户接口（本文件读）  : KV8_SWA / KV8_RING_FP16 / KV8_FULL / KV8_PREFILL / APC_ALIGN / GRAPH_SAFE
+#       内部名（本文件写出去）: A2_KV8_SWA / A2_RING_FP16 / A2_KV8 / A2_KV8_PREFILL / A2_APC_ALIGN / A2_GRAPH_SAFE
+#                              ↑ 由本文件末尾 export 给 shadow 包的挂载块
+#   ⇒ 若用户**在外面传 `A2_*`**，本文件会读不到它（读到默认 0），随后**用 0 覆盖它**：
+#       现象【实测】：档位自报 **B**（不是 C）、`APC_ALIGN=0`（会翻 token）、`GRAPH_SAFE=0`（图模式捕获期炸 EE1016）；
+#         而 shadow 的挂载块**可能照样挂上 7 件**（若同时传了 `A2_RING_FP16`）⇒ 看起来"int8 开了"，
+#         实际两个致命开关都是 0。**比不挂更危险。**
+#   ⇒ 因此：**只要检测到用户传了任一 `A2_*`，直接 fail-closed（exit 64）**，并要求改用 `KV*` 那套。
+for _v in A2_KV8 A2_KV8_SWA A2_RING_FP16 A2_KV8_PREFILL A2_APC_ALIGN A2_GRAPH_SAFE A2_KV8_GRAPHSAFE; do
+    if [ -n "${!_v:-}" ]; then
+        echo "⛔ 检测到你在外面设了内部变量 ${_v}=${!_v} —— 这是本脚本**向下**翻译给 shadow 用的名字，不是用户接口。" >&2
+        echo "   ⇒ 本脚本会读不到它、并用默认 0 覆盖 ⇒ 档位会被误判成 B、APC_ALIGN/GRAPH_SAFE 都不生效" >&2
+        echo "      （现象：int8 文件挂上了，但会翻 token / 图模式捕获期炸）。" >&2
+        echo "   ⇒ 请改用用户接口：KV8_SWA / KV8_RING_FP16 / KV8_FULL / KV8_PREFILL / APC_ALIGN / GRAPH_SAFE" >&2
+        echo "      例：KV8_SWA=1 KV8_RING_FP16=1 bash a2/scripts/serve_a2_offload.sh" >&2
+        exit 64
+    fi
+done
+
 KV8_SWA=${KV8_SWA:-0}        # 1 = SWA 页 INT8（档 C 起）
 KV8_RING_FP16=${KV8_RING_FP16:-0}  # 1 = state ring FP32→FP16（档 C 的必需前置）
 KV8_FULL=${KV8_FULL:-0}      # 1 = long-KV 也 INT8（档 D）
