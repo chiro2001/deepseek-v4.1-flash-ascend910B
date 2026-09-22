@@ -184,6 +184,38 @@ A2 已测（用户 16:32 的探针）：
 
 **每期都内置 floor 保护**（`A2PROBE_FLOOR_GIB`），不够就**跳过并报告**，不硬撑。
 
+### 4.4 ★ 探针已写好：`a2/scripts/a2_multiproc_reg_probe.sh`
+
+```bash
+# 在 A2 宿主上（脚本自己 docker exec 进服务容器）——★ 服务不用停
+# S1（先跑这个）
+A2_CONTAINER=dsv41-a2 NPROC=8 PER_PROC_GIB=4  A2PROBE_FLOOR_GIB=300 \
+  bash a2/scripts/a2_multiproc_reg_probe.sh
+# S2（S1 通过后）
+A2_CONTAINER=dsv41-a2 NPROC=8 PER_PROC_GIB=16 A2PROBE_FLOOR_GIB=300 \
+  bash a2/scripts/a2_multiproc_reg_probe.sh
+```
+
+**它做了什么**（与单进程探针的关键区别）：
+1. 起 **N 个进程**（默认 8 = TP8），第 i 个用第 i 张卡（贴近生产）；
+2. 每进程分配 `PER_PROC_GIB` 的**普通**（pageable）host 内存；
+3. ★ **在 barrier 处等齐，然后所有进程同时 `aclrtHostRegister(MAPPED)`** ——
+   串行注册测不出争用，这一步才是"并发"的关键；
+4. 在 256 MiB 切片上做**真实 H2D→D2H 逐字节对账**（与单进程探针同一条判据）；
+5. 保持 3 s（让 N 个进程真的**同时持有**），再注销；
+6. 逐进程打印 `reg_ok / reg_s / xfer_ok / rss_before / rss_after / H2D`。
+
+**判据与退出码**：
+```
+rc=0   ⇒ ★ 全部进程注册 + 设备往返判据都通过
+rc=65  ⇒ ⏹ **拒绝运行**（余量不足）—— 这是**保底行为，不是失败**
+rc=1   ⇒ ⛔ 没有全过（部分失败 / 往返判据不过）—— ★ 这正是本探针要找的东西
+```
+★ **`rss_before` / `rss_after` 两列**顺便回答 `logs/030` 留下的那个问题：
+"第一次 `aclrtHostRegister` 一次性多花多少常驻内存"（A3 上是 ~589 MiB/次，A2 未测）。
+
+★ **fail-closed 已实测**：需求超出余量时**在起进程前**就拒绝（不静默降级成"跑了几期"）。
+
 ★ **S3 的建议**：如果 S2 通过，S3 其实**可以在正式上线的那个窗口里顺便验证** ——
 因为上线本身就要注册 392 GiB。把它当成上线时的第一个判据（§5 第 3 步），而不是单独冒一次风险。
 
