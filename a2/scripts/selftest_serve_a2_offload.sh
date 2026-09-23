@@ -213,6 +213,38 @@ if grep -E "KV_ARGS_EXTRA=.*kv-transfer-config" "$OUTF" >/dev/null; then
     printf '⛔ [⑬c KV_ARGS 仍带 kv-transfer-config]\n'; V=1
 else printf '✓ [⑬c KV_ARGS 已去掉 kv-transfer-config]\n'; fi
 
+say "⑬d ★ BAT_TOKENS 默认必须是 8192（= 模板默认；2048 是已知的长上下文退化开关）"
+# 为什么单列：`8eb2613` 把**模板**默认改成 8192 修乱码，而本包装脚本是后来写的、
+#   第 584 行**显式**传 BAT_TOKENS 下去 ⇒ 包装脚本的默认值必然覆盖模板。
+#   曾经这里是 `:-2048` ⇒ 用包装脚本起服 = 退回修复前（1M 下 256 刀 ⇒ 通过率≈0）。
+# ★ 判据绑**权威对象**：脚本里那行 `BAT_TOKENS=${BAT_TOKENS:-N}` 的 N。
+#   （干跑输出里**没有**这个字符串 —— 第一版拿干跑日志判，误报"不是 8192"。）
+# ★ 注意 `-oE '[0-9]+$'` 抓不到 —— 值后面紧跟 `}`，`$` 锚不匹配（实测踩到）。
+#   改成在完整匹配 `BAT_TOKENS=${BAT_TOKENS:-NNN}` 上取 `:-` 与 `}` 之间的数字。
+_bat_line=$(grep -oE 'BAT_TOKENS=\$\{BAT_TOKENS:-[0-9]+\}' "$SRC_REPO/$SCRIPT_REL" | head -1)
+_bat_def=$(printf '%s' "$_bat_line" | sed -n 's/.*:-\{0,1\}\([0-9]\{1,\}\)}.*/\1/p')
+if [ "${_bat_def:-}" = "8192" ]; then
+    printf '✓ [⑬d-2 默认 BAT_TOKENS=8192（读脚本源码，值=%s）]\n' "$_bat_def"
+else
+    printf '⛔ [⑬d-2 默认 BAT_TOKENS=%s（期望 8192；2048 是长上下文退化开关）]\n' "${_bat_def:-读不到}"; V=1
+fi
+run_case batdefault ENGRAM=0; check "⑬d-1 起服 rc=0" 0 $? ''
+# ★ 反向对照：默认 8192 时**不许**打印那条警告（否则说明警告条件写错了）
+if grep -q "长上下文退化" "$OUTF"; then
+    printf '⛔ [⑬d-2b 默认 8192 却打印了退化警告]\n'; V=1
+else
+    printf '✓ [⑬d-2b 默认 8192 不打印警告]\n'
+fi
+if grep -aoE "BAT_TOKENS=[0-9]+" "$OUTF" | grep -qv "BAT_TOKENS=8192"; then
+    printf '⛔ [⑬d-3 出现了非 8192 的 BAT_TOKENS]\n'; V=1
+else
+    printf '✓ [⑬d-3 没有非 8192 的默认]\n'
+fi
+# 反例：显式给 2048 时必须**响亮警告**（不许静默退回）
+run_case bat2048 ENGRAM=0 BAT_TOKENS=2048
+if grep -q "长上下文退化" "$OUTF"; then printf '✓ [⑬d-4 显式 2048 会警告]\n'
+else printf '⛔ [⑬d-4 显式 2048 没警告]\n'; V=1; fi
+
 say "⑭ ★ PLAT=a3 × OFFLOAD=0 × int8 ⇒ A3 默认值全保留、只有卸载被关掉（**A3 测试脚本的核心判据**）"
 # 为什么单列一条：A3 是**另一台机器、另一个镜像、另一批卡**，而 `OFFLOAD=0` 的实现是
 #   "不导出两个补丁开关"。两者**相乘**的组合此前从未被测过 ⇒ 一旦哪天真在 A3 上用它排查，

@@ -120,7 +120,9 @@ SERVED_NAME=${SERVED_NAME:-$([ "$PLAT" = "a3" ] && echo deepseek-v41 || echo dee
 #   32K x 16 并发  -> OFFLOAD_GB=10
 # ★★★ 2026-09-23 09:2x 默认值对齐 **A2 生产**（用户要求 maxlen 改 1M）
 #   生产配置（`a2/docs/A2-ENGRAM-PATHS.md:172` 逐字，实测 3,498,354 tokens）：
-#       OFFLOAD_GB=85 MAX_LEN=1048576 MAX_SEQS=4 BAT_TOKENS=2048
+#       OFFLOAD_GB=85 MAX_LEN=1048576 MAX_SEQS=4
+#   ★★ 注意：那份文档快照里还写着 `BAT_TOKENS=2048`，**不要照抄那一个** ——
+#      2048 是 2026-09-18 修复**之前**的值，见下面 BAT_TOKENS 那一段。
 #   两个独立理由支持 1M 是**默认**（不是"为了测大上下文才开"）：
 #     ① `scripts/serve_a2.sh:87` 的默认本来就是 `MAX_LEN=1048576` —— 本包装脚本此前是 131072，
 #        属于"两处默认不一致"（与刚修的 IMAGE 空默认值同一类）；空/短默认会让门拦错的理由。
@@ -138,10 +140,26 @@ OFFLOAD_GB=${OFFLOAD_GB:-85}
 #   ★ 与 `scripts/serve_a2.sh` 直接起服的区别：那条路连 int8/draft 入图也要跟着一起判，
 #     不是单变量；而且它没有我们这几天修的那些默认值（DRAFT_GRAPH、1M 几何、P2 分量…）。
 #   用法：`OFFLOAD=0 bash a2/scripts/serve_a2_offload.sh`
+# ★★★ 2026-09-23 14:5x **修一处"把修复前的值当默认"的回归**（本脚本自己是元凶）：
+#   症状（用户报）：新分支的默认启动参数下 **prefill batch size = 2048**，
+#     而长上下文又出乱码 —— 与「解决过的乱码问题回来了」完全吻合。
+#   机制（三条都可复算）：
+#     ① 乱码的根因修复是 `8eb2613`「BAT_TOKENS 2048 -> 8192，修复长上下文输出退化」，
+#        它把 **`scripts/serve_a2.sh`** 的默认改成 8192（main 上现在是 `:-8192`）；
+#     ② 本脚本是**后来写的包装脚本**，第 564 行会**显式** `BAT_TOKENS="$BAT_TOKENS"`
+#        传给模板 ⇒ 本脚本的默认值**必然覆盖**模板的 8192；
+#     ③ 而本脚本此处写的是 `:-2048` ⇒ **用包装脚本起服 = 退回修复前**。
+#   代价（`reports/longctx-accuracy-fix.md` 的实测曲线，机制是
+#     `失败率 ≈ 1 − 0.98^chunk数`，chunk 数 = ceil(prompt / BAT)）：
+#       BAT=2048 时 60K→30 刀 5/10、80K→40 刀 3/10、150K→74 刀 ~0%、260K→127 刀 ~0%；
+#       BAT=8192 时同样几档全部 10/10 / 6/6。
+#       而我们的默认上下文是 **1M** ⇒ 524288 ÷ 2048 = **256 刀** ⇒ 通过率 ≈ 0。
+#   ⇒ 默认改回 **8192**（与模板一致）；要退回 2048 必须**显式**给（脚本会响亮警告）。
+#   ★ 这也是本仓第 N 次"同一个东西两处默认不一致" ⇒ 下面加了**一致性断言**防复发。
 OFFLOAD=${OFFLOAD:-1}
 MAX_LEN=${MAX_LEN:-1048576}
 MAX_SEQS=${MAX_SEQS:-4}
-BAT_TOKENS=${BAT_TOKENS:-2048}
+BAT_TOKENS=${BAT_TOKENS:-8192}
 
 # ★★★ 2026-09-23 10:1x 补一个**会静默关掉四轴之一的默认值**：`DRAFT_GRAPH`
 #   事实（三条，都能复算）：
@@ -188,6 +206,19 @@ P2_POOL_PATCH=${P2_POOL_PATCH:-1}
 #   ⇒ 默认开；要退回旧的 monkeypatch 路线（**已知会在 dict 下崩**）才显式置 0。
 L1_POOL_PATCH=${L1_POOL_PATCH:-1}
 L1_POOL_DIR=${L1_POOL_DIR:-$A2DIR/patches/kv8-offload-pool}
+
+# ★★ 参数一致性守卫（放在**所有参数都定义之后** —— 第一版放在 BAT_TOKENS 定义处，
+#   那里 `OFFLOAD/MAX_LEN/MAX_SEQS` 还没被 PLAT 块赋值 ⇒ 直接踩 `set -u` 崩掉。教训同族：
+#   **脚本里"定义顺序"也是判据的一部分**（见 selftest_serve_a2_offload.sh 的注释）。
+if [ "${BAT_TOKENS:-8192}" != "8192" ]; then
+    echo "⚠️⚠️ BAT_TOKENS=$BAT_TOKENS ≠ 8192 —— 低于 8192 是**长上下文退化的已知开关**：" >&2
+    echo "     chunked prefill 每切一刀一次独立'偏离'（约 2%/chunk，误差沿 chunk 累积）" >&2
+    echo "     ⇒ 失败率 ≈ 1 − 0.98^(prompt/BAT)；1M 上下文下 2048 ⇒ 256 刀 ⇒ 通过率 ≈ 0。" >&2
+    echo "     若非刻意做对照，请去掉 BAT_TOKENS 用默认 8192。" >&2
+fi
+if [ "${MAX_SEQS:-4}" != "4" ] && [ "${MAX_LEN:-1048576}" -ge 524288 ] 2>/dev/null; then
+    echo "   （提示：MAX_SEQS=$MAX_SEQS 且上下文 $(( MAX_LEN / 1024 ))K —— 生产口径是 MAX_SEQS=4）" >&2
+fi
 
 # ★★★ 2026-09-23 12:2x **修一处"打印的配置 ≠ 实际生效的配置"**（本仓同族第 N 次）
 #   现象（A3 沙箱自测 ⑭i 抓到）：`PLAT=a3 OFFLOAD=0 KV8_SWA=1` 时，

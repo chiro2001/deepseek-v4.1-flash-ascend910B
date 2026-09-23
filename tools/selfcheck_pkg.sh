@@ -188,6 +188,23 @@ else
   warn "缺 a2/scripts/selftest_serve_a2_offload.sh（无法自动抓"变量未定义"这类崩溃）"
 fi
 
+# ------------------------------------------------- 9a) ★ 两处 BAT_TOKENS 默认必须一致
+# 乱码根因修复(`8eb2613`)改的是**模板** scripts/serve_a2.sh；而 a2/scripts/serve_a2_offload.sh
+#   **显式**把 BAT_TOKENS 传给模板 ⇒ 包装脚本的默认值会覆盖模板。两者不一致时，
+#   用包装脚本起服就会静默退回修复前（1M 下 2048 ⇒ 256 刀 ⇒ 通过率≈0）。
+# ★ 取值不能用 `grep -oE '[0-9]+$'` —— 值后面紧跟 `}`，`$` 锚不匹配（实测踩到，导致本项一直
+#   "读不到"却仍打印 OK 的假象）。改用 sed 在完整串上取 `:-` 与 `}` 之间的数字。
+_bat_of() { grep -oE 'BAT_TOKENS=\$\{BAT_TOKENS:-[0-9]+\}' "$1" 2>/dev/null | head -1 \
+              | sed -n 's/.*:-\{0,1\}\([0-9]\{1,\}\)}.*/\1/p'; }
+_tmpl=$(_bat_of scripts/serve_a2.sh)
+_wrap=$(_bat_of a2/scripts/serve_a2_offload.sh)
+if [ -n "$_tmpl" ] && [ -n "$_wrap" ]; then
+  if [ "$_tmpl" = "$_wrap" ]; then ok "BAT_TOKENS 默认一致：模板=$_tmpl 包装=$_wrap"
+  else bad "BAT_TOKENS 默认**不一致**：模板=$_tmpl 包装=$_wrap ⇒ 用包装脚本起服会退回 $_wrap（长上下文退化）"; fi
+else
+  warn "读不到 BAT_TOKENS 默认（模板='$_tmpl' 包装='$_wrap'）"
+fi
+
 # ------------------------------------------------- 9aa) shadow 生成物回归（重复挂载/孤立 -v）
 # 2026-09-23 真机两次踩到、且 `bash -n` 查不出来：① int8 块与生产块挂同一目标 ⇒ docker
 #   `Duplicate mount point`；② 去重只删一半 ⇒ 留孤立 `-v` ⇒ `invalid reference format.`
