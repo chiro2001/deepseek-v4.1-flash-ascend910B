@@ -617,6 +617,36 @@ class DeepseekV41Attention(DeepseekV4Attention):
         torch.ops.vllm.dsa_v41_forward(hidden_states, output, self.v41_layer_name)
         return output
 
+    def write_global_source_only(self, normalized_hidden_states):
+        """Write layer 20's CSA2 source without running its query or attention.
+
+        CED prefill obtains this layer's main KV and Indexer K from the final
+        encoder state.  Reuse the regular attention implementation's writer so
+        the cache layout, RoPE and slot mapping stay identical.  This method
+        deliberately produces no SWA KV, attention output or logits; callers
+        must use it only inside a dedicated producer phase.
+        """
+        if self.role.layer_idx != 20 or not self.role.is_kv_source or self.role.compress_ratio != 1:
+            raise ValueError("CED source-only write requires the ratio-1 Full layer at index 20")
+        forward_context = get_forward_context()
+        if forward_context.attn_metadata is None:
+            return 0
+        metadata = self.v41_impl._get_layer_metadata(forward_context.attn_metadata)
+        num_tokens = metadata.swa.num_actual_tokens
+        if not num_tokens:
+            return 0
+        positions = metadata.positions[:num_tokens]
+        cos, sin = metadata.rope(self.rotary_emb.layername, num_tokens)
+        self.v41_impl._write_compressed_source(
+            self,
+            normalized_hidden_states[:num_tokens],
+            positions,
+            cos,
+            sin,
+            metadata,
+        )
+        return num_tokens
+
 
 class DeepseekV41DecoderLayer(DeepseekV2DecoderLayer):
     """V4.1 block with the checkpoint's delayed mHC coefficient handoff."""
@@ -668,6 +698,25 @@ class DeepseekV41DecoderLayer(DeepseekV2DecoderLayer):
             post.unsqueeze(0),
             comb.unsqueeze(0),
         ).squeeze(0)
+
+    def write_global_source_from_encoder(self, hidden_states, pre_mix):
+        """Project the CED decoder's global source from encoder output H20.
+
+        The normal layer-20 forward feeds ``hc_pre -> input_layernorm`` into
+        attention before writing its source.  Preserve that exact input path;
+        the surrounding layer's SWA, MoE and mHC post are not run here.
+        """
+        if self.layer_idx != 20:
+            raise ValueError("CED decoder source projection belongs to layer 20")
+        x, _, _, _ = self.hc_pre(
+            hidden_states,
+            self.hc_attn_fn,
+            self.hc_attn_scale,
+            self.hc_attn_base,
+            pre_mix,
+        )
+        x = self.input_layernorm(x)
+        return self.self_attn.write_global_source_only(x)
 
     def forward(
         self,
