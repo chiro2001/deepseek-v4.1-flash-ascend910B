@@ -34,6 +34,9 @@ NPU_SMI=${NPU_SMI:-npu-smi}
 DEVS=${DEVS:-""}
 IMAGE=${IMAGE:-quay.nju.edu.cn/ascend/vllm-ascend:deepseek-v4.1-flash-a3}
 RUN_HCCL_TEST=${RUN_HCCL_TEST:-0}
+# 每个 rank 的峰值常驻内存（GB）。实测锚点（a3-21 的 dmesg）：anon-rss ≈ **92 GB/worker**
+#   ⇒ 一个 NUMA 节点的空闲 < 这根线，那个 rank 就有被 OOM 的风险。
+RANK_MEM_GB=${RANK_MEM_GB:-100}
 SERVE_LOG=${SERVE_LOG:-}
 
 say() { printf '\n\033[1m======== %s ========\033[0m\n' "$*"; }
@@ -143,10 +146,17 @@ echo "    正是你看到的那条 **unconnected ranks: [N,]**。"
 echo "    dmesg 里的铁证形态：oom-kill:constraint=CONSTRAINT_CPUSET ... mems_allowed=<单个节点掩码>"
 echo "    ⇒ 即使整机还有大量空闲内存，**被绑到的那一个节点**不够就会杀进程。"
 if command -v numactl >/dev/null 2>&1; then
-    echo "  各节点空闲（MB）；<120000 就要警惕："
+    echo "  各节点空闲（实测锚点：每个 rank 峰值 ≈ ${RANK_MEM_GB} GB ⇒ 低于这根线的节点上的 rank 会被 OOM）："
     numactl -H 2>/dev/null | awk '/^node [0-9]+ free:/{printf "        node %-3s free=%s MB\n", $2, $4}'
-    _low=$(numactl -H 2>/dev/null | awk '/^node [0-9]+ free:/ && $4+0 < 120000 {printf " node%s(%sMB)", $2, $4}')
-    [ -n "$_low" ] && warn "低空闲节点：$_low"
+    _low=$(numactl -H 2>/dev/null | awk -v t="$((RANK_MEM_GB * 1024))" '/^node [0-9]+ free:/ && $4+0 < t {printf " node%s(%sMB)", $2, $4}')
+    _ok=$(numactl -H 2>/dev/null | awk -v t="$((RANK_MEM_GB * 1024))" '/^node [0-9]+ free:/ && $4+0 >= t {printf " node%s(%sMB)", $2, $4}')
+    if [ -n "$_low" ]; then
+        warn "低于 ${RANK_MEM_GB}GB 的节点：$_low"
+        echo "        ⇒ 落在这几个节点上的卡，起服时那个 rank 有 OOM 风险（dmesg 实证形态："
+        echo "           oom-kill:constraint=CONSTRAINT_CPUSET ... mems_allowed=<单个节点掩码>）"
+    fi
+    [ -n "$_ok" ] && ok "够用的节点：$_ok"
+    echo "        （阈值可用 RANK_MEM_GB=<GB> 调整；a3-21 实测 node0/1/4/5/6/7 只有 0.7–9 GB 空闲）"
 else
     warn "没有 numactl ⇒ 跳过（也可看 /sys/devices/system/node/node*/meminfo）"
 fi
@@ -162,6 +172,17 @@ if command -v "$NPU_SMI" >/dev/null 2>&1; then
         printf '        device %-3s bus=%-14s NUMA=%s\n' "$_c" "${_b:-?}" "$_n"
     done
     echo "        ★ 若某张卡的节点正好是上面低空闲的那个 ⇒ 优先怀疑它（换卡，或用 CPU_BIND=0）"
+fi
+# ★ 很多 A3 上 sysfs 对 NPU 设备报 NUMA=-1（本机实测：8 张里 4 张如此）⇒ 真映射要从
+#   vLLM 自己的 cpu_binding 日志里读（它会打 `[migrate] NPU:N -> NUMA [M]`）。有 SERVE_LOG 就抽出来。
+if [ -n "$SERVE_LOG" ] && [ -f "$SERVE_LOG" ]; then
+    _map=$(grep -a -oE "\[migrate\] NPU:[0-9]+ -> NUMA \[[0-9]+\]" "$SERVE_LOG" 2>/dev/null | sort -u | head -12)
+    if [ -n "$_map" ]; then
+        echo "  服务日志里 vLLM 自报的卡→节点映射（**这份才是真值**）："
+        printf '%s\n' "$_map" | sed 's/^/        /'
+    else
+        echo "  （服务日志里没有 [migrate] 行 —— 可能 CPU_BIND=0，或起服还没走到绑核那一步）"
+    fi
 fi
 echo '  逃生口（本仓已记录）：CPU_BIND=0 —— 不做内部绑核/迁移，先让服务起来：'
 echo "        DEVS=\"$DEVS\" CPU_BIND=0 LAUNCH=1 bash tools/deploy_a3.sh"
