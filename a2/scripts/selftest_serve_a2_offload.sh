@@ -213,6 +213,31 @@ if grep -E "KV_ARGS_EXTRA=.*kv-transfer-config" "$OUTF" >/dev/null; then
     printf '⛔ [⑬c KV_ARGS 仍带 kv-transfer-config]\n'; V=1
 else printf '✓ [⑬c KV_ARGS 已去掉 kv-transfer-config]\n'; fi
 
+say "⑭ ★ PLAT=a3 × OFFLOAD=0 × int8 ⇒ A3 默认值全保留、只有卸载被关掉（**A3 测试脚本的核心判据**）"
+# 为什么单列一条：A3 是**另一台机器、另一个镜像、另一批卡**，而 `OFFLOAD=0` 的实现是
+#   "不导出两个补丁开关"。两者**相乘**的组合此前从未被测过 ⇒ 一旦哪天真在 A3 上用它排查，
+#   可能踩到"关卸载把平台默认值也一起带偏"这类错（本仓同族第 N 次）。
+run_case a3off0 PLAT=a3 ENGRAM=0 KV8_SWA=1 KV8_RING_FP16=1 OFFLOAD=0
+check "⑭a A3+OFFLOAD=0 起服"            0 $? '关得干净'            'unbound variable'
+check "⑭b A3 DEVS 未被带偏"             0 $? 'DEVS=8 9 10 11 12 13 14 15' 'unbound variable'
+check "⑭c A3 PATCH_MODE=mount 保留"     0 $? 'PATCH_MODE=mount'     'unbound variable'
+check "⑭d A3 入口仍是 serve_a3.sh"      0 $? 'serve_a3.sh'          'unbound variable'
+check "⑭e int8 档 C 仍自报"             0 $? '档位        : C'      'unbound variable'
+check "⑭f draft 入图仍是 1（四轴不许被卸载开关带走）" 0 $? 'draft 入图    : DRAFT_GRAPH=1' 'unbound variable'
+check "⑭g 1M 几何保留"                  0 $? '上下文/并发   : 1048576 / 4' 'unbound variable'
+check "⑭j A3 服务名=deepseek-v41（与 serve_a3.sh 及全仓工具一致）" 0 $? '服务名        : deepseek-v41' 'unbound variable'
+# ★ 判据必须绑**真实对象**：① 挂载行的**容器内目标路径**；② `KV_ARGS_EXTRA=` 的**值**。
+#   ★ 不许直接 grep `kv-transfer-config` —— OFFLOAD=0 的**说明文字**里就有这个词
+#     （第一版就是这么写的，结果**误报**；同族教训见 logs/124 "判据绑错对象"）。
+if grep -qE "/vllm-workspace/vllm/vllm/distributed/kv_transfer" "$OUTF"; then
+    printf '⛔ [⑭h A3+OFFLOAD=0 仍挂了卸载件（挂载目标路径命中）]\n'; V=1
+elif grep -qE "KV_ARGS_EXTRA=.*kv-transfer-config" "$OUTF"; then
+    printf '⛔ [⑭h A3+OFFLOAD=0 仍带 kv-transfer-config（KV_ARGS_EXTRA 命中）]\n'; V=1
+else printf '✓ [⑭h A3+OFFLOAD=0 无卸载件/无 kv-transfer-config（判据绑挂载目标与 KV_ARGS 值）]\n'; fi
+if grep -q "L1 (P2_POOL_PATCH): 1" "$OUTF"; then
+    printf '⛔ [⑭i 卸载关了但 L1 池补丁还开着（没有消费者的开关）]\n'; V=1
+else printf '✓ [⑭i L1 池补丁随卸载一起关（不留无消费者的开关）]\n'; fi
+
 say "结果"
 if [ "$V" = "0" ]; then echo "✅ 全部通过"; else echo "⛔ 有用例失败"; fi
 exit $((V * 9))

@@ -99,7 +99,17 @@ export DEVS NAME PATCH_MODE PYTHON_PGO
 # （IMAGE/PORT 由上方 PLAT 块给默认）
 GPU_UTIL=${GPU_UTIL:-0.90}
 # （IMAGE/PORT 由上方 PLAT 块给默认）
-SERVED_NAME=${SERVED_NAME:-deepseek-v4-flash}
+# ★★★ 2026-09-23 12:3x **`SERVED_NAME` 也必须按平台给默认值**（A3 实测 DRY 抓到）
+#   现象：A3 干跑输出 `served_name=deepseek-v4-flash`，而 `scripts/serve_a3.sh:36` 的默认是
+#     **`deepseek-v41`**（= 全仓工具的统一默认：`tests/t_quote.sh:7`、`tools/bench_concurrency.py:434`、
+#      `tools/attach_test.sh:37` … 都写 `deepseek-v41`，且 t_quote 原文写着"改服务名时同步设它，否则请求会 404"）。
+#   危害：本脚本把 `SERVED_NAME` **显式传下去** ⇒ 平台默认**必然被覆盖** ⇒ 用 A3 默认名
+#     （`deepseek-v41`）的客户端/工具全部 **404**，而服务本身健康 —— 很容易误判成"模型坏了"。
+#   ★ 为什么 A2 不跟着改成 deepseek-v41：A2 上**已经跑着**的服务就是 `deepseek-v4-flash`，
+#     静默改服务名会让用户的外部队列/客户端在下次重启后 404。**改默认必须显式**：
+#       SERVED_NAME=deepseek-v41 bash a2/scripts/serve_a2_offload.sh
+#     （A2 的模板默认确实是 deepseek-v41 —— 这条差异会**打印出来**，不再静默。）
+SERVED_NAME=${SERVED_NAME:-$([ "$PLAT" = "a3" ] && echo deepseek-v41 || echo deepseek-v4-flash)}
 
 # ---------------------------------------------------------------- ★ 档位
 # 档 A（默认，8 卡真权重已验，logs/027）：
@@ -178,6 +188,18 @@ P2_POOL_PATCH=${P2_POOL_PATCH:-1}
 #   ⇒ 默认开；要退回旧的 monkeypatch 路线（**已知会在 dict 下崩**）才显式置 0。
 L1_POOL_PATCH=${L1_POOL_PATCH:-1}
 L1_POOL_DIR=${L1_POOL_DIR:-$A2DIR/patches/kv8-offload-pool}
+
+# ★★★ 2026-09-23 12:2x **修一处"打印的配置 ≠ 实际生效的配置"**（本仓同族第 N 次）
+#   现象（A3 沙箱自测 ⑭i 抓到）：`PLAT=a3 OFFLOAD=0 KV8_SWA=1` 时，
+#     头部打印写 `L1 (P2_POOL_PATCH): 1`，而**真正导出给 shadow 的是 0**
+#     —— 因为把 0 的那个 override 写在**导出段（约第 618 行）**，晚于头部打印（约第 406 行）。
+#   危害：这是"判据绑错对象"的翻版 —— 排查时你会照着**打印值**判断"L1 还开着"，
+#     而实际关着（或反过来）。⇒ 现在把 override **提到参数区**，一处生效、一处打印、一处导出。
+#   （`OFFLOAD=0` ⇒ 没有宿主池 ⇒ L1 这个 patch 没有消费者，必须一起关。）
+if [ "$OFFLOAD" != "1" ]; then
+    P2_POOL_PATCH=0
+    L1_POOL_PATCH=0
+fi
 
 # ★ [DROPCACHE] 起服前清 page cache。**整机**生效，会连带清掉同机其它租户的 page cache。
 #   ★ 默认值**由上方 PLAT 块给**（A2 独占机 = 1；★ **A3 共用机 = 0**，避免打到别人）。
@@ -369,6 +391,12 @@ else
     echo "  镜像          : $IMAGE（baked 模式 ⇒ ★ 必须自带 ENGRAM×卸载 的 P0 修复；指纹门会核对）"
 fi
 echo "  profiler      : PROFILE=${V41_PROFILE:-${PROFILE:-0}}（1 ⇒ /start_profile 与 /stop_profile 可用；产物落 $LAUNCH_DIR/results/<RUN_ID>/prof）"
+echo "  服务名        : $SERVED_NAME（★ API body 里的 \"model\" 字段必须填它；平台默认 a2=deepseek-v4-flash / a3=deepseek-v41）"
+if [ "$PLAT" = "a2" ] && [ "$SERVED_NAME" != "deepseek-v41" ]; then
+    echo "      ⚠️ 注：模板 scripts/serve_a2.sh 的默认是 **deepseek-v41**，而本包装脚本 A2 默认保持"
+    echo "         deepseek-v4-flash（= 与你在跑的服务一致，避免静默改服务名让客户端 404）。"
+    echo "         要与模板/全仓工具统一：加 SERVED_NAME=deepseek-v41"
+fi
 echo "  draft 入图    : DRAFT_GRAPH=$DRAFT_GRAPH（1 = 入图，与 A2 生产一致；A2 实测 +62% tok/s / hp −47%）"
 if [ "$DRAFT_GRAPH" = "0" ]; then
     echo "  ⚠️⚠️ DRAFT_GRAPH=0 ⇒ **draft 退回 eager**：A2 上单流 88.7 → 54.7 tok/s（−38%）。"
@@ -612,12 +640,10 @@ export ENGRAM
 # ★ 可选项（默认关；不改默认行为）
 # ★ OFFLOAD=0 ⇒ L1 池补丁**也没有对象**（没有宿主池）⇒ 一并关掉，避免"挂着但没人用"
 #   （同族纪律：不留"看起来生效其实无消费者"的开关 —— 见 logs/112）。
-if [ "$OFFLOAD" = "1" ]; then
-    [ "$P2_POOL_PATCH" = "1" ] && export P2_POOL_PATCH=1 && export P2_WORKER_ROWS=1
-else
-    P2_POOL_PATCH=0
-    L1_POOL_PATCH=0
-fi
+#   ★ 这个 0 **已经在参数区**做过（那里才有"打印值 = 生效值"的保证）—— 见 `L1_POOL_PATCH=` 之后那段。
+#     这里只负责**导出**，不再改值（同一件事写两处 = 迟早分叉）。
+[ "$OFFLOAD" = "1" ] && [ "$P2_POOL_PATCH" = "1" ] && { export P2_POOL_PATCH=1; export P2_WORKER_ROWS=1; }
+export P2_POOL_PATCH
 export L1_POOL_PATCH L1_POOL_DIR
 case "$P2_POOL_PATCH" in
   1) : "${P2_COMP_JSON:?★ 开 L1 时必须给 P2_COMP_JSON（与张量数匹配，给错会 fail-closed）}"; export P2_COMP_JSON ;;

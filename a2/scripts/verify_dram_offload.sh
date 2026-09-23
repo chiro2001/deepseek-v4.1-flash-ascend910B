@@ -13,16 +13,29 @@
 #   PROMPT_TOKENS=131072 bash a2/scripts/verify_dram_offload.sh  # 更大前缀（更容易触发卸载）
 #   PORT=8100 bash a2/scripts/verify_dram_offload.sh             # 换端口
 #   DRY=1 bash a2/scripts/verify_dram_offload.sh                 # 只看连接与当前计数器，不发请求
+#   PLAT=a3 bash a2/scripts/verify_dram_offload.sh               # ★ A3：端口 8020 + 模型名 deepseek-v41
 #
 # 退出码：0 = 硬判据全过；9 = 有硬判据未过；64 = 前置不给（连不上/缺脚本）
+#
+# ★★ 平台：`PLAT=a2|a3`（默认 a2）。只改两个平台不同的默认值，显式给的一律优先：
+#     PLAT | 端口 | 模型名（API body 的 "model" 字段 —— 填错会被服务端 400，很容易误读成"服务坏了"）
+#     a2   | 8077 | deepseek-v4-flash
+#     a3   | 8020 | deepseek-v41      ← `scripts/serve_a3.sh` 的 SERVED_NAME 默认
 set -uo pipefail
 
 HERE=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
 PKG=$(cd "$HERE/../.." && pwd)
 
-PORT=${PORT:-8077}
+PLAT=${PLAT:-a2}
+case "$PLAT" in
+  a2) _def_port=8077; _def_model=deepseek-v4-flash ;;
+  a3) _def_port=8020; _def_model=deepseek-v41 ;;
+  *)  printf '⛔ PLAT 只能是 a2|a3，得到 %s\n' "$PLAT" >&2; exit 64 ;;
+esac
+PORT=${PORT:-$_def_port}
 URL=${URL:-http://127.0.0.1:$PORT}
-MODEL=${MODEL_NAME:-deepseek-v4-flash}
+MODEL=${MODEL_NAME:-$_def_model}
+echo "[verify_dram_offload] PLAT=$PLAT  URL=$URL  model=$MODEL  （a2=8077/deepseek-v4-flash，a3=8020/deepseek-v41）"
 PROMPT_TOKENS=${PROMPT_TOKENS:-32768}
 MAX_TOKENS=${MAX_TOKENS:-16}
 PROMPTS=${PROMPTS:-1}

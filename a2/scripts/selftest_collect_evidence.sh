@@ -199,5 +199,32 @@ fi
 kill "$SRVPID" 2>/dev/null || true
 
 echo
+# ================================================================ ⑨ 平台默认值（A3）
+# 用户要求"A3 也要能一起拉起来" ⇒ 收集器必须认 A3 的**容器名/端口/模型名**三个平台差异。
+# 判据要绑**内容**：容器名错 ⇒ §② 容器内指纹会**整段静默跳过**（老版本就是只打一句"容器不在"）；
+#   模型名错 ⇒ 探针被服务端 400 ⇒ 表现是"探针全失败"，很容易被误读成"模型坏了"。
+say "⑨ PLAT=a3 ⇒ 容器名/端口/模型名整组切换；且平台名非法必须拒绝"
+rm -f "$T/out/EVIDENCE.txt"
+env RESULTS="$T/results" PLAT=a3 NO_PROBE=1 CTR="" PORT="" MODEL_NAME="" OUTDIR="$T/out" \
+    bash "$SCRIPT" --run-id a2_20260105_000005 >/dev/null 2>&1
+grep -q "PLAT=a3  容器=dsv41-a3  端口=8020  模型名=deepseek-v41" "$T/out/EVIDENCE.txt" 2>/dev/null \
+    && ok "A3 三个平台默认值整组切换（容器/端口/模型名）" || bad "A3 平台默认值没生效"
+# ★ 显式覆盖必须赢（A3 上有人用别的端口/容器名时）
+rm -f "$T/out/EVIDENCE.txt"
+env RESULTS="$T/results" PLAT=a3 PORT=8500 CTR=my-ctr MODEL_NAME=my-model NO_PROBE=1 OUTDIR="$T/out" \
+    bash "$SCRIPT" --run-id a2_20260105_000005 >/dev/null 2>&1
+grep -q "PLAT=a3  容器=my-ctr  端口=8500  模型名=my-model" "$T/out/EVIDENCE.txt" 2>/dev/null \
+    && ok "显式 PORT/CTR/MODEL_NAME 覆盖压过平台默认" || bad "显式覆盖被平台默认吃掉了"
+env RESULTS="$T/results" PLAT=bogus NO_PROBE=1 OUTDIR="$T/out" \
+    bash "$SCRIPT" --run-id a2_20260105_000005 >/dev/null 2>&1
+[ $? = 64 ] && ok "PLAT 非法 ⇒ rc=64（不猜平台）" || bad "PLAT 非法没有被拒绝"
+# A2 默认不许被这次改动带偏（回归锚）
+rm -f "$T/out/EVIDENCE.txt"
+env RESULTS="$T/results" NO_PROBE=1 CTR="" PORT="" MODEL_NAME="" OUTDIR="$T/out" \
+    bash "$SCRIPT" --run-id a2_20260105_000005 >/dev/null 2>&1
+grep -q "PLAT=a2  容器=dsv41-a2  端口=8077  模型名=deepseek-v4-flash" "$T/out/EVIDENCE.txt" 2>/dev/null \
+    && ok "A2 默认（不传 PLAT）仍是 dsv41-a2 / 8077 / deepseek-v4-flash" || bad "A2 默认被带偏了"
+
+echo
 echo "=============== 通过 $V 条 ==============="
-[ "$V" -ge 20 ] && { echo "✅ 自测全过"; exit 0; } || { echo "❌ 不合格（通过数 $V < 20）"; exit 9; }
+[ "$V" -ge 27 ] && { echo "✅ 自测全过"; exit 0; } || { echo "❌ 不合格（通过数 $V < 27）"; exit 9; }

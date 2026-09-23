@@ -28,6 +28,15 @@
 #   —— 给了 SERVE_LOG 就**只需要那个文件存在**，同目录下的 serve_cmd.txt / inner.sh 有就抽、没有就跳过；
 #      此时 RUN_DIR 默认取它的**父目录**（所以产物仍能跟着日志走）。
 #
+# ★★ 平台：`PLAT=a2|a3`（默认 a2）。它只改三个**平台不同**的默认值，显式给的一律优先：
+#     PLAT  | 容器名     | 端口 | 模型名（API body 的 "model" 字段）
+#     a2    | dsv41-a2   | 8077 | deepseek-v4-flash
+#     a3    | dsv41-a3   | 8020 | deepseek-v41        ← `scripts/serve_a3.sh` 的 SERVED_NAME 默认
+#   ★ 为什么必须区分模型名：探针要拿它填 `/v1/chat/completions` 的 `"model"` 字段，
+#     填错会被服务端 400 ⇒ 表现是"探针全失败"，很容易被误读成"模型坏了"。
+#   ★ 为什么必须区分容器名：容器名对不上 ⇒ **§② 容器内指纹整段静默跳过**（老版本就是这个形态），
+#     而指纹恰恰是"挂的到底是哪一份"的唯一判据。
+#
 # 退出码：0 = 已生成；64 = 找不到 run 目录 / 日志文件
 set -uo pipefail
 
@@ -45,13 +54,26 @@ while [ $# -gt 0 ]; do
         --run-id=*)     RUN_ID=${1#*=};    shift ;;
         --outdir|-o)    OUTDIR=${2:-};     shift 2 ;;
         --outdir=*)     OUTDIR=${1#*=};    shift ;;
+        --plat)         PLAT=${2:-};       shift 2 ;;
+        --plat=*)       PLAT=${1#*=};      shift ;;
+        --port)         PORT=${2:-};       shift 2 ;;
+        --port=*)       PORT=${1#*=};      shift ;;
         -h|--help)      sed -n '2,40p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
         *) echo "⚠ 未知参数：$1（用 --help 看用法）" >&2; shift ;;
     esac
 done
 
-PORT=${PORT:-8077}
+# ★★ 平台差异收敛成一张小表（别的都不分平台）—— 见文件头"平台"那一段。
+PLAT=${PLAT:-a2}
+case "$PLAT" in
+  a2) _def_port=8077; _def_ctr=dsv41-a2; _def_model=deepseek-v4-flash ;;
+  a3) _def_port=8020; _def_ctr=dsv41-a3; _def_model=deepseek-v41 ;;
+  *)  echo "⛔ PLAT 只能是 a2|a3，得到 '$PLAT'" >&2; exit 64 ;;
+esac
+PORT=${PORT:-$_def_port}
 URL=${URL:-http://127.0.0.1:$PORT}
+CTR=${CTR:-$_def_ctr}
+MODEL_NAME=${MODEL_NAME:-$_def_model}
 SHADOW=${SHADOW_PKG:-$HOME/projects/dsv41-upstream-pr/shadow-pkg}
 RESULTS=${RESULTS:-$SHADOW/results}
 STAMP=$(date +%Y%m%d_%H%M%S)
@@ -103,6 +125,7 @@ _sec() { _hdr "§ $*"; }
 {
 _hdr "EVIDENCE —— 一次出问题的臂的全部可复算证据" \
      "  生成：$(date '+%F %T')   宿主：$(hostname)   收集器：collect_evidence.sh" \
+     "  PLAT=$PLAT  容器=$CTR  端口=$PORT  模型名=$MODEL_NAME（★ 平台默认；显式给的一律优先）" \
      "  run 目录：$RD" \
      "  serve.log：$SL$([ -f "$SL" ] || printf '  ← ⚠ 这个文件不存在')"
 
@@ -122,7 +145,7 @@ done
 _sec "② 容器内指纹（**判据绑内容**：证明「挂的到底是哪一份」）"
 _dev=$(grep -m1 -oE "devs='[^']*'" "$RD/serve_cmd.txt" 2>/dev/null | head -1)
 _name=$(grep -m1 -oE "run_id=[^ ]*" "$RD/serve_cmd.txt" 2>/dev/null | head -1)
-CTR=${CTR:-dsv41-a2}
+# （CTR 已在参数区按 PLAT 给默认值 —— 这里**不再兜底**，否则会把 a3 的默认值又拉回 a2）
 if command -v docker >/dev/null 2>&1 && docker inspect "$CTR" >/dev/null 2>&1; then
     echo "  （容器 $CTR 还在 ⇒ 直接反查）"
     docker exec "$CTR" bash -lc '
@@ -144,6 +167,8 @@ if command -v docker >/dev/null 2>&1 && docker inspect "$CTR" >/dev/null 2>&1; t
       done' 2>/dev/null | sed 's/^/    /'
 else
     echo "  （容器 $CTR 不在 ⇒ 跳过；下面 §③ 的 inner.sh 是替代证据）"
+    echo "     ★ 若容器其实在跑，核对两件事：① PLAT=$PLAT 对不对（a2=dsv41-a2:8077 / a3=dsv41-a3:8020）"
+    echo "                                  ② 或显式覆盖：CTR=<真实容器名> PORT=<真实端口>"
 fi
 
 # ---------------------------------------------------------------- ③ inner.sh 真实 env
