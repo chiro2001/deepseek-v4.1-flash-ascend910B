@@ -789,11 +789,11 @@ class DeepseekV41Model(DeepseekV4Model):
         # DSpark is disabled until its draft cache has a dedicated D-side
         # initialization protocol.
         ced_role = _os_ids.environ.get("V41_CED_ROLE", "")
-        if ced_role not in ("", "prefill"):
+        if ced_role not in ("", "prefill", "decode"):
             raise ValueError(f"Unsupported V41_CED_ROLE={ced_role!r}")
         self._ced_prefill_only = ced_role == "prefill"
-        if self._ced_prefill_only and vllm_config.speculative_config is not None:
-            raise ValueError("V41_CED_ROLE=prefill requires SPEC=0 during the replay prototype")
+        if ced_role and vllm_config.speculative_config is not None:
+            raise ValueError("V41_CED_ROLE=prefill/decode requires SPEC=0 during the replay prototype")
         if self._ced_prefill_only:
             print("[CED-P] internal producer: layers 0..19 plus layer-20 global source; response is a transfer marker", flush=True)
         # Development gate: compare the isolated CED layer-20 source write with

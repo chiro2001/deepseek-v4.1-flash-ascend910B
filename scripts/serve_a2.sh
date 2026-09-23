@@ -876,6 +876,14 @@ if [ -n "${V41_CED_ROLE:-}" ]; then
   _ced_connector="$PKG/experimental/ced/mooncake_hybrid_connector.py"
   [ -f "$_ced_connector" ] || die "V41_CED_ROLE 缺少 $_ced_connector"
   MOUNTS+=(-v "$_ced_connector:/vllm-workspace/vllm-ascend/vllm_ascend/distributed/kv_transfer/kv_p2p/mooncake_hybrid_connector.py:ro")
+  if [ "${V41_CED_ROLE:-}" = "decode" ]; then
+    [ "${PROBE:-0}" != "1" ] || die "CED decode 实验不能与 PROBE=1 同时覆盖 dsa_v41.py"
+    _ced_dsa="$PKG/experimental/ced/dsa_v41.py"
+    _ced_scheduler="$PKG/experimental/ced/core_scheduler_replay.patch"
+    [ -f "$_ced_dsa" ] && [ -f "$_ced_scheduler" ] || die "CED decode 缺少注意力或调度补丁"
+    MOUNTS+=(-v "$_ced_dsa:/vllm-workspace/vllm-ascend/vllm_ascend/attention/dsa_v41.py:ro")
+    MOUNTS+=(-v "$_ced_scheduler:/opt/dsv41/ced_scheduler_replay.patch:ro")
+  fi
 fi
 [ -n "$PGO_LIB" ] && MOUNTS+=(-v "$PKG/optim/pgo/libpython3.12.so.1.0:$PGO_LIB:ro")
 # ---------- [PROBE] 稀疏状态插针（事后取证；独立于 PATCH_MODE） ----------
@@ -1151,6 +1159,19 @@ if [ "$PATCH_MODE" = "mount" ]; then
   else
     echo "[serve_a2] WARNING: live tree 里找不到 admission gate ⇒ 该补丁未生效" >&2
   fi
+fi
+
+if [ "${V41_CED_ROLE:-}" = "decode" ]; then
+  say "[CED-D] 应用固定 Core 版本的 128-token replay 调度补丁"
+  _ced_patch=$($DOCKER exec "$NAME" bash -lc '
+    cd /vllm-workspace/vllm || exit 1
+    _base=$(sha256sum vllm/v1/core/sched/scheduler.py | cut -d " " -f1)
+    [ "$_base" = 533eed493cb307e6d4423ff550910278f6434d71f00581737ce420d60298e8bc ] || exit 1
+    git apply --unidiff-zero --check /opt/dsv41/ced_scheduler_replay.patch || exit 1
+    git apply --unidiff-zero /opt/dsv41/ced_scheduler_replay.patch || exit 1
+    grep -Fq "[CED-D] replay request=" vllm/v1/core/sched/scheduler.py || exit 1
+    echo APPLIED' 2>/dev/null | tail -1)
+  [ "${_ced_patch:-}" = "APPLIED" ] || die "CED decode replay 调度补丁未应用"
 fi
 
 if [ "$DRAFT_GRAPH" = "1" ]; then

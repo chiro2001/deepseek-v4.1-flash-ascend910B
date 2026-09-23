@@ -1406,9 +1406,10 @@ class MooncakeConnectorScheduler:
 
         params = request.kv_transfer_params
         if params is not None and params.get("ced_replay_tokens"):
-            raise NotImplementedError(
-                "CED decoder SWA replay is not installed; refusing to decode with missing upper SWA"
-            )
+            if self.ced_role != "decode":
+                raise RuntimeError("CED replay metadata requires V41_CED_ROLE=decode")
+            if int(params["ced_replay_tokens"]) != 128 or tuple(params.get("ced_missing_swa_groups", ())) != (7, 8, 9, 10, 11):
+                raise RuntimeError("CED decoder received an incompatible replay/cache-group contract")
         logger.debug(
             "MooncakeConnector get_num_new_matched_tokens: num_computed_tokens=%s, kv_transfer_params=%s",
             num_computed_tokens,
@@ -1873,6 +1874,24 @@ class MooncakeConnectorWorker:
     def start_load_kv(self, metadata: MooncakeConnectorMetadata):
         """Start loading KV blocks from remote engine."""
         for req_id, meta in metadata.requests.items():
+            if os.environ.get("V41_CED_ROLE", "") == "decode":
+                # G7..G11 are deliberately absent from the P transfer. Clear
+                # their D-local physical pages before any replay attention can
+                # read an old allocation; this runs on the worker's NPU thread.
+                if len(meta.remote_block_ids) != 12 or len(meta.local_block_ids) != 12:
+                    raise RuntimeError("CED decoder expected 12 KV cache groups without DSpark")
+                for group_idx in range(7, 12):
+                    if meta.remote_block_ids[group_idx]:
+                        raise RuntimeError(f"CED upper SWA group {group_idx} unexpectedly has remote blocks")
+                    local_ids = meta.local_block_ids[group_idx]
+                    if not local_ids:
+                        continue
+                    for layer_name in self.kv_cache_config.kv_cache_groups[group_idx].layer_names:
+                        cache = self.kv_caches[layer_name]
+                        for tensor in cache if isinstance(cache, (tuple, list)) else (cache,):
+                            indices = torch.tensor(local_ids, dtype=torch.int64, device=tensor.device)
+                            tensor.index_fill_(0, indices, 0)
+                torch_npu.npu.synchronize()
             logger.debug(
                 "start_load_kv for request %s from remote engine %s. "
                 "Num local_block_ids: %s. Num remote_block_ids: %s. ",

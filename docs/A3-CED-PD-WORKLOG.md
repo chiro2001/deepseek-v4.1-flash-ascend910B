@@ -44,5 +44,5 @@ bash scripts/serve_a3_pd.sh prefill
 
 **P 侧组有效性协议已上 A3 验收。** `302b586` 的 12 组回执含 G7–G11，即上半层 SWA；P 跳层时这些组未写入，却会被普通连接器列入传输。`34fdf08` 的 [`experimental/ced/mooncake_hybrid_connector.py`](../experimental/ced/mooncake_hybrid_connector.py) 在 A3-21 实测将 G7–G11 block ID 置空，仍保留 G0 全局 KV、G1 环、G2–G6 低层 SWA；交接标记为 `ced_replay_tokens=128`、`ced_missing_swa_groups=[7,8,9,10,11]`、`ced_prefix_tokens=143962`。[`ced_p_mask_144k.json`](../evidence/ced_p_mask_34fdf08/ced_p_mask_144k.json) 记录真实 prompt 143,963 token、`finish_reason=length`、标记 token ID 42、组 block 数 `[1125,1,2,2,2,2,2,0,0,0,0,0]`；[`serve.log.gz`](../evidence/ced_p_mask_34fdf08/serve.log.gz) 解压后 SHA-256 为 `d0c6e8584ab56b3d7a3f3921333ff29f742418d3c584e6f1570e3072392a143e`。容器已停止，0–7 卡无运行进程。
 
-当前 D connector 对该 replay 标记直接拒绝，尚无运行时重放。因此这里只验了 P 元数据屏蔽；**不能**作为 P→D 正确性或质量门。一次容器内单独导入连接器并调用拒绝分支，确实打印拒绝信息，但 Python 退出时发生 `corrupted size vs. prev_size`（退出码 134），不把它当作 D 端到端验收。下一步见 [`D_REPLAY_NOTES.md`](../experimental/ced/D_REPLAY_NOTES.md)。
+`34fdf08` 的 D connector 对该 replay 标记直接拒绝，因此这里只验了 P 元数据屏蔽；**不能**作为 P→D 正确性或质量门。一次容器内单独导入连接器并调用拒绝分支，确实打印拒绝信息，但 Python 退出时发生 `corrupted size vs. prev_size`（退出码 134），不把它当作 D 端到端验收。后续工作树已加入尚未验证的 D 调度回退、缺失页清零和 replay 块内不回写全局 KV 原型；必须先在隔离实例验证，再做质量判断。下一步见 [`D_REPLAY_NOTES.md`](../experimental/ced/D_REPLAY_NOTES.md)。
 - `compile()` 语法检查和 `git diff --check` 通过。没有声称 CED 运行时或性能已经实现。
