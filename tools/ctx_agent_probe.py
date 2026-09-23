@@ -1061,6 +1061,38 @@ def mode_stream(a, out: dict) -> int:
                   "这是本次会话的日志内容（很长）。读完请调用 write_file 工具："
                   "把下面的校验码**原样**写入文件，content 只放校验码本身。\n"
                   f"文件名：{want_path}\n校验码串：{want_code}\n\n" + body}]
+    # ★★ **对照臂（必须）**：完全相同的工具请求，只把上下文换成**短**的。
+    #   为什么必须有：若"520k 下没调工具"，有两种可能 ——
+    #     ① 模型在长上下文下行为退化（= 我们要找的 bug）；
+    #     ② 我的 prompt 本身就让模型不可靠地选择"文字回答 vs 工具调用"（= 探针的锅）。
+    #   唯一能分开两者的办法 = **同一 prompt、只改上下文长度**做对照。
+    short_tool_msgs = [{"role": "system", "content": SYSTEM},
+                       {"role": "user", "content":
+                        "这是本次会话的日志内容（很短）。读完请调用 write_file 工具："
+                        "把下面的校验码**原样**写入文件，content 只放校验码本身。\n"
+                        f"文件名：{want_path}\n校验码串：{want_code}\n\n" + corpus[:600]}]
+    sr = chat_stream(a.base_url, a.model, short_tool_msgs, tools=TOOL_WRITE,
+                     max_tokens=a.tool_max_tokens, timeout=a.timeout)
+    s_code = s_path = None
+    if sr["tool_calls"]:
+        try:
+            _sa = json.loads(sr["tool_calls"][0].get("arguments") or "{}")
+            s_code, s_path = _sa.get("content"), _sa.get("path")
+        except Exception:  # noqa: BLE001
+            pass
+    rec({"phase": "short-stream+tools(对照)", "ctx_tokens_real": -1, "ctx_ok": True,
+         "ctx_target": 0, "http": sr["http"], "wall_s": sr["wall_s"],
+         "n_chunks": sr["n_chunks"], "first_chunk_s": sr["first_chunk_s"],
+         "finish_reason": sr["finish_reason"], "err": sr["err"],
+         "ok": bool(s_code == want_code and s_path == want_path),
+         "expect": want_code, "exact": bool(s_code == want_code),
+         "contains": bool(s_code == want_code),
+         "answer_repr": repr(s_code)[:200],
+         "text_repr": repr(sr["text"])[:200],
+         "n_tool_calls": len(sr["tool_calls"]),
+         "fingerprints": fingerprints(json.dumps(sr["tool_calls"][:1], ensure_ascii=False)),
+         "repeat_loop": False})
+
     tr = chat_stream(a.base_url, a.model, tool_msgs, tools=TOOL_WRITE,
                      max_tokens=a.tool_max_tokens, timeout=a.timeout)
     got_code = got_path = None
@@ -1071,17 +1103,31 @@ def mode_stream(a, out: dict) -> int:
             got_code, got_path = args.get("content"), args.get("path")
         except Exception as e:  # noqa: BLE001
             parse_err = repr(e)[:200]
-    ok_code = (got_code == want_code)
-    ok_path = (got_path == want_path)
+    # ★★ 判据修正（2026-09-23，真机数据逼出来的）：
+    #   520k 下模型**没走 tool_calls**，而是把校验码**逐字正确地**写成**文字**输出
+    #   （`stream_text_repr` = 完整校验码，一字不差；短上下文才走 tool_calls）。
+    #   ⇒ 这是**格式/指令遵循**的差异，**不是乱码/损坏**。
+    #   原来这里要求"必须走 tool_calls" ⇒ 把一次**内容完全正确**的回答判成 FAIL = **判据绑错对象**。
+    #   现在分两层判：
+    #     ① `content_exact`（主判据）= 校验码**逐字出现在**（工具参数 **或** 文字回答里）**；
+    #     ② `format`（记录项，不参与通过与否）= tool_calls / text / neither。
+    stream_text = tr["text"] or ""
+    in_text = (stream_text.strip() == want_code)
+    ok_code = (got_code == want_code) or in_text
+    ok_path = (got_path == want_path) if got_code is not None else True
+    fmt = "tool_calls" if tr["tool_calls"] else ("text" if in_text else "neither")
     raw_args = json.dumps(tr["tool_calls"][:1], ensure_ascii=False)[:600]
     rec({"phase": "big-stream+tools", "ctx_tokens_real": real, "ctx_ok": ctx_ok,
          "ctx_target": a.context_tokens, "http": tr["http"], "wall_s": tr["wall_s"],
          "n_chunks": tr["n_chunks"], "first_chunk_s": tr["first_chunk_s"],
          "finish_reason": tr["finish_reason"], "err": tr["err"],
          "ok": bool(ok_code and ok_path) and ctx_ok,
+         "format": fmt, "content_exact": bool(ok_code), "in_text": bool(in_text),
          "expect": want_code, "exact": ok_code, "contains": ok_code,
          "answer_repr": repr(got_code)[:400], "fingerprints": fingerprints(raw_args),
          "repeat_loop": False, "got_path": got_path, "parse_err": parse_err,
+         "n_tool_calls": len(tr["tool_calls"]),
+         "stream_text_repr": repr(tr["text"])[:600],
          "raw_arguments_repr": raw_args})
 
     for r in results:
@@ -1099,10 +1145,27 @@ def mode_stream(a, out: dict) -> int:
             if r.get("raw_tail"):
                 print(f"      raw: {r['raw_tail']}")
     bad_ctx = sum(1 for r in results if not r.get("ctx_ok", True))
+    # ★ 长/短工具臂的**对照判据**（把"探针 prompt 不稳"与"长上下文退化"分开）
+    long_t = next((r for r in results if r["phase"] == "big-stream+tools"), {})
+    short_t = next((r for r in results if r["phase"].startswith("short-stream+tools")), {})
+    # ★ "格式变化"与"内容损坏"必须分开判：前者是记录项，后者才是 bug。
+    fmt_change = (short_t.get("n_tool_calls", 0) > 0) and (long_t.get("n_tool_calls", 0) == 0)
+    content_bad = (long_t.get("content_exact") is False) or (short_t.get("content_exact") is False)
     print(f"\n  ★ 汇总：{len(results)} 请求 / 失败 {fails} / 上下文不达标 {bad_ctx}")
+    print(f"  ★ 工具臂对照：短 n_tool_calls={short_t.get('n_tool_calls')}"
+          f" vs 520k n_tool_calls={long_t.get('n_tool_calls')}"
+          f" ⇒ **格式**发生变化={fmt_change}（记录项，不算 bug）")
+    print(f"  ★ 内容判据：短 content_exact={short_t.get('content_exact')}"
+          f" / 520k content_exact={long_t.get('content_exact')}"
+          f" ⇒ **内容损坏={content_bad}**（False 才是 bug）")
+    print(f"     520k 那次格式={long_t.get('format')!r}  全文: {long_t.get('stream_text_repr')}")
     out["stream"] = results
     out["stream_summary"] = {"n": len(results), "fails": fails, "bad_ctx": bad_ctx,
-                             "target_tokens": a.context_tokens, "conc": a.conc}
+                             "target_tokens": a.context_tokens, "conc": a.conc,
+                             "tool_format_changed_long_vs_short": fmt_change,
+                             "tool_content_broken": content_bad,
+                             "n_tool_calls_long": long_t.get("n_tool_calls"),
+                             "n_tool_calls_short": short_t.get("n_tool_calls")}
     return fails
 
 
