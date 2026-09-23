@@ -101,6 +101,26 @@ P2_POOL_PATCH=${P2_POOL_PATCH:-1}
 # 16 张量几何的【实测·worker 侧真值】分量（8 卡真权重，8 rank x 9 行一致）
 P2_COMP_JSON=${P2_COMP_JSON:-'[[0],[1,2,3,4,5,6,7,8,9,10,11,12]]'}
 
+# ★★★ 2026-09-23 10:2x **per-group `blocks_per_chunk`（dict 形式）真正生效的那条路**
+#   实测事故：A2 起服在**模型加载完之后**崩，栈底是
+#       File ".../kv_connector/v1/offloading/config.py", line 78, in build_offloading_config
+#           blocks_per_chunk = int(blocks_per_chunk_config)
+#       TypeError: int() argument must be a string, a bytes-like object or a real number, not 'dict'
+#   根因：我们挂了 `pgp_hooks.py`（一个**运行期 monkeypatch**），但**全仓没有任何人 import 它**
+#     ⇒ `build_offloading_config` 保持镜像内原样 ⇒ 见到 dict 就 `int(dict)` 崩。
+#     （`grep -rn "import pgp_hooks"` 全仓 0 命中 —— 这个洞一直都在。）
+#   修法：改用 **A3 8 卡臂一直在用、有实测** 的那条路 —— **整份替换 6 个文件**
+#     （`L1_POOL_PATCH=1`）：除 per-group bpc 外，**顺带给出 L1（池按需行数）**。
+#     那 6 份已随包（`a2/patches/kv8-offload-pool/`，与 A3 的 `manifest.md5` 逐字一致）。
+#   ⇒ 默认开；要退回旧的 monkeypatch 路线（**已知会在 dict 下崩**）才显式置 0。
+L1_POOL_PATCH=${L1_POOL_PATCH:-1}
+L1_POOL_DIR=${L1_POOL_DIR:-$A2DIR/patches/kv8-offload-pool}
+
+# ★ [DROPCACHE] 起服前清 page cache（模板默认 **1**）。**整机**生效，会连带清掉同机其它租户的
+#   page cache（`refresh pattern`）。大内存机器上它通常值（本机实测一次能放 564 GiB），
+#   但如果这台机器不是你独占、或你不想影响别人 ⇒ `DROPCACHE=0` 关掉。
+DROPCACHE=${DROPCACHE:-1}
+
 # ★ 池分配器加固（logs/041）：默认关；=1 把三种静默失败变成响亮 raise
 PGP_MGR_HARDEN=${PGP_MGR_HARDEN:-0}
 PGP_MGR_STATS=${PGP_MGR_STATS:-0}
@@ -305,6 +325,8 @@ echo "  blocks_per_chunk: $BLOCKS_PER_CHUNK"
 echo "  prefix_match_unit: $PREFIX_MATCH_UNIT"
 echo "  ENGRAM        : $ENGRAM"
 echo "  L1 (P2_POOL_PATCH): $P2_POOL_PATCH${P2_COMP_JSON:+  comp=$P2_COMP_JSON}"
+echo "  per-group bpc : L1_POOL_PATCH=$L1_POOL_PATCH（1 = 整份替换 6 文件，含 config.py 的 dict 解析 + 按需行数）"
+echo "  drop cache    : DROPCACHE=$DROPCACHE（1 = 起服前清整机 page cache；0 = 不动）"
 echo "  加固 PGP_MGR_HARDEN: $PGP_MGR_HARDEN（stats=$PGP_MGR_STATS）"
 if [ "$KV8_SWA" = "1" ] || [ "$KV8_RING_FP16" = "1" ] || [ "$KV8_FULL" = "1" ]; then
     if [ "$KV8_FULL" = "1" ]; then
@@ -422,7 +444,8 @@ _launch_serve() {   # $1 = DRY_RUN（0 真起 / 1 干跑）
     V41_PROFILE="$_pf" \
     MODEL="$MODEL" IMAGE="$IMAGE" GPU_UTIL="$GPU_UTIL" PORT="$PORT" \
     SERVED_NAME="$SERVED_NAME" MAX_LEN="$MAX_LEN" MAX_SEQS="$MAX_SEQS" \
-    BAT_TOKENS="$BAT_TOKENS" DRAFT_GRAPH="$DRAFT_GRAPH" KV_ARGS_EXTRA="$KV_ARGS" \
+    BAT_TOKENS="$BAT_TOKENS" DRAFT_GRAPH="$DRAFT_GRAPH" DROPCACHE="$DROPCACHE" \
+    KV_ARGS_EXTRA="$KV_ARGS" \
     bash scripts/serve_a2.sh
 }
 
@@ -491,6 +514,7 @@ export PREFIX_MATCH_UNIT
 export ENGRAM
 # ★ 可选项（默认关；不改默认行为）
 [ "$P2_POOL_PATCH" = "1" ] && export P2_POOL_PATCH=1 && export P2_WORKER_ROWS=1
+export L1_POOL_PATCH L1_POOL_DIR
 case "$P2_POOL_PATCH" in
   1) : "${P2_COMP_JSON:?★ 开 L1 时必须给 P2_COMP_JSON（与张量数匹配，给错会 fail-closed）}"; export P2_COMP_JSON ;;
 esac
@@ -697,6 +721,7 @@ if [ "$DRY" = "1" ]; then
     echo "  KV_ARGS_EXTRA='$KV_ARGS' \\"
     echo "  PROFILE=${V41_PROFILE:-${PROFILE:-0}} \\"
     echo "  DRAFT_GRAPH=$DRAFT_GRAPH \\"
+    echo "  DROPCACHE=$DROPCACHE L1_POOL_PATCH=$L1_POOL_PATCH \\"
     echo "  bash scripts/serve_a2.sh        # ← 在 $LAUNCH_DIR 下（含 [A2-OFFLOAD]）"
     # ★★★ 2026-09-22 15:3x 补一道**验证盲区**：
     #   此前 DRY=1 在这里就 exit 0 ⇒ **shadow 的 MOUNTS 组装一次都没跑过**
@@ -713,17 +738,30 @@ if [ "$DRY" = "1" ]; then
     _dry_rc=$?
     printf '%s\n' "$_dry_out"
     [ "$_dry_rc" = "0" ] || { echo "⛔ shadow 的 DRY_RUN 失败（rc=$_dry_rc）—— 上面就是原因" >&2; exit 2; }
+    # ★★★ 判据改绑**容器内目标路径**（而不是源文件名）—— 2026-09-23 修：
+    #   原来 grep 的是 `0001-offload-scheduler.patch.py` 这类**源文件名**，但挂载时源文件被
+    #   **改名**成 `scheduler.py` / `pgp_manager.py` … ⇒ 断言恒 FAIL（而"挂载其实是对的"）。
+    #   ⇒ 同族纪律：**判据绑实际生效的那个对象（容器内目标路径），不绑中转文件的名字。**
+    #   ★ L1 路线（默认）会整份替换 5 个文件；旧路线（L1_POOL_PATCH=0）少 config.py/spec.py。
     _miss=0
-    for _f in 0001-offload-scheduler.patch.py 0001b-offload-per-group-bpc-manager.patch.py \
-              0001c-offload-per-group-bpc-hooks.patch.py 0002-offload-cpu-pool-host-registered.patch.py; do
-        printf '%s\n' "$_dry_out" | grep -q -- "$_f" || { echo "⛔ MOUNTS 里缺卸载补丁：$_f" >&2; _miss=1; }
+    _need="/vllm-workspace/vllm/vllm/distributed/kv_transfer/kv_connector/v1/offloading/scheduler.py:ro"
+    if [ "$L1_POOL_PATCH" = "1" ]; then
+        _need="$_need /vllm-workspace/vllm/vllm/distributed/kv_transfer/kv_connector/v1/offloading/config.py:ro"
+        _need="$_need /vllm-workspace/vllm/vllm/v1/kv_offload/cpu/spec.py:ro"
+        _need="$_need /vllm-workspace/vllm/vllm/v1/kv_offload/cpu/p2_pool.py:ro"
+        _need="$_need /vllm-workspace/vllm-ascend/vllm_ascend/distributed/kv_transfer/kv_pool/kv_offload/native/p2_worker.py:ro"
+    fi
+    _need="$_need /vllm-workspace/vllm/vllm/v1/kv_offload/cpu/pgp_manager.py:ro"
+    _need="$_need /vllm-workspace/vllm-ascend/vllm_ascend/distributed/kv_transfer/kv_pool/kv_offload/native/cpu_npu.py:ro"
+    for _t in $_need; do
+        printf '%s\n' "$_dry_out" | grep -q -- "$_t" || { echo "⛔ MOUNTS 里缺目标：$_t" >&2; _miss=1; }
     done
     if [ "$_miss" != "0" ]; then
         echo "   ⇒ 起服会**跑起来但没有 DRAM 卸载**（静默降级）⇒ 拒绝放行。" >&2
-        echo "     查：本脚本的 export 段是否被条件分支吞掉；或影子包是否认 OFFLOAD_SCHED_PATCH。" >&2
+        echo "     查：本脚本的 export 段是否被条件分支吞掉；或影子包是否认 OFFLOAD_SCHED_PATCH/L1_POOL_PATCH。" >&2
         exit 2
     fi
-    echo "[DRY] ✓ 4 个卸载补丁都在真实 MOUNTS 里（$([ "$KV8_SWA$KV8_FULL$KV8_RING_FP16" = "000" ] && echo '档 B' || echo '档 C/D')）"
+    echo "[DRY] ✓ 卸载/池相关挂载目标齐备（$(echo $_need | wc -w) 个；L1_POOL_PATCH=$L1_POOL_PATCH）"
     echo "[DRY] ↑↑↑ 以上是真实挂载清单 ↑↑↑"
     exit 0
 fi

@@ -29,6 +29,8 @@ setup_sandbox() {
              0001c-offload-per-group-bpc-hooks.patch.py 0002-offload-cpu-pool-host-registered.patch.py; do
         cp "$SRC_REPO/a2/patches/$f" "$T/repo/a2/patches/$f"
     done
+    mkdir -p "$T/repo/a2/patches/kv8-offload-pool"
+    cp "$SRC_REPO/a2/patches/kv8-offload-pool/"*.py "$T/repo/a2/patches/kv8-offload-pool/"
     cp "$SRC_REPO/a2/patches/kv8-graphsafe/dsa_v41.py" "$T/repo/a2/patches/kv8-graphsafe/dsa_v41.py"
     cp "$SRC_REPO/a2/patches/kv8-int8-pkg/vllm_ascend/attention/kv8_fuse_triton.py" \
        "$T/repo/a2/patches/kv8-int8-pkg/vllm_ascend/attention/kv8_fuse_triton.py"
@@ -39,11 +41,15 @@ setup_sandbox() {
 # ---------- [A2-OFFLOAD] 由 make_shadow_pkg.sh 注入（沙箱桩） ----------
 # ★ 下面两个字符串是"影子包认不认 A2_*"自检门要求的内容判据（真实影子包里也有）
 : "${A2_KV8_SWA:=0}" "${A2_GRAPH_SAFE:=0}"
-echo "[a2-dry] MOUNTS(4)"
-echo "  0001-offload-scheduler.patch.py"
-echo "  0001b-offload-per-group-bpc-manager.patch.py"
-echo "  0001c-offload-per-group-bpc-hooks.patch.py"
-echo "  0002-offload-cpu-pool-host-registered.patch.py"
+# ★ 桩要打印**容器内目标路径**（wrapper 的 DRY 断言现在绑的是目标，不是源文件名）
+echo "[a2-dry] MOUNTS(18)"
+echo "  -v /x/scheduler.py:/vllm-workspace/vllm/vllm/distributed/kv_transfer/kv_connector/v1/offloading/scheduler.py:ro"
+echo "  -v /x/offloading_config.py:/vllm-workspace/vllm/vllm/distributed/kv_transfer/kv_connector/v1/offloading/config.py:ro"
+echo "  -v /x/cpu_spec.py:/vllm-workspace/vllm/vllm/v1/kv_offload/cpu/spec.py:ro"
+echo "  -v /x/pgp_manager.py:/vllm-workspace/vllm/vllm/v1/kv_offload/cpu/pgp_manager.py:ro"
+echo "  -v /x/p2_pool.py:/vllm-workspace/vllm/vllm/v1/kv_offload/cpu/p2_pool.py:ro"
+echo "  -v /x/p2_worker.py:/vllm-workspace/vllm-ascend/vllm_ascend/distributed/kv_transfer/kv_pool/kv_offload/native/p2_worker.py:ro"
+echo "  -v /x/cpu_npu.py:/vllm-workspace/vllm-ascend/vllm_ascend/distributed/kv_transfer/kv_pool/kv_offload/native/cpu_npu.py:ro"
 echo "  DRY_RUN=${DRY_RUN:-<unset>} PROFILE=${PROFILE:-<unset>} V41_PROFILE=${V41_PROFILE:-<unset>}"
 echo "  DRAFT_GRAPH=${DRAFT_GRAPH:-<unset>}"
 STUB
@@ -98,7 +104,7 @@ check() {  # <名> <期望rc> <实际rc> [必须出现] [禁止出现]
 }
 
 say "① 最小 DRY（ENGRAM=0）—— 主目标：未定义变量 + ★ DRAFT_GRAPH 默认必须是 1"
-run_case base ENGRAM=0; check "① 最小 DRY" 0 $? 'DRAFT_GRAPH=1' 'unbound variable'
+run_case base ENGRAM=0; check "① 最小 DRY" 0 $? 'L1_POOL_PATCH=1' 'unbound variable'
 say "①b 输出尾部（看有没有 unbound）"; tail -3 "$OUTF"; grep -c "unbound variable" "$OUTF" || true
 
 say "② int8 档 C（走 int8 修复件自检门）"
@@ -145,6 +151,9 @@ check "⑦ 裸 import 无回退须拒绝" 2 "$rc" '只有裸 import' 'unbound va
 
 say "⑧ DRAFT_GRAPH=0 ⇒ 必须响亮警告（四轴变三轴）"
 run_case draft0 ENGRAM=0 DRAFT_GRAPH=0; check "⑧ DRAFT_GRAPH=0 须警告" 0 $? 'DRAFT_GRAPH=0 ⇒' 'unbound variable'
+
+say "⑨ DROPCACHE=0 必须透传（不许静默仍然清 page cache）"
+run_case nodrop ENGRAM=0 DROPCACHE=0; check "⑨ DROPCACHE=0 透传" 0 $? 'DROPCACHE=0' 'unbound variable'
 
 say "结果"
 if [ "$V" = "0" ]; then echo "✅ 全部通过"; else echo "⛔ 有用例失败"; fi
