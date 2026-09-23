@@ -5,6 +5,7 @@
 #   NPUGRAPH_EX STATIC_KERNEL CPU_BIND MULTISTREAM DSA_OVERLAP MC2 MC2_HIER
 #   FUSED_MC2 MC2_ALG REDUCE_SAMPLE CAPTURE_SIZES
 #   LOADER_MT LAZY VISION CHAT_TEMPLATE PROFILE PROFILE_DIR HCCL_BUFFSIZE EXTRA
+#   KV_ARGS_EXTRA（例如 PD 的 --kv-transfer-config；JSON 必须保持无空格）
 set -uo pipefail
 # A2 适配：原版硬编码 A3-node1 的路径（只用于 PROFILE_DIR 默认值），改为从包位置推导。
 H=${H:-$HOME}; P=${P:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}
@@ -26,6 +27,7 @@ LOADER_MT=${LOADER_MT:-1}; LAZY=${LAZY:-1}
 VISION=${VISION:-0}; CHAT_TEMPLATE=${CHAT_TEMPLATE:-}
 PROFILE=${PROFILE:-0}; PROFILE_DIR=${PROFILE_DIR:-$P/logs/prof}
 EXTRA=${EXTRA:-}
+KV_ARGS_EXTRA=${KV_ARGS_EXTRA:-}
 
 b() { if [ "$1" = "1" ]; then echo true; else echo false; fi; }
 export PYTORCH_NPU_ALLOC_CONF=${PYTORCH_NPU_ALLOC_CONF:-expandable_segments:True}
@@ -89,6 +91,10 @@ if [ "$VISION" = "1" ]; then ARGS+=(--limit-mm-per-prompt '{"image": 1}'); else 
 [ "${LOG_REQUESTS:-0}" = "1" ] && ARGS+=(--enable-log-requests --max-log-len "${MAX_LOG_LEN:-4096}")
 
 if [ "$PROFILE" = "1" ]; then mkdir -p "$PROFILE_DIR"; ARGS+=(--profiler-config "{\"profiler\":\"torch\",\"torch_profiler_dir\":\"$PROFILE_DIR\",\"torch_profiler_with_stack\":false}"); fi
+# [KV-ARGS] PD/传输配置从外部角色脚本透传。调用方应使用紧凑 JSON，避免这里
+# 的兼容性展开把 JSON 内空格拆成多个 argparse 参数。
+# shellcheck disable=SC2206
+[ -n "$KV_ARGS_EXTRA" ] && ARGS+=($KV_ARGS_EXTRA)
 # shellcheck disable=SC2206
 [ -n "$EXTRA" ] && ARGS+=($EXTRA)
 

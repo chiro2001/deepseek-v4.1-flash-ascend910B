@@ -268,6 +268,7 @@ CPUSET=${CPUSET:--1}
 MEMS=${MEMS:--1}
 RUN_ID=${RUN_ID:-a2_$(date +%Y%m%d_%H%M%S)}
 CACHE=${CACHE:-$PKG/cache}
+KV_ARGS_EXTRA=${KV_ARGS_EXTRA:-}
 OUT=${OUT:-$PKG/results/$RUN_ID}
 LOG=${LOG:-$OUT/serve.log}
 READY_TIMEOUT=${READY_TIMEOUT:-2100}
@@ -929,6 +930,7 @@ if [ "$DRY_RUN" = "1" ]; then
   echo "[a2-dry] CAPTURE_SIZES=$CAPTURE_SIZES"
   echo "[a2-dry] MOE_AG=$MOE_AG O_PROJ_2D=$O_PROJ_2D MOE_MASK=$MOE_MASK ROPE_IDXSEL=$ROPE_IDXSEL ENGRAM_JIT=$ENGRAM_JIT QLI_NOCAND=$QLI_NOCAND LOCAL_OWNER=$LOCAL_OWNER"
   echo "[a2-dry] PROFILE=$V41_PROFILE ENGRAM_DEVICE_INDEX=$ENGRAM_DEVICE_INDEX ENGRAM_DEVICE_FALLBACK=$ENGRAM_DEVICE_FALLBACK"
+  echo "[a2-dry] KV_ARGS_EXTRA=${KV_ARGS_EXTRA:-<none>}（inner.sh 会原样透传）"
   echo "[a2-dry] DROPCACHE=$DROPCACHE（起服前清 page cache；0 关闭）"
   echo "[a2-dry] MOE_ZERO=$MOE_ZERO MOE_NF=$MOE_NF DRAFT_GRAPH=$DRAFT_GRAPH PYTHON_PGO=$PYTHON_PGO pgo_target=${PGO_LIB:-none} LOAD_FORMAT=${LOAD_FORMAT:-<real>} CAND_MODE=$CAND_MODE PATCH_MODE=$PATCH_MODE"
   echo "[a2-dry] CPUSET=$CPUSET${CPUSET_SRC:+ ($CPUSET_SRC)} MEMS=$MEMS${MEMS_SRC:+ ($MEMS_SRC)} STATIC_KERNEL=$STATIC_KERNEL NPUGRAPH_EX=$NPUGRAPH_EX MULTISTREAM=$MULTISTREAM HCCL_DET=${HCCL_DET:-none}"
@@ -1103,6 +1105,7 @@ $DOCKER run -d --name "$NAME" --net=host --shm-size=512g --privileged=true \
   -e V41_MOE_ZERO_NONFINITE="$MOE_NF" -e V41_MOE_ZERO_NONFINITE_FILE=/tmp/v41_moe_nf \
   -e V41_FORCE_CAND_MODE="$CAND_MODE" \
   -e LOAD_FORMAT="$LOAD_FORMAT" \
+  -e KV_ARGS_EXTRA="$KV_ARGS_EXTRA" \
   ${HCCL_ENV_ARGS[@]+"${HCCL_ENV_ARGS[@]}"} \
   -w /workspace "$IMAGE" \
   bash -lc "sleep infinity" >/dev/null || die "docker run 失败"
@@ -1195,6 +1198,7 @@ mkdir -p "$OUT"
   echo "[serve_a2] cpuset=$CPUSET mems=$MEMS"
   echo "[serve_a2] PROFILE=$V41_PROFILE（1 => /start_profile 与 /stop_profile 可用，落到 $OUT/prof）"
   echo "[serve_a2] ENGRAM_DEVICE_INDEX=$ENGRAM_DEVICE_INDEX ENGRAM_DEVICE_FALLBACK=$ENGRAM_DEVICE_FALLBACK"
+  echo "[serve_a2] KV_ARGS_EXTRA=${KV_ARGS_EXTRA:-<none>}"
   echo "[serve_a2] PATCH_MODE=$PATCH_MODE ADMISSION_GATE=${_gate:-n/a}(live_hits=${_gh:-0})"
 } | tee "$OUT/serve_cmd.txt"
 
@@ -1219,6 +1223,7 @@ export ASCEND_MAX_OP_CACHE_SIZE=-1
 # 这样 /stop_profile 一落盘就能直接分析，不用再 docker cp。
 export PROFILE=$V41_PROFILE
 export PROFILE_DIR=/opt/dsv41/results/$RUN_ID/prof
+export KV_ARGS_EXTRA="\${KV_ARGS_EXTRA:-}"
 # [OPS-SWITCHES] 三个排障开关，**默认全关**（发布口径）。
 # 排查长上下文/精度问题时把它们打开很有用：
 #   VLLM_SERVER_DEV_MODE=1  → 额外挂出 12 个运维端点（/reset_prefix_cache /pause
