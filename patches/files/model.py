@@ -49,15 +49,18 @@ def _engram_gate_rotation_f32(rotation):
 # [ENGRAM-GATE-HOIST] ----------------------------------------------------
 
 import torch
+import numpy as _np
 
 _ENGRAM_WITH_DUMMY = _os_egd.environ.get("V41_ENGRAM_WITH_DUMMY", "0") == "1"
 _ENGRAM_PAD_SKIP = _os_egd.environ.get("V41_ENGRAM_PAD_SKIP", "0") == "1"
 
 _IDS64_HOIST = _os_ids.environ.get("V41_IDS64_HOIST", "0") == "1"
 _CED_PREFILL_ROLE = _os_ids.environ.get("V41_CED_ROLE", "") == "prefill"
+_CED_H20_SNAPSHOT_POS = _os_ids.environ.get("V41_CED_H20_SNAPSHOT_POS", "")
+_CED_H20_SNAPSHOT_DIR = _os_ids.environ.get("V41_CED_H20_SNAPSHOT_DIR", "")
 from safetensors import safe_open
 from transformers import AutoTokenizer
-from vllm.distributed import get_pp_group
+from vllm.distributed import get_pp_group, get_tensor_model_parallel_rank
 from vllm.forward_context import get_forward_context
 
 from vllm_ascend.ascend_config import get_ascend_config
@@ -83,6 +86,50 @@ from .compressor import DeepseekV41Compressor, _read, text_config_of
 from .engram_gate import engram_gate
 from .engram_hash import PagedNgramHistory
 from .engram_hbm import EngramQueryGroup, NodeShardedEngram
+
+
+def _maybe_snapshot_ced_h20(layer, positions, hidden_states, pre_mix):
+    """Export the exact layer-20 input row for an isolated numeric comparison.
+
+    H20 includes the mHC streams and their FP32 mixing coefficients.  The
+    diagnostic is opt-in and reads one active prefill row outside graph capture.
+    It does not change either tensor or the model's forward result.
+    """
+    if not _CED_H20_SNAPSHOT_POS or not _CED_H20_SNAPSHOT_DIR:
+        return
+    context = get_forward_context()
+    if (
+        context.attn_metadata is None
+        or getattr(context, "capturing", False)
+        or getattr(context, "in_profile_run", False)
+    ):
+        return
+    metadata = layer.self_attn.v41_impl._get_layer_metadata(context.attn_metadata)
+    if metadata.swa.num_prefills == 0:
+        return
+    target = int(_CED_H20_SNAPSHOT_POS)
+    active = metadata.swa.num_actual_tokens
+    found = (positions[:active] == target).nonzero(as_tuple=False).flatten().cpu().tolist()
+    if not found:
+        return
+    if len(found) != 1:
+        raise RuntimeError(f"CED H20 snapshot position {target} appears {len(found)} times")
+    rank = get_tensor_model_parallel_rank()
+    output_dir = Path(_CED_H20_SNAPSHOT_DIR)
+    output_dir.mkdir(parents=True, exist_ok=True)
+    output = output_dir / f"rank{rank}_pos{target}.npz"
+    if output.exists():
+        return
+    row = found[0]
+    _np.savez_compressed(
+        output,
+        position=target,
+        rank=rank,
+        role=_os_ids.environ.get("V41_CED_ROLE", "baseline"),
+        hidden_states=hidden_states[row].detach().float().cpu().numpy().copy(),
+        pre_mix=pre_mix[row].detach().float().cpu().numpy().copy(),
+    )
+    print(f"[CED-H20] snapshot rank={rank} position={target} path={output}", flush=True)
 
 # ==== [DEVICE-INDEX] Engram 端到端设备化 =====================================
 # V41_ENGRAM_DEVICE_INDEX=1 时，查表不再经过 host：
@@ -1309,6 +1356,8 @@ class DeepseekV41Model(DeepseekV4Model):
             # is unchanged, so communication shape/dtype is identical.
             moe_input_ids = moe_input_ids.to(torch.int64)
         for layer in self.layers:
+            if layer.layer_idx == 20:
+                _maybe_snapshot_ced_h20(layer, positions, hidden_states, pre_mix)
             if self._ced_prefill_only and layer.layer_idx == 20:
                 layer.write_global_source_from_encoder(hidden_states, pre_mix)
                 break

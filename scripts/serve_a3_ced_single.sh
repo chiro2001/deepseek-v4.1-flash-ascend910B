@@ -52,6 +52,10 @@ if [ -n "${CED_SNAPSHOT_POS:-}" ]; then
   export V41_CED_SNAPSHOT_POS=$CED_SNAPSHOT_POS
   export V41_CED_SNAPSHOT_DIR="/opt/dsv41/results/$RUN_ID/snapshots"
 fi
+if [ -n "${CED_H20_SNAPSHOT_POS:-}" ]; then
+  export V41_CED_H20_SNAPSHOT_POS=$CED_H20_SNAPSHOT_POS
+  export V41_CED_H20_SNAPSHOT_DIR="/opt/dsv41/results/$RUN_ID/h20_snapshots"
+fi
 export MODEL DEVS PORT KV_PORT RUN_ID NAME
 export SERVED_NAME=${SERVED_NAME:-deepseek-v41-ced-tiny}
 export TP=1 DP=1 V41_CED_ROLE=$CED_ROLE
