@@ -782,8 +782,17 @@ class DeepseekV41Model(DeepseekV4Model):
             candidate_buffer,
         )
         # Development gate: compare the isolated CED layer-20 source write with
-        # the next ordinary layer-20 forward on the same real model input.
-        self._ced_source_compare_pending = _os_ids.environ.get("V41_CED_SOURCE_COMPARE", "0") == "1"
+        # ordinary layer-20 forwards. A bounded chunk count lets a real long
+        # prefill exercise the 8192-token chunk boundaries without logging
+        # every subsequent request in a long-running service.
+        self._ced_source_compare_remaining = (
+            int(_os_ids.environ.get("V41_CED_SOURCE_COMPARE_CHUNKS", "1"))
+            if _os_ids.environ.get("V41_CED_SOURCE_COMPARE", "0") == "1"
+            else 0
+        )
+        if self._ced_source_compare_remaining < 0:
+            raise ValueError("V41_CED_SOURCE_COMPARE_CHUNKS must be nonnegative")
+        self._ced_source_compare_count = 0
         for layer in self.layers:
             if isinstance(layer, DeepseekV41DecoderLayer):
                 layer.self_attn.shared_state = self.shared_attention_state
@@ -1307,7 +1316,7 @@ class DeepseekV41Model(DeepseekV4Model):
                 )
             ced_source_snapshot = None
             if (
-                self._ced_source_compare_pending
+                self._ced_source_compare_remaining > 0
                 and layer.layer_idx == 20
                 and not getattr(get_forward_context(), "capturing", False)
                 and get_forward_context().attn_metadata is not None
@@ -1315,17 +1324,27 @@ class DeepseekV41Model(DeepseekV4Model):
                 written = layer.write_global_source_from_encoder(hidden_states, pre_mix)
                 if written:
                     metadata = layer.self_attn.v41_impl._get_layer_metadata(get_forward_context().attn_metadata)
-                    slots = metadata.compressor.cache.slot_mapping[: min(written, 64)].cpu().tolist()
-                    rows = [(int(block), int(offset)) for block, offset in slots if block >= 0 and offset >= 0][:16]
+                    slots = metadata.compressor.cache.slot_mapping[:written]
+                    # Sample both ends of every chunk: the last rows are the
+                    # ones most likely to cross a block or chunk boundary.
+                    sampled = torch.cat((slots[:8], slots[-8:]), dim=0).cpu().tolist()
+                    rows = list(dict.fromkeys(
+                        (int(block), int(offset))
+                        for block, offset in sampled
+                        if block >= 0 and offset >= 0
+                    ))
                     if rows:
                         index_k, index_scale = layer.self_attn.indexer.k_cache.kv_cache[0]
                         planes = (layer.self_attn.long_kv_cache.kv_cache[0], index_k, index_scale)
                         before = tuple(tuple(plane[block, offset].detach().clone() for block, offset in rows) for plane in planes)
-                        ced_source_snapshot = (rows, planes, before)
-                        self._ced_source_compare_pending = False
+                        positions = metadata.positions[:written]
+                        pos_edges = (int(positions[0].item()), int(positions[-1].item()))
+                        ced_source_snapshot = (rows, planes, before, pos_edges)
+                        self._ced_source_compare_remaining -= 1
+                        self._ced_source_compare_count += 1
             hidden_states, pre_mix = layer(positions, hidden_states, pre_mix, None, input_ids=moe_input_ids)
             if ced_source_snapshot is not None:
-                rows, planes, before = ced_source_snapshot
+                rows, planes, before, pos_edges = ced_source_snapshot
                 for plane_idx, (plane, saved) in enumerate(zip(planes, before)):
                     for row_idx, ((block, offset), expected) in enumerate(zip(rows, saved)):
                         if not torch.equal(expected, plane[block, offset]):
@@ -1333,7 +1352,13 @@ class DeepseekV41Model(DeepseekV4Model):
                                 "CED layer-20 source differs from normal forward: "
                                 f"plane={plane_idx} row={row_idx} slot=({block},{offset})"
                             )
-                print(f"[CED-SOURCE] layer20 source-only cache rows match normal forward: rows={len(rows)}", flush=True)
+                print(
+                    "[CED-SOURCE] layer20 source-only cache rows match normal "
+                    f"forward: chunk={self._ced_source_compare_count} "
+                    f"tokens={written} positions={pos_edges[0]}..{pos_edges[1]} "
+                    f"rows={len(rows)}",
+                    flush=True,
+                )
         assert last_layer is not None
         hidden_states = last_layer.hc_collapse(hidden_states, pre_mix)
         hidden_states = self.norm(hidden_states)

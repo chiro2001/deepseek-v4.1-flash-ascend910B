@@ -22,6 +22,6 @@
 
 ## 当前进度
 
-- 已在 `patches/files/model.py` 加入层 20 的源投影入口，默认不触发。它复用现有 `_write_compressed_source`，尚未在 A3 真实权重下对照。
-- 开发诊断开关 `V41_CED_SOURCE_COMPARE=1` 会在一次非图捕获的真实 forward 中，先调用源投影，再执行普通层 20，并对该批前 16 个有效物理槽中的主 KV、Indexer K、scale 做逐张量精确比较。成功日志为 `[CED-SOURCE]`；不匹配立即报错。开关默认关，测试结束后仍需关闭。
+- 已在 `patches/files/model.py` 加入层 20 的源投影入口，默认不触发。它复用现有 `_write_compressed_source`。2026-09-23 在 A3-21 以真实权重 `v41-flat-verify3`、TP8、BF16 KV、Engram host 路径跑了一次 14-token 请求。8 个 TP rank 均记录 `rows=14` 且无比较异常；原始日志为 [`evidence/ced_source_8ff6a4a/serve.log.gz`](../evidence/ced_source_8ff6a4a/serve.log.gz)，解压后的 SHA-256 为 `cce508a4a6bc814164b78ec325768b67400d004192ab6a227d1773141fef56e0`。该门只证明这一短请求的采样行相等，不能外推到分块或长上下文。
+- 开发诊断开关 `V41_CED_SOURCE_COMPARE=1` 会在非图捕获的真实 forward 中，先调用源投影，再执行普通层 20，并对每块前 8 和后 8 个有效物理槽中的主 KV、Indexer K、scale 做逐张量精确比较。`V41_CED_SOURCE_COMPARE_CHUNKS=N` 设定每个 rank 最多比较的块数，默认 1；日志会列出块序号和 token 位置。不匹配立即报错。两个开关默认均不启用；长请求测试应设置足够大的 `N` 覆盖末块。
 - `compile()` 语法检查和 `git diff --check` 通过。没有声称 CED 运行时或性能已经实现。
