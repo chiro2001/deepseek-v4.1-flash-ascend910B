@@ -226,8 +226,28 @@ elif curl -sf -m 10 "$URL/health" >/dev/null 2>&1; then
     P=$SH/scripts/text_correctness_probe.py
     if [ -f "$P" ]; then
         echo "  跑 $PROBES 发（乱码要看「稳不稳」）……"
+        TP=$OUTDIR/textprobe.json
         timeout 900 python3 "$P" --base-url "$URL" --model "${MODEL_NAME:-deepseek-v4-flash}" --mode all \
-          2>&1 | tail -60 | sed 's/^/  /'
+          --out "$TP" 2>&1 | tail -80 | sed 's/^/  /'
+        # ★ 乱码的主判据 = **模型答案的逐字原文**（不是"通过/失败"这种二值）。
+        #   probe 的 stdout 可能被 tail 截断，所以再从 JSON 里把答案原文抽出来单独列一遍。
+        if [ -f "$TP" ]; then
+            echo
+            echo "  --- 模型答案原文（从 $TP 抽；★ 乱码就看这一段的 repr）---"
+            grep -a -oE '"(answer|text)": .*' "$TP" | head -20 | cut -c1-400 | sed 's/^/  /'
+            echo "  --- 乱码指纹（U+FFFD 替换字符 / 控制字符 / 孤立代理对）---"
+            printf '      %-24s = %s\n' "U+FFFD(原始字节)" \
+                "$(LC_ALL=C grep -a -c $'\xef\xbf\xbd' "$TP" 2>/dev/null || true)"
+            printf '      %-24s = %s\n' "U+FFFD(\\ufffd 转义)" \
+                "$(LC_ALL=C grep -a -c -- '\\ufffd' "$TP" 2>/dev/null || true)"
+            printf '      %-24s = %s\n' "U+0000(\\u0000 转义)" \
+                "$(LC_ALL=C grep -a -c -- '\\u0000' "$TP" 2>/dev/null || true)"
+            printf '      %-24s = %s\n' "NUL(\\x00 原始字节)" \
+                "$(LC_ALL=C grep -a -c $'\x00' "$TP" 2>/dev/null || true)"
+            printf '      %-24s = %s\n' "孤立代理对(\\ud8)" \
+                "$(LC_ALL=C grep -a -c -- '\\ud8' "$TP" 2>/dev/null || true)"
+            echo "  （同上全文已存：$TP —— 贴 EVIDENCE 或直接 scp 这一份都行）"
+        fi
     else
         echo "  （缺 $P）"
     fi

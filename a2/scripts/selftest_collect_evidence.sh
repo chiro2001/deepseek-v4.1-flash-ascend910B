@@ -141,6 +141,63 @@ env RESULTS="$T/results" PORT=59999 NO_PROBE=1 CTR=x OUTDIR="$T/out2" \
     && ok "--run-id + OUTDIR 可用" || bad "--run-id/OUTDIR 组合失败"
 bash "$SCRIPT" --help >/dev/null 2>&1 && ok "--help rc=0" || bad "--help 非 0"
 
+# ================================================================ ⑧ 乱码证据（★ 本轮真正的靶子）
+# 用一个**假的 OpenAI 兼容服务**回答"带乱码指纹的原文"，验证：
+#   ① 探针的 --out JSON 真的落到了 OUTDIR；
+#   ② EVIDENCE 里出现"模型答案原文"（乱码要看原文，不是看通过/失败）；
+#   ③ "乱码指纹"能数出 U+FFFD 等替换/控制字符。
+say "⑧ 服务活着时：模型答案原文 + 乱码指纹进 EVIDENCE（假服务，零真机）"
+cat > "$T/fake_srv.py" <<'PY'
+import json, os, sys
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+
+ANSWER = "\u597d\u7684\uff0c\u7b54\u6848\u662f 391\u3002\ufffd \u5c3e\u5df4"
+
+class H(BaseHTTPRequestHandler):
+    def log_message(self, *a):  pass
+    def _json(self, obj, code=200):
+        b = json.dumps(obj, ensure_ascii=False).encode()
+        self.send_response(code); self.send_header("Content-Type", "application/json")
+        self.send_header("Content-Length", str(len(b))); self.end_headers(); self.wfile.write(b)
+    def do_GET(self):
+        self._json({"status": "ok"})
+    def do_POST(self):
+        n = int(self.headers.get("Content-Length") or 0); self.rfile.read(n)
+        self._json({"choices": [{"message": {"role": "assistant", "content": ANSWER},
+                                 "finish_reason": "stop"}],
+                    "usage": {"completion_tokens": 8}})
+
+srv = ThreadingHTTPServer(("127.0.0.1", 0), H)
+open(sys.argv[1], "w").write(str(srv.server_address[1]))
+srv.serve_forever()
+PY
+python3 "$T/fake_srv.py" "$T/port.txt" > "$T/srv.log" 2>&1 &
+SRVPID=$!
+for _ in $(seq 1 60); do [ -s "$T/port.txt" ] && break; sleep 0.1; done
+FAKEPORT=$(cat "$T/port.txt" 2>/dev/null || echo "")
+if [ -z "$FAKEPORT" ]; then
+    bad "假服务没起来（跳过本条，其余不受影响）"
+else
+    rm -f "$T/out/EVIDENCE.txt" "$T/out/textprobe.json"
+    env PORT="$FAKEPORT" URL="http://127.0.0.1:$FAKEPORT" NO_PROBE=0 PROBES=1 \
+        MODEL_NAME=stub-model CTR="__selftest_no_such_ctr__" OUTDIR="$T/out" \
+        timeout 300 bash "$SCRIPT" --serve-log "$LOGDIR/random_name.log" >/dev/null 2>&1
+    [ -f "$T/out/textprobe.json" ] && ok "探针证据落到 OUTDIR/textprobe.json" \
+        || bad "textprobe.json 没落盘"
+    grep -q "模型答案原文" "$T/out/EVIDENCE.txt" 2>/dev/null \
+        && ok "EVIDENCE 里有「模型答案原文」段" || bad "缺「模型答案原文」段"
+    grep -q "乱码指纹" "$T/out/EVIDENCE.txt" 2>/dev/null \
+        && ok "EVIDENCE 里有「乱码指纹」段" || bad "缺「乱码指纹」段"
+    # U+FFFD 那一格的计数必须 >=1（假答案里放了一个替换字符）
+    fffd=$(sed -n '/乱码指纹/,/同上全文/p' "$T/out/EVIDENCE.txt" \
+           | grep -a 'U+FFFD(原始字节)' | grep -oE '= [0-9]+' | tr -dc '0-9')
+    [ -n "$fffd" ] && [ "$fffd" -ge 1 ] 2>/dev/null \
+        && ok "U+FFFD 指纹计数 = $fffd（≥1）" || bad "U+FFFD 指纹计数不对（'$fffd'）"
+    grep -aq "答案是 391" "$T/out/textprobe.json" 2>/dev/null \
+        && ok "JSON 里保留了答案原文（可离线复算）" || bad "JSON 里没有答案原文"
+fi
+kill "$SRVPID" 2>/dev/null || true
+
 echo
 echo "=============== 通过 $V 条 ==============="
-[ "$V" -ge 14 ] && { echo "✅ 自测全过"; exit 0; } || { echo "❌ 不合格（通过数 $V < 14）"; exit 9; }
+[ "$V" -ge 20 ] && { echo "✅ 自测全过"; exit 0; } || { echo "❌ 不合格（通过数 $V < 20）"; exit 9; }
