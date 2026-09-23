@@ -99,7 +99,16 @@ DRAFT_GRAPH=${DRAFT_GRAPH:-1}
 #   P2_POOL_PATCH=1 时必须同时给对的 P2_COMP_JSON（与"张量数"匹配，给错会 fail-closed）
 P2_POOL_PATCH=${P2_POOL_PATCH:-1}
 # 16 张量几何的【实测·worker 侧真值】分量（8 卡真权重，8 rank x 9 行一致）
-P2_COMP_JSON=${P2_COMP_JSON:-'[[0],[1,2,3,4,5,6,7,8,9,10,11,12]]'}
+# ★★★ 2026-09-23 10:4x **按档位推导默认值**（实测事故：档 C 起服报
+#   `[K_l1_8card][L1] P2_COMP_JSON 把共享张量的组拆到了不同分量 —— 会互相覆盖，拒绝启动`）。
+#   为什么：分量是"**哪些组的张量集合完全相同**"的等价类，而**张量数随档位变**：
+#     · 档 B（无 int8）      ⇒ **16 张量** ⇒ `[[0],[1,2,3,4,5,6,7,8,9,10,11,12]]`
+#       （`logs/042` 实测·8 rank 一致：g0 full 独占 0–11；g1 state + g2..g11 SWA + g12 draft 共用 12–15）
+#     · 档 C/D（int8 开）    ⇒ **20 张量** ⇒ `[[0,2,3,4,5,6,7,8,9,10,11],[1,12]]`
+#       （本机实测：`[P2_poolsizing] ③ ★ 真实分量（worker 侧真值）` 逐字就是它）
+#   ⇒ 原来这里**硬编码了档 B 的那个**，而包装脚本默认开 int8 ⇒ **两者必然对不上**。
+#   `p2_pool.worker_rows()` 会 fail-closed 拒绝启动（**这是好事**：它宁可拒绝也不让两个组互相覆盖）。
+#   ★ 真分量在 **worker 侧**才可计算 ⇒ 起服前无法预判；但**按档位就有确定的默认值**，见上。
 
 # ★★★ 2026-09-23 10:2x **per-group `blocks_per_chunk`（dict 形式）真正生效的那条路**
 #   实测事故：A2 起服在**模型加载完之后**崩，栈底是
@@ -154,6 +163,15 @@ done
 KV8_SWA=${KV8_SWA:-0}        # 1 = SWA 页 INT8（档 C 起）
 KV8_RING_FP16=${KV8_RING_FP16:-0}  # 1 = state ring FP32→FP16（档 C 的必需前置）
 KV8_FULL=${KV8_FULL:-0}      # 1 = long-KV 也 INT8（档 D）
+# ★ 分量默认值**必须在这里**推导 —— KV8_SWA/FULL 上面三行才定义；
+#   放到前面会 `set -u` 崩（同一类错今天已经犯过一次：LAUNCH_DIR）。
+#   （教训：脚本里"定义顺序"也是判据的一部分 —— 见 a2/scripts/selftest_serve_a2_offload.sh）
+if [ "$KV8_SWA" = "1" ] || [ "$KV8_FULL" = "1" ]; then
+    _p2_def_comp='[[0,2,3,4,5,6,7,8,9,10,11],[1,12]]'   # 20 张量（档 C/D）
+else
+    _p2_def_comp='[[0],[1,2,3,4,5,6,7,8,9,10,11,12]]'   # 16 张量（档 B）
+fi
+P2_COMP_JSON=${P2_COMP_JSON:-$_p2_def_comp}
 KV8_PREFILL=${KV8_PREFILL:-0}  # 1 = prefill 融合 kernel（档 D）
 # ★ APC 对齐：0 = 旧行为；3 = 段栅格（推荐，档 C/D 必开）
 APC_ALIGN=${APC_ALIGN:-0}
@@ -324,7 +342,7 @@ echo "  ★★ 档位        : $_tier（**容量指纹**：B/C=427,643，D=485,6
 echo "  blocks_per_chunk: $BLOCKS_PER_CHUNK"
 echo "  prefix_match_unit: $PREFIX_MATCH_UNIT"
 echo "  ENGRAM        : $ENGRAM"
-echo "  L1 (P2_POOL_PATCH): $P2_POOL_PATCH${P2_COMP_JSON:+  comp=$P2_COMP_JSON}"
+echo "  L1 (P2_POOL_PATCH): $P2_POOL_PATCH  comp=$P2_COMP_JSON"
 echo "  per-group bpc : L1_POOL_PATCH=$L1_POOL_PATCH（1 = 整份替换 6 文件，含 config.py 的 dict 解析 + 按需行数）"
 echo "  drop cache    : DROPCACHE=$DROPCACHE（1 = 起服前清整机 page cache；0 = 不动）"
 echo "  加固 PGP_MGR_HARDEN: $PGP_MGR_HARDEN（stats=$PGP_MGR_STATS）"

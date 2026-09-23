@@ -155,6 +155,15 @@ run_case draft0 ENGRAM=0 DRAFT_GRAPH=0; check "⑧ DRAFT_GRAPH=0 须警告" 0 $?
 say "⑨ DROPCACHE=0 必须透传（不许静默仍然清 page cache）"
 run_case nodrop ENGRAM=0 DROPCACHE=0; check "⑨ DROPCACHE=0 透传" 0 $? 'DROPCACHE=0' 'unbound variable'
 
+say "⑩ P2_COMP_JSON 必须**按档位**推导（档 C=20 张量 / 档 B=16 张量）"
+# 为什么单列一条：分量是"哪些组的张量集合完全相同"的等价类，**张量数随档位变**。
+# 硬编码过档 B 的那套 ⇒ 档 C 起服会在 p2_pool.worker_rows() 里 fail-closed
+# （`P2_COMP_JSON 把共享张量的组拆到了不同分量`，实测）。
+run_case compc ENGRAM=0 KV8_SWA=1 KV8_RING_FP16=1
+check "⑩a 档 C 分量" 0 $? 'comp=\[\[0,2,3,4,5,6,7,8,9,10,11\],\[1,12\]\]' 'unbound variable'
+run_case compb ENGRAM=0
+check "⑩b 档 B 分量" 0 $? 'comp=\[\[0\],\[1,2,3,4,5,6,7,8,9,10,11,12\]\]' 'unbound variable'
+
 say "结果"
 if [ "$V" = "0" ]; then echo "✅ 全部通过"; else echo "⛔ 有用例失败"; fi
 exit $((V * 9))
