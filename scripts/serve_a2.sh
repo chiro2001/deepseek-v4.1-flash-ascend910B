@@ -885,6 +885,12 @@ if [ -n "${V41_CED_ROLE:-}" ]; then
     MOUNTS+=(-v "$_ced_scheduler:/opt/dsv41/ced_scheduler_replay.patch:ro")
   fi
 fi
+if [ -n "${V41_CED_SNAPSHOT_POS:-}" ] && [ -z "${V41_CED_ROLE:-}" ]; then
+  [ "${PROBE:-0}" != "1" ] || die "CED cache snapshot 不能与 PROBE=1 同时覆盖 dsa_v41.py"
+  _ced_dsa="$PKG/experimental/ced/dsa_v41.py"
+  [ -f "$_ced_dsa" ] || die "CED cache snapshot 缺少 $_ced_dsa"
+  MOUNTS+=(-v "$_ced_dsa:/vllm-workspace/vllm-ascend/vllm_ascend/attention/dsa_v41.py:ro")
+fi
 [ -n "$PGO_LIB" ] && MOUNTS+=(-v "$PKG/optim/pgo/libpython3.12.so.1.0:$PGO_LIB:ro")
 # ---------- [PROBE] 稀疏状态插针（事后取证；独立于 PATCH_MODE） ----------
 # PROBE=1 时用只读挂载覆盖 dsa_v41.py 并注入 sparse_capture.py。
@@ -1121,6 +1127,8 @@ $DOCKER run -d --name "$NAME" --net=host --shm-size=512g --privileged=true \
   -e V41_CED_SOURCE_COMPARE="${V41_CED_SOURCE_COMPARE:-0}" \
   -e V41_CED_SOURCE_COMPARE_CHUNKS="${V41_CED_SOURCE_COMPARE_CHUNKS:-1}" \
   -e V41_CED_ROLE="${V41_CED_ROLE:-}" \
+  -e V41_CED_SNAPSHOT_POS="${V41_CED_SNAPSHOT_POS:-}" \
+  -e V41_CED_SNAPSHOT_DIR="${V41_CED_SNAPSHOT_DIR:-}" \
   -e LOAD_FORMAT="$LOAD_FORMAT" \
   -e KV_ARGS_EXTRA="$KV_ARGS_EXTRA" \
   ${HCCL_ENV_ARGS[@]+"${HCCL_ENV_ARGS[@]}"} \

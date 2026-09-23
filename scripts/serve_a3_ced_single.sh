@@ -48,6 +48,10 @@ fi
 stamp=$(date +%Y%m%d_%H%M%S)
 RUN_ID=${RUN_ID:-ced_single_${role}_${stamp}}
 NAME=${NAME:-dsv41-ced-single-${role}-${stamp}}
+if [ -n "${CED_SNAPSHOT_POS:-}" ]; then
+  export V41_CED_SNAPSHOT_POS=$CED_SNAPSHOT_POS
+  export V41_CED_SNAPSHOT_DIR="/opt/dsv41/results/$RUN_ID/snapshots"
+fi
 export MODEL DEVS PORT KV_PORT RUN_ID NAME
 export SERVED_NAME=${SERVED_NAME:-deepseek-v41-ced-tiny}
 export TP=1 DP=1 V41_CED_ROLE=$CED_ROLE

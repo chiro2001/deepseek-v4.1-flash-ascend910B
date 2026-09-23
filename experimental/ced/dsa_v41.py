@@ -12,6 +12,7 @@ from dataclasses import dataclass
 from typing import Any
 import os
 
+import numpy as np
 import torch
 import torch.nn.functional as F
 from torch import nn
@@ -47,6 +48,8 @@ from vllm_ascend.worker.device_metadata import (
 
 V41_METADATA_BUFFER_SIZE = 1024
 _CED_DECODE_ROLE = os.environ.get("V41_CED_ROLE", "") == "decode"
+_CED_SNAPSHOT_POS = os.environ.get("V41_CED_SNAPSHOT_POS", "")
+_CED_SNAPSHOT_DIR = os.environ.get("V41_CED_SNAPSHOT_DIR", "")
 
 
 @eager_break_during_capture
@@ -574,6 +577,59 @@ class DeepseekV41EagerAttentionImpl:
         """V4.1 owns stable metadata buffers; no backend pointer patch is needed."""
         return None
 
+    def _maybe_snapshot_cache(self, attn, positions, metadata, forward_context):
+        """Copy one requested prefill row for an isolated CED/base numeric AB."""
+        if (
+            not _CED_SNAPSHOT_POS
+            or not _CED_SNAPSHOT_DIR
+            or getattr(forward_context, "capturing", False)
+            or getattr(forward_context, "in_profile_run", False)
+            or metadata.swa.num_prefills == 0
+        ):
+            return
+        target = int(_CED_SNAPSHOT_POS)
+        active = metadata.swa.num_actual_tokens
+        found = (positions[:active] == target).nonzero(as_tuple=False).flatten().cpu().tolist()
+        if not found:
+            return
+        if len(found) != 1:
+            raise RuntimeError(f"CED snapshot position {target} appears {len(found)} times in one batch")
+        token_idx = found[0]
+        swa_block, swa_offset = (int(v) for v in metadata.swa.slot_mapping[token_idx].cpu().tolist())
+        if swa_block < 0 or swa_offset < 0:
+            raise RuntimeError(f"CED snapshot SWA slot invalid: {(swa_block, swa_offset)}")
+        def numeric_row(tensor):
+            # FP32 represents every BF16/FP16/int8 cache value exactly and
+            # makes the small diagnostic file readable without local torch.
+            return tensor.detach().cpu().float().numpy().copy()
+
+        snapshot = {
+            "position": target,
+            "layer": self.role.layer_idx,
+            "swa_slot": (swa_block, swa_offset),
+            "swa": numeric_row(attn.dsa_attn.swa_cache_layer.kv_cache[0][swa_block, swa_offset]),
+        }
+        if self.role.layer_idx == 20:
+            long_block, long_offset = (
+                int(v) for v in metadata.compressor.cache.slot_mapping[token_idx].cpu().tolist()
+            )
+            index_block, index_offset = (
+                int(v) for v in metadata.indexer.cache.slot_mapping[token_idx].cpu().tolist()
+            )
+            if min(long_block, long_offset, index_block, index_offset) < 0:
+                raise RuntimeError("CED snapshot layer-20 global slot invalid")
+            index_k, index_scale = attn.indexer.k_cache.kv_cache[0]
+            snapshot.update(
+                long_slot=(long_block, long_offset),
+                long_kv=numeric_row(attn.long_kv_cache.kv_cache[0][long_block, long_offset]),
+                index_slot=(index_block, index_offset),
+                index_k=numeric_row(index_k[index_block, index_offset]),
+                index_scale=numeric_row(index_scale[index_block, index_offset]),
+            )
+        os.makedirs(_CED_SNAPSHOT_DIR, exist_ok=True)
+        path = os.path.join(_CED_SNAPSHOT_DIR, f"layer{self.role.layer_idx:02d}_pos{target}.npz")
+        np.savez_compressed(path, **snapshot)
+
     def forward(self, attn, positions, hidden_states, output: torch.Tensor | None = None):
         # The custom-op caller provides a graph-stable output buffer.  Write
         # O-projection results into it directly instead of materializing a
@@ -622,6 +678,7 @@ class DeepseekV41EagerAttentionImpl:
             partial_slice=[attn.nope_head_dim, attn.head_dim],
         )
         attn.dsa_attn.dsa_attn.impl._forward_o_proj(attention_output, output)
+        self._maybe_snapshot_cache(attn, positions, metadata, forward_context)
         return output
 
 

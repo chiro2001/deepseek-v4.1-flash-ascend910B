@@ -54,3 +54,19 @@ replay 本来允许近似，须报告差值分布并回到 8+8 真权重验收�
   保留失败证据，日志解压 SHA-256 为
   `7ea66d979d96e3ae0c03664309d82ee48ea51c55a6e49a6d939d99d76e2c3a3e`。
   D 和代理已停止，P 仍健康；接下来先在 chip7 跑全 40 层基线。
+
+## 全 40 层基线 API 对照（`ccf5762`）
+
+在同一台 A3-22 上停止 D/代理后，用 chip7、同一个 tiny 模型、dummy 权重、
+`SEED=0`、BF16 KV 和同一批显式 token IDs 启动无 CED 角色的全 40 层基线。
+两臂的长度 2、127、128、129、130、256、512、4096 各重复两遍：
+**16/16** 选中 token 相同、选中 token 的 logprob 相同、top-20 候选集合
+均为 **20/20** 相同；共同候选的最大 logprob 绝对差
+`9.5367431640625e-7`。原始 [基线响应](../../evidence/ced_tiny_pd_b6ca283/baseline_precision.json)
+和[逐行对照](../../evidence/ced_tiny_pd_b6ca283/pd_vs_baseline.json)已归档。
+这证明 API 可见 top-20 数值接近，仍不足以证明所有 SWA 页逐值相等。
+
+下一诊断已在工作树加入按指定位置导出 40 层 SWA 行以及层 20 全局 KV、
+Indexer K/scale 的开关 `CED_SNAPSHOT_POS`，并提供 NumPy 对照脚本。
+它**尚未上卡**；应先在位置 126 对齐短 prompt 的 D replay 与全 40 层基线，
+再决定是否需要修订 replay 起点的注意力掩码。
