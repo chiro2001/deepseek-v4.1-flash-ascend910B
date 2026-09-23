@@ -9,9 +9,19 @@
 #   * 它认 `OFFLOAD_SCHED_PATCH` / `OFFLOAD_NPU_WORKER_PATCH`（挂两个补丁）
 # 本脚本把 `a2/patches/` 的四个文件复制进 shadow-pkg 的补丁目录，再调它的 serve_a2.sh。
 #
-# 用法：
-#   bash a2/scripts/serve_a2_offload.sh              # 32K 场景（OFFLOAD_GB=16）
-#   OFFLOAD_GB=48 MAX_LEN=131072 bash a2/scripts/serve_a2_offload.sh   # 128K 场景
+# 用法（默认 = A2 生产口径：OFFLOAD_GB=85 MAX_LEN=1048576 MAX_SEQS=4）：
+#   bash a2/scripts/serve_a2_offload.sh
+#   MAX_LEN=131072 MAX_SEQS=16 OFFLOAD_GB=56 bash a2/scripts/serve_a2_offload.sh   # 回到 128K 场景
+#
+# ★★ profiler（**透传，已实测**）：`PROFILE=1` 或 `V41_PROFILE=1` 都可以 ——
+#   模板读的是 `V41_PROFILE=${V41_PROFILE:-${PROFILE:-0}}`（`serve_a2.sh:188`），
+#   本脚本的 `_launch_serve()` 会把这一个值**同时显式传给两个名字**（不再靠环境继承，见 logs/112）。
+#   开了之后 `/start_profile` 与 `/stop_profile` 可用，产物落 **宿主可见** 的
+#     $LAUNCH_DIR/results/<RUN_ID>/prof        （LAUNCH_DIR 默认 = shadow-pkg）
+#   例： PROFILE=1 ENGRAM=1 ENGRAM_DEVICE_INDEX=0 KV8_SWA=1 KV8_RING_FP16=1 \
+#          MODEL=<模型目录> bash a2/scripts/serve_a2_offload.sh
+#   ★ 采完必须在**容器内** msprof --export=on，产物属主 root ⇒ 宿主侧分析前先 sudo chown -R
+#     （见 a2/logs/128 的两条踩坑记录）
 #
 # ★ 起服后**必须先跑自检**（脚本末尾会打印命令），否则可能白等 20 分钟。
 # =============================================================================
@@ -234,6 +244,7 @@ echo "A2 DRAM KV 卸载起服"
 echo "=============================================================="
 echo "  模型          : $MODEL"
 echo "  镜像          : $IMAGE（★ 必须带 ENGRAM×卸载 的 P0 修复；指纹门会核对）"
+echo "  profiler      : PROFILE=${V41_PROFILE:-${PROFILE:-0}}（1 ⇒ /start_profile 与 /stop_profile 可用；产物落 $LAUNCH_DIR/results/<RUN_ID>/prof）"
 if [ "$P2_POOL_PATCH" = "1" ]; then
     echo "  池子          : ${OFFLOAD_GB} GiB（★ 档 B 宿主实占 ≈197 GiB，8 卡实测 1.9895x）"
 else
@@ -343,6 +354,49 @@ fi
 # shadow-pkg 的补丁目录（serve_a2.sh 的 PATCH_MODE=mount 从这里挂）
 SHADOW=${SHADOW_PKG:-$HOME/projects/dsv41-upstream-pr/shadow-pkg}
 PATCHDIR="$SHADOW/patches/files/offload_dsv41"
+
+# ============================================================================================
+# ★★★ 2026-09-23 09:3x **P0 修复：DRY 与真实起服调的不是同一个对象**
+#   现象（静态定位，stub 实测复现）：DRY 走 `cd "$SHADOW"`（shadow 的 serve_a2.sh，含注入块），
+#     而**真实起服**走 `cd "$REPO"`（= 发布仓里的**模板**，`grep A2-OFFLOAD` 命中 **0**）
+#     ⇒ 真正起服的那份 **4 个卸载补丁一个都不挂** = **静默零卸载**
+#       （服务照常 READY、serve.log 无任何报错、`--kv-transfer-config` 还在，但卸载不生效）。
+#   而 `logs/074` 那次"档 B 一个补丁都没挂"是**同一个坑的另一面**，当时只修了 export 段没修这里。
+#   ⇒ 两条处置：
+#     ① 起服入口**收敛成一个函数**（DRY 与真实起服共用）⇒ 天然同对象；
+#     ② 加一条**内容断言**（不是路径断言）：要起服的那份 serve_a2.sh **必须**含 `[A2-OFFLOAD]`，
+#        否则拒绝（宁可响亮失败）。★ 用 `LAUNCH_DIR=` 可显式改对象（A/B 对照时用）。
+#   另外本函数**显式传 PROFILE/V41_PROFILE**（不再依赖环境继承 —— `logs/112` 就是继承坑）。
+# ============================================================================================
+LAUNCH_DIR=${LAUNCH_DIR:-$SHADOW}
+_SV="$LAUNCH_DIR/scripts/serve_a2.sh"
+if [ ! -f "$_SV" ]; then
+    echo "⛔ 找不到要起服的脚本：$_SV" >&2
+    echo "   （shadow 还没造？ PKG=$REPO DST=$SHADOW bash $A2DIR/scripts/make_shadow_pkg.sh）" >&2
+    exit 2
+fi
+if ! grep -q '\[A2-OFFLOAD\]' "$_SV"; then
+    echo "⛔⛔ 要起服的 $_SV 里**没有 [A2-OFFLOAD] 注入块** ⇒ 4 个卸载补丁一个都不会挂（静默零卸载）。" >&2
+    echo "     判据是**内容**不是路径：这份 shadow 是旧生成器造的，或 LAUNCH_DIR 指错了。" >&2
+    echo "     修法： PKG=$REPO DST=$LAUNCH_DIR bash $A2DIR/scripts/make_shadow_pkg.sh" >&2
+    exit 2
+fi
+echo "✓ 起服对象：$_SV（含 [A2-OFFLOAD] 注入块）"
+
+_launch_serve() {   # $1 = DRY_RUN（0 真起 / 1 干跑）
+    cd "$LAUNCH_DIR" || return 2
+    # ★ 先把值算成**一个**变量，再赋给两个名字。
+    #   否则 `A=x B=...$A...` 这种同前缀多处赋值在 bash 里的求值顺序有歧义
+    #   （实测：`PROFILE=0 V41_PROFILE=1` 会得到 PROFILE=0/V41_PROFILE=1 —— 见 stub 自测 ⑤）。
+    local _pf="${V41_PROFILE:-${PROFILE:-0}}"
+    DRY_RUN="$1" \
+    PROFILE="$_pf" \
+    V41_PROFILE="$_pf" \
+    MODEL="$MODEL" IMAGE="$IMAGE" GPU_UTIL="$GPU_UTIL" PORT="$PORT" \
+    SERVED_NAME="$SERVED_NAME" MAX_LEN="$MAX_LEN" MAX_SEQS="$MAX_SEQS" \
+    BAT_TOKENS="$BAT_TOKENS" KV_ARGS_EXTRA="$KV_ARGS" \
+    bash scripts/serve_a2.sh
+}
 
 # ★★ 自检门：开了 int8 但 shadow 不认 `A2_*` ⇒ **拒绝起服**（宁可响亮失败，不要静默跑成档 B）
 if [ "$KV8_SWA" = "1" ] || [ "$KV8_FULL" = "1" ] || [ "$KV8_RING_FP16" = "1" ]; then
@@ -525,7 +579,8 @@ if [ "$DRY" = "1" ]; then
     echo "[DRY] 将要执行："
     echo "  OFFLOAD_GB=$OFFLOAD_GB MAX_LEN=$MAX_LEN MAX_SEQS=$MAX_SEQS \\"
     echo "  KV_ARGS_EXTRA='$KV_ARGS' \\"
-    echo "  bash scripts/serve_a2.sh"
+    echo "  PROFILE=${V41_PROFILE:-${PROFILE:-0}} \\"
+    echo "  bash scripts/serve_a2.sh        # ← 在 $LAUNCH_DIR 下（含 [A2-OFFLOAD]）"
     # ★★★ 2026-09-22 15:3x 补一道**验证盲区**：
     #   此前 DRY=1 在这里就 exit 0 ⇒ **shadow 的 MOUNTS 组装一次都没跑过**
     #   ⇒ "挂载块是否真的生效"在 dry-run 里**完全没被验证**（2026-09-22 实测踩到）。
@@ -537,10 +592,7 @@ if [ "$DRY" = "1" ]; then
     #   ★★★ 2026-09-22 20:5x：把子进程输出**收进变量**，除了打印，还要**断言挂载清单**。
     #     起因：档 B 下 4 个卸载补丁**一个都没挂**而 dry-run 照样 rc=0 打印 "OK"（见上方 P0 注释）。
     #     判据就是 MOUNTS 里那 4 个绝对路径 —— 缺任一 ⇒ 拒绝（这是本 bug 的回归门）。
-    _dry_out=$( cd "$SHADOW" && DRY_RUN=1 MODEL="$MODEL" IMAGE="$IMAGE" GPU_UTIL="$GPU_UTIL" PORT="$PORT" \
-        SERVED_NAME="$SERVED_NAME" MAX_LEN="$MAX_LEN" MAX_SEQS="$MAX_SEQS" \
-        BAT_TOKENS="$BAT_TOKENS" KV_ARGS_EXTRA="$KV_ARGS" \
-        bash scripts/serve_a2.sh 2>&1 )
+    _dry_out=$(_launch_serve 1 2>&1)
     _dry_rc=$?
     printf '%s\n' "$_dry_out"
     [ "$_dry_rc" = "0" ] || { echo "⛔ shadow 的 DRY_RUN 失败（rc=$_dry_rc）—— 上面就是原因" >&2; exit 2; }
@@ -559,9 +611,6 @@ if [ "$DRY" = "1" ]; then
     exit 0
 fi
 
-cd "$REPO"
-MODEL="$MODEL" IMAGE="$IMAGE" GPU_UTIL="$GPU_UTIL" PORT="$PORT" \
-SERVED_NAME="$SERVED_NAME" MAX_LEN="$MAX_LEN" MAX_SEQS="$MAX_SEQS" \
-BAT_TOKENS="$BAT_TOKENS" \
-KV_ARGS_EXTRA="$KV_ARGS" \
-    bash scripts/serve_a2.sh
+# ★★★ 用**统一入口**（与 DRY 同一对象）：2026-09-23 前这里写死 `cd "$REPO"`，
+#   跑的是发布仓的**模板**（无 [A2-OFFLOAD] 注入）⇒ 静默零卸载。见本文件上方 P0 注释。
+_launch_serve 0
