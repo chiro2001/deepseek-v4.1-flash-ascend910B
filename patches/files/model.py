@@ -726,6 +726,8 @@ class DeepseekV41DecoderLayer(DeepseekV2DecoderLayer):
         llama_4_scaling=None,
         input_ids=None,
     ):
+        if self.layer_idx >= 20 and _os_ids.environ.get("V41_CED_ROLE", "") == "prefill":
+            raise RuntimeError("CED producer executed a decoder layer instead of source-only projection")
         residual = hidden_states
         x, attn_post, attn_comb, attn_pre = self.hc_pre(
             hidden_states,
@@ -781,6 +783,18 @@ class DeepseekV41Model(DeepseekV4Model):
             self.topk_indices_buffer,
             candidate_buffer,
         )
+        # Experimental producer role. The public P/D proxy discards the P
+        # response; this role must only serve that internal transfer request.
+        # DSpark is disabled until its draft cache has a dedicated D-side
+        # initialization protocol.
+        ced_role = _os_ids.environ.get("V41_CED_ROLE", "")
+        if ced_role not in ("", "prefill"):
+            raise ValueError(f"Unsupported V41_CED_ROLE={ced_role!r}")
+        self._ced_prefill_only = ced_role == "prefill"
+        if self._ced_prefill_only and vllm_config.speculative_config is not None:
+            raise ValueError("V41_CED_ROLE=prefill requires SPEC=0 during the replay prototype")
+        if self._ced_prefill_only:
+            print("[CED-P] internal producer: layers 0..19 plus layer-20 global source; response is a transfer marker", flush=True)
         # Development gate: compare the isolated CED layer-20 source write with
         # ordinary layer-20 forwards. A bounded chunk count lets a real long
         # prefill exercise the 8192-token chunk boundaries without logging
@@ -792,6 +806,8 @@ class DeepseekV41Model(DeepseekV4Model):
         )
         if self._ced_source_compare_remaining < 0:
             raise ValueError("V41_CED_SOURCE_COMPARE_CHUNKS must be nonnegative")
+        if self._ced_prefill_only and self._ced_source_compare_remaining:
+            raise ValueError("CED source comparison needs the normal layer-20 forward")
         self._ced_source_compare_count = 0
         for layer in self.layers:
             if isinstance(layer, DeepseekV41DecoderLayer):
@@ -1292,6 +1308,9 @@ class DeepseekV41Model(DeepseekV4Model):
             # is unchanged, so communication shape/dtype is identical.
             moe_input_ids = moe_input_ids.to(torch.int64)
         for layer in self.layers:
+            if self._ced_prefill_only and layer.layer_idx == 20:
+                layer.write_global_source_from_encoder(hidden_states, pre_mix)
+                break
             last_layer = layer
             # DSpark consumes the residual stream entering its configured
             # target layers. The runner expresses checkpoint IDs as one-based.
@@ -1372,6 +1391,21 @@ class AscendDeepseekV41ForCausalLM(AscendDeepseekV4ForCausalLM):
     requires_raw_input_tokens = True
     _DEFERRED_WEIGHT_MARKERS = ()
     _DEFERRED_WEIGHT_PREFIXES = ("aligner.", "vision.", "image_", "mtp.")
+
+    def compute_logits(self, hidden_states):
+        logits = super().compute_logits(hidden_states)
+        if logits is not None and self.model._ced_prefill_only:
+            # The P-side Mooncake request must finish with LENGTH_CAPPED so
+            # request_finished_all_groups can publish its cache blocks. The
+            # marker is a valid non-EOS token, explicitly *not* a model answer.
+            # Never expose this dedicated P endpoint as a chat service.
+            marker = 42
+            eos = self.config.eos_token_id
+            if marker >= logits.shape[-1] or marker == eos or (isinstance(eos, (tuple, list)) and marker in eos):
+                raise RuntimeError("CED internal transfer marker conflicts with tokenizer")
+            logits.fill_(-10000.0)
+            logits[..., marker] = 0.0
+        return logits
 
     def prepare_engram_inputs(self, input_ids, positions, padded_tokens=None):
         return self.model.prepare_engram_inputs(input_ids, positions, padded_tokens)

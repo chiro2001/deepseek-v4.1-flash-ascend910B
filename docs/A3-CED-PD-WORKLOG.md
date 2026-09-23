@@ -24,4 +24,19 @@
 
 - 已在 `patches/files/model.py` 加入层 20 的源投影入口，默认不触发。它复用现有 `_write_compressed_source`。2026-09-23 在 A3-21 以真实权重 `v41-flat-verify3`、TP8、BF16 KV、Engram host 路径跑了一次 14-token 请求。8 个 TP rank 均记录 `rows=14` 且无比较异常；原始日志为 [`evidence/ced_source_8ff6a4a/serve.log.gz`](../evidence/ced_source_8ff6a4a/serve.log.gz)，解压后的 SHA-256 为 `cce508a4a6bc814164b78ec325768b67400d004192ab6a227d1773141fef56e0`。该门只证明这一短请求的采样行相等，不能外推到分块或长上下文。
 - 开发诊断开关 `V41_CED_SOURCE_COMPARE=1` 会在非图捕获的真实 forward 中，先调用源投影，再执行普通层 20，并对每块前 8 和后 8 个有效物理槽中的主 KV、Indexer K、scale 做逐张量精确比较。`V41_CED_SOURCE_COMPARE_CHUNKS=N` 设定每个 rank 最多比较的块数，默认 1；日志会列出块序号和 token 位置。不匹配立即报错。两个开关默认均不启用；长请求测试应设置足够大的 `N` 覆盖末块。
+- **144K 分块数值门通过。** A3-21 的 `33a6024` 独立 P 实例以 `V41_CED_SOURCE_COMPARE_CHUNKS=20`、真实权重、TP8、BF16 KV、`BAT_TOKENS=8192` 跑 `bigprefill`。第一条请求实际 144,404 上下文 token；模型前向到位置 144,461，分 18 块（前 17 块各 8,168 token，末块 5,606 token）。8 个 rank 的每一块均精确匹配所采样的主 KV、Indexer K 与 scale，没有异常。第二条请求又覆盖了头两块，合计各 rank 20 条成功记录。证据：[`probe_144k.json`](../evidence/ced_chunks_33a6024/probe_144k.json)、[`serve.log.gz`](../evidence/ced_chunks_33a6024/serve.log.gz)；完整日志解压后 SHA-256 为 `2129a09e908e31639e00dbf408fecb5e4189b39d66f56afb4f2feaa68100e264`。探针请求将 `max_tokens` 设为 1，直接访问 P 角色服务；两条回答仅为 `Z`、`V`，不满足检索判据，因此这次**仅验源投影数值，不验回答质量**。测试容器已停止，0–7 卡无运行进程。
+- 下一实验开关 `V41_CED_ROLE=prefill` 在模型主循环运行完层 19 后直接写层 20 的全局源，跳过层 20–39；当前要求 `SPEC=0`。P 端采样会被固定为内部传输标记 token 42，使 `MooncakeHybridConnector` 走 `FINISHED_LENGTH_CAPPED` 发布缓存。该 P 端点只能由 PD 代理内部调用，直连回答无语义；D 尾部重放和缓存组有效性协议尚未实现，不得用它搭配普通 D 对用户提供服务。此开关默认关闭，仍需在真实 A3 实例验证能完成长 prefill 与层 20 写入。
+
+独立 P 计算实验的启动参数（端口和容器名须先确认空闲）：
+
+```bash
+MODEL="$HOME/models/out/v41-flat-verify3" \
+DEVS="0 1 2 3 4 5 6 7" PORT=18770 KV_PORT=18870 \
+NAME=dsv41-ced-p-cut RUN_ID=ced_p_cut \
+SERVED_NAME=deepseek-v41-ced-prefill-only \
+SPEC=0 STATIC_KERNEL=0 V41_CED_ROLE=prefill \
+bash scripts/serve_a3_pd.sh prefill
+```
+
+这一步只可验证 P 计算路径。拿到 D 重放和组有效性协议之前，不启动面向用户的 PD 代理。
 - `compile()` 语法检查和 `git diff --check` 通过。没有声称 CED 运行时或性能已经实现。
