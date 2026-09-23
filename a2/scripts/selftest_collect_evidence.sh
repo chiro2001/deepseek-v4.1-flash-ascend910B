@@ -13,6 +13,9 @@ HERE=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
 SRC_REPO=$(cd "$HERE/../.." && pwd)
 SCRIPT=${SCRIPT_SRC:-$SRC_REPO/a2/scripts/collect_evidence.sh}
 [ -f "$SCRIPT" ] || { echo "⛔ 找不到待测脚本：$SCRIPT" >&2; exit 9; }
+# The selftest supplies its own location in every arm.  A caller's run
+# selection must never redirect a fixture to a real service log.
+unset SERVE_LOG RUN_DIR RUN_ID
 
 V=0
 ok()  { printf '  \033[32mPASS\033[0m  %s\n' "$*"; V=$((V+1)); }
@@ -102,8 +105,13 @@ say "④ 不给任何位置 ⇒ 取 RESULTS 根里**最新**的 run（老行为�
 rm -rf "$T/results"; D5=$(mk_run a2_20260105_000005); D9=$(mk_run a2_20260109_000009)
 touch -d '2026-01-05 00:00:05' "$D5/serve.log" 2>/dev/null || true
 touch -d '2026-01-09 00:00:09' "$D9/serve.log" 2>/dev/null || true
+# The collector orders run directories, not their serve.log files.  Set both
+# directory mtimes explicitly: filesystems with coarse timestamp resolution
+# can otherwise tie two directories created in the same second.
+touch -d '2026-01-05 00:00:05' "$D5" 2>/dev/null || true
+touch -d '2026-01-09 00:00:09' "$D9" 2>/dev/null || true
 rm -f "$T/out/EVIDENCE.txt"
-env RESULTS="$T/results" PORT=59999 URL=http://127.0.0.1:59999 NO_PROBE=1 \
+env SERVE_LOG= RUN_DIR= RUN_ID= RESULTS="$T/results" PORT=59999 URL=http://127.0.0.1:59999 NO_PROBE=1 \
     CTR="__selftest_no_such_ctr__" OUTDIR="$T/out" bash "$SCRIPT" >/dev/null 2>&1
 rc=$?
 { [ $rc -eq 0 ] && grep -q "run 目录：$D9" "$T/out/EVIDENCE.txt"; } \
