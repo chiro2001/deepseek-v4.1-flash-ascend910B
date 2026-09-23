@@ -24,7 +24,13 @@ REPO=$(cd "$HERE/../.." && pwd)          # dsv41-release/
 # ---------------------------------------------------------------- 参数
 # ★ 模型路径不硬编码（发布包不留真实账号名）；必须由调用方给
 MODEL=${MODEL:?请设 MODEL=<模型目录>}
-IMAGE=${IMAGE:-}
+# ★★★ 2026-09-23 09:1x 修一个真 bug：这里原来是 `IMAGE=${IMAGE:-}`（**空**）
+#   ⇒ ①「起服前指纹门」拿**空字符串**去 `docker image inspect ""` ⇒ 必然报"本地没有镜像 "
+#         而且报错里镜像名是空的（用户实测就是这个形态）；
+#      ② 更隐蔽：空值传给 shadow 的 `serve_a2.sh` 时，`${IMAGE:-dsv41-a2:v9}` 会**用默认值**
+#         ⇒ 门拦住的理由是"名字空"而不是"镜像旧" —— 哪天门被跳过，就会**静默用默认镜像**。
+#   ⇒ 与 `scripts/serve_a2.sh:44` 的默认**对齐**（那里是唯一权威默认，见 commit 550d29c）。
+IMAGE=${IMAGE:-dsv41-a2:v9}
 GPU_UTIL=${GPU_UTIL:-0.90}
 PORT=${PORT:-8077}
 SERVED_NAME=${SERVED_NAME:-deepseek-v4-flash}
@@ -216,6 +222,7 @@ echo "=============================================================="
 echo "A2 DRAM KV 卸载起服"
 echo "=============================================================="
 echo "  模型          : $MODEL"
+echo "  镜像          : $IMAGE（★ 必须带 ENGRAM×卸载 的 P0 修复；指纹门会核对）"
 if [ "$P2_POOL_PATCH" = "1" ]; then
     echo "  池子          : ${OFFLOAD_GB} GiB（★ 档 B 宿主实占 ≈197 GiB，8 卡实测 1.9895x）"
 else
@@ -427,6 +434,10 @@ _pf_check() {
         echo "   ⇒ 它要么还没 build，要么名字写错了。请先：" >&2
         echo "       IMAGE_TAG=dsv41-a2:v9 bash scripts/build_image.sh" >&2
         echo "     然后用同样的 IMAGE 起服（见 a2/logs/075）。" >&2
+        echo "" >&2
+        echo "   · 本机现有的 dsv41-a2 镜像（供对照；用 IMAGE=<名字> 覆盖默认）：" >&2
+        docker image ls --format '       {{.Repository}}:{{.Tag}}  {{.ID}}  {{.CreatedSince}}' 2>/dev/null \
+          | grep -E 'dsv41-a2' | head -8 >&2 || true
         exit 2
     fi
     # ★ 注意：下面只用 **单个 -c**，且 md5sum 的路径是镜像内绝对路径；
