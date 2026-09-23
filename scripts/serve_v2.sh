@@ -54,12 +54,16 @@ AC=$(printf '{"enable_engram":%s,"enable_cpu_binding":%s,"ascend_compilation_con
   "$(b "$ENGRAM")" "$(b "$CPU_BIND")" "$(b "$NPUGRAPH_EX")" "$(b "$STATIC_KERNEL")" \
   "$(b "$MULTISTREAM")" "$(b "$DSA_OVERLAP")" "$(b "$MC2")" "$(b "$MC2_HIER")" "$EXTRA_KEYS")
 
+QUANTIZATION=${QUANTIZATION:-ascend}
 ARGS=(serve "$MODEL" --host 0.0.0.0 --port "$PORT" --served-model-name "$SERVED_NAME"
   --tensor-parallel-size "$TP" --enable-expert-parallel
-  --trust-remote-code --dtype bfloat16 --kv-cache-dtype "$KV_DTYPE" --quantization ascend
+  --trust-remote-code --dtype bfloat16 --kv-cache-dtype "$KV_DTYPE"
   --max-model-len "$MAX_LEN" --max-num-seqs "$MAX_SEQS" --max-num-batched-tokens "$BAT_TOKENS"
   --block-size "$BLOCK" --gpu-memory-utilization "$GPU_UTIL"
   --additional-config "$AC")
+[ "$QUANTIZATION" != "none" ] && [ -n "$QUANTIZATION" ] && ARGS+=(--quantization "$QUANTIZATION")
+[ -n "${KV_CACHE_MEMORY_BYTES:-}" ] && ARGS+=(--kv-cache-memory-bytes "$KV_CACHE_MEMORY_BYTES")
+[ -n "${SEED:-}" ] && ARGS+=(--seed "$SEED")
 [ "$DP" -gt 1 ] && ARGS+=(--data-parallel-size "$DP" --data-parallel-size-local "$DP")
 if [ "$GRAPH" = "1" ]; then
   if [ -n "$CAPTURE_SIZES" ]; then
@@ -80,7 +84,7 @@ fi
 if [ "$LOADER_MT" = "1" ] && [ "${LOAD_FORMAT:-}" != "dummy" ]; then
   ARGS+=(--model-loader-extra-config '{"enable_multithread_load":true,"num_threads":128}')
 fi
-[ "$LAZY" = "1" ] && ARGS+=(--safetensors-load-strategy lazy)
+[ "$LAZY" = "1" ] && [ "${LOAD_FORMAT:-}" != "dummy" ] && ARGS+=(--safetensors-load-strategy lazy)
 # [LOAD_FORMAT] "dummy" 时不读权重，只按 checkpoint 的 shape/dtype 建模型。
 # 注意：dummy 下 Engram 的 host 路径会被 model.py:654 主动跳过
 # （engram_history 保持 None），所以 **Engram 读取无法用 dummy 测**。
