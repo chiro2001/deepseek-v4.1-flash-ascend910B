@@ -134,9 +134,41 @@ if command -v dmesg >/dev/null 2>&1; then
     fi
 fi
 
-# ================================================================ ⑤ 起服日志里的 rank 证据
+# ================================================================ ⑤ NUMA 分节点内存（★ 最容易被忽略的一格）
+say "⑤ NUMA 分节点空闲内存 + 卡→节点映射"
+echo "  ★ 为什么单列这一格（2026-09-23 实测）：A3 起服默认 CPU_BIND=1（内部 cpu_binding），"
+echo "    它会把**每个 rank 的常驻内存迁到它那张卡所在的 NUMA 节点**。若那个节点已被别人或"
+echo "    page cache 占满，**那个 rank 就会 OOM 被杀** —— 其余 7 个 rank 一直等它，最终报出的"
+echo "    正是你看到的那条 **unconnected ranks: [N,]**。"
+echo "    dmesg 里的铁证形态：oom-kill:constraint=CONSTRAINT_CPUSET ... mems_allowed=<单个节点掩码>"
+echo "    ⇒ 即使整机还有大量空闲内存，**被绑到的那一个节点**不够就会杀进程。"
+if command -v numactl >/dev/null 2>&1; then
+    echo "  各节点空闲（MB）；<120000 就要警惕："
+    numactl -H 2>/dev/null | awk '/^node [0-9]+ free:/{printf "        node %-3s free=%s MB\n", $2, $4}'
+    _low=$(numactl -H 2>/dev/null | awk '/^node [0-9]+ free:/ && $4+0 < 120000 {printf " node%s(%sMB)", $2, $4}')
+    [ -n "$_low" ] && warn "低空闲节点：$_low"
+else
+    warn "没有 numactl ⇒ 跳过（也可看 /sys/devices/system/node/node*/meminfo）"
+fi
+
+if command -v "$NPU_SMI" >/dev/null 2>&1; then
+    _bus=$(printf '%s\n' "$_raw" | awk -F'|' '
+      NF>=5 && $3 ~ /[0-9a-fA-F]{4}:[0-9a-fA-F]{2}:[0-9a-fA-F]{2}\.[0-9]/ { gsub(/ /,"",$3); print seq"\t"$3; seq++ }')
+    echo "  你选的卡 → NUMA 节点："
+    for _c in $DEVS; do
+        _b=$(printf '%s\n' "$_bus" | awk -F'\t' -v d="$_c" '$1==d{print $2}')
+        _n="-"
+        [ -n "$_b" ] && [ -r "/sys/bus/pci/devices/$_b/numa_node" ] && _n=$(cat "/sys/bus/pci/devices/$_b/numa_node" 2>/dev/null)
+        printf '        device %-3s bus=%-14s NUMA=%s\n' "$_c" "${_b:-?}" "$_n"
+    done
+    echo "        ★ 若某张卡的节点正好是上面低空闲的那个 ⇒ 优先怀疑它（换卡，或用 CPU_BIND=0）"
+fi
+echo '  逃生口（本仓已记录）：CPU_BIND=0 —— 不做内部绑核/迁移，先让服务起来：'
+echo "        DEVS=\"$DEVS\" CPU_BIND=0 LAUNCH=1 bash tools/deploy_a3.sh"
+
+# ================================================================ ⑥ 起服日志里的 rank 证据
 if [ -n "$SERVE_LOG" ] && [ -f "$SERVE_LOG" ]; then
-    say "⑤ 起服日志：**掉队的那个 rank 自己的行**（它比其他 rank 少 ⇒ 它是被卡住/被杀的那个）"
+    say "⑥ 起服日志：**掉队的那个 rank 自己的行**（它比其他 rank 少 ⇒ 它是被卡住/被杀的那个）"
     for _r in 0 1 2 3 4 5 6 7; do
         _n=$(grep -ac "Worker_TP${_r}_EP${_r}" "$SERVE_LOG" 2>/dev/null || true)
         printf '        Worker_TP%s_EP%s 行数=%s\n' "$_r" "$_r" "${_n:-0}"
@@ -144,11 +176,12 @@ if [ -n "$SERVE_LOG" ] && [ -f "$SERVE_LOG" ]; then
     echo "        （行数明显少的那个 = 掉队的 rank；再看它最后一行停在哪一步）"
     echo '        ★ 关键判读：停在 device 初始化之前=卡被占；停在权重加载=内存；停在 HCCL=网卡/连接'
     grep -a "unconnected ranks" "$SERVE_LOG" 2>/dev/null | tail -2 | sed 's/^/        /'
+    grep -a -m2 -E "oom-kill|Killed process" "$SERVE_LOG" 2>/dev/null | sed 's/^/        /'
 fi
 
-# ================================================================ ⑥ 可选：真跑 8 卡 HCCL
+# ================================================================ ⑦ 可选：真跑 8 卡 HCCL
 if [ "$RUN_HCCL_TEST" = "1" ]; then
-    say "⑥ ★ 真跑一次 8 卡 HCCL（直接用 torch_npu，绕开 vLLM）—— 决策性证据"
+    say "⑦ ★ 真跑一次 8 卡 HCCL（直接用 torch_npu，绕开 vLLM）—— 决策性证据"
     _devargs=""; _artv=""
     for _c in $DEVS; do _devargs="$_devargs --device /dev/davinci$_c"; _artv="$_artv,$_c"; done
     _artv=${_artv#,}
@@ -180,7 +213,7 @@ PY
     fi
     rm -rf "$T"
 else
-    say "⑥ 真跑 HCCL（默认跳过）"
+    say "⑦ 真跑 HCCL（默认跳过）"
     echo "  要跑就加 RUN_HCCL_TEST=1（会短暂占用你选的这 8 张卡）："
     echo "      DEVS=\"$DEVS\" RUN_HCCL_TEST=1 bash tools/diag_a3_hccl.sh"
 fi
@@ -190,5 +223,6 @@ echo "  ★ 判读速查："
 echo '    · ① 有别人的进程/无进程但 HBM 高   ⇒ 换卡或停自己的残留（最常见）'
 echo "    · ② 真实网卡 >1                    ⇒ 显式 HCCL_SOCKET_IFNAME=<网卡名>"
 echo "    · ④ 有 OOM                          ⇒ 内存不足（起服峰值 ≈1 TB 可用）"
-echo '    · ⑤ 某 rank 行数明显少              ⇒ 它就是掉队的那个，看它停在哪一步'
-echo "    · ⑥ HCCL 自体失败                   ⇒ 环境/硬件层，不是部署脚本的问题"
+echo '    · ⑤ 某张卡的 NUMA 节点空闲很低      ⇒ ★ 该 rank 会被 OOM（先试 CPU_BIND=0 或换卡）'
+echo '    · ⑥ 某 rank 行数明显少              ⇒ 它就是掉队的那个，看它停在哪一步'
+echo "    · ⑦ HCCL 自体失败                   ⇒ 环境/硬件层，不是部署脚本的问题"
