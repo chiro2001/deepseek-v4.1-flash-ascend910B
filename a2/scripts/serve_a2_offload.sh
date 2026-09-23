@@ -79,6 +79,21 @@ MAX_LEN=${MAX_LEN:-1048576}
 MAX_SEQS=${MAX_SEQS:-4}
 BAT_TOKENS=${BAT_TOKENS:-2048}
 
+# ★★★ 2026-09-23 10:1x 补一个**会静默关掉四轴之一的默认值**：`DRAFT_GRAPH`
+#   事实（三条，都能复算）：
+#     ① 模板 `scripts/serve_a2.sh:230` 的默认是 **0**（`DRAFT_GRAPH=${DRAFT_GRAPH:-0}`）；
+#     ② ★ 而**同一份模板的第 11 行**写的是「* 默认开 DRAFT_GRAPH=1（draft 入图，含
+#        DSPARK_GRAPH_CAPTURE_METADATA 绑定与校验）」⇒ **模板内部自相矛盾**；
+#     ③ A2 **生产**用的是 **1**（`a2/docs/A2-ENGRAM-PATHS.md:172` 逐字），且 A2 上实测
+#        **draft 入图 = 唯一的大杠杆**：单流 **54.7 → 88.7 tok/s（+62%）**、`[bneck] hp`
+#        **64.6–65.3 → 34.0–34.8（−47%）**、稳态 **A=3.03**（健康区间 2.8–3.1）
+#        —— 见 `reports/a2-draft-graph-20260920.md`（A2 真机、`ENGRAM_DEVICE_INDEX=0` 同口径）。
+#   ⇒ 本包装脚本此前**完全没提 DRAFT_GRAPH**（grep 命中 0）⇒ 不显式传就**静默退回 eager**：
+#     四轴变三轴，而 `ms/step` 会从 ~34 回到 ~65 —— 却没有任何报错。
+#     A2-DEPLOY-NOW.md §「起服前必读」早就点名过这件事（"照抄会把 draft 从入图退回 eager"）。
+#   ⇒ 默认取 **1**（= A2 生产 = 四轴目标）；要退回 eager 必须**显式** `DRAFT_GRAPH=0`（会响亮警告）。
+DRAFT_GRAPH=${DRAFT_GRAPH:-1}
+
 # ★ L1（池张量按需分配行数）—— ★★ 8 卡真权重实测 1.9895x（392.35 -> 197.21 GiB）
 #   defaults 到这里 = 档 B（推荐）；置 0 即回档 A
 #   P2_POOL_PATCH=1 时必须同时给对的 P2_COMP_JSON（与"张量数"匹配，给错会 fail-closed）
@@ -256,6 +271,11 @@ echo "=============================================================="
 echo "  模型          : $MODEL"
 echo "  镜像          : $IMAGE（★ 必须带 ENGRAM×卸载 的 P0 修复；指纹门会核对）"
 echo "  profiler      : PROFILE=${V41_PROFILE:-${PROFILE:-0}}（1 ⇒ /start_profile 与 /stop_profile 可用；产物落 $LAUNCH_DIR/results/<RUN_ID>/prof）"
+echo "  draft 入图    : DRAFT_GRAPH=$DRAFT_GRAPH（1 = 入图，与 A2 生产一致；A2 实测 +62% tok/s / hp −47%）"
+if [ "$DRAFT_GRAPH" = "0" ]; then
+    echo "  ⚠️⚠️ DRAFT_GRAPH=0 ⇒ **draft 退回 eager**：A2 上单流 88.7 → 54.7 tok/s（−38%）。"
+    echo "        这是**四轴变三轴**；若非刻意对照，请去掉 DRAFT_GRAPH=0。"
+fi
 if [ "$P2_POOL_PATCH" = "1" ]; then
     echo "  池子          : ${OFFLOAD_GB} GiB（★ 档 B 宿主实占 ≈197 GiB，8 卡实测 1.9895x）"
 else
@@ -402,7 +422,7 @@ _launch_serve() {   # $1 = DRY_RUN（0 真起 / 1 干跑）
     V41_PROFILE="$_pf" \
     MODEL="$MODEL" IMAGE="$IMAGE" GPU_UTIL="$GPU_UTIL" PORT="$PORT" \
     SERVED_NAME="$SERVED_NAME" MAX_LEN="$MAX_LEN" MAX_SEQS="$MAX_SEQS" \
-    BAT_TOKENS="$BAT_TOKENS" KV_ARGS_EXTRA="$KV_ARGS" \
+    BAT_TOKENS="$BAT_TOKENS" DRAFT_GRAPH="$DRAFT_GRAPH" KV_ARGS_EXTRA="$KV_ARGS" \
     bash scripts/serve_a2.sh
 }
 
@@ -676,6 +696,7 @@ if [ "$DRY" = "1" ]; then
     echo "  OFFLOAD_GB=$OFFLOAD_GB MAX_LEN=$MAX_LEN MAX_SEQS=$MAX_SEQS \\"
     echo "  KV_ARGS_EXTRA='$KV_ARGS' \\"
     echo "  PROFILE=${V41_PROFILE:-${PROFILE:-0}} \\"
+    echo "  DRAFT_GRAPH=$DRAFT_GRAPH \\"
     echo "  bash scripts/serve_a2.sh        # ← 在 $LAUNCH_DIR 下（含 [A2-OFFLOAD]）"
     # ★★★ 2026-09-22 15:3x 补一道**验证盲区**：
     #   此前 DRY=1 在这里就 exit 0 ⇒ **shadow 的 MOUNTS 组装一次都没跑过**

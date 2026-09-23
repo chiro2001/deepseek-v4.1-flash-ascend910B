@@ -45,6 +45,7 @@ echo "  0001b-offload-per-group-bpc-manager.patch.py"
 echo "  0001c-offload-per-group-bpc-hooks.patch.py"
 echo "  0002-offload-cpu-pool-host-registered.patch.py"
 echo "  DRY_RUN=${DRY_RUN:-<unset>} PROFILE=${PROFILE:-<unset>} V41_PROFILE=${V41_PROFILE:-<unset>}"
+echo "  DRAFT_GRAPH=${DRAFT_GRAPH:-<unset>}"
 STUB
     cat > "$T/bin/docker" <<STUB
 #!/usr/bin/env bash
@@ -96,8 +97,8 @@ check() {  # <名> <期望rc> <实际rc> [必须出现] [禁止出现]
     printf '✓ [%s]\n' "$name"
 }
 
-say "① 最小 DRY（ENGRAM=0）—— 主目标：未定义变量"
-run_case base ENGRAM=0; check "① 最小 DRY" 0 $? '' 'unbound variable'
+say "① 最小 DRY（ENGRAM=0）—— 主目标：未定义变量 + ★ DRAFT_GRAPH 默认必须是 1"
+run_case base ENGRAM=0; check "① 最小 DRY" 0 $? 'DRAFT_GRAPH=1' 'unbound variable'
 say "①b 输出尾部（看有没有 unbound）"; tail -3 "$OUTF"; grep -c "unbound variable" "$OUTF" || true
 
 say "② int8 档 C（走 int8 修复件自检门）"
@@ -141,6 +142,9 @@ OUTF="$T7/out.txt"
     bash "$SCRIPT_REL" ) >"$OUTF" 2>&1; rc=$?
 tail -3 "$OUTF"
 check "⑦ 裸 import 无回退须拒绝" 2 "$rc" '只有裸 import' 'unbound variable'
+
+say "⑧ DRAFT_GRAPH=0 ⇒ 必须响亮警告（四轴变三轴）"
+run_case draft0 ENGRAM=0 DRAFT_GRAPH=0; check "⑧ DRAFT_GRAPH=0 须警告" 0 $? 'DRAFT_GRAPH=0 ⇒' 'unbound variable'
 
 say "结果"
 if [ "$V" = "0" ]; then echo "✅ 全部通过"; else echo "⛔ 有用例失败"; fi
