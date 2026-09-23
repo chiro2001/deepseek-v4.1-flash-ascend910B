@@ -566,9 +566,93 @@ def mode_conc(a, out: dict) -> int:
     return fails
 
 
+def mode_bigprefill(a, out: dict) -> int:
+    """★★★ **用户现场的可复现场景**：一次 Agent 的 context ≈520k 直接进入，
+    完整做一次 prefill（可能还有其它流同时请求），然后出现错误。
+
+    为什么单列（2026-09-23 用户反馈）：
+      · 我此前的所有扫描最大只到 131K，而现场是 **≈520k 单发**；
+      · `--max-num-batched-tokens 8192` 会把 520k 切成 **~64 个 chunk** 依次做
+        ⇒ 走的是**分块 prefill** 路径（与 128K 以下的块数完全不同）；
+      · 现场还提到"可能还有其它流同时请求" ⇒ 所以本模式提供 `--conc` 并行臂。
+
+    判据（与其它模式一致的三条）：逐字命中 + 乱码指纹 + 复现次数。
+    **每次都用一段不同的语料**（offset 递增）⇒ 不是"同一个 prompt 的缓存效应"。
+    """
+    import threading
+    print("=" * 78)
+    print(f"[bigprefill] 单发 ≈{a.context_tokens} token 的**完整 prefill**"
+          f"（并发 {a.conc} 路），重复 {a.repeats} 轮")
+    print("=" * 78)
+    corpus = load_corpus()
+    keys = ["A", "B", "C", "D"]
+    results: list = []
+    lock = threading.Lock()
+
+    def one(idx: int, rep: int, path_tag: str):
+        """idx 决定语料偏移与针；每个线程跑完整一轮（含前置一次性大请求）。"""
+        k = keys[idx % 4]
+        off = a.offset + 1000000 + (rep * a.conc + idx) * (a.context_tokens + 2000)
+        body = slice_for_tokens(a.base_url, a.model, corpus, a.context_tokens, offset=off)
+        # 针埋 4 个位置（20/40/60/80%），只问其中一个 ⇒ 同时暴露"某段丢了"这类错
+        body = embed_needles(body, keys)
+        q, expect = NEEDLE_Q[k]
+        real = tok_count(a.base_url, a.model, body)
+        t0 = time.time()
+        rr = chat(a.base_url, a.model,
+                  [{"role": "system", "content": SYSTEM},
+                   {"role": "user", "content": body + "\n\n" + q}],
+                  max_tokens=a.max_tokens, timeout=a.timeout)
+        ans = text_of(rr)
+        v = judge(ans, expect)
+        row = {"rep": rep, "lane": idx, "key": k, "path": path_tag,
+               "ctx_tokens_real": real, "http": rr["http"],
+               "wall_s": rr["wall_s"], "err": rr.get("err"), **v}
+        with lock:
+            results.append(row)
+
+    for rep in range(a.repeats):
+        # ★ 先**串行**发一路（= 现场"一次 agent 的 context 直接进入"），
+        #   然后再按 --conc 并发打（= 现场"可能还有其它流同时请求"）。
+        print(f"\n  --- round {rep}：先单路大 prefill，再 {a.conc} 路并发 ---")
+        one(rep % 4, rep, "single")
+        r0 = results[-1]
+        tag = "PASS" if r0["exact"] else ("~hit" if r0["contains"] else "FAIL")
+        print(f"  [rep{rep} single {r0['key']}] {tag:7s} ctx≈{r0['ctx_tokens_real']} "
+              f"wall={r0['wall_s']:.1f}s http={r0['http']} "
+              f"fp={r0['fingerprints']['u_fffd']}/{r0['fingerprints']['nul']}")
+        if not r0["contains"]:
+            print(f"      A: {r0['answer_repr']}")
+
+        ths = [threading.Thread(target=one, args=((rep + 1 + i) % 4, rep, f"conc{i}"))
+               for i in range(a.conc)]
+        for t in ths:
+            t.start()
+        for t in ths:
+            t.join()
+        for r in results[-(a.conc):]:
+            tag = "PASS" if r["exact"] else ("~hit" if r["contains"] else "FAIL")
+            print(f"  [rep{rep} {r['path']} {r['key']}] {tag:7s} "
+                  f"wall={r['wall_s']:.1f}s http={r['http']} "
+                  f"fp={r['fingerprints']['u_fffd']}/{r['fingerprints']['nul']}")
+            if not r["contains"]:
+                print(f"      A: {r['answer_repr']}")
+
+    fails = sum(1 for r in results if not r["contains"])
+    bad_fp = sum(1 for r in results if r["fingerprints"]["u_fffd"] or r["fingerprints"]["nul"])
+    loops = sum(1 for r in results if r["repeat_loop"])
+    print(f"\n  ★ 汇总：{len(results)} 次请求 / 未命中 {fails} / 带乱码指纹 {bad_fp} / 复读 {loops}")
+    out["bigprefill"] = results
+    out["bigprefill_summary"] = {"n": len(results), "fails": fails,
+                                 "with_garbling_fp": bad_fp, "repeat_loops": loops,
+                                 "target_tokens": a.context_tokens, "conc": a.conc}
+    return fails + bad_fp + loops
+
+
 MODES = {"needle": mode_needle, "grow": mode_grow,
          "reuse": mode_reuse, "toolargs": mode_toolargs,
-         "evict": mode_evict, "conc": mode_conc}
+         "evict": mode_evict, "conc": mode_conc,
+         "bigprefill": mode_bigprefill}
 
 
 def selfcheck() -> int:
@@ -635,7 +719,7 @@ def main() -> int:
                     help="只验探针自己的判据是否自洽（不连服务）")
     ap.add_argument("--mode", default="all",
                     choices=["all", "needle", "grow", "reuse", "toolargs",
-                             "evict", "conc"])
+                             "evict", "conc", "bigprefill"])
     ap.add_argument("--conc", type=int, default=4, help="conc 模式的并发路数")
     ap.add_argument("--fill-sessions", type=int, default=12,
                     help="evict 模式灌爆缓存用的长会话数（要把 KV cache 灌满才有效）")

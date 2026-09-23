@@ -96,7 +96,16 @@ jsonchk "②b U+FFFD 与 NUL 都被数出来" "$T/bad.json" fd_detected
 jsonchk "②c 复读被检出"               "$T/bad.json" repeat_detected
 jsonchk "②d 逐字判为 False"            "$T/bad.json" not_exact
 
+say "②b bigprefill（单发大 prefill 模式）⇒ 干净的桩上必须 PASS、rc=0"
+start_srv clean 0        # ★ 必须重启成干净桩：上一个用例把桩留在 garbled 模式了
+run_probe "$T/big.json" --mode bigprefill --context-tokens 4096 --conc 2 --repeats 1
+rc=$?
+[ "$rc" = "0" ] && ok "②b bigprefill rc=0" \
+    || { bad "②b rc=$rc"; tail -12 "$T/probe.log" | sed 's/^/        /'; }
+jsonchk "②c bigprefill 有汇总且零失败" "$T/big.json" bigprefill_clean
+
 say "③ 工具参数少一字符 + 乱码 ⇒ toolargs 必须 FAIL"
+start_srv garbled 0        # ★ ③ 要的是**坏**桩（②b 把桩换成了干净的）
 run_probe "$T/bad2.json" --mode toolargs --repeats 1
 rc=$?
 [ "$rc" = "1" ] && ok "③a toolargs 判 FAIL" || bad "③a 退出码 $rc（期望 1）"

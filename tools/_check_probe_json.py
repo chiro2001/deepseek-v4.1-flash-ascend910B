@@ -46,6 +46,16 @@ def check(d: dict, name: str) -> bool:
         return r.get("repeat_loop") is True
     if name == "not_exact":
         return r.get("exact") is False
+    if name == "bigprefill_clean":
+        # 单发大 prefill 模式：必须有汇总，且 失败/带乱码/复读 三项全 0
+        sm = d.get("bigprefill_summary")
+        if not sm:
+            return False
+        return (sm.get("n", 0) > 0 and sm.get("fails") == 0
+                and sm.get("with_garbling_fp") == 0 and sm.get("repeat_loops") == 0)
+    if name == "bigprefill_any_fail":
+        sm = d.get("bigprefill_summary") or {}
+        return bool(sm) and (sm.get("fails", 0) > 0 or sm.get("with_garbling_fp", 0) > 0)
     if name == "toolargs_fail":
         return trow.get("content_exact") is False
     if name == "toolargs_ok":
