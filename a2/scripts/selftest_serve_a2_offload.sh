@@ -42,7 +42,12 @@ setup_sandbox() {
 # ★ 下面两个字符串是"影子包认不认 A2_*"自检门要求的内容判据（真实影子包里也有）
 : "${A2_KV8_SWA:=0}" "${A2_GRAPH_SAFE:=0}"
 # ★ 桩要打印**容器内目标路径**（wrapper 的 DRY 断言现在绑的是目标，不是源文件名）
-echo "[a2-dry] MOUNTS(18)"
+# ★★ 并且**按 OFFLOAD_SCHED_PATCH / L1_POOL_PATCH 门控** —— 真实 shadow 就是这么做的
+#    （`make_shadow_pkg.sh` 注入块里 `if [ "${OFFLOAD_SCHED_PATCH:-0}" = "1" ]`）。
+#    桩若无条件打印，就会让"OFFLOAD=0 关得干净"这条断言**假失败**（本仓同族第 N 次：
+#    **桩/门必须与真实对象同构**）。
+echo "[a2-dry] MOUNTS(...)"
+if [ "${OFFLOAD_SCHED_PATCH:-0}" = "1" ]; then
 echo "  -v /x/scheduler.py:/vllm-workspace/vllm/vllm/distributed/kv_transfer/kv_connector/v1/offloading/scheduler.py:ro"
 echo "  -v /x/offloading_config.py:/vllm-workspace/vllm/vllm/distributed/kv_transfer/kv_connector/v1/offloading/config.py:ro"
 echo "  -v /x/cpu_spec.py:/vllm-workspace/vllm/vllm/v1/kv_offload/cpu/spec.py:ro"
@@ -50,8 +55,12 @@ echo "  -v /x/pgp_manager.py:/vllm-workspace/vllm/vllm/v1/kv_offload/cpu/pgp_man
 echo "  -v /x/p2_pool.py:/vllm-workspace/vllm/vllm/v1/kv_offload/cpu/p2_pool.py:ro"
 echo "  -v /x/p2_worker.py:/vllm-workspace/vllm-ascend/vllm_ascend/distributed/kv_transfer/kv_pool/kv_offload/native/p2_worker.py:ro"
 echo "  -v /x/cpu_npu.py:/vllm-workspace/vllm-ascend/vllm_ascend/distributed/kv_transfer/kv_pool/kv_offload/native/cpu_npu.py:ro"
+fi
+if [ "${L1_POOL_PATCH:-0}" = "1" ]; then
+echo "  -v /x/p2_worker.py:/vllm-workspace/vllm-ascend/vllm_ascend/distributed/kv_transfer/kv_pool/kv_offload/native/p2_worker.py:ro"
 echo "  DRY_RUN=${DRY_RUN:-<unset>} PROFILE=${PROFILE:-<unset>} V41_PROFILE=${V41_PROFILE:-<unset>}"
 echo "  DRAFT_GRAPH=${DRAFT_GRAPH:-<unset>}"
+fi
 # ★ 这两行是 **mount 模式指纹门**要 grep 的"挂载行"（真实 shadow 里由注入块生成）
 echo "  MOUNTS+=(-v \"\$F/engram_hash.py:/vllm-workspace/vllm-ascend/vllm_ascend/models/deepseek_v41/engram_hash.py:rw\")"
 echo "  MOUNTS+=(-v \"\$F/engram_jit_kernel.py:/vllm-workspace/vllm-ascend/vllm_ascend/models/deepseek_v41/engram_jit_kernel.py:ro\")"
@@ -194,6 +203,15 @@ OUTF="$T12/out.txt"
     bash "$SCRIPT_REL" ) >"$OUTF" 2>&1; rc=$?
 tail -3 "$OUTF"
 if [ "$rc" = "0" ]; then printf '⛔ [⑫ 缺 serve_a3.sh] 竟然 rc=0 —— 静默换入口/漏检\n'; V=1; else printf '✓ [⑫ 缺 serve_a3.sh 会失败]\n'; fi
+
+say "⑬ OFFLOAD=0 ⇒ 必须**关干净**（不挂 offload 补丁、不带 kv-transfer-config）"
+run_case onlyload0 ENGRAM=0 OFFLOAD=0; check "⑬a OFFLOAD=0 起服" 0 $? '关得干净' 'unbound variable'
+if grep -q "offloading/scheduler.py" "$OUTF"; then printf '⛔ [⑬b MOUNTS 仍含 offloading]\n'; V=1; else printf '✓ [⑬b MOUNTS 无 offloading]\n'; fi
+# ★ 判据：`KV_ARGS_EXTRA` 里不能再有 kv-transfer-config，也不能再挂池的补丁
+run_case onlyload0b ENGRAM=0 OFFLOAD=0
+if grep -E "KV_ARGS_EXTRA=.*kv-transfer-config" "$OUTF" >/dev/null; then
+    printf '⛔ [⑬c KV_ARGS 仍带 kv-transfer-config]\n'; V=1
+else printf '✓ [⑬c KV_ARGS 已去掉 kv-transfer-config]\n'; fi
 
 say "结果"
 if [ "$V" = "0" ]; then echo "✅ 全部通过"; else echo "⛔ 有用例失败"; fi

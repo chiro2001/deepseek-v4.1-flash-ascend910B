@@ -120,6 +120,15 @@ SERVED_NAME=${SERVED_NAME:-deepseek-v4-flash}
 #          max_len=1048576: BPR=9623  vs 真实 token 块 8192  ⇒ 开销系数 1.175
 #        ⇒ 同样 4 GiB 预算，1M 下能买的 token 数 ≈ 128K 下的 **2.02×**（A2 文档实测）。
 OFFLOAD_GB=${OFFLOAD_GB:-85}
+# ★★★ 2026-09-23 11:4x **`OFFLOAD=0`：暂时关掉 DRAM 卸载**（本脚本此前**强制**开，没有开关）。
+#   为什么需要：A2 上出现**乱码**，而"卸载取回路径"是首要嫌疑之一 ⇒ 必须能**单变量**关掉它。
+#   关掉之后：① 不挂 offload 的 3 个补丁；② 不带 `--kv-transfer-config`；③ 不打 L1 池的补丁；
+#             ④ 不要求 `P2_COMP_JSON`。其余（ENGRAM/int8/draft 入图/1M 几何/PLAT）**全部保留**
+#             ⇒ **唯一变量 = 卸载**。
+#   ★ 与 `scripts/serve_a2.sh` 直接起服的区别：那条路连 int8/draft 入图也要跟着一起判，
+#     不是单变量；而且它没有我们这几天修的那些默认值（DRAFT_GRAPH、1M 几何、P2 分量…）。
+#   用法：`OFFLOAD=0 bash a2/scripts/serve_a2_offload.sh`
+OFFLOAD=${OFFLOAD:-1}
 MAX_LEN=${MAX_LEN:-1048576}
 MAX_SEQS=${MAX_SEQS:-4}
 BAT_TOKENS=${BAT_TOKENS:-2048}
@@ -366,7 +375,8 @@ if [ "$DRAFT_GRAPH" = "0" ]; then
     echo "        这是**四轴变三轴**；若非刻意对照，请去掉 DRAFT_GRAPH=0。"
 fi
 if [ "$P2_POOL_PATCH" = "1" ]; then
-    echo "  池子          : ${OFFLOAD_GB} GiB（★ 档 B 宿主实占 ≈197 GiB，8 卡实测 1.9895x）"
+    echo "  卸载          : OFFLOAD=$OFFLOAD（0 = **本次不起 DRAM 卸载**；其余配置不变）"
+echo "  池子          : ${OFFLOAD_GB} GiB（★ 档 B 宿主实占 ≈197 GiB，8 卡实测 1.9895x）"
 else
     echo "  池子          : ${OFFLOAD_GB} GiB（档 A 宿主实占 ≈392 GiB，8 卡实测）"
 fi
@@ -587,20 +597,37 @@ export OFFLOAD_PGP_HOOKS="$PATCHDIR/pgp_hooks.py"
 export OFFLOAD_CPU_NPU_FILE="$PATCHDIR/cpu_npu.py"
 
 # ---------------------------------------------------------------- 起服
-export OFFLOAD_SCHED_PATCH=1
-export OFFLOAD_NPU_WORKER_PATCH=1
+if [ "$OFFLOAD" = "1" ]; then
+    export OFFLOAD_SCHED_PATCH=1
+    export OFFLOAD_NPU_WORKER_PATCH=1
+else
+    # OFFLOAD=0 ⇒ **不导出**这两个 ⇒ 影子包按 `:-0` 读 ⇒ 3 个 offload 补丁一个都不挂。
+    #   ★ 这正是"静默降级"的反面用法：**故意**关，且下面会**响亮标注**。
+    export OFFLOAD_SCHED_PATCH=0
+    export OFFLOAD_NPU_WORKER_PATCH=0
+fi
 export NPU_OFFLOAD_HOST_MEM
 export PREFIX_MATCH_UNIT
 export ENGRAM
 # ★ 可选项（默认关；不改默认行为）
-[ "$P2_POOL_PATCH" = "1" ] && export P2_POOL_PATCH=1 && export P2_WORKER_ROWS=1
+# ★ OFFLOAD=0 ⇒ L1 池补丁**也没有对象**（没有宿主池）⇒ 一并关掉，避免"挂着但没人用"
+#   （同族纪律：不留"看起来生效其实无消费者"的开关 —— 见 logs/112）。
+if [ "$OFFLOAD" = "1" ]; then
+    [ "$P2_POOL_PATCH" = "1" ] && export P2_POOL_PATCH=1 && export P2_WORKER_ROWS=1
+else
+    P2_POOL_PATCH=0
+    L1_POOL_PATCH=0
+fi
 export L1_POOL_PATCH L1_POOL_DIR
 case "$P2_POOL_PATCH" in
   1) : "${P2_COMP_JSON:?★ 开 L1 时必须给 P2_COMP_JSON（与张量数匹配，给错会 fail-closed）}"; export P2_COMP_JSON ;;
 esac
 export PGP_MGR_HARDEN PGP_MGR_STATS
 
-# ★ 起服前断言：这两个开关必须真的是 1（上面那段曾被 int8 分支吞掉过 ⇒ 加硬门）
+# ★ 起服前断言（**仅在 OFFLOAD=1 时**）：这两个开关必须真的是 1
+#   （上次是"被 int8 分支吞掉"导致静默零卸载 ⇒ 加硬门）。
+#   ★ OFFLOAD=0 时**跳过**这个断言 —— 那是有意关的，不是静默降级。
+if [ "$OFFLOAD" = "1" ]; then
 for _req in OFFLOAD_SCHED_PATCH OFFLOAD_NPU_WORKER_PATCH; do
     if [ "${!_req:-0}" != "1" ]; then
         echo "⛔ ${_req}='${!_req:-<unset>}' —— 卸载补丁不会挂进容器。" >&2
@@ -609,6 +636,10 @@ for _req in OFFLOAD_SCHED_PATCH OFFLOAD_NPU_WORKER_PATCH; do
         exit 2
     fi
 done
+else
+    echo "  ★★ OFFLOAD=0 ⇒ **本次不起 DRAM 卸载**（不挂 offload 补丁、不带 --kv-transfer-config）。"
+    echo "     其余配置（ENGRAM / int8 / draft 入图 / 1M 几何）**保持不变** ⇒ 唯一变量 = 卸载。"
+fi
 
 # ---------------------------------------------------------------- ★★★ 挂载件的"可导入性"预检
 # 为什么（2026-09-23 实测事故）：A2 首次起服报
@@ -709,8 +740,13 @@ export A2_KV8_GRAPHSAFE="$GRAPH_SAFE"
 
 fi
 
-KV_ARGS="--prefix-match-unit $PREFIX_MATCH_UNIT \
+if [ "$OFFLOAD" = "1" ]; then
+    KV_ARGS="--prefix-match-unit $PREFIX_MATCH_UNIT \
 --kv-transfer-config {\"kv_connector\":\"OffloadingConnector\",\"kv_role\":\"kv_both\",\"kv_connector_extra_config\":{\"cpu_bytes_to_use\":$((OFFLOAD_GB * 1073741824)),\"blocks_per_chunk\":$BLOCKS_PER_CHUNK,\"spec_name\":\"NPUOffloadingSpec\",\"spec_module_path\":\"vllm_ascend.distributed.kv_transfer.kv_pool.kv_offload.native.npu\"}}"
+else
+    # OFFLOAD=0 ⇒ **不带 kv-transfer-config**（引擎里根本没有 offloading connector）。
+    KV_ARGS="--prefix-match-unit $PREFIX_MATCH_UNIT"
+fi
 
 # ---------------------------------------------------------------- ★★★ 起服前指纹门（2026-09-22 21:2x）
 # 为什么必须有这道门：`ENGRAM=1` + 卸载的那条 P0（镜像缺页 ⇒ KeyError ⇒ 引擎死，`logs/073`）
@@ -852,6 +888,16 @@ if [ "$DRY" = "1" ]; then
     #   ⇒ 同族纪律：**判据绑实际生效的那个对象（容器内目标路径），不绑中转文件的名字。**
     #   ★ L1 路线（默认）会整份替换 5 个文件；旧路线（L1_POOL_PATCH=0）少 config.py/spec.py。
     _miss=0
+    if [ "$OFFLOAD" = "0" ]; then
+        # ★ OFFLOAD=0：**不查**任何 offload 挂载目标（本来就不该有）；只确认"确实没有 scheduler"。
+        if printf '%s\n' "$_dry_out" | grep -q "kv_connector/v1/offloading/scheduler.py:ro"; then
+            echo "⛔ OFFLOAD=0 但 MOUNTS 里**仍有** offloading/scheduler.py ⇒ 关得不干净" >&2
+            exit 2
+        fi
+        echo "[DRY] ✓ OFFLOAD=0：MOUNTS 里**没有** offloading 相关挂载（关得干净）"
+        echo "[DRY] ↑↑↑ 以上是真实挂载清单 ↑↑↑"
+        exit 0
+    fi
     _need="/vllm-workspace/vllm/vllm/distributed/kv_transfer/kv_connector/v1/offloading/scheduler.py:ro"
     if [ "$L1_POOL_PATCH" = "1" ]; then
         _need="$_need /vllm-workspace/vllm/vllm/distributed/kv_transfer/kv_connector/v1/offloading/config.py:ro"
