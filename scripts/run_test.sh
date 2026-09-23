@@ -18,7 +18,7 @@
 #   [7] 报告     results/<run_id>/REPORT.md + 全部原始 jsonl
 #
 # 常用变量：
-#   MODEL       必填；IMAGE 默认 dsv41-a2:v8；PORT 默认 8100
+#   MODEL       必填；IMAGE 默认 dsv41-a2:v9（★ 带 ENGRAM×卸载 的 P0 修复）；PORT 默认 8100
 #   MODE        quick(默认)=8K+32K+vision | full=+128K+GSM8K | prod=生产口径 + 多 batch 三块
 #               prod = MAX_SEQS=32 + PREFIX=1（A2 真机口径）：只跑 必查三项 + [A]多轮/[B]并发/[C]长短交错，
 #               **不跑 quote 性能**（生产口径的 ms/A 与单流口径不可比）。两臂对照见
