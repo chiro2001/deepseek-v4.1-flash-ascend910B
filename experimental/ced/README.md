@@ -7,6 +7,15 @@
 `/vllm-workspace/vllm-ascend/vllm_ascend/distributed/kv_transfer/kv_p2p/mooncake_hybrid_connector.py`。
 实验服务只在设置 `V41_CED_ROLE` 且 `PATCH_MODE=mount` 时挂载本副本；普通服务不使用它。
 
+真实权重的 A3 双 TP8 实验请使用 `bash scripts/serve_a3_ced_pd.sh prefill`
+和 `bash scripts/serve_a3_ced_pd.sh decode`。包装器会设置并校验
+`V41_CED_ROLE`，同时关掉尚不支持的 DSpark、prefix cache 和 draft graph。
+`scripts/serve_a3_pd.sh` 是全 40 层 PD 基线入口；直接用它启动 CED 的 D 侧
+若漏设 `V41_CED_ROLE=decode`，服务仍可返回 HTTP 200，但不会安装 replay
+调度与缺失 SWA 处理，回答可能严重错误。启动后须核对 D 容器环境为
+`V41_CED_ROLE=decode`，且挂载了 `ced_scheduler_replay.patch` 与实验版
+`dsa_v41.py`。
+
 当前变更只处理 **P 侧缓存组有效性**：P 跳过层 20–39 后，将 G7–G11 的
 `remote_block_ids` 置空，并在交接元数据写入 `ced_replay_tokens=128`、缺失组、
 有效前缀长度。这防止把未写入的上半层 SWA 当成有效缓存交给普通 D。
