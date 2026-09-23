@@ -202,6 +202,29 @@ if [ -f tools/selftest_stop_a3_safe.sh ]; then
 else
   warn "缺 tools/selftest_stop_a3_safe.sh"
 fi
+
+# ------------------------------------------------- 9c) 长上下文 × Agent 精度探针 + 其沙箱自测
+# 现场反馈：问题主要出现在**长上下文 + Agent（工具调用/多轮）**场景，且**不开 DRAM 卸载也有**
+#   ⇒ 判据必须补上这一格（此前的题库只有几十 token、sha 判据对长上下文语义无判别力）。
+for _f in tools/ctx_agent_probe.py tools/_fake_vllm.py tools/_check_probe_json.py; do
+  if [ -f "$_f" ]; then
+    if python3 -m py_compile "$_f" 2>/dev/null; then ok "长上下文档位在位且可编译：$_f"
+    else bad "$_f 编译不通过"; fi
+  else
+    bad "缺 $_f"
+  fi
+done
+if [ -f tools/selftest_ctx_agent_probe.sh ]; then
+  if out=$(bash tools/selftest_ctx_agent_probe.sh 2>&1); then
+    n=$(printf '%s' "$out" | grep -c 'PASS' || true)
+    ok "长上下文探针沙箱自测：${n:-?} 条全过（干净必过 / 乱码必抓 / 工具参数逐字 / 无 tokenize 回退 / 连不上 rc=2）"
+  else
+    bad "长上下文探针沙箱自测失败："
+    printf '%s' "$out" | grep -E 'FAIL' | sed 's/^/        /' | head -8
+  fi
+else
+  warn "缺 tools/selftest_ctx_agent_probe.sh"
+fi
 if [ -f tools/deploy_a3.sh ] && ! bash -n tools/deploy_a3.sh 2>/dev/null; then
   bad "tools/deploy_a3.sh 语法不通过"
 fi
