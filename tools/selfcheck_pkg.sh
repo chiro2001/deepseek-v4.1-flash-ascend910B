@@ -171,6 +171,23 @@ else
   bad "缺 tools/check_checksums.sh（v8 起 build_image.sh 依赖它推导期望 md5）"
 fi
 
+# ------------------------------------------------- 9) 起服脚本的**沙箱端到端自测**（v9 补的坑）
+# 2026-09-23 同日两次同类事故：`serve_a2_offload.sh` 里**变量在定义之前被使用**
+#   ① 头部引用了 `$OUT`（那只在 shadow 的 serve_a2.sh 里定义）⇒ set -u 崩溃；
+#   ② 头部引用了 `$LAUNCH_DIR`，而它当时定义在文件后半 ⇒ `line 247: LAUNCH_DIR: unbound variable`。
+# `bash -n` **查不出来**（只查语法）。本项把脚本放进沙箱真跑（DRY=1）⇒ 任何未定义变量都会暴露。
+if [ -f a2/scripts/selftest_serve_a2_offload.sh ]; then
+  if out=$(bash a2/scripts/selftest_serve_a2_offload.sh 2>&1); then
+    n=$(printf '%s' "$out" | grep -c '^✓ \[' || true)
+    ok "起服脚本沙箱自测：${n:-?} 个用例全过（未定义变量 / PROFILE 透传 / 门拦截）"
+  else
+    bad "起服脚本沙箱自测失败（含未定义变量、门失效等）："
+    printf '%s' "$out" | grep -E '^⛔' | sed 's/^/        /' | head -8
+  fi
+else
+  warn "缺 a2/scripts/selftest_serve_a2_offload.sh（无法自动抓"变量未定义"这类崩溃）"
+fi
+
 echo
 if [ "$fail" = "0" ]; then
   echo "[selfcheck] 全部通过 ✅  可以开始：bash scripts/build_image.sh"

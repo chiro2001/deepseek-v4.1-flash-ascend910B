@@ -31,6 +31,17 @@ HERE=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
 A2DIR=$(cd "$HERE/.." && pwd)            # a2/ 自己（补丁可能在 a2/patches 或 a2/publish）
 REPO=$(cd "$HERE/../.." && pwd)          # dsv41-release/
 
+# ---------------------------------------------------------------- shadow / 起服对象
+# ★★★ 2026-09-23 09:4x 修一个 `set -u` 崩溃（用户实测）：
+#   这三个定义**原本在文件后半**（约 355 行），但头部打印（约 247 行）已经引用 `$LAUNCH_DIR`
+#   ⇒ `set -u` 下直接 `line 247: LAUNCH_DIR: unbound variable`。
+#   ★ 这是**同一天第二次**犯同一个错（上一次是同一行里的 `$OUT`，那次我改成了字面路径就以为好了
+#     —— **没有从根上修**）。⇒ 现在把定义**统一提到参数区**，并用 §6 的沙箱测试兜住这类错。
+SHADOW=${SHADOW_PKG:-$HOME/projects/dsv41-upstream-pr/shadow-pkg}
+PATCHDIR="$SHADOW/patches/files/offload_dsv41"
+LAUNCH_DIR=${LAUNCH_DIR:-$SHADOW}       # 起服对象（默认 shadow-pkg；改它可做 A/B 对照）
+_SV="$LAUNCH_DIR/scripts/serve_a2.sh"
+
 # ---------------------------------------------------------------- 参数
 # ★ 模型路径不硬编码（发布包不留真实账号名）；必须由调用方给
 MODEL=${MODEL:?请设 MODEL=<模型目录>}
@@ -351,9 +362,7 @@ if [ "$KV8_SWA" = "1" ] || [ "$KV8_RING_FP16" = "1" ] || [ "$KV8_FULL" = "1" ]; 
     fi
 fi
 
-# shadow-pkg 的补丁目录（serve_a2.sh 的 PATCH_MODE=mount 从这里挂）
-SHADOW=${SHADOW_PKG:-$HOME/projects/dsv41-upstream-pr/shadow-pkg}
-PATCHDIR="$SHADOW/patches/files/offload_dsv41"
+# shadow-pkg 的补丁目录（PATCHDIR）与起服对象（LAUNCH_DIR）在**参数区**已定义
 
 # ============================================================================================
 # ★★★ 2026-09-23 09:3x **P0 修复：DRY 与真实起服调的不是同一个对象**
@@ -368,8 +377,7 @@ PATCHDIR="$SHADOW/patches/files/offload_dsv41"
 #        否则拒绝（宁可响亮失败）。★ 用 `LAUNCH_DIR=` 可显式改对象（A/B 对照时用）。
 #   另外本函数**显式传 PROFILE/V41_PROFILE**（不再依赖环境继承 —— `logs/112` 就是继承坑）。
 # ============================================================================================
-LAUNCH_DIR=${LAUNCH_DIR:-$SHADOW}
-_SV="$LAUNCH_DIR/scripts/serve_a2.sh"
+#   （LAUNCH_DIR / _SV 已在**参数区**定义 —— 见那里的崩溃说明）
 if [ ! -f "$_SV" ]; then
     echo "⛔ 找不到要起服的脚本：$_SV" >&2
     echo "   （shadow 还没造？ PKG=$REPO DST=$SHADOW bash $A2DIR/scripts/make_shadow_pkg.sh）" >&2
