@@ -188,6 +188,21 @@ else
   warn "缺 a2/scripts/selftest_serve_a2_offload.sh（无法自动抓"变量未定义"这类崩溃）"
 fi
 
+# ------------------------------------------------- 9aa) shadow 生成物回归（重复挂载/孤立 -v）
+# 2026-09-23 真机两次踩到、且 `bash -n` 查不出来：① int8 块与生产块挂同一目标 ⇒ docker
+#   `Duplicate mount point`；② 去重只删一半 ⇒ 留孤立 `-v` ⇒ `invalid reference format.`
+if [ -f a2/scripts/selftest_make_shadow_pkg.sh ]; then
+  if out=$(bash a2/scripts/selftest_make_shadow_pkg.sh 2>&1); then
+    n=$(printf '%s' "$out" | grep -c 'PASS' || true)
+    ok "shadow 生成物回归：${n:-?} 条全过（int8 去重 / 成对完整 / 目标唯一 / 校验器负控）"
+  else
+    bad "shadow 生成物回归失败："
+    printf '%s' "$out" | grep -E 'FAIL' | sed 's/^/        /' | head -8
+  fi
+else
+  warn "缺 a2/scripts/selftest_make_shadow_pkg.sh"
+fi
+
 # ------------------------------------------------- 9b) 证据收集器的**沙箱自测**
 # 收集器是"出问题时唯一救命的工具"，而它的入口有三条（SERVE_LOG / RUN_DIR / RUN_ID+自动取最新）。
 # 入口写错的表现是**静默抽错文件**（抽到别人的臂），在真出问题时最贵。
