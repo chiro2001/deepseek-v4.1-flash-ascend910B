@@ -38,5 +38,9 @@ SPEC=0 STATIC_KERNEL=0 V41_CED_ROLE=prefill \
 bash scripts/serve_a3_pd.sh prefill
 ```
 
-这一步只可验证 P 计算路径。拿到 D 重放和组有效性协议之前，不启动面向用户的 PD 代理。
+服务就绪后，用 `python3 tools/ced_prefill_probe.py --base-url http://127.0.0.1:18770 --context-tokens 144000 --expect-masked-swa --out results/ced_p_144k.json` 检查内部 marker、12 组布局、上半层 SWA 屏蔽及 replay 标记。
+
+**A3 真实权重验收（`302b586`）：** 按上面的独立 P 配置启动，`/health=200`，8 个 rank 都记录 `[CED-P] internal producer`，日志没有 decoder-layer 违规异常。短请求带 `do_remote_decode=true`，返回 `finish_reason=length`、标记 token ID 42，并带 `do_remote_prefill=true` 的 Mooncake 元数据。随后 [`ced_p_144k.json`](../evidence/ced_p_cut_302b586/ced_p_144k.json) 记录真实 prompt 143,963 token、17.07 秒、12 组 block ID、标记 token ID 42；完整日志为 [`serve.log.gz`](../evidence/ced_p_cut_302b586/serve.log.gz)，解压后 SHA-256 为 `02061375f211b754003e1c907588fbe74340414a967987a2b2806a5f1906c2dc`。该测试证明 P 端能运行长 prefill 并完成内部交接回执；其耗时不可直接与前一个开了数值探针和 DSpark 的 30.8 秒相减作为性能收益。容器已停止，0–7 卡无运行进程。
+
+**仍需封堵的接口：** `302b586` 的 12 组回执含 G7–G11，即上半层 SWA；P 跳层时这些组未写入，却会被普通连接器列入传输。已在 [`experimental/ced/mooncake_hybrid_connector.py`](../experimental/ced/mooncake_hybrid_connector.py) 加入实验性组有效性协议：P 置空 G7–G11 block ID 并标记需 128-token replay，D 在 replay 实现前拒绝该请求。这个连接器改动尚未上 A3 验收。拿到 D 重放之前，不启动面向用户的 PD 代理。
 - `compile()` 语法检查和 `git diff --check` 通过。没有声称 CED 运行时或性能已经实现。

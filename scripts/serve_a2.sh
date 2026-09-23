@@ -871,6 +871,12 @@ if [ "$PATCH_MODE" = "mount" ]; then
     MOUNTS+=(-v "$F/indexer.py:/vllm-workspace/vllm-ascend/vllm_ascend/models/deepseek_v41/indexer.py:rw")
   fi
 fi
+if [ -n "${V41_CED_ROLE:-}" ]; then
+  [ "$PATCH_MODE" = "mount" ] || die "V41_CED_ROLE 要求 PATCH_MODE=mount，以安装 CED 连接器"
+  _ced_connector="$PKG/experimental/ced/mooncake_hybrid_connector.py"
+  [ -f "$_ced_connector" ] || die "V41_CED_ROLE 缺少 $_ced_connector"
+  MOUNTS+=(-v "$_ced_connector:/vllm-workspace/vllm-ascend/vllm_ascend/distributed/kv_transfer/kv_p2p/mooncake_hybrid_connector.py:ro")
+fi
 [ -n "$PGO_LIB" ] && MOUNTS+=(-v "$PKG/optim/pgo/libpython3.12.so.1.0:$PGO_LIB:ro")
 # ---------- [PROBE] 稀疏状态插针（事后取证；独立于 PATCH_MODE） ----------
 # PROBE=1 时用只读挂载覆盖 dsa_v41.py 并注入 sparse_capture.py。

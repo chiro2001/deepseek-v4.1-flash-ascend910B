@@ -54,6 +54,7 @@ _ENGRAM_WITH_DUMMY = _os_egd.environ.get("V41_ENGRAM_WITH_DUMMY", "0") == "1"
 _ENGRAM_PAD_SKIP = _os_egd.environ.get("V41_ENGRAM_PAD_SKIP", "0") == "1"
 
 _IDS64_HOIST = _os_ids.environ.get("V41_IDS64_HOIST", "0") == "1"
+_CED_PREFILL_ROLE = _os_ids.environ.get("V41_CED_ROLE", "") == "prefill"
 from safetensors import safe_open
 from transformers import AutoTokenizer
 from vllm.distributed import get_pp_group
@@ -726,7 +727,7 @@ class DeepseekV41DecoderLayer(DeepseekV2DecoderLayer):
         llama_4_scaling=None,
         input_ids=None,
     ):
-        if self.layer_idx >= 20 and _os_ids.environ.get("V41_CED_ROLE", "") == "prefill":
+        if self.layer_idx >= 20 and _CED_PREFILL_ROLE:
             raise RuntimeError("CED producer executed a decoder layer instead of source-only projection")
         residual = hidden_states
         x, attn_post, attn_comb, attn_pre = self.hc_pre(
