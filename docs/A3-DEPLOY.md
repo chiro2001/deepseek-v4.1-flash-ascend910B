@@ -126,6 +126,42 @@ bash tools/list_chips.sh --free     # 只输出空闲卡号（可直接当 DEVS�
 | 服务起来了但**慢** | 补丁没生效（`baked` / 没挂文件） | 看干跑日志里的 `PATCH_MODE=mount` 与 `MOUNTS(...)` 条数 |
 | 吞吐/时延看着正常但**答案异常** | 见 §6 的判据纪律 | 用 `(A, tok/s)` + 文本原文一起判 |
 
+### 5.1 ★ 「HCCL 建链失败」专章（新机上第二常见，且最容易被误判成"我们的 bug"）
+
+**症状**（起服在**模型初始化**阶段就崩，8 个 rank 全报同一条）：
+
+```
+.../quantization/methods/w4a8/w4a8.py: self.moe_all_to_all_group_name =
+    backend.get_hccl_comm_name(local_rank)
+RuntimeError: ... hcclCommInitRootInfoConfig(...), error code is 1
+ERR02200 DIST call hccl api failed.
+Communication_Error_Ranktable_Detect(EI0015): ... No rank in the communicator can
+connect to the root node within the timeout period. List of unconnected ranks: "[3,]"
+```
+
+**判读要点**：注意 `unconnected ranks: "[3,]"` —— **是某一个 rank 掉队**（不是全部）。
+一个 rank 起不来，其余 7 个就会一直等它直到超时。真正的根因候选只有三类：
+
+| 类别 | 机制 | 怎么认 |
+|---|---|---|
+| **那张卡当时不可用** | 别人的进程占着 / 无进程但 HBM 未释放 / 你自己的残留 | `npu-smi info` 看进程表与 HBM |
+| **那个 rank 被 OOM 杀了** | 起服峰值需要 ≈**1 TB 可用**（8 rank × 权重页 + Engram 表 206 GiB） | `dmesg -T \| grep -iE "oom\|killed process"` |
+| **HCCL 选错网卡** | 多网卡机器上自动挑到走不通的那张 | `ip -o -4 addr show`：真实网卡 >1 张就要显式 `HCCL_SOCKET_IFNAME=<网卡名>` |
+
+**一条命令收齐证据**（只读；`RUN_HCCL_TEST=1` 才会真占卡）：
+
+```bash
+DEVS="8 9 10 11 12 13 14 15" SERVE_LOG=/path/to/serve.log bash tools/diag_a3_hccl.sh
+DEVS="..." RUN_HCCL_TEST=1 bash tools/diag_a3_hccl.sh   # 额外真跑 8 卡 HCCL all-reduce（决策性证据）
+```
+
+`diag_a3_hccl.sh` 会：① 逐卡查占用（含"无进程但 HBM 高"）② 列网卡并给 `HCCL_SOCKET_IFNAME` 写法
+③ 查 `host_mem_pool`（A3 应为 1）④ 查 OOM ⑤ 从 `serve.log` 数**每个 rank 的行数**
+（行数明显少的那个就是掉队的 rank —— 再看它最后停在哪一步：device 初始化前=卡被占／权重加载=内存／HCCL=网卡）。
+
+**参考基准（a3-21 工作机）**：单张真实网卡 `enp196s0f0 192.168.45.21/21`、`host_mem_pool=1`、
+2 TB 内存。**新机器与这三项任何一项不同，都要先怀疑它。**
+
 ---
 
 ## 6. 起服后的验收（**别只看"起来了"**）

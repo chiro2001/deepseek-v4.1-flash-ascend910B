@@ -179,6 +179,12 @@ for _f in tools/deploy_a3.sh docs/A3-DEPLOY.md; do
   if [ -f "$_f" ]; then ok "A3 新机部署件在位：$_f"
   else warn "缺 $_f（新机器上少一条从零到干跑的路径）"; fi
 done
+if [ -f tools/diag_a3_hccl.sh ]; then
+  if bash -n tools/diag_a3_hccl.sh 2>/dev/null; then ok "HCCL 诊断助手在位且语法通过：tools/diag_a3_hccl.sh"
+  else bad "tools/diag_a3_hccl.sh 语法不通过"; fi
+else
+  warn "缺 tools/diag_a3_hccl.sh（新机 HCCL 建链失败时少一条一次收齐证据的路径）"
+fi
 if [ -f tools/deploy_a3.sh ] && ! bash -n tools/deploy_a3.sh 2>/dev/null; then
   bad "tools/deploy_a3.sh 语法不通过"
 fi
