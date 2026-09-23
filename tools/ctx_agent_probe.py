@@ -426,8 +426,149 @@ def mode_toolargs(a, out: dict) -> int:
     return fails
 
 
+def _metrics(base: str, keys: tuple) -> dict:
+    """抓几条引擎指标（用于证明"缓存真的被灌满/逐出"，不是靠猜）。"""
+    code, txt = get(base, "/metrics", timeout=20)
+    out = {}
+    if code != 200:
+        return out
+    for line in txt.splitlines():
+        if line.startswith("#"):
+            continue
+        for k in keys:
+            if line.startswith(k + " ") or line.startswith(k + "{"):
+                try:
+                    out[line.split()[0]] = float(line.split()[-1])
+                except Exception:  # noqa: BLE001
+                    pass
+    return out
+
+
+def mode_evict(a, out: dict) -> int:
+    """★ 长会话被**逐出后重算**：先冷算一条长 prompt，再灌爆缓存，然后**重问同一条**。
+
+    为什么单列（真机教训）：此前 `reuse` 模式两次都能命中缓存 ⇒ 只证明了"命中时一致"。
+    真实 Agent 会话会**把缓存灌满**（多会话/长上下文），前缀块被逐出 ⇒ 之后再问同一条
+    会走**部分重算**路径。`ENGRAM` 的 pad 历史降级、APC 边界对齐这类缺陷都藏在这条路上。
+    """
+    print("=" * 78)
+    print(f"[evict] 逐出后重算：ctx≈{a.context_tokens} ×(1 冷算 + {a.fill_sessions} 灌爆 + 1 重问)")
+    print("=" * 78)
+    corpus = load_corpus()
+    q, expect = NEEDLE_Q["A"]
+    body = embed_needles(slice_for_tokens(a.base_url, a.model, corpus,
+                                          a.context_tokens, offset=a.offset), ["A"])
+    msgs = [{"role": "system", "content": SYSTEM},
+            {"role": "user", "content": body + "\n\n" + q}]
+
+    mk = ("vllm:gpu_cache_usage_perc", "vllm:kv_cache_usage_perc",
+          "vllm:prefix_cache_hit_rate", "vllm:prefix_cache_queries_total",
+          "vllm:prefix_cache_hits_total")
+    m0 = _metrics(a.base_url, mk)
+    r1 = chat(a.base_url, a.model, msgs, max_tokens=a.max_tokens, timeout=a.timeout)
+    ans1 = text_of(r1)
+    v1 = judge(ans1, expect)
+    m1 = _metrics(a.base_url, mk)
+    print(f"  [cold ] {'PASS' if v1['exact'] else 'FAIL':4s} wall={r1['wall_s']:.1f}s "
+          f"A: {v1['answer_repr']}")
+
+    # 灌爆：N 段**互不相同**的长上下文（每段各自埋针，顺便验证没串味）
+    keys = ["A", "B", "C", "D"]
+    n_bad_fill = 0
+    for i in range(a.fill_sessions):
+        off = a.offset + 200000 + i * (a.context_tokens + 1000)
+        k = keys[i % 4]
+        b = embed_needles(slice_for_tokens(a.base_url, a.model, corpus,
+                                           a.context_tokens, offset=off), [k])
+        qq, ee = NEEDLE_Q[k]
+        rr = chat(a.base_url, a.model,
+                  [{"role": "system", "content": SYSTEM},
+                   {"role": "user", "content": b + "\n\n" + qq}],
+                  max_tokens=a.max_tokens, timeout=a.timeout)
+        aa = text_of(rr)
+        hit = ee in aa
+        if not hit:
+            n_bad_fill += 1
+        print(f"  [fill{i}] {'PASS' if hit else 'FAIL':4s} wall={rr['wall_s']:.1f}s A: {repr(aa)[:120]}")
+    m2 = _metrics(a.base_url, mk)
+
+    r3 = chat(a.base_url, a.model, msgs, max_tokens=a.max_tokens, timeout=a.timeout)
+    ans3 = text_of(r3)
+    v3 = judge(ans3, expect)
+    same = ans1.strip() == ans3.strip()
+    print(f"  [again] {'PASS' if v3['exact'] else 'FAIL':4s} wall={r3['wall_s']:.1f}s "
+          f"A: {v3['answer_repr']}")
+    print(f"  ★ 与冷算逐字相同: {same}")
+    print(f"  ★ 指标 冷算前={m0}")
+    print(f"          冷算后={m1}")
+    print(f"          灌爆后={m2}")
+
+    fails = 0
+    if not v3["contains"]:
+        fails += 1
+    if not same:
+        fails += 1
+    if n_bad_fill:
+        fails += n_bad_fill
+    out["evict"] = [{"phase": "cold", **v1, "wall_s": r1["wall_s"],
+                     "metrics": m1},
+                    {"phase": "again", **v3, "wall_s": r3["wall_s"],
+                     "metrics": m2, "same_as_cold": same,
+                     "fill_sessions": a.fill_sessions, "bad_fills": n_bad_fill,
+                     "metrics_before": m0}]
+    return fails
+
+
+def mode_conc(a, out: dict) -> int:
+    """★ 并发长上下文（真 Agent 会**并排**发多个工具请求）：C 路不同上下文同时打。"""
+    import threading
+    print("=" * 78)
+    print(f"[conc] 并发 {a.conc} 路（各自 ctx≈{a.context_tokens}、各自的针）")
+    print("=" * 78)
+    corpus = load_corpus()
+    keys = ["A", "B", "C", "D"]
+    results: list = [None] * a.conc
+
+    def worker(i: int):
+        k = keys[i % 4]
+        off = a.offset + i * (a.context_tokens + 1000)
+        b = embed_needles(slice_for_tokens(a.base_url, a.model, corpus,
+                                          a.context_tokens, offset=off), [k])
+        qq, ee = NEEDLE_Q[k]
+        rr = chat(a.base_url, a.model,
+                  [{"role": "system", "content": SYSTEM},
+                   {"role": "user", "content": b + "\n\n" + qq}],
+                  max_tokens=a.max_tokens, timeout=a.timeout)
+        aa = text_of(rr)
+        results[i] = {"idx": i, "key": k, "expected": ee, "answer_repr": repr(aa)[:200],
+                      "hit": ee in aa, "exact": aa.strip() == ee,
+                      "http": rr["http"], "wall_s": rr["wall_s"],
+                      "fingerprints": fingerprints(aa), "repeat_loop": repeat_loop(aa)}
+
+    ths = [threading.Thread(target=worker, args=(i,)) for i in range(a.conc)]
+    t0 = time.time()
+    for t in ths:
+        t.start()
+    for t in ths:
+        t.join()
+    el = time.time() - t0
+    fails = 0
+    for r in results:
+        if not r or not r["hit"]:
+            fails += 1
+        if r:
+            print(f"  [{r['idx']} {r['key']}] {'PASS' if r['exact'] else ('~hit' if r['hit'] else 'FAIL'):7s} "
+                  f"wall={r['wall_s']:.1f}s fp(fffd/nul)={r['fingerprints']['u_fffd']}/{r['fingerprints']['nul']}")
+            if not r["hit"]:
+                print(f"      A: {r['answer_repr']}")
+    print(f"  并发 {a.conc} 路总墙钟 {el:.1f}s")
+    out["conc"] = results
+    return fails
+
+
 MODES = {"needle": mode_needle, "grow": mode_grow,
-         "reuse": mode_reuse, "toolargs": mode_toolargs}
+         "reuse": mode_reuse, "toolargs": mode_toolargs,
+         "evict": mode_evict, "conc": mode_conc}
 
 
 def selfcheck() -> int:
@@ -493,7 +634,11 @@ def main() -> int:
     ap.add_argument("--selfcheck", action="store_true",
                     help="只验探针自己的判据是否自洽（不连服务）")
     ap.add_argument("--mode", default="all",
-                    choices=["all", "needle", "grow", "reuse", "toolargs"])
+                    choices=["all", "needle", "grow", "reuse", "toolargs",
+                             "evict", "conc"])
+    ap.add_argument("--conc", type=int, default=4, help="conc 模式的并发路数")
+    ap.add_argument("--fill-sessions", type=int, default=12,
+                    help="evict 模式灌爆缓存用的长会话数（要把 KV cache 灌满才有效）")
     ap.add_argument("--context-tokens", type=int, default=32768,
                     help="目标上下文长度（token）；现场反馈是长上下文才出问题 ⇒ 必做长度扫描")
     ap.add_argument("--turns", type=int, default=4, help="grow 模式的轮数")
