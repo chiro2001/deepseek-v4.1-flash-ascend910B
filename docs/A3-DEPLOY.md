@@ -100,7 +100,17 @@ bash tools/list_chips.sh --free     # 只输出空闲卡号（可直接当 DEVS�
   （draft 完全不产出 = 静默失效），而 `ms/step` 反而更好看（每步只出 1.08 个 token 而不是 2.85 个）
   ⇒ **真实吞吐慢 2.2×**。要试必须用 `bash tools/draft_graph_guard.sh` 验 **A ≥ 1.3**。
   判据永远是 **(A, tok/s) 这一对**，不是 `ms/step` 单值。
-* 1M 上下文建议 `MAX_SEQS=4~8`（`serve_a3.sh` 默认 32 是给短上下文场景的）。
+* **上下文/并发**：`deploy_a3.sh` 默认取 **A3 已验证口径** `MAX_LEN=133120 MAX_SEQS=32`
+  （A3 历史臂全部是这一档，见 `shadow-pkg/results/r8_*/serve_cmd.txt`）。
+  `serve_a2.sh` 自身的默认是 `MAX_LEN=1048576`（**A2 生产口径**），在 A3 上**未验证** ——
+  要 1M 请显式给，并同时把并发压下来（A2 的 1M 生产口径是 `MAX_SEQS=4`）：
+
+  ```bash
+  MODEL=... MAX_LEN=1048576 MAX_SEQS=4 bash tools/deploy_a3.sh
+  ```
+
+  ★ 1M 下还有一条**必须遵守**的边界：单请求 `prompt + max_tokens ≤ max_len − 32`
+  （`max_len−6` 附近会撞上 spec-decode 的越界缺陷 ⇒ 引擎 8 rank 全崩）。
 
 ---
 

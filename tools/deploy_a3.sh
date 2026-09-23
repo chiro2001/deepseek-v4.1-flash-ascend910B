@@ -72,8 +72,13 @@ SHOW_SIZES=${SHOW_SIZES:-0}
 IMAGE=${IMAGE:-quay.nju.edu.cn/ascend/vllm-ascend:deepseek-v4.1-flash-a3}
 
 # 平台口径默认值（改一律用这些**用户接口**名字；`scripts/serve_a3.sh` 认得它们）
-MAX_LEN=${MAX_LEN:-1048576}       # 与 scripts/serve_a2.sh 的默认一致（1M）
-MAX_SEQS=${MAX_SEQS:-32}          # A3 默认；1M 场景要压到 4~8（见 docs/A3-DEPLOY.md §4）
+# ★★ 上下文/并发：默认取 **A3 上已验证过的口径**（128K 档）
+#   为什么不用 `serve_a2.sh` 的默认 `MAX_LEN=1048576`：那是 **A2 生产**口径，
+#   在 **A3 上没有验证过**（A3 历史臂全是 `max_len=133120 max_seqs=32`，见
+#   `shadow-pkg/results/r8_*/serve_cmd.txt`）。本脚本的职责是"新机器上第一条命令跑通"，
+#   所以默认必须是**验证过的**口径；要 1M 就显式给（见文档 §4）。
+MAX_LEN=${MAX_LEN:-133120}
+MAX_SEQS=${MAX_SEQS:-32}
 # ★★ draft 入图（DRAFT_GRAPH）：**默认 0，别改**
 #   为什么（`scripts/serve_a2.sh:217-223` 的实测记录）：A3 上开它 ⇒ **接受长度 A 掉到 1.06–1.08**
 #   （draft 完全不产出 = 静默失效形态），而 `ms/step` 反而"更好看"（25.1 vs 27–30），

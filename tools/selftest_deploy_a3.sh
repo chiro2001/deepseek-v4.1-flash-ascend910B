@@ -191,7 +191,7 @@ check_dry "⑤h 补齐后下游收到 8 张" "$T/dry_prefer.log" "devs='8 9 10 1
 say "⑥ 干跑内容判据：mount / 服务名 / 1M / DRAFT_GRAPH 默认 0 / 共享机不动 page cache"
 check_dry "⑥a mount 模式"       "$T/dry_auto.log" "PATCH_MODE=mount"
 check_dry "⑥b 服务名"           "$T/dry_auto.log" "served_name=deepseek-v41"
-check_dry "⑥c 1M 上下文"        "$T/dry_auto.log" "max_len=1048576"
+check_dry "⑥c 上下文=A3 已验证口径 133120（不是 A2 的 1M）" "$T/dry_auto.log" "max_len=133120"
 check_dry "⑥d DRAFT_GRAPH=0（A3 上 1 是坏的：A≈1.06、吞吐 −2.2×）" "$T/dry_auto.log" "DRAFT_GRAPH=0"
 check_dry "⑥e DROPCACHE=0（共用机不清整机 page cache）" "$T/dry_auto.log" "DROPCACHE=0"
 if grep -qx "0" "$T/dc_auto.log" 2>/dev/null; then ok "⑥f 下游真收到 DROPCACHE=0（不是只打印）"
@@ -201,6 +201,11 @@ say "⑥g 显式 DRAFT_GRAPH=1 ⇒ 必须**响亮警告**并指向 draft_graph_g
 run_deploy dg1 DRAFT_GRAPH=1 STUB_FREE_CHIPS="0 1 2 3 4 5 6 7"; rc=$?
 check "⑥g DRAFT_GRAPH=1 警告" 0 "$rc" "draft_graph_guard.sh"
 check_dry "⑥h 下游真收到 DRAFT_GRAPH=1" "$T/dry_dg1.log" "DRAFT_GRAPH=1"
+
+say "⑥i 显式 MAX_LEN=1048576（A2 生产口径）⇒ 必须照传，不许被 A3 默认值吃掉"
+run_deploy ml1m MAX_LEN=1048576 MAX_SEQS=4 STUB_FREE_CHIPS="0 1 2 3 4 5 6 7"; rc=$?
+check "⑥i 显式 1M（部署器自述）" 0 "$rc" "MAX_LEN=1048576"
+check_dry "⑥j 下游真收到 1M" "$T/dry_ml1m.log" "max_len=1048576"
 
 # ================================================================ ⑦ 起服
 say "⑦ LAUNCH=1 ⇒ 真跑（桩记录 DRY_RUN=0），且起服前**先干跑一次**"
