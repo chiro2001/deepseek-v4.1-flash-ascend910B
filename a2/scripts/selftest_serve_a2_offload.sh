@@ -56,6 +56,16 @@ if [ "\$1" = "run" ]; then
     *engram_hash.py*)       md5sum "$T/shadow/patches/files/engram_hash.py"       | sed 's# .*#  /p#'; exit 0 ;;
     *engram_jit_kernel.py*) md5sum "$T/shadow/patches/files/engram_jit_kernel.py" | sed 's# .*#  /p#'; exit 0 ;;
   esac
+  # ★ 挂载件"可导入性"预检：默认吐两行 OK-IMPORT；STUB_IMPORT_FAIL=1 时模拟失败
+  case " \$* " in
+    *import*and*vllm*|*import*and*pgp*|*OK-IMPORT*|*import*)
+      if [ "\${STUB_IMPORT_FAIL:-0}" = "1" ]; then
+        echo "ModuleNotFoundError: No module named 'pgp_manager'" >&2; exit 1
+      fi
+      echo "OK-IMPORT /vllm-workspace/vllm/vllm/v1/kv_offload/cpu/pgp_manager.py"
+      echo "OK-IMPORT /vllm-workspace/vllm/vllm/v1/kv_offload/cpu/pgp_hooks.py"
+      exit 0 ;;
+  esac
   exit 0
 fi
 exit 0
@@ -109,6 +119,14 @@ OUTF="$T6/out.txt"
     bash "$SCRIPT_REL" ) >"$OUTF" 2>&1; rc=$?
 tail -3 "$OUTF"
 check "⑥ 缺注入拒绝" 2 "$rc" '没有 .A2-OFFLOAD.' 'unbound variable'
+
+say "⑦ 挂载件 import 预检失败 ⇒ 必须拒绝 rc=2（模拟 A2 那个 ModuleNotFoundError）"
+T7=$(mktemp -d); setup_sandbox "$T7"
+OUTF="$T7/out.txt"
+( cd "$T7/repo" && env PATH="$T7/bin:$PATH" STUB_IMPORT_FAIL=1 SHADOW_PKG="$T7/shadow" MODEL=/stub/model DRY=1 ENGRAM=0 \
+    bash "$SCRIPT_REL" ) >"$OUTF" 2>&1; rc=$?
+tail -4 "$OUTF"
+check "⑦ import 预检失败须拒绝" 2 "$rc" '预检失败' 'unbound variable'
 
 say "结果"
 if [ "$V" = "0" ]; then echo "✅ 全部通过"; else echo "⛔ 有用例失败"; fi

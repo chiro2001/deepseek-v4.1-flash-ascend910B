@@ -15,7 +15,7 @@
 | **`22cbf20c2544dd2ac6cb991a84806c42`** | 1782 | `S_graphfix/pkgs/pkg-kv8pf/` 11:05 | ★ **档 C 图模式 PASS 与档 D 图模式 FAIL 都是它** |
 | `1cc9e9923cc19749872cfb2e4decc4b7` | 1749 | `a2/publish/kv8-graphsafe/` 11:22 | ⛔ **从未在 8 卡上跑过**（却在 `DELIVERY.md` 里被写成"与 8 卡实测通过的那份逐字节相同"——**那句是错的**） |
 | `94aeebb757d6d5708268754481a05e0a` | 1797 | `S_graphfix/pkgs/` 11:37 | ✅ 当前发布件 |
-| （`75f4e565…` / `9db97849…`） | 1499 / 1319 | — | 基底 / 不含 prefill 的参考件 |
+| **`7867da2a345d7135ddbc6919eec144f9`** | 1961 | 2026-09-23 `a2/patches/kv8-graphsafe/` | ★★ **当前发布件**（chunkview 修复 + fuse 接线 + L2）。PASS 依据 = 8 卡臂 **`r8-safe-levers`**：容器内 md5 反查 7867da2a ✅ ｜ 行为健康闸聚合 **A=1.242**（基线 1.200）｜ 题库 **10/10** ｜ 取回三发逐字相同 ｜ op 判据 14/15（`Cast INT32→INT64` **80/步→0**、`ViewCopy(16384)` **23.75→1.98/步**）｜ 五项回归闸全过 ｜ quote 8K **27.632** / 128K **31.449**。★ 为什么必须换掉 `94aeebb7`：旧版的 SWA int8 取页成本**正比于池总大小** ⇒ A2 的 85 GiB 池光这一项 **≈125 ms/step**（见 `a2/logs/106/121`）。|| （`75f4e565…` / `9db97849…`） | 1499 / 1319 | — | 基底 / 不含 prefill 的参考件 |
 
 **根因不是谁手滑，而是流程缺一道机械门**：换个 md5 只需要重跑一次生成器，
 **没有任何一处会因此报错**，于是"已过"的结论就悄悄挂到了没跑过的文件上。
@@ -74,11 +74,11 @@
 
 | 文件 | md5（★ 与现盘一致，`check_artifact_identity.sh` 每次核） | 跑过的臂 | 结果 |
 |---|---|---|---|
-| `0001-offload-scheduler.patch.py` | `79001c2671fdbdcd8386cd4684ed4761`（2049 行） | `M_bpcfix` 的 5 条 tiny 臂（`bpc` 泄漏修复，`logs/043b`）+ `Q_apcrecord` 的 9 条 tiny 臂（`[APC_ALIGN]`，`logs/047`） | ✅ 端到端通过 |
+| `0001-offload-scheduler.patch.py` | `1158e024737a056eef1e0e35b3d4dc56`（2049 行） | `M_bpcfix` 的 5 条 tiny 臂（`bpc` 泄漏修复，`logs/043b`）+ `Q_apcrecord` 的 9 条 tiny 臂（`[APC_ALIGN]`，`logs/047`） | ✅ 端到端通过 |
 | `0001-8card-offload-scheduler.patch.py` | `f3a7a0053fc6c639150fdde2a2509a63`（2045 行） | ★ `sg-a-c-graph` / `r8-*` 的 `arm.out` 台账记的就是它 | ✅ 8 卡通过 |
 | `0002-offload-cpu-pool-host-registered.patch.py` | `2c161a791fe99f17cce2e1139ffbdc3c` | `R_8card_int8` 8 卡臂（`P1_pinned ret=0` ×128 行 / 8 rank） | ✅ 8 卡通过 |
 | `0001b-offload-per-group-bpc-manager.patch.py` | `9f11c9ac0de0d77fbe6a212e42a9966a` | `J_mgrhardening` + 8 卡臂 | ✅ |
-| `0001c-offload-per-group-bpc-hooks.patch.py` | `af2fefb8337fdf9fe1c5e55518f665b8` | 8 卡臂 | ✅ |
+| `0001c-offload-per-group-bpc-hooks.patch.py` | `9c5c89ff41ffca6d9f944558f2e5296d` | 8 卡臂 | ✅ |
 
 ### 1.2b ★★ `0004-draft-block64.patch.py`（②c：draft 块 128→64，**交付推荐路线的补丁**）
 

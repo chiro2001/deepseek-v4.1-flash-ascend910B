@@ -21,7 +21,7 @@
 
 | 文件 | md5 | 说明 |
 |---|---|---|
-| `0001-offload-scheduler.patch.py` | `79001c2671fdbdcd8386cd4684ed4761` | **`scheduler.py` 的替换版**。★ **它是 D2 版的超集**（`grep -c offload_participat` = **15**），所以**只需挂这一份**，不要再叠加旧版。<br>★ 07:3x 已修 `blocks_per_chunk` 局部变量泄漏；★ **09:3x 已并入 `[APC_ALIGN]`（`logs/047`）** —— 见下 |
+| `0001-offload-scheduler.patch.py` | `1158e024737a056eef1e0e35b3d4dc56` | **`scheduler.py` 的替换版**。★ **它是 D2 版的超集**（`grep -c offload_participat` = **15**），所以**只需挂这一份**，不要再叠加旧版。<br>★ 07:3x 已修 `blocks_per_chunk` 局部变量泄漏；★ **09:3x 已并入 `[APC_ALIGN]`（`logs/047`）** —— 见下 |
 
 > ★★★ **`0001` 的第二次修复（2026-09-22 09:3x）：`[APC_ALIGN]` 压缩层命中长度对齐**（`logs/047`）
 >
@@ -94,7 +94,7 @@
 > **它的承诺边界**（`041` §0，请勿误读）：**只承诺"若配账层将来真坏，它会响"**（阳性对照 + 15/15 自检已证），
 > **不承诺**修任何现有 bug（`038` 那条 144 MiB 首 token 错**不在配账层**，开 L1 才是解法）。
 > 实测：加固前后 **sha 逐字相同**（`a7ffff6be598`）⇒ **既没修它、也没让它更糟**。
-| `0001c-offload-per-group-bpc-hooks.patch.py` | `af2fefb8337fdf9fe1c5e55518f665b8` | 配置解析钩子（`blocks_per_chunk` 支持 `{"default":8,"swa":1}` 的字典形式） |
+| `0001c-offload-per-group-bpc-hooks.patch.py` | `9c5c89ff41ffca6d9f944558f2e5296d` | 配置解析钩子（`blocks_per_chunk` 支持 `{"default":8,"swa":1}` 的字典形式） |
 | `0002-offload-cpu-pool-host-registered.patch.py` | `2c161a791fe99f17cce2e1139ffbdc3c` | `cpu_npu.py` 的替换版（`NPU_OFFLOAD_HOST_MEM=registered` 走 `aclrtHostRegister`；**注册失败自动回落 `pinned`**） |
 | ★ `0001-8card-offload-scheduler.patch.py` | `f3a7a0053fc6c639150fdde2a2509a63` | **8 卡链专用的 `scheduler.py`**（= `L3_8card/patched/scheduler.py` 的 `f4de89d2…` + `043` 的 bpc 泄漏修复 + **`047` 的 `[APC_ALIGN]`**）。<br>★ **8 卡挂载链请用这一份**：覆盖 `agents/L3_8card/patched/scheduler.py` 即可。<br>⚠️ **8 卡口径未复核**【未确认】（`R_8card_int8` 正在验）。 |
 

@@ -19,7 +19,14 @@ import os
 import traceback
 from typing import Any
 
-from pgp_manager import BPC_BY_GROUP_KEY, PerGroupBPCManager, bpc_map_from_extra
+try:  # [A2-OFFLOAD] 同上：容器内走包路径
+    from pgp_manager import BPC_BY_GROUP_KEY, PerGroupBPCManager, bpc_map_from_extra  # noqa: E402
+except ImportError:  # pragma: no cover - 单卡 tiny 的 PYTHONPATH 路径走上面那条
+    from vllm.v1.kv_offload.cpu.pgp_manager import (  # noqa: E402
+        BPC_BY_GROUP_KEY,
+        PerGroupBPCManager,
+        bpc_map_from_extra,
+    )
 
 
 def _unwrap_spec(kv_cache_spec):

@@ -453,6 +453,16 @@ cp "$PDIR/0001c-offload-per-group-bpc-hooks.patch.py"       "$PATCHDIR/pgp_hooks
 cp "$PDIR/0002-offload-cpu-pool-host-registered.patch.py"   "$PATCHDIR/cpu_npu.py"
 echo "✓ 补丁已复制到 $PATCHDIR"
 
+# ★★★ 2026-09-23 09:5x **显式**给出 4 个挂载源 = 本脚本刚刚拷好的那份。
+#   为什么：注入块里的默认值是 `$_A2F/...`（`_A2F=${A2_OFFLOAD_FILES:-$PKG/a2/patches}`），
+#   即"影子包自己的那份副本" —— 与本脚本刚拷的 `$PATCHDIR/*` 是**两个不同对象**。
+#   起服时到底挂哪一份取决于影子包里有什么 ⇒ 不可控。现在钉死成本脚本刚准备的这份。
+#   （同族纪律：不依赖继承/内部默认，把要用的东西显式给全 —— 见 logs/112。）
+export OFFLOAD_SCHED_FILE="$PATCHDIR/scheduler.py"
+export OFFLOAD_PGP_MANAGER="$PATCHDIR/pgp_manager.py"
+export OFFLOAD_PGP_HOOKS="$PATCHDIR/pgp_hooks.py"
+export OFFLOAD_CPU_NPU_FILE="$PATCHDIR/cpu_npu.py"
+
 # ---------------------------------------------------------------- 起服
 export OFFLOAD_SCHED_PATCH=1
 export OFFLOAD_NPU_WORKER_PATCH=1
@@ -475,6 +485,55 @@ for _req in OFFLOAD_SCHED_PATCH OFFLOAD_NPU_WORKER_PATCH; do
         exit 2
     fi
 done
+
+# ---------------------------------------------------------------- ★★★ 挂载件的"可导入性"预检
+# 为什么（2026-09-23 实测事故）：A2 首次起服报
+#     ModuleNotFoundError: No module named 'pgp_manager'
+# 机制（已用最小包树逐条实测）：
+#   `scheduler.py` / `pgp_hooks.py` 里那条**裸 import** `from pgp_manager import …`
+#   只有在 `PYTHONPATH` 含该目录时才成立；而容器里 `pgp_manager.py` 是作为
+#   **vllm 子模块**挂的（`vllm/v1/kv_offload/cpu/pgp_manager.py`）⇒ 裸 import **必然失败**。
+#   ★ 实测三态：裸 import ❌ ｜ 包路径 ✅ ｜ 哪怕同目录再放一份也 ❌（包内绝对导入不查同级目录）。
+#   ★ 对照：A3 8 卡链用的是**预先构建的合并版 scheduler**（带 try/except 回退）⇒ 没撞上这个坑。
+# 处置：① 两份补丁已加 try/except 回退（与 8 卡链同形，见 a2/patches/README.md）；
+#       ② 这里再加一道**真 import 预检** —— 用一次性容器 + **与起服相同的 3 个挂载**，
+#          把两个模块真 import 一遍 ⇒ "挂错地方 / 目标路径不存在 / import 写错"在**起服前**判死。
+#          成本：几十秒、不占 NPU、不起服务容器。
+if [ "${SKIP_IMPORT_GATE:-0}" = "1" ]; then
+    echo "⚠️ 已按 SKIP_IMPORT_GATE=1 跳过「挂载件可导入性预检」（★ 不建议：A2 首次起服正是栽在这里）"
+elif ! docker image inspect "$IMAGE" >/dev/null 2>&1; then
+    # ★ 本地没有镜像时**不做**预检：否则 `docker run` 会去 registry **拉取**几十 GB。
+    #   真正的起服会在 shadow 侧响亮报错（"镜像 $IMAGE 不存在。先执行 bash scripts/build_image.sh"）⇒ 不会静默。
+    echo "⚠️ 本地没有镜像 $IMAGE ⇒ 跳过「挂载件可导入性预检」（先 build_image.sh 再来）"
+else
+    echo "-------------------------------------------------------------"
+    echo "★ 挂载件可导入性预检（一次性容器，不占 NPU、不起服务）"
+    _imp=$(docker run --rm \
+        -v "$PATCHDIR/scheduler.py:/vllm-workspace/vllm/vllm/distributed/kv_transfer/kv_connector/v1/offloading/scheduler.py:ro" \
+        -v "$PATCHDIR/pgp_manager.py:/vllm-workspace/vllm/vllm/v1/kv_offload/cpu/pgp_manager.py:ro" \
+        -v "$PATCHDIR/pgp_hooks.py:/vllm-workspace/vllm/vllm/v1/kv_offload/cpu/pgp_hooks.py:ro" \
+        --entrypoint python3 "$IMAGE" -c '
+import importlib
+p = importlib.import_module("vllm.v1.kv_offload.cpu.pgp_manager")
+print("OK-IMPORT", p.__file__)
+h = importlib.import_module("vllm.v1.kv_offload.cpu.pgp_hooks")
+print("OK-IMPORT", h.__file__)
+' 2>&1)
+    _imp_rc=$?
+    printf '%s\n' "$_imp" | sed 's/^/    /'
+    if [ "$_imp_rc" != "0" ] || [ "$(printf '%s' "$_imp" | grep -c 'OK-IMPORT')" -lt 2 ]; then
+        echo "" >&2
+        echo "⛔⛔⛔ 预检失败：挂载件在容器里 **import 不起来** ⇒ 起服必然崩（ModuleNotFoundError）。" >&2
+        # ★ 不要在这类提示文案里用反引号：双引号内反引号 = **命令替换**，会被真的执行
+        #   （本仓已栽过：指纹门那段注释里就写着同一个教训）。
+        echo "   最常见：两份补丁里的 pgp_manager / pgp_hooks 落在**包路径**，而代码里是**裸 import**。" >&2
+        echo "   修法：① 确认这两份补丁含 try/except 回退（\`a2/patches/README.md\`）" >&2
+        echo "         ② \`git pull --ff-only\` 拿到修复后重跑本命令" >&2
+        echo "   （确要跳过：SKIP_IMPORT_GATE=1，**不建议**）" >&2
+        exit 2
+    fi
+    echo "  ✓ 两个挂载件在容器里都能 import（含 vllm 子模块路径）"
+fi
 
 # ★★ 名字对齐（**这是一个静默 no-op 的坑**，见 logs/055 §7）：
 #   `VLLM_V41_*` 只在**容器内**有意义；宿主上导出它们**一个字节都到不了容器**

@@ -421,7 +421,7 @@ KV8_SWA=1 KV8_RING_FP16=1 KV8_FULL=1 KV8_PREFILL=1 \   # 档 D（容量 ×1.9133
 **`[APC_ALIGN]` 已内联进 `publish/0001`（发布包自包含，不再是运行时补丁模块）**：
 | 文件 | md5 |
 |---|---|
-| `patches/0001-offload-scheduler.patch.py` | `79001c2671fdbdcd8386cd4684ed4761` |
+| `patches/0001-offload-scheduler.patch.py` | `1158e024737a056eef1e0e35b3d4dc56` |
 | `patches/0001-8card-offload-scheduler.patch.py`（8 卡链用这份） | `f3a7a0053fc6c639150fdde2a2509a63` |
 
 ★ **两道安全门**（内联时新增第 2 道）：

@@ -30,7 +30,14 @@ fi
 LEDGER=(
   # ★★ 2026-09-22 13:0x：档 C（`sg-c-c-graph-b`）与档 D（`sg-c-d-graph`）**都在这个 md5 上跑过且全绿**
   #    ⇒ 状态从"未确认"升为 PASS。见 publish/ARTIFACT-IDENTITY.md §1.1。
-  "$PATCHES/kv8-graphsafe/dsa_v41.py|94aeebb757d6d5708268754481a05e0a|PASS"
+  # ★★ 2026-09-23 升版：`94aeebb7…`（未修）→ **`7867da2a…`（chunkview 修复 + fuse 接线 + L2）**。
+  #   为什么必须换：旧的 SWA int8 取页成本**正比于池总大小** ⇒ A2 的 85 GiB 池光这一项 ≈125 ms/step。
+  #   PASS 依据 = 8 卡臂 **`r8-safe-levers`**（2026-09-23，A3 Phy-ID 8–15）：
+  #     容器内 md5 反查 = 7867da2a ✅ ｜ 行为健康闸 **聚合 A=1.242**（基线 1.200）✅ ｜
+  #     题库 **10/10** ｜ 取回路径三发逐字相同 ｜ op 级判据 14/15（`Cast INT32→INT64` 80/步→0、
+  #     `ViewCopy(16384)` 23.75→1.98/步）｜ 五项回归闸全过 ｜ quote 8K **27.632**、128K **31.449**。
+  #   ★ 旧的 94aeebb7 仍在历史臂记录里有效（见 ARTIFACT-IDENTITY.md §1.1），不删。
+  "$PATCHES/kv8-graphsafe/dsa_v41.py|7867da2a345d7135ddbc6919eec144f9|PASS"
   "$PATCHES/kv8-graphsafe/apply_graphsafe.py|4be07bea6cc3127eb8715a1da81f583a|PASS"
   "$PATCHES/kv8-graphsafe/adapt_runner.py|d8e8864ea60ccc7e92d5d82b9e7050af|PASS"
   "$PATCHES/kv8-graphsafe/patch_serve_sg.sh||PASS"
@@ -43,17 +50,24 @@ LEDGER=(
   "$PATCHES/kv8-int8-pkg/vllm_ascend/ops/triton/compressor/compressor_triton.py|9362e72e3ea12e8344c4485104eab837|PASS"
   "$PATCHES/kv8-int8-pkg/vllm_ascend/attention/kv8_prefill_triton.py|796d0ff6eda03716f31c9994b8d8b221|PASS"
   "$PATCHES/kv8-int8-pkg/README.md||PASS"
-  "$PATCHES/0001-offload-scheduler.patch.py|79001c2671fdbdcd8386cd4684ed4761|PASS"
+  "$PATCHES/0001-offload-scheduler.patch.py|1158e024737a056eef1e0e35b3d4dc56|PASS"
   "$PATCHES/0001-8card-offload-scheduler.patch.py|f3a7a0053fc6c639150fdde2a2509a63|PASS"
   "$PATCHES/0002-offload-cpu-pool-host-registered.patch.py|2c161a791fe99f17cce2e1139ffbdc3c|PASS"
   # ★ ②c 的补丁：单 die 三问已过（`054`）；★ 8 卡端到端在 c0 排队 ⇒ 标"未确认"（门会挡住 --strict 发布，符合事实）
   "$PATCHES/0004-draft-block64.patch.py|6d29845ea0d7abc432591d69db7fad17|未确认"
   "$PATCHES/0001b-offload-per-group-bpc-manager.patch.py|9f11c9ac0de0d77fbe6a212e42a9966a|PASS"
-  "$PATCHES/0001c-offload-per-group-bpc-hooks.patch.py|af2fefb8337fdf9fe1c5e55518f665b8|PASS"
+  "$PATCHES/0001c-offload-per-group-bpc-hooks.patch.py|9c5c89ff41ffca6d9f944558f2e5296d|PASS"
   # ★ 只在发布仓里有的历史件（见 ARTIFACT-IDENTITY.md §1.4）；工作区没有 ⇒ 用 [ -f ] 兜
   "$PATCHES/0003b-kv8-fuse-triton-kernels.py|6ce00b8f6fdd9ba4ad5935876601f8d6|PASS|optional"
   "$PATCHES/0003-kv8-fused-rebuild-triton.patch|27edecc675110511d520f9e9af74c6ed|PASS|optional"
-  "scripts/a2_one_shot_probe.sh|40e495e83d198393ea544215dbc4fd50|PASS"
+  # ★ 2026-09-23 更正：本行原写死 `40e495e8…|PASS`，但该 md5 对应的字节**已不在树里** ——
+  #   此后 9e33e91 / 6f17657 两次修静默失败都改了这个文件（两次都是靠"在 A2 上真跑探针"发现的），
+  #   而**没有一条 arm.out 记过当前这份 bytes 的 md5**。
+  #   ⇒ 按本脚本自己的规则（"发布件只允许取某条 PASS 臂记过的 md5"）不可保留 PASS：
+  #     这里**解开 md5 钉子**并标"未确认"（默认跑不拦、`--strict` 仍会拦），
+  #     待下一次 A2 跑通探针后把当时的 md5 回填并升回 PASS。
+  #   ★ 它只是**诊断探针**，不是运行时交付件 ⇒ 不影响 build/起服链。
+  "scripts/a2_one_shot_probe.sh||未确认"
   "scripts/serve_a2_offload.sh||PASS"
 )
 
