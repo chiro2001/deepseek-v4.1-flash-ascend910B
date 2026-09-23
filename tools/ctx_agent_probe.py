@@ -74,6 +74,11 @@ NEEDLE_Q = {
     "C": ("运维备忘 C 里的监控面板访问码是什么？只给访问码本身。", "HT4P-5527"),
     "D": ("运维备忘 D 里的构建机临时令牌是什么？只给令牌本身。", "RB9N-6014"),
 }
+# ★ 键 → 针文本（**必须按 key 取**）。第一版 `embed_needles` 用的是**位置下标**取针
+#   `NEEDLES[i % len(NEEDLES)]` ⇒ `grow` 模式里问 B/C/D 时插进去的仍是 **A**。
+#   现场表现极好认：模型回答"app_1.log 里没有运维备忘 B，**只有重复出现的运维备忘 A**"
+#   —— **模型是对的，判据是错的**。⇒ 现在按 key 取，并加 `--selfcheck` 把这类错钉死。
+KEY_TEXT = {k: t for (k, t) in NEEDLES}
 
 
 # ---------------------------------------------------------------- HTTP
@@ -148,11 +153,13 @@ def embed_needles(body: str, keys: list[str]) -> str:
     """把针按深度均匀插进 body（保持原文不变，只是插入）。"""
     if not keys:
         return body
-    out = []
+    out: list[tuple[int, str]] = []
     n = len(keys)
     for i, k in enumerate(keys):
+        if k not in KEY_TEXT:
+            raise KeyError(f"未知的针 key={k!r}（合法：{sorted(KEY_TEXT)}）")
         pos = int(len(body) * (i + 1) / (n + 1))
-        out.append((pos, NEEDLES[i % len(NEEDLES)][1]))
+        out.append((pos, KEY_TEXT[k]))
     out.sort()
     res, prev = [], 0
     for pos, txt in out:
@@ -179,17 +186,28 @@ def fingerprints(text: str) -> dict:
     }
 
 
-def repeat_loop(text: str, win: int = 40, thresh: int = 3) -> bool:
-    """复读检测：同一 win 字窗口出现 ≥thresh 次（模型掉进复读循环的形态）。"""
+def repeat_loop(text: str, win: int = 40, thresh: int = 3, cover: float = 0.5) -> bool:
+    """复读检测：**同一非重叠窗口**重复 ≥thresh 次，**且占全文 ≥cover**。
+
+    ★ 两个参数都是被自检"逼"出来的（`--selfcheck` 抓到的过敏感误报）：
+      第一版用 `步长=win//4`（重叠采样）+ 只看"出现 ≥3 次" ⇒ 一句**正常**的中文
+      重复 6 遍（156 字）就被判成复读循环（它每个 40 字窗口都出现多次）。
+      ⇒ 现在：① **非重叠**采样（步长 = win，避免"同一段被数成多次"）；
+              ② 还要求**重复内容覆盖半篇以上**（真复读会占满输出；列表/表格类
+                 的规律性重复不会）。
+    """
     if len(text) < win * thresh:
         return False
     seen: dict[str, int] = {}
-    for i in range(0, len(text) - win + 1, max(1, win // 4)):
+    for i in range(0, len(text) - win + 1, win):
         s = text[i:i + win]
+        if not s.strip():
+            continue
         seen[s] = seen.get(s, 0) + 1
-        if seen[s] >= thresh and s.strip():
-            return True
-    return False
+    if not seen:
+        return False
+    top = max(seen.values())
+    return top >= thresh and top * win >= cover * len(text)
 
 
 def judge(ans: str, expect: str) -> dict:
@@ -232,6 +250,13 @@ def toolcalls_of(resp) -> list:
         return (resp["body"]["choices"][0].get("message") or {}).get("tool_calls") or []
     except Exception:  # noqa: BLE001
         return []
+
+
+def finish_of(resp) -> str:
+    try:
+        return resp["body"]["choices"][0].get("finish_reason") or ""
+    except Exception:  # noqa: BLE001
+        return ""
 
 
 # ---------------------------------------------------------------- 四个模式
@@ -368,7 +393,7 @@ def mode_toolargs(a, out: dict) -> int:
                  "请调用 write_file 工具，把下面这串校验码**原样**写入文件。"
                  'content 只放校验码本身（不含引号里那几个字）。\n\n' + payload}]
         r = chat(a.base_url, a.model, msgs, tools=TOOL_WRITE,
-                 max_tokens=a.max_tokens, timeout=a.timeout)
+                 max_tokens=a.tool_max_tokens, timeout=a.timeout)
         tcs = toolcalls_of(r)
         got_code = got_path = None
         parse_err = None
@@ -384,14 +409,19 @@ def mode_toolargs(a, out: dict) -> int:
         if not (ok_code and ok_path):
             fails += 1
         fp = fingerprints(json.dumps(tcs, ensure_ascii=False))
+        raw_args = json.dumps([t.get("function", {}) for t in tcs],
+                              ensure_ascii=False)[:800]
         print(f"  [rep{rep}] n_calls={len(tcs)} content_exact={ok_code} path_exact={ok_path} "
-              f"fp(fffd/nul)={fp['u_fffd']}/{fp['nul']}")
+              f"fp(fffd/nul)={fp['u_fffd']}/{fp['nul']} finish={finish_of(r)!r}")
         print(f"      content: {repr(got_code)[:400]}")
+        if not ok_code:
+            print(f"      ★ 原始 arguments: {raw_args}")
         if parse_err:
             print(f"      ★ arguments 不是合法 JSON: {parse_err}")
         out.setdefault("toolargs", []).append({
             "rep": rep, "n_calls": len(tcs), "content_exact": ok_code,
             "path_exact": ok_path, "got_content_repr": repr(got_code)[:400],
+            "raw_arguments_repr": raw_args, "finish_reason": finish_of(r),
             "parse_err": parse_err, "fingerprints": fp, "wall_s": r["wall_s"]})
     return fails
 
@@ -400,10 +430,68 @@ MODES = {"needle": mode_needle, "grow": mode_grow,
          "reuse": mode_reuse, "toolargs": mode_toolargs}
 
 
+def selfcheck() -> int:
+    """★ 不连服务，只验**探针自己**的判据是否自洽。
+
+    为什么必须有（2026-09-23 真机教训）：`grow` 模式第一版用**位置下标**取针
+    （`NEEDLES[i % 4]`）⇒ 问 B/C/D 时插进上下文的仍是 **A**。
+    现场表现是模型回答"app_1.log 里没有运维备忘 B，**只有重复出现的运维备忘 A**"
+    —— **模型是对的、判据是错的**。这类错只有靠"自检判据本身"才能提前发现。
+    """
+    bad = 0
+
+    def ck(name, cond):
+        nonlocal bad
+        print(("  PASS  " if cond else "  FAIL  ") + name)
+        if not cond:
+            bad += 1
+
+    # ① 每个 key 必须插进**它自己**的针文本，且位置各不相同
+    body = "X" * 4000
+    for k in ("A", "B", "C", "D"):
+        got = embed_needles(body, [k])
+        ck(f"embed_needles 只插 {k} 的针", KEY_TEXT[k] in got)
+        others = [t for kk, t in NEEDLES if kk != k]
+        ck(f"embed_needles 没混入别的针（{k}）", all(t not in got for t in others))
+    multi = embed_needles(body, ["A", "B", "C", "D"])
+    ck("四针同插：四条都在", all(t in multi for _, t in NEEDLES))
+    ck("四针同插：顺序按深度递增",
+       [multi.index(KEY_TEXT[k]) for k in ("A", "B", "C", "D")] ==
+       sorted(multi.index(KEY_TEXT[k]) for k in ("A", "B", "C", "D")))
+    try:
+        embed_needles(body, ["Z"])
+        ck("未知 key 必须报错", False)
+    except KeyError:
+        ck("未知 key 必须报错", True)
+
+    # ② 判据自洽：正确答案必须判 PASS；乱码/复读必须判 FAIL
+    ck("judge：正确答案 ⇒ exact", judge("ZQ7K-3341", "ZQ7K-3341")["exact"] is True)
+    ck("judge：多一个字 ⇒ exact=False",
+       judge("ZQ7K-3341。", "ZQ7K-3341")["exact"] is False)
+    garble = "ZQ7" + "\ufffd" + "\x00" + "K-3341"
+    j = judge(garble, "ZQ7K-3341")
+    ck("judge：U+FFFD 与 NUL 被数出",
+       j["fingerprints"]["u_fffd"] == 1 and j["fingerprints"]["nul"] == 1)
+    ck("judge：含乱码 ⇒ exact=False", j["exact"] is False)
+    ck("repeat_loop：复读 60 次被检出", repeat_loop("重复片段" * 60) is True)
+    ck("repeat_loop：正常长文不误报",
+       repeat_loop("这是一段正常的中文文本，用来验证复读检测不会误报。" * 6) is False)
+
+    # ③ 指纹判据对"干净文本"必须全 0（不许误报）
+    fp = fingerprints("正常的中文回答，含英文与数字 391。")
+    ck("fingerprints：干净文本全 0",
+       all(fp[k] == 0 for k in ("u_fffd", "nul", "ctrl", "surrogate", "nonchar")))
+
+    print(f"\n[probe --selfcheck] 失败 {bad} 项")
+    return 0 if bad == 0 else 1
+
+
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--base-url", default="http://127.0.0.1:8020")
     ap.add_argument("--model", default="deepseek-v41")
+    ap.add_argument("--selfcheck", action="store_true",
+                    help="只验探针自己的判据是否自洽（不连服务）")
     ap.add_argument("--mode", default="all",
                     choices=["all", "needle", "grow", "reuse", "toolargs"])
     ap.add_argument("--context-tokens", type=int, default=32768,
@@ -411,10 +499,15 @@ def main() -> int:
     ap.add_argument("--turns", type=int, default=4, help="grow 模式的轮数")
     ap.add_argument("--repeats", type=int, default=2)
     ap.add_argument("--max-tokens", type=int, default=64)
+    ap.add_argument("--tool-max-tokens", type=int, default=256,
+                    help="toolargs 模式用（工具参数 JSON 比普通回答长得多；64 会截断）")
     ap.add_argument("--offset", type=int, default=0, help="语料起点偏移（换一段文本）")
     ap.add_argument("--timeout", type=float, default=3600.0)
     ap.add_argument("--out", default="")
     a = ap.parse_args()
+
+    if a.selfcheck:
+        return selfcheck()
 
     code, body = get(a.base_url, "/health")
     print(f"[probe] /health = {code}  {body[:60]!r}")

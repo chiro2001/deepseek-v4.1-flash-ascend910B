@@ -71,6 +71,11 @@ jsonchk() {
 }
 
 say "① 干净回答 ⇒ 四模式全 PASS、rc=0、JSON 落盘"
+if python3 "$PROBE" --selfcheck >"$T/selfcheck.log" 2>&1; then
+    ok '⓪ 探针内部自检 --selfcheck 全过（含"每个 key 只插自己的针"这条）'
+else
+    bad "⓪ --selfcheck 失败"; tail -8 "$T/selfcheck.log" | sed 's/^/        /'
+fi
 start_srv clean 0
 run_probe "$T/clean.json" --mode all
 rc=$?
