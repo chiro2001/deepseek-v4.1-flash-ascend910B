@@ -43,6 +43,11 @@ P 的层 20 只保存前向前状态，因它不执行 decoder 层。对应的�
 该位置文件。若 D 在图回放时未执行 Python 钩子，应先报告缺文件，不能
 把空目录解释为模型没有计算该 token。
 
+若只排查 D 的最后一个 prompt token 是否受 decode 图影响，可在 D 角色
+单独设置 `GRAPH=0 EAGER=1`，P 保持原配置。启动脚本会把这两个变量写入
+容器 `inner.sh`；实际命令还须核对含 `--enforce-eager` 且不含
+`FULL_DECODE_ONLY` 图配置，避免仅设置宿主环境而实际仍走图。
+
 当前变更只处理 **P 侧缓存组有效性**：P 跳过层 20–39 后，将 G7–G11 的
 `remote_block_ids` 置空，并在交接元数据写入 `ced_replay_tokens=128`、缺失组、
 有效前缀长度。这防止把未写入的上半层 SWA 当成有效缓存交给普通 D。
