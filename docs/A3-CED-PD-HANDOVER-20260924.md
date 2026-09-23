@@ -16,9 +16,20 @@
   与普通层 20 精确相等。P 跳层能够完成 144K 内部交接；P 置空未写的上层
   SWA G7–G11，并返回 replay 元数据。
 - A3-21 真实权重 8+8 CED-PD：短请求正常；144K `bigprefill` 2/2、
-  流式/工具/并发 5/5、多轮增长 3/3 正确，无乱码指纹。8+8 长运行由
-  子代理 `/root/a3_8x8_validation` 管理；用户要求它暂停并交接，之后
-  重启 Codex 再派新子代理。以其交接为准确认当前 A3-21 服务和 1M 状态。
+  流式/工具/并发 5/5、多轮增长 3/3 正确，无乱码指纹。原始摘要在
+  `/home/chiro/projects/dsv41/pd_8x8_a3/current_20260924/`。
+- **1M 未通过。** 子代理用实际 1,019,789-token 标准四针请求实测 A/B/C/D
+  **4/4 失败**，HTTP 都是 200，D 均记录 128-token replay；A/B/D 的
+  U+FFFD 数分别为 3/2/4，输出有重复与混杂文本。没有 OOM 或 Python
+  Traceback。原始 [1M 响应](../evidence/ced_8x8_1m_20260924/needle_1m.json)
+  SHA-256 `210daf08b4d774a7ead456d4ec76a0bcb1290391c37149aa5fba37761046b85e`，
+  [P 日志](../evidence/ced_8x8_1m_20260924/p_serve.log.gz) 解压 SHA-256
+  `129be349fdad1bcdeb43b25dc42b0d7c10317ec91f87bb54f9e07775a4a83184`，
+  [D 日志](../evidence/ced_8x8_1m_20260924/d_serve.log.gz) 解压 SHA-256
+  `c04d5d00bdcba1bdae2c2371e3aa0630ced18b13a645ca513d672900ee6c4265`。
+  不能把 144K 通过外推到 1M；恢复后先定位这个数值故障。
+- 8+8 子代理 `/root/a3_8x8_validation` 已按用户要求停止新增工作并完成
+  交接。Codex 重启后再派新的子代理接手；复杂实现决策由主 Agent 决定。
 - A3-22 单卡 tiny 框架是既有 `a2/agents/L1_dummy` 的 `model-tiny`，
   保留 40 层和 12 组 BF16 缓存；dummy 权重不代表真权重质量。
   tiny 模型经 COS 复制到
@@ -33,6 +44,19 @@
 
 ## 当前未验证诊断与下一步
 
+- A3-21 最新一轮 1M 实例上次只读检查为运行中：P 容器
+  `dsv41-ced-p-1m-20260924`（0–7、HTTP 18990、KV 19090、PID 3398369）、
+  D 容器 `dsv41-ced-d-1m-20260924`（8–15、HTTP 18991、KV 19091、
+  PID 3402342）、代理 `dsv41-ced-proxy-1m-20260924`（18992）。
+  包 `a3-21:~/projects/dsv41-ced-pd-a3-3a45922`，`MAX_LEN=1048576`、
+  BF16 KV、`SPEC=0`、`PREFIX=0`、Engram host、TP8/DP1。最后一次 NPU
+  进程检查有 16 个 TP worker；**暂停后未实时复核**。远端日志在该包的
+  `results/ced_p_1m_20260924/serve.log` 和
+  `results/ced_d_1m_20260924/serve.log`。
+- 子代理暂停前已运行 520K 对照，远端结果文件
+  `a3-21:~/projects/dsv41/pd_8x8_a3/one_m_20260924/needle_520k.json`
+  已生成，但**尚未取回核验**。下一次先读这个文件并核对真实 token 数、
+  4 针答案和乱码指纹，再决定 144K/520K/1M 的阈值实验。
 - 本工作树新增 `V41_CED_SNAPSHOT_POS` / `V41_CED_SNAPSHOT_DIR` 诊断，
   `experimental/ced/dsa_v41.py` 按指定位置导出 40 层 SWA 行和层 20
   全局源到 NumPy 文件；`tools/compare_ced_cache_snapshots.py` 对照。
