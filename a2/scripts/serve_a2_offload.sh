@@ -42,9 +42,20 @@ SERVED_NAME=${SERVED_NAME:-deepseek-v4-flash}
 # 档 B（+L1，内存砍半）：加 P2_POOL_PATCH=1 + P2_COMP_JSON=<见 §2.2>
 #                     同样 OFFLOAD_GB=56 -> 宿主约 203.6 GiB（45%）
 #   32K x 16 并发  -> OFFLOAD_GB=10
-OFFLOAD_GB=${OFFLOAD_GB:-56}
-MAX_LEN=${MAX_LEN:-131072}
-MAX_SEQS=${MAX_SEQS:-16}
+# ★★★ 2026-09-23 09:2x 默认值对齐 **A2 生产**（用户要求 maxlen 改 1M）
+#   生产配置（`a2/docs/A2-ENGRAM-PATHS.md:172` 逐字，实测 3,498,354 tokens）：
+#       OFFLOAD_GB=85 MAX_LEN=1048576 MAX_SEQS=4 BAT_TOKENS=2048
+#   两个独立理由支持 1M 是**默认**（不是"为了测大上下文才开"）：
+#     ① `scripts/serve_a2.sh:87` 的默认本来就是 `MAX_LEN=1048576` —— 本包装脚本此前是 131072，
+#        属于"两处默认不一致"（与刚修的 IMAGE 空默认值同一类）；空/短默认会让门拦错的理由。
+#     ② ★ **1M 反而多买一倍 KV**：`GPU KV cache size = num_blocks / BPR × max_len`，而 BPR 含
+#        **每请求固定开销**（10 个 SWA 窗口块 + draft 块）：
+#          max_len=133120 : BPR=2471  vs 真实 token 块 1040  ⇒ 开销系数 2.376
+#          max_len=1048576: BPR=9623  vs 真实 token 块 8192  ⇒ 开销系数 1.175
+#        ⇒ 同样 4 GiB 预算，1M 下能买的 token 数 ≈ 128K 下的 **2.02×**（A2 文档实测）。
+OFFLOAD_GB=${OFFLOAD_GB:-85}
+MAX_LEN=${MAX_LEN:-1048576}
+MAX_SEQS=${MAX_SEQS:-4}
 BAT_TOKENS=${BAT_TOKENS:-2048}
 
 # ★ L1（池张量按需分配行数）—— ★★ 8 卡真权重实测 1.9895x（392.35 -> 197.21 GiB）
@@ -229,6 +240,23 @@ else
     echo "  池子          : ${OFFLOAD_GB} GiB（档 A 宿主实占 ≈392 GiB，8 卡实测）"
 fi
 echo "  上下文/并发   : ${MAX_LEN} / ${MAX_SEQS}"
+# ★★★ 1M 几何的两个必读量（2026-09-23 加；两条都是实测/文档口径，不是估算）
+#   ① 池能装几个 1M 会话：1 GiB = 1024 unit，**1 个 1M 会话 = 24,064 unit**（A2 实测，含 1.2× 余量）
+#   ② spec-decode 边界：vLLM 用 `num_sampled_tokens_per_step`(=1) 而不是 `num_lookahead_tokens`(=5)
+#      裁剪 ⇒ 请求走到 `max_model_len − 6` 以内会 **8 rank 全崩**（Index out of range + ERR02005，logs/109）
+#      ⇒ **可用规避**：`prompt + max_tokens ≤ max_model_len − 32`
+if [ "$MAX_LEN" -ge 524288 ]; then
+    _u=$(( OFFLOAD_GB * 1024 ))
+    _one=24064
+    echo "  ★ 1M 几何①    : 池 ${_u} unit ÷ ${_one} unit/会话 ⇒ 约 $(( _u / _one )) 个 1M 会话（含 1.2× 余量）"
+    if [ "$MAX_SEQS" -gt 4 ] && [ "$MAX_LEN" -ge 1048576 ]; then
+        echo "  ⚠️ 1M × MAX_SEQS=$MAX_SEQS ⇒ 需求 $(( MAX_SEQS ))M token，远超 HBM（A2 生产口径 3,498,354）" >&2
+        echo "     生产是 MAX_SEQS=4；更多并发只会排队（waiting_by_reason=capacity），不会更快。" >&2
+    fi
+    _lim=$(( MAX_LEN - 128 - 32 ))
+    echo "  ★ 1M 几何②    : 单请求上限为 prompt+max_tokens ≤ ${_lim}（= max_len − 128 − 32）"
+    echo "                   超过会撞 spec-decode 边界 ⇒ 8 rank 全崩（logs/109）；${MAX_LEN} 会崩。"
+fi
 echo "  池后端        : $NPU_OFFLOAD_HOST_MEM"
 echo "  ★★ 档位        : $_tier（**容量指纹**：B/C=427,643，D=485,610 —— 起服后核对）"
 echo "  blocks_per_chunk: $BLOCKS_PER_CHUNK"
