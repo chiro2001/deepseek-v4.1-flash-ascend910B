@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # =============================================================================
-# A3 一键起服（A3-node1 / A3-node2，8×910C）
+# A3 一键起服（默认 TP8×DP1；DP2×TP8 时须指定 16 张卡）
 #
 # 与 A2 共用同一个引擎（serve_a2.sh），本文件只覆盖**平台相关默认值**
 # （IMAGE / NAME / PORT / PGO）并做 A3 特有的**选卡校验**。
@@ -36,6 +36,7 @@ export PORT=${PORT:-8020}
 export SERVED_NAME=${SERVED_NAME:-deepseek-v41}
 export TOOL_CALLING=${TOOL_CALLING:-1}
 export MAX_SEQS=${MAX_SEQS:-32}
+export DP=${DP:-1}
 # [绑核] 外部**不做** CPU/NUMA 绑定：容器不设 --cpuset-cpus/--cpuset-mems，
 #   由 vllm-ascend 内部的 cpu_binding 按 NPU 拓扑给每个 rank 自己绑
 #   （additional-config 的 enable_cpu_binding=true，由 CPU_BIND=1 控制）。
@@ -75,7 +76,7 @@ if [ -z "${DEVS:-}" ]; then
         bash scripts/serve_a3.sh
 
   说明：
-    * DEVS 的个数应与 TP（默认 8）一致；
+    * DEVS 的个数应与 TP×DP（默认 8×1）一致；
     * CPU/NUMA 绑定默认按选中卡自动推导（CPUSET=auto MEMS=auto），也可显式覆盖；
     * 默认拒绝已被占用的卡；确实要用自己的残留进程占着的卡时加 ALLOW_BUSY=1。
 
@@ -93,13 +94,18 @@ for _c in $DEVS; do
 done
 export DEVS
 echo "[serve_a3] DEVS='$DEVS'（$_n 张）CPUSET=$CPUSET MEMS=$MEMS"
-if [ "$_n" != "${TP:-8}" ]; then
+_tp=${TP:-8}
+case "$_tp:$_n:$DP" in
+  *[!0-9:]*|0:*|*:0|*:0:*) echo "[serve_a3][FAIL] TP/DP/DEVS 数量必须是正整数" >&2; exit 2 ;;
+esac
+_want=$((_tp * DP))
+if [ "$_n" != "$_want" ]; then
   if [ "${I_KNOW:-0}" != "1" ]; then
-    echo "[serve_a3][FAIL] DEVS 有 $_n 张，而 TP=${TP:-8} ⇒ 数量不匹配，可能起不来。" >&2
-    echo "  确认要用 $_n 张就跑：加 TP=$_n（或 I_KNOW=1 强制按 TP=${TP:-8} 继续）。" >&2
+    echo "[serve_a3][FAIL] DEVS 有 $_n 张，而 TP=$_tp × DP=$DP 需要 $_want 张 ⇒ 数量不匹配。" >&2
+    echo "  请指定 $_want 张卡（或 I_KNOW=1 自行承担不匹配风险）。" >&2
     exit 2
   fi
-  echo "[serve_a3] NOTE: DEVS 有 $_n 张 ≠ TP=${TP:-8}，已按 I_KNOW=1 继续（起不来就是这里）。"
+  echo "[serve_a3] NOTE: DEVS 有 $_n 张 ≠ TP=$_tp × DP=$DP 所需 $_want，已按 I_KNOW=1 继续。"
 fi
 
 # ---------- 3) 占用检测（只读；默认拒绝） ----------

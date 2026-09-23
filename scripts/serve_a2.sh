@@ -52,6 +52,10 @@ PORT=${PORT:-8100}
 #    （`tools/*.sh` 与 `tests/*.py` 会读 `SERVED_NAME`，默认同样回落 deepseek-v41）。
 SERVED_NAME=${SERVED_NAME:-deepseek-v41}
 TP=${TP:-8}
+DP=${DP:-1}
+case "$DP" in
+  ''|*[!0-9]*|0) echo "[serve_a2][FAIL] DP 必须是正整数，得到 '$DP'" >&2; exit 2 ;;
+esac
 DEVS=${DEVS:-"0 1 2 3 4 5 6 7"}
 # [SCRIPT-VER] 起服时打印脚本版本 + 指纹。为什么需要：镜像里也有一份烘焙的
 # `/opt/dsv41/scripts/serve_a2.sh`（Dockerfile COPY），而镜像可能是**旧脚本**构建的
@@ -921,7 +925,7 @@ if [ "$DRY_RUN" = "1" ]; then
   echo "[a2-dry] OK"
   echo "[a2-dry] ver=$SERVE_A2_VER md5=$_script_md5 script=$_script_self"
   echo "[a2-dry] image=$IMAGE name=$NAME port=$PORT served_name=$SERVED_NAME devs='$DEVS' util=$GPU_UTIL max_len=$MAX_LEN"
-  echo "[a2-dry] MAX_SEQS=$MAX_SEQS PREFIX=$PREFIX SP_TOKENS=$SP_TOKENS BAT_TOKENS=$BAT_TOKENS"
+  echo "[a2-dry] TP=$TP DP=$DP MAX_SEQS=$MAX_SEQS PREFIX=$PREFIX SP_TOKENS=$SP_TOKENS BAT_TOKENS=$BAT_TOKENS"
   echo "[a2-dry] CAPTURE_SIZES=$CAPTURE_SIZES"
   echo "[a2-dry] MOE_AG=$MOE_AG O_PROJ_2D=$O_PROJ_2D MOE_MASK=$MOE_MASK ROPE_IDXSEL=$ROPE_IDXSEL ENGRAM_JIT=$ENGRAM_JIT QLI_NOCAND=$QLI_NOCAND LOCAL_OWNER=$LOCAL_OWNER"
   echo "[a2-dry] PROFILE=$V41_PROFILE ENGRAM_DEVICE_INDEX=$ENGRAM_DEVICE_INDEX ENGRAM_DEVICE_FALLBACK=$ENGRAM_DEVICE_FALLBACK"
@@ -1180,7 +1184,7 @@ fi
 mkdir -p "$OUT"
 {
   echo "[serve_a2] run_id=$RUN_ID image=$IMAGE model=$MODEL"
-  echo "[serve_a2] port=$PORT served_name=$SERVED_NAME tp=$TP util=$GPU_UTIL max_len=$MAX_LEN max_seqs=$MAX_SEQS bat=$BAT_TOKENS"
+  echo "[serve_a2] port=$PORT served_name=$SERVED_NAME tp=$TP dp=$DP util=$GPU_UTIL max_len=$MAX_LEN max_seqs=$MAX_SEQS bat=$BAT_TOKENS"
   echo "[serve_a2] sptok=$SP_TOKENS capture_sizes=$CAPTURE_SIZES"
   echo "[serve_a2] MOE_AG=$MOE_AG O_PROJ_2D=$O_PROJ_2D MOE_MASK=$MOE_MASK ROPE_IDXSEL=$ROPE_IDXSEL"
   echo "[serve_a2] ENGRAM_JIT=$ENGRAM_JIT QLI_NOCAND=$QLI_NOCAND LOCAL_OWNER=$LOCAL_OWNER GATE_CHUNK=$GATE_CHUNK"
@@ -1199,7 +1203,7 @@ cat > "$OUT/inner.sh" <<INNER_EOF
 #!/usr/bin/env bash
 set -uo pipefail
 cd /workspace
-export MODEL="$MODEL" TP=$TP DP=1 PORT=$PORT SERVED_NAME="$SERVED_NAME"
+export MODEL="$MODEL" TP=$TP DP=$DP PORT=$PORT SERVED_NAME="$SERVED_NAME"
 export MAX_LEN=$MAX_LEN MAX_SEQS=$MAX_SEQS BAT_TOKENS=$BAT_TOKENS GPU_UTIL=$GPU_UTIL BLOCK=$BLOCK
 export KV_DTYPE=$KV_DTYPE GRAPH=1 EAGER=0 PREFIX=$PREFIX SPEC=$SPEC SP_TOKENS=$SP_TOKENS
 if [ "$DRAFT_GRAPH" = "1" ]; then export SPEC_EAGER=0; else export SPEC_EAGER=1; fi

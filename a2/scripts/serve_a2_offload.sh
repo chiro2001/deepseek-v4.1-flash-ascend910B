@@ -157,6 +157,9 @@ OFFLOAD_GB=${OFFLOAD_GB:-85}
 #   ⇒ 默认改回 **8192**（与模板一致）；要退回 2048 必须**显式**给（脚本会响亮警告）。
 #   ★ 这也是本仓第 N 次"同一个东西两处默认不一致" ⇒ 下面加了**一致性断言**防复发。
 OFFLOAD=${OFFLOAD:-1}
+TP=${TP:-8}
+DP=${DP:-1}
+CPU_BIND=${CPU_BIND:-1}
 MAX_LEN=${MAX_LEN:-1048576}
 MAX_SEQS=${MAX_SEQS:-4}
 BAT_TOKENS=${BAT_TOKENS:-8192}
@@ -416,6 +419,7 @@ echo "A2 DRAM KV 卸载起服"
 echo "=============================================================="
 echo "  模型          : $MODEL"
 echo "  平台          : PLAT=$PLAT（入口=$ENTRY ｜ PATCH_MODE=$PATCH_MODE ｜ DEVS=$DEVS ｜ 容器名=$NAME）"
+echo "  并行/绑核     : TP=$TP DP=$DP CPU_BIND=$CPU_BIND"
 if [ "$PATCH_MODE" = "mount" ]; then
     echo "  镜像          : $IMAGE（mount 模式 ⇒ ENGRAM 修复由**挂载**提供，不要求镜像自带）"
 else
@@ -590,7 +594,7 @@ _launch_serve() {   # $1 = DRY_RUN（0 真起 / 1 干跑）
     DRY_RUN="$1" \
     PROFILE="$_pf" \
     V41_PROFILE="$_pf" \
-    MODEL="$MODEL" IMAGE="$IMAGE" GPU_UTIL="$GPU_UTIL" PORT="$PORT" \
+    MODEL="$MODEL" IMAGE="$IMAGE" GPU_UTIL="$GPU_UTIL" PORT="$PORT" TP="$TP" DP="$DP" CPU_BIND="$CPU_BIND" \
     SERVED_NAME="$SERVED_NAME" MAX_LEN="$MAX_LEN" MAX_SEQS="$MAX_SEQS" \
     BAT_TOKENS="$BAT_TOKENS" DRAFT_GRAPH="$DRAFT_GRAPH" DROPCACHE="$DROPCACHE" \
     KV_ARGS_EXTRA="$KV_ARGS" \

@@ -24,6 +24,8 @@
 #   MODEL=/path/to/model bash a2/scripts/serve_a3_offload.sh                  # 真起服
 #   MODEL=/path/to/model DRY=1 bash a2/scripts/serve_a3_offload.sh            # 干跑（不改任何东西）
 #   DEVS="8 9 10 11 12 13 14 15" MODEL=… bash a2/scripts/serve_a3_offload.sh  # 显式指定卡
+#   DP=2 TP=8 DEVS="0 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15" MODEL=… \
+#     bash a2/scripts/serve_a3_offload.sh       # 单机 DP2×TP8：须 16 张空闲卡
 #   MODEL=… PROFILE=1 bash a2/scripts/serve_a3_offload.sh                     # 开 profiler
 #
 # ⚠️ 前置（否则会在起服前就被拦，**这是设计**）：

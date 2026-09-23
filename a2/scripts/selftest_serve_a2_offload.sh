@@ -47,6 +47,7 @@ setup_sandbox() {
 #    桩若无条件打印，就会让"OFFLOAD=0 关得干净"这条断言**假失败**（本仓同族第 N 次：
 #    **桩/门必须与真实对象同构**）。
 echo "[a2-dry] MOUNTS(...)"
+echo "  TP=${TP:-<unset>} DP=${DP:-<unset>} CPU_BIND=${CPU_BIND:-<unset>}"
 if [ "${OFFLOAD_SCHED_PATCH:-0}" = "1" ]; then
 echo "  -v /x/scheduler.py:/vllm-workspace/vllm/vllm/distributed/kv_transfer/kv_connector/v1/offloading/scheduler.py:ro"
 echo "  -v /x/offloading_config.py:/vllm-workspace/vllm/vllm/distributed/kv_transfer/kv_connector/v1/offloading/config.py:ro"
@@ -190,6 +191,10 @@ run_case a3 PLAT=a3 ENGRAM=0
 check "⑪a A3 DEVS=8–15"  0 $? 'DEVS=8 9 10 11 12 13 14 15' 'unbound variable'
 check "⑪b A3 入口"       0 $? '入口=serve_a3.sh'            'unbound variable'
 check "⑪c A3 PATCH_MODE" 0 $? 'PATCH_MODE=mount'            'unbound variable'
+run_case a3dp2 PLAT=a3 ENGRAM=0 DP=2
+check "⑪c2 A3 DP=2 透传到 shadow" 0 $? 'DP=2' 'unbound variable'
+run_case a3cpu0 PLAT=a3 ENGRAM=0 CPU_BIND=0
+check "⑪c3 A3 CPU_BIND=0 透传到 shadow" 0 $? 'CPU_BIND=0' 'unbound variable'
 run_case a3b PLAT=a3 ENGRAM=0
 check "⑪d A3 DROPCACHE=0" 0 $? 'DROPCACHE=0'                'unbound variable'
 
