@@ -6,6 +6,13 @@
 #
 # 流程（全自动，失败即停并打印原因）：
 #   [0] 预检     docker / 镜像 / 模型目录完整性 / 芯片占用
+#   ★★ 本脚本的 7 项里**没有"DRAM 卸载是否生效"的检查**（它测的是起服/性能/视觉/精度）。
+#      要证明卸载真的在存取，**在服务已经跑着的时候**另跑一条：
+#          bash a2/scripts/verify_dram_offload.sh                 # 默认 32K 前缀
+#          PROMPT_TOKENS=131072 bash a2/scripts/verify_dram_offload.sh
+#      它只发 HTTP 请求（fill → POST /reset_prefix_cache → replay），
+#      硬判据 = `GPU_to_CPU` 增量>0（存进 DRAM）且 ★ `CPU_to_GPU` 增量>0（**从 DRAM 取回**）。
+#      产物 JSON 与 A3 客户端同形 ⇒ 可直接喂 `a2/scripts/check_4axis_acceptance.py --client`。
 #   [1] 起服     serve_a2.sh（TP8 + 图模式主干 + Engram int8 host + DSpark S=5 + Vision）
 #   [2] 等就绪   每 15 s 报进度，35 min 超时
 #   [3] 必查     ✓ static_kernel 未被静默降级（static_kernel.py:650 == 0）
