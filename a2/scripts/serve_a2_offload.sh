@@ -495,44 +495,73 @@ done
 #   **vllm 子模块**挂的（`vllm/v1/kv_offload/cpu/pgp_manager.py`）⇒ 裸 import **必然失败**。
 #   ★ 实测三态：裸 import ❌ ｜ 包路径 ✅ ｜ 哪怕同目录再放一份也 ❌（包内绝对导入不查同级目录）。
 #   ★ 对照：A3 8 卡链用的是**预先构建的合并版 scheduler**（带 try/except 回退）⇒ 没撞上这个坑。
-# 处置：① 两份补丁已加 try/except 回退（与 8 卡链同形，见 a2/patches/README.md）；
-#       ② 这里再加一道**真 import 预检** —— 用一次性容器 + **与起服相同的 3 个挂载**，
-#          把两个模块真 import 一遍 ⇒ "挂错地方 / 目标路径不存在 / import 写错"在**起服前**判死。
-#          成本：几十秒、不占 NPU、不起服务容器。
+# 处置（2026-09-23 10:0x **按"零风险 + 不作假"重写**）：
+#   ★ 第一版我写成"起一次性容器真 import" ⇒ **在 A2 上误报了**：
+#     那个容器没带 NPU 设备，`import vllm` 的链条走到 `torch_npu → libascend_hal.so`
+#     必然失败（真容器是 `--privileged=true` + `--device /dev/davinci*` 起的）。
+#     ⇒ **判据绑错了对象**：用"没有 NPU 的容器"去判"有 NPU 的容器里能不能 import。
+#   ⇒ 现在分两层：
+#     ① **默认（零容器、零风险）= 内容判据**：两个挂载件里**必须出现**包路径回退那条 import。
+#        判据绑**内容**不绑路径（本仓纪律），且它精确覆盖本次的故障类。
+#     ② **可选真 import**（`IMPORT_GATE=1`）：镜像照真起服的设备参数来（privileged + davinci 设备），
+#        才去真 import。默认关 —— 因为真起服本身就会在 import 期**响亮报错**，不需要靠预检兜。
 if [ "${SKIP_IMPORT_GATE:-0}" = "1" ]; then
-    echo "⚠️ 已按 SKIP_IMPORT_GATE=1 跳过「挂载件可导入性预检」（★ 不建议：A2 首次起服正是栽在这里）"
-elif ! docker image inspect "$IMAGE" >/dev/null 2>&1; then
-    # ★ 本地没有镜像时**不做**预检：否则 `docker run` 会去 registry **拉取**几十 GB。
-    #   真正的起服会在 shadow 侧响亮报错（"镜像 $IMAGE 不存在。先执行 bash scripts/build_image.sh"）⇒ 不会静默。
-    echo "⚠️ 本地没有镜像 $IMAGE ⇒ 跳过「挂载件可导入性预检」（先 build_image.sh 再来）"
+    echo "⚠️ 已按 SKIP_IMPORT_GATE=1 跳过「挂载件健全性检查」（★ 不建议）"
 else
     echo "-------------------------------------------------------------"
-    echo "★ 挂载件可导入性预检（一次性容器，不占 NPU、不起服务）"
-    _imp=$(docker run --rm \
+    echo "★ 挂载件健全性检查（纯内容判据，零容器、零风险）"
+    _gate_v=0
+    for _pair in "scheduler.py:pgp_manager" "pgp_hooks.py:pgp_manager"; do
+        _f="${_pair%%:*}"; _dep="${_pair##*:}"
+        if [ ! -f "$PATCHDIR/$_f" ]; then
+            echo "  ⛔ $PATCHDIR/$_f **不存在**（挂载块会 die）"; _gate_v=1; continue
+        fi
+        # 内容判据：既要**能**走包路径（容器里唯一的可行路径），也要保留裸 import（PYTHONPATH 场景）
+        _has_pkg=$(grep -c "from vllm\.v1\.kv_offload\.cpu\.$_dep import" "$PATCHDIR/$_f" || true)
+        _has_bare=$(grep -c "^from $_dep import\|^    from $_dep import" "$PATCHDIR/$_f" || true)
+        _has_try=$(grep -c "^try:" "$PATCHDIR/$_f" || true)
+        if [ "${_has_pkg:-0}" -ge 1 ] && [ "${_has_try:-0}" -ge 1 ]; then
+            echo "  ✓ $_f：含包路径回退（try/except）＋裸 import 兼容路径"
+        elif [ "${_has_bare:-0}" -ge 1 ]; then
+            echo "  ⛔ $_f：**只有裸 import、没有包路径回退** ⇒ 容器里必然 ModuleNotFoundError: No module named '$_dep'"
+            _gate_v=1
+        else
+            echo "  ⚠ $_f：没找到 \`$_dep\` 的 import（版本可能已变，请人工确认）"
+        fi
+    done
+    if [ "$_gate_v" != "0" ]; then
+        echo "" >&2
+        echo "⛔⛔⛔ 挂载件健全性检查失败 ⇒ 起服会在 import 期崩（ModuleNotFoundError: No module named 'pgp_manager'）。" >&2
+        echo "   修法：\`git pull --ff-only\` 拿修复版（两份补丁应含 try/except 回退）" >&2
+        exit 2
+    fi
+fi
+
+# ★★ 可选：真 import 预检（默认关）。要开就 `IMPORT_GATE=1`。
+#   为什么默认关：它必须带 `--privileged` + NS 设备才可能成功，而那与真起服**抢同一批设备**；
+#   而"import 不起来"这件事，真起服本身就会**响亮报错**（不会静默）⇒ 预检的边际价值低、风险高。
+if [ "${IMPORT_GATE:-0}" = "1" ]; then
+    echo "-------------------------------------------------------------"
+    echo "★ 真 import 预检（IMPORT_GATE=1；★ 会按真起服的设备参数起一次性容器）"
+    _dev=(); for d in $DEVS; do _dev+=(--device "/dev/davinci$d"); done
+    _imp=$(docker run --rm --privileged=true \
+        --device /dev/davinci_manager --device /dev/devmm_svm --device /dev/hisi_hdc "${_dev[@]}" \
         -v "$PATCHDIR/scheduler.py:/vllm-workspace/vllm/vllm/distributed/kv_transfer/kv_connector/v1/offloading/scheduler.py:ro" \
         -v "$PATCHDIR/pgp_manager.py:/vllm-workspace/vllm/vllm/v1/kv_offload/cpu/pgp_manager.py:ro" \
         -v "$PATCHDIR/pgp_hooks.py:/vllm-workspace/vllm/vllm/v1/kv_offload/cpu/pgp_hooks.py:ro" \
         --entrypoint python3 "$IMAGE" -c '
 import importlib
-p = importlib.import_module("vllm.v1.kv_offload.cpu.pgp_manager")
-print("OK-IMPORT", p.__file__)
-h = importlib.import_module("vllm.v1.kv_offload.cpu.pgp_hooks")
-print("OK-IMPORT", h.__file__)
+for m in ("vllm.v1.kv_offload.cpu.pgp_manager", "vllm.v1.kv_offload.cpu.pgp_hooks"):
+    mod = importlib.import_module(m)
+    print("OK-IMPORT", mod.__file__)
 ' 2>&1)
     _imp_rc=$?
-    printf '%s\n' "$_imp" | sed 's/^/    /'
+    printf '%s\n' "$_imp" | tail -5 | sed 's/^/    /'
     if [ "$_imp_rc" != "0" ] || [ "$(printf '%s' "$_imp" | grep -c 'OK-IMPORT')" -lt 2 ]; then
-        echo "" >&2
-        echo "⛔⛔⛔ 预检失败：挂载件在容器里 **import 不起来** ⇒ 起服必然崩（ModuleNotFoundError）。" >&2
-        # ★ 不要在这类提示文案里用反引号：双引号内反引号 = **命令替换**，会被真的执行
-        #   （本仓已栽过：指纹门那段注释里就写着同一个教训）。
-        echo "   最常见：两份补丁里的 pgp_manager / pgp_hooks 落在**包路径**，而代码里是**裸 import**。" >&2
-        echo "   修法：① 确认这两份补丁含 try/except 回退（\`a2/patches/README.md\`）" >&2
-        echo "         ② \`git pull --ff-only\` 拿到修复后重跑本命令" >&2
-        echo "   （确要跳过：SKIP_IMPORT_GATE=1，**不建议**）" >&2
+        echo "  ⛔ 真 import 预检失败（详见上；★ 若报 libascend_hal.so / 设备相关 ⇒ 多是设备未就位，不一定是代码问题）" >&2
         exit 2
     fi
-    echo "  ✓ 两个挂载件在容器里都能 import（含 vllm 子模块路径）"
+    echo "  ✓ 两个挂载件在带 NPU 设备的容器里都能 import"
 fi
 
 # ★★ 名字对齐（**这是一个静默 no-op 的坑**，见 logs/055 §7）：

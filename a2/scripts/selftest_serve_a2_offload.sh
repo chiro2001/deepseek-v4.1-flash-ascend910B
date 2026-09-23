@@ -24,9 +24,10 @@ setup_sandbox() {
              "$T/repo/a2/patches/kv8-int8-pkg/vllm_ascend/attention" \
              "$T/shadow/scripts" "$T/shadow/patches/files" "$T/bin"
     cp "${SCRIPT_SRC:-$SRC_REPO/$SCRIPT_REL}" "$T/repo/$SCRIPT_REL"   # ★ SCRIPT_SRC 可指向"待测脚本"，用于反向对照
+    # ★ 用**真件**（不是桩）：内容判据要检查"有没有包路径回退"，桩里没有那个对象。
     for f in 0001-offload-scheduler.patch.py 0001b-offload-per-group-bpc-manager.patch.py \
              0001c-offload-per-group-bpc-hooks.patch.py 0002-offload-cpu-pool-host-registered.patch.py; do
-        printf '# stub %s\n' "$f" > "$T/repo/a2/patches/$f"
+        cp "$SRC_REPO/a2/patches/$f" "$T/repo/a2/patches/$f"
     done
     cp "$SRC_REPO/a2/patches/kv8-graphsafe/dsa_v41.py" "$T/repo/a2/patches/kv8-graphsafe/dsa_v41.py"
     cp "$SRC_REPO/a2/patches/kv8-int8-pkg/vllm_ascend/attention/kv8_fuse_triton.py" \
@@ -120,13 +121,26 @@ OUTF="$T6/out.txt"
 tail -3 "$OUTF"
 check "⑥ 缺注入拒绝" 2 "$rc" '没有 .A2-OFFLOAD.' 'unbound variable'
 
-say "⑦ 挂载件 import 预检失败 ⇒ 必须拒绝 rc=2（模拟 A2 那个 ModuleNotFoundError）"
+say "⑦ 挂载件只有裸 import、无包路径回退 ⇒ 内容判据必须拦 rc=2"
 T7=$(mktemp -d); setup_sandbox "$T7"
+cat > "$T7/mk_bad.py" <<'PYX'
+import sys
+T = sys.argv[1]
+p = T + "/repo/a2/patches/0001-offload-scheduler.patch.py"
+s = open(p, encoding="utf-8").read()
+i = s.find("try:  # [A2-OFFLOAD]")
+end = s.find(chr(10) + "    )" + chr(10), i) + len(chr(10) + "    )" + chr(10))
+assert i > 0 and end > i, "fallback block not found"
+bad = "from pgp_manager import BPC_BY_GROUP_KEY, bpc_map_from_extra  # noqa: E402" + chr(10)
+open(p, "w", encoding="utf-8").write(s[:i] + bad + s[end:])
+print("  已把 scheduler 回退成裸 import 版（反例）")
+PYX
+python3 "$T7/mk_bad.py" "$T7"
 OUTF="$T7/out.txt"
-( cd "$T7/repo" && env PATH="$T7/bin:$PATH" STUB_IMPORT_FAIL=1 SHADOW_PKG="$T7/shadow" MODEL=/stub/model DRY=1 ENGRAM=0 \
+( cd "$T7/repo" && env PATH="$T7/bin:$PATH" SHADOW_PKG="$T7/shadow" MODEL=/stub/model DRY=1 ENGRAM=0 \
     bash "$SCRIPT_REL" ) >"$OUTF" 2>&1; rc=$?
-tail -4 "$OUTF"
-check "⑦ import 预检失败须拒绝" 2 "$rc" '预检失败' 'unbound variable'
+tail -3 "$OUTF"
+check "⑦ 裸 import 无回退须拒绝" 2 "$rc" '只有裸 import' 'unbound variable'
 
 say "结果"
 if [ "$V" = "0" ]; then echo "✅ 全部通过"; else echo "⛔ 有用例失败"; fi
