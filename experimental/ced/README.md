@@ -16,6 +16,16 @@
 `V41_CED_ROLE=decode`，且挂载了 `ced_scheduler_replay.patch` 与实验版
 `dsa_v41.py`。
 
+数值排障可在两个角色启动时设置 `CED_SNAPSHOT_POS=<绝对token位置>`，
+导出 D 的逐层 SWA、层 20 全局 KV/Indexer 行；另设
+`CED_H20_SNAPSHOT_POS=<同一位置>` 导出 P/D 进入层 20 前的多流隐状态与
+`pre_mix`。两组快照分别写入本次 `RUN_ID` 的 `snapshots/` 和
+`h20_snapshots/`，只用于单请求隔离实验。完整模型基线可通过
+`V41_CED_ROLE=''`、`KV_ARGS_EXTRA=''` 的 `scripts/serve_a3.sh` 启动并
+显式传入 `V41_CED_SNAPSHOT_*`、`V41_CED_H20_SNAPSHOT_*`；它们的目标位置
+应与 P/D 相同。`tools/compare_ced_cache_snapshots.py` 和
+`tools/compare_ced_h20_snapshots.py` 可生成逐层数值差异。
+
 当前变更只处理 **P 侧缓存组有效性**：P 跳过层 20–39 后，将 G7–G11 的
 `remote_block_ids` 置空，并在交接元数据写入 `ced_replay_tokens=128`、缺失组、
 有效前缀长度。这防止把未写入的上半层 SWA 当成有效缓存交给普通 D。
