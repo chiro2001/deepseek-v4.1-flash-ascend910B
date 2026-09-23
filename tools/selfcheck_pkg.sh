@@ -203,6 +203,30 @@ else
   warn "缺 tools/selftest_stop_a3_safe.sh"
 fi
 
+# ------------------------------------------------- 9b) A3 镜像「层补丁」工具链
+# 2026-09-23：把 A3 的 TP8 工作形态固化成"官方基础镜像 + 1 个工作层"（0.2 MiB），
+#   已发布 dsv41-a3-tp8-imagekit-v1。这里查工具链在位 + 语法 + 挂载解析器的正负控。
+for _f in tools/build_a3_tp8_image.sh tools/package_image_kits.sh docs/A3-IMAGE-KIT.md; do
+  [ -s "$_f" ] && ok "镜像层工具链在位：$_f" || bad "缺 $_f"
+done
+bash -n tools/build_a3_tp8_image.sh 2>/dev/null && ok "build_a3_tp8_image.sh 语法通过" \
+  || bad "build_a3_tp8_image.sh 语法不通过"
+for _f in tools/make_image_patch_kit.py tools/mount_list_pairs.py tools/kit_tools/fs_manifest.py; do
+  if python3 -m py_compile "$_f" 2>/dev/null; then ok "可编译：$_f"; else bad "$_f 编译不通过"; fi
+done
+# ★ 挂载解析器的**负控**：孤立 -v / 重复目标必须被判 FAIL（否则判据等于没有）
+_p=$(mktemp -d)
+printf '[a2-dry] MOUNTS(3): -v A:/t:ro -v\n' > "$_p/orphan.txt"
+printf '[a2-dry] MOUNTS(4): -v A:/t:ro -v B:/t:ro\n' > "$_p/dup.txt"
+printf '[a2-dry] MOUNTS(4): -v A:/t1:ro -v B:/t2:ro\n' > "$_p/ok.txt"
+python3 tools/mount_list_pairs.py --check "$_p/orphan.txt" >/dev/null 2>&1 \
+  && bad "孤立 -v 竟判 OK" || ok "负控：孤立 -v 被判 FAIL"
+python3 tools/mount_list_pairs.py --check "$_p/dup.txt" >/dev/null 2>&1 \
+  && bad "重复目标竟判 OK" || ok "负控：重复目标被判 FAIL"
+python3 tools/mount_list_pairs.py --check "$_p/ok.txt" >/dev/null 2>&1 \
+  && ok "正控：正常清单判 OK" || bad "正常清单被误判"
+rm -rf "$_p"
+
 # ------------------------------------------------- 9c) 长上下文 × Agent 精度探针 + 其沙箱自测
 # 现场反馈：问题主要出现在**长上下文 + Agent（工具调用/多轮）**场景，且**不开 DRAM 卸载也有**
 #   ⇒ 判据必须补上这一格（此前的题库只有几十 token、sha 判据对长上下文语义无判别力）。
