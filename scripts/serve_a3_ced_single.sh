@@ -12,14 +12,23 @@ case "$role" in
     PORT=${PORT:-18960}
     KV_PORT=${KV_PORT:-19060}
     KV_ROLE=kv_producer
+    CED_ROLE=prefill
     ;;
   decode)
     DEVS=${DEVS:-7}
     PORT=${PORT:-18961}
     KV_PORT=${KV_PORT:-19061}
     KV_ROLE=kv_consumer
+    CED_ROLE=decode
     ;;
-  *) echo "用法：$0 prefill|decode" >&2; exit 2 ;;
+  baseline)
+    DEVS=${DEVS:-7}
+    PORT=${PORT:-18963}
+    KV_PORT=
+    KV_ROLE=
+    CED_ROLE=
+    ;;
+  *) echo "用法：$0 prefill|decode|baseline" >&2; exit 2 ;;
 esac
 
 case " $DEVS " in
@@ -39,12 +48,15 @@ fi
 stamp=$(date +%Y%m%d_%H%M%S)
 RUN_ID=${RUN_ID:-ced_single_${role}_${stamp}}
 NAME=${NAME:-dsv41-ced-single-${role}-${stamp}}
-KV_CONFIG=$(printf '{"kv_connector":"MooncakeHybridConnector","kv_role":"%s","kv_port":"%s","kv_connector_extra_config":{"prefill":{"dp_size":1,"tp_size":1},"decode":{"dp_size":1,"tp_size":1}}}' "$KV_ROLE" "$KV_PORT")
-
 export MODEL DEVS PORT KV_PORT RUN_ID NAME
 export SERVED_NAME=${SERVED_NAME:-deepseek-v41-ced-tiny}
-export TP=1 DP=1 V41_CED_ROLE=$role
-export KV_ARGS_EXTRA="--kv-transfer-config $KV_CONFIG"
+export TP=1 DP=1 V41_CED_ROLE=$CED_ROLE
+if [ -n "$KV_ROLE" ]; then
+  KV_CONFIG=$(printf '{"kv_connector":"MooncakeHybridConnector","kv_role":"%s","kv_port":"%s","kv_connector_extra_config":{"prefill":{"dp_size":1,"tp_size":1},"decode":{"dp_size":1,"tp_size":1}}}' "$KV_ROLE" "$KV_PORT")
+  export KV_ARGS_EXTRA="--kv-transfer-config $KV_CONFIG"
+else
+  export KV_ARGS_EXTRA=
+fi
 export LOAD_FORMAT=dummy QUANTIZATION=none SEED=0
 export ENGRAM=0 ENGRAM_DEVICE_INDEX=0 VISION=0 SPEC=0 DRAFT_GRAPH=0
 export KV_DTYPE=bfloat16 CPU_BIND=0 STATIC_KERNEL=0 NPUGRAPH_EX=1
