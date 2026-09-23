@@ -164,6 +164,7 @@ check "④c 模型自检致命" 2 "$rc" "模型目录自检**致命**失败" "�
 
 # ================================================================ ⑤ 选卡
 say "⑤ 空闲卡只有 6 张 ⇒ rc=3（不许硬凑、不许抢别人的卡）"
+# 注：优先区间 8–15 全空时才算"够"；这里给 6 张 ⇒ 怎么算都不足
 run_deploy fewchips STUB_FREE_CHIPS="0 1 2 3 4 5"; rc=$?
 check "⑤ 空闲卡不够" 3 "$rc" "空闲卡不够 8 张"
 
@@ -172,9 +173,19 @@ run_deploy devsmismatch DEVS="0 1 2 3" STUB_FREE_CHIPS="0 1 2 3 4 5 6 7"; rc=$?
 check "⑤b DEVS/TP 不匹配" 2 "$rc" "数量不匹配"
 
 say "⑤c 空闲 10 张 ⇒ 自动选前 8 张，且**下游真收到**这 8 张"
-run_deploy auto STUB_FREE_CHIPS="0 1 2 3 4 5 6 7 8 9"; rc=$?
+run_deploy auto STUB_FREE_CHIPS="0 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15"; rc=$?
 check "⑤c 自动选卡" 0 "$rc" "我替你选了这 8 张" "FAIL"
-check_dry "⑤d 下游收到 DEVS"        "$T/dry_auto.log" "devs='0 1 2 3 4 5 6 7'"
+check_dry "⑤d 下游收到 DEVS"        "$T/dry_auto.log" "devs='8 9 10 11 12 13 14 15'"
+
+say "⑤e ★ 全空闲时**必须优先选 8–15**（'空闲' ≠ '可以拿'：A3 上 0–7 不是我们的）"
+check "⑤e 选中优先区间" 0 "$rc" '我替你选了这 8 张：DEVS="8 9 10 11 12 13 14 15"'
+if grep -qF "从**其余**空闲卡补了" "$OUTF"; then bad "⑤f 优先区间够用时却去补别的卡"
+else ok "⑤f 优先区间够用时没有碰区间外的卡"; fi
+
+say "⑤g 优先区间只剩 3 张空闲 ⇒ 用其余空闲卡补齐，但**必须响亮警告**"
+run_deploy prefer STUB_FREE_CHIPS="0 1 2 3 4 8 9 10 11"; rc=$?
+check "⑤g 不足时补齐 + 警告" 0 "$rc" "从**其余**空闲卡补了：0 1 2 3"
+check_dry "⑤h 补齐后下游收到 8 张" "$T/dry_prefer.log" "devs='8 9 10 11 0 1 2 3'"
 
 # ================================================================ ⑥ 干跑内容判据（关键配置真的生效）
 say "⑥ 干跑内容判据：mount / 服务名 / 1M / DRAFT_GRAPH 默认 0 / 共享机不动 page cache"

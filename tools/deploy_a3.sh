@@ -252,7 +252,48 @@ else
     _free=$(bash "$PKG/tools/list_chips.sh" --free 2>/dev/null | grep -E '^[0-9]+$' | tr '\n' ' ')
     _cnt=$(printf '%s' "$_free" | tr ' ' '\n' | grep -cE '^[0-9]+$' || true)
     echo "  npu-smi 报的空闲卡：${_free:-（无）}（$_cnt 张，需要 $TP 张）"
-    if [ "${_cnt:-0}" -lt "$TP" ]; then
+
+    # ★★★ 2026-09-23 **"空闲" ≠ "可以拿"** —— 这一条是真机上抓到的：
+    #   首版按"空闲就选"跑在 a3-21 上，选中了 **0–7**；而本项目的约定是
+    #     **A3 上 0–7 不是我们的**（我们在 A3 用 **Phy-ID 8–15**）。机器当时"看起来全空闲"
+    #     （别人的任务刚好退了），于是脚本会把服务开到**不属于我们的卡**上。
+    #   ⇒ 现在引入 **优先区间** `PREFER_DEVS`（A3 默认 8–15）：先从优先区间里挑；
+    #     不够时才**显式告知**并降级到其余空闲卡（绝不静默）。
+    #     为什么不用"避让列表"：避让列表表达不了"这一批是我们的"这层含义，
+    #     而"优先区间"能，并且在区间够用时**天然不会碰别人的卡**。
+    PREFER_DEVS=${PREFER_DEVS:-"8 9 10 11 12 13 14 15"}
+    _pick=""
+    for _c in $PREFER_DEVS; do
+        case " $_free " in *" $_c "*) _pick="$_pick $_c" ;; esac
+        [ "$(printf '%s\n' $_pick | grep -cE '^[0-9]+$')" -ge "$TP" ] && break
+    done
+    _pick=${_pick# }
+    _pn=$(printf '%s' "$_pick" | tr ' ' '\n' | grep -cE '^[0-9]+$' || true)
+    if [ "${_pn:-0}" -lt "$TP" ]; then
+        # 优先区间不够 ⇒ 用其余空闲卡补齐，但要**说清**补了哪些
+        _rest=""
+        for _c in $_free; do
+            case " $_pick " in *" $_c "*) continue ;; esac
+            _rest="$_rest $_c"
+            _pick="$_pick $_c"
+            _pn=$((_pn+1))
+            [ "$_pn" -ge "$TP" ] && break
+        done
+        if [ "$_pn" -lt "$TP" ]; then
+            bad "空闲卡不够 $TP 张（优先区间 $PREFER_DEVS 里只有 $(printf '%s' "${_pick:- }" | wc -w) 张，其余空闲卡也用上后仍不足）⇒ 不能自动选"
+            echo "        修法：① 先看谁占着：bash tools/list_chips.sh"
+            echo "              ② 若里面有**你自己的**残留进程，停掉后重试"
+            echo "              ③ 卡够但不想用自动选的：显式 DEVS=\"<8 个卡号>\""
+            echo "              ④ 确实要带别人的占用起服务：ALLOW_BUSY=1（危险；本脚本不替你决定）"
+            exit 3
+        fi
+        echo
+        warn "★ 优先区间（PREFER_DEVS=$PREFER_DEVS）里的空闲卡不足 $TP 张 ⇒ 从**其余**空闲卡补了：${_rest# }"
+        warn "  A3 是共用机：这些卡可能属于别人（本项目在 A3 的约定是 8–15）。"
+        warn "  ⇒ 务必确认你有权使用；否则 Ctrl-C 后显式 DEVS=\"...\"，或等优先区间的卡空出来。"
+    fi
+    if [ "${_pn:-0}" -lt "$TP" ]; then
+        # 双保险：上面任何分支算完仍不足都不许硬凑
         bad "空闲卡不够 $TP 张 ⇒ 不能自动选"
         echo "        修法：① 先看谁占着：bash tools/list_chips.sh"
         echo "              ② 若里面有**你自己的**残留进程，停掉后重试"
@@ -260,10 +301,11 @@ else
         echo "              ④ 确实要带别人的占用起服务：ALLOW_BUSY=1（危险；本脚本不替你决定）"
         exit 3
     fi
-    DEVS=$(printf '%s\n' $_free | head -"$TP" | tr '\n' ' ')
+    DEVS=$(printf '%s\n' $_pick | head -"$TP" | tr '\n' ' ')
     DEVS=${DEVS% }
     echo
     echo "  ★★ 我替你选了这 $TP 张：DEVS=\"$DEVS\""
+    echo "     （优先区间 PREFER_DEVS=\"$PREFER_DEVS\"；改它或直接给 DEVS= 都能覆盖）"
     echo "     —— 若这些卡不属于你（A3 是共用机），请 Ctrl-C 后用 DEVS=\"...\" 显式指定；"
     echo "        scripts/serve_a3.sh 在真起服前会再查一次占用，但'别人刚空出来的卡'它拦不住。"
 fi
