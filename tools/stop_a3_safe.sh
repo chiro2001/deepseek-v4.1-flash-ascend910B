@@ -60,7 +60,7 @@ fi
 _st=$(docker inspect -f '{{.State.Status}}' "$CTR" 2>/dev/null)
 echo "  容器状态：$_st"
 echo "  cpuset：cpuset-cpus=[$(docker inspect -f '{{.HostConfig.CpusetCpus}}' "$CTR" 2>/dev/null)] cpuset-mems=[$(docker inspect -f '{{.HostConfig.CpusetMems}}' "$CTR" 2>/dev/null)]"
-echo "  （cpuset-mems 为空 ≠ 没绑节点：`CPU_BIND=1` 是**进程内**用 set_mempolicy 绑的，docker 里看不到）"
+echo '  （cpuset-mems 为空 ≠ 没绑节点：CPU_BIND=1 是**进程内**用 set_mempolicy 绑的，docker 里看不到）'
 
 _mp=$(pgrep -x migratepages 2>/dev/null | tr '\n' ' ')
 _wk=$(pgrep -f 'VLLM::Worker_TP' 2>/dev/null | wc -l)

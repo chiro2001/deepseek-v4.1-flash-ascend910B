@@ -160,6 +160,15 @@ say "① 容器不存在 ⇒ rc=0 且直接说清（不误报成功停机）"
 run_stop gone STUB_CTR_EXISTS=0; rc=$?
 check "① 容器不存在" 0 "$rc" "已经清掉了"
 
+# ================================================================ ①b 反引号不许被当命令执行
+say "①b 双引号里的反引号会被 shell 当**命令替换**执行 ⇒ 文案必须用单引号（真机踩到过）"
+run_stop bq STUB_STOP_HANGS=1 STUB_MP=1; rc=$?
+if grep -qF 'CPU_BIND=1 是**进程内**用 set_mempolicy' "$OUTF"; then
+    ok "①b 那句 CPU_BIND=1 的文案完整保留（没被命令替换吃掉）"
+else
+    bad "①b 文案被 shell 吃掉了（说明用了双引号+反引号）"
+fi
+
 # ================================================================ ② 正常能停
 say "② 容器能正常停 ⇒ rc=0，且**不含**任何 kill（不许乱动手）"
 run_stop normal STUB_STOP_HANGS=0; rc=$?
