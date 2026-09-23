@@ -188,6 +188,21 @@ else
   warn "缺 a2/scripts/selftest_serve_a2_offload.sh（无法自动抓"变量未定义"这类崩溃）"
 fi
 
+# ------------------------------------------------- 9b) 证据收集器的**沙箱自测**
+# 收集器是"出问题时唯一救命的工具"，而它的入口有三条（SERVE_LOG / RUN_DIR / RUN_ID+自动取最新）。
+# 入口写错的表现是**静默抽错文件**（抽到别人的臂），在真出问题时最贵。
+if [ -f a2/scripts/selftest_collect_evidence.sh ]; then
+  if out=$(bash a2/scripts/selftest_collect_evidence.sh 2>&1); then
+    n=$(printf '%s' "$out" | grep -c 'PASS' || true)
+    ok "证据收集器沙箱自测：${n:-?} 条全过（指定 log 位置 / 自动取最新 / 负例 rc=64）"
+  else
+    bad "证据收集器沙箱自测失败（指定 log 位置 / 计数助手 / 负例）："
+    printf '%s' "$out" | grep -E 'FAIL' | sed 's/^/        /' | head -8
+  fi
+else
+  warn "缺 a2/scripts/selftest_collect_evidence.sh（无法自动抓"抽错日志"这类静默错误）"
+fi
+
 echo
 if [ "$fail" = "0" ]; then
   echo "[selfcheck] 全部通过 ✅  可以开始：bash scripts/build_image.sh"

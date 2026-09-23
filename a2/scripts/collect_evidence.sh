@@ -16,38 +16,80 @@
 # 用法：
 #   bash a2/scripts/collect_evidence.sh                    # 最近一次 run
 #   RUN_ID=a2_20260923_094624 bash a2/scripts/collect_evidence.sh
-#   PORT=8077 bash a2/scripts/collect_evidence.sh          # s
+#   RUN_DIR=/任意/路径/a2_20260923_094624 bash a2/scripts/collect_evidence.sh
+#   SERVE_LOG=/任意/路径/serve.log bash a2/scripts/collect_evidence.sh      # ★ 只给日志文件
+#   bash a2/scripts/collect_evidence.sh --serve-log /任意/路径/serve.log    # ★ 同上（flag 形式）
+#   bash a2/scripts/collect_evidence.sh --run-dir  /任意/路径/run           # ★ 同上（flag 形式）
+#   RESULTS=/另一个/results bash a2/scripts/collect_evidence.sh            # 换 results 根
+#   PORT=8077 bash a2/scripts/collect_evidence.sh
 #   NO_PROBE=1 bash a2/scripts/collect_evidence.sh         # 跳过文本探针
 #
-# 退出码：0 = 已生成；64 = 找不到 run 目录
+# ★ "位置"优先级（高 -> 低）：--serve-log / SERVE_LOG  >  --run-dir / RUN_DIR  >  RUN_ID  >  results 里最新的一个
+#   —— 给了 SERVE_LOG 就**只需要那个文件存在**，同目录下的 serve_cmd.txt / inner.sh 有就抽、没有就跳过；
+#      此时 RUN_DIR 默认取它的**父目录**（所以产物仍能跟着日志走）。
+#
+# 退出码：0 = 已生成；64 = 找不到 run 目录 / 日志文件
 set -uo pipefail
 
 HERE=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
 PKG=$(cd "$HERE/../.." && pwd)
 
+# ------------------------------------------------- 命令行 flag（★ 与 env 等价，flag 赢）
+while [ $# -gt 0 ]; do
+    case "$1" in
+        --serve-log|-l) SERVE_LOG=${2:-}; shift 2 ;;
+        --serve-log=*)  SERVE_LOG=${1#*=}; shift ;;
+        --run-dir|-d)   RUN_DIR=${2:-};   shift 2 ;;
+        --run-dir=*)    RUN_DIR=${1#*=};   shift ;;
+        --run-id)       RUN_ID=${2:-};     shift 2 ;;
+        --run-id=*)     RUN_ID=${1#*=};    shift ;;
+        --outdir|-o)    OUTDIR=${2:-};     shift 2 ;;
+        --outdir=*)     OUTDIR=${1#*=};    shift ;;
+        -h|--help)      sed -n '2,40p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
+        *) echo "⚠ 未知参数：$1（用 --help 看用法）" >&2; shift ;;
+    esac
+done
+
 PORT=${PORT:-8077}
 URL=${URL:-http://127.0.0.1:$PORT}
 SHADOW=${SHADOW_PKG:-$HOME/projects/dsv41-upstream-pr/shadow-pkg}
-RESULTS=$SHADOW/results
+RESULTS=${RESULTS:-$SHADOW/results}
 STAMP=$(date +%Y%m%d_%H%M%S)
 OUTDIR=${OUTDIR:-$HOME/evidence_$STAMP}
 OUT=$OUTDIR/EVIDENCE.txt
 PROBES=${PROBES:-3}                      # 文本探针重发次数（乱码要看"稳不稳"）
 NO_PROBE=${NO_PROBE:-0}
 
+# ---------------------------------------------------------------- 找 run 目录 / 日志
+# ★ 本段三种入口都要能用（用户点名："collect 脚本要能指定 log 位置"）：
+#   ① SERVE_LOG=<文件>：只认这个文件；RD = 它的父目录（用于抽 serve_cmd.txt / inner.sh）
+#   ② RUN_DIR=<目录> ：RD = 它；SL = 它下面的 serve.log
+#   ③ RUN_ID / 自动取最新：RD = $RESULTS/<id> 或 $RESULTS 里最新的目录
+#   退出码仍只在"三种都失败"时才 64。
+if [ -n "${SERVE_LOG:-}" ]; then
+    [ -f "$SERVE_LOG" ] || { echo "⛔ --serve-log / SERVE_LOG 指向的文件不存在或不是文件：$SERVE_LOG" >&2; exit 64; }
+    SL="$SERVE_LOG"
+    RD=${RUN_DIR:-$(cd "$(dirname "$SL")" && pwd)}
+elif [ -n "${RUN_DIR:-}" ]; then
+    [ -d "$RUN_DIR" ] || { echo "⛔ --run-dir / RUN_DIR 指向的目录不存在：$RUN_DIR" >&2; exit 64; }
+    RD="$RUN_DIR"
+    SL="$RD/serve.log"
+    [ -f "$SL" ] || echo "  ⚠ $RD 下没有 serve.log —— 别的段照样抽，serve.log 相关的段会写 (无)" >&2
+else
+    if [ -n "${RUN_ID:-}" ]; then
+        RD="$RESULTS/$RUN_ID"
+    else
+        RD=$(ls -td "$RESULTS"/*/ 2>/dev/null | head -1)
+        RD=${RD%/}
+    fi
+    SL="$RD/serve.log"
+fi
+[ -n "${RD:-}" ] || {
+    echo "⛔ 找不到 run 目录（找过 $RESULTS）。用 --run-dir <目录> / --serve-log <日志> / RUN_ID=<名字> 指定。" >&2
+    exit 64; }
+
 mkdir -p "$OUTDIR" || exit 64
 
-# ---------------------------------------------------------------- 找 run 目录
-if [ -n "${RUN_ID:-}" ]; then
-    RD="$RESULTS/$RUN_ID"
-else
-    RD=$(ls -td "$RESULTS"/*/ 2>/dev/null | head -1)
-    RD=${RD%/}
-fi
-[ -n "${RD:-}" ] && [ -d "$RD" ] || {
-    echo "⛔ 找不到 run 目录（试过 $RESULTS）。用 RUN_ID=<名字> 指定。" >&2; exit 64; }
-
-SL="$RD/serve.log"
 SH="$(dirname "$HERE")"                   # a2/
 
 # ★ 计数助手：`grep -c` 在"无匹配"时**仍会打印 0 但退出码是 1**，
@@ -61,7 +103,8 @@ _sec() { _hdr "§ $*"; }
 {
 _hdr "EVIDENCE —— 一次出问题的臂的全部可复算证据" \
      "  生成：$(date '+%F %T')   宿主：$(hostname)   收集器：collect_evidence.sh" \
-     "  run 目录：$RD"
+     "  run 目录：$RD" \
+     "  serve.log：$SL$([ -f "$SL" ] || printf '  ← ⚠ 这个文件不存在')"
 
 # ---------------------------------------------------------------- ① 元信息
 _sec "① run 元信息（**实际起服用的**配置；不是「我以为传了什么」）"
@@ -114,7 +157,7 @@ else
 fi
 
 # ---------------------------------------------------------------- ④ serve.log
-_sec "④ serve.log —— 起服门（★ 任一为 0 就该停）"
+_sec "④ serve.log —— 起服门（★ 任一为 0 就该停）   [$SL]"
 if [ -f "$SL" ]; then
     echo "  行数：$(wc -l < "$SL")"
     for pat in EH0012 'hdc disconnect' 'DEVICE-INDEX' 'aclrtHostRegister failed' \
