@@ -203,6 +203,22 @@ else
   warn "缺 tools/selftest_stop_a3_safe.sh"
 fi
 
+# ------------------------------------------------- 9a-2) ★ run_test.sh 的 prefill batch 默认
+# 乱码根因修复(`8eb2613`)改的是模板；而 run_test.sh **显式**把 BAT_TOKENS 传下去
+#   ⇒ 它的默认值会覆盖模板。长期是 2048 ⇒ "用标准验证入口验证长上下文精度"
+#   等于在一个已知会退化的配置上验证。这里把这条件链钉死。
+if [ -f tools/selftest_run_test_bat.sh ]; then
+  if out=$(bash tools/selftest_run_test_bat.sh 2>&1); then
+    n=$(printf '%s' "$out" | grep -c 'PASS' || true)
+    ok "run_test prefill batch 守护：${n:-?} 条全过（默认 8192 / 真透传 / 与模板一致 / KV 门槛自洽 / 负控）"
+  else
+    bad "run_test prefill batch 守护失败："
+    printf '%s' "$out" | grep -E 'FAIL' | sed 's/^/        /' | head -8
+  fi
+else
+  bad "缺 tools/selftest_run_test_bat.sh（无法自动抓"验证入口把 8192 覆盖回 2048"）"
+fi
+
 # ------------------------------------------------- 9b) A3 镜像「层补丁」工具链
 # 2026-09-23：把 A3 的 TP8 工作形态固化成"官方基础镜像 + 1 个工作层"（0.2 MiB），
 #   已发布 dsv41-a3-tp8-imagekit-v1。这里查工具链在位 + 语法 + 挂载解析器的正负控。

@@ -59,7 +59,24 @@ MAX_LEN=${MAX_LEN:-1048576}
 # 用 NO_PREFIX=1 关掉，不能靠"不写就是关"。
 MAX_SEQS=${MAX_SEQS:-}
 PREFIX=${PREFIX:-}
-BAT_TOKENS=${BAT_TOKENS:-2048}
+# ★★★ 2026-09-23 15:0x **修一处"验证入口把修复覆盖掉"的回归**
+#   事实链（都可复算）：
+#     ① 乱码根因修复 `8eb2613`「BAT_TOKENS 2048 -> 8192，修复长上下文输出退化」
+#        改的是 **`scripts/serve_a2.sh`**（现为 `:-8192`）；
+#     ② 本脚本第 178 行**显式**把 `BAT_TOKENS="$BAT_TOKENS"` 传给 `serve_a2.sh`
+#        ⇒ **本脚本的默认值必然覆盖模板的 8192**；
+#     ③ 而本脚本此处一直是 `:-2048` ⇒ ★ **用本脚本验证 = 自己把自己带回修复前**。
+#        而本脚本恰恰是 `EXPECTED_PERF.md` 写的标准验证入口，`tests/agent_trace/`
+#        那套长上下文精度门就在它里面 —— 于是"验证长上下文精度"这件事本身
+#        跑在一个已知会退化的配置上。
+#   代价：chunked prefill 每切一刀一次独立"偏离"（约 2%/chunk，误差沿 chunk 累积）
+#     ⇒ 失败率 ≈ 1 − 0.98^(prompt/BAT)。BAT=2048 时 260K 要 127 刀（实测 ~0%），
+#     BAT=8192 时 32 刀（实测 6/6）。详见 `reports/longctx-accuracy-fix.md`。
+#   ★ 为什么 KV 门槛不用跟着改：`KV_MIN=2800000` 本来就是按 **BAT=8192/GPU_UTIL=0.92**
+#     的实测值 **2,823,080** 定的（见 README 的 GPU_UTIL 表）；2048 时是 4,145,957。
+#     ⇒ 本脚本的默认与它自己的 KV 门槛，**本来就该是 8192 这一对**。
+#   要退回旧口径（拿 KV 容量换），**显式**给：`BAT_TOKENS=2048 bash scripts/run_test.sh`
+BAT_TOKENS=${BAT_TOKENS:-8192}
 STATIC_KERNEL=${STATIC_KERNEL:-1}
 SP_TOKENS=${SP_TOKENS:-5}
 LOCAL_OWNER=${LOCAL_OWNER:-fast}
@@ -202,6 +219,31 @@ else
   SK_PASS=1
 fi
 echo "static_kernel_degrade_hits=$SK_HITS" >> "$OUT/env.txt"
+
+# --- 必查 ①b ★ prefill batch 是否**真的**生效（防"我传了这个变量"型静默覆盖）---
+# 为什么单列：本脚本**显式**把 `BAT_TOKENS` 传给 `serve_a2.sh`，而这条链上任何一环
+#   写死/转错，都会让"我以为在跑 8192"变成"其实在跑 2048"（曾真的发生过：
+#   本脚本自己默认 2048，覆盖掉模板修好的 8192 ⇒ 长上下文精度门形同虚设）。
+#   判据绑**引擎实际收到的参数**（唯一权威），不绑"我传了什么"。
+BAT_ACTUAL=$(grep -aoE 'max-num-batched-tokens [0-9]+' "$LOG" 2>/dev/null | tail -1 | grep -oE '[0-9]+$')
+BAT_ACTUAL=${BAT_ACTUAL:-0}
+BAT_INNER=$(grep -aoE '^export[^#]*BAT_TOKENS=[0-9]+' "${LOG%/*}/inner.sh" 2>/dev/null | grep -oE '[0-9]+$' | tail -1)
+BAT_INNER=${BAT_INNER:-0}
+echo "bat_tokens_expected=$BAT_TOKENS" >> "$OUT/env.txt"
+echo "bat_tokens_actual=$BAT_ACTUAL"   >> "$OUT/env.txt"
+echo "bat_tokens_inner=$BAT_INNER"     >> "$OUT/env.txt"
+if [ "$BAT_ACTUAL" = "$BAT_TOKENS" ] && [ "$BAT_INNER" = "$BAT_TOKENS" ]; then
+  ok "prefill batch 生效：--max-num-batched-tokens $BAT_ACTUAL（inner.sh 也是 $BAT_INNER）"
+  BAT_PASS=1
+else
+  bad "prefill batch **没有**按预期生效：期望 $BAT_TOKENS、引擎实际 $BAT_ACTUAL、inner.sh $BAT_INNER"
+  echo "     这条链上有静默覆盖（serve_a2.sh / run_test.sh / inner.sh 三者不一致）。"
+  echo "     ★ 低于 8192 会长上下文退化（失败率 ≈ 1−0.98^(prompt/BAT)），本轮的精度结论不可信。"
+  BAT_PASS=0
+fi
+if [ "${BAT_ACTUAL:-0}" != "0" ] && [ "${BAT_ACTUAL:-0}" -lt 8192 ] 2>/dev/null; then
+  echo "     ⚠️ 当前 $BAT_ACTUAL < 8192：chunk 数是 8192 时的 $(( 8192 / BAT_ACTUAL )) 倍。" >&2
+fi
 
 # --- 必查 ② local-owner validate ---
 ask() { curl -s -m "${2:-180}" "http://127.0.0.1:$PORT/v1/completions" -H 'Content-Type: application/json' \
