@@ -56,6 +56,13 @@ if [ -n "${CED_H20_SNAPSHOT_POS:-}" ]; then
   export V41_CED_H20_SNAPSHOT_POS=$CED_H20_SNAPSHOT_POS
   export V41_CED_H20_SNAPSHOT_DIR="/opt/dsv41/results/$RUN_ID/h20_snapshots"
 fi
+if [ -n "${CED_LAYER_SNAPSHOT_POS:-}" ]; then
+  export V41_CED_LAYER_SNAPSHOT_POS=$CED_LAYER_SNAPSHOT_POS
+  export V41_CED_LAYER_SNAPSHOT_DIR="/opt/dsv41/results/$RUN_ID/layer_snapshots"
+fi
+if [ "${CED_CAPTURE_DECODE:-0}" = 1 ]; then
+  export V41_CED_CAPTURE_DECODE=1
+fi
 export MODEL DEVS PORT KV_PORT RUN_ID NAME
 export SERVED_NAME=${SERVED_NAME:-deepseek-v41-ced-tiny}
 export TP=1 DP=1 V41_CED_ROLE=$CED_ROLE

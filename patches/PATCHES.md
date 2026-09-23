@@ -30,7 +30,7 @@
 | 3 | `$A/models/deepseek_v41/engram_jit_kernel.py` | `files/engram_jit_kernel.py` | `6668d3fe3c6333b47e9dde3df7cfe03a` | `V41_ENGRAM_JIT=1` | 上一行的 sidecar（新文件，**目标目录必须同放**） |
 | 4 | `$A/models/deepseek_v41/engram_plan_kernel.py` | `files/engram_plan_kernel.py` | `0be62d7775374b0167a54f5b393a65ac` | `V41_ENGRAM_JIT=1` | plan 0.261 → **0.068 ms/step**（sidecar） |
 | 5 | `$A/models/deepseek_v41/engram_gate.py` | `files/engram_gate.py` | `146010cac42261e9dc4380699e156252` | `V41_ENGRAM_GATE_CHUNK=0` `V41_ENGRAM_GATE_MAX_TOKENS=2048` | 分块 gate，去掉 2048 行 padding：**−1.56 ms**（8K），KV 反而更省 |
-| 6 | `$A/models/deepseek_v41/model.py` | `files/model.py` | `af0b03e3b9917c4e2a16c2b6cc0be9e3` | （与 #1 配对） | Engram host-resident + device-index 入图及 CED P/D 实验 |
+| 6 | `$A/models/deepseek_v41/model.py` | `files/model.py` | `6bd61e15afe383251852b8a0939474e7` | （与 #1 配对） | Engram host-resident + device-index 入图及 CED P/D 实验 |
 | 7 | `$A/ascend_forward_context.py` | `files/ascend_forward_context.py` | `6cccd4259bd65c907ef9d9dd42a83dca` | `V41_MOE_COMM_ALLGATHER=1` | **MoE 走 AllGather**：128K **−4.25 ms**、32K −1.35、8K −1.23；KV 3.39M→4.16M；输出逐字节一致 |
 | 8 | `$A/attention/dsa_v1.py` | `files/dsa_v1.py` | `9a36e709b0937589eab05c5316a62591` | `V41_O_PROJ_2D=1` | **F3**：`wo_a` 退化 batch matmul → 2D matmul，**−0.31~0.76 ms/step** |
 | 9 | `$A/ops/fused_moe/token_dispatcher.py` | `files/token_dispatcher_moemask.py` | **`a91fbc48350530d987ef3bb1ff15f1cb`** | `V41_MOE_MASK_RANGE=1` | **moe-mask-range**：范围比较替代 Index+IndexCheck 掩码链，**−0.51 ms**；精度已过（GSM8K 100/100、Vision 23/23）。★ 本版加 **[SAFE-L1]**：比较改在 **int32 域**（`_i32_scalar`），去掉每层 2 次 `Cast INT32→INT64`（A3 实测 **80 次/步 → 0**，≈0.096 ms/step）；逐位等价。旧 md5 = `a695735a…` |

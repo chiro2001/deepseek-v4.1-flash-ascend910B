@@ -42,5 +42,8 @@ if [ -n "${CED_LAYER_SNAPSHOT_POS:-}" ]; then
   export V41_CED_LAYER_SNAPSHOT_POS=$CED_LAYER_SNAPSHOT_POS
   export V41_CED_LAYER_SNAPSHOT_DIR="/opt/dsv41/results/$RUN_ID/layer_snapshots"
 fi
+if [ "${CED_CAPTURE_DECODE:-0}" = 1 ]; then
+  export V41_CED_CAPTURE_DECODE=1
+fi
 echo "[a3-ced] role=$V41_CED_ROLE name=$NAME max_len=${MAX_LEN:-147456} spec=$SPEC prefix=$PREFIX"
 exec bash "$HERE/serve_a3_pd.sh" "$role"

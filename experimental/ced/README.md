@@ -35,6 +35,13 @@
 P 的层 20 只保存前向前状态，因它不执行 decoder 层。对应的完整模型基线
 直接传 `V41_CED_LAYER_SNAPSHOT_POS/DIR`；
 `tools/compare_ced_layer_snapshots.py --tp 8` 比较三臂并定位首个分叉。
+若要抓 D replay 后单独计算的最后一个 prompt token，可将三个位置开关
+都设为该 token 的绝对位置（例如 22-token 请求的 `21`），并设
+`CED_CAPTURE_DECODE=1`（直接 full40 基线用
+`V41_CED_CAPTURE_DECODE=1`）。这个开关只允许诊断钩子在非 profile、
+非 graph capture 的单 token 前向中导出；P 因截去最后一 token，预期没有
+该位置文件。若 D 在图回放时未执行 Python 钩子，应先报告缺文件，不能
+把空目录解释为模型没有计算该 token。
 
 当前变更只处理 **P 侧缓存组有效性**：P 跳过层 20–39 后，将 G7–G11 的
 `remote_block_ids` 置空，并在交接元数据写入 `ced_replay_tokens=128`、缺失组、

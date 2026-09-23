@@ -65,6 +65,7 @@ _CED_LAYER_SNAPSHOT_LAYERS = {
     for value in _os_ids.environ.get("V41_CED_LAYER_SNAPSHOT_LAYERS", "0,1,2,13,14,15,19,20").split(",")
     if value.strip()
 }
+_CED_CAPTURE_DECODE = _os_ids.environ.get("V41_CED_CAPTURE_DECODE", "0") == "1"
 from safetensors import safe_open
 from transformers import AutoTokenizer
 from vllm.distributed import get_pp_group, get_tensor_model_parallel_rank
@@ -112,7 +113,7 @@ def _maybe_snapshot_ced_h20(layer, positions, hidden_states, pre_mix):
     ):
         return
     metadata = layer.self_attn.v41_impl._get_layer_metadata(context.attn_metadata)
-    if metadata.swa.num_prefills == 0:
+    if metadata.swa.num_prefills == 0 and not _CED_CAPTURE_DECODE:
         return
     target = int(_CED_H20_SNAPSHOT_POS)
     active = metadata.swa.num_actual_tokens
@@ -157,7 +158,7 @@ def _maybe_snapshot_ced_layer(
     ):
         return
     metadata = layer.self_attn.v41_impl._get_layer_metadata(context.attn_metadata)
-    if metadata.swa.num_prefills == 0:
+    if metadata.swa.num_prefills == 0 and not _CED_CAPTURE_DECODE:
         return
     target = int(_CED_LAYER_SNAPSHOT_POS)
     active = metadata.swa.num_actual_tokens

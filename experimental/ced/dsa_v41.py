@@ -51,6 +51,7 @@ V41_METADATA_BUFFER_SIZE = 1024
 _CED_DECODE_ROLE = os.environ.get("V41_CED_ROLE", "") == "decode"
 _CED_SNAPSHOT_POS = os.environ.get("V41_CED_SNAPSHOT_POS", "")
 _CED_SNAPSHOT_DIR = os.environ.get("V41_CED_SNAPSHOT_DIR", "")
+_CED_CAPTURE_DECODE = os.environ.get("V41_CED_CAPTURE_DECODE", "0") == "1"
 
 
 @eager_break_during_capture
@@ -585,7 +586,7 @@ class DeepseekV41EagerAttentionImpl:
             or not _CED_SNAPSHOT_DIR
             or getattr(forward_context, "capturing", False)
             or getattr(forward_context, "in_profile_run", False)
-            or metadata.swa.num_prefills == 0
+            or (metadata.swa.num_prefills == 0 and not _CED_CAPTURE_DECODE)
         ):
             return
         target = int(_CED_SNAPSHOT_POS)
