@@ -1889,8 +1889,12 @@ class MooncakeConnectorWorker:
                     for layer_name in self.kv_cache_config.kv_cache_groups[group_idx].layer_names:
                         cache = self.kv_caches[layer_name]
                         for tensor in cache if isinstance(cache, (tuple, list)) else (cache,):
-                            indices = torch.tensor(local_ids, dtype=torch.int64, device=tensor.device)
-                            tensor.index_fill_(0, indices, 0)
+                            # Ascend index_fill_ materializes the full shared
+                            # cache view here (~7.36 GiB/rank) before writing a
+                            # two-page selection. Basic narrow() is a view and
+                            # zero_() only touches the requested physical page.
+                            for block_id in local_ids:
+                                tensor.narrow(0, int(block_id), 1).zero_()
                 torch_npu.npu.synchronize()
             logger.debug(
                 "start_load_kv for request %s from remote engine %s. "

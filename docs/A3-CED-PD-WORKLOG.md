@@ -45,4 +45,10 @@ bash scripts/serve_a3_pd.sh prefill
 **P 侧组有效性协议已上 A3 验收。** `302b586` 的 12 组回执含 G7–G11，即上半层 SWA；P 跳层时这些组未写入，却会被普通连接器列入传输。`34fdf08` 的 [`experimental/ced/mooncake_hybrid_connector.py`](../experimental/ced/mooncake_hybrid_connector.py) 在 A3-21 实测将 G7–G11 block ID 置空，仍保留 G0 全局 KV、G1 环、G2–G6 低层 SWA；交接标记为 `ced_replay_tokens=128`、`ced_missing_swa_groups=[7,8,9,10,11]`、`ced_prefix_tokens=143962`。[`ced_p_mask_144k.json`](../evidence/ced_p_mask_34fdf08/ced_p_mask_144k.json) 记录真实 prompt 143,963 token、`finish_reason=length`、标记 token ID 42、组 block 数 `[1125,1,2,2,2,2,2,0,0,0,0,0]`；[`serve.log.gz`](../evidence/ced_p_mask_34fdf08/serve.log.gz) 解压后 SHA-256 为 `d0c6e8584ab56b3d7a3f3921333ff29f742418d3c584e6f1570e3072392a143e`。容器已停止，0–7 卡无运行进程。
 
 `34fdf08` 的 D connector 对该 replay 标记直接拒绝，因此这里只验了 P 元数据屏蔽；**不能**作为 P→D 正确性或质量门。一次容器内单独导入连接器并调用拒绝分支，确实打印拒绝信息，但 Python 退出时发生 `corrupted size vs. prev_size`（退出码 134），不把它当作 D 端到端验收。后续工作树已加入尚未验证的 D 调度回退、缺失页清零和 replay 块内不回写全局 KV 原型；必须先在隔离实例验证，再做质量判断。下一步见 [`D_REPLAY_NOTES.md`](../experimental/ced/D_REPLAY_NOTES.md)。
+
+## 8+8 D replay 首轮故障（`8b59d03`）
+
+- A3-21 上 P=0–7、端口 18790，D=8–15、端口 18791，代理 18792；真实权重、BF16、`SPEC=0`。两侧均 `/health=200`，D 的 Core replay 补丁通过启动脚本现场应用，D 连接器识别到上层 SWA G7–G11。P 服务在本轮后仍运行，D 和代理已停止。
+- 代理发最短数学请求后返回 HTTP 500。D 还在 KV 加载前的缺失页清零步骤就失败：`tensor.index_fill_(0, indices, 0)` 在当前 Ascend 共享缓存视图上申请 **7.36 GiB** 临时显存，而当时每卡只剩约 6.2–6.5 GiB。没有执行到 D replay 前向，因此不能判断调度或模型质量。[原始 D 日志](../evidence/ced_d_oom_8b59d03/serve.log.gz) 解压 SHA-256 为 `6d116cf5049ecd016aed7aae1f782a885134ac087cb11c456af7a3a6b08b5ec6`；[代理响应](../evidence/ced_d_oom_8b59d03/proxy_response.json)。
+- 现已把清零改为对每个物理 block 用 `tensor.narrow(0, block_id, 1).zero_()` 原位写入，避免 `index_fill_` 的整视图临时申请。该修复**尚未真机复测**；下一步只重启 D 和代理，复用仍在运行的 P。
 - `compile()` 语法检查和 `git diff --check` 通过。没有声称 CED 运行时或性能已经实现。
