@@ -98,7 +98,7 @@ worker_kv_bytes/block = 4421 B/token × 128 = 565,888 B
 ## 五、复现
 
 ```bash
-cd /home/chiro/projects/dsv41/a2
+cd ~/projects/dsv41/a2
 python3 scripts/a2_pool_sizing.py --tokens 32768 --n-resident 16 --world-size 8
 # 改 --tokens / --n-resident 即可算别的场景
 ```

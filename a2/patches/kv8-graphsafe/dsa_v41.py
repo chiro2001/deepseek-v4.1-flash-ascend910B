@@ -189,6 +189,91 @@ def compressed_slot_mapping(slot_mapping: torch.Tensor, ratio: int) -> torch.Ten
     return torch.where(valid, slot_mapping // ratio, -1)
 
 
+# ==================== [SAFE-L2] `_slot_mapping_2d` 单核融合（子代理 SAFE_LEVERS）====================
+# 为什么：原路径（本文件 `build()` 里的 `valid/where/div/remainder` + 两次 `copy_`）每次预备要
+#   ~10 个 aclnn 小算子（Cast 32→64 ×3、GreaterEqual、ClipByValueV2、FloorDiv、FloorMod、
+#   SelectV2 ×2、对 **跨步列视图** 的 ViewCopy(16384) ×2）。r8-prof 的 decode 稳态窗实测
+#   **12 个 cache group/步**（10 个 SWA 组 + full 组的 c1/c2 各一次；同一 group 内的 4 层
+#   已经由 `shared[slot_key]` 缓存共享）⇒ ViewCopy 23.75 次/步 × 8.007 µs + cols 12.3 µs/次
+#   ≈ **0.39 ms/步 设备时间**（这些算子落在每步的元数据相位，与主图不重叠）。
+# 本核：一次 Triton 调用把 `[0,T)` 行的两列**一次连续 store** 写完（实测：跨步 store 在本构建上
+#   退化为逐元素标量写，6 元素也要 17.8 µs；连续 store 只 0.19–2.3 µs）。
+# 等价性：见 `a2/agents/SAFE_LEVERS/REPORT.md` §3（32 例 torch.equal 全过：T∈{1,2,6,7,64,129,1024,8192}
+#   × 4 种槽位模式，含 -1/0/上界；T 之后的陈旧行两路都不动）。
+# 开关：`VLLM_V41_SLOTMAP2D_FUSED=0` 回落原 torch 链。仅在 **非 (compressed and ratio==2)**
+#   且 storage_block_size 是 2 的幂时启用（生产 128 ✓）；C2 有效性掩码/非 2 幂一律走原链。
+import os as _sm2_os
+
+from vllm.triton_utils import tl as _sm2_tl, triton as _sm2_triton
+
+_SM2_FUSED = _sm2_os.environ.get("VLLM_V41_SLOTMAP2D_FUSED", "1").strip().lower() not in (
+    "",
+    "0",
+    "false",
+    "no",
+)
+_SM2_BLOCK = 64
+
+
+@_sm2_triton.jit(do_not_specialize=["num_tokens"])
+def _slot_map2d_kernel(
+    out_ptr,       # int32 [max_tokens, 2] 持久缓冲（行连续 ⇒ 展平后连续）
+    slots_ptr,     # int32 [T] active_slots（含 -1 跳过行）
+    num_tokens,
+    LBS: _sm2_tl.constexpr,
+    BS: _sm2_tl.constexpr,
+    BLOCK: _sm2_tl.constexpr,
+):
+    """`out[:T, 0] = where(s>=0, s//BS, -1)`、`out[:T, 1] = where(s>=0, s%BS, -1)`。
+
+    lane 索引 `idx` 覆盖 `[0, 2T)` 的**连续**地址；`rows = idx // 2`、奇偶选列。
+    `s < 0`（PAD/跳过行）⇒ 两列都写 -1；`[T, max_tokens)` 行**原样不动**。
+    """
+    pid = _sm2_tl.program_id(0)
+    idx = pid * (2 * BLOCK) + _sm2_tl.arange(0, 2 * BLOCK)
+    rows = idx // 2
+    m = rows < num_tokens
+    s = _sm2_tl.load(slots_ptr + rows, mask=m, other=-1)
+    ok = m & (s >= 0)
+    page = _sm2_tl.where(ok, s >> LBS, -1)
+    off = _sm2_tl.where(ok, s & (BS - 1), -1)
+    val = _sm2_tl.where((idx & 1) == 0, page, off)
+    _sm2_tl.store(out_ptr + idx, val, mask=m)
+
+
+def _slot_map2d_eligible(compressed: bool, ratio: int, bs: int, num_tokens: int,
+                         out2d: "torch.Tensor" = None, slots: "torch.Tensor" = None) -> bool:
+    if not _SM2_FUSED or num_tokens <= 0:
+        return False
+    if compressed and ratio == 2:      # C2 完成掩码（valid_end / positions%2）不在核内 ⇒ 走原链
+        return False
+    if not (int(bs) > 0 and (int(bs) & (int(bs) - 1)) == 0):   # 核用移位 ⇒ 需 2 的幂
+        return False
+    # ★ 防御：核按 int32 读槽位、按 int32 写两列；形状/类型或设备不符一律回落原链
+    if slots is None or out2d is None:
+        return True
+    if slots.dtype != torch.int32 or out2d.dtype != torch.int32:
+        return False
+    if slots.device != out2d.device or int(slots.numel()) < int(num_tokens):
+        return False
+    return int(out2d.size(0)) >= int(num_tokens) and int(out2d.size(1)) == 2
+
+
+def _slot_map2d_fused(out2d: torch.Tensor, slots: torch.Tensor, num_tokens: int, bs: int) -> None:
+    """把 `[0, num_tokens)` 的两列一次写完（`out2d` 为持久 (max_tokens, 2) int32）。"""
+    assert out2d.is_contiguous(), "核按展平连续地址读写 [max_tokens, 2] 缓冲"
+    _slot_map2d_kernel[(_sm2_triton.cdiv(int(num_tokens), _SM2_BLOCK),)](
+        out2d,
+        slots,
+        int(num_tokens),
+        LBS=int(bs).bit_length() - 1,
+        BS=int(bs),
+        BLOCK=_SM2_BLOCK,
+        num_warps=1,
+    )
+# ==================== end [SAFE-L2] ====================
+
+
 def _request_counts(common: Any, num_reqs: int):
     """Return V4-shaped request counters without synchronizing the NPU."""
     is_prefilling = getattr(common, "is_prefilling", None)
@@ -360,8 +445,33 @@ def kv8_chunk_view(plane: torch.Tensor, chunk: int) -> torch.Tensor:
 
 
 def kv8_gather_pages(plane: torch.Tensor, pages: torch.Tensor) -> torch.Tensor:
-    """``plane[pages]`` via one 1-D ``index_select`` (index = the block table)."""
-    out = torch.index_select(kv8_page_view(plane), 0, pages.reshape(-1).to(torch.int64))
+    """``plane[pages]`` via one 1-D ``index_select`` over the **contiguous chunk view**.
+
+    [SWA_COMPACT] Do **not** index the page view here.  ``kv8_page_view`` is an
+    ``as_strided`` view whose ``stride(0)`` is the *slot capacity*, so it is a
+    **non-contiguous** tensor whenever the hybrid slot page is larger than the
+    plane's own payload -- which is the norm for the INT8 SWA face (slot page
+    131,072 / 147,712 B vs payload 65,536 B).  Measured on c2 with the in-graph
+    40-layer harness at production geometry (7,938 pages, B=8, 3 pages/req):
+
+        page view  : 829.0 us/layer (stride 131,072) / 842.5 (stride 147,712)
+        chunk view :  36.8 us/layer (stride 131,072) /  38.6 (stride 147,712)
+
+    and at 4,096 pages: 421-423 us (page) vs 13.0 us (chunk).  The cost of the
+    page view scales with the *page count* (~610 GB/s per 64 KiB page) and is
+    independent of the gap size; the chunk view is flat in both (13.0 us at
+    320/1,024/4,096/7,938 pages).  The two paths read the **same linear bytes**
+    -- a page's payload is still one contiguous run of chunks, ``phys * per_page
+    + [0 .. payload_chunks)`` -- so the outputs are bit-identical
+    (``torch.equal`` = True for both the INT8 and the scale plane, at both
+    strides; logs/SWA_COMPACT).
+    """
+    chunk = math.gcd(int(plane.stride(0)), int(plane.stride(1)))
+    per_page = (int(plane.shape[1]) * int(plane.stride(1))) // chunk
+    ids = pages.reshape(-1).to(torch.int64) * (int(plane.stride(0)) // chunk)
+    steps = torch.arange(per_page, device=ids.device, dtype=torch.int64)
+    ids = (ids.unsqueeze(-1) + steps).reshape(-1)
+    out = torch.index_select(kv8_chunk_view(plane, chunk), 0, ids)
     return out.reshape(*pages.shape, *plane.shape[1:])
 
 
@@ -1342,36 +1452,49 @@ class DeepseekV41MetadataBuilder(AttentionMetadataBuilder[DeepseekV41Metadata]):
                 active_slots = common.slot_mapping[:num_input_tokens]
                 if compressed and ratio != 1:
                     active_slots = compressed_slot_mapping(active_slots, ratio)
-                valid = active_slots >= 0
-                if compressed and ratio == 2:
-                    # Prepare the C2 store mask once per cache group, before
-                    # forward. Match the ring compressor's completion policy.
-                    if kwargs.get("skip_ring_state_update", False):
-                        valid.zero_()
-                    else:
-                        valid_end = common.query_start_loc[num_actual_reqs].clamp_max(num_actual_tokens)
-                        valid &= torch.arange(num_input_tokens, device=active_slots.device) < valid_end
-                        if positions is not None:
-                            valid &= positions.remainder(2) == 1
-                physical = active_slots.clamp_min(0)
-                self._slot_mapping_2d[:num_input_tokens, 0].copy_(
-                    torch.where(
-                        valid,
-                        torch.div(
-                            physical,
-                            spec.storage_block_size,
-                            rounding_mode="floor",
-                        ),
-                        -1,
+                # [SAFE-L2] 非 C2 的常规路径走单核（cols + 两列写一次完成）；
+                #   C2 有效性掩码 / 非 2 幂 storage_block_size / 开关关闭 ⇒ 原 torch 链。
+                if _slot_map2d_eligible(
+                    compressed, ratio, spec.storage_block_size, num_input_tokens,
+                    self._slot_mapping_2d, active_slots,
+                ):
+                    _slot_map2d_fused(
+                        self._slot_mapping_2d,
+                        active_slots,
+                        num_input_tokens,
+                        spec.storage_block_size,
                     )
-                )
-                self._slot_mapping_2d[:num_input_tokens, 1].copy_(
-                    torch.where(
-                        valid,
-                        physical.remainder(spec.storage_block_size),
-                        -1,
+                else:
+                    valid = active_slots >= 0
+                    if compressed and ratio == 2:
+                        # Prepare the C2 store mask once per cache group, before
+                        # forward. Match the ring compressor's completion policy.
+                        if kwargs.get("skip_ring_state_update", False):
+                            valid.zero_()
+                        else:
+                            valid_end = common.query_start_loc[num_actual_reqs].clamp_max(num_actual_tokens)
+                            valid &= torch.arange(num_input_tokens, device=active_slots.device) < valid_end
+                            if positions is not None:
+                                valid &= positions.remainder(2) == 1
+                    physical = active_slots.clamp_min(0)
+                    self._slot_mapping_2d[:num_input_tokens, 0].copy_(
+                        torch.where(
+                            valid,
+                            torch.div(
+                                physical,
+                                spec.storage_block_size,
+                                rounding_mode="floor",
+                            ),
+                            -1,
+                        )
                     )
-                )
+                    self._slot_mapping_2d[:num_input_tokens, 1].copy_(
+                        torch.where(
+                            valid,
+                            physical.remainder(spec.storage_block_size),
+                            -1,
+                        )
+                    )
                 prepared_slots = self._slot_mapping_2d[:num_input_tokens]
                 shared[slot_key] = prepared_slots
             slots = prepared_slots
@@ -1633,6 +1756,47 @@ class DeepseekV41CacheLayer(nn.Module, AttentionLayerBase):
     def get_attn_backend(self):
         return DeepseekV41CacheBackend
 
+
+# ==================== [FUSE_MULTIROW] KV8 读侧融合接线（多行推广版） ====================
+# 来源：`agents/KV8_fuse/shadow/vllm_ascend/attention/dsa_v41.py:1371-1385`（md5 f84fd4c0876113ae4278ba74b443dcf6）
+#   + `agents/KV8_fuse/kv8_fuse_triton.py`（md5 6ce00b8f6fdd9ba4ad5935876601f8d6，本臂推广为
+#     `agents/FUSE_MULTIROW/src/kv8_fuse_triton.py`）。
+#
+# ★ 位置是刻意的：这一段必须在下面 `# --- KV8_prefill wiring` **之前**。S 版预填充线用
+#   `_kv8_ori_plane_decode = kv8_ori_plane` / `_kv8_cmp_plane_decode = DeepseekV41EagerAttentionImpl._kv8_cmp_plane`
+#   抓"当前符号"，先装融合 ⇒ 预填充线抓到的就是融合 wrapper（decode 走融合、prefill 仍走
+#   `kv8_prefill_triton`）。**S 版文件尾（:1637-1797）与 F 版文件尾互斥，这里是显式合并。**
+#
+# 与 F 原版接线的三处**必须**的差别（原样照抄 = 收益 0 + 捕获期 EE1016）：
+#   ① `fused_ori_plane` 有 `rows_bound` 形参且在回退时**原样转发**（F 的 8 位置实参版丢它，
+#      会让 spec 形状落进 legacy prefill 支的 `.max().item()`）；
+#   ② `fused_cmp_plane` 有 `graph_safe` 形参且在回退时**原样转发**（F 的 6 位置实参版丢它）；
+#   ③ 融合内核本身推广到多行形状（生产 `query_rows=6, num_reqs=1`）：SWA 的 PP 由 host 上界
+#      `rows_bound` 算出（=3 页）、band 起点用 `query_start_loc` 差分；cmp 走每 query 行私有段 +
+#      identity 段表。两个新支都与本文件的 graphsafe torch 支语义逐位等价（`out/verify_rowmap.py`）。
+#
+# 分派（wrapper 内部判定，形状不匹配一律**安全回退**到本文件的 torch 支）：
+#   SWA：`rows_bound` 非 None ⇒ 融合（PP 由上界算）；
+#        `rows_bound` None 且 `query_rows == num_reqs` ⇒ 融合（PP=2，026 实测路径）；
+#        其余（真 eager prefill）⇒ 回退（由下面的 KV8_prefill 段接管/走 torch）。
+#   cmp：`rows == num_reqs` ⇒ 融合（026 原路径）；
+#        `rows % num_reqs == 0` 且 `graph_safe` ⇒ 融合（多行 spec-decode）；
+#        其余（eager prefill / 非 2 幂 topk）⇒ 回退。
+#
+# ★ 依赖：`kv8_fuse_triton.py` 必须与 dsa_v41.py **同挂载集**。`serve_a2.sh:948-952` 目前只挂
+#   dsa_v41.py 与 tier D 的 kv8_prefill_triton.py ⇒ 起臂前必须断言容器内存在该文件（或加进挂载集）。
+# ★ 开关：`VLLM_V41_KV8_FUSE=0` 为 kill switch（默认 1）。多行支还需要 `VLLM_V41_KV8_GRAPH_SAFE=1`
+#   （否则 rows_bound 恒为 None ⇒ SWA 回退 torch ⇒ 收益 0，且 spec 形状落进 prefill 支）。
+# ==============================================================================
+import os as _fm_os
+
+if _fm_os.environ.get("VLLM_V41_KV8_FUSE", "1") == "1":
+    from vllm_ascend.attention import kv8_fuse_triton as _fm_fuse
+
+    _fm_fuse.capture_originals()
+    kv8_ori_plane = _fm_fuse.fused_ori_plane
+    DeepseekV41EagerAttentionImpl._kv8_cmp_plane = _fm_fuse.fused_cmp_plane
+# ====================== end [FUSE_MULTIROW] KV8 读侧融合接线 ======================
 
 # --- KV8_prefill wiring (logs/033) ------------------------------------------
 import os

@@ -108,6 +108,25 @@ def _is_contiguous_local_range(expert_map, first_expert_idx: int, last_expert_id
     return _ok
 # [MOE-MASK-RANGE] end --------------------------------------------------------
 
+# [SAFE-L1] int32 域比较（子代理 SAFE_LEVERS，见 a2/agents/SAFE_LEVERS/REPORT.md）
+#   `(topk_ids < first_expert_idx)` 里 first/last 是 **python int 标量** ⇒ aclnn 的
+#   `LtScalar/GeScalar` 会把 int32 的 topk_ids 先 **Cast 到 int64** 再比（每层 2 个 Cast，
+#   r8-prof 窗实测 7680 次/96 步 = 80 次/步、2×1.243 µs/层 × 40 层 = 0.0994 ms/步）。
+#   换成 **int32 0-dim 张量** ⇒ 算子退化为 `Less/GreaterEqual INT32;INT32`，没有 Cast；
+#   语义逐位相同（topk_ids ∈ [0, E)，first/last ∈ [0, E]，int32 无溢出 ⇒ int64 提升是恒等）。
+#   ★ 张量在首帧（eager 预热期）建好后缓存，捕获期不再分配。
+_MOE_MASK_RANGE_I32: dict = {}
+
+
+def _i32_scalar(value: int, device) -> "torch.Tensor":
+    key = (int(value), str(device))
+    t = _MOE_MASK_RANGE_I32.get(key)
+    if t is None:
+        t = torch.tensor(int(value), dtype=torch.int32, device=device)
+        _MOE_MASK_RANGE_I32[key] = t
+    return t
+# [SAFE-L1] end ---------------------------------------------------------------
+
 EXPERT_TOKEN_NUMS_TYPE_CUMSUM = 0
 EXPERT_TOKEN_NUMS_TYPE_COUNT = 1
 
@@ -449,8 +468,11 @@ class TokenDispatcherWithAllGather(MoETokenDispatcher[MoEAllGatherCombineMetadat
             # 读到未写入的 permuted_tokens 行，靠这里的 0 权重压掉）。
             if _MOE_MASK_RANGE_FAST and _is_contiguous_local_range(
                     expert_map, first_expert_idx, last_expert_idx):
+                # [SAFE-L1] int32 域比较（去掉每层 2 次 INT32→INT64 的 Cast；
+                #   逐位等价，见文件头 [SAFE-L1] 段与 a2/agents/SAFE_LEVERS/REPORT.md §2）。
                 topk_weights = topk_weights.masked_fill(
-                    (topk_ids < first_expert_idx) | (topk_ids >= last_expert_idx), 0.0)
+                    (topk_ids < _i32_scalar(first_expert_idx, topk_ids.device))
+                    | (topk_ids >= _i32_scalar(last_expert_idx, topk_ids.device)), 0.0)
             else:
                 mask = expert_map[topk_ids] != -1
                 topk_weights = topk_weights * mask
