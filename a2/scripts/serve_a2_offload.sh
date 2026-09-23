@@ -87,7 +87,8 @@ APC_ALIGN=${APC_ALIGN:-0}
 
 # ★★ int8 的图安全补丁（logs/049 / patches/kv8-graphsafe/）
 #   不打开 ⇒ 档 C/D 在 FULL_DECODE_ONLY 下【捕获期直接炸】（EE1016）
-#   ★ 前提：挂上 patches/kv8-graphsafe/dsa_v41.py（md5 94aeebb7…）
+#   ★ 前提：挂上 patches/kv8-graphsafe/dsa_v41.py（md5 **7867da2a**… = chunkview 修复版；
+#     ★ **94aeebb7 是未修版** —— 在 A2 的 85 GiB 池上会付 ≈125 ms/step，见 logs/106/121）
 GRAPH_SAFE=${GRAPH_SAFE:-0}
 
 # ★ 开了 int8 就必须同时开 APC 对齐（否则 D/F 几何会翻 token，logs/047）
@@ -102,7 +103,7 @@ if { [ "$KV8_SWA" = "1" ] || [ "$KV8_RING_FP16" = "1" ] || [ "$KV8_FULL" = "1" ]
    && [ "$GRAPH_SAFE" = "0" ] && [ "${GRAPH:-1}" != "0" ]; then
     echo "⚠⚠ 你开了 int8 + 图模式但 GRAPH_SAFE=0 ⇒ 自动置 1" >&2
     echo "   （否则档 C/D 在 FULL_DECODE_ONLY 下捕获期会炸 EE1016，logs/049）" >&2
-    echo "   前提：已挂 patches/kv8-graphsafe/dsa_v41.py（md5 94aeebb7…）" >&2
+    echo "   前提：已挂 patches/kv8-graphsafe/dsa_v41.py（md5 **7867da2a**… = 修复版）" >&2
     GRAPH_SAFE=1
 fi
 
@@ -268,6 +269,41 @@ for f in 0001-offload-scheduler.patch.py 0001b-offload-per-group-bpc-manager.pat
     fi
 done
 echo "✓ 四个补丁文件已就位（md5 见 a2/patches/README.md）"
+
+# ---------------------------------------------------------------- ★★ int8 修复件自检（2026-09-23 新增）
+# 为什么需要：`dsa_v41.py` 有两个版本，**旧的（94aeebb7）在 A2 的 85 GiB 池上会付 ≈125 ms/step**
+#   （SWA int8 取页成本正比于池总大小；修复版改成连续 chunk 视图后对池大小变平）。
+#   而这两件是**挂载**的（锚在 PGO_LIB 之后，不受 PATCH_MODE 管）⇒ 可以直接在这里核。
+if [ "$KV8_SWA" = "1" ] || [ "$KV8_RING_FP16" = "1" ] || [ "$KV8_FULL" = "1" ]; then
+    _DSA="" ; _K="" ; _I8=""
+    for _c in "$REPO/a2/patches" "$A2DIR/patches"; do
+        [ -z "$_DSA" ] && [ -f "$_c/kv8-graphsafe/dsa_v41.py" ] && _DSA="$_c/kv8-graphsafe/dsa_v41.py"
+        [ -z "$_K" ]   && [ -f "$_c/kv8-int8-pkg/vllm_ascend/attention/kv8_fuse_triton.py" ] \
+                       && _K="$_c/kv8-int8-pkg/vllm_ascend/attention/kv8_fuse_triton.py"
+    done
+    _m() { [ -f "$1" ] && md5sum "$1" | cut -d' ' -f1 || echo "(缺失)"; }
+    _dmd5=$(_m "$_DSA") ; _kmd5=$(_m "$_K")
+    echo "--- int8 修复件（**挂载**，不随镜像；起服后可在容器内反查）---"
+    echo "  dsa_v41.py         md5=$_dmd5   $_DSA"
+    echo "  kv8_fuse_triton.py md5=$_kmd5   $_K"
+    if [ "$_DSA" = "" ] || [ "$_dmd5" = "(缺失)" ]; then
+        echo "⛔ 缺 kv8-graphsafe/dsa_v41.py ⇒ 档 C 起不来（挂载块会 die）" >&2; exit 2
+    fi
+    if [ "$_dmd5" = "94aeebb757d6d5708268754481a05e0a" ]; then
+        echo "⛔ 你挂的是 **未修复版** dsa_v41.py（94aeebb7）⇒ A2 的 85 GiB 池会让 decode 每步多 ≈125 ms。" >&2
+        echo "   修法： cd \$REPO && git pull --ff-only   （修复版 md5 = 7867da2a345d7135ddbc6919eec144f9）" >&2
+        exit 2
+    fi
+    if [ "$_kmd5" = "(缺失)" ]; then
+        echo "⛔ 缺 kv8-int8-pkg/vllm_ascend/attention/kv8_fuse_triton.py" >&2
+        echo "   ⇒ dsa_v41.py 顶部的 \`from vllm_ascend.attention import kv8_fuse_triton\` 会 **ImportError**（不是静默降级）。" >&2
+        echo "   修法： git pull --ff-only （该件在 commit d32be29 里新增）" >&2
+        exit 2
+    fi
+    if [ "$_dmd5" != "7867da2a345d7135ddbc6919eec144f9" ]; then
+        echo "⚠️  dsa_v41.py 不是已知的修复版 md5（7867da2a…）也不是已知旧版 ⇒ 请自行确认。" >&2
+    fi
+fi
 
 # shadow-pkg 的补丁目录（serve_a2.sh 的 PATCH_MODE=mount 从这里挂）
 SHADOW=${SHADOW_PKG:-$HOME/projects/dsv41-upstream-pr/shadow-pkg}
