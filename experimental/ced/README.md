@@ -29,6 +29,13 @@
 覆盖文件；H20 快照以 `rankN_posM.npz` 命名。比较时 P、D、基线必须使用
 同一批 token ID、相同权重、KV 精度和模型配置。
 
+若 H20 已出现明显差异，可再设 `CED_LAYER_SNAPSHOT_POS=<位置>`：按 rank
+导出层 0/1/2/13/14/15/19/20 在前向前后及 Engram 门控后的一个 token，
+包含 `input_id`、多流隐状态、`pre_mix`、Engram lookup 与 token mask。
+P 的层 20 只保存前向前状态，因它不执行 decoder 层。对应的完整模型基线
+直接传 `V41_CED_LAYER_SNAPSHOT_POS/DIR`；
+`tools/compare_ced_layer_snapshots.py --tp 8` 比较三臂并定位首个分叉。
+
 当前变更只处理 **P 侧缓存组有效性**：P 跳过层 20–39 后，将 G7–G11 的
 `remote_block_ids` 置空，并在交接元数据写入 `ced_replay_tokens=128`、缺失组、
 有效前缀长度。这防止把未写入的上半层 SWA 当成有效缓存交给普通 D。

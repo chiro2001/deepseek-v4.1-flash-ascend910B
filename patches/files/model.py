@@ -58,6 +58,13 @@ _IDS64_HOIST = _os_ids.environ.get("V41_IDS64_HOIST", "0") == "1"
 _CED_PREFILL_ROLE = _os_ids.environ.get("V41_CED_ROLE", "") == "prefill"
 _CED_H20_SNAPSHOT_POS = _os_ids.environ.get("V41_CED_H20_SNAPSHOT_POS", "")
 _CED_H20_SNAPSHOT_DIR = _os_ids.environ.get("V41_CED_H20_SNAPSHOT_DIR", "")
+_CED_LAYER_SNAPSHOT_POS = _os_ids.environ.get("V41_CED_LAYER_SNAPSHOT_POS", "")
+_CED_LAYER_SNAPSHOT_DIR = _os_ids.environ.get("V41_CED_LAYER_SNAPSHOT_DIR", "")
+_CED_LAYER_SNAPSHOT_LAYERS = {
+    int(value)
+    for value in _os_ids.environ.get("V41_CED_LAYER_SNAPSHOT_LAYERS", "0,1,2,13,14,15,19,20").split(",")
+    if value.strip()
+}
 from safetensors import safe_open
 from transformers import AutoTokenizer
 from vllm.distributed import get_pp_group, get_tensor_model_parallel_rank
@@ -130,6 +137,62 @@ def _maybe_snapshot_ced_h20(layer, positions, hidden_states, pre_mix):
         pre_mix=pre_mix[row].detach().float().cpu().numpy().copy(),
     )
     print(f"[CED-H20] snapshot rank={rank} position={target} path={output}", flush=True)
+
+
+def _maybe_snapshot_ced_layer(
+    layer, positions, input_ids, hidden_states, pre_mix, stage, lookup=None, token_mask=None
+):
+    """Capture one active token around selected encoder and Engram layers."""
+    if (
+        not _CED_LAYER_SNAPSHOT_POS
+        or not _CED_LAYER_SNAPSHOT_DIR
+        or layer.layer_idx not in _CED_LAYER_SNAPSHOT_LAYERS
+    ):
+        return
+    context = get_forward_context()
+    if (
+        context.attn_metadata is None
+        or getattr(context, "capturing", False)
+        or getattr(context, "in_profile_run", False)
+    ):
+        return
+    metadata = layer.self_attn.v41_impl._get_layer_metadata(context.attn_metadata)
+    if metadata.swa.num_prefills == 0:
+        return
+    target = int(_CED_LAYER_SNAPSHOT_POS)
+    active = metadata.swa.num_actual_tokens
+    found = (positions[:active] == target).nonzero(as_tuple=False).flatten().cpu().tolist()
+    if not found:
+        return
+    if len(found) != 1:
+        raise RuntimeError(f"CED layer snapshot position {target} appears {len(found)} times")
+    rank = get_tensor_model_parallel_rank()
+    output_dir = Path(_CED_LAYER_SNAPSHOT_DIR) / f"rank{rank}"
+    output_dir.mkdir(parents=True, exist_ok=True)
+    output = output_dir / f"layer{layer.layer_idx:02d}_{stage}_pos{target}.npz"
+    if output.exists():
+        return
+    row = found[0]
+    snapshot = dict(
+        position=target,
+        layer=layer.layer_idx,
+        stage=stage,
+        tp_rank=rank,
+        role=_os_ids.environ.get("V41_CED_ROLE", ""),
+        input_id=int(input_ids[row].detach().cpu().item()),
+        hidden_states=hidden_states[row].detach().float().cpu().numpy().copy(),
+        pre_mix=pre_mix[row].detach().float().cpu().numpy().copy(),
+    )
+    if lookup is not None:
+        snapshot["engram_lookup"] = lookup[row].detach().float().cpu().numpy().copy()
+    if token_mask is not None:
+        snapshot["engram_token_mask"] = bool(token_mask[row].detach().cpu().item())
+    _np.savez_compressed(output, **snapshot)
+    print(
+        f"[CED-LAYER] snapshot rank={rank} layer={layer.layer_idx} "
+        f"stage={stage} position={target} path={output}",
+        flush=True,
+    )
 
 # ==== [DEVICE-INDEX] Engram 端到端设备化 =====================================
 # V41_ENGRAM_DEVICE_INDEX=1 时，查表不再经过 host：
@@ -1358,6 +1421,9 @@ class DeepseekV41Model(DeepseekV4Model):
         for layer in self.layers:
             if layer.layer_idx == 20:
                 _maybe_snapshot_ced_h20(layer, positions, hidden_states, pre_mix)
+            _maybe_snapshot_ced_layer(
+                layer, positions, input_ids, hidden_states, pre_mix, "pre"
+            )
             if self._ced_prefill_only and layer.layer_idx == 20:
                 layer.write_global_source_from_encoder(hidden_states, pre_mix)
                 break
@@ -1382,6 +1448,10 @@ class DeepseekV41Model(DeepseekV4Model):
                     _engram_gate_rotation_f32(self.engram_rotation),
                     active_mask,
                     self.config.rms_norm_eps,
+                )
+                _maybe_snapshot_ced_layer(
+                    layer, positions, input_ids, hidden_states, pre_mix,
+                    "after_engram", lookup=lookup, token_mask=active_mask,
                 )
             ced_source_snapshot = None
             if (
@@ -1412,6 +1482,9 @@ class DeepseekV41Model(DeepseekV4Model):
                         self._ced_source_compare_remaining -= 1
                         self._ced_source_compare_count += 1
             hidden_states, pre_mix = layer(positions, hidden_states, pre_mix, None, input_ids=moe_input_ids)
+            _maybe_snapshot_ced_layer(
+                layer, positions, input_ids, hidden_states, pre_mix, "post"
+            )
             if ced_source_snapshot is not None:
                 rows, planes, before, pos_edges = ced_source_snapshot
                 for plane_idx, (plane, saved) in enumerate(zip(planes, before)):

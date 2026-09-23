@@ -38,5 +38,9 @@ if [ -n "${CED_H20_SNAPSHOT_POS:-}" ]; then
   export V41_CED_H20_SNAPSHOT_POS=$CED_H20_SNAPSHOT_POS
   export V41_CED_H20_SNAPSHOT_DIR="/opt/dsv41/results/$RUN_ID/h20_snapshots"
 fi
+if [ -n "${CED_LAYER_SNAPSHOT_POS:-}" ]; then
+  export V41_CED_LAYER_SNAPSHOT_POS=$CED_LAYER_SNAPSHOT_POS
+  export V41_CED_LAYER_SNAPSHOT_DIR="/opt/dsv41/results/$RUN_ID/layer_snapshots"
+fi
 echo "[a3-ced] role=$V41_CED_ROLE name=$NAME max_len=${MAX_LEN:-147456} spec=$SPEC prefix=$PREFIX"
 exec bash "$HERE/serve_a3_pd.sh" "$role"
