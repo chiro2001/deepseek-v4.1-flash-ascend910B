@@ -18,6 +18,7 @@ import torch.nn.functional as F
 from torch import nn
 from vllm.compilation.breakable_cudagraph import eager_break_during_capture
 from vllm.config import VllmConfig
+from vllm.distributed import get_tensor_model_parallel_rank
 from vllm.forward_context import get_forward_context
 from vllm.model_executor.layers.attention_layer_base import AttentionLayerBase
 from vllm.utils.torch_utils import direct_register_custom_op
@@ -626,8 +627,11 @@ class DeepseekV41EagerAttentionImpl:
                 index_k=numeric_row(index_k[index_block, index_offset]),
                 index_scale=numeric_row(index_scale[index_block, index_offset]),
             )
-        os.makedirs(_CED_SNAPSHOT_DIR, exist_ok=True)
-        path = os.path.join(_CED_SNAPSHOT_DIR, f"layer{self.role.layer_idx:02d}_pos{target}.npz")
+        rank = get_tensor_model_parallel_rank()
+        snapshot["tp_rank"] = rank
+        rank_dir = os.path.join(_CED_SNAPSHOT_DIR, f"rank{rank}")
+        os.makedirs(rank_dir, exist_ok=True)
+        path = os.path.join(rank_dir, f"layer{self.role.layer_idx:02d}_pos{target}.npz")
         np.savez_compressed(path, **snapshot)
 
     def forward(self, attn, positions, hidden_states, output: torch.Tensor | None = None):

@@ -24,7 +24,10 @@
 `V41_CED_ROLE=''`、`KV_ARGS_EXTRA=''` 的 `scripts/serve_a3.sh` 启动并
 显式传入 `V41_CED_SNAPSHOT_*`、`V41_CED_H20_SNAPSHOT_*`；它们的目标位置
 应与 P/D 相同。`tools/compare_ced_cache_snapshots.py` 和
-`tools/compare_ced_h20_snapshots.py` 可生成逐层数值差异。
+`tools/compare_ced_h20_snapshots.py` 可生成逐层数值差异；TP8 时给两个工具
+都传 `--tp 8`。缓存快照按 `rank0/` 至 `rank7/` 分目录，避免并行 worker
+覆盖文件；H20 快照以 `rankN_posM.npz` 命名。比较时 P、D、基线必须使用
+同一批 token ID、相同权重、KV 精度和模型配置。
 
 当前变更只处理 **P 侧缓存组有效性**：P 跳过层 20–39 后，将 G7–G11 的
 `remote_block_ids` 置空，并在交接元数据写入 `ced_replay_tokens=128`、缺失组、
