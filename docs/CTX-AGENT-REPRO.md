@@ -61,7 +61,13 @@ python3 tools/ctx_agent_probe.py --base-url $BASE --model deepseek-v41 \
 python3 tools/ctx_agent_probe.py --base-url $BASE --model deepseek-v41 \
     --mode mixed --context-tokens 520000 --conc 4 --out ~/r3_mixed.json
 
-# ④ 并发大 prefill（多路各自 520k）
+# ④ ★ 真流式（SSE）＋ 工具定义：真实 Agent 客户端就是这么发的（不是 stream:false！）
+python3 tools/ctx_agent_probe.py --base-url $BASE --model deepseek-v41 \
+    --mode stream --context-tokens 520000 --conc 8 --out ~/r5_stream.json
+
+# ⑤ 并发大 prefill（多路各自 520k）
+python3 tools/ctx_agent_probe.py --base-url $BASE --model deepseek-v41 \
+    --mode bigprefill --context-tokens 520000 --conc 2 --repeats 2 --out ~/r6_conc.json
 python3 tools/ctx_agent_probe.py --base-url $BASE --model deepseek-v41 \
     --mode bigprefill --context-tokens 520000 --conc 2 --repeats 2 --out ~/r4_conc.json
 ```
@@ -100,6 +106,12 @@ grep -a 'GPU KV cache size' <serve.log> | tail -1
 | `bigprefill` + 2 路并发（各 520k） | 6 次请求 / 662 s | 全 PASS |
 | `biggrow` 520k → 同会话追问 3 轮 | 4 次请求 | 全 PASS |
 | `mixed`：1 路 520k prefill ＋ 4 路短流并发 | 9 次请求 | 全 PASS（含空闲基线对照） |
+| `stream`：520k **真流式（SSE）** ＋ 4 路并发短流 ＋ 流式工具参数 | 6 次请求 / 217 s | 全 PASS |
+
+★ `stream` 臂的一个**重要读数**：4 路短流的**首字延迟都在 106.6 s**（= 大 prefill 结束那一刻）
+⇒ 在 `MAX_SEQS=4` 下它们被**推迟**了、并没有与 520k prefill 真正交错；
+而 **main 的默认是 `MAX_SEQS=32`** ⇒ 现场若用 main 默认，交错行为会不同。
+（本表后续会补 `MAX_SEQS=32` 的读数。）
 | `needle`/`grow`/`reuse`/`toolargs`/`evict`/`conc` | 8K / 32K / 131K | 全 PASS |
 
 ⇒ **【实测】A3 + main 上，仅"520k 大 prefill + 并发/追问/混合流"不足以触发**。

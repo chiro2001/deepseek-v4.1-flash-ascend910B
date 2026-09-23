@@ -46,6 +46,18 @@ def check(d: dict, name: str) -> bool:
         return r.get("repeat_loop") is True
     if name == "not_exact":
         return r.get("exact") is False
+    if name == "stream_ok":
+        # 流式：大请求那条必须 ok，且**真的收到多个 chunk**（否则解析器可能是空跑）
+        rows = d.get("stream") or []
+        big = [r for r in rows if r.get("phase") == "big-stream"]
+        if not big:
+            return False
+        return bool(big[0].get("ok")) and (big[0].get("n_chunks") or 0) >= 2
+    if name == "stream_tools_ok":
+        rows = [r for r in (d.get("stream") or []) if r.get("phase") == "big-stream+tools"]
+        if not rows:
+            return False
+        return bool(rows[0].get("ok")) and bool(rows[0].get("exact"))
     if name == "ctx_worthless":
         # 专用于负控：上下文不达标时，汇总里的 bad_ctx 必须 >0（判据无效，不是通过）
         sm = d.get("bigprefill_summary") or {}

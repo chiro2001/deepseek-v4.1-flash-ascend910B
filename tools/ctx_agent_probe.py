@@ -260,6 +260,91 @@ def chat(base: str, model: str, messages: list, tools=None,
     return post(base, "/v1/chat/completions", payload, timeout)
 
 
+def chat_stream(base: str, model: str, messages: list, tools=None,
+                max_tokens: int = 64, timeout: float = 3600.0):
+    """★ **真流式**（SSE）请求 —— 真实 Agent 客户端用的就是这条（`stream: true`）。
+
+    为什么必须单独测（2026-09-23）：我此前**所有**请求都是 `stream:false`，
+    而现场是 Agent 场景 ⇒ 输出走的是**增量 SSE 路径**：每个 chunk 都要经过
+    detokenizer + 增量解码 +（若开了工具）tool-call 参数拼接。
+    把"非流式干净"当成"Agent 场景干净"就是**用错的判据**（本仓已栽多类同族）。
+
+    返回：{"http", "wall_s", "text", "tool_calls", "n_chunks", "first_chunk_s",
+           "finish_reason", "err", "raw_tail"}
+    """
+    payload = {"model": model, "messages": messages, "max_tokens": max_tokens,
+               "temperature": 0.0, "stream": True}
+    if tools:
+        payload["tools"] = tools
+    req = urllib.request.Request(base.rstrip("/") + "/v1/chat/completions",
+                                 data=json.dumps(payload).encode(),
+                                 headers={"Content-Type": "application/json",
+                                          "Accept": "text/event-stream"})
+    t0 = time.time()
+    text_parts: list[str] = []
+    tc_acc: dict[int, dict] = {}
+    n_chunks = 0
+    first = None
+    finish = ""
+    raw_tail: list[str] = []
+    try:
+        with urllib.request.urlopen(req, timeout=timeout) as r:
+            if r.status != 200:
+                return {"http": r.status, "wall_s": time.time() - t0, "text": "",
+                        "tool_calls": [], "n_chunks": 0, "first_chunk_s": None,
+                        "finish_reason": "", "err": r.read().decode()[:400],
+                        "raw_tail": []}
+            for raw in r:
+                line = raw.decode("utf-8", errors="replace").strip()
+                if not line:
+                    continue
+                if line.startswith("data:"):
+                    line = line[5:].strip()
+                if line == "[DONE]":
+                    break
+                try:
+                    obj = json.loads(line)
+                except Exception:  # noqa: BLE001
+                    raw_tail.append(line[:200])
+                    if len(raw_tail) > 5:
+                        raw_tail.pop(0)
+                    continue
+                n_chunks += 1
+                if first is None:
+                    first = time.time() - t0
+                for ch in obj.get("choices") or []:
+                    if ch.get("finish_reason"):
+                        finish = ch["finish_reason"]
+                    d = ch.get("delta") or {}
+                    if d.get("content"):
+                        text_parts.append(d["content"])
+                    # 注意：raw 模式下增量在 `text` 而不是 `delta.content`
+                    if d.get("text"):
+                        text_parts.append(d["text"])
+                    for tc in d.get("tool_calls") or []:
+                        i = int(tc.get("index") or 0)
+                        slot = tc_acc.setdefault(i, {"id": "", "name": "", "arguments": ""})
+                        if tc.get("id"):
+                            slot["id"] = tc["id"]
+                        fn = tc.get("function") or {}
+                        if fn.get("name"):
+                            slot["name"] = fn["name"]
+                        if fn.get("arguments"):
+                            slot["arguments"] += fn["arguments"]
+                if obj.get("usage"):
+                    pass
+        return {"http": 200, "wall_s": time.time() - t0,
+                "text": "".join(text_parts),
+                "tool_calls": [tc_acc[k] for k in sorted(tc_acc)],
+                "n_chunks": n_chunks, "first_chunk_s": first,
+                "finish_reason": finish, "err": None, "raw_tail": raw_tail}
+    except Exception as e:  # noqa: BLE001
+        return {"http": -1, "wall_s": time.time() - t0, "text": "".join(text_parts),
+                "tool_calls": [tc_acc[k] for k in sorted(tc_acc)], "n_chunks": n_chunks,
+                "first_chunk_s": first, "finish_reason": finish,
+                "err": repr(e)[:400], "raw_tail": raw_tail}
+
+
 def text_of(resp) -> str:
     try:
         ch = resp["body"]["choices"][0]
@@ -885,11 +970,147 @@ def mode_mixed(a, out: dict) -> int:
     return fails + bad_fp + bad_ctx
 
 
+def mode_stream(a, out: dict) -> int:
+    """★★★ **真流式（SSE）+ 工具调用** —— 真实 Agent 客户的走法，此前完全没测。
+
+    用户现场："一次 agent 的 context ≈520k 直接进入，完整做一次 prefill
+    （**可能还要有其他的流同时请求**）" —— "流"在这里极可能指 **streaming 请求**，
+    而 Agent 还会**带 tools 定义**并期望**流式返回工具调用参数**。
+
+    三条子臂（都在同一次运行里）：
+      ① `big`      ：520k 上下文 + `stream:true`，问埋在中段的针 ⇒ 判**流式拼接后的全文**；
+      ② `tools`    ：520k 上下文 + `tools` + `stream:true`，要求把校验码原样写入 ⇒
+                     判**流式拼出来的 tool_call.arguments 是否逐字**
+                     （增量拼接是最容易坏的地方：分片边界、多字节字符、JSON 转义）；
+      ③ `concurrent`：大流在飞时，另起 N 路**短流**（同样 stream:true）⇒ 判并发下短流是否被污染。
+    """
+    import threading
+    print("=" * 78)
+    print(f"[stream] 真流式 + 工具：520k 单流 ＋ {a.conc} 路并发短流")
+    print("=" * 78)
+    corpus = load_corpus()
+    keys = ["A", "B", "C", "D"]
+    results: list = []
+    lock = threading.Lock()
+    fails = 0
+
+    def rec(row):
+        nonlocal fails
+        with lock:
+            results.append(row)
+            if not row.get("ok", True):
+                fails += 1
+
+    # ① 大流：520k + stream（带 tools，模拟真实 agent）
+    rot = a.offset + 7000000
+    body = slice_for_tokens(a.base_url, a.model, corpus, a.context_tokens, offset=rot)
+    body = embed_needles(body, keys)
+    real = tok_count(a.base_url, a.model, body)
+    ctx_ok = ctx_ratio_ok(real, a.context_tokens, a.min_ctx_ratio)
+    print(f"  实测上下文 ≈{real} token（目标 {a.context_tokens}）ctx_ok={ctx_ok}")
+
+    big_q, big_e = NEEDLE_Q["B"]
+    big_msgs = [{"role": "system", "content": SYSTEM},
+                {"role": "user", "content": body + "\n\n" + big_q}]
+
+    big_row: dict = {}
+
+    def run_big():
+        r = chat_stream(a.base_url, a.model, big_msgs, tools=TOOL_WRITE,
+                        max_tokens=a.max_tokens, timeout=a.timeout)
+        v = judge(r["text"], big_e)
+        big_row.update({
+            "phase": "big-stream", "ctx_tokens_real": real, "ctx_ok": ctx_ok,
+            "ctx_target": a.context_tokens, "http": r["http"], "wall_s": r["wall_s"],
+            "n_chunks": r["n_chunks"], "first_chunk_s": r["first_chunk_s"],
+            "finish_reason": r["finish_reason"], "err": r["err"],
+            "raw_tail": r["raw_tail"][:3], "ok": bool(v["contains"]) and ctx_ok, **v})
+        rec(big_row)
+
+    def run_short(i: int):
+        k = keys[i % 4]
+        q, e = NEEDLE_Q[k]
+        b = embed_needles(corpus[:600], [k])
+        r = chat_stream(a.base_url, a.model,
+                        [{"role": "system", "content": SYSTEM},
+                         {"role": "user", "content": b + "\n\n" + q}],
+                        max_tokens=a.max_tokens, timeout=a.timeout)
+        v = judge(r["text"], e)
+        rec({"phase": f"short-stream{i}", "key": k, "ctx_tokens_real": -1, "ctx_ok": True,
+             "ctx_target": 0, "http": r["http"], "wall_s": r["wall_s"],
+             "n_chunks": r["n_chunks"], "first_chunk_s": r["first_chunk_s"],
+             "finish_reason": r["finish_reason"], "err": r["err"],
+             "ok": bool(v["contains"]) and bool(v["fingerprints"]["u_fffd"] == 0
+                                              and v["fingerprints"]["nul"] == 0), **v})
+
+    tb = threading.Thread(target=run_big)
+    tb.start()
+    time.sleep(1.0)
+    ths = [threading.Thread(target=run_short, args=(i,)) for i in range(a.conc)]
+    for t in ths:
+        t.start()
+    for t in ths:
+        t.join()
+    tb.join()
+
+    # ② 大流 + 工具：要求它把校验码原样写进工具参数（流式增量拼接）
+    want_code = "ZQ7K-3341-VX2M-8890-HT4P-5527-RB9N-6014-PLM3-7712-CDF8-2205"
+    want_path = "/work/out/checksum.txt"
+    tool_msgs = [{"role": "system", "content": SYSTEM},
+                 {"role": "user", "content":
+                  "这是本次会话的日志内容（很长）。读完请调用 write_file 工具："
+                  "把下面的校验码**原样**写入文件，content 只放校验码本身。\n"
+                  f"文件名：{want_path}\n校验码串：{want_code}\n\n" + body}]
+    tr = chat_stream(a.base_url, a.model, tool_msgs, tools=TOOL_WRITE,
+                     max_tokens=a.tool_max_tokens, timeout=a.timeout)
+    got_code = got_path = None
+    parse_err = None
+    if tr["tool_calls"]:
+        try:
+            args = json.loads(tr["tool_calls"][0].get("arguments") or "{}")
+            got_code, got_path = args.get("content"), args.get("path")
+        except Exception as e:  # noqa: BLE001
+            parse_err = repr(e)[:200]
+    ok_code = (got_code == want_code)
+    ok_path = (got_path == want_path)
+    raw_args = json.dumps(tr["tool_calls"][:1], ensure_ascii=False)[:600]
+    rec({"phase": "big-stream+tools", "ctx_tokens_real": real, "ctx_ok": ctx_ok,
+         "ctx_target": a.context_tokens, "http": tr["http"], "wall_s": tr["wall_s"],
+         "n_chunks": tr["n_chunks"], "first_chunk_s": tr["first_chunk_s"],
+         "finish_reason": tr["finish_reason"], "err": tr["err"],
+         "ok": bool(ok_code and ok_path) and ctx_ok,
+         "expect": want_code, "exact": ok_code, "contains": ok_code,
+         "answer_repr": repr(got_code)[:400], "fingerprints": fingerprints(raw_args),
+         "repeat_loop": False, "got_path": got_path, "parse_err": parse_err,
+         "raw_arguments_repr": raw_args})
+
+    for r in results:
+        tag = "PASS" if r["ok"] else "FAIL"
+        extra = ""
+        if r["phase"].startswith(("big-stream", "short-stream")):
+            extra = (f" chunks={r.get('n_chunks')} first={r.get('first_chunk_s')}"
+                     f" fin={r.get('finish_reason')!r}")
+        print(f"  [{r['phase']:18s}] {tag:4s} http={r['http']} wall={r['wall_s']:.1f}s{extra}"
+              f" fp={r['fingerprints']['u_fffd']}/{r['fingerprints']['nul']}")
+        if not r["ok"]:
+            print(f"      A: {r['answer_repr']}")
+            if r.get("err"):
+                print(f"      err: {r['err']}")
+            if r.get("raw_tail"):
+                print(f"      raw: {r['raw_tail']}")
+    bad_ctx = sum(1 for r in results if not r.get("ctx_ok", True))
+    print(f"\n  ★ 汇总：{len(results)} 请求 / 失败 {fails} / 上下文不达标 {bad_ctx}")
+    out["stream"] = results
+    out["stream_summary"] = {"n": len(results), "fails": fails, "bad_ctx": bad_ctx,
+                             "target_tokens": a.context_tokens, "conc": a.conc}
+    return fails
+
+
 MODES = {"needle": mode_needle, "grow": mode_grow,
          "reuse": mode_reuse, "toolargs": mode_toolargs,
          "evict": mode_evict, "conc": mode_conc,
          "bigprefill": mode_bigprefill, "biggrow": mode_biggrow,
-         "mixed": mode_mixed}
+         "mixed": mode_mixed, "stream": mode_stream}
 
 
 def selfcheck() -> int:
@@ -972,7 +1193,8 @@ def main() -> int:
                     help="只验探针自己的判据是否自洽（不连服务）")
     ap.add_argument("--mode", default="all",
                     choices=["all", "needle", "grow", "reuse", "toolargs",
-                             "evict", "conc", "bigprefill", "biggrow", "mixed"])
+                             "evict", "conc", "bigprefill", "biggrow", "mixed",
+                             "stream"])
     ap.add_argument("--conc", type=int, default=4, help="conc 模式的并发路数")
     ap.add_argument("--followups", type=int, default=3,
                     help="biggrow 模式：大 prefill 之后在同一会话里追问几轮")

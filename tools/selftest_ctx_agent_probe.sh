@@ -104,6 +104,15 @@ rc=$?
     || { bad "②b rc=$rc"; tail -12 "$T/probe.log" | sed 's/^/        /'; }
 jsonchk "②c bigprefill 有汇总且零失败" "$T/big.json" bigprefill_clean
 
+say "②d stream（真流式 SSE）⇒ 干净桩上必须 PASS、rc=0（解析器不许把流式当空回答）"
+start_srv clean 0
+run_probe "$T/stream.json" --mode stream --context-tokens 3000 --conc 2
+rc=$?
+[ "$rc" = "0" ] && ok "②d stream rc=0" \
+    || { bad "②d rc=$rc"; tail -16 "$T/probe.log" | sed 's/^/        /'; }
+jsonchk "②e 流式大请求 PASS 且收到多个 chunk" "$T/stream.json" stream_ok
+jsonchk "②f 流式工具参数逐字拼接正确"         "$T/stream.json" stream_tools_ok
+
 say "③ 工具参数少一字符 + 乱码 ⇒ toolargs 必须 FAIL"
 start_srv garbled 0        # ★ ③ 要的是**坏**桩（②b 把桩换成了干净的）
 run_probe "$T/bad2.json" --mode toolargs --repeats 1
