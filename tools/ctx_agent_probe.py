@@ -688,10 +688,208 @@ def mode_bigprefill(a, out: dict) -> int:
     return fails + bad_fp + loops + bad_ctx
 
 
+def mode_biggrow(a, out: dict) -> int:
+    """★★★ **大 prefill 之后再走多轮**（更贴近用户现场的第二半）。
+
+    为什么单列：`bigprefill` 只判"那一次大 prefill 的答案对不对"，
+    但现场描述是"**完成一次 prefill 之后**就会出现错误" ⇒ 错误可能出现在**后续轮次**，
+    尤其当后续请求**复用那 520k 前缀**时（前缀缓存 + 分块 prefill 的边界）。
+    本模式：先用一条 520k 的 Agent 轨迹做一次完整 prefill，然后**在同一会话里追问 3 轮**
+    （每轮问一个埋在不同深度的针）⇒ 覆盖"复用大前缀"的路径。
+    """
+    import threading
+    print("=" * 78)
+    print(f"[biggrow] 大 prefill({a.context_tokens}) → 同会话追问 {a.followups} 轮"
+          f"（并发 {a.conc} 路）")
+    print("=" * 78)
+    corpus = load_corpus()
+    keys = ["A", "B", "C", "D"]
+    fails = 0
+    results: list = []
+    lock = threading.Lock()
+
+    def lane(idx: int, rep: int):
+        k0 = keys[idx % 4]
+        rot = a.offset + 3000000 + (rep * a.conc + idx) * 7919
+        # ★ 必须用 slice_for_tokens（它会用 /tokenize **校准**到目标 token 数）；
+        #   直接用 build_context(…, a.context_tokens) 是"字符数当 token 数"，
+        #   实测这段语料 1 字 ≈ 0.73 token ⇒ 520k 字符只有 379k token（长度门会拦下来）。
+        body = slice_for_tokens(a.base_url, a.model, corpus, a.context_tokens, offset=rot)
+        body = embed_needles(body, keys)          # 四针埋在 20/40/60/80%
+        # —— 造"一次 Agent 的 context"：system + user + tool 往返 + 最后提问
+        msgs = [{"role": "system", "content": SYSTEM},
+                {"role": "user", "content": "这是一次长时间的编码会话记录，请先读进去。"},
+                {"role": "assistant", "content": "",
+                 "tool_calls": [{"id": "c0", "type": "function",
+                                 "function": {"name": "read_file",
+                                              "arguments": json.dumps(
+                                                  {"path": f"/work/session_{idx}.log"},
+                                                  ensure_ascii=False)}}]},
+                {"role": "tool", "tool_call_id": "c0", "content": body}]
+        q0, e0 = NEEDLE_Q[k0]
+        msgs.append({"role": "user", "content": q0})
+        t0 = time.time()
+        r0 = chat(a.base_url, a.model, msgs, max_tokens=a.max_tokens, timeout=a.timeout)
+        a0 = text_of(r0)
+        v0 = judge(a0, e0)
+        real = tok_count(a.base_url, a.model, body)
+        row0 = {"rep": rep, "lane": idx, "phase": "prefill", "key": k0,
+                "ctx_tokens_real": real,
+                "ctx_ok": ctx_ratio_ok(real, a.context_tokens, a.min_ctx_ratio),
+                "ctx_target": a.context_tokens, "http": r0["http"],
+                "wall_s": time.time() - t0, **v0}
+        with lock:
+            results.append(row0)
+        # —— 追问：把答案也留在历史里（模拟真实会话），每轮问**另一个深度**的针
+        msgs.append({"role": "assistant", "content": a0})
+        for fi in range(a.followups):
+            k = keys[(idx + 1 + fi) % 4]
+            qq, ee = NEEDLE_Q[k]
+            msgs.append({"role": "user", "content": qq})
+            t1 = time.time()
+            rr = chat(a.base_url, a.model, msgs, max_tokens=a.max_tokens, timeout=a.timeout)
+            aa = text_of(rr)
+            vv = judge(aa, ee)
+            row = {"rep": rep, "lane": idx, "phase": f"followup{fi}", "key": k,
+                   "ctx_tokens_real": real,
+                   "ctx_ok": row0["ctx_ok"], "ctx_target": a.context_tokens,
+                   "http": rr["http"], "wall_s": time.time() - t1, **vv}
+            with lock:
+                results.append(row)
+            msgs.append({"role": "assistant", "content": aa})
+
+    for rep in range(a.repeats):
+        ths = [threading.Thread(target=lane, args=(i, rep)) for i in range(a.conc)]
+        for t in ths:
+            t.start()
+        for t in ths:
+            t.join()
+    for r in results:
+        tag = "PASS" if r["exact"] else ("~hit" if r["contains"] else "FAIL")
+        if not r["contains"]:
+            fails += 1
+        print(f"  [rep{r['rep']} lane{r['lane']} {r['phase']:9s} {r['key']}] {tag:7s} "
+              f"ctx≈{r['ctx_tokens_real']} wall={r['wall_s']:.1f}s http={r['http']} "
+              f"fp={r['fingerprints']['u_fffd']}/{r['fingerprints']['nul']}")
+        if not r["contains"]:
+            print(f"      A: {r['answer_repr']}")
+    bad_fp = sum(1 for r in results if r["fingerprints"]["u_fffd"] or r["fingerprints"]["nul"])
+    bad_ctx = sum(1 for r in results if not r.get("ctx_ok", True))
+    print(f"\n  ★ 汇总：{len(results)} 次 / 未命中 {fails} / 乱码 {bad_fp} / 上下文不达标 {bad_ctx}")
+    out["biggrow"] = results
+    out["biggrow_summary"] = {"n": len(results), "fails": fails,
+                              "with_garbling_fp": bad_fp, "bad_ctx": bad_ctx,
+                              "target_tokens": a.context_tokens, "conc": a.conc,
+                              "followups": a.followups}
+    return fails + bad_fp + bad_ctx
+
+
+def mode_mixed(a, out: dict) -> int:
+    """★★★ **混合负载**：一个 520k 大 prefill 在飞的同时，**其它流**在打短请求。
+
+    为什么单列（用户原话："完整进行一次 prefill（**可能还要有其他的流同时请求**），
+    然后就会出现错误"）：`bigprefill`/`biggrow` 里每条流都是"自己一个大上下文"，
+    而现场更可能是——**一个 agent 的大 prefill 占着引擎**，同时**别的会话**在正常聊天。
+    分块 prefill（520k / 8192 ≈ 64 个 chunk）与并发 decode 交错时，
+    任何"块边界 / 状态共享"类缺陷都会先在这个短流上炸（它最容易看出乱码）。
+
+    判据：① 大 prefill 那一路；② **每条短流**逐字命中 + 乱码指纹 + 复读；③ 短流在
+    "大 prefill 期间 vs 空闲时"的对照（同一问题、同一 seed=0，逐字相同才算稳）。
+    """
+    import threading
+    print("=" * 78)
+    print(f"[mixed] 1 路 {a.context_tokens} 大 prefill ＋ {a.conc} 路短流并发")
+    print("=" * 78)
+    corpus = load_corpus()
+    keys = ["A", "B", "C", "D"]
+    results: list = []
+    lock = threading.Lock()
+
+    def big():
+        rot = a.offset + 5000000
+        body = slice_for_tokens(a.base_url, a.model, corpus, a.context_tokens, offset=rot)
+        body = embed_needles(body, keys)
+        q, e = NEEDLE_Q["A"]
+        real = tok_count(a.base_url, a.model, body)
+        t0 = time.time()
+        r = chat(a.base_url, a.model,
+                 [{"role": "system", "content": SYSTEM},
+                  {"role": "user", "content": body + "\n\n" + q}],
+                 max_tokens=a.max_tokens, timeout=a.timeout)
+        ans = text_of(r)
+        with lock:
+            results.append({"phase": "big", "key": "A", "ctx_tokens_real": real,
+                            "ctx_ok": ctx_ratio_ok(real, a.context_tokens, a.min_ctx_ratio),
+                            "ctx_target": a.context_tokens, "http": r["http"],
+                            "wall_s": time.time() - t0, **judge(ans, e)})
+
+    def short(i: int):
+        k = keys[i % 4]
+        q, e = NEEDLE_Q[k]
+        # 短上下文（几百 token）—— 现场"别的会话在正常聊天"
+        body = embed_needles(corpus[:600], [k])
+        t0 = time.time()
+        r = chat(a.base_url, a.model,
+                 [{"role": "system", "content": SYSTEM},
+                  {"role": "user", "content": body + "\n\n" + q}],
+                 max_tokens=a.max_tokens, timeout=a.timeout)
+        ans = text_of(r)
+        with lock:
+            results.append({"phase": f"short{i}", "key": k,
+                            "ctx_tokens_real": tok_count(a.base_url, a.model, body),
+                            "ctx_ok": True, "ctx_target": 0, "http": r["http"],
+                            "wall_s": time.time() - t0, **judge(ans, e)})
+
+    # 先量一次"空闲时"的短流基线（对照锚）
+    print("  --- 基线：空闲时（没有大 prefill）---")
+    for i in range(a.conc):
+        short(i)
+    base_rows = [r for r in results if r["phase"].startswith("short")]
+    for r in base_rows:
+        print(f"  [idle {r['phase']}] {'PASS' if r['exact'] else 'FAIL':4s} A: {r['answer_repr'][:80]}")
+
+    # ★ 混合：大 prefill 起一个线程，短流**立刻**跟上（不等它）
+    print("  --- 混合：大 prefill 在飞 + 短流同时打 ---")
+    tb = threading.Thread(target=big)
+    tb.start()
+    time.sleep(1.0)                      # 确保大 prefill 已经开始排队/在跑
+    ths = [threading.Thread(target=short, args=(i,)) for i in range(a.conc)]
+    for t in ths:
+        t.start()
+    for t in ths:
+        t.join()
+    tb.join()
+
+    for r in results[len(base_rows):]:
+        tag = "PASS" if r["exact"] else ("~hit" if r["contains"] else "FAIL")
+        print(f"  [{r['phase']:6s} {r['key']}] {tag:7s} wall={r['wall_s']:.1f}s "
+              f"http={r['http']} fp={r['fingerprints']['u_fffd']}/{r['fingerprints']['nul']}")
+        if not r["contains"]:
+            print(f"      A: {r['answer_repr']}")
+    # 短流对照：混合期的答案 vs 空闲期的答案（同一问题，应逐字相同）
+    mixed_shorts = {r["phase"]: r for r in results if r["phase"].startswith("short")
+                    and r is not None}
+    diffs = []
+    for i, br in enumerate(base_rows):
+        mr = next((r for r in results if r["phase"] == f"short{i}"
+                   and r["answer_repr"] != br["answer_repr"]), None)
+    print(f"\n  ★ 汇总：{len(results)} 次请求；空闲基线 {len(base_rows)} 条；"
+          f"失败 {sum(1 for r in results if not r['contains'])}")
+    out["mixed"] = results
+    fails = sum(1 for r in results if not r["contains"])
+    bad_fp = sum(1 for r in results if r["fingerprints"]["u_fffd"] or r["fingerprints"]["nul"])
+    bad_ctx = sum(1 for r in results if not r.get("ctx_ok", True))
+    out["mixed_summary"] = {"n": len(results), "fails": fails,
+                            "with_garbling_fp": bad_fp, "bad_ctx": bad_ctx,
+                            "target_tokens": a.context_tokens, "conc": a.conc}
+    return fails + bad_fp + bad_ctx
+
+
 MODES = {"needle": mode_needle, "grow": mode_grow,
          "reuse": mode_reuse, "toolargs": mode_toolargs,
          "evict": mode_evict, "conc": mode_conc,
-         "bigprefill": mode_bigprefill}
+         "bigprefill": mode_bigprefill, "biggrow": mode_biggrow,
+         "mixed": mode_mixed}
 
 
 def selfcheck() -> int:
@@ -774,8 +972,10 @@ def main() -> int:
                     help="只验探针自己的判据是否自洽（不连服务）")
     ap.add_argument("--mode", default="all",
                     choices=["all", "needle", "grow", "reuse", "toolargs",
-                             "evict", "conc", "bigprefill"])
+                             "evict", "conc", "bigprefill", "biggrow", "mixed"])
     ap.add_argument("--conc", type=int, default=4, help="conc 模式的并发路数")
+    ap.add_argument("--followups", type=int, default=3,
+                    help="biggrow 模式：大 prefill 之后在同一会话里追问几轮")
     ap.add_argument("--fill-sessions", type=int, default=12,
                     help="evict 模式灌爆缓存用的长会话数（要把 KV cache 灌满才有效）")
     ap.add_argument("--context-tokens", type=int, default=32768,

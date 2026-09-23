@@ -206,7 +206,8 @@ fi
 # ------------------------------------------------- 9c) 长上下文 × Agent 精度探针 + 其沙箱自测
 # 现场反馈：问题主要出现在**长上下文 + Agent（工具调用/多轮）**场景，且**不开 DRAM 卸载也有**
 #   ⇒ 判据必须补上这一格（此前的题库只有几十 token、sha 判据对长上下文语义无判别力）。
-for _f in tools/ctx_agent_probe.py tools/_fake_vllm.py tools/_check_probe_json.py; do
+for _f in tools/ctx_agent_probe.py tools/_fake_vllm.py tools/_check_probe_json.py \
+          docs/CTX-AGENT-REPRO.md; do
   if [ -f "$_f" ]; then
     if python3 -m py_compile "$_f" 2>/dev/null; then ok "长上下文档位在位且可编译：$_f"
     else bad "$_f 编译不通过"; fi
