@@ -185,6 +185,23 @@ if [ -f tools/diag_a3_hccl.sh ]; then
 else
   warn "缺 tools/diag_a3_hccl.sh（新机 HCCL 建链失败时少一条一次收齐证据的路径）"
 fi
+if [ -f tools/stop_a3_safe.sh ]; then
+  if bash -n tools/stop_a3_safe.sh 2>/dev/null; then ok "安全停机脚本在位且语法通过：tools/stop_a3_safe.sh"
+  else bad "tools/stop_a3_safe.sh 语法不通过"; fi
+else
+  warn '缺 tools/stop_a3_safe.sh（vLLM 卡死时少一条"容器停不下来"的分步解法）'
+fi
+if [ -f tools/selftest_stop_a3_safe.sh ]; then
+  if out=$(bash tools/selftest_stop_a3_safe.sh 2>&1); then
+    n=$(printf '%s' "$out" | grep -c 'PASS' || true)
+    ok "安全停机脚本沙箱自测：${n:-?} 条全过（正常停 / 卡住现场 / 只诊断不许动手 / sudo 不可用 / D 状态）"
+  else
+    bad "安全停机脚本沙箱自测失败："
+    printf '%s' "$out" | grep -E 'FAIL' | sed 's/^/        /' | head -8
+  fi
+else
+  warn "缺 tools/selftest_stop_a3_safe.sh"
+fi
 if [ -f tools/deploy_a3.sh ] && ! bash -n tools/deploy_a3.sh 2>/dev/null; then
   bad "tools/deploy_a3.sh 语法不通过"
 fi

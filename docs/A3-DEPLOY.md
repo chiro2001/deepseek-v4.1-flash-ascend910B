@@ -162,6 +162,66 @@ DEVS="..." RUN_HCCL_TEST=1 bash tools/diag_a3_hccl.sh   # 额外真跑 8 卡 HCC
 **参考基准（a3-21 工作机）**：单张真实网卡 `enp196s0f0 192.168.45.21/21`、`host_mem_pool=1`、
 2 TB 内存。**新机器与这三项任何一项不同，都要先怀疑它。**
 
+### 5.2 ★★ 「vLLM 卡死 ⇒ 容器 stop 停不下来」专章
+
+**症状**：
+
+```bash
+$ docker stop dsv41-a3
+Error response from daemon: cannot stop container: dsv41-a3:
+    tried to kill container, but did not receive an exit event
+```
+
+卡住不动，`-t`/`--time` 怎么调都没用；日志里往往伴随
+`shm_broadcast.py:802 No available shared memory broadcast block found in 60 seconds
+This typically happens when some processes are hanging or doing some time-consuming work`。
+
+**根因（2026-09-23 在 a3-21 上完整复现并定位）**：
+A3 起服默认 **`CPU_BIND=1`** ⇒ vllm-ascend 内部 `cpu_binding` 会把**每个 rank 的常驻内存
+（实测 ≈180–196 GB/worker）迁到它那张卡所在的 NUMA 节点**，手法是给每个 worker 起一个
+**`migratepages`** 子进程。而 A3 是**共用机** —— 本机实测 8 个节点里 **6 个只剩 0.7–9 GB 空闲**
+⇒ `migratepages` **无处可迁**，在 **100% CPU 上无限自旋**（实测连续 >2.5 min 不停）
+⇒ 服务永远不就绪；停容器时 SIGTERM/SIGKILL 都"发了但拿不到 exit event"。
+
+**解法（a3-21 实测：`docker stop` 从"失败 16 s"变成"1 s 成功"）**：
+
+```bash
+sudo pkill -9 -x migratepages     # ★ 关键一步；它们是 root 拥有的，普通 kill 会 Operation not permitted
+docker stop -t 2 dsv41-a3          # 或 docker rm -f dsv41-a3
+```
+
+一条命令把整套阶梯走完（**默认只诊断不动手**）：
+
+```bash
+CTR=dsv41-a3 bash tools/stop_a3_safe.sh           # 打印该敲的命令 + 现场证据
+CTR=dsv41-a3 YES=1 bash tools/stop_a3_safe.sh     # 允许它自己动手（sudo pkill / docker rm -f）
+```
+
+`stop_a3_safe.sh` 的阶梯：① 现场清点（容器状态 / `migratepages` 及其 owner 与父进程 / 僵尸数）
+→ ② 有界 `docker stop`（宽限 5 s、墙钟上限 30 s）→ ③ **`sudo pkill -9 -x migratepages` 后重试**
+→ ④ 直接杀 worker/engine + `docker rm -f` → ⑤ 都失败则判定 **D 状态**（`ps` 的 stat 含 D、
+`/proc/<pid>/stack`、`dmesg`），并给出处置建议。
+
+**如果走到第 ⑤ 步（D 状态）**：那一批进程只能等内核调用返回，**用户态没有任何办法杀掉它**。
+在**新机器/可重启**的场合，**直接重启该节点**是最省事的正解；重启前先把证据留下来：
+
+```bash
+sudo dmesg -T > /tmp/dmesg_$(date +%s).txt
+sudo cat /proc/<D状态pid>/stack > /tmp/stack_<pid>.txt 2>&1
+```
+
+**根治（避免再遇到）**：起服时用 **`CPU_BIND=0`**（不做内部绑核/迁移）：
+
+```bash
+DEVS="8 9 10 11 12 13 14 15" CPU_BIND=0 LAUNCH=1 bash tools/deploy_a3.sh
+```
+
+**两条纪律**：
+* **共享机上不要**为了清残留去 `systemctl restart docker` —— 会连带影响别人的容器。
+  僵尸进程（`Z`）本身不占资源，留着即可。
+* `sudo pkill -9 -x migratepages` 会影响**所有**正在迁移的进程（不只是你的容器）。
+  在共享机上，先看 `tools/stop_a3_safe.sh` 打出的 `parent=` 一列确认是不是你这个容器的 worker。
+
 ---
 
 ## 6. 起服后的验收（**别只看"起来了"**）
