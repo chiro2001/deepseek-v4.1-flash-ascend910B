@@ -23,4 +23,5 @@
 ## 当前进度
 
 - 已在 `patches/files/model.py` 加入层 20 的源投影入口，默认不触发。它复用现有 `_write_compressed_source`，尚未在 A3 真实权重下对照。
+- 开发诊断开关 `V41_CED_SOURCE_COMPARE=1` 会在一次非图捕获的真实 forward 中，先调用源投影，再执行普通层 20，并对该批前 16 个有效物理槽中的主 KV、Indexer K、scale 做逐张量精确比较。成功日志为 `[CED-SOURCE]`；不匹配立即报错。开关默认关，测试结束后仍需关闭。
 - `compile()` 语法检查和 `git diff --check` 通过。没有声称 CED 运行时或性能已经实现。

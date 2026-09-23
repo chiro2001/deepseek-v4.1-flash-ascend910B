@@ -781,6 +781,9 @@ class DeepseekV41Model(DeepseekV4Model):
             self.topk_indices_buffer,
             candidate_buffer,
         )
+        # Development gate: compare the isolated CED layer-20 source write with
+        # the next ordinary layer-20 forward on the same real model input.
+        self._ced_source_compare_pending = _os_ids.environ.get("V41_CED_SOURCE_COMPARE", "0") == "1"
         for layer in self.layers:
             if isinstance(layer, DeepseekV41DecoderLayer):
                 layer.self_attn.shared_state = self.shared_attention_state
@@ -1302,7 +1305,35 @@ class DeepseekV41Model(DeepseekV4Model):
                     active_mask,
                     self.config.rms_norm_eps,
                 )
+            ced_source_snapshot = None
+            if (
+                self._ced_source_compare_pending
+                and layer.layer_idx == 20
+                and not getattr(get_forward_context(), "capturing", False)
+                and get_forward_context().attn_metadata is not None
+            ):
+                written = layer.write_global_source_from_encoder(hidden_states, pre_mix)
+                if written:
+                    metadata = layer.self_attn.v41_impl._get_layer_metadata(get_forward_context().attn_metadata)
+                    slots = metadata.compressor.cache.slot_mapping[: min(written, 64)].cpu().tolist()
+                    rows = [(int(block), int(offset)) for block, offset in slots if block >= 0 and offset >= 0][:16]
+                    if rows:
+                        index_k, index_scale = layer.self_attn.indexer.k_cache.kv_cache[0]
+                        planes = (layer.self_attn.long_kv_cache.kv_cache[0], index_k, index_scale)
+                        before = tuple(tuple(plane[block, offset].detach().clone() for block, offset in rows) for plane in planes)
+                        ced_source_snapshot = (rows, planes, before)
+                        self._ced_source_compare_pending = False
             hidden_states, pre_mix = layer(positions, hidden_states, pre_mix, None, input_ids=moe_input_ids)
+            if ced_source_snapshot is not None:
+                rows, planes, before = ced_source_snapshot
+                for plane_idx, (plane, saved) in enumerate(zip(planes, before)):
+                    for row_idx, ((block, offset), expected) in enumerate(zip(rows, saved)):
+                        if not torch.equal(expected, plane[block, offset]):
+                            raise RuntimeError(
+                                "CED layer-20 source differs from normal forward: "
+                                f"plane={plane_idx} row={row_idx} slot=({block},{offset})"
+                            )
+                print(f"[CED-SOURCE] layer20 source-only cache rows match normal forward: rows={len(rows)}", flush=True)
         assert last_layer is not None
         hidden_states = last_layer.hc_collapse(hidden_states, pre_mix)
         hidden_states = self.norm(hidden_states)
