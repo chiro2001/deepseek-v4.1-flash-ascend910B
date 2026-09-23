@@ -58,6 +58,17 @@ export PYTHON_PGO=${PYTHON_PGO:-0}
 # 想显式覆盖就设 PATCH_MODE=baked（例如你自己烘焙了一个 A3 镜像）。
 export PATCH_MODE=${PATCH_MODE:-mount}
 
+# [DROPCACHE] 起服前清 page cache —— ★ **A3 默认关闭**（与 A2 相反）。
+#   为什么两者不同（这条是 2026-09-23 补的，之前 A3 会**静默继承 A2 的 1**）：
+#     * 机制：`serve_a2.sh:168` 的默认是 `1`，而本脚本此前**没有**给 `DROPCACHE` 任何默认值
+#       ⇒ A3 上实际生效的是 **1 = 起服前 `echo 1 > /proc/sys/vm/drop_caches`**。
+#     * 危害：那个写操作是**整机**的 —— A3 是**共用机**（多租户），清掉的会连带包括
+#       **别人的** page cache，别人的任务下一次读文件全部回盘变慢。
+#       A2 是独占机，所以 A2 默认 1 是划算的（省下 564 GiB，见 serve_a2.sh 里的实测）。
+#     * 判据：A2 独占 ⇒ 1；A3 共用 ⇒ 0。**显式给的一律优先**（`DROPCACHE=1` 仍可用，
+#       但请先确认此刻机器上没有别人的任务）。
+export DROPCACHE=${DROPCACHE:-0}
+
 # ---------- 1) DEVS 必填 ----------
 if [ -z "${DEVS:-}" ]; then
   cat >&2 <<'MSG'

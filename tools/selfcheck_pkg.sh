@@ -171,6 +171,29 @@ else
   bad "缺 tools/check_checksums.sh（v8 起 build_image.sh 依赖它推导期望 md5）"
 fi
 
+# ------------------------------------------------- 9) A3 部署器 + 其沙箱自测
+# 为什么单列：`tools/deploy_a3.sh` 是**新机器上跑的第一条命令**，它的每条门都必须
+# 「该拦的拦住、该过的过」；而它的门里有一堆外部依赖（docker/npu-smi/选卡/模型自检）
+# ⇒ 用**桩**做沙箱自测（零真机）。判据尽量绑"下游真收到的值"，不是"deploy 的自述"。
+for _f in tools/deploy_a3.sh docs/A3-DEPLOY.md; do
+  if [ -f "$_f" ]; then ok "A3 新机部署件在位：$_f"
+  else warn "缺 $_f（新机器上少一条从零到干跑的路径）"; fi
+done
+if [ -f tools/deploy_a3.sh ] && ! bash -n tools/deploy_a3.sh 2>/dev/null; then
+  bad "tools/deploy_a3.sh 语法不通过"
+fi
+if [ -f tools/selftest_deploy_a3.sh ]; then
+  if out=$(bash tools/selftest_deploy_a3.sh 2>&1); then
+    n=$(printf '%s' "$out" | grep -c 'PASS' || true)
+    ok "A3 部署器沙箱自测：${n:-?} 条全过（镜像缺失 / 模型断链 / 选卡不足 / 干跑判据 / 起服不吞 rc）"
+  else
+    bad "A3 部署器沙箱自测失败："
+    printf '%s' "$out" | grep -E 'FAIL' | sed 's/^/        /' | head -8
+  fi
+else
+  warn "缺 tools/selftest_deploy_a3.sh（无法自动抓"部署器门失效"）"
+fi
+
 echo
 if [ "$fail" = "0" ]; then
   echo "[selfcheck] 全部通过 ✅  可以开始：bash scripts/build_image.sh"
