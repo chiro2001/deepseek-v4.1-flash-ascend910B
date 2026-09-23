@@ -133,20 +133,49 @@ def load_corpus() -> str:
     return ("这是一段用于测试长上下文的中文说明。" * 4000)
 
 
+def build_context(corpus: str, want_chars: int, rotate: int = 0) -> str:
+    """★ 按需长度**平铺**语料（不是"切一行算一行"）。
+
+    为什么必须平铺（2026-09-23 实测踩到，属"静默降级"）：
+      语料 `data/hongloumeng.txt` 是 2.47 MB 的 UTF-8 中文 ⇒ **只有 826,639 个字符**。
+      而我要 520k token 的上下文时，代码写成 `corpus[offset:offset+n]`，
+      一旦 `offset` 超过语料长度就**切出空串**；`embed_needles` 再把 4 条针插进去，
+      于是实际上下文只有 **91 个 token** —— 而探针**照样报 PASS**（"答案对了"）。
+      ⇒ 这是"判据自己骗自己"：拿一个 91 token 的请求冒充 520k 的请求。
+    现在：先把语料按 `rotate` 旋转（让不同 lane 拿到**不同内容**），再平铺到目标长度。
+    """
+    if want_chars <= 0 or not corpus:
+        return ""
+    c = corpus[rotate:] + corpus[:rotate]
+    need = want_chars // len(c) + 1
+    return (c * need)[:want_chars]
+
+
 def slice_for_tokens(base: str, model: str, corpus: str, want_tokens: int,
                      offset: int = 0, mark: str = "") -> str:
-    """从语料切出约 want_tokens 个 token 的一段（用 /tokenize 校准一次比例）。"""
+    """给出约 want_tokens 个 token 的上下文（用 /tokenize 校准一次比例）。
+
+    ★ 长度不足时**响亮失败**：返回空串会让上层把"短上下文"当成"长上下文"来判。
+    """
     if want_tokens <= 0:
         return ""
-    n_chars = min(len(corpus), max(1, want_tokens))
-    body = corpus[offset:offset + n_chars]
+    # 第一版：按 token 数≈字符数起手，再校准
+    n_chars = max(1, want_tokens)
+    body = build_context(corpus, n_chars, rotate=offset % max(1, len(corpus)))
     got = tok_count(base, model, body)
     if got > 0:
         ratio = want_tokens / got
         if abs(ratio - 1.0) > 0.03:
-            n_chars = min(len(corpus) - offset, max(1, int(n_chars * ratio)))
-            body = corpus[offset:offset + n_chars]
+            n_chars = max(1, int(n_chars * ratio))
+            body = build_context(corpus, n_chars, rotate=offset % max(1, len(corpus)))
     return body
+
+
+def ctx_ratio_ok(real_tokens: int, target_tokens: int, min_ratio: float) -> bool:
+    """上下文长度是否真的到位（不达标 ⇒ 这次读数**不能用来判对错**）。"""
+    if target_tokens <= 0:
+        return True
+    return real_tokens >= target_tokens * min_ratio
 
 
 def embed_needles(body: str, keys: list[str]) -> str:
@@ -605,9 +634,13 @@ def mode_bigprefill(a, out: dict) -> int:
                   max_tokens=a.max_tokens, timeout=a.timeout)
         ans = text_of(rr)
         v = judge(ans, expect)
+        # ★★ 上下文长度门：不达标 ⇒ 这次读数**无效**（不许拿 91 token 冒充 520k）
+        _ok_ctx = ctx_ratio_ok(real, a.context_tokens, a.min_ctx_ratio)
         row = {"rep": rep, "lane": idx, "key": k, "path": path_tag,
-               "ctx_tokens_real": real, "http": rr["http"],
-               "wall_s": rr["wall_s"], "err": rr.get("err"), **v}
+               "ctx_tokens_real": real, "ctx_ok": _ok_ctx,
+               "ctx_target": a.context_tokens,
+               "http": rr["http"], "wall_s": rr["wall_s"] if False else time.time() - t0,
+               "err": rr.get("err"), **v}
         with lock:
             results.append(row)
 
@@ -641,12 +674,18 @@ def mode_bigprefill(a, out: dict) -> int:
     fails = sum(1 for r in results if not r["contains"])
     bad_fp = sum(1 for r in results if r["fingerprints"]["u_fffd"] or r["fingerprints"]["nul"])
     loops = sum(1 for r in results if r["repeat_loop"])
-    print(f"\n  ★ 汇总：{len(results)} 次请求 / 未命中 {fails} / 带乱码指纹 {bad_fp} / 复读 {loops}")
+    bad_ctx = sum(1 for r in results if not r.get("ctx_ok", True))
+    print(f"\n  ★ 汇总：{len(results)} 次请求 / 未命中 {fails} / 带乱码指纹 {bad_fp} / 复读 {loops}"
+          f" / ★上下文不达标 {bad_ctx}")
+    if bad_ctx:
+        print(f"  ⛔ 有 {bad_ctx} 次请求的上下文**没到目标长度**（判据无效，不是通过）"
+              f" —— 检查语料长度与 build_context 的平铺")
     out["bigprefill"] = results
     out["bigprefill_summary"] = {"n": len(results), "fails": fails,
                                  "with_garbling_fp": bad_fp, "repeat_loops": loops,
+                                 "bad_ctx": bad_ctx,
                                  "target_tokens": a.context_tokens, "conc": a.conc}
-    return fails + bad_fp + loops
+    return fails + bad_fp + loops + bad_ctx
 
 
 MODES = {"needle": mode_needle, "grow": mode_grow,
@@ -702,7 +741,23 @@ def selfcheck() -> int:
     ck("repeat_loop：正常长文不误报",
        repeat_loop("这是一段正常的中文文本，用来验证复读检测不会误报。" * 6) is False)
 
-    # ③ 指纹判据对"干净文本"必须全 0（不许误报）
+    # ③ ★ 上下文平铺：语料**短于**目标长度时也必须给出足够长的上下文
+    #   （真机教训：语料只有 826,639 字，却要 520k token ⇒ 第一版直接切出**空串**，
+    #    实际上下文只剩 4 条针 = 91 token，而探针照样报 PASS。）
+    short = "短语料。" * 100            # 400 字
+    long_ctx = build_context(short, 5000)
+    ck("build_context：语料短于目标 ⇒ 平铺到目标长度", len(long_ctx) == 5000)
+    ck("build_context：平铺后语料内容仍在", "短语料。" in long_ctx)
+    ck("build_context：rotate 让不同 lane 内容不同",
+       build_context("ABCDEFGH", 64, rotate=0) != build_context("ABCDEFGH", 64, rotate=3))
+    ck("build_context：目标 0 ⇒ 空串", build_context(short, 0) == "")
+    # 长度门：不达标必须判"无效"
+    ck("ctx_ratio_ok：91/520000 ⇒ False（不许当通过）",
+       ctx_ratio_ok(91, 520000, 0.9) is False)
+    ck("ctx_ratio_ok：500k/520k ⇒ True", ctx_ratio_ok(500000, 520000, 0.9) is True)
+    ck("ctx_ratio_ok：target=0 ⇒ 不设限", ctx_ratio_ok(0, 0, 0.9) is True)
+
+    # ④ 指纹判据对"干净文本"必须全 0（不许误报）
     fp = fingerprints("正常的中文回答，含英文与数字 391。")
     ck("fingerprints：干净文本全 0",
        all(fp[k] == 0 for k in ("u_fffd", "nul", "ctrl", "surrogate", "nonchar")))
@@ -732,6 +787,9 @@ def main() -> int:
                     help="toolargs 模式用（工具参数 JSON 比普通回答长得多；64 会截断）")
     ap.add_argument("--offset", type=int, default=0, help="语料起点偏移（换一段文本）")
     ap.add_argument("--timeout", type=float, default=3600.0)
+    ap.add_argument("--min-ctx-ratio", type=float, default=0.9,
+                    help="实际上下文 / 目标上下文 的最低比例；低于它 ⇒ 本次读数无效"
+                         "（防止拿短上下文冒充长上下文）")
     ap.add_argument("--out", default="")
     a = ap.parse_args()
 

@@ -46,6 +46,10 @@ def check(d: dict, name: str) -> bool:
         return r.get("repeat_loop") is True
     if name == "not_exact":
         return r.get("exact") is False
+    if name == "ctx_worthless":
+        # 专用于负控：上下文不达标时，汇总里的 bad_ctx 必须 >0（判据无效，不是通过）
+        sm = d.get("bigprefill_summary") or {}
+        return sm.get("bad_ctx", 0) > 0
     if name == "bigprefill_clean":
         # 单发大 prefill 模式：必须有汇总，且 失败/带乱码/复读 三项全 0
         sm = d.get("bigprefill_summary")
