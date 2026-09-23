@@ -52,7 +52,17 @@ echo "  -v /x/p2_worker.py:/vllm-workspace/vllm-ascend/vllm_ascend/distributed/k
 echo "  -v /x/cpu_npu.py:/vllm-workspace/vllm-ascend/vllm_ascend/distributed/kv_transfer/kv_pool/kv_offload/native/cpu_npu.py:ro"
 echo "  DRY_RUN=${DRY_RUN:-<unset>} PROFILE=${PROFILE:-<unset>} V41_PROFILE=${V41_PROFILE:-<unset>}"
 echo "  DRAFT_GRAPH=${DRAFT_GRAPH:-<unset>}"
+# ★ 这两行是 **mount 模式指纹门**要 grep 的"挂载行"（真实 shadow 里由注入块生成）
+echo "  MOUNTS+=(-v \"\$F/engram_hash.py:/vllm-workspace/vllm-ascend/vllm_ascend/models/deepseek_v41/engram_hash.py:rw\")"
+echo "  MOUNTS+=(-v \"\$F/engram_jit_kernel.py:/vllm-workspace/vllm-ascend/vllm_ascend/models/deepseek_v41/engram_jit_kernel.py:ro\")"
 STUB
+    # ★ A3 的入口桩：只做 A3 特有的校验（DEVS 必填）+ 打印，然后 exec serve_a2.sh（与真实同形）
+    cat > "$T/shadow/scripts/serve_a3.sh" <<'STUB3'
+#!/usr/bin/env bash
+[ -n "${DEVS:-}" ] || { echo "[serve_a3][FAIL] 必须显式指定 DEVS" >&2; exit 2; }
+echo "[serve_a3] DEVS='$DEVS' PATCH_MODE=${PATCH_MODE:-<unset>} NAME=${NAME:-<unset>} PORT=${PORT:-<unset>} PYTHON_PGO=${PYTHON_PGO:-<unset>}"
+exec bash "$(dirname "$0")/serve_a2.sh" "$@"
+STUB3
     cat > "$T/bin/docker" <<STUB
 #!/usr/bin/env bash
 case "\$1 \$2" in
@@ -163,6 +173,27 @@ run_case compc ENGRAM=0 KV8_SWA=1 KV8_RING_FP16=1
 check "⑩a 档 C 分量" 0 $? 'comp=\[\[0,2,3,4,5,6,7,8,9,10,11\],\[1,12\]\]' 'unbound variable'
 run_case compb ENGRAM=0
 check "⑩b 档 B 分量" 0 $? 'comp=\[\[0\],\[1,2,3,4,5,6,7,8,9,10,11,12\]\]' 'unbound variable'
+
+say "⑪ PLAT=a3 ⇒ 默认值必须整组切换（DEVS/入口/PATCH_MODE/PORT/DROPCACHE）"
+# 为什么单列一条：★ 照 A2 的默认抄到 A3 上，`DEVS` 会去抢 **0–7 卡**（本仓红线：那不是我们的）；
+# 且 `PATCH_MODE=baked` 在 A3 官方镜像上会**静默零补丁**（服务照常起、优化全不在）。
+run_case a3 PLAT=a3 ENGRAM=0
+check "⑪a A3 DEVS=8–15"  0 $? 'DEVS=8 9 10 11 12 13 14 15' 'unbound variable'
+check "⑪b A3 入口"       0 $? '入口=serve_a3.sh'            'unbound variable'
+check "⑪c A3 PATCH_MODE" 0 $? 'PATCH_MODE=mount'            'unbound variable'
+run_case a3b PLAT=a3 ENGRAM=0
+check "⑪d A3 DROPCACHE=0" 0 $? 'DROPCACHE=0'                'unbound variable'
+
+say "⑫ A3 但 shadow 里缺 serve_a3.sh ⇒ 必须响亮失败（不许静默换入口）"
+T12=$(mktemp -d); setup_sandbox "$T12"
+mv "$T12/shadow/scripts/serve_a3.sh" "$T12/shadow/scripts/serve_a3.sh.moved"
+OUTF="$T12/out.txt"
+( cd "$T12/repo" && env PATH="$T12/bin:$PATH" SHADOW_PKG="$T12/shadow" MODEL=/stub/model DRY=1 ENGRAM=0 \
+    bash "$SCRIPT_REL" --plat-unused ) >"$OUTF" 2>&1 || true
+( cd "$T12/repo" && env PATH="$T12/bin:$PATH" SHADOW_PKG="$T12/shadow" MODEL=/stub/model DRY=1 ENGRAM=0 PLAT=a3 \
+    bash "$SCRIPT_REL" ) >"$OUTF" 2>&1; rc=$?
+tail -3 "$OUTF"
+if [ "$rc" = "0" ]; then printf '⛔ [⑫ 缺 serve_a3.sh] 竟然 rc=0 —— 静默换入口/漏检\n'; V=1; else printf '✓ [⑫ 缺 serve_a3.sh 会失败]\n'; fi
 
 say "结果"
 if [ "$V" = "0" ]; then echo "✅ 全部通过"; else echo "⛔ 有用例失败"; fi

@@ -45,15 +45,60 @@ _SV="$LAUNCH_DIR/scripts/serve_a2.sh"
 # ---------------------------------------------------------------- 参数
 # ★ 模型路径不硬编码（发布包不留真实账号名）；必须由调用方给
 MODEL=${MODEL:?请设 MODEL=<模型目录>}
+
+# ============================================================================================
+# ★★★ 2026-09-23 11:1x **平台切换：`PLAT=a2|a3`** —— 回答"这套脚本能不能在 A3 上一模一样地跑"
+#   结论：**能复用同一份脚本，但不能照抄调用行** —— 有 6 处默认值在 A3 上是错的，
+#   其中 **`DEVS` 那一项是危险的**（见下）。全部由这个块按平台给默认值。
+#
+#   | 项 | A2 默认 | A3 需要 | 照抄的后果 |
+#   |---|---|---|---|
+#   | `DEVS` | `0 1 2 3 4 5 6 7` | **`8 9 10 11 12 13 14 15`** | ★★ **去抢 A3 的 0–7 卡**（本仓红线：那批不是我们的） |
+#   | `IMAGE` | `dsv41-a2:v9` | 官方 `…:deepseek-v4.1-flash-a3` | A3 上**没有 v9 镜像** ⇒ 起不来 |
+#   | `PATCH_MODE` | `baked` | **`mount`** | A3 官方镜像里**没有我们的补丁** ⇒ ★ **静默零补丁**（服务照常起，优化全不在） |
+#   | 起服入口 | `serve_a2.sh` | **`serve_a3.sh`** | 跳过 A3 的**选卡/占用校验**（那是它唯一多出来的安全门） |
+#   | `NAME` | `dsv41-a2` | `dsv41-a3` | 撞名 ⇒ 可能误删/误操作另一个容器 |
+#   | `PORT` | 8077 | 8020 | 连错端口（判据全打空） |
+#   | `PYTHON_PGO` | 模板默认 1 | **0** | A2 的 PGO 产物与 A3 镜像的 libpython **md5 不同**（`serve_a3.sh` 已写明）⇒ 只能降级 |
+#   | `DROPCACHE` | 1（独占机） | **默认 0** | A3 是**共用机**，清 page cache 会打到别人的租户 |
+#
+#   ★ 为什么"能复用同一份"而不是复制一份：A2/A3 的**引擎、优化开关、挂载件、判据完全同源**
+#     （`serve_a3.sh` 自己就是 `exec bash serve_a2.sh`）。复制一份 = 以后两处分叉（本仓已栽过）。
+# ============================================================================================
+PLAT=${PLAT:-a2}
+case "$PLAT" in
+  a2)
+    IMAGE=${IMAGE:-dsv41-a2:v9}
+    PATCH_MODE=${PATCH_MODE:-baked}
+    DEVS=${DEVS:-0 1 2 3 4 5 6 7}
+    NAME=${NAME:-dsv41-a2}
+    PORT=${PORT:-8077}
+    PYTHON_PGO=${PYTHON_PGO:-1}
+    DROPCACHE=${DROPCACHE:-1}
+    ENTRY=${ENTRY:-serve_a2.sh}
+    ;;
+  a3)
+    IMAGE=${IMAGE:-quay.nju.edu.cn/ascend/vllm-ascend:deepseek-v4.1-flash-a3}
+    PATCH_MODE=${PATCH_MODE:-mount}
+    DEVS=${DEVS:-8 9 10 11 12 13 14 15}
+    NAME=${NAME:-dsv41-a3}
+    PORT=${PORT:-8020}
+    PYTHON_PGO=${PYTHON_PGO:-0}
+    DROPCACHE=${DROPCACHE:-0}
+    ENTRY=${ENTRY:-serve_a3.sh}
+    ;;
+  *) echo "⛔ PLAT 只能是 a2|a3，得到 '$PLAT'" >&2; exit 64 ;;
+esac
+export DEVS NAME PATCH_MODE PYTHON_PGO
 # ★★★ 2026-09-23 09:1x 修一个真 bug：这里原来是 `IMAGE=${IMAGE:-}`（**空**）
 #   ⇒ ①「起服前指纹门」拿**空字符串**去 `docker image inspect ""` ⇒ 必然报"本地没有镜像 "
 #         而且报错里镜像名是空的（用户实测就是这个形态）；
 #      ② 更隐蔽：空值传给 shadow 的 `serve_a2.sh` 时，`${IMAGE:-dsv41-a2:v9}` 会**用默认值**
 #         ⇒ 门拦住的理由是"名字空"而不是"镜像旧" —— 哪天门被跳过，就会**静默用默认镜像**。
 #   ⇒ 与 `scripts/serve_a2.sh:44` 的默认**对齐**（那里是唯一权威默认，见 commit 550d29c）。
-IMAGE=${IMAGE:-dsv41-a2:v9}
+# （IMAGE/PORT 由上方 PLAT 块给默认）
 GPU_UTIL=${GPU_UTIL:-0.90}
-PORT=${PORT:-8077}
+# （IMAGE/PORT 由上方 PLAT 块给默认）
 SERVED_NAME=${SERVED_NAME:-deepseek-v4-flash}
 
 # ---------------------------------------------------------------- ★ 档位
@@ -125,10 +170,11 @@ P2_POOL_PATCH=${P2_POOL_PATCH:-1}
 L1_POOL_PATCH=${L1_POOL_PATCH:-1}
 L1_POOL_DIR=${L1_POOL_DIR:-$A2DIR/patches/kv8-offload-pool}
 
-# ★ [DROPCACHE] 起服前清 page cache（模板默认 **1**）。**整机**生效，会连带清掉同机其它租户的
-#   page cache（`refresh pattern`）。大内存机器上它通常值（本机实测一次能放 564 GiB），
-#   但如果这台机器不是你独占、或你不想影响别人 ⇒ `DROPCACHE=0` 关掉。
-DROPCACHE=${DROPCACHE:-1}
+# ★ [DROPCACHE] 起服前清 page cache。**整机**生效，会连带清掉同机其它租户的 page cache。
+#   ★ 默认值**由上方 PLAT 块给**（A2 独占机 = 1；★ **A3 共用机 = 0**，避免打到别人）。
+#   ⚠️ 这里**不要再写 `:-1`** —— 那会让"读起来像默认 1"，与 A3 的 0 矛盾（判据/默认值必须唯一）。
+#   人工覆盖：`DROPCACHE=0`（不清）或 `DROPCACHE=1`（清）。
+: "${DROPCACHE:?PLAT 块应已设置 DROPCACHE}"
 
 # ★ 池分配器加固（logs/041）：默认关；=1 把三种静默失败变成响亮 raise
 PGP_MGR_HARDEN=${PGP_MGR_HARDEN:-0}
@@ -307,7 +353,12 @@ echo "=============================================================="
 echo "A2 DRAM KV 卸载起服"
 echo "=============================================================="
 echo "  模型          : $MODEL"
-echo "  镜像          : $IMAGE（★ 必须带 ENGRAM×卸载 的 P0 修复；指纹门会核对）"
+echo "  平台          : PLAT=$PLAT（入口=$ENTRY ｜ PATCH_MODE=$PATCH_MODE ｜ DEVS=$DEVS ｜ 容器名=$NAME）"
+if [ "$PATCH_MODE" = "mount" ]; then
+    echo "  镜像          : $IMAGE（mount 模式 ⇒ ENGRAM 修复由**挂载**提供，不要求镜像自带）"
+else
+    echo "  镜像          : $IMAGE（baked 模式 ⇒ ★ 必须自带 ENGRAM×卸载 的 P0 修复；指纹门会核对）"
+fi
 echo "  profiler      : PROFILE=${V41_PROFILE:-${PROFILE:-0}}（1 ⇒ /start_profile 与 /stop_profile 可用；产物落 $LAUNCH_DIR/results/<RUN_ID>/prof）"
 echo "  draft 入图    : DRAFT_GRAPH=$DRAFT_GRAPH（1 = 入图，与 A2 生产一致；A2 实测 +62% tok/s / hp −47%）"
 if [ "$DRAFT_GRAPH" = "0" ]; then
@@ -451,6 +502,16 @@ if ! grep -q '\[A2-OFFLOAD\]' "$_SV"; then
 fi
 echo "✓ 起服对象：$_SV（含 [A2-OFFLOAD] 注入块）"
 
+# ★★ 入口文件必须在（否则 `bash scripts/$ENTRY` 只会给一个 rc=127，看不出根因）。
+#   典型：A3 的 shadow 是**旧生成器**造的 ⇒ 里面没有 `serve_a3.sh`。
+if [ ! -f "$LAUNCH_DIR/scripts/$ENTRY" ]; then
+    echo "⛔ 缺起服入口：$LAUNCH_DIR/scripts/$ENTRY" >&2
+    echo "   （PLAT=$PLAT 需要 '$ENTRY'；shadow 里没有它 ⇒ 多半是旧生成器造的）" >&2
+    echo "   修法： PKG=$REPO DST=$LAUNCH_DIR bash $A2DIR/scripts/make_shadow_pkg.sh" >&2
+    exit 2
+fi
+echo "✓ 入口：scripts/$ENTRY 在位"
+
 _launch_serve() {   # $1 = DRY_RUN（0 真起 / 1 干跑）
     cd "$LAUNCH_DIR" || return 2
     # ★ 先把值算成**一个**变量，再赋给两个名字。
@@ -464,7 +525,8 @@ _launch_serve() {   # $1 = DRY_RUN（0 真起 / 1 干跑）
     SERVED_NAME="$SERVED_NAME" MAX_LEN="$MAX_LEN" MAX_SEQS="$MAX_SEQS" \
     BAT_TOKENS="$BAT_TOKENS" DRAFT_GRAPH="$DRAFT_GRAPH" DROPCACHE="$DROPCACHE" \
     KV_ARGS_EXTRA="$KV_ARGS" \
-    bash scripts/serve_a2.sh
+    NAME="$NAME" DEVS="$DEVS" PATCH_MODE="$PATCH_MODE" PYTHON_PGO="$PYTHON_PGO" \
+    bash "scripts/$ENTRY"
 }
 
 # ★★ 自检门：开了 int8 但 shadow 不认 `A2_*` ⇒ **拒绝起服**（宁可响亮失败，不要静默跑成档 B）
@@ -708,12 +770,40 @@ _pf_check() {
 
 if [ "${ENGRAM:-1}" = "1" ]; then
     echo "-------------------------------------------------------------"
-    echo "★ 起服前指纹门（ENGRAM=1）：核对镜像里是否带 ENGRAM×卸载 的 P0 修复"
-    _pf_check "$SHADOW/patches/files/engram_hash.py" \
-              "/vllm-workspace/vllm-ascend/vllm_ascend/models/deepseek_v41/engram_hash.py"
-    _pf_check "$SHADOW/patches/files/engram_jit_kernel.py" \
-              "/vllm-workspace/vllm-ascend/vllm_ascend/models/deepseek_v41/engram_jit_kernel.py"
-    echo "  ⇒ 两项一致：镜像里确实带着修复（缺页会被降级成 barrier，而不是 KeyError）"
+    if [ "$PATCH_MODE" = "mount" ]; then
+        # ★★★ 2026-09-23 11:1x **mount 模式下的指纹门必须改判据** —— A3 上就是这么用的：
+        #   mount 模式把 `$SHADOW/patches/files/engram_hash.py` **挂**到容器内那个路径，
+        #   ⇒ **镜像里那份会被完全盖掉** ⇒ 再去比"镜像里的 md5"是**绑错了对象**：
+        #   A3 用的是**官方镜像**（里面是 stock 版）⇒ 老判据**必然误拦**，而修复其实生效。
+        #   现在：判据 = ①宿主文件在 ②`serve_a2.sh` 里确实有把**它**挂到**那个目标**的那一行
+        #                （**内容判据**，不绑路径字符串）。
+        echo "★ 起服前指纹门（ENGRAM=1 · PATCH_MODE=mount）：核对**挂载件**（镜像里那份会被盖掉）"
+        _pfv=0
+        for _pair in "engram_hash.py/models/deepseek_v41/engram_hash.py" \
+                     "engram_jit_kernel.py/models/deepseek_v41/engram_jit_kernel.py"; do
+            _src="${_pair%%/*}"; _tgt="${_pair#*/}"
+            if [ ! -f "$SHADOW/patches/files/$_src" ]; then
+                echo "  ⛔ 缺挂载源 $SHADOW/patches/files/$_src"; _pfv=1; continue
+            fi
+            if grep -q "$_tgt:rw\|$_tgt:ro" "$SHADOW/scripts/serve_a2.sh" 2>/dev/null; then
+                echo "  ✓ 指纹门(mount) $_src → $_tgt  $(md5sum "$SHADOW/patches/files/$_src" | cut -d' ' -f1)"
+            else
+                echo "  ⛔ $SHADOW/scripts/serve_a2.sh 里**找不到**把 $_src 挂到 $_tgt 的那一行"; _pfv=1
+            fi
+        done
+        if [ "$_pfv" != "0" ]; then
+            echo "   ⇒ 拒绝起服：ENGRAM×卸载 的 P0 修复不会生效（缺页会 raise KeyError ⇒ 引擎死，logs/073）。" >&2
+            exit 2
+        fi
+        echo "  ⇒ 两项都由**挂载**提供（镜像里那份无论是什么都会被覆盖）"
+    else
+        echo "★ 起服前指纹门（ENGRAM=1 · PATCH_MODE=$PATCH_MODE）：核对镜像里是否带 ENGRAM×卸载 的 P0 修复"
+        _pf_check "$SHADOW/patches/files/engram_hash.py" \
+                  "/vllm-workspace/vllm-ascend/vllm_ascend/models/deepseek_v41/engram_hash.py"
+        _pf_check "$SHADOW/patches/files/engram_jit_kernel.py" \
+                  "/vllm-workspace/vllm-ascend/vllm_ascend/models/deepseek_v41/engram_jit_kernel.py"
+        echo "  ⇒ 两项一致：镜像里确实带着修复（缺页会被降级成 barrier，而不是 KeyError）"
+    fi
     echo "-------------------------------------------------------------"
 fi
 
