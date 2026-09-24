@@ -164,6 +164,34 @@ def _ced_block_trace(role, req_id, block_ids_per_group, tail_page_idx, extra="")
         print(f"[CED-BLOCKS] trace skipped: {exc!r}", flush=True)
 
 
+def _ced_block_dump(role, req_id, block_ids_per_group, groups=(0,)):
+    """把指定 group 的**完整**物理块列表落盘（默认只 g0）。
+
+    为什么需要它：`[CED-BLOCKS]` 的摘要（first/last/descents/head）**无法区分**两个
+    摘要相同但顺序不同的列表（2026-09-24 实测：#4 与 #10 摘要完全相同、结果相反）。
+    要验证"某个 id 阈值是否被越过"这类假说，必须有完整列表。
+
+    由 `V41_CED_BLOCK_DUMP_DIR` 打开；每个请求每 group 一个文本文件
+    （一行一个 id），文件名含角色、request id 与 group。
+    """
+    dump_dir = os.environ.get("V41_CED_BLOCK_DUMP_DIR", "").strip()
+    if not dump_dir:
+        return
+    try:
+        os.makedirs(dump_dir, exist_ok=True)
+        rid = req_id.split("-")[1] if req_id.startswith("chatcmpl-") else req_id
+        for group_idx in groups:
+            if group_idx >= len(block_ids_per_group) or block_ids_per_group[group_idx] is None:
+                continue
+            ids = list(block_ids_per_group[group_idx])
+            path = os.path.join(dump_dir, f"{role}_{rid}_g{group_idx}.txt")
+            with open(path, "w", encoding="utf-8") as handle:
+                handle.write("\n".join(str(int(v)) for v in ids))
+                handle.write("\n")
+    except Exception as exc:  # noqa: BLE001 - 探针绝不允许影响主路径
+        print(f"[CED-BLOCK-DUMP] skipped: {exc!r}", flush=True)
+
+
 @dataclass
 class SizedDict(OrderedDict):
     def __init__(self, max_size=16000, *args, **kwargs):
@@ -1949,6 +1977,8 @@ class MooncakeConnectorWorker:
                 // max(1, int(self.vllm_config.cache_config.block_size)),
                 extra=f"ext_tokens={meta.num_external_tokens} ",
             )
+            # [CED-BLOCK-DUMP] 完整 g0 列表落盘（仅当 V41_CED_BLOCK_DUMP_DIR 设置）
+            _ced_block_dump("decode", req_id, meta.local_block_ids, groups=(0,))
             if os.environ.get("V41_CED_ROLE", "") == "decode":
                 # G7..G11 are deliberately absent from the P transfer. Clear
                 # their D-local physical pages before any replay attention can

@@ -283,6 +283,7 @@ def main() -> int:
             ("V41_CED_SWA_CLIP", "1"),
             ("V41_CED_SWA_TRACE", "0"),
             ("V41_CED_BLOCK_TRACE", "0"),
+            ("V41_CED_BLOCK_DUMP_DIR", ""),
             ("V41_ENGRAM_HIST_TRACE_POS", ""),
         ):
             pattern = r"-e\s+%s=\"\$\{%s:-%s\}\"" % (
