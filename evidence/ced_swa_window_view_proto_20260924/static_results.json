@@ -1,0 +1,409 @@
+{
+  "scope": "CPU-only page/range math; no CANN, NPU, production edit, or accuracy claim",
+  "cases": [
+    {
+      "prompt_len": 1048576,
+      "p_loaded_prefix_tokens": 1048575,
+      "replay_start": 1048447,
+      "replay_end_exclusive": 1048575,
+      "replay_query_tokens": 128,
+      "window": 128,
+      "block_size": 128,
+      "views": {
+        "replay_only_upper": {
+          "name": "replay_only_upper",
+          "global_start": 1048447,
+          "global_end": 1048575,
+          "page_aligned_start": 1048447,
+          "local_seq_len": 128,
+          "query_start_local": 0,
+          "page_indices": [
+            8190,
+            8191
+          ],
+          "local_page_count": 1
+        },
+        "full_swa_visible_window": {
+          "name": "full_swa_visible_window",
+          "global_start": 1048320,
+          "global_end": 1048575,
+          "page_aligned_start": 1048320,
+          "local_seq_len": 255,
+          "query_start_local": 127,
+          "page_indices": [
+            8190,
+            8191
+          ],
+          "local_page_count": 2
+        }
+      },
+      "lower_swa_transfer": {
+        "retained_tokens_with_replay_overlap": 255,
+        "current_extra_retained_tokens": 0,
+        "required_extra_retained_tokens": 128,
+        "current_connector_clip_pages": 2,
+        "required_connector_clip_pages": 3,
+        "p_pages_kept_without_extra": [
+          8191
+        ],
+        "p_pages_kept_with_overlap": [
+          8190,
+          8191
+        ],
+        "current_connector_tail_logical_pages_including_nulls": [
+          8190,
+          8191
+        ],
+        "overlap_connector_tail_logical_pages_including_nulls": [
+          8189,
+          8190,
+          8191
+        ],
+        "current_remote_to_destination_page_pairs": [
+          {
+            "remote_logical_page": 8191,
+            "destination_logical_page": 8191,
+            "remote_has_data": true
+          }
+        ],
+        "overlap_remote_to_destination_page_pairs": [
+          {
+            "remote_logical_page": 8190,
+            "destination_logical_page": 8190,
+            "remote_has_data": true
+          },
+          {
+            "remote_logical_page": 8191,
+            "destination_logical_page": 8191,
+            "remote_has_data": true
+          }
+        ],
+        "current_transfer_page_indices": [
+          8191
+        ],
+        "overlap_transfer_page_indices": [
+          8190,
+          8191
+        ],
+        "full_window_required_page_indices": [
+          8190,
+          8191
+        ],
+        "page_mapping_table": [
+          {
+            "logical_page": 8189,
+            "prompt_page_resident_after_swa_cleanup": false,
+            "prompt_page_resident_with_replay_overlap": false,
+            "required_by_full_window_view": false,
+            "in_current_connector_tail": false,
+            "current_transfer_has_data": false,
+            "current_transfer_pair": null,
+            "in_overlap_connector_tail": true,
+            "overlap_transfer_has_data": false,
+            "overlap_transfer_pair": null,
+            "runtime_physical_id_source": "common.block_table[request,8189]"
+          },
+          {
+            "logical_page": 8190,
+            "prompt_page_resident_after_swa_cleanup": false,
+            "prompt_page_resident_with_replay_overlap": true,
+            "required_by_full_window_view": true,
+            "in_current_connector_tail": true,
+            "current_transfer_has_data": false,
+            "current_transfer_pair": null,
+            "in_overlap_connector_tail": true,
+            "overlap_transfer_has_data": true,
+            "overlap_transfer_pair": {
+              "remote_logical_page": 8190,
+              "destination_logical_page": 8190,
+              "remote_has_data": true
+            },
+            "runtime_physical_id_source": "common.block_table[request,8190]"
+          },
+          {
+            "logical_page": 8191,
+            "prompt_page_resident_after_swa_cleanup": true,
+            "prompt_page_resident_with_replay_overlap": true,
+            "required_by_full_window_view": true,
+            "in_current_connector_tail": true,
+            "current_transfer_has_data": true,
+            "current_transfer_pair": {
+              "remote_logical_page": 8191,
+              "destination_logical_page": 8191,
+              "remote_has_data": true
+            },
+            "in_overlap_connector_tail": true,
+            "overlap_transfer_has_data": true,
+            "overlap_transfer_pair": {
+              "remote_logical_page": 8191,
+              "destination_logical_page": 8191,
+              "remote_has_data": true
+            },
+            "runtime_physical_id_source": "common.block_table[request,8191]"
+          }
+        ],
+        "missing_pages_current": [
+          8190
+        ],
+        "missing_pages_with_overlap": []
+      },
+      "upper_scratch_copy": {
+        "scratch_pages": 1,
+        "copy_row_count": 128,
+        "first_row": {
+          "global_token": 1048447,
+          "source_logical_page": 8190,
+          "source_page_offset": 127,
+          "scratch_page": 0,
+          "scratch_page_offset": 0
+        },
+        "last_row": {
+          "global_token": 1048574,
+          "source_logical_page": 8191,
+          "source_page_offset": 126,
+          "scratch_page": 0,
+          "scratch_page_offset": 127
+        }
+      }
+    },
+    {
+      "prompt_len": 1048575,
+      "p_loaded_prefix_tokens": 1048574,
+      "replay_start": 1048446,
+      "replay_end_exclusive": 1048574,
+      "replay_query_tokens": 128,
+      "window": 128,
+      "block_size": 128,
+      "views": {
+        "replay_only_upper": {
+          "name": "replay_only_upper",
+          "global_start": 1048446,
+          "global_end": 1048574,
+          "page_aligned_start": 1048446,
+          "local_seq_len": 128,
+          "query_start_local": 0,
+          "page_indices": [
+            8190,
+            8191
+          ],
+          "local_page_count": 1
+        },
+        "full_swa_visible_window": {
+          "name": "full_swa_visible_window",
+          "global_start": 1048319,
+          "global_end": 1048574,
+          "page_aligned_start": 1048192,
+          "local_seq_len": 382,
+          "query_start_local": 254,
+          "page_indices": [
+            8189,
+            8190,
+            8191
+          ],
+          "local_page_count": 3
+        }
+      },
+      "lower_swa_transfer": {
+        "retained_tokens_with_replay_overlap": 255,
+        "current_extra_retained_tokens": 0,
+        "required_extra_retained_tokens": 128,
+        "current_connector_clip_pages": 2,
+        "required_connector_clip_pages": 3,
+        "p_pages_kept_without_extra": [
+          8190,
+          8191
+        ],
+        "p_pages_kept_with_overlap": [
+          8189,
+          8190,
+          8191
+        ],
+        "current_connector_tail_logical_pages_including_nulls": [
+          8190,
+          8191
+        ],
+        "overlap_connector_tail_logical_pages_including_nulls": [
+          8189,
+          8190,
+          8191
+        ],
+        "current_remote_to_destination_page_pairs": [
+          {
+            "remote_logical_page": 8190,
+            "destination_logical_page": 8190,
+            "remote_has_data": true
+          },
+          {
+            "remote_logical_page": 8191,
+            "destination_logical_page": 8191,
+            "remote_has_data": true
+          }
+        ],
+        "overlap_remote_to_destination_page_pairs": [
+          {
+            "remote_logical_page": 8189,
+            "destination_logical_page": 8189,
+            "remote_has_data": true
+          },
+          {
+            "remote_logical_page": 8190,
+            "destination_logical_page": 8190,
+            "remote_has_data": true
+          },
+          {
+            "remote_logical_page": 8191,
+            "destination_logical_page": 8191,
+            "remote_has_data": true
+          }
+        ],
+        "current_transfer_page_indices": [
+          8190,
+          8191
+        ],
+        "overlap_transfer_page_indices": [
+          8189,
+          8190,
+          8191
+        ],
+        "full_window_required_page_indices": [
+          8189,
+          8190,
+          8191
+        ],
+        "page_mapping_table": [
+          {
+            "logical_page": 8189,
+            "prompt_page_resident_after_swa_cleanup": false,
+            "prompt_page_resident_with_replay_overlap": true,
+            "required_by_full_window_view": true,
+            "in_current_connector_tail": false,
+            "current_transfer_has_data": false,
+            "current_transfer_pair": null,
+            "in_overlap_connector_tail": true,
+            "overlap_transfer_has_data": true,
+            "overlap_transfer_pair": {
+              "remote_logical_page": 8189,
+              "destination_logical_page": 8189,
+              "remote_has_data": true
+            },
+            "runtime_physical_id_source": "common.block_table[request,8189]"
+          },
+          {
+            "logical_page": 8190,
+            "prompt_page_resident_after_swa_cleanup": true,
+            "prompt_page_resident_with_replay_overlap": true,
+            "required_by_full_window_view": true,
+            "in_current_connector_tail": true,
+            "current_transfer_has_data": true,
+            "current_transfer_pair": {
+              "remote_logical_page": 8190,
+              "destination_logical_page": 8190,
+              "remote_has_data": true
+            },
+            "in_overlap_connector_tail": true,
+            "overlap_transfer_has_data": true,
+            "overlap_transfer_pair": {
+              "remote_logical_page": 8190,
+              "destination_logical_page": 8190,
+              "remote_has_data": true
+            },
+            "runtime_physical_id_source": "common.block_table[request,8190]"
+          },
+          {
+            "logical_page": 8191,
+            "prompt_page_resident_after_swa_cleanup": true,
+            "prompt_page_resident_with_replay_overlap": true,
+            "required_by_full_window_view": true,
+            "in_current_connector_tail": true,
+            "current_transfer_has_data": true,
+            "current_transfer_pair": {
+              "remote_logical_page": 8191,
+              "destination_logical_page": 8191,
+              "remote_has_data": true
+            },
+            "in_overlap_connector_tail": true,
+            "overlap_transfer_has_data": true,
+            "overlap_transfer_pair": {
+              "remote_logical_page": 8191,
+              "destination_logical_page": 8191,
+              "remote_has_data": true
+            },
+            "runtime_physical_id_source": "common.block_table[request,8191]"
+          }
+        ],
+        "missing_pages_current": [
+          8189
+        ],
+        "missing_pages_with_overlap": []
+      },
+      "upper_scratch_copy": {
+        "scratch_pages": 1,
+        "copy_row_count": 128,
+        "first_row": {
+          "global_token": 1048446,
+          "source_logical_page": 8190,
+          "source_page_offset": 126,
+          "scratch_page": 0,
+          "scratch_page_offset": 0
+        },
+        "last_row": {
+          "global_token": 1048573,
+          "source_logical_page": 8191,
+          "source_page_offset": 125,
+          "scratch_page": 0,
+          "scratch_page_offset": 127
+        }
+      }
+    }
+  ],
+  "costs": {
+    "route_A_128_bounded": {
+      "d_full_layers_tokens": 128,
+      "extra_d_layer_token_ops": 0,
+      "extra_p_model_flops": 0,
+      "extra_retained_tokens_per_swa_group": 128
+    },
+    "route_B_h20_transfer_burnin": {
+      "upper_swa_layers": 20,
+      "burnin_tokens": 2540,
+      "h20_transfer_tokens": 2668,
+      "hc_mult": 4,
+      "h20_shape": [
+        2668,
+        4,
+        7168
+      ],
+      "h20_dtype_bytes": 2,
+      "h20_transfer_bytes_full_copy": 152993792,
+      "pre_mix_shape": [
+        2668,
+        4
+      ],
+      "pre_mix_dtype": "FP32",
+      "pre_mix_transfer_bytes_full_copy": 42688,
+      "activation_transfer_bytes_full_copy": 153036480,
+      "activation_transfer_mib_full_copy": 145.94696044921875,
+      "tp_partition_or_replication": "unknown; bytes are one complete activation copy",
+      "upper_layer_token_ops_total": 53360,
+      "upper_layer_token_ops_current_replay": 2560,
+      "upper_layer_work_multiplier": 20.84375,
+      "extra_upper_layer_token_ops": 50800,
+      "extra_p_model_flops": 0,
+      "extra_p_activation_capture_tokens": 2668
+    },
+    "route_B_full40_token_burnin": {
+      "burnin_tokens": 5080,
+      "d_replay_tokens_total": 5208,
+      "full_layer_token_ops_total": 208320,
+      "full_layer_token_ops_current_replay": 5120,
+      "full_d_work_multiplier": 40.6875,
+      "extra_full_layer_token_ops": 203200,
+      "extra_p_activation_transfer": 0
+    },
+    "assumptions": [
+      "Each layer's SWA has left radius window-1 and no other D-produced cross-token state.",
+      "CED CSA/indexer source remains the P-produced global cache during replay.",
+      "The H20 route requires an activation side channel and an upper-only D prefill path."
+    ]
+  }
+}
