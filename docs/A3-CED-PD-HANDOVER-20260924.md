@@ -1,5 +1,16 @@
 # CED-PD 交接：2026-09-24
 
+> **2026-09-24 22:xx 重要更新（请先读这段，再读正文）：**
+> 下面「D 图模式短针 2/2 乱码」「1M 四针 3/4 或 4/4 失败」等现象，**根因已定位
+> 并修复**：D 的 replay 第一个 query 会读到自己**未持有**的 SWA 逻辑页
+> （行内为 0 = null block，kernel 于是读物理块 0）。触发条件是物理块分配碎片化，
+> 与请求序号无关。详见
+> [`CED-D-1M-LAYOUT-BUG-20260924.md`](CED-D-1M-LAYOUT-BUG-20260924.md)；
+> 修复为 `experimental/ced/dsa_v41.py` 的 `[CED-SWA-CLIP]`
+> （`V41_CED_SWA_CLIP`，默认 `1`）。**8+8 真机 A/B 尚未执行**，所以正文里
+> 「图模式不是交付配置」的结论在验收补齐前仍然有效。启动与验收口径见
+> [`CED-PD-ACCEPTANCE.md`](CED-PD-ACCEPTANCE.md)。
+
 **暂停时的最新状态与恢复顺序见
 [`A3-CED-PD-PAUSE-20260924.md`](A3-CED-PD-PAUSE-20260924.md)。**
 

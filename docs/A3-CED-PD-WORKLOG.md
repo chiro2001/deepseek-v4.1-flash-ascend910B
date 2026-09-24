@@ -208,3 +208,31 @@ bash scripts/serve_a3_pd.sh prefill
 - 结果说明当前这组 1M CED 服务在约 255K、517K、1,020K 三个长度均出现检索失效。之前另一轮 144K 的通过不是同一服务配置的严格对照；下一步按主 Agent 指示在**这组未重启服务**上用 offset=0 重测 144K，保持 P tokenizer、SPEC=0、PREFIX=0，再决定是否测 192K。当前不切全 40 层基线。
 - **强对照但非单变量：** 既有全 40 层双 TP8、BF16、AscendStore 的 [`pdstore_bf16_align_needle1m.json`](/home/chiro/projects/dsv41/pd_single_a3/evidence_handover/pdstore_bf16_align_needle1m.json) 在实际 1,019,789 token 下四针 4/4 精确正确且 U+FFFD=0；与这次 CED 的连接器及 DSpark 设置不同。
 - **待验证假说：** D 对尾部 128 token 从 token IDs 重算 40 层；若其 replay 起点前的低层 SWA 状态不完整，内部 H20 可能与完整模型不同。P/D 目前低层 SWA 传输行为使该路径值得优先检查，但长度扫描没有直接比较 H20、SWA 缓存页或 logits，不能将它写成根因。
+
+## 2026-09-24 22:xx 结案：上面那条假说方向正确，机制已定位并修复
+
+上面「replay 起点前的 SWA 状态不完整」的假说成立，而且机制比假说更具体：
+**D 侧根本没有持有那部分页**，kernel 于是去读了别的请求的页。
+
+1. **判别量不是 P→D 传输。** 把 cache 快照点移进 replay 窗口（position 1019845）
+   后，层 20 的 `long_kv`/`index_k`/`index_scale` 在「通过-失败」配对之间
+   maxdiff = 0/0/0（逐位相同却结果不同）。Engram 4-gram 的 `hash8` 也逐位相同。
+2. **判别量是 D 自己算出的 SWA。** 尾位置 SWA 快照里层 38/39 的「通过-失败」
+   差（1.53~1.83）是「通过-通过」差（0.22~0.37）的约 5 倍。
+3. **机制：** `replay_start=S=E-128` 时，第一个 replay query 的 128 窗口左沿回溯到
+   逻辑页 `floor((S-127)/128)`；而两端都只保留 `cdiv(128,128)+1 = 2` 页，
+   D 的 SWA 块表行内那一列已被回收为 `0`（null block）⇒ kernel 去读**物理块 0**。
+   池没绕回时块 0 尚未分配（贡献≈0，答案不被翻掉）；池绕回后块 0 属于最早的请求
+   ⇒ 别人的 KV 以正常权重混入 ⇒ 首 token 直接 EOS。这解释了 144K/短针全过、
+   碎片分配（`descents>0`，即池已绕回的代理指标）失败、以及失败点随块数移动。
+4. **修复：** `experimental/ced/dsa_v41.py` 的 `[CED-SWA-CLIP]`
+   （`V41_CED_SWA_CLIP`，默认 `1`）：replay 步把每行块表 `torch.gather` rebase 到
+   该请求自己的 replay 起始页（必须是新的连续张量——kernel 行偏移取自张量
+   `dim(1)`），并把 `seqused_ori_kv` 换成相对长度，使 band mask 在 0 处 clamp。
+5. **离线判据：** `tools/ced_swa_clip_verify.py --lint-code --sweep-max 2999`
+   三臂（legacy / clip / 末 token 步）全扫：legacy 越界 2722 例、与规则
+   `N≥256 且 N%128≠0` 的预测**精确相等**；clip 与末 token 步**零越界**。
+6. **仍未做：** 8+8 真机的碎片形态重复通过率与 `V41_CED_SWA_CLIP=1/0` 单变量
+   A/B（按用户「先不动」挂起）；受控性能对照同样未做。口径见
+   [`CED-PD-ACCEPTANCE.md`](CED-PD-ACCEPTANCE.md)，根因细节见
+   [`CED-D-1M-LAYOUT-BUG-20260924.md`](CED-D-1M-LAYOUT-BUG-20260924.md)。
