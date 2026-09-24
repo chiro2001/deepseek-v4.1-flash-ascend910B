@@ -131,7 +131,48 @@ ori_block_table = metadata.swa.block_table[:num_reqs, start_page:start_page+ceil
   都通过；仍为 `GRAPH=1 EAGER=0`；连续路径相对既有基线不退化。
 - 噪声底（必须先测）：同一布局重复两次、不同连续布局两次、连续 vs 碎片，三种配对。
 
-## 6. 已知的观测陷阱
+## 5.5 修复前提已用算子自身文档核实（2026-09-24 21:5x，本地只读）
+
+方案 A 依赖一个隐含假设：`ori_block_table` 的列号是**局部** KV 坐标
+（`local_token // block_size`），而不是全局 token 坐标。这一点已在算子自身的
+设计与源码里确认，不需要上机猜测：
+
+- 上游算子源码在本仓库：
+  `upstream-v41/vllm-ascend-upstream/csrc/attention/sparse_flash_mla/`。
+- `docs/design.md` §2.4 原文：
+  “原始侧右下对齐的 query 位置为 `p = Lori - Lq + i`。mode 4 的有限窗口保留
+  `p - win_left <= j <= p + win_right`，**再与 `[0, Lori)` 相交**”。
+  ⇒ query 的坐标是**相对** `Lori = seqused_ori_kv` 的局部量；窗口本身会在
+  `0` 处被 clamp，这正是方案 A 想要的语义。
+- 同文档 §2.3 原文：
+  “`page = logical_token / block_size` … `physical_page = block_table[b, page]`”。
+  ⇒ 列号就是上面那个局部 `logical_token // block_size`。
+- Host 侧 checker 只校验 `ori_block_table` 的 dtype（INT32）、维数（2 维）、
+  非空（`op_host/checkers/paged_attention_checker.cpp::CheckBlockTable`），
+  **不要求块表宽度与 `seqused_ori_kv` 匹配** ⇒ 窄化后的块表不会被拒。
+
+因此“窄化块表 + 相对 `seqused_ori`”是自洽的：kernel 用局部坐标 `p` 去索引窄表
+的列 `0..num_pages-1`，而该窄表正是把原行表里 `base_page..` 的那几列 gather
+过来的。CPU 索引仿真（`fix/ced-blockbug` 的 `tools/ced_swa_clip_sim.py`）在
+N=100..2999 上复核：`clip` 视图越界样本 **0**，`legacy` 视图在真实 1M 例
+（N=1019847）读到列 `7965,7966,7967`，其中 `7965` 不属于本请求持有的
+`{7966, 7967}`。
+
+触发条件也随之变精确：**N ≥ 256 且 N % 128 ≠ 0** 时 legacy 必然越界；
+N % 128 == 0 或 N ≤ 255 时不越界（已用 2744 个长度扫过，无反例）。
+
+### 为什么短上下文与"池未绕回时"仍然答对（当前最合理的解释）
+
+行内被回收的列写的是 `0`（null block）⇒ kernel 会去读**物理块 0**。
+KV 池没绕回时块 0 还没被分配给任何请求（内容为 0/未初始化），对 softmax 的
+贡献近似为零，答案不被翻掉；一旦池绕回，块 0 已被分给**最早的那个请求**，
+于是这 57 个 replay query 会把别人的 KV 以正常权重混进来 ⇒ 首 token 直接 EOS。
+这与实测完全吻合：碎片（`descents>0`）正是"池已绕回"的代理指标，而 144K /
+22-token 这些小池场景天然不会绕回。
+
+> 待验证（下次允许上机时的一条只读探针即可）：在真实请求的 replay 步打印
+> `metadata.swa.block_table[0]` 的第 `7965` 列，确认它是 `0`；再用
+> `npu-smi`/调度日志确认块 0 在绕回后已分配给其他请求。
 
 - `[CED-LAYER-TRACE]` 探针在 warmup/dummy 阶段会对 `positions` 取到未初始化张量，
   抛 `IndexError`（已 fail-open，只打日志）。它本身不影响模型，但会让启动日志变大、
@@ -141,3 +182,5 @@ ori_block_table = metadata.swa.block_table[:num_reqs, start_page:start_page+ceil
   改动时务必保留。
 - `/v1/chat/completions` 的 `token_ids` 字段被 reasoning parser 抑制，必须同时传
   `include_reasoning=true` 才会回传（`tools/ced_seq_probe.py` 已处理）。
+## 6. 已知的观测陷阱
+
