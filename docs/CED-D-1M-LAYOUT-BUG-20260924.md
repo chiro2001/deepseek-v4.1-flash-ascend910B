@@ -203,6 +203,8 @@ op_impl/ai_core/tbe/custom_transformer_impl/ascendc/sparse_flash_mla/` 与
 | 最后一个 tile 不越界 | 同文件：`actualSingleProcessSInnerOriSize = (oriMaskRight - oriMaskLeft + 1) - s2LoopIdx*s2BaseSize` | ✅ 拷贝长度裁到 mask 右界 ⇒ 最大列 = `(Lori-1)//128 = width-1` |
 | 预取迭代不发访存 | 同文件：`info.isValid = s2LoopIdx < tempLoopInfo.s2LoopTimes`，`PreloadPipeline` 只在 `isValid` 时执行 | ✅ `extraLoop = PRELOAD_NUM = 2` 不会多读一页 |
 | S2 不跨核切分 | 同文件：`tempLoopInfo.tndIsS2SplitCore = false; tndCoreStartKVSplitPos = 0;` | ✅ metadata 里的 per-core `s2Start` 只决定「该核尝不尝试这个 tile」，start ≥ 局部 tile 数即跳过 |
+| 压缩侧（长程）不受影响 | `arch22/sparse_flash_mla_csa_kernel.h::GetCmpMaskS2Size` 返回 `actualCmpS2Size * cmpRatio + residual`，**并且显式 `(void)actualOriS2Size;`**；`thresHold = (cmpMaskRight + s1EndIdx + 1) / cmpRatio` 全在 cmp 坐标系里 | ✅ 修复只动 ori/SWA 侧，`cmp_block_table`/`cmp_seq_lens` 原样传入，长程召回不被裁 |
+| 纯 SWA 层不涉及 cmp | `arch22/sparse_flash_mla_swa_kernel.h::GetCmpMaskS2Size` 在非 HCA 模板下返回 `actualOriS2Size`，但 SWA 模板里 `info.isOriOnly = true`，且 ratio-0 层不传 cmp 输入（`cmp_mask_mode=0`） | ✅ 该分支在本模型上不参与计算 |
 
 **metadata 用完整 `max_seqlen_ori_kv` 构建，为什么无害：** 每个 tile 的有效性由
 kernel 现算的 `s2LoopTimes`（来自被窄化的 `seqUsedOriKV`）门控

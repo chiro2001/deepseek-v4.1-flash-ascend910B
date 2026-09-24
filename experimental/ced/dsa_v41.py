@@ -636,7 +636,7 @@ class DeepseekV41EagerAttentionImpl:
             shared.candidates[: candidates.shape[0]].copy_(candidates)
         return shared.topk_indices[: selected.shape[0]]
 
-    def _attention(self, attn, q, metadata, compressed_indices):
+    def _attention(self, attn, q, metadata, compressed_indices, replay_chunk=False):
         source_cache = None
         if self.role.has_long_context:
             source_cache = get_forward_context().no_compile_layers[self.long_kv_source_prefix].kv_cache[0]
@@ -646,6 +646,7 @@ class DeepseekV41EagerAttentionImpl:
             metadata,
             source_cache=source_cache,
             compressed_indices=compressed_indices,
+            replay_chunk=replay_chunk,
         )
 
     def _native_attention(
@@ -656,6 +657,7 @@ class DeepseekV41EagerAttentionImpl:
         *,
         source_cache,
         compressed_indices,
+        replay_chunk=False,
     ):
         """Run SparseFlashMla with the same PA metadata for both operator stages."""
         if attn.head_dim != 512:
@@ -698,9 +700,11 @@ class DeepseekV41EagerAttentionImpl:
         #   张量 dim(1)，非连续视图会让 bIdx>0 的行偏移错位。
         if (
             _CED_SWA_CLIP
-            and _CED_DECODE_ROLE
+            # ★ 必须与 forward() 里算出的 replay_chunk 同源，不能用
+            #   "max_query_len > 1" 之类的启发式：否则 profile run（或将来任何
+            #   新的多 token 步）会走进裁剪分支，而那不是有界重放语义。
+            and replay_chunk
             and metadata.swa.positions is not None
-            and metadata.swa.max_query_len > 1
             and not _ced_is_capturing()
         ):
             block_size = int(metadata.swa.logical_block_size) or int(metadata.swa.storage_block_size)
@@ -883,7 +887,9 @@ class DeepseekV41EagerAttentionImpl:
             )
         compressed_indices = self._select_sparse_indices(attn, hidden_states, qr, positions, cos, sin, metadata)
         _ced_swa_trace(self.role.layer_idx, metadata, positions, replay_chunk)
-        attention_output = self._attention(attn, q, metadata, compressed_indices)
+        attention_output = self._attention(
+            attn, q, metadata, compressed_indices, replay_chunk=replay_chunk
+        )
         _ced_layer_trace(
             self.role.layer_idx,
             positions,

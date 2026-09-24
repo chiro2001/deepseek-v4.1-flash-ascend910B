@@ -6,9 +6,13 @@
 
 > **当前状态（2026-09-24）**：正确性根因已定位并修复（见
 > [`CED-D-1M-LAYOUT-BUG-20260924.md`](CED-D-1M-LAYOUT-BUG-20260924.md)），
-> 修复已合入 `experimental/ced/dsa_v41.py`（`V41_CED_SWA_CLIP`，默认 `1`），
-> 但**真机 A/B 尚未执行**：`GRAPH=1 EAGER=0` 下的 1M 稳定性仍需按本文第 3 节验收。
-> 因此本文的启动配置目前标记为"实验臂"，还不能当交付口径。
+> 修复已合入 `experimental/ced/dsa_v41.py`（`V41_CED_SWA_CLIP`，默认 `1`）。
+> 已验证：算子源码级前提（7 条）、离线逐长度判据、修复不变量的静态 lint、
+> **tiny 单卡真机在 `GRAPH=1 EAGER=0` 下裁剪分支按设计执行**（见
+> [`../evidence/ced_swa_clip_tiny_ab_20260924/README.md`](../evidence/ced_swa_clip_tiny_ab_20260924/README.md)）。
+> **尚未验证**：8+8 真权重下的碎片形态重复通过率、`V41_CED_SWA_CLIP=1/0` 单变量
+> A/B、以及第 4.1 节的受控性能对照。在补齐之前，本文的启动配置标记为"实验臂"，
+> 不能当交付口径；按用户 2026-09-24 的"先不动"指示，这部分实验已挂起。
 
 ## 1. 拓扑与前置
 
@@ -102,6 +106,8 @@ python3 tools/ced_pd_acceptance.py \
 | 5 | 多轮 | 同会话三轮问不同针，逐轮正确（状态未被带坏） | `multiturn*.result.json` |
 | 6 | 缓存命中 | 第二次同前缀 `cached_tokens > 0`（`PREFIX=0` 时此项按"不适用"记录） | `prefix*.result.json` |
 | 7 | 性能 | prefill / TTFT / TPOT / 吞吐 / KV 占用 | 结果的 `wall_s`/`ttft_s`/`tpot_ms` + `metrics_before/after` |
+| 0 | runner 自证 | `--selfcheck` 通过（内置 mock + 负控） | 退出码 0 |
+| 0b | 修复不变量 | `python3 tools/ced_swa_clip_verify.py --lint-code` 退出码 0 | 见 3.1 |
 
 ### 3.1 修复专项（`V41_CED_SWA_CLIP` 单变量 A/B）
 
@@ -120,6 +126,44 @@ V41_CED_SWA_CLIP=1 bash scripts/serve_a3_ced_pd.sh decode
 差异），所以看**失败率**，不要看逐位相等。
 
 ## 4. 性能口径
+
+### 4.0 已有的指示性数字（**不是受控对照**，缺 4.1 的同条件矩阵）
+
+同一台 A3-21、同为 1M 级 prompt（1,019,847 token）、`temperature=0`、非流式、
+`max_tokens=64`、实际输出 7 token：
+
+| 配置 | 1M 单请求 wall | 来源 |
+|---|---:|---|
+| CED（P 只跑层 0–19 + 层 20 全局源投影） | **~102.7 s**（8 次：102.1/104.8/102.8/103.4/102.8/101.8/101.7/102.7） | 2026-09-24 A3-21 实测（`metadata-inline` 臂） |
+| 全 40 层（direct full40，无 CED role、无 KV connector） | **~288.8 s**（291.1/289.6/287.7/286.8） | [`../evidence/ced_8x8_length_scan_20260924/README.md`](../evidence/ced_8x8_length_scan_20260924/README.md) |
+
+比值约 **2.8×**，方向与"P 跳过 20 层 decoder 计算"一致。**但两臂的连接器、
+DSpark 配置与代码版本不同，不能当受控结论**；要写进交付必须按 4.1 重测。
+另外要明确：CED P 仍然加载**完整权重**（实测约 39.5 GB/rank），省的是**计算**
+不是显存；论文那部分显存收益来自 global/SWA 分层 TTL，我们尚未实现（见第 6 节）。
+
+### 4.1 受控对照流程（交付前必须跑）
+
+两臂用**同一 prompt 字节、同一 `max_tokens`、同一 `MAX_SEQS/BAT_TOKENS/GPU_UTIL`**，
+每臂重复 ≥3 次取中位数：
+
+```bash
+# A 臂：全 40 层双 TP8 PD 基线
+MODEL=$MODEL MAX_LEN=1048576 MAX_SEQS=4 BAT_TOKENS=8192 \
+  DEVS="0 1 2 3 4 5 6 7" PORT=18990 KV_PORT=19090 \
+  bash scripts/serve_a3_pd.sh prefill
+MODEL=$MODEL MAX_LEN=1048576 MAX_SEQS=4 BAT_TOKENS=8192 \
+  DEVS="8 9 10 11 12 13 14 15" PORT=18991 KV_PORT=19091 \
+  bash scripts/serve_a3_pd.sh decode
+# （+ proxy 18992），然后跑第 3 节 runner 的 --mode needle
+
+# B 臂：CED（启动命令见 2.1/2.2），同一 runner、同一 prompt
+```
+
+要记录的对照量：`wall_s`（非流式）、`ttft_s`（流式）、`tpot_ms`、completion
+tokens、以及 `--metrics-urls` 抓到的 P/D KV 占用与请求计数。**报告时必须同时给
+接受长度**，否则 tok/s 会被投机解码的文本可预测性放大 3× 以上
+（见 [`BENCH-METHODOLOGY.md`](BENCH-METHODOLOGY.md)）。
 
 - **prefill 时间**：以 `needle1000k` 的 `wall_s`（非流式）或流式 TTFT 近似；
   要与全 40 层双 TP8 PD 基线**同 prompt、同 max_tokens、同并发**对照。

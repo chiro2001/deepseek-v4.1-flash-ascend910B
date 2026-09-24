@@ -48,6 +48,8 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
+import re
 from dataclasses import dataclass, field
 
 WINDOW = 128  # sliding_window / ori_win_left + 1
@@ -152,7 +154,52 @@ def main() -> int:
     ap.add_argument("--json", default="", help="把逐长度结果写到该 JSON")
     ap.add_argument("--lengths", default="1019847,1048576,900000,144404,8193,999,256,255",
                     help="逗号分隔的 prompt token 数")
+    ap.add_argument("--lint-code", action="store_true",
+                    help="额外静态校验 dsa_v41.py 的裁剪分支不变量（防条件漂移）")
     args = ap.parse_args()
+
+    lint_failures: list[str] = []
+    if args.lint_code:
+        source_path = os.path.join(
+            os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+            "experimental", "ced", "dsa_v41.py",
+        )
+        src = open(source_path, encoding="utf-8").read()
+        # 负向检查必须在"去掉注释"的源码上做，否则解释性注释里的字样会误报。
+        src_code = "\n".join(
+            line.split("#", 1)[0] for line in src.splitlines()
+        )
+        checks = [
+            ("_native_attention 接收 replay_chunk 形参",
+             r"def _native_attention\([^)]*replay_chunk",
+             True, src),
+            ("裁剪分支以 replay_chunk 为条件（不是 max_query_len 启发式）",
+             r"_CED_SWA_CLIP\s*\n(?:\s*#.*\n)*\s*and\s+replay_chunk",
+             True, src),
+            ("裁剪分支内不再出现 max_query_len > 1 判定",
+             r"_CED_SWA_CLIP[\s\S]{0,600}?max_query_len > 1",
+             False, src_code),
+            ("唯一调用点把 replay_chunk 传下去",
+             r"self\._attention\([\s\S]{0,200}?replay_chunk=replay_chunk",
+             True, src),
+            ("窄化块表由 torch.gather 产生（新的连续张量）",
+             r"ori_block_table = torch\.gather\(",
+             True, src_code),
+            ("算子收到的是 rebase 后的长度",
+             r"seqused_ori_kv=seqused_ori",
+             True, src_code),
+            ("有连续性断言",
+             r"非连续 block table|not ori_block_table\.is_contiguous\(\)",
+             True, src),
+        ]
+        print("== 静态不变量校验（experimental/ced/dsa_v41.py）==")
+        for name, pattern, should_match, haystack in checks:
+            found = re.search(pattern, haystack) is not None
+            ok = found == should_match
+            print(f"  {'OK ' if ok else 'FAIL'} {name}")
+            if not ok:
+                lint_failures.append(name)
+        print()
 
     lengths = [int(x) for x in args.lengths.split(",") if x.strip()]
     results = [check(n) for n in lengths]
@@ -185,8 +232,10 @@ def main() -> int:
         print(f"\n已写 {args.json}")
 
     # 判据：至少一个长度上 legacy 越界（说明修复有意义），且所有长度上 clip 零越界
-    ok = legacy_bad > 0 and clip_bad == 0
+    ok = legacy_bad > 0 and clip_bad == 0 and not lint_failures
     print(f"\n判据：legacy 越界长度数={legacy_bad}（需 >0），clip 越界长度数={clip_bad}（需 =0）")
+    if args.lint_code:
+        print(f"      静态不变量失败项={len(lint_failures)}{lint_failures or ''}")
     print("结果：" + ("通过 ✅" if ok else "不通过 ❌"))
     return 0 if ok else 1
 
