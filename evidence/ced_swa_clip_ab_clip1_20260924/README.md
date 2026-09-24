@@ -160,6 +160,37 @@ i3  FAIL   completion=1   wall=102.8s   ← 全局第 20 个长请求
 下一步单变量：把 D 改成 `MAX_SEQS=1`，其余完全不变，跑 8 个长请求——
 若失败消失 ⇒ 槽位/批内 buffer 相关；若仍每 4 个失败 ⇒ "4" 与 `MAX_SEQS` 无关。
 
+### F. `MAX_SEQS=1` 单变量：**周期不变**（2026-09-25 00:22–00:36）
+
+重启 D，只把 `MAX_SEQS` 从 4 改成 1（其余完全不变：同样的 `GRAPH=1 EAGER=0`、
+prompt-tail eager、metadata inline、`V41_CED_SWA_CLIP=1`）。新实例、
+`num_blocks: 30200`（标准臂是 30082）、`max-num-seqs 1` 已在容器命令行核对。
+
+```
+ms1_1  PASS  completion=7
+ms1_2  PASS  completion=7
+ms1_3  PASS  completion=7
+ms1_4  FAIL  completion=1   ← 仍是第 4 个
+ms1_5  PASS  completion=7
+ms1_6  PASS  completion=7
+ms1_7  PASS  completion=7
+ms1_8  FAIL  completion=1   ← 仍是第 8 个
+```
+
+⇒ **周期 4 与 `MAX_SEQS` 无关**（也不是某个具体 D 实例的残留状态：
+这是全新实例）。前面把"周期 = MAX_SEQS"当成最强候选的判断被这次实验否掉。
+
+同时要修正本文早先一处过强的表述：我们只证明了块布局的**摘要**
+（`n`/`first`/`last`/`descents`）不判别，而**摘要相同的两个列表顺序可以完全不同**，
+所以"回收/绕回"这一类机制**并未被排除**。
+两个 D 实例的池/请求比都落在同一档：
+`30082 / 7989 = 3.766`（标准臂）、`30200 / 7989 = 3.780`（MAX_SEQS=1）⇒
+`ceil(比值) = 4`，与观测周期一致。
+
+下一步单变量：**把 KV 池压到"约 2.4 个请求"的量**（`--kv-cache-memory-bytes`），
+让比值落到 `ceil = 3`。若失败周期随之变成 3 ⇒ 与池的绕回/回收直接相关；
+若仍是 4 ⇒ 与池无关，回到"按请求计数"的其他机制。
+
 ## 文件
 
 - `g0_stats.tsv`：上表的机器可读版本（由运行时日志摘出）
