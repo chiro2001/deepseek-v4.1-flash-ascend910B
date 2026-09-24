@@ -78,6 +78,11 @@ full_view_page_end   = ceil (1019846/128) = 7968
 
 只在 `experimental/ced/dsa_v41.py::_native_attention` 里改，不动 core。
 
+> **状态：已实现并合入本分支**（`V41_CED_SWA_CLIP`，默认 `1`；置 `0` 可回到旧行为
+> 做同实例 A/B）。实现比下面这段伪代码更严谨：用 `torch.gather` 逐请求取出
+> 自己的窄表（**必须是新的连续张量**，理由见第 5.6 节），`seqused_ori_kv` 换成
+> 相对长度。本节其余内容是设计推导，保留作为背景。
+
 在 CED decode 角色、且处于 replay 步（`metadata.swa.max_query_len > 1`）时：
 
 ```text
@@ -182,5 +187,51 @@ KV 池没绕回时块 0 还没被分配给任何请求（内容为 0/未初始�
   改动时务必保留。
 - `/v1/chat/completions` 的 `token_ids` 字段被 reasoning parser 抑制，必须同时传
   `include_reasoning=true` 才会回传（`tools/ced_seq_probe.py` 已处理）。
-## 6. 已知的观测陷阱
+## 5.6 修复已通过算子源码级核实（2026-09-24 22:xx，全离线）
 
+方案 A 的每条前提都在**本仓库内的算子源码**里逐条核对过，不是靠上机试错。
+源码位置：`graph_prep/src/vllm_ascend/_cann_ops_custom/vendors/custom_transformer/
+op_impl/ai_core/tbe/custom_transformer_impl/ascendc/sparse_flash_mla/` 与
+`upstream-v41/vllm-ascend-upstream/csrc/attention/sparse_flash_mla/`。
+
+| 前提 | 源码证据 | 结论 |
+|---|---|---|
+| 块表列号 = 局部页号 | `sparse_flash_mla_common.h::DataCopyPA`：`blockIdOffset = curS2Idx / shape.blockSize` | ✅ 窄化后列 0 对应 replay 起始页 |
+| 行偏移用块表形状 | 同函数：`blockTableBaseOffset = startPos.bIdx * shape.maxblockNumPerBatch` | ⚠️ 必须用 **gather**（新的连续张量），切片视图会让 `bIdx>0` 错位 |
+| stride / S2 / block size 的口径 | `op_host/sparse_flash_mla_tiling.cpp`：`oriMaxBlockNumPerBatch_ = oriBlockTable.dim(1)`、`s2Size_ = 该值 * oriBlockSize_`、`oriBlockSize_ = oriKvShape_.dim(1)` | ✅ 窄化块表会自动把整个坐标系缩到 `width*128` |
+| mask 边界用运行时长度 | `arch22/sparse_flash_mla_swa_kernel.h`：`actOriS2Size = GetActualSeqLenKV(bIdx)`（读 `seqUsedOriKV`），`oriMaskRight = Min(actOriS2Size - S1 + s1EndIdx, actOriS2Size - 1)`、`oriMaskLeft = Max(...)` | ✅ 换 `seqused_ori_kv` 就把 `p = Lori - Lq + i` 挪到局部坐标，窗口在 0 处 clamp |
+| 最后一个 tile 不越界 | 同文件：`actualSingleProcessSInnerOriSize = (oriMaskRight - oriMaskLeft + 1) - s2LoopIdx*s2BaseSize` | ✅ 拷贝长度裁到 mask 右界 ⇒ 最大列 = `(Lori-1)//128 = width-1` |
+| 预取迭代不发访存 | 同文件：`info.isValid = s2LoopIdx < tempLoopInfo.s2LoopTimes`，`PreloadPipeline` 只在 `isValid` 时执行 | ✅ `extraLoop = PRELOAD_NUM = 2` 不会多读一页 |
+| S2 不跨核切分 | 同文件：`tempLoopInfo.tndIsS2SplitCore = false; tndCoreStartKVSplitPos = 0;` | ✅ metadata 里的 per-core `s2Start` 只决定「该核尝不尝试这个 tile」，start ≥ 局部 tile 数即跳过 |
+
+**metadata 用完整 `max_seqlen_ori_kv` 构建，为什么无害：** 每个 tile 的有效性由
+kernel 现算的 `s2LoopTimes`（来自被窄化的 `seqUsedOriKV`）门控
+（`isValid = s2LoopIdx < s2LoopTimes`），metadata 的 `s2Start` 只影响
+「从哪个 tile 开始试」。局部 tile 数为 1 时，只有 `s2Start = 0` 的核会做 tile 0，
+而它正好覆盖 `[oriMaskLeft, oriMaskRight]`。因此不需要改 metadata builder，
+避免引入额外变量。**这一条是分析结论，上机时可用 `V41_CED_SWA_TRACE` 复核。**
+
+**可复现的离线判据：** `tools/ced_swa_clip_verify.py` 把上面的语义编码成小模型，
+逐 Q 行复算 kernel 会对哪些列发起访存：
+
+```text
+   prompt       held  legacy OOB  clip OOB    clip 列宽   clip 越列
+  1019847 [7966, 7967]           1         0          2         0
+  1048576 [8190, 8191]           0         0          2         0
+   900000 [7030, 7031]           1         0          2         0
+   144404 [1127, 1128]           1         0          2         0
+     8193       [63]             1         0          1         0
+      999     [6, 7]             1         0          2         0
+      256     [0, 1]             0         0          2         0
+      255     [0, 1]             0         0          2         0
+```
+
+`N=1019847`（我们真实复现的那条 1M 请求）：legacy 读到列 `7965,7966,7967`，
+其中 `7965` **不在**持有集合 `{7966,7967}`；clip 只读列 `0,1` ⇒ 全局
+`7966,7967`，零越界。`N=1048576`（对齐）两侧都零越界，与「对齐长度天然安全」
+的实测一致。
+
+> 仍未完成：真机 A/B。上面的核实证明**修复方向与实现自洽**，但不替代
+> 「碎片形态 ≥10 次全过 + 连续形态不退化 + 保持图模式」的验收。
+
+## 6. 已知的观测陷阱

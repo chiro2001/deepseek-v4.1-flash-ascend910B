@@ -49,6 +49,24 @@ from vllm_ascend.worker.device_metadata import (
 
 V41_METADATA_BUFFER_SIZE = 1024
 _CED_DECODE_ROLE = os.environ.get("V41_CED_ROLE", "") == "decode"
+# [CED-SWA-CLIP] CED decode 的 replay 步把 SMLA 的 ori(SWA) 可见窗口裁到
+# replay 起点。默认开（这是 1M 布局 bug 的修复）；置 0 回到旧行为，用于
+# 同一实例内的单变量 A/B。语义与算子源码的对应关系见
+# docs/CED-D-1M-LAYOUT-BUG-20260924.md 第 5.6 节。
+_CED_SWA_CLIP = os.environ.get("V41_CED_SWA_CLIP", "1") == "1"
+
+
+def _ced_is_capturing() -> bool:
+    """是否正在 ACL graph capture；capture 期间绝不能做 D2H 或临时分配。"""
+    try:
+        if getattr(get_forward_context(), "capturing", False):
+            return True
+    except Exception:  # noqa: BLE001 - 不在 forward context 内时 get_forward_context 会 assert
+        pass
+    try:
+        return bool(torch.npu.is_current_stream_capturing())
+    except Exception:  # noqa: BLE001 - 某些 torch_npu 版本没有这个 API
+        return False
 
 # ==== [CED-LAYER-TRACE] 只读逐层数值探针（默认关闭）====
 # 复用启动脚本已透传的 V41_CED_LAYER_SNAPSHOT_POS / _LAYERS 两个变量：
@@ -655,6 +673,64 @@ class DeepseekV41EagerAttentionImpl:
         query_start_loc = metadata.swa.query_start_loc[: num_reqs + 1]
         seq_lens = metadata.swa.seq_lens[:num_reqs]
         ori_block_table = metadata.swa.block_table[:num_reqs]
+        seqused_ori = seq_lens
+        # [CED-SWA-CLIP] 修复 1M 偶发乱码（见 docs/CED-D-1M-LAYOUT-BUG-20260924.md）。
+        #
+        # 算子把 `ori_block_table` 当 [batch, maxblockNumPerBatch] 用，且
+        #   列号 = curS2Idx / paOriBlockSize     （sparse_flash_mla_common.h::DataCopyPA）
+        #   行偏移 = bIdx * oriMaxBlockNumPerBatch（同上）
+        # 而 tiling 里 `oriMaxBlockNumPerBatch = blockTable.shape[1]`、
+        # `s2Size = shape[1] * blockSize` 且 `blockSize = oriKv.dim(1)`
+        # （op_host/sparse_flash_mla_tiling.cpp::GetMaxBlockNumPerBatch / GetBlockSize /
+        #  GetS2SizeForPageAttention）。因此 D 的 SWA manager 只保留末尾 2 页时，
+        # 首个 replay query 的 128 窗口会回溯到已被回收的列（行内为 0 = null block），
+        # kernel 就会去读**物理块 0**；池绕回后块 0 属于别的请求 ⇒ 首 token EOS。
+        #
+        # 这里把行表 rebase 到每个请求 replay 起点所在页，并把 seqused_ori_kv 换成
+        # 相对长度。mask 边界由 kernel 从运行时的 seqUsedOriKV 现算
+        # （swa_kernel.h::GetActualSeqLenKV）并 Min 到 `actOriS2Size - 1`
+        # （同文件 oriMaskRight），最后一个 tile 的拷贝长度也裁到
+        # `oriMaskRight - oriMaskLeft + 1`；预取多出的迭代 `isValid=false` 不发访存
+        # （同文件 648 行）。所以窄化后 kernel 只会访问列 0..ceil(local/bs)-1，
+        # 正是下面 gather 出来的宽度 ⇒ 不会再碰到未持有的页。
+        #
+        # ★ 必须用 gather（新的连续张量），不能用切片视图：kernel 的行 stride 直接取自
+        #   张量 dim(1)，非连续视图会让 bIdx>0 的行偏移错位。
+        if (
+            _CED_SWA_CLIP
+            and _CED_DECODE_ROLE
+            and metadata.swa.positions is not None
+            and metadata.swa.max_query_len > 1
+            and not _ced_is_capturing()
+        ):
+            block_size = int(metadata.swa.logical_block_size) or int(metadata.swa.storage_block_size)
+            if block_size <= 0:
+                raise RuntimeError(
+                    "CED SWA clip needs a positive block size, got "
+                    f"logical={metadata.swa.logical_block_size} storage={metadata.swa.storage_block_size}"
+                )
+            positions_swa = metadata.swa.positions[: q.shape[0]]
+            query_starts = metadata.swa.query_start_loc[:num_reqs].to(torch.long)
+            first_positions = positions_swa.index_select(0, query_starts)
+            base_pages = torch.div(first_positions, block_size, rounding_mode="floor")
+            local_lens = seq_lens - base_pages.to(seq_lens.dtype) * block_size
+            num_pages = int((int(local_lens.max().item()) + block_size - 1) // block_size)
+            offsets = torch.arange(num_pages, device=base_pages.device, dtype=torch.long)
+            columns = base_pages[:, None] + offsets[None, :]
+            ori_block_table = torch.gather(metadata.swa.block_table[:num_reqs], 1, columns)
+            if not ori_block_table.is_contiguous():
+                raise RuntimeError("CED SWA clip produced a non-contiguous block table")
+            seqused_ori = local_lens
+            if os.environ.get("V41_CED_SWA_TRACE", "0") == "1" and self.role.layer_idx in (2, 20):
+                print(
+                    f"[CED-SWA-CLIP] layer={self.role.layer_idx} "
+                    f"tp={get_tensor_model_parallel_rank()} block_size={block_size} "
+                    f"q_len={int(metadata.swa.max_query_len)} "
+                    f"base_pages={base_pages.cpu().tolist()} "
+                    f"seqused_ori={local_lens.cpu().tolist()} pages={num_pages} "
+                    f"seq_lens={seq_lens.cpu().tolist()}",
+                    flush=True,
+                )
         cmp_block_table = None
         cmp_seq_lens = None
         cmp_residual = None
@@ -687,7 +763,8 @@ class DeepseekV41EagerAttentionImpl:
             ori_block_table=ori_block_table,
             cmp_block_table=cmp_block_table,
             cu_seqlens_q=query_start_loc,
-            seqused_ori_kv=seq_lens,
+            # [CED-SWA-CLIP] replay 步换成 rebase 后的相对长度；其余情况仍是 seq_lens。
+            seqused_ori_kv=seqused_ori,
             seqused_cmp_kv=cmp_seq_lens,
             cmp_residual_kv=cmp_residual,
             sinks=attn.attn_sink,
