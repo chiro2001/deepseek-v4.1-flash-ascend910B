@@ -12,9 +12,11 @@ import sys
 from pathlib import Path
 
 ANCHOR = "-e V41_CED_CAPTURE_DECODE="
-ADDED = (
-    '  -e V41_CED_BLOCK_TRACE="${V41_CED_BLOCK_TRACE:-0}" \\\n'
-    '  -e V41_ENGRAM_HIST_TRACE_POS="${V41_ENGRAM_HIST_TRACE_POS:-}" \\\n'
+# 需要存在的 env 透传行（幂等：缺哪条补哪条；全部存在则跳过）。
+WANTED = (
+    '  -e V41_CED_BLOCK_TRACE="${V41_CED_BLOCK_TRACE:-0}" \\\n',
+    '  -e V41_ENGRAM_HIST_TRACE_POS="${V41_ENGRAM_HIST_TRACE_POS:-}" \\\n',
+    '  -e V41_CED_SWA_TRACE="${V41_CED_SWA_TRACE:-0}" \\\n',
 )
 
 
@@ -25,13 +27,16 @@ def main() -> int:
     if len(hits) != 1:
         print(f"[patch-trace-env] 锚点命中 {len(hits)} 次，fail-closed 不写盘", file=sys.stderr)
         return 2
-    if any("V41_CED_BLOCK_TRACE" in line for line in lines):
-        print("[patch-trace-env] 已经打过补丁，跳过")
+    text = "".join(lines)
+    missing = [item for item in WANTED if item.strip() not in text]
+    if not missing:
+        print("[patch-trace-env] 三条 env 透传都在，跳过")
         return 0
     index = hits[0]
-    lines.insert(index + 1, ADDED)
+    for offset, item in enumerate(missing):
+        lines.insert(index + 1 + offset, item)
     path.write_text("".join(lines), encoding="utf-8")
-    print(f"[patch-trace-env] 已在第 {index + 1} 行后插入 2 条 env 透传")
+    print(f"[patch-trace-env] 已在第 {index + 1} 行后插入 {len(missing)} 条 env 透传")
     return 0
 
 

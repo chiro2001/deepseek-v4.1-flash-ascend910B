@@ -137,6 +137,49 @@ def _ced_layer_trace(
         )
     except Exception as exc:  # noqa: BLE001 - 探针绝不允许影响主路径
         print(f"[CED-LAYER-TRACE] skip layer={layer_idx}: {exc!r}", flush=True)
+
+
+# ==== [CED-SWA-TRACE] replay/SWA 页面级只读探针（默认关闭）====
+# 目的：CED 的 D 侧 replay 只为本请求分配/接收 2 个 SWA 页（256 槽），而第一个
+# replay query 的 128 窗口可能回溯到未传输的区间。此探针把该步**实际会用到的**
+# block table 行、seq_lens、slot_mapping 打出来，用于判断越界/陈旧读是否存在。
+# 由 V41_CED_SWA_TRACE=1 打开；只在 layer 20 打，每请求每阶段一次。
+_CED_SWA_TRACE_SEEN: set = set()
+
+
+def _ced_swa_trace_enabled() -> bool:
+    return os.environ.get("V41_CED_SWA_TRACE", "0") == "1"
+
+
+def _ced_swa_trace(role_layer_idx, metadata, positions, replay_chunk):
+    """打印 layer 20 的 SWA 寻址真值（只读，fail-open）。"""
+    if not _ced_swa_trace_enabled() or role_layer_idx != 20:
+        return
+    try:
+        swa = metadata.swa
+        phase = "replay" if replay_chunk else "final"
+        seq_lens = swa.seq_lens
+        block_table = swa.block_table
+        row = block_table[0]
+        n_valid = int(row.numel())
+        nonzero = (row != 0).nonzero().flatten()
+        row_head = [int(v) for v in row[:4].tolist()]
+        row_nonzero = [int(v) for v in nonzero[:8].tolist()]
+        seq0 = int(seq_lens[0]) if seq_lens.numel() else -1
+        pos_first = int(positions[0]) if positions.numel() else -1
+        pos_last = int(positions[-1]) if positions.numel() else -1
+        need_first = max(0, pos_first - 127) // 128
+        need_last = pos_last // 128
+        print(
+            f"[CED-SWA-TRACE] layer=20 phase={phase} n_queries={positions.numel()} "
+            f"pos={pos_first}..{pos_last} seq_len={seq0} "
+            f"bt_shape={tuple(block_table.shape)} row_len={n_valid} "
+            f"row_head={row_head} row_nonzero={row_nonzero} "
+            f"need_blocks={need_first}..{need_last}",
+            flush=True,
+        )
+    except Exception as exc:  # noqa: BLE001
+        print(f"[CED-SWA-TRACE] skip: {exc!r}", flush=True)
 _CED_SNAPSHOT_POS = os.environ.get("V41_CED_SNAPSHOT_POS", "")
 _CED_SNAPSHOT_DIR = os.environ.get("V41_CED_SNAPSHOT_DIR", "")
 _CED_CAPTURE_DECODE = os.environ.get("V41_CED_CAPTURE_DECODE", "0") == "1"
@@ -762,6 +805,7 @@ class DeepseekV41EagerAttentionImpl:
                 flush=True,
             )
         compressed_indices = self._select_sparse_indices(attn, hidden_states, qr, positions, cos, sin, metadata)
+        _ced_swa_trace(self.role.layer_idx, metadata, positions, replay_chunk)
         attention_output = self._attention(attn, q, metadata, compressed_indices)
         _ced_layer_trace(
             self.role.layer_idx,

@@ -31,6 +31,8 @@ export KV_DTYPE=bfloat16 ENGRAM=1 ENGRAM_DEVICE_INDEX=0 CPU_BIND=0
 export SPEC=0 PREFIX=0 DRAFT_GRAPH=0 STATIC_KERNEL=0 NPUGRAPH_EX=1
 export PATCH_MODE=mount WAIT_READY=1
 export V41_CED_ROLE=$role V41_CED_BLOCK_TRACE=1
+# replay/SWA 页面级真值探针（D 侧 layer 20；P 侧忽略该变量）。
+export V41_CED_SWA_TRACE=${V41_CED_SWA_TRACE:-1}
 
 if [ "$role" = "prefill" ]; then
   export NAME=${NAME:-dsv41-ced-trace-p-$STAMP} RUN_ID=${RUN_ID:-ced_trace_p_$STAMP}
