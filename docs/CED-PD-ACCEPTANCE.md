@@ -134,7 +134,7 @@ python3 tools/ced_pd_acceptance.py --calibrate-only \
 | 3 | 1M 四针 A/B/C/D | 同上，且**重复 ≥2 轮全过** | `needle1000k_*.result.json` |
 | 4 | 流式 | 答案正确 + 记录 TTFT + `finish_reason` | `stream*.result.json` |
 | 5 | 多轮 | 同会话三轮问不同针，逐轮正确（状态未被带坏） | `multiturn*.result.json` |
-| 6 | 缓存命中 | 第二次同前缀 `cached_tokens > 0`（`PREFIX=0` 时此项按"不适用"记录） | `prefix*.result.json` |
+| 6 | 缓存命中 | 第二次同前缀 `cached_tokens > 0` | `prefix*.result.json`。**CED 配置下记 N/A**：原型硬门禁止 `PREFIX=1`，见第 7 节 |
 | 7 | 性能 | prefill / TTFT / TPOT / 吞吐 / KV 占用 | 结果的 `wall_s`/`ttft_s`/`tpot_ms` + `metrics_before/after` |
 | 0 | runner 自证 | `--selfcheck` 通过（内置 mock + 负控） | 退出码 0 |
 | 0b | 修复不变量 | `python3 tools/ced_swa_clip_verify.py --lint-code --lint-server --sweep-max 2999` 退出码 0 | 见 3.1 |
@@ -221,3 +221,43 @@ tokens、以及 `--metrics-urls` 抓到的 P/D KV 占用与请求计数。**报�
 global/SWA 分层 TTL、CSA2 候选池跨节点一致性、vision/EPD 独立扩缩（**已明确不做**）
 与 4+4 拓扑都尚未实现。因此本文验收的是 **CED 计算切分 + 有界重放**这条主线，
 不是论文的完整系统。
+
+## 7. 目标里「缓存命中」这一项目前**无法验收**（是缺口，不是待测）
+
+目标要求「144K 与 1M 上下文、流式/多轮/**缓存命中**正确性验证」。今天 CED 原型
+**在启动层就禁止**了缓存命中，所以这一项不是"还没跑"，而是"跑不了"：
+
+```bash
+# scripts/serve_a3_ced_pd.sh 开头的硬门
+for setting in "SPEC:${SPEC:-0}" "PREFIX:${PREFIX:-0}" "DRAFT_GRAPH:${DRAFT_GRAPH:-0}"; do
+  ...
+  if [ "$value" != 0 ]; then
+    echo "[a3-ced][FAIL] $key=$value；当前 CED replay 原型要求 $key=0" >&2
+    exit 2
+```
+
+即 `PREFIX=1` 会被直接拒绝。要把它变成可验收项，至少要先处理两处代码级前提：
+
+1. **上半层 SWA 的"清零"不变量会被缓存块绕过。**
+   `experimental/ced/mooncake_hybrid_connector.py` 的 D 侧预清零目标是
+   `blocks.get_unhashed_block_ids_all_groups()`，即**本次新分配**的块。
+   开启前缀缓存后，被复用的命中块是 hashed 的、**不在**这个集合里；而 CED 的 P
+   在层 20 截断、上层（G7–G11）SWA 从未由 P 计算过，所以那些缓存页里是**上一次
+   请求的残留**。这与 9 月 24 日定位的那类"读到不属于本请求的页"是同一族问题，
+   只不过这次来源是缓存块而不是空块。要开缓存，必须先决定：缓存块参与清零，
+   还是把 G7–G11 整体排除在前缀缓存之外（后者更省事，但要动 cache 分组配置）。
+2. **调度器的边界断言假定"恰好从 P 装载 N−1 个 token"。**
+   `experimental/ced/core_scheduler_replay.patch` 里
+   `if replay_end != prompt_len - 1 or request.num_computed_tokens != replay_end: raise`。
+   有前缀命中时 D 本地已算 K 个 token、只从 P 取 `N−1−K` 个；虽然装载完成后
+   总数仍等于 `N−1`（断言可能仍成立），但 `replay_start` 之前的区间是否真的能由
+   缓存提供、以及"末 token 必重算"的语义在有缓存时是否仍成立，都需要单独推导与
+   真机验证。**这一条是分析结论，未在真机上证明会失败。**
+
+因此本文的验收矩阵里，「缓存命中」一项在 CED 配置下记 **N/A（原型未支持）**，
+不要用 `PREFIX=0` 的结果去填这一格。要覆盖它，需要一个 `PREFIX=1` 的独立原型臂，
+并按上面两条先做单变量验证。
+
+> 相关的历史口径：全 40 层 `AscendStore` 臂曾经跑通 1M 且四针 4/4 正确
+> （见 [`../evidence/ced_8x8_length_scan_20260924/baseline_pdstore_bf16_needle1m.json`](../evidence/ced_8x8_length_scan_20260924/baseline_pdstore_bf16_needle1m.json)），
+> 但那是**另一套连接器与 DSpark 配置**，不能当作 CED 的缓存命中证据。
