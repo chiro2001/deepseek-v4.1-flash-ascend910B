@@ -887,6 +887,13 @@ if [ -n "${V41_CED_ROLE:-}" ]; then
     MOUNTS+=(-v "$_ced_scheduler:/opt/dsv41/ced_scheduler_replay.patch:ro")
   fi
 fi
+if [ "${V41_CED_GRAPH_PROMPT_TAIL_EAGER:-0}" = "1" ]; then
+  [ "${V41_CED_ROLE:-}" = "decode" ] || die "CED prompt-tail 图补丁只允许 decode 角色"
+  [ "$GRAPH" = "1" ] && [ "$EAGER" = "0" ] || die "CED prompt-tail 图补丁要求 GRAPH=1 EAGER=0"
+  _ced_runner_patch="$PKG/experimental/ced/core_model_runner_prompt_tail.patch"
+  [ -f "$_ced_runner_patch" ] || die "CED prompt-tail 图补丁缺少 $_ced_runner_patch"
+  MOUNTS+=(-v "$_ced_runner_patch:/opt/dsv41/ced_runner_prompt_tail.patch:ro")
+fi
 if [ -n "${V41_CED_SNAPSHOT_POS:-}" ] && [ -z "${V41_CED_ROLE:-}" ]; then
   [ "${PROBE:-0}" != "1" ] || die "CED cache snapshot 不能与 PROBE=1 同时覆盖 dsa_v41.py"
   _ced_dsa="$PKG/experimental/ced/dsa_v41.py"
@@ -1130,6 +1137,7 @@ $DOCKER run -d --name "$NAME" --net=host --shm-size=512g --privileged=true \
   -e V41_CED_SOURCE_COMPARE="${V41_CED_SOURCE_COMPARE:-0}" \
   -e V41_CED_SOURCE_COMPARE_CHUNKS="${V41_CED_SOURCE_COMPARE_CHUNKS:-1}" \
   -e V41_CED_ROLE="${V41_CED_ROLE:-}" \
+  -e V41_CED_GRAPH_PROMPT_TAIL_EAGER="${V41_CED_GRAPH_PROMPT_TAIL_EAGER:-0}" \
   -e V41_CED_SNAPSHOT_POS="${V41_CED_SNAPSHOT_POS:-}" \
   -e V41_CED_SNAPSHOT_DIR="${V41_CED_SNAPSHOT_DIR:-}" \
   -e V41_CED_H20_SNAPSHOT_POS="${V41_CED_H20_SNAPSHOT_POS:-}" \
@@ -1189,6 +1197,19 @@ if [ "${V41_CED_ROLE:-}" = "decode" ]; then
     grep -Fq "[CED-D] replay request=" vllm/v1/core/sched/scheduler.py || exit 1
     echo APPLIED' 2>/dev/null | tail -1)
   [ "${_ced_patch:-}" = "APPLIED" ] || die "CED decode replay 调度补丁未应用"
+fi
+if [ "${V41_CED_GRAPH_PROMPT_TAIL_EAGER:-0}" = "1" ]; then
+  say "[CED-GRAPH] 应用固定 runner 版本的单 token prompt 尾部 eager 补丁"
+  _ced_runner=$($DOCKER exec "$NAME" bash -lc '
+    cd /vllm-workspace/vllm-ascend || exit 1
+    _base=$(sha256sum vllm_ascend/worker/model_runner_v1.py | cut -d " " -f1)
+    [ "$_base" = 67035d97f1cea4ae2df31adcc33f1de952f4cab6d8421e76df512296e0e3185e ] || exit 1
+    git apply --check /opt/dsv41/ced_runner_prompt_tail.patch || exit 1
+    git apply /opt/dsv41/ced_runner_prompt_tail.patch || exit 1
+    grep -Fq "[CED-GRAPH] one-token prompt tail forced eager" vllm_ascend/worker/model_runner_v1.py || exit 1
+    python3 -m py_compile vllm_ascend/worker/model_runner_v1.py || exit 1
+    echo APPLIED' 2>/dev/null | tail -1)
+  [ "${_ced_runner:-}" = "APPLIED" ] || die "CED prompt-tail runner 补丁未应用"
 fi
 
 if [ "$DRAFT_GRAPH" = "1" ]; then

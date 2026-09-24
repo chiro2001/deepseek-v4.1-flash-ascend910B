@@ -1,0 +1,43 @@
+diff --git a/vllm_ascend/worker/model_runner_v1.py b/vllm_ascend/worker/model_runner_v1.py
+--- a/vllm_ascend/worker/model_runner_v1.py
++++ b/vllm_ascend/worker/model_runner_v1.py
+@@ -20,5 +20,6 @@
+ import logging
+ import math
++import os
+ import sys
+ import time
+ from collections import defaultdict, deque
+@@ -2231,6 +2232,24 @@
+                         scheduler_output.num_common_prefix_blocks,
+                     )
+-
++
++                # CED D may receive N-1 prompt KV and then schedule the last
++                # prompt token alone. The generic graph dispatcher otherwise
++                # treats this shape as uniform decode, while V4.1 attention
++                # metadata still marks it as a prefill. Keep that one prompt
++                # step eager; generated decode tokens continue to use the graph.
++                ced_prompt_tail_eager = (
++                    os.environ.get("V41_CED_ROLE") == "decode"
++                    and os.environ.get("V41_CED_GRAPH_PROMPT_TAIL_EAGER") == "1"
++                    and max_num_scheduled_tokens == 1
++                    and any(
++                        int(self.input_batch.num_computed_tokens_cpu_tensor[i])
++                        < int(self.input_batch.num_prompt_tokens_cpu_tensor[i])
++                        for i in range(num_reqs)
++                    )
++                )
++                if ced_prompt_tail_eager:
++                    logger.info("[CED-GRAPH] one-token prompt tail forced eager")
++
+                 (
+                     cudagraph_mode,
+                     batch_desc,
+@@ -2244,5 +2263,5 @@
+                     max_num_scheduled_tokens=max_num_scheduled_tokens,
+                     use_cascade_attn=cascade_attn_prefix_lens is not None,
+-                    force_eager=self.model_config.enforce_eager,
++                    force_eager=self.model_config.enforce_eager or ced_prompt_tail_eager,
+                     num_encoder_reqs=len(scheduler_output.scheduled_encoder_inputs),
+                 )
