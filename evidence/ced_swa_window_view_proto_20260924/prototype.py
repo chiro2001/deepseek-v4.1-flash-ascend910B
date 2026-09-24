@@ -281,9 +281,39 @@ def main() -> None:
     assert cases[1]["lower_swa_transfer"]["missing_pages_current"] == [8189]
     assert costs()["route_B_h20_transfer_burnin"]["burnin_tokens"] == 2540
     assert costs()["route_B_full40_token_burnin"]["d_replay_tokens_total"] == 5208
+
+    # Sweep every prompt alignment class. Current one-window retention misses
+    # the first required lower-SWA page; retaining/releasing three tail pages
+    # covers all 128 block offsets in this geometry.
+    alignment_rows = [
+        make_views(1_048_576 + residue, replay_tokens=128, window=128, block_size=128)
+        for residue in range(128)
+    ]
+    current_missing = sum(
+        bool(row["lower_swa_transfer"]["missing_pages_current"])
+        for row in alignment_rows
+    )
+    overlap_missing = sum(
+        bool(row["lower_swa_transfer"]["missing_pages_with_overlap"])
+        for row in alignment_rows
+    )
+    full_view_page_counts = [
+        len(row["views"]["full_swa_visible_window"]["page_indices"])
+        for row in alignment_rows
+    ]
+    assert current_missing == 128
+    assert overlap_missing == 0
+    assert min(full_view_page_counts) == 2 and max(full_view_page_counts) == 3
     result = {
         "scope": "CPU-only page/range math; no CANN, NPU, production edit, or accuracy claim",
         "cases": cases,
+        "all_128_prompt_alignments": {
+            "prompt_residues_tested": 128,
+            "current_two_page_transfer_missing_window_pages": current_missing,
+            "three_page_overlap_transfer_missing_window_pages": overlap_missing,
+            "full_window_pages_min_max": [min(full_view_page_counts), max(full_view_page_counts)],
+            "all_cases_have_expected_page_coverage": True,
+        },
         "costs": costs(),
     }
     out = Path(__file__).with_name("static_results.json")

@@ -81,6 +81,8 @@ list 比 D local list 长时把 remote list左裁到同样长度，然后按顺�
 静态脚本：[`prototype.py`](prototype.py)。它通过两例断言：当前 transfer
 page count 缺少完整 lower-SWA 窗口页，添加 replay overlap 并传3页后所需逻辑页
 齐全。复现：`python prototype.py`；结果在 [`static_results.json`](static_results.json)。
+脚本还扫过所有128种 prompt block remainder：当前两页传输128/128都缺至少一个
+full-window逻辑页；overlap+三页传输为0/128缺页，完整视图实际跨2–3页。
 
 ## 两条集成路线
 
