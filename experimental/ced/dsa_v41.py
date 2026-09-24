@@ -54,6 +54,10 @@ _CED_DECODE_ROLE = os.environ.get("V41_CED_ROLE", "") == "decode"
 # 同一实例内的单变量 A/B。语义与算子源码的对应关系见
 # docs/CED-D-1M-LAYOUT-BUG-20260924.md 第 5.6 节。
 _CED_SWA_CLIP = os.environ.get("V41_CED_SWA_CLIP", "1") == "1"
+# 只喊一次的标志：capture 期间无法裁剪（不能做 D2H/临时分配），但**静默**退回
+# 未裁剪路径会让这个 bug 悄悄复活 —— 本次调查里"静默降级 ⇒ 偶发错误"踩过太多次，
+# 所以这里至少留一条响亮的一次性告警。
+_CED_SWA_CLIP_CAPTURE_WARNED = [False]
 
 
 def _ced_is_capturing() -> bool:
@@ -698,15 +702,28 @@ class DeepseekV41EagerAttentionImpl:
         #
         # ★ 必须用 gather（新的连续张量），不能用切片视图：kernel 的行 stride 直接取自
         #   张量 dim(1)，非连续视图会让 bIdx>0 的行偏移错位。
-        if (
-            _CED_SWA_CLIP
-            # ★ 必须与 forward() 里算出的 replay_chunk 同源，不能用
-            #   "max_query_len > 1" 之类的启发式：否则 profile run（或将来任何
-            #   新的多 token 步）会走进裁剪分支，而那不是有界重放语义。
-            and replay_chunk
-            and metadata.swa.positions is not None
-            and not _ced_is_capturing()
-        ):
+        # ★ 触发条件必须与 forward() 里算出的 replay_chunk 同源，不能用
+        #   "max_query_len > 1" 之类的启发式：否则 profile run（或将来任何新的
+        #   多 token 步）会走进裁剪分支，而那不是有界重放语义。
+        clip_wanted = _CED_SWA_CLIP and replay_chunk
+        if clip_wanted and metadata.swa.positions is None:
+            # 缺 positions 就没法算 rebase 起点，只能退回未裁剪路径 —— 那正是
+            # 本次修复要消掉的错误路径，所以这里**报错**而不是静默继续。
+            raise RuntimeError(
+                "CED SWA clip is enabled for a replay step but metadata.swa.positions "
+                "is missing; refusing to fall back to the un-clipped (buggy) path. "
+                "Set V41_CED_SWA_CLIP=0 to run the old behaviour on purpose."
+            )
+        if clip_wanted and _ced_is_capturing() and not _CED_SWA_CLIP_CAPTURE_WARNED[0]:
+            _CED_SWA_CLIP_CAPTURE_WARNED[0] = True
+            print(
+                "[CED-SWA-CLIP] WARNING: a replay step is being captured into an ACL "
+                "graph; the clip is skipped for that step, so the graph would bake in "
+                "the un-clipped behaviour. Replay steps are prefill-shaped and should "
+                "not be FULL_DECODE_ONLY graph candidates — please investigate.",
+                flush=True,
+            )
+        if clip_wanted and metadata.swa.positions is not None and not _ced_is_capturing():
             block_size = int(metadata.swa.logical_block_size) or int(metadata.swa.storage_block_size)
             if block_size <= 0:
                 raise RuntimeError(

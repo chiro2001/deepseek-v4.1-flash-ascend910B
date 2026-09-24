@@ -234,9 +234,10 @@ def main() -> int:
             ("_native_attention 接收 replay_chunk 形参",
              r"def _native_attention\([^)]*replay_chunk",
              True, src),
-            ("裁剪分支以 replay_chunk 为条件（不是 max_query_len 启发式）",
-             r"_CED_SWA_CLIP\s*\n(?:\s*#.*\n)*\s*and\s+replay_chunk",
-             True, src),
+            ("裁剪以 replay_chunk 为条件（不是 max_query_len 启发式）",
+             r"(clip_wanted\s*=\s*_CED_SWA_CLIP\s+and\s+replay_chunk"
+             r"|_CED_SWA_CLIP\s*\n(?:\s*#.*\n)*\s*and\s+replay_chunk)",
+             True, src_code),
             ("裁剪分支内不再出现 max_query_len > 1 判定",
              r"_CED_SWA_CLIP[\s\S]{0,600}?max_query_len > 1",
              False, src_code),
@@ -252,6 +253,12 @@ def main() -> int:
             ("有连续性断言",
              r"非连续 block table|not ori_block_table\.is_contiguous\(\)",
              True, src),
+            ("缺 positions 时 fail-closed（不静默退回未裁剪路径）",
+             r"positions is None:\s*\n\s*(?:#.*\n\s*)*raise RuntimeError",
+             True, src_code),
+            ("capture 期间跳过裁剪时至少响亮告警一次",
+             r"_CED_SWA_CLIP_CAPTURE_WARNED",
+             True, src_code),
         ]
         print("== 静态不变量校验（experimental/ced/dsa_v41.py）==")
         for name, pattern, should_match, haystack in checks:
