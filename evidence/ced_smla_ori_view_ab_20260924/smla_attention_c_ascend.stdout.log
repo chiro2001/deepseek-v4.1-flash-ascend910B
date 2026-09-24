@@ -1,0 +1,167 @@
+INFO 09-23 20:36:57 [__init__.py:52] Available plugins for group vllm.platform_plugins:
+INFO 09-23 20:36:57 [__init__.py:54] - ascend -> vllm_ascend:register
+INFO 09-23 20:36:57 [__init__.py:57] All plugins in this group will be loaded. Set `VLLM_PLUGINS` to control which plugins to load.
+INFO 09-23 20:36:57 [__init__.py:237] Platform plugin ascend is activated
+INFO 09-23 20:36:57 [platform.py:70] Breakable CUDAGraph on Ascend is opt-in; using VLLM_USE_BREAKABLE_CUDAGRAPH=0.
+[W923 20:36:58.237543800 NPUCachingAllocator.cpp:202] Warning: The current CANN and HDK(driver) versions require processing for 32 padding size, with memory allocation. (function operator())
+{
+  "stage": "metadata-checker",
+  "passed": true,
+  "metadata_shape_a": [
+    1024
+  ],
+  "metadata_shape_b": [
+    1024
+  ],
+  "metadata_dtype_a": "torch.int32",
+  "metadata_dtype_b": "torch.int32",
+  "metadata_sha256_a": "e824f2949577b9e0abc97e51cef821c336f195662fbbaf8362df641f6232d877",
+  "metadata_sha256_b": "57619b9e29820640c50f6f967008702a7c6d035854b8227bca2d67e27add0c47",
+  "ori_len_a": 255,
+  "ori_len_b": 128,
+  "cmp_len_both": 127,
+  "cmp_residual_both": 1,
+  "cmp_ratio_both": 2,
+  "cmp_inputs_sha256": {
+    "cmp_kv": "82e895c2a4dc350ebf837ca1e72f454fb3f7e16b71d6b00ab24b9be53e1f0a93",
+    "cmp_sparse_indices": "964c10c14f333df97bdde5018acc719cfa467e1df2b7e3c3ba1af140b5ff3a8d",
+    "cmp_block_table": "df3f619804a92fdb4057192dc43dd748ea778adc52bc498ce80524c014b81119",
+    "seqused_cmp_kv": "8d12d9fcf1bb74eb413e34f28b96439b1260da900a2c70af2440c5c7dbb43c03",
+    "cmp_residual_kv": "67abdd721024f0ff4e0b3f4c2fc13bc5bad42d0b7851d456d88d203d15aaa450",
+    "q": "d5e544b6fdb895470ca66971c99fc9732462f9176dcdc03ee1d3c69d5ffadb06"
+  }
+}
+ATTENTION_A_PRECHECK {"arm": "A", "finite": true, "row125_dim1": 0.0, "row126_dim1": 0.392578125, "row127_dim1": 0.392578125, "output_sha256": "367baa11ce10a3b6eaff584cd1cdf00d9aeb9f40b32365e5b5741fd2a34266d5"}
+ATTENTION_B_PRECHECK {"arm": "B", "finite": true, "row125_dim1": 0.0, "row126_dim1": 0.39453125, "row127_dim1": 0.392578125, "output_sha256": "ce92f7ede61212fae3588e27e79ff781cc4ebcc2eff63507f33504b1ad984eac"}
+{
+  "device_visible": "7",
+  "config": {
+    "batch": 1,
+    "q_len": 128,
+    "nq": 1,
+    "nkv": 1,
+    "head_dim": 512,
+    "global_replay_start": 127,
+    "global_replay_end": 254,
+    "ori_a_len": 255,
+    "ori_b_len": 128,
+    "cmp_len": 127,
+    "cmp_residual": 1,
+    "cmp_ratio": 2,
+    "cmp_topk": 512,
+    "ori_mask_mode": 4,
+    "ori_win_left": 127,
+    "ori_win_right": 0,
+    "cmp_mask_mode": 3,
+    "sink": -100.0,
+    "ori_table_a": [
+      [
+        0,
+        1
+      ]
+    ],
+    "ori_table_b": [
+      [
+        0
+      ]
+    ],
+    "cmp_table": [
+      [
+        0
+      ]
+    ],
+    "cmp_visible_count_first": 64,
+    "cmp_visible_count_last": 127,
+    "q_is_fixed_across_ab": true,
+    "synthetic_post_rope_operator_control": true
+  },
+  "common_input_sha256": {
+    "q": "d5e544b6fdb895470ca66971c99fc9732462f9176dcdc03ee1d3c69d5ffadb06",
+    "cmp_kv": "82e895c2a4dc350ebf837ca1e72f454fb3f7e16b71d6b00ab24b9be53e1f0a93",
+    "cmp_sparse_indices": "964c10c14f333df97bdde5018acc719cfa467e1df2b7e3c3ba1af140b5ff3a8d",
+    "cmp_block_table": "df3f619804a92fdb4057192dc43dd748ea778adc52bc498ce80524c014b81119",
+    "seqused_cmp_kv": "8d12d9fcf1bb74eb413e34f28b96439b1260da900a2c70af2440c5c7dbb43c03",
+    "cmp_residual_kv": "67abdd721024f0ff4e0b3f4c2fc13bc5bad42d0b7851d456d88d203d15aaa450",
+    "cu_seqlens_q": "22f23252fcd4f43ed48d75ca5e7323df657fbff031410740d914a01433e7580f"
+  },
+  "metadata_sha256": {
+    "A": "e824f2949577b9e0abc97e51cef821c336f195662fbbaf8362df641f6232d877",
+    "B": "57619b9e29820640c50f6f967008702a7c6d035854b8227bca2d67e27add0c47"
+  },
+  "metadata_checker_passed": true,
+  "cmp_upper_bound_and_common_softmax": {
+    "valid_cmp_count_rows_125_126_127": [
+      126,
+      127,
+      127
+    ],
+    "row125_dim1_A_B": [
+      0.0,
+      0.0
+    ],
+    "row126_dim1_A_B": [
+      0.392578125,
+      0.39453125
+    ],
+    "row127_dim1_A_B": [
+      0.392578125,
+      0.392578125
+    ],
+    "row126_cpu_A_B": [
+      0.39215686274509803,
+      0.3937007874015748
+    ],
+    "row127_cpu_A_B": [
+      0.39215686274509803,
+      0.39215686274509803
+    ],
+    "max_abs_A_vs_B_all_128_rows": 0.1488037109375,
+    "max_abs_A_vs_B_dim1_all_rows": 0.001953125
+  },
+  "A": {
+    "name": "full_global_ori",
+    "shape": [
+      128,
+      1,
+      512
+    ],
+    "nan": false,
+    "max_abs_vs_cpu": 0.001519607843137205,
+    "row0_dim0": 0.171875,
+    "row0_dim1": 0.0,
+    "row125_dim1": 0.0,
+    "row126_dim1": 0.392578125,
+    "row127_dim0": 0.37890625,
+    "row127_dim1": 0.392578125,
+    "cpu_row0_dim0": 0.17122140522875817,
+    "cpu_row0_dim1": 0.0,
+    "cpu_row125_dim1": 0.0,
+    "cpu_row126_dim1": 0.39215686274509803,
+    "cpu_row127_dim0": 0.37891580161476357,
+    "cpu_row127_dim1": 0.39215686274509803,
+    "output_sha256": "367baa11ce10a3b6eaff584cd1cdf00d9aeb9f40b32365e5b5741fd2a34266d5"
+  },
+  "B": {
+    "name": "scratch_local_ori",
+    "shape": [
+      128,
+      1,
+      512
+    ],
+    "nan": false,
+    "max_abs_vs_cpu": 0.0015040106951871857,
+    "row0_dim0": 0.0230712890625,
+    "row0_dim1": 0.0,
+    "row125_dim1": 0.0,
+    "row126_dim1": 0.39453125,
+    "row127_dim0": 0.37890625,
+    "row127_dim1": 0.392578125,
+    "cpu_row0_dim0": 0.023046757164404224,
+    "cpu_row0_dim1": 0.0,
+    "cpu_row125_dim1": 0.0,
+    "cpu_row126_dim1": 0.3937007874015748,
+    "cpu_row127_dim0": 0.37891580161476357,
+    "cpu_row127_dim1": 0.39215686274509803,
+    "output_sha256": "ce92f7ede61212fae3588e27e79ff781cc4ebcc2eff63507f33504b1ad984eac"
+  }
+}

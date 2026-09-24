@@ -1,0 +1,83 @@
+{
+  "tokenize": {
+    "http": 200,
+    "wall_s": 0.01102757453918457,
+    "body": {
+      "count": 13,
+      "max_model_len": 1048576,
+      "tokens": [
+        3085,
+        344,
+        223,
+        19,
+        13,
+        19,
+        33,
+        19414,
+        418,
+        834,
+        11424,
+        1353,
+        16
+      ],
+      "token_strs": null
+    }
+  },
+  "chat": {
+    "http": 200,
+    "wall_s": 0.3969900608062744,
+    "body": {
+      "id": "chatcmpl-803cc100-71f8-450c-a799-0dc53faecb20",
+      "object": "chat.completion",
+      "created": 1790186385,
+      "model": "deepseek-v41-ced-pd-1m",
+      "choices": [
+        {
+          "index": 0,
+          "message": {
+            "role": "assistant",
+            "content": "正确答案只有一个数字版的答案(answer?)sime",
+            "refusal": null,
+            "annotations": null,
+            "audio": null,
+            "function_call": null,
+            "reasoning": null
+          },
+          "logprobs": null,
+          "finish_reason": "length",
+          "stop_reason": null,
+          "token_ids": null,
+          "routed_experts": null
+        }
+      ],
+      "service_tier": null,
+      "system_fingerprint": "vllm-0.27.1-tp8-ep-04469255",
+      "usage": {
+        "prompt_tokens": 17,
+        "total_tokens": 25,
+        "completion_tokens": 8,
+        "prompt_tokens_details": {
+          "cached_tokens": 0
+        }
+      },
+      "prompt_logprobs": null,
+      "prompt_token_ids": null,
+      "prompt_text": null,
+      "kv_transfer_params": null,
+      "ec_transfer_params": null,
+      "metrics": null
+    }
+  },
+  "request": {
+    "model": "deepseek-v41-ced-pd-1m",
+    "messages": [
+      {
+        "role": "user",
+        "content": "What is 1+1? Reply with one digit only."
+      }
+    ],
+    "temperature": 0.0,
+    "max_tokens": 8,
+    "stream": false
+  }
+}

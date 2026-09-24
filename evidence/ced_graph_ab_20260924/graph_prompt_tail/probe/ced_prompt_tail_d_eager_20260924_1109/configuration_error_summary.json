@@ -1,0 +1,21 @@
+{
+  "classification": "configuration-error attempt; excluded from precision count",
+  "container_id": "4a6ee94622d4d36cbaee1d645320788f7754eb3b1aae864d6455b97af7797a79",
+  "container_name": "/dsv41-ced-prompt-tail-eager-d-20260924-1109",
+  "container_state": "exited",
+  "exit_code": 137,
+  "image": "quay.nju.edu.cn/ascend/vllm-ascend:deepseek-v4.1-flash-a3",
+  "selected_env": {
+    "V41_CED_ROLE": "",
+    "V41_CED_GRAPH_PROMPT_TAIL_EAGER": "0"
+  },
+  "missing_required_CED_mounts": [
+    "mooncake_hybrid_connector.py",
+    "dsa_v41.py",
+    "ced_scheduler_replay.patch"
+  ],
+  "serve_log_post_chat_completion_count": 0,
+  "response_files": 0,
+  "note": "V41_CED_ROLE was empty; CED consumer connector/DSA/scheduler mounts were absent, while prompt-tail runner patch was intentionally off. No CED proxy request was issued.",
+  "prompt_tail_runner_patch_absent_as_configured": true
+}

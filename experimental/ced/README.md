@@ -10,6 +10,20 @@
 真实权重的 A3 双 TP8 实验请使用 `bash scripts/serve_a3_ced_pd.sh prefill`
 和 `bash scripts/serve_a3_ced_pd.sh decode`。包装器会设置并校验
 `V41_CED_ROLE`，同时关掉尚不支持的 DSpark、prefix cache 和 draft graph。
+真实权重 A3-21 同一 P/同一短针的对照中，D 图模式 2/2 输出混杂文本，
+D eager 2/2 精确；D eager 恢复后的 144K A/B 也 2/2 精确。D eager
+目前仅是诊断基线，图模式尚待修复，包装器因此没有默认的 D 交付配置。
+诊断时显式设置 `CED_DIAGNOSTIC_EAGER=1`（`GRAPH=0 EAGER=1`）或
+`CED_EXPERIMENTAL_GRAPH=1`（`GRAPH=1 EAGER=0`）。该限制专指当前 CED D
+实现；不要把它外推到普通全 40 层服务。
+
+图模式的受控修复候选见 [`GRAPH_PROMPT_TAIL.md`](GRAPH_PROMPT_TAIL.md)：
+`V41_CED_GRAPH_PROMPT_TAIL_EAGER=1` 只让 P→D 交接后的单 token prompt 尾步
+走 eager，生成 decode 仍走 FULL 图。A3-21 真实权重短针和144K A/B已恢复，
+但同 SHA 的1M D完整请求重复四次只2/4正确；仅关闭D的DSA多流重叠后
+四次中仍有一次空回复。全 eager D的同 SHA四次为4/4，但仍只是诊断对照。
+因此两个图模式实验均未通过稳定1M正确性门，当前没有可交付的CED D配置。
+
 `scripts/serve_a3_pd.sh` 是全 40 层 PD 基线入口；直接用它启动 CED 的 D 侧
 若漏设 `V41_CED_ROLE=decode`，服务仍可返回 HTTP 200，但不会安装 replay
 调度与缺失 SWA 处理，回答可能严重错误。启动后须核对 D 容器环境为

@@ -1,0 +1,201 @@
+[a2] run_id=ced_tiny_base_n1fix_v2_2df46ec port=18963 static=0 sptok=5 capture_sizes=1,2,3,4,6,8,12,16,20,24,32 mseqs=4 prefix=0 moeag=1 local_owner=fast pgo=0 load_format=dummy draft_graph=0 moe_zero=0 moe_nf=0
+02ba2b7c258ff16663cd316b69c44fb8  /vllm-workspace/vllm-ascend/vllm_ascend/models/deepseek_v41/engram_hbm.py
+dc63b40b1ec739ddc467edceebe85478  /vllm-workspace/vllm-ascend/vllm_ascend/models/deepseek_v41/engram_hash.py
+[serve-v2] model=model-tiny tp=1 dp=1 port=18963 graph=1 prefix=0 spec=0(sp=5) kv=bfloat16 vision=0
+[serve-v2] npugraph_ex=1 static=0 cpu_bind=0 multistream=1 dsa=1 fused_mc2=0 mc2_alg= reduce_sample=0 loader_mt=1 lazy=1 max_len=8192 bat=1024 seqs=4
+[serve-v2] cmd: vllm serve /home/l00886679/projects/dsv41-ced-singlechip/model-tiny --host 0.0.0.0 --port 18963 --served-model-name deepseek-v41-ced-tiny --tensor-parallel-size 1 --enable-expert-parallel --trust-remote-code --dtype bfloat16 --kv-cache-dtype bfloat16 --max-model-len 8192 --max-num-seqs 4 --max-num-batched-tokens 1024 --block-size 128 --gpu-memory-utilization 0.5 --additional-config {"enable_engram":false,"enable_cpu_binding":false,"ascend_compilation_config":{"enable_npugraph_ex":true,"enable_static_kernel":false},"multistream_overlap_shared_expert":true,"multistream_dsv4_dsa_overlap":true,"enable_prefill_mc2":false,"enable_mc2_hierarchy_comm":false} --kv-cache-memory-bytes 1073741824 --seed 0 --compilation-config {"cudagraph_mode": "FULL_DECODE_ONLY", "cudagraph_capture_sizes": [1,2,3,4,6,8,12,16,20,24,32]} --no-enable-prefix-caching --load-format dummy --limit-mm-per-prompt {"image": 0} --tokenizer-mode=deepseek_v41 --reasoning-parser=deepseek_v41 --tool-call-parser=deepseek_v41 --enable-auto-tool-choice --default-chat-template-kwargs={"enable_thinking":false}
+[W923 18:18:52.323331220 FunctionLoader.cpp:48] Warning: LD_PRELOAD detected, FunctionLoader prefers RTLD_DEFAULT for symbol resolution. (function operator())
+INFO 09-23 18:18:55 [__init__.py:52] Available plugins for group vllm.platform_plugins:
+INFO 09-23 18:18:55 [__init__.py:54] - ascend -> vllm_ascend:register
+INFO 09-23 18:18:55 [__init__.py:57] All plugins in this group will be loaded. Set `VLLM_PLUGINS` to control which plugins to load.
+INFO 09-23 18:18:55 [__init__.py:237] Platform plugin ascend is activated
+INFO 09-23 18:18:56 [platform.py:70] Breakable CUDAGraph on Ascend is opt-in; using VLLM_USE_BREAKABLE_CUDAGRAPH=0.
+2026-09-23 18:19:04,053 - 483 - ServiceProfiler - INFO - VLLM_USE_V1 not set, auto-detected via vLLM 0.27.1+empty: default 1
+INFO 09-23 18:19:13 [__init__.py:112] Registered model loader `<class 'vllm_ascend.model_loader.netloader.netloader.ModelNetLoaderElastic'>` with load format `netloader`
+INFO 09-23 18:19:13 [__init__.py:112] Registered model loader `<class 'vllm_ascend.model_loader.rfork.rfork_loader.RForkModelLoader'>` with load format `rfork`
+(APIServer pid=483) INFO 09-23 18:19:13 [api_utils.py:345] 
+(APIServer pid=483) INFO 09-23 18:19:13 [api_utils.py:345]        █     █     █▄   ▄█
+(APIServer pid=483) INFO 09-23 18:19:13 [api_utils.py:345]  ▄▄ ▄█ █     █     █ ▀▄▀ █  version 0.27.1
+(APIServer pid=483) INFO 09-23 18:19:13 [api_utils.py:345]   █▄█▀ █     █     █     █  model   /home/l00886679/projects/dsv41-ced-singlechip/model-tiny
+(APIServer pid=483) INFO 09-23 18:19:13 [api_utils.py:345]    ▀▀  ▀▀▀▀▀ ▀▀▀▀▀ ▀     ▀
+(APIServer pid=483) INFO 09-23 18:19:13 [api_utils.py:345] 
+(APIServer pid=483) INFO 09-23 18:19:13 [api_utils.py:273] non-default args: {'model_tag': '/home/l00886679/projects/dsv41-ced-singlechip/model-tiny', 'default_chat_template_kwargs': {'enable_thinking': False}, 'enable_auto_tool_choice': True, 'tool_call_parser': 'deepseek_v41', 'host': '0.0.0.0', 'port': 18963, 'model': '/home/l00886679/projects/dsv41-ced-singlechip/model-tiny', 'tokenizer_mode': 'deepseek_v41', 'trust_remote_code': True, 'dtype': 'bfloat16', 'max_model_len': 8192, 'served_model_name': ['deepseek-v41-ced-tiny'], 'load_format': 'dummy', 'reasoning_parser': 'deepseek_v41', 'enable_expert_parallel': True, 'block_size': 128, 'gpu_memory_utilization': 0.5, 'kv_cache_memory_bytes': 1073741824, 'kv_cache_dtype': 'bfloat16', 'enable_prefix_caching': False, 'limit_mm_per_prompt': {'image': 0}, 'max_num_batched_tokens': 1024, 'max_num_seqs': 4, 'compilation_config': {'mode': None, 'debug_dump_path': None, 'cache_dir': '', 'compile_cache_save_format': 'binary', 'backend': 'vllm_ascend.compilation.compiler_interface.AscendCompiler', 'custom_ops': [], 'ir_enable_torch_wrap': None, 'splitting_ops': None, 'compile_mm_encoder': False, 'cudagraph_mm_encoder': False, 'encoder_cudagraph_token_budgets': [], 'encoder_cudagraph_max_vision_items_per_batch': 0, 'encoder_cudagraph_max_frames_per_batch': None, 'compile_sizes': None, 'compile_ranges_endpoints': None, 'inductor_compile_config': {'enable_auto_functionalized_v2': False, 'size_asserts': False, 'alignment_asserts': False, 'scalar_asserts': False, 'combo_kernels': True, 'benchmark_combo_kernel': True}, 'inductor_passes': {}, 'cudagraph_mode': <CUDAGraphMode.FULL_DECODE_ONLY: (2, 0)>, 'cudagraph_num_of_warmups': 0, 'cudagraph_capture_sizes': [1, 2, 3, 4, 6, 8, 12, 16, 20, 24, 32], 'cudagraph_copy_inputs': False, 'cudagraph_specialize_lora': True, 'use_inductor_graph_partition': None, 'pass_config': {}, 'max_cudagraph_capture_size': None, 'dynamic_shapes_config': {'type': <DynamicShapesType.BACKED: 'backed'>, 'evaluate_guards': False, 'assume_32_bit_indexing': False}, 'local_cache_dir': None, 'fast_moe_cold_start': None, 'static_all_moe_layers': []}, 'additional_config': {'enable_engram': False, 'enable_cpu_binding': False, 'ascend_compilation_config': {'enable_npugraph_ex': True, 'enable_static_kernel': False}, 'multistream_overlap_shared_expert': True, 'multistream_dsv4_dsa_overlap': True, 'enable_prefill_mc2': False, 'enable_mc2_hierarchy_comm': False}}
+(APIServer pid=483) WARNING 09-23 18:19:13 [envs.py:2128] Unknown vLLM environment variable detected: VLLM_ADMISSION_GATE
+(APIServer pid=483) [transformers] Unrecognized keys in `rope_parameters` for 'rope_type'='default': {'original_max_position_embeddings', 'beta_fast', 'beta_slow', 'factor'}
+(APIServer pid=483) [transformers] Unrecognized keys in `rope_parameters` for 'rope_type'='default': {'original_max_position_embeddings', 'beta_fast', 'beta_slow', 'factor'}
+(APIServer pid=483) INFO 09-23 18:19:13 [model.py:645] Resolved architecture: DeepseekV41ForCausalLM
+(APIServer pid=483) INFO 09-23 18:19:13 [model.py:2214] Downcasting torch.float32 to torch.bfloat16.
+(APIServer pid=483) INFO 09-23 18:19:13 [model.py:1883] Using max model len 8192
+(APIServer pid=483) [transformers] Unrecognized keys in `rope_parameters` for 'rope_type'='default': {'original_max_position_embeddings', 'beta_fast', 'beta_slow', 'factor'}
+(APIServer pid=483) [transformers] Unrecognized keys in `rope_parameters` for 'rope_type'='default': {'original_max_position_embeddings', 'beta_fast', 'beta_slow', 'factor'}
+(APIServer pid=483) INFO 09-23 18:19:15 [registry.py:134] All limits of multimodal modalities supported by the model are set to 0, running in text-only mode.
+(APIServer pid=483) INFO 09-23 18:19:15 [model.py:842] Disabled mm_prefix attention mode because multimodal inputs are configuration-disabled. Attention backends without mm_prefix support may now be selected.
+(APIServer pid=483) INFO 09-23 18:19:15 [scheduler.py:242] Chunked prefill is enabled with max_num_batched_tokens=1024.
+(APIServer pid=483) INFO 09-23 18:19:15 [kernel.py:306] Final IR op priority after setting platform defaults: IrOpPriorityConfig(rms_norm=['native'], fused_add_rms_norm=['native'])
+(APIServer pid=483) INFO 09-23 18:19:15 [utils.py:224] No quantization signature detected from model files for "/home/l00886679/projects/dsv41-ced-singlechip/model-tiny". The model will be loaded as float. To force a quantization method, pass "--quantization <method>" explicitly.
+(APIServer pid=483) WARNING 09-23 18:19:15 [platform.py:651] GPU-specific parameter is not supported on Ascend. parameter=disable_cascade_attn, value=True, action: resetting to False.
+(APIServer pid=483) INFO 09-23 18:19:15 [platform.py:863] The timeout interval of the HCCL operator is 1836s. Timeout in seconds for execute_model RPC calls in multiprocessing must be greater than 1836s, Set VLLM_EXECUTE_MODEL_TIMEOUT_SECONDS=3000
+(APIServer pid=483) INFO 09-23 18:19:15 [ascend_config.py:161] Dynamic EPLB is False
+(APIServer pid=483) INFO 09-23 18:19:15 [ascend_config.py:162] The number of redundant experts is 0
+(APIServer pid=483) INFO 09-23 18:19:15 [platform.py:1167] FlashComm1 is disabled. Using flashinfer_all2allv as the all2all backend.
+(APIServer pid=483) INFO 09-23 18:19:15 [platform.py:1356] Set PYTORCH_NPU_ALLOC_CONF=expandable_segments:True
+(APIServer pid=483) INFO 09-23 18:19:15 [compilation.py:329] Enabled custom fusions: norm_quant, act_quant
+(APIServer pid=483) [transformers] Unrecognized keys in `rope_parameters` for 'rope_type'='default': {'original_max_position_embeddings', 'beta_fast', 'beta_slow', 'factor'}
+(APIServer pid=483) [transformers] Unrecognized keys in `rope_parameters` for 'rope_type'='default': {'original_max_position_embeddings', 'beta_fast', 'beta_slow', 'factor'}
+[W923 18:19:16.842253410 FunctionLoader.cpp:48] Warning: LD_PRELOAD detected, FunctionLoader prefers RTLD_DEFAULT for symbol resolution. (function operator())
+INFO 09-23 18:19:20 [__init__.py:52] Available plugins for group vllm.platform_plugins:
+INFO 09-23 18:19:20 [__init__.py:54] - ascend -> vllm_ascend:register
+INFO 09-23 18:19:20 [__init__.py:57] All plugins in this group will be loaded. Set `VLLM_PLUGINS` to control which plugins to load.
+INFO 09-23 18:19:20 [__init__.py:237] Platform plugin ascend is activated
+INFO 09-23 18:19:20 [platform.py:70] Breakable CUDAGraph on Ascend is opt-in; using VLLM_USE_BREAKABLE_CUDAGRAPH=0.
+(EngineCore pid=1169) 2026-09-23 18:19:26,501 - 1169 - ServiceProfiler - INFO - VLLM_USE_V1 not set, auto-detected via vLLM 0.27.1+empty: default 1
+(EngineCore pid=1169) INFO 09-23 18:19:26 [__init__.py:112] Registered model loader `<class 'vllm_ascend.model_loader.netloader.netloader.ModelNetLoaderElastic'>` with load format `netloader`
+(EngineCore pid=1169) INFO 09-23 18:19:26 [__init__.py:112] Registered model loader `<class 'vllm_ascend.model_loader.rfork.rfork_loader.RForkModelLoader'>` with load format `rfork`
+(EngineCore pid=1169) INFO 09-23 18:19:26 [core.py:121] Initializing a V1 LLM engine (v0.27.1) with config: model='/home/l00886679/projects/dsv41-ced-singlechip/model-tiny', speculative_config=None, tokenizer='/home/l00886679/projects/dsv41-ced-singlechip/model-tiny', skip_tokenizer_init=False, tokenizer_mode=deepseek_v41, revision=None, tokenizer_revision=None, trust_remote_code=True, dtype=torch.bfloat16, max_seq_len=8192, download_dir=None, load_format=dummy, tensor_parallel_size=1, pipeline_parallel_size=1, data_parallel_size=1, decode_context_parallel_size=1, dcp_comm_backend=ag_rs, disable_custom_all_reduce=True, quantization=None, quantization_config=None, enforce_eager=False, enable_return_routed_experts=False, kv_cache_dtype=bfloat16, device_config=npu, structured_outputs_config=StructuredOutputsConfig(backend='auto', disable_any_whitespace=False, disable_additional_properties=False, reasoning_parser='deepseek_v41', reasoning_parser_plugin='', enable_in_reasoning=False), observability_config=ObservabilityConfig(show_hidden_metrics_for_version=None, otlp_traces_endpoint=None, collect_detailed_traces=None, kv_cache_metrics=False, kv_cache_metrics_sample=0.01, cudagraph_metrics=False, enable_layerwise_nvtx_tracing=False, enable_mfu_metrics=False, enable_mm_processor_stats=False, enable_logging_iteration_details=False, jit_monitor_mode='warn', jit_monitor_verbose=False), seed=0, served_model_name=deepseek-v41-ced-tiny, enable_prefix_caching=False, enable_chunked_prefill=True, pooler_config=None, compilation_config={'mode': <CompilationMode.VLLM_COMPILE: 3>, 'debug_dump_path': None, 'cache_dir': '', 'compile_cache_save_format': 'binary', 'backend': 'vllm_ascend.compilation.compiler_interface.AscendCompiler', 'custom_ops': ['all'], 'ir_enable_torch_wrap': False, 'splitting_ops': [], 'compile_mm_encoder': False, 'cudagraph_mm_encoder': False, 'encoder_cudagraph_token_budgets': [], 'encoder_cudagraph_max_vision_items_per_batch': 0, 'encoder_cudagraph_max_frames_per_batch': None, 'compile_sizes': [], 'compile_ranges_endpoints': [1024], 'inductor_compile_config': {'enable_auto_functionalized_v2': False, 'size_asserts': False, 'alignment_asserts': False, 'scalar_asserts': False, 'combo_kernels': True, 'benchmark_combo_kernel': True}, 'inductor_passes': {}, 'cudagraph_mode': <CUDAGraphMode.FULL_DECODE_ONLY: (2, 0)>, 'cudagraph_num_of_warmups': 1, 'cudagraph_capture_sizes': [1, 2, 3, 4, 6, 8, 12, 16, 20, 24, 32], 'cudagraph_copy_inputs': False, 'cudagraph_specialize_lora': True, 'use_inductor_graph_partition': False, 'pass_config': {'fuse_norm_quant': True, 'fuse_act_quant': True, 'fuse_attn_quant': False, 'enable_sp': False, 'fuse_gemm_comms': False, 'fuse_allreduce_rms': False, 'enable_qk_norm_rope_fusion': False, 'fuse_rope_kvcache_cat_mla': False, 'fuse_act_padding': False, 'fuse_qk_norm_rope_kvcache': False}, 'max_cudagraph_capture_size': 32, 'dynamic_shapes_config': {'type': <DynamicShapesType.BACKED: 'backed'>, 'evaluate_guards': False, 'assume_32_bit_indexing': False}, 'local_cache_dir': None, 'fast_moe_cold_start': True, 'static_all_moe_layers': []}, kernel_config=KernelConfig(ir_op_priority=IrOpPriorityConfig(rms_norm=['native'], fused_add_rms_norm=['native']), enable_flashinfer_autotune=True, enable_cutedsl_warmup=True, enable_jit_warmup=True, enable_bf16x3_router_gemm=False, moe_backend='auto', linear_backend='auto')
+(EngineCore pid=1169) [transformers] Unrecognized keys in `rope_parameters` for 'rope_type'='default': {'beta_slow', 'factor', 'beta_fast', 'original_max_position_embeddings'}
+(EngineCore pid=1169) [transformers] Unrecognized keys in `rope_parameters` for 'rope_type'='default': {'beta_slow', 'factor', 'beta_fast', 'original_max_position_embeddings'}
+(EngineCore pid=1169) INFO 09-23 18:19:29 [registry.py:134] All limits of multimodal modalities supported by the model are set to 0, running in text-only mode.
+(EngineCore pid=1169) WARNING 09-23 18:19:29 [patch_triton.py:332] NPU Triton causal_conv1d_update is unavailable (cannot import name 'causal_conv1d_update_npu' from 'vllm_ascend.ops.triton.mamba.causal_conv1d' (/vllm-workspace/vllm-ascend/vllm_ascend/ops/triton/mamba/causal_conv1d.py)); falling back to the PyTorch implementation, which syncs per request and therefore stalls ACL graph capture at decode-FULL.
+(EngineCore pid=1169) INFO 09-23 18:19:30 [ascend_config.py:161] Dynamic EPLB is False
+(EngineCore pid=1169) INFO 09-23 18:19:30 [ascend_config.py:162] The number of redundant experts is 0
+(EngineCore pid=1169) INFO 09-23 18:19:31 [parallel_state.py:1640] world_size=1 rank=0 local_rank=0 distributed_init_method=tcp://192.168.45.22:40333 backend=hccl
+[rank0]:[W923 18:19:31.536678440 ProcessGroupGloo.cpp:511] Warning: Unable to resolve hostname to a (local) address. Using the loopback address as fallback. Manually set the network interface to bind to with GLOO_SOCKET_IFNAME. (function operator())
+[Gloo] Rank 0 is connected to 0 peer ranks. Expected number of connected peer ranks is : 0
+[Gloo] Rank 0 is connected to 0 peer ranks. Expected number of connected peer ranks is : 0
+[Gloo] Rank 0 is connected to 0 peer ranks. Expected number of connected peer ranks is : 0
+[Gloo] Rank 0 is connected to 0 peer ranks. Expected number of connected peer ranks is : 0
+[Gloo] Rank 0 is connected to 0 peer ranks. Expected number of connected peer ranks is : 0
+[Gloo] Rank 0 is connected to 0 peer ranks. Expected number of connected peer ranks is : 0
+[Gloo] Rank 0 is connected to 0 peer ranks. Expected number of connected peer ranks is : 0
+(EngineCore pid=1169) INFO 09-23 18:19:31 [parallel_state.py:1977] rank 0 in world size 1 is assigned as DP rank 0, PP rank 0, PCP rank 0, TP rank 0, EP rank 0, EPLB rank N/A
+[Gloo] Rank 0 is connected to 0 peer ranks. Expected number of connected peer ranks is : 0
+[rank0]:[W923 18:19:31.734186840 NPUCachingAllocator.cpp:202] Warning: The current CANN and HDK(driver) versions require processing for 32 padding size, with memory allocation. (function operator())
+(EngineCore pid=1169) INFO 09-23 18:19:32 [platform.py:1379] FA3 will not be enabled when rl_config.enable_training_consistency is false. Note that Ascend NPU will use its registered plugin backend instead.
+(EngineCore pid=1169) INFO 09-23 18:19:32 [model_runner_v1.py:4005] Starting to load model /home/l00886679/projects/dsv41-ced-singlechip/model-tiny...
+(EngineCore pid=1169) INFO 09-23 18:19:33 [compilation.py:1100] Using OOT custom backend for compilation.
+(EngineCore pid=1169) INFO 09-23 18:19:36 [shared_experts.py:148] [fused_moe/layer] Shared expert split computation validation passed. Integrated and split-path results are consistent.
+(EngineCore pid=1169) INFO 09-23 18:19:37 [model_runner_v1.py:4092] Loading model weights took 11.3247 GB
+(EngineCore pid=1169) INFO 09-23 18:19:37 [model_runner_v1.py:4145] Model runner load_model total time: 5.24 seconds
+(EngineCore pid=1169) [transformers] Unrecognized keys in `rope_parameters` for 'rope_type'='default': {'beta_slow', 'factor', 'beta_fast', 'original_max_position_embeddings'}
+(EngineCore pid=1169) [transformers] Unrecognized keys in `rope_parameters` for 'rope_type'='default': {'beta_slow', 'factor', 'beta_fast', 'original_max_position_embeddings'}
+(EngineCore pid=1169) [transformers] Unrecognized keys in `rope_parameters` for 'rope_type'='default': {'beta_slow', 'factor', 'beta_fast', 'original_max_position_embeddings'}
+(EngineCore pid=1169) [transformers] Unrecognized keys in `rope_parameters` for 'rope_type'='default': {'beta_slow', 'factor', 'beta_fast', 'original_max_position_embeddings'}
+(EngineCore pid=1169) [transformers] Unrecognized keys in `rope_parameters` for 'rope_type'='default': {'beta_slow', 'factor', 'beta_fast', 'original_max_position_embeddings'}
+(EngineCore pid=1169) [transformers] Unrecognized keys in `rope_parameters` for 'rope_type'='default': {'beta_slow', 'factor', 'beta_fast', 'original_max_position_embeddings'}
+(EngineCore pid=1169) INFO 09-23 18:19:38 [compiler_interface.py:248] AscendCompiler hash factors: {'torch_npu_version': '2.10.0.post4', 'enable_npugraph_ex': True, 'enable_static_kernel': False}
+(EngineCore pid=1169) INFO 09-23 18:19:38 [backends.py:1094] Using cache directory: /root/.cache/vllm/torch_compile_cache/6bca4c6839/rank_0_0/backbone for vLLM's torch.compile
+(EngineCore pid=1169) INFO 09-23 18:19:38 [backends.py:1155] Dynamo bytecode transform time: 1.35 s
+(EngineCore pid=1169) INFO 09-23 18:19:39 [compiler_interface.py:353] Loaded npugraph_ex compilation cache from /root/.cache/vllm/torch_compile_cache/6bca4c6839/rank_0_0/backbone/artifact_compile_range_1_1024_subgraph_0
+(EngineCore pid=1169) INFO 09-23 18:19:39 [backends.py:292] Directly load the compiled graph(s) for compile range (1, 1024) from the cache, took 0.052 s
+(EngineCore pid=1169) INFO 09-23 18:19:39 [decorators.py:311] Directly load AOT compilation from path /root/.cache/vllm/torch_compile_cache/torch_aot_compile/7b0f51c9d2203f30004c4a8fbbf89f1c295b7ed80fc24ad680b9b4078314b1ef/rank_0_0/model
+(EngineCore pid=1169) INFO 09-23 18:19:39 [monitor.py:53] torch.compile took 1.95 s in total
+(EngineCore pid=1169) INFO 09-23 18:19:39 [monitor.py:81] Initial profiling/warmup run took 0.15 s
+(EngineCore pid=1169) INFO 09-23 18:19:39 [worker.py:557] Initial free memory 61.11 GiB, reserved 1.00 GiB for KV Cache as specified by kv_cache_memory_bytes, skipping memory profiling. This does not respect the gpu_memory_utilization config. Only use kv_cache_memory_bytes when you want manual control of KV cache memory size. If OOM'ed, check the difference of initial free memory between the current run and the previous run where kv_cache_memory_bytes is suggested and update it correspondingly.
+(EngineCore pid=1169) INFO 09-23 18:19:39 [kv_cache_utils.py:2235] GPU KV cache size: 66,305 tokens
+(EngineCore pid=1169) INFO 09-23 18:19:39 [kv_cache_utils.py:2236] Maximum concurrency for 8,192 tokens per request: 8.09x
+(EngineCore pid=1169) INFO 09-23 18:19:39 [kernel_warmup.py:44] Starting Triton kernel warmup.
+(EngineCore pid=1169) INFO 09-23 18:19:39 [kernel_warmup.py:36] rejection_sampler Triton warmup complete in 0.000s.
+(EngineCore pid=1169) [WARNING] AutoBlockify disabled for kernel 'token_bin_counts_and_mask_kernel'. Unsafe ops: atomic operations. Enabling may cause correctness issues. To force enable: set has_auto_blockify_blacklist_op=False.
+(EngineCore pid=1169) INFO 09-23 18:19:45 [kernel_warmup.py:36] penalties Triton warmup complete in 5.579s.
+(EngineCore pid=1169) INFO 09-23 18:19:45 [kernel_warmup.py:36] rms Triton warmup complete in 0.000s.
+(EngineCore pid=1169) INFO 09-23 18:20:07 [kernel_warmup.py:36] deepseek_v41_indexer Triton warmup complete in 22.147s.
+(EngineCore pid=1169) INFO 09-23 18:20:07 [kernel_warmup.py:53] Triton kernel warmup finished in 27.726s.
+(EngineCore pid=1169) INFO 09-23 18:20:07 [gpu_model_runner.py:6867] Rank 0: Torch profiler disabled for CUDA graph capture
+(EngineCore pid=1169) Capturing CUDA graphs (decode, FULL):   0%|          | 0/4 [00:00<?, ?it/s]Capturing CUDA graphs (decode, FULL):  25%|██▌       | 1/4 [00:07<00:21,  7.11s/it]Capturing CUDA graphs (decode, FULL):  50%|█████     | 2/4 [00:07<00:06,  3.11s/it]Capturing CUDA graphs (decode, FULL):  75%|███████▌  | 3/4 [00:07<00:01,  1.83s/it]Capturing CUDA graphs (decode, FULL): 100%|██████████| 4/4 [00:14<00:00,  3.86s/it]Capturing CUDA graphs (decode, FULL): 100%|██████████| 4/4 [00:14<00:00,  3.68s/it]
+(EngineCore pid=1169) INFO 09-23 18:20:22 [gpu_model_runner.py:6913] Graph capturing finished in 15 secs, took 1.56 GiB
+(EngineCore pid=1169) INFO 09-23 18:20:22 [core.py:348] init engine (profile, create kv cache, warmup model) took 45.67 s (compilation: 1.95 s)
+(EngineCore pid=1169) INFO 09-23 18:20:22 [scheduler.py:129] [admission_gate] enabled: each step is either one prefill request or decode requests (VLLM_ADMISSION_GATE=1).
+(EngineCore pid=1169) WARNING 09-23 18:20:22 [scheduler.py:135] [admission_gate] max_concurrent_batches=2 (async scheduling/PP): scheduler outputs are pure, but batches may still overlap on workers. Use --no-async-scheduling for strict single-batch execution during gate validation.
+(EngineCore pid=1169) INFO 09-23 18:20:23 [kernel.py:306] Final IR op priority after setting platform defaults: IrOpPriorityConfig(rms_norm=['native'], fused_add_rms_norm=['native'])
+(EngineCore pid=1169) INFO 09-23 18:20:23 [utils.py:224] No quantization signature detected from model files for "/home/l00886679/projects/dsv41-ced-singlechip/model-tiny". The model will be loaded as float. To force a quantization method, pass "--quantization <method>" explicitly.
+(EngineCore pid=1169) INFO 09-23 18:20:23 [platform.py:863] The timeout interval of the HCCL operator is 1836s. Timeout in seconds for execute_model RPC calls in multiprocessing must be greater than 1836s, Set VLLM_EXECUTE_MODEL_TIMEOUT_SECONDS=3000
+(EngineCore pid=1169) INFO 09-23 18:20:23 [platform.py:1167] FlashComm1 is disabled. Using flashinfer_all2allv as the all2all backend.
+(EngineCore pid=1169) INFO 09-23 18:20:23 [utils.py:1221] Block size is set to 128 if prefix cache or chunked prefill is enabled.
+(EngineCore pid=1169) INFO 09-23 18:20:23 [platform.py:1356] Set PYTORCH_NPU_ALLOC_CONF=expandable_segments:True
+(EngineCore pid=1169) INFO 09-23 18:20:23 [compilation.py:329] Enabled custom fusions: norm_quant, act_quant
+(APIServer pid=483) INFO 09-23 18:20:23 [api_server.py:678] Supported tasks: ['generate']
+(APIServer pid=483) INFO 09-23 18:20:23 [parser_manager.py:37] "auto" tool choice has been enabled.
+(APIServer pid=483) [transformers] Unrecognized keys in `rope_parameters` for 'rope_type'='default': {'original_max_position_embeddings', 'beta_fast', 'beta_slow', 'factor'}
+(APIServer pid=483) [transformers] Unrecognized keys in `rope_parameters` for 'rope_type'='default': {'original_max_position_embeddings', 'beta_fast', 'beta_slow', 'factor'}
+(APIServer pid=483) [transformers] Unrecognized keys in `rope_parameters` for 'rope_type'='default': {'original_max_position_embeddings', 'beta_fast', 'beta_slow', 'factor'}
+(APIServer pid=483) [transformers] Unrecognized keys in `rope_parameters` for 'rope_type'='default': {'original_max_position_embeddings', 'beta_fast', 'beta_slow', 'factor'}
+(APIServer pid=483) [transformers] Unrecognized keys in `rope_parameters` for 'rope_type'='default': {'original_max_position_embeddings', 'beta_fast', 'beta_slow', 'factor'}
+(APIServer pid=483) [transformers] Unrecognized keys in `rope_parameters` for 'rope_type'='default': {'original_max_position_embeddings', 'beta_fast', 'beta_slow', 'factor'}
+(APIServer pid=483) [transformers] Unrecognized keys in `rope_parameters` for 'rope_type'='default': {'original_max_position_embeddings', 'beta_fast', 'beta_slow', 'factor'}
+(APIServer pid=483) [transformers] Unrecognized keys in `rope_parameters` for 'rope_type'='default': {'original_max_position_embeddings', 'beta_fast', 'beta_slow', 'factor'}
+(APIServer pid=483) [transformers] Unrecognized keys in `rope_parameters` for 'rope_type'='default': {'original_max_position_embeddings', 'beta_fast', 'beta_slow', 'factor'}
+(APIServer pid=483) [transformers] Unrecognized keys in `rope_parameters` for 'rope_type'='default': {'original_max_position_embeddings', 'beta_fast', 'beta_slow', 'factor'}
+(APIServer pid=483) [transformers] Unrecognized keys in `rope_parameters` for 'rope_type'='default': {'original_max_position_embeddings', 'beta_fast', 'beta_slow', 'factor'}
+(APIServer pid=483) [transformers] Unrecognized keys in `rope_parameters` for 'rope_type'='default': {'original_max_position_embeddings', 'beta_fast', 'beta_slow', 'factor'}
+(APIServer pid=483) [transformers] Unrecognized keys in `rope_parameters` for 'rope_type'='default': {'original_max_position_embeddings', 'beta_fast', 'beta_slow', 'factor'}
+(APIServer pid=483) [transformers] Unrecognized keys in `rope_parameters` for 'rope_type'='default': {'original_max_position_embeddings', 'beta_fast', 'beta_slow', 'factor'}
+(APIServer pid=483) [transformers] Unrecognized keys in `rope_parameters` for 'rope_type'='default': {'original_max_position_embeddings', 'beta_fast', 'beta_slow', 'factor'}
+(APIServer pid=483) [transformers] Unrecognized keys in `rope_parameters` for 'rope_type'='default': {'original_max_position_embeddings', 'beta_fast', 'beta_slow', 'factor'}
+(APIServer pid=483) [transformers] Unrecognized keys in `rope_parameters` for 'rope_type'='default': {'original_max_position_embeddings', 'beta_fast', 'beta_slow', 'factor'}
+(APIServer pid=483) [transformers] Unrecognized keys in `rope_parameters` for 'rope_type'='default': {'original_max_position_embeddings', 'beta_fast', 'beta_slow', 'factor'}
+(APIServer pid=483) [transformers] Unrecognized keys in `rope_parameters` for 'rope_type'='default': {'original_max_position_embeddings', 'beta_fast', 'beta_slow', 'factor'}
+(APIServer pid=483) [transformers] Unrecognized keys in `rope_parameters` for 'rope_type'='default': {'original_max_position_embeddings', 'beta_fast', 'beta_slow', 'factor'}
+(APIServer pid=483) [transformers] Unrecognized keys in `rope_parameters` for 'rope_type'='default': {'original_max_position_embeddings', 'beta_fast', 'beta_slow', 'factor'}
+(APIServer pid=483) [transformers] Unrecognized keys in `rope_parameters` for 'rope_type'='default': {'original_max_position_embeddings', 'beta_fast', 'beta_slow', 'factor'}
+(APIServer pid=483) [transformers] Unrecognized keys in `rope_parameters` for 'rope_type'='default': {'original_max_position_embeddings', 'beta_fast', 'beta_slow', 'factor'}
+(APIServer pid=483) [transformers] Unrecognized keys in `rope_parameters` for 'rope_type'='default': {'original_max_position_embeddings', 'beta_fast', 'beta_slow', 'factor'}
+(APIServer pid=483) [transformers] Unrecognized keys in `rope_parameters` for 'rope_type'='default': {'original_max_position_embeddings', 'beta_fast', 'beta_slow', 'factor'}
+(APIServer pid=483) [transformers] Unrecognized keys in `rope_parameters` for 'rope_type'='default': {'original_max_position_embeddings', 'beta_fast', 'beta_slow', 'factor'}
+(APIServer pid=483) [transformers] Unrecognized keys in `rope_parameters` for 'rope_type'='default': {'original_max_position_embeddings', 'beta_fast', 'beta_slow', 'factor'}
+(APIServer pid=483) [transformers] Unrecognized keys in `rope_parameters` for 'rope_type'='default': {'original_max_position_embeddings', 'beta_fast', 'beta_slow', 'factor'}
+(APIServer pid=483) [transformers] Unrecognized keys in `rope_parameters` for 'rope_type'='default': {'original_max_position_embeddings', 'beta_fast', 'beta_slow', 'factor'}
+(APIServer pid=483) [transformers] Unrecognized keys in `rope_parameters` for 'rope_type'='default': {'original_max_position_embeddings', 'beta_fast', 'beta_slow', 'factor'}
+(APIServer pid=483) [transformers] Unrecognized keys in `rope_parameters` for 'rope_type'='default': {'original_max_position_embeddings', 'beta_fast', 'beta_slow', 'factor'}
+(APIServer pid=483) [transformers] Unrecognized keys in `rope_parameters` for 'rope_type'='default': {'original_max_position_embeddings', 'beta_fast', 'beta_slow', 'factor'}
+(APIServer pid=483) INFO 09-23 18:20:23 [api_server.py:682] Starting vLLM server on http://0.0.0.0:18963
+(APIServer pid=483) INFO 09-23 18:20:23 [launcher.py:37] Available routes are:
+(APIServer pid=483) INFO 09-23 18:20:23 [launcher.py:46] Route: /openapi.json, Methods: HEAD, GET
+(APIServer pid=483) INFO 09-23 18:20:23 [launcher.py:46] Route: /docs, Methods: HEAD, GET
+(APIServer pid=483) INFO 09-23 18:20:23 [launcher.py:46] Route: /docs/oauth2-redirect, Methods: HEAD, GET
+(APIServer pid=483) INFO 09-23 18:20:23 [launcher.py:46] Route: /redoc, Methods: HEAD, GET
+(APIServer pid=483) INFO 09-23 18:20:23 [launcher.py:46] Route: /load, Methods: GET
+(APIServer pid=483) INFO 09-23 18:20:23 [launcher.py:46] Route: /version, Methods: GET
+(APIServer pid=483) INFO 09-23 18:20:23 [launcher.py:46] Route: /health, Methods: GET
+(APIServer pid=483) INFO 09-23 18:20:23 [launcher.py:46] Route: /metrics, Methods: GET
+(APIServer pid=483) INFO 09-23 18:20:23 [launcher.py:46] Route: /tokenize, Methods: POST
+(APIServer pid=483) INFO 09-23 18:20:23 [launcher.py:46] Route: /detokenize, Methods: POST
+(APIServer pid=483) INFO 09-23 18:20:23 [launcher.py:46] Route: /v1/models, Methods: GET
+(APIServer pid=483) INFO 09-23 18:20:23 [launcher.py:46] Route: /ping, Methods: GET
+(APIServer pid=483) INFO 09-23 18:20:23 [launcher.py:46] Route: /ping, Methods: POST
+(APIServer pid=483) INFO 09-23 18:20:23 [launcher.py:46] Route: /invocations, Methods: POST
+(APIServer pid=483) INFO 09-23 18:20:23 [launcher.py:46] Route: /v1/chat/completions, Methods: POST
+(APIServer pid=483) INFO 09-23 18:20:23 [launcher.py:46] Route: /v1/chat/completions/batch, Methods: POST
+(APIServer pid=483) INFO 09-23 18:20:23 [launcher.py:46] Route: /v1/responses, Methods: POST
+(APIServer pid=483) INFO 09-23 18:20:23 [launcher.py:46] Route: /v1/responses/{response_id}, Methods: GET
+(APIServer pid=483) INFO 09-23 18:20:23 [launcher.py:46] Route: /v1/responses/{response_id}/cancel, Methods: POST
+(APIServer pid=483) INFO 09-23 18:20:23 [launcher.py:46] Route: /v1/completions, Methods: POST
+(APIServer pid=483) INFO 09-23 18:20:23 [launcher.py:46] Route: /v1/messages, Methods: POST
+(APIServer pid=483) INFO 09-23 18:20:23 [launcher.py:46] Route: /v1/messages/count_tokens, Methods: POST
+(APIServer pid=483) INFO 09-23 18:20:23 [launcher.py:46] Route: /generative_scoring, Methods: POST
+(APIServer pid=483) INFO 09-23 18:20:23 [launcher.py:46] Route: /scale_elastic_ep, Methods: POST
+(APIServer pid=483) INFO 09-23 18:20:23 [launcher.py:46] Route: /is_scaling_elastic_ep, Methods: POST
+(APIServer pid=483) INFO 09-23 18:20:23 [launcher.py:46] Route: /v1/chat/completions/render, Methods: POST
+(APIServer pid=483) INFO 09-23 18:20:23 [launcher.py:46] Route: /v1/completions/render, Methods: POST
+(APIServer pid=483) INFO 09-23 18:20:23 [launcher.py:46] Route: /v1/chat/completions/derender, Methods: POST
+(APIServer pid=483) INFO 09-23 18:20:23 [launcher.py:46] Route: /v1/completions/derender, Methods: POST
+(APIServer pid=483) INFO 09-23 18:20:23 [launcher.py:46] Route: /inference/v1/generate, Methods: POST
+(APIServer pid=483) INFO 09-23 18:20:23 [launcher.py:99] API server: waiting for HTTP server to start
+(APIServer pid=483) INFO:     Started server process [483]
+(APIServer pid=483) INFO:     Waiting for application startup.
+(APIServer pid=483) INFO:     Application startup complete.
+(APIServer pid=483) INFO 09-23 18:20:23 [launcher.py:105] API server: HTTP server started
+(APIServer pid=483) INFO:     127.0.0.1:52470 - "GET /v1/models HTTP/1.1" 200 OK
+(EngineCore pid=1169) INFO 09-23 18:21:03 [scheduler.py:1345] [admission_gate] prefill-only step #1 (step=1): prefill_reqs=1 decode_reqs=0 total_tokens=1 deferred_decode_reqs=0 (cumulative=0).
+(EngineCore pid=1169) INFO 09-23 18:21:06 [scheduler.py:1383] [admission_gate] prefill-only episode ended: steps=1 deferred_decode_reqs=0 (cumulative_deferred=0, cumulative_prefill_steps=1).
+(APIServer pid=483) INFO:     127.0.0.1:35520 - "POST /v1/completions HTTP/1.1" 200 OK
+(EngineCore pid=1169) INFO 09-23 18:21:09 [scheduler.py:1383] [admission_gate] prefill-only episode ended: steps=1 deferred_decode_reqs=0 (cumulative_deferred=0, cumulative_prefill_steps=2).
+(APIServer pid=483) INFO:     127.0.0.1:37734 - "POST /v1/completions HTTP/1.1" 200 OK
+(APIServer pid=483) INFO 09-23 18:21:13 [loggers.py:310] Engine 000: Avg prompt throughput: 0.3 tokens/s, Avg generation throughput: 0.2 tokens/s, Running: 0 reqs, Waiting: 0 reqs, GPU KV cache usage: 0.0%, Prefix cache hit rate: 0.0%
+(EngineCore pid=1169) INFO 09-23 18:21:15 [scheduler.py:1383] [admission_gate] prefill-only episode ended: steps=1 deferred_decode_reqs=0 (cumulative_deferred=0, cumulative_prefill_steps=3).
+(APIServer pid=483) INFO:     127.0.0.1:37742 - "POST /v1/completions HTTP/1.1" 200 OK
+(EngineCore pid=1169) INFO 09-23 18:21:15 [scheduler.py:1383] [admission_gate] prefill-only episode ended: steps=1 deferred_decode_reqs=0 (cumulative_deferred=0, cumulative_prefill_steps=4).
+(APIServer pid=483) INFO:     127.0.0.1:40326 - "POST /v1/completions HTTP/1.1" 200 OK
+(EngineCore pid=1169) INFO 09-23 18:21:19 [scheduler.py:1383] [admission_gate] prefill-only episode ended: steps=1 deferred_decode_reqs=0 (cumulative_deferred=0, cumulative_prefill_steps=5).
+(APIServer pid=483) INFO:     127.0.0.1:40332 - "POST /v1/completions HTTP/1.1" 200 OK
+(APIServer pid=483) INFO 09-23 18:21:23 [loggers.py:310] Engine 000: Avg prompt throughput: 38.4 tokens/s, Avg generation throughput: 0.3 tokens/s, Running: 0 reqs, Waiting: 0 reqs, GPU KV cache usage: 0.0%, Prefix cache hit rate: 0.0%
+(APIServer pid=483) INFO 09-23 18:21:33 [loggers.py:310] Engine 000: Avg prompt throughput: 0.0 tokens/s, Avg generation throughput: 0.0 tokens/s, Running: 0 reqs, Waiting: 0 reqs, GPU KV cache usage: 0.0%, Prefix cache hit rate: 0.0%

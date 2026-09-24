@@ -28,6 +28,32 @@ stamp=$(date +%Y%m%d_%H%M%S)
 export RUN_ID=${RUN_ID:-ced_${role}_${stamp}}
 export V41_CED_ROLE=$role SPEC=0 PREFIX=0 DRAFT_GRAPH=0 PATCH_MODE=mount
 export STATIC_KERNEL=${STATIC_KERNEL:-0}
+if [ "$role" = decode ]; then
+  # Both arms are diagnostic until the graph-mode corruption is fixed.
+  # Never turn the accurate but slower eager arm into an implicit delivery.
+  case "${CED_DIAGNOSTIC_EAGER:-0}:${CED_EXPERIMENTAL_GRAPH:-0}" in
+    1:0)
+      export GRAPH=${GRAPH:-0} EAGER=${EAGER:-1}
+      if [ "$GRAPH" != 0 ] || [ "$EAGER" != 1 ]; then
+        echo "[a3-ced][FAIL] CED_DIAGNOSTIC_EAGER=1 要求 GRAPH=0 EAGER=1" >&2
+        exit 2
+      fi
+      echo "[a3-ced][WARN] D eager 仅供正确性和定位基线，不是性能交付配置" >&2
+      ;;
+    0:1)
+      export GRAPH=${GRAPH:-1} EAGER=${EAGER:-0}
+      if [ "$GRAPH" != 1 ] || [ "$EAGER" != 0 ]; then
+        echo "[a3-ced][FAIL] CED_EXPERIMENTAL_GRAPH=1 要求 GRAPH=1 EAGER=0" >&2
+        exit 2
+      fi
+      echo "[a3-ced][WARN] D 图模式仅供定位；真实权重短针在此模式 2/2 失败" >&2
+      ;;
+    *)
+      echo "[a3-ced][FAIL] CED D 尚无可交付配置：eager 仅供诊断，图模式短针 2/2 乱码。定位时显式设置 CED_DIAGNOSTIC_EAGER=1 或 CED_EXPERIMENTAL_GRAPH=1" >&2
+      exit 2
+      ;;
+  esac
+fi
 export SERVED_NAME=${SERVED_NAME:-deepseek-v41-ced-pd}
 export NAME=${NAME:-dsv41-ced-${role}-${stamp}}
 if [ -n "${CED_SNAPSHOT_POS:-}" ]; then
@@ -45,5 +71,5 @@ fi
 if [ "${CED_CAPTURE_DECODE:-0}" = 1 ]; then
   export V41_CED_CAPTURE_DECODE=1
 fi
-echo "[a3-ced] role=$V41_CED_ROLE name=$NAME max_len=${MAX_LEN:-147456} spec=$SPEC prefix=$PREFIX"
+echo "[a3-ced] role=$V41_CED_ROLE name=$NAME max_len=${MAX_LEN:-147456} spec=$SPEC prefix=$PREFIX graph=${GRAPH:-1} eager=${EAGER:-0}"
 exec bash "$HERE/serve_a3_pd.sh" "$role"

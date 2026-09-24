@@ -1,0 +1,22 @@
+ninja: no work to do.
+[W923 20:10:43.264299880 NPUCachingAllocator.cpp:202] Warning: The current CANN and HDK(driver) versions require processing for 32 padding size, with memory allocation. (function operator())
+[1/2] c++ -MMD -MF sparse_flash_mla.o.d -DTORCH_EXTENSION_NAME=sparse_flash_mla -DTORCH_API_INCLUDE_EXTENSION_H -I/usr/local/python3.12.13/lib/python3.12/site-packages/torch_npu/include -I/usr/local/python3.12.13/lib/python3.12/site-packages/torch_npu/include/third_party/hccl/inc -I/usr/local/python3.12.13/lib/python3.12/site-packages/torch_npu/include/third_party/acl/inc -I/usr/local/Ascend/cann-9.1.0/include -I/usr/local/Ascend/ascend-toolkit/latest/python/site-packages/cann_ops_transformer/common/inc -isystem /usr/local/python3.12.13/lib/python3.12/site-packages/torch/include -isystem /usr/local/python3.12.13/lib/python3.12/site-packages/torch/include/torch/csrc/api/include -isystem /usr/local/python3.12.13/include/python3.12 -fPIC -std=c++17 -fstack-protector-all -Wl,-z,relro,-z,now,-z,noexecstack -fPIC -pie -s -fvisibility=hidden -D_FORTIFY_SOURCE=2 -O2 -w -D_GLIBCXX_USE_CXX11_ABI=1 -c /usr/local/Ascend/ascend-toolkit/latest/python/site-packages/cann_ops_transformer/ops/csrc/sparse_flash_mla.cpp -o sparse_flash_mla.o 
+[2/2] c++ sparse_flash_mla.o -shared -L/usr/local/Ascend/cann-9.1.0/lib64 -lascendcl -L/usr/local/python3.12.13/lib/python3.12/site-packages/torch_npu/lib -ltorch_npu -L/usr/local/python3.12.13/lib/python3.12/site-packages/torch/lib -lc10 -ltorch_cpu -ltorch -ltorch_python -o sparse_flash_mla.so
+SMLA_ORI_VIEW_AB_ERROR: RuntimeError: call aclnnSparseFlashMlaMetadata failed, detail:[PID: 321] 2026-09-23-20:11:02.635.552 AclNN_Parameter_Error(EZ1001): cmp_ratio should be 4 on A2/A3 when cmp_topk is non-zero(CSA with cmp_sparse_indices), but got 2
+
+Traceback (most recent call last):
+  File "/tmp/smla_mixed_csa_ori_view_ab.py", line 164, in <module>
+    meta_a = call_metadata(seq_ori_a, 255, cu_q, seq_cmp, cmp_resid)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/tmp/smla_mixed_csa_ori_view_ab.py", line 39, in call_metadata
+    return torch.ops.cann_ops_transformer.sparse_flash_mla_metadata(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/python3.12.13/lib/python3.12/site-packages/torch/_ops.py", line 1209, in __call__
+    return self._op(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/Ascend/ascend-toolkit/latest/python/site-packages/cann_ops_transformer/ops/sparse_flash_mla.py", line 153, in sparse_flash_mla_metadata
+    return op_module.sparse_flash_mla_metadata(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+RuntimeError: call aclnnSparseFlashMlaMetadata failed, detail:[PID: 321] 2026-09-23-20:11:02.635.552 AclNN_Parameter_Error(EZ1001): cmp_ratio should be 4 on A2/A3 when cmp_topk is non-zero(CSA with cmp_sparse_indices), but got 2
+
+[ERROR] 2026-09-23-20:11:03 (PID:321, Device:0, RankID:-1) ERR99999 UNKNOWN applicaiton exception

@@ -1,0 +1,229 @@
+===== actual P-container model_runner_v1.py SHA=67035d97f1cea4ae2df31adcc33f1de952f4cab6d8421e76df512296e0e3185e; dispatch caller 2234-2250 =====
+  2234	                (
+  2235	                    cudagraph_mode,
+  2236	                    batch_desc,
+  2237	                    should_ubatch,
+  2238	                    num_tokens_across_dp,
+  2239	                    cudagraph_stats,
+  2240	                ) = self._determine_batch_execution_and_padding(
+  2241	                    num_tokens=num_tokens_unpadded,
+  2242	                    num_reqs=num_reqs,
+  2243	                    num_scheduled_tokens_np=num_scheduled_tokens_np,
+  2244	                    max_num_scheduled_tokens=max_num_scheduled_tokens,
+  2245	                    use_cascade_attn=cascade_attn_prefix_lens is not None,
+  2246	                    force_eager=self.model_config.enforce_eager,
+  2247	                    num_encoder_reqs=len(scheduler_output.scheduled_encoder_inputs),
+  2248	                )
+  2249	
+  2250	                if logger.isEnabledFor(logging.DEBUG):
+===== _model_forward 2965-3000 =====
+  2965	    def _model_forward(
+  2966	        self,
+  2967	        num_tokens_padded: int,
+  2968	        input_ids: torch.Tensor | None = None,
+  2969	        positions: torch.Tensor | None = None,
+  2970	        intermediate_tensors: IntermediateTensors | None = None,
+  2971	        inputs_embeds: torch.Tensor | None = None,
+  2972	        **model_kwargs: dict[str, Any],
+  2973	    ):
+  2974	        assert self.model is not None
+  2975	        forward_context = get_forward_context()
+  2976	        assert forward_context is not None
+  2977	
+  2978	        model_inputs: dict[str, Any] = {
+  2979	            "input_ids": input_ids,
+  2980	            "positions": positions,
+  2981	            "intermediate_tensors": intermediate_tensors,
+  2982	            "inputs_embeds": inputs_embeds,
+  2983	            **model_kwargs,
+  2984	        }
+  2985	        # Variable Engram routing must run on every DP before ACLGraph capture
+  2986	        # or replay; only its persistent BF16 inputs enter the model graph.
+  2987	        prepare_engram = getattr(self.model, "prepare_engram_inputs", None)
+  2988	        if prepare_engram is not None:
+  2989	            model_inputs.update(prepare_engram(input_ids, positions, num_tokens_padded))
+  2990	        run_model = partial(self.model, **model_inputs)
+  2991	
+  2992	        if self.enable_enpu:
+  2993	            # The soft segmentation scenario requires event.record first, then event.wait
+  2994	            self._update_full_graph_params_if_needed(forward_context, num_tokens_padded)
+  2995	            hidden_states = run_model()
+  2996	        else:
+  2997	            hidden_states = run_model()
+  2998	            self._update_full_graph_params_if_needed(forward_context, num_tokens_padded)
+  2999	
+  3000	        return hidden_states
+===== _determine_batch_execution_and_padding 3065-3118 =====
+  3065	    def _determine_batch_execution_and_padding(
+  3066	        self,
+  3067	        num_tokens: int,
+  3068	        num_reqs: int,
+  3069	        num_scheduled_tokens_np: np.ndarray,
+  3070	        max_num_scheduled_tokens: int,
+  3071	        use_cascade_attn: bool,
+  3072	        allow_microbatching: bool = False,
+  3073	        force_eager: bool = False,
+  3074	        # For cudagraph capture TODO(lucas): Refactor how we capture cudagraphs (will
+  3075	        # be improved in model runner v2)
+  3076	        force_uniform_decode: bool | None = None,
+  3077	        force_has_lora: bool | None = None,
+  3078	        force_num_active_loras: int | None = None,
+  3079	        num_encoder_reqs: int = 0,
+  3080	    ) -> tuple[CUDAGraphMode, BatchDescriptor, bool, torch.Tensor | None, CUDAGraphStat | None]:
+  3081	        num_tokens_padded = self._pad_for_sequence_parallelism(num_tokens)
+  3082	        # A stateful P/D handoff can use a uniform decode graph even at
+  3083	        # prompt_len - 1 computed tokens. Keep first-token prefills out.
+  3084	        has_initial_state = np.all(self.input_batch.num_computed_tokens_cpu[:num_reqs] > 0)
+  3085	        uniform_decode = (
+  3086	            (
+  3087	                has_initial_state
+  3088	                and (max_num_scheduled_tokens == self.uniform_decode_query_len)
+  3089	                and (num_tokens == max_num_scheduled_tokens * num_reqs)
+  3090	            )
+  3091	            if force_uniform_decode is None
+  3092	            else force_uniform_decode
+  3093	        )
+  3094	        # Encoder-decoder models only support CG for decoder_step > 0 (no enc_output
+  3095	        # is present). Also, chunked-prefill is disabled, so batch are uniform.
+  3096	        has_encoder_output = self.model_config.is_encoder_decoder and num_encoder_reqs > 0
+  3097	        num_active_loras = (
+  3098	            force_num_active_loras
+  3099	            if force_num_active_loras is not None
+  3100	            else len(self.input_batch.lora_id_to_lora_request)
+  3101	        )
+  3102	        has_lora = num_active_loras > 0 if force_has_lora is None else force_has_lora
+  3103	
+  3104	        # ruff: noqa: E731
+  3105	        def dispatch_cudagraph(num_tokens, disable_full=False, valid_modes=None):
+  3106	            if force_eager:
+  3107	                return (CUDAGraphMode.NONE, BatchDescriptor(num_tokens_padded))
+  3108	
+  3109	            return self.cudagraph_dispatcher.dispatch(
+  3110	                num_tokens=num_tokens,
+  3111	                has_lora=has_lora,
+  3112	                uniform_decode=uniform_decode,
+  3113	                valid_modes=valid_modes,
+  3114	                invalid_modes={CUDAGraphMode.FULL} if disable_full else None,
+  3115	                num_active_loras=num_active_loras,
+  3116	            )
+  3117	
+  3118	        cudagraph_mode, batch_descriptor = dispatch_cudagraph(num_tokens_padded, use_cascade_attn or has_encoder_output)
+===== _build_attention_metadata signature and is_prefilling 3166-3185, 3276-3286 =====
+  3166	    def _build_attention_metadata(
+  3167	        self,
+  3168	        num_tokens: int,
+  3169	        num_reqs: int,
+  3170	        max_query_len: int,
+  3171	        num_tokens_padded: int | None = None,
+  3172	        num_reqs_padded: int | None = None,
+  3173	        ubatch_slices: UBatchSlices | None = None,
+  3174	        logits_indices: torch.Tensor | None = None,
+  3175	        use_spec_decode: bool = False,
+  3176	        for_cudagraph_capture: bool = False,
+  3177	        num_scheduled_tokens: dict[str, int] | None = None,
+  3178	        num_scheduled_tokens_np: np.ndarray | None = None,
+  3179	        cascade_attn_prefix_lens: list[list[int]] | None = None,
+  3180	        skip_gdn_state_update: bool = False,
+  3181	        cudagraph_runtime_mode: CUDAGraphMode | None = None,
+  3182	        batch_descriptor: BatchDescriptor | None = None,
+  3183	    ) -> tuple[PerLayerAttnMetadata, CommonAttentionMetadata | None]:
+  3184	        """
+  3185	        :return: tuple[attn_metadata, spec_decode_common_attn_metadata]
+  3276	        block_table_gid_0, slot_mapping_gid_0 = _get_block_table_and_slot_mapping(0)
+  3277	        self.long_seq_metadata, block_table_gid_0 = _get_dcp_metadata(block_table_gid_0)
+  3278	        num_computed_tokens_cpu = self.input_batch.num_computed_tokens_cpu_tensor[
+  3279	            :num_reqs_padded
+  3280	        ]
+  3281	        num_prompt_tokens_cpu = self.input_batch.num_prompt_tokens_cpu_tensor[
+  3282	            :num_reqs_padded
+  3283	        ]
+  3284	        is_prefilling = num_computed_tokens_cpu < num_prompt_tokens_cpu
+  3285	        is_prefilling[num_reqs:] = False
+  3286	        seq_lens_cpu = self.optimistic_seq_lens_cpu[:num_reqs_padded]
+===== eager_break_during_capture 90-104; BreakableCUDAGraphWrapper dispatch 310-333 =====
+    90	    if not is_breakable_cudagraph_enabled():
+    91	        return fn
+    92	
+    93	    @functools.wraps(fn)
+    94	    def wrapper(*args: Any, **kwargs: Any) -> Any:
+    95	        capture = BreakableCUDAGraphCapture.current()
+    96	        if capture is None:
+    97	            return fn(*args, **kwargs)
+    98	        if not capture._capturing:
+    99	            return fn(*args, **kwargs)
+   100	        if is_forward_context_available():
+   101	            mode = get_forward_context().cudagraph_runtime_mode
+   102	            if mode == CUDAGraphMode.FULL:
+   103	                return fn(*args, **kwargs)
+   104	
+   310	    def __call__(self, *args: Any, **kwargs: Any) -> Any:
+   311	        if not is_forward_context_available():
+   312	            return self.runnable(*args, **kwargs)
+   313	
+   314	        forward_context = get_forward_context()
+   315	        batch_descriptor = forward_context.batch_descriptor
+   316	        cudagraph_runtime_mode = forward_context.cudagraph_runtime_mode
+   317	
+   318	        # Capture whenever the dispatcher says "some cudagraph mode" --
+   319	        # breakable produces the same artifact regardless of PIECEWISE
+   320	        # vs FULL, so we match either. Entries are keyed by batch
+   321	        # descriptor, which already encodes prefill/decode distinctions.
+   322	        if cudagraph_runtime_mode == CUDAGraphMode.NONE:
+   323	            return self.runnable(*args, **kwargs)
+   324	
+   325	        assert batch_descriptor is not None
+   326	        entry = self.entries.get(batch_descriptor)
+   327	        if entry is None:
+   328	            entry = _BreakableEntry(batch_descriptor=batch_descriptor)
+   329	            self.entries[batch_descriptor] = entry
+   330	
+   331	        if entry.capture is None:
+   332	            return self._capture(entry, args, kwargs)
+   333	        return self._replay(entry, args, kwargs)
+===== DeviceMetadataExecutor stream and ExternalEvent paths 46-52,86-124 =====
+    46	    """Submit device metadata tasks on a worker-owned NPU stream."""
+    47	
+    48	    def __init__(self) -> None:
+    49	        self.stream = torch.npu.Stream()
+    50	        self._inputs_ready = torch.npu.Event()
+    51	        self._stage_ready: dict[tuple[DeviceMetadataStage, int], torch.npu.Event] = {}
+    52	        self._external_stage_ready: dict[tuple[BatchDescriptor, DeviceMetadataStage, int], torch.npu.ExternalEvent] = {}
+    86	                self._external_stage_ready[external_frontier] = torch.npu.ExternalEvent()
+    87	            elif external_frontier is None and frontier not in self._stage_ready:
+    88	                self._stage_ready[frontier] = torch.npu.Event()
+    89	        if batch_descriptor is not None and expected_frontiers is None:
+    90	            self._external_frontiers[batch_descriptor] = submitted_frontiers
+    91	
+    92	        self._submission_in_flight = True
+    93	        self._batch_descriptor = batch_descriptor
+    94	        self._waited_stages.clear()
+    95	        self._inputs_ready.record(torch.npu.current_stream())
+    96	        with torch.npu.stream(self.stream):
+    97	            self.stream.wait_event(self._inputs_ready)
+    98	            if self._has_reuse_fence:
+    99	                self.stream.wait_event(self._buffer_reusable)
+   100	
+   101	            task_index = 0
+   102	            for stage in DeviceMetadataStage:
+   103	                while task_index < len(ordered_tasks) and ordered_tasks[task_index].stage == stage:
+   104	                    task = ordered_tasks[task_index]
+   105	                    task.run()
+   106	                    frontier = (stage, task.group_id)
+   107	                    if batch_descriptor is None:
+   108	                        self._stage_ready[frontier].record(self.stream)
+   109	                    else:
+   110	                        self._external_stage_ready[(batch_descriptor, *frontier)].record(self.stream)
+   111	                    task_index += 1
+   112	
+   113	    def wait(self, stage: DeviceMetadataStage, group_id: int) -> None:
+   114	        if not self._submission_in_flight:
+   115	            raise RuntimeError("No device metadata submission is in flight")
+   116	        frontier = (stage, group_id)
+   117	        if frontier not in self._waited_stages:
+   118	            stream = torch.npu.current_stream()
+   119	            if self._batch_descriptor is None:
+   120	                stream.wait_event(self._stage_ready[frontier])
+   121	            else:
+   122	                event = self._external_stage_ready[(self._batch_descriptor, *frontier)]
+   123	                event.wait(stream)
+   124	                event.reset(stream)

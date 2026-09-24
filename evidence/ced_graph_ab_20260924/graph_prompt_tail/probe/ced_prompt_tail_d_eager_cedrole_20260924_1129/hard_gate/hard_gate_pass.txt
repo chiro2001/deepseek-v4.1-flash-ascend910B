@@ -1,0 +1,32 @@
+timestamp=2026-09-24T11:43:30+08:00
+P_container_id=0db3d62627d8680aa17e0398e1f26cec8b1a654bdc6724ed247ec1235e06739d state=running image=quay.nju.edu.cn/ascend/vllm-ascend:deepseek-v4.1-flash-a3 devices=/dev/davinci0 /dev/davinci1 /dev/davinci2 /dev/davinci3 /dev/davinci4 /dev/davinci5 /dev/davinci6 /dev/davinci7 /dev/davinci_manager /dev/devmm_svm /dev/hisi_hdc  expected_id=0db3d62627d8680aa17e0398e1f26cec8b1a654bdc6724ed247ec1235e06739d health=200 P_serve_log=/home/l00886679/tmp/20260924/ced_numeric/pkg_f28cd71/src/results/ced_graph_ab_p_20260924_070428/serve.log
+D_container_id=d55e5d2199f1bd50f96b0b5567fc756f712bf97670382d223ceb852c199ea1da state=running image=quay.nju.edu.cn/ascend/vllm-ascend:deepseek-v4.1-flash-a3 devices=/dev/davinci8 /dev/davinci9 /dev/davinci10 /dev/davinci11 /dev/davinci12 /dev/davinci13 /dev/davinci14 /dev/davinci15 /dev/davinci_manager /dev/devmm_svm /dev/hisi_hdc  health=200
+proxy_container_id=389b4aa0300c89e73e45a817d0bc38a433e75aace1168b99844dcf890ec4dfb3 state=running image=quay.nju.edu.cn/ascend/vllm-ascend:deepseek-v4.1-flash-a3 openapi_http=200 docs_http=200 health_route_http=404
+listeners=LISTEN 0      2048         0.0.0.0:18991      0.0.0.0:*          ;LISTEN 0      2048         0.0.0.0:18990      0.0.0.0:*          ;LISTEN 0      100    192.168.45.21:19090      0.0.0.0:*          ;LISTEN 0      100    192.168.45.21:19091      0.0.0.0:*          ;LISTEN 0      2048       127.0.0.1:18992      0.0.0.0:*          ;
+model=/home/l00886679/models/out/v41-flat-verify3 served_name=deepseek-v41-ced-pd TP=8 DP=1 KV=bfloat16
+D_env=V41_CED_GRAPH_PROMPT_TAIL_EAGER=0
+V41_CED_ROLE=decode
+V41_ENGRAM_DEVICE_INDEX=0
+V41_ENGRAM_DEVICE_FALLBACK=0
+D_inner_settings:
+4:export MODEL="/home/l00886679/models/out/v41-flat-verify3" TP=8 DP=1 PORT=18991 SERVED_NAME="deepseek-v41-ced-pd"
+5:export MAX_LEN=1048576 MAX_SEQS=4 BAT_TOKENS=8192 GPU_UTIL=0.92 BLOCK=128
+7:export KV_DTYPE=bfloat16 GRAPH=0 EAGER=1 PREFIX=0 SPEC=0 SP_TOKENS=7
+9:export ENGRAM=1 ENGRAM_STORAGE=int8 VISION=1
+10:export NPUGRAPH_EX=1 STATIC_KERNEL=0 CPU_BIND=0
+11:export MULTISTREAM=1 DSA_OVERLAP=1 FUSED_MC2=0 MC2=0 MC2_HIER=0 REDUCE_SAMPLE=0
+13:export V41_KV_TIER=off
+19:export PROFILE=0
+20:export PROFILE_DIR=/opt/dsv41/results/ced_prompt_tail_d_eager_cedrole_20260924_1129/prof
+21:export KV_ARGS_EXTRA="${KV_ARGS_EXTRA:-}"
+D_actual_command=[serve-v2] cmd: vllm serve /home/l00886679/models/out/v41-flat-verify3 --host 0.0.0.0 --port 18991 --served-model-name deepseek-v41-ced-pd --tensor-parallel-size 8 --enable-expert-parallel --trust-remote-code --dtype bfloat16 --kv-cache-dtype bfloat16 --max-model-len 1048576 --max-num-seqs 4 --max-num-batched-tokens 8192 --block-size 128 --gpu-memory-utilization 0.92 --additional-config {"enable_engram":true,"enable_cpu_binding":false,"ascend_compilation_config":{"enable_npugraph_ex":true,"enable_static_kernel":false},"multistream_overlap_shared_expert":true,"multistream_dsv4_dsa_overlap":true,"enable_prefill_mc2":false,"enable_mc2_hierarchy_comm":false,"engram_storage":"int8"} --quantization ascend --enforce-eager --no-enable-prefix-caching --model-loader-extra-config {"enable_multithread_load":true,"num_threads":128} --safetensors-load-strategy lazy --limit-mm-per-prompt {"image": 1} --kv-transfer-config {"kv_connector":"MooncakeHybridConnector","kv_role":"kv_consumer","kv_port":"19091","kv_connector_extra_config":{"prefill":{"dp_size":1,"tp_size":8},"decode":{"dp_size":1,"tp_size":8}}} --tokenizer-mode=deepseek_v41 --reasoning-parser=deepseek_v41 --tool-call-parser=deepseek_v41 --enable-auto-tool-choice --default-chat-template-kwargs={"enable_thinking":false}
+runner_sha=67035d97f1cea4ae2df31adcc33f1de952f4cab6d8421e76df512296e0e3185e expected_base=67035d97f1cea4ae2df31adcc33f1de952f4cab6d8421e76df512296e0e3185e
+connector_sha=a93bd6054b349647f5650bbadc9b60d6596d0d992f4c0574398fe12b8c3e3dfe package_sha=a93bd6054b349647f5650bbadc9b60d6596d0d992f4c0574398fe12b8c3e3dfe
+dsa_sha=8d1d2c30dae41afa42b2dc09ba549ed0691a8d423a7d2334153ad0aa5ad789d0 package_sha=8d1d2c30dae41afa42b2dc09ba549ed0691a8d423a7d2334153ad0aa5ad789d0
+scheduler_patch_sha=ab84b5e2ff4ee5951ec662a30be29b38df4b7b5a386991028906fb0776a4572c runner_prompt_patch_sha=c877a849b6895cdfaeac167513b771b7445506b25ae191e2ac013177cb06ff4e runner_prompt_patch_mount_count=0
+scheduler_runtime_marker=2991:                        "[CED-D] replay request=%s positions=%d..%d before uncached last token",
+CED_mounts=/home/l00886679/tmp/20260924/ced_numeric/pkg_777bc73/src/experimental/ced/core_scheduler_replay.patch -> /opt/dsv41/ced_scheduler_replay.patch
+/home/l00886679/tmp/20260924/ced_numeric/pkg_777bc73/src/experimental/ced/dsa_v41.py -> /vllm-workspace/vllm-ascend/vllm_ascend/attention/dsa_v41.py
+/home/l00886679/tmp/20260924/ced_numeric/pkg_777bc73/src/experimental/ced/mooncake_hybrid_connector.py -> /vllm-workspace/vllm-ascend/vllm_ascend/distributed/kv_transfer/kv_p2p/mooncake_hybrid_connector.py
+error_matches P=0 D=0 proxy=0
+tee_warning_sha256=c090f7c8f4b300a8b8420ca516ac63c212e2fbcb5f937fde25ce3041459b604a
