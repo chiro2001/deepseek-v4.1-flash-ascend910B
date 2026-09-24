@@ -205,8 +205,21 @@ def chat_payload(model: str, user: str, max_tokens: int, stream: bool) -> dict:
 
 # ----------------------------------------------------------------- 判据
 def judge(answer: str, expected: str) -> bool:
-    """宽松判据：答案里出现期望串即通过（与既有 144K/1M 口径一致）。"""
-    return expected in answer
+    """答案里出现期望串，**且没有复述题面/针文本**，才算通过。
+
+    只做子串匹配会被"把题面复述一遍"这种退化输出骗过（模型照抄含针的原文，
+    期望串自然出现）。所以额外拒绝两类：
+      1. 答案里出现针文本的特征词（`运维备忘` / `校验码是`）；
+      2. 答案过长（正常只回一个码，>200 字符基本是复述或跑题）。
+    """
+    if expected not in answer:
+        return False
+    if len(answer) > 200:
+        return False
+    for label in ("运维备忘", "校验码是", "请只回复", "只给"):
+        if label in answer:
+            return False
+    return True
 
 
 def record(
@@ -240,6 +253,7 @@ def record(
         "answer_repr": repr(answer)[:400],
         "expected": expected,
         "passed": judge(answer, expected),
+        "answer_len": len(answer),
         "u_fffd": answer.count("\ufffd"),
         "usage": usage,
         "finish_reason": finish_reason,
@@ -496,6 +510,12 @@ def selfcheck() -> int:
                 answer = SHORT_Q[1]
             if "故意答错" in text:
                 answer = "WRONG"
+            if "复述题面" in text:
+                # 退化输出：把含针的原文整段照抄 ⇒ 旧的子串判据会假通过。
+                answer = text[-400:]
+            if "长答案" in text:
+                # 退化输出：答案里确实含码，但拖沓到 200 字符以上。
+                answer = best_code + "，" + ("废话" * 200)
             if payload.get("stream"):
                 self.send_response(200)
                 self.send_header("Content-Type", "text/event-stream")
@@ -536,20 +556,29 @@ def selfcheck() -> int:
             run_prefix(args, 1000, results)
             run_multiturn(args, 1000, results)
 
-            # 负控：把期望改成不可能出现的串，判据必须变成 FAIL
-            negative = record(args.out_dir, "negative", {}, 200, 1.0, "WRONG", "ZQ7K-3341")
-            results.append(negative)
+            # 三条负控，都必须被判 FAIL：
+            #   1. 答错；
+            #   2. 复述题面（含期望串，但明显是照抄）；
+            #   3. 拖沓长答案（含期望串，但远超正常长度）。
+            results.append(record(args.out_dir, "negative_wrong", {}, 200, 1.0,
+                                  "WRONG", "ZQ7K-3341"))
+            results.append(record(
+                args.out_dir, "negative_echo", {}, 200, 1.0,
+                "【运维备忘 A】机房门禁密码是 ZQ7K-3341，仅限值班人员使用。", "ZQ7K-3341"))
+            results.append(record(
+                args.out_dir, "negative_long", {}, 200, 1.0,
+                "ZQ7K-3341，" + ("废话" * 200), "ZQ7K-3341"))
             server.shutdown()
 
     failed = [r for r in results if not r["passed"]]
-    expected_negative = [r for r in failed if r["tag"] == "negative"]
+    expected_negative = [r for r in failed if r["tag"].startswith("negative_")]
     print(f"[selfcheck] 共 {len(results)} 条，失败 {len(failed)} 条 "
           f"（其中负控 {len(expected_negative)} 条）")
     for row in results:
         print(f"  {row['tag']:>22} {'PASS' if row['passed'] else 'FAIL'} "
               f"answer={row['answer'][:24]!r}")
-    ok = len(failed) == 1 and len(expected_negative) == 1 and all(
-        r["request_sha256"] for r in results if r["tag"] != "negative"
+    ok = len(failed) == 3 and len(expected_negative) == 3 and all(
+        r["request_sha256"] for r in results if not r["tag"].startswith("negative_")
     )
     print("[selfcheck] " + ("通过 ✅" if ok else "不通过 ❌"))
     return 0 if ok else 1
@@ -575,6 +604,8 @@ def main() -> int:
                         help="逗号分隔的 /metrics 端点，用于记录资源开销快照")
     parser.add_argument("--selfcheck", action="store_true",
                         help="用内置 mock 服务验证 runner 自身（不连真实服务）")
+    parser.add_argument("--calibrate-only", action="store_true",
+                        help="只做长度校准并打印（不发起推理请求）")
     args = parser.parse_args()
 
     if args.selfcheck:
@@ -582,6 +613,33 @@ def main() -> int:
     if not args.tokenize_url:
         args.tokenize_url = args.base_url
     args.corpus_text = load_corpus(args.corpus)
+
+    if args.calibrate_only:
+        # 投前检查：确认 /tokenize 可用、语料够长、目标长度能收敛。
+        contexts = parse_contexts(args.context_tokens)
+        print(f"[calibrate] tokenize={args.tokenize_url} corpus={args.corpus} "
+              f"({len(args.corpus_text)} chars)")
+        probe = "你好，这是一次 tokenize 自检。"
+        n_probe = count_tokens(args.tokenize_url, args.model, probe)
+        print(f"[calibrate] 探针 {probe!r} -> {n_probe} tokens")
+        bad = 0
+        for target in contexts:
+            base, got = slice_for_tokens(
+                args.tokenize_url, args.model, args.corpus_text, target, args.offset
+            )
+            keys = list(NEEDLE_Q)
+            for key in keys:
+                full = embed_needles(base, [key]) + "\n\n" + NEEDLE_Q[key][0]
+                full_n = count_tokens(args.tokenize_url, args.model, full)
+                err = abs(full_n - target) / max(1, target)
+                flag = "OK " if err <= 0.005 + 128 / max(1, target) else "FAIL"
+                if flag == "FAIL":
+                    bad += 1
+                print(f"[calibrate] 目标 {target:>8}  针 {key}  base={got:>8} "
+                      f"含提问={full_n:>8}  偏差={err*100:.3f}%  {flag}")
+        print(f"[calibrate] 不达标项 {bad}（需 0）")
+        return 0 if bad == 0 else 1
+
     stamp = time.strftime("%Y%m%d_%H%M%S")
     args.out = args.out or f"results/ced_acceptance_{stamp}.json"
     args.out_dir = args.out_dir or os.path.splitext(args.out)[0] + "_evidence"

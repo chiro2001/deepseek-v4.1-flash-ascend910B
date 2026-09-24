@@ -97,6 +97,36 @@ python3 tools/ced_pd_acceptance.py \
 
 工具本体可用 `--selfcheck` 离线自证（内置 mock 服务 + 负控）：`python3 tools/ced_pd_acceptance.py --selfcheck`。
 
+**投前必做：先跑长度校准**，确认 `/tokenize`、语料长度与目标长度都能对上，再发推理：
+
+```bash
+python3 tools/ced_pd_acceptance.py --calibrate-only \
+  --base-url http://127.0.0.1:18990 --tokenize-url http://127.0.0.1:18990 \
+  --model deepseek-v41-ced-pd --corpus data/hongloumeng.txt \
+  --context-tokens 144000,1000000
+```
+
+2026-09-24 在 A3-21 的真实 P 上实测（`max_model_len=1048576`）：
+
+```text
+[calibrate] 探针 '你好，这是一次 tokenize 自检。' -> 10 tokens
+[calibrate] 目标   144000  针 A/B/C/D  含提问=143993/143991/143992/143990  偏差≈0.006%  OK
+[calibrate] 目标  1000000  针 A/B/C/D  含提问=999401/999399/999400/999398  偏差≈0.060%  OK
+[calibrate] 不达标项 0（需 0）
+```
+
+语料用 `data/hongloumeng.txt`，SHA-256
+`a7fc413bd6e3926482faddf2af9bfb4426e55d8e421481d60100c14160785578`（826,651 字符），
+**与早期 144K/256K/520K/1M 扫描使用的是同一份语料**，所以新旧结果可直接对照。
+注意它只有约 82 万字符，1M token 的目标会把语料重复约 1.2 遍。
+
+### 3.0 判据为什么不是"包含即通过"
+
+`judge()` 要求：答案里出现期望串**且**长度 ≤200 字符**且**不含针文本特征词
+（`运维备忘`/`校验码是`/`请只回复`/`只给`）。只做子串匹配会被"把题面复述一遍"
+骗过——模型照抄含针的原文，期望串自然出现。`--selfcheck` 里有三条负控专门钉住这点：
+答错、复述题面、拖沓长答案（含码但 >200 字符），三者都必须判 FAIL。
+
 | # | 项 | 判据 | 证据 |
 |---|---|---|---|
 | 1 | 22-token 短针 | 精确答 `ZQ7K-3341` | `short22.result.json` |
@@ -107,7 +137,11 @@ python3 tools/ced_pd_acceptance.py \
 | 6 | 缓存命中 | 第二次同前缀 `cached_tokens > 0`（`PREFIX=0` 时此项按"不适用"记录） | `prefix*.result.json` |
 | 7 | 性能 | prefill / TTFT / TPOT / 吞吐 / KV 占用 | 结果的 `wall_s`/`ttft_s`/`tpot_ms` + `metrics_before/after` |
 | 0 | runner 自证 | `--selfcheck` 通过（内置 mock + 负控） | 退出码 0 |
-| 0b | 修复不变量 | `python3 tools/ced_swa_clip_verify.py --lint-code` 退出码 0 | 见 3.1 |
+| 0b | 修复不变量 | `python3 tools/ced_swa_clip_verify.py --lint-code --lint-server --sweep-max 2999` 退出码 0 | 见 3.1 |
+| 0c | 长度校准 | `--calibrate-only` 不达标项 0 | 见上方示例 |
+
+> `--metrics-urls` **只列 P 和 D**：官方负载均衡 proxy 没有 `/metrics`（实测 404），
+> 列进去只会得到一条被记录的 error 条目；D 未启动时同理（connection refused）。
 
 ### 3.1 修复专项（`V41_CED_SWA_CLIP` 单变量 A/B）
 

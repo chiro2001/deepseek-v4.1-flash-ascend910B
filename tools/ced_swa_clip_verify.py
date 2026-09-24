@@ -184,6 +184,8 @@ def main() -> int:
                     help="逗号分隔的 prompt token 数")
     ap.add_argument("--lint-code", action="store_true",
                     help="额外静态校验 dsa_v41.py 的裁剪分支不变量（防条件漂移）")
+    ap.add_argument("--lint-server", action="store_true",
+                    help="校验 scripts/serve_a2.sh 把裁剪开关透传进容器")
     ap.add_argument("--sweep-max", type=int, default=0,
                     help="额外全扫 N=2..该值，断言 clip 与末 token 步恒不越界")
     args = ap.parse_args()
@@ -229,6 +231,31 @@ def main() -> int:
             print(f"  {'OK ' if ok else 'FAIL'} {name}")
             if not ok:
                 lint_failures.append(name)
+        print()
+
+    if args.lint_server:
+        # ★ 这条不是洁癖：若开关没进 `docker run -e`，在宿主上设 V41_CED_SWA_CLIP=0
+        #   根本到不了容器（代码内默认是 1），A/B 会静默变成"两臂都是修复版"，
+        #   于是"旧行为也能通过"的假结论会被当成修复有效。
+        serve_path = os.path.join(
+            os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+            "scripts", "serve_a2.sh",
+        )
+        serve = open(serve_path, encoding="utf-8").read()
+        print("== 启动脚本透传校验（scripts/serve_a2.sh）==")
+        for var, default in (
+            ("V41_CED_SWA_CLIP", "1"),
+            ("V41_CED_SWA_TRACE", "0"),
+            ("V41_CED_BLOCK_TRACE", "0"),
+            ("V41_ENGRAM_HIST_TRACE_POS", ""),
+        ):
+            pattern = r"-e\s+%s=\"\$\{%s:-%s\}\"" % (
+                re.escape(var), re.escape(var), re.escape(default),
+            )
+            ok = re.search(pattern, serve) is not None
+            print(f"  {'OK ' if ok else 'FAIL'} docker run -e {var}（默认 {default!r}）")
+            if not ok:
+                lint_failures.append(f"serve_a2.sh 未透传 {var}")
         print()
 
     lengths = [int(x) for x in args.lengths.split(",") if x.strip()]
@@ -298,8 +325,8 @@ def main() -> int:
     )
     print(f"\n判据：legacy 越界长度数={legacy_bad}（需 >0），clip 越界长度数={clip_bad}（需 =0）")
     print(f"      末 token 步越界长度数={final_bad}（需 =0）")
-    if args.lint_code:
-        print(f"      静态不变量失败项={len(lint_failures)}{lint_failures or ''}")
+    if args.lint_code or args.lint_server:
+        print(f"      静态校验失败项={len(lint_failures)}{lint_failures or ''}")
     print("结果：" + ("通过 ✅" if ok else "不通过 ❌"))
     return 0 if ok else 1
 
