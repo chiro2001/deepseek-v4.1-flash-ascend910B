@@ -105,7 +105,7 @@ page count 缺少完整 lower-SWA 窗口页，添加 replay overlap 并传3页�
 | 路线 | P 侧增量 | D 侧增量 | SWA 语义 |
 |---|---|---|---|
 | A `bounded128` | G2–G6 每组多保留/传1页每请求；P模型FLOPs不变 | 40层仍回放128 tokens；G7–G11 每组约1个scratch页/活跃请求 | lower保留完整左窗；upper明确从 replay_start 截窗，属于有界近似 |
-| B `H20 burn-in` | P不多跑模型层；需暂存并传2668个H20向量/请求（含mHC streams） | D upper20 跑2668 tokens，约20.8×当前 upper replay；多50,800个upper layer-token evals | 有机会得到完整末尾upper状态，依赖H20定义、因果范围和新通路验证 |
+| B `H20 burn-in` | P不多跑模型层；需暂存并传2668个H20 activation slices/请求（含mHC streams） | D upper20 跑2668 tokens，约20.8×当前 upper replay；多50,800个upper layer-token evals | 有机会得到完整末尾upper状态，依赖H20定义、因果范围和新通路验证 |
 | B `full40 token burn-in` | 无H20激活传输 | D全40层回放5208 tokens，约40.7×当前D replay | 无跨机新激活；约束是给定窗口模型的5080-token burn-in界成立 |
 
 `patches/files/model.py` 中 H20 `hidden_states` 为
