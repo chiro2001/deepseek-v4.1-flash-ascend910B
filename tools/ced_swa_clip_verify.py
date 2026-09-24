@@ -105,6 +105,17 @@ def held_columns(prompt_len: int, block_size: int, replay: int = REPLAY) -> set[
     return set(range(start // block_size, (end - 1) // block_size + 1))
 
 
+def held_columns_final(prompt_len: int, block_size: int) -> set[int]:
+    """**末 token 单步**时 D 的 SWA manager 持有的列（页）。
+
+    这一步和 replay 步的持有集合差一页：末 token 的位置是 N-1，它要写进
+    `(N-1)//block_size` 这一页，所以该页**此刻一定已被分配**（slot_mapping 需要它）。
+    而 SWA 回收只丢弃窗口之外的块，窗口是 [N-W, N-1]，故持有集合覆盖该窗口。
+    """
+    window_start = max(0, prompt_len - WINDOW)
+    return set(range(window_start // block_size, (prompt_len - 1) // block_size + 1))
+
+
 def check(prompt_len: int, block_size: int = 128, replay: int = REPLAY) -> dict:
     end = prompt_len - 1
     start = max(0, end - replay)
@@ -120,6 +131,18 @@ def check(prompt_len: int, block_size: int = 128, replay: int = REPLAY) -> dict:
     clip = Arm("clip", seqused_ori=local_len, table_width=clip_width,
                block_size=block_size, s1_size=replay)
     clip.model_kernel()
+
+    # 第三臂：**末 token 单步**（replay 之后那一步）。修复不覆盖它（replay_chunk
+    # 为假），所以它的安全性必须由"窗口正好落在持有页内"来保证：
+    #   S1 = 1, s1StartIdx = s1EndIdx = 0, Lori = N（顺序 decode）
+    #   oriMaskRight = Min(N - 1, N - 1) = N - 1
+    #   oriMaskLeft  = Max(N - 1 - 127, 0) = N - 128
+    #   ⇒ 需要列 (N-128)//128 .. (N-1)//128，即末尾 1~2 页
+    final = Arm("final", seqused_ori=prompt_len, table_width=full_width,
+                block_size=block_size, s1_size=1)
+    final.model_kernel()
+    final_cols = sorted({c for c, _ in final.reads})
+    held_final = held_columns_final(prompt_len, block_size)
 
     legacy_cols = sorted({c for c, _ in legacy.reads})
     clip_cols = sorted({c for c, _ in clip.reads})
@@ -146,6 +169,11 @@ def check(prompt_len: int, block_size: int = 128, replay: int = REPLAY) -> dict:
             "out_of_hold": sorted(clip_abs - held),
             "columns_beyond_width": sorted(c for c in clip_cols if c >= clip_width),
         },
+        "final": {
+            "held_columns": sorted(held_final),
+            "columns_read": final_cols,
+            "out_of_hold": sorted(set(final_cols) - held_final),
+        },
     }
 
 
@@ -156,6 +184,8 @@ def main() -> int:
                     help="逗号分隔的 prompt token 数")
     ap.add_argument("--lint-code", action="store_true",
                     help="额外静态校验 dsa_v41.py 的裁剪分支不变量（防条件漂移）")
+    ap.add_argument("--sweep-max", type=int, default=0,
+                    help="额外全扫 N=2..该值，断言 clip 与末 token 步恒不越界")
     args = ap.parse_args()
 
     lint_failures: list[str] = []
@@ -204,18 +234,42 @@ def main() -> int:
     lengths = [int(x) for x in args.lengths.split(",") if x.strip()]
     results = [check(n) for n in lengths]
 
+    sweep_bad_clip: list[int] = []
+    sweep_bad_final: list[int] = []
+    sweep_legacy_oob = 0
+    if args.sweep_max >= 2:
+        print(f"== 全扫 N=2..{args.sweep_max} ==")
+        for n in range(2, args.sweep_max + 1):
+            r = check(n)
+            if r["clip"]["out_of_hold"] or r["clip"]["columns_beyond_width"]:
+                sweep_bad_clip.append(n)
+            if r["final"]["out_of_hold"]:
+                sweep_bad_final.append(n)
+            if r["legacy"]["out_of_hold"]:
+                sweep_legacy_oob += 1
+        print(f"  clip 越界 {len(sweep_bad_clip)} 例（需 0）"
+              f"{sweep_bad_clip[:5] if sweep_bad_clip else ''}")
+        print(f"  末 token 步越界 {len(sweep_bad_final)} 例（需 0）"
+              f"{sweep_bad_final[:5] if sweep_bad_final else ''}")
+        print(f"  legacy 越界 {sweep_legacy_oob} 例（应 >0，说明修复有意义）")
+        print(f"  触发规则核验：legacy 应为 N≥256 且 N%128≠0 ⇒ "
+              f"预期 {sum(1 for n in range(2, args.sweep_max + 1) if n >= 256 and n % 128)} 例")
+
     print(f"{'prompt':>9} {'held':>10} {'legacy OOB':>11} {'clip OOB':>9} "
-          f"{'clip 列宽':>10} {'clip 越列':>9}")
+          f"{'final OOB':>10} {'clip 列宽':>10} {'clip 越列':>9}")
     legacy_bad = 0
     clip_bad = 0
+    final_bad = 0
     for r in results:
         lo = len(r["legacy"]["out_of_hold"])
         co = len(r["clip"]["out_of_hold"])
         cb = len(r["clip"]["columns_beyond_width"])
+        fo = len(r["final"]["out_of_hold"])
         legacy_bad += bool(lo)
         clip_bad += bool(co or cb)
+        final_bad += bool(fo)
         print(f"{r['prompt_len']:>9} {str(r['held_columns']):>10} {lo:>11} {co:>9} "
-              f"{r['clip']['table_width']:>10} {cb:>9}")
+              f"{fo:>10} {r['clip']['table_width']:>10} {cb:>9}")
 
     print()
     r = results[0]
@@ -225,6 +279,8 @@ def main() -> int:
           f" ⇒ 越界列={r['legacy']['out_of_hold']}")
     print(f"  clip  ：宽度={r['clip']['table_width']} 行内列={r['clip']['columns_read_local']}"
           f" ⇒ 全局列={r['clip']['columns_read_abs']} 越界={r['clip']['out_of_hold']}")
+    print(f"  final ：读到列={r['final']['columns_read']}"
+          f" ⇒ 越界={r['final']['out_of_hold']}（修复不覆盖该步，必须天然安全）")
 
     if args.json:
         with open(args.json, "w", encoding="utf-8") as handle:
@@ -232,8 +288,16 @@ def main() -> int:
         print(f"\n已写 {args.json}")
 
     # 判据：至少一个长度上 legacy 越界（说明修复有意义），且所有长度上 clip 零越界
-    ok = legacy_bad > 0 and clip_bad == 0 and not lint_failures
+    ok = (
+        legacy_bad > 0
+        and clip_bad == 0
+        and final_bad == 0
+        and not sweep_bad_clip
+        and not sweep_bad_final
+        and not lint_failures
+    )
     print(f"\n判据：legacy 越界长度数={legacy_bad}（需 >0），clip 越界长度数={clip_bad}（需 =0）")
+    print(f"      末 token 步越界长度数={final_bad}（需 =0）")
     if args.lint_code:
         print(f"      静态不变量失败项={len(lint_failures)}{lint_failures or ''}")
     print("结果：" + ("通过 ✅" if ok else "不通过 ❌"))
