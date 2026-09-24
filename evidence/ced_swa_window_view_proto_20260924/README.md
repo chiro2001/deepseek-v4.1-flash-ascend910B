@@ -101,6 +101,13 @@ full-window逻辑页；overlap+三页传输为0/128缺页，完整视图实际�
   活跃请求 `ceil(128/128)=1` 页/upper SWA cache plane。
 - 上层 scratch 的 source KV 必须是 D 已写入的实际 SWA cache 行；在
   `preprocess` 完成其 scatter 且 multistream join 后复制到 scratch，再调用 SMLA。
+- G2–G6完整窗和G7–G11 replay-only窗的 `seqused_ori_kv/max_seqlen_ori_kv`
+  不同。Model Runner 为每个 attention group 调builder一次，并把同一个
+  `attn_metadata_i`赋给该group全部layer；LongKV group中的layer 2/8/14/20共享一份
+  `DeepseekV41Metadata.smla_metadata`，DSA消费者通过 source prefix取它。因此
+  hybrid bounded 模式必须有两个稳定metadata variants（full-window / replay-local），
+  再按SWA组类别选择。最简单的负控是10组统一 replay-only、只用一个metadata
+  variant；它也裁掉 lower 左窗，只作诊断臂，不作为默认生产方案。
 
 ### 成本与语义对照
 
@@ -143,12 +150,16 @@ upper工作量的20.8倍，额外约50,800个 upper-layer token evals。
    `smla_ori_block_table/seq_lens/max_seq_len`。不要覆盖 SWA 全局
    `block_table/seq_lens/positions/slot_mapping`：这些仍用于 KV 写入、RoPE、
    compressor、indexer 和缓存检查点。
-2. FullSpec/LongKV builder 当前生成组合 SMLA metadata，但 `_native_attention`
-   从 SWA metadata取ori block table。两者必须读相同的 per-request local ori
-   lengths；在 `common_v41_batch_metadata` 里共享已算好的 replay-view lengths，
-   避免 cache-group builder 顺序依赖。CSA 的 table/length/indices/residual
-   全部不动。
-3. 预分配每层/组的 scratch KV、block table 和 metadata buffer；页面映射/拷贝用
+2. LongKV group builder的 `_smla_metadata` 是每个builder一份常驻 `[1024] int32`
+   buffer；Model Runner将该builder结果分配给组内所有 layer name
+   (`model_runner_v1.py:3488-3490`)。Hybrid bounded需要在LongKV builder固定分配
+   `_smla_metadata_full_window` 和 `_smla_metadata_replay_local` 两个 buffer，并
+   为两者各发一个 `DeviceMetadataTask`；参数除 `seqused_ori_kv/max_seqlen_ori_kv`
+   外保持相同。`common_v41_batch_metadata` 在所有KV groups间共享
+   (`model_runner_v1.py:3493-3501`)，可放两种 per-request lens，避免builder顺序依赖。
+   `metadata.swa` 另带 per-group ori block table/view class；`_native_attention`
+   按lower/upper SWA组选择对应metadata指针。CSA的table/length/indices/residual全不动。
+3. 预分配每层/组的 scratch KV、block table 和两种 metadata buffer；页面映射/拷贝用
    固定 shape/pointer、padding block，不能在 graph replay 时 `torch.empty`。
    复制放在 SWA `preprocess` 写入和 multistream join 之后。现有
    `FULL_DECODE_ONLY` 把多 token replay 留在 eager；一 token prompt tail不属于
