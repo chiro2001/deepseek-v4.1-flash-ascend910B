@@ -103,14 +103,21 @@ fi
 # ------------------------------------------- 5) Dockerfile 续行链（A2 实测踩过的坑）
 # 漏一个 `\` 或行内写 `#` 都会让 RUN 提前结束 / 后续命令被注释掉，
 # 表现为 "unknown instruction: local" 之类难以定位的报错。
+#
+# ★ 2026-09-25 实测：下面几处把检查器输出写到**硬编码的 `/tmp`**。当 `/tmp`
+#   被别的进程占满时，写失败 ⇒ 检查器输出读不到 ⇒ 自检报 FAIL，**看起来像代码坏了**
+#   其实是环境问题（本机当时 /tmp 8G 用满）。改用 `${TMPDIR:-/tmp}` 后，
+#   只要 `TMPDIR=<有空间的分区>` 就能正常自检。
+_selfcheck_tmp=${TMPDIR:-/tmp}
+[ -d "$_selfcheck_tmp" ] || _selfcheck_tmp=/tmp
 if [ -f Dockerfile ]; then
-  if python3 tools/check_dockerfile.py Dockerfile >/tmp/dsck.$$ 2>&1; then
+  if python3 tools/check_dockerfile.py Dockerfile >"$_selfcheck_tmp/dsck.$$" 2>&1; then
     ok "Dockerfile 续行链合法（$(grep -c '^\s*RUN' Dockerfile) 条 RUN）"
   else
     bad "Dockerfile 续行链有问题："
-    sed 's/^/        /' /tmp/dsck.$$ | grep -E "ERROR|问题" | head -6
+    sed 's/^/        /' "$_selfcheck_tmp/dsck.$$" | grep -E "ERROR|问题" | head -6
   fi
-  rm -f /tmp/dsck.$$
+  rm -f "$_selfcheck_tmp/dsck.$$"
 fi
 
 # ------------------------------------------- 5b) 起服脚本的 `docker run` 续行链
@@ -122,13 +129,13 @@ fi
 #    而 `bash -n` **抓不到**（拼接后语法合法）—— 与上面 Dockerfile 的坑是同一类，
 #    所以这里用同样的思路加一道静态检查。
 if [ -f tools/check_serve_run_chain.py ]; then
-  if python3 tools/check_serve_run_chain.py scripts/serve_a2.sh >/tmp/rcck.$$ 2>&1; then
+  if python3 tools/check_serve_run_chain.py scripts/serve_a2.sh >"$_selfcheck_tmp/rcck.$$" 2>&1; then
     ok "起服脚本 docker run 续行链合法（$(grep -c '^\s*\$DOCKER run' scripts/serve_a2.sh 2>/dev/null) 处）"
   else
     bad "起服脚本的 docker run 续行链有问题（注释/空行插在续行链里？）："
-    sed 's/^/        /' /tmp/rcck.$$ | grep -E "FAIL|第 .* 行|修法" | head -6
+    sed 's/^/        /' "$_selfcheck_tmp/rcck.$$" | grep -E "FAIL|第 .* 行|修法" | head -6
   fi
-  rm -f /tmp/rcck.$$
+  rm -f "$_selfcheck_tmp/rcck.$$"
 fi
 
 # ------------------------------------------------- 6) 执行位（缺了也能跑，但要提醒）
