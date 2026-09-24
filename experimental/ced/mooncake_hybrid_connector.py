@@ -106,6 +106,64 @@ class ReqMeta:
     num_prompt_blocks: int
 
 
+# ==== [CED-BLOCKS] 只读块分配探针（默认关闭）====
+# 目的：CED 长上下文偶发“首 token 直接 EOS”时，确认请求拿到的物理块是否是
+# 「绕过池尾、在池首回绕」的那一段（vLLM 的 free-block 队列是 FIFO；1M 请求
+# 约耗 7989 块、D 池 30082 块 ⇒ 每第 4 个长请求必然回绕）。只做统计与打印。
+def _ced_block_trace_enabled() -> bool:
+    return os.environ.get("V41_CED_BLOCK_TRACE", "0") == "1"
+
+
+def _ced_block_list_stats(ids, tail_page_idx=None):
+    """返回 (统计字符串, 命中页块号)。`ids` 为某个 cache group 的物理块号序列。
+
+    对长列表额外给出头 8 个元素，便于看清“绕回/碎片化”到底是哪种序。
+    """
+    n = len(ids)
+    if n == 0:
+        return "n=0", None
+    descents = sum(1 for i in range(1, n) if ids[i] != ids[i - 1] + 1)
+    hit = None
+    if tail_page_idx is not None and 0 <= tail_page_idx < n:
+        hit = int(ids[tail_page_idx])
+    text = f"n={n} first={int(ids[0])} last={int(ids[-1])} descents={descents}"
+    if n >= 8:
+        text += f" head={[int(v) for v in ids[:8]]}"
+    if hit is not None:
+        text += f" at_page{tail_page_idx}={hit}"
+    return text, hit
+
+
+def _ced_block_trace(role, req_id, block_ids_per_group, tail_page_idx, extra=""):
+    """打印各 KV cache group 的物理块分配形态；每个 rank 各一行。
+
+    ★ 探针必须 fail-open：调度进程（EngineCore）里 TP 进程组**没有初始化**，
+    `get_tensor_model_parallel_rank()` 会 assert。这里兜住并退回 tp=-1，
+    否则一条诊断打印会把 P 引擎直接打死。
+    """
+    if not _ced_block_trace_enabled():
+        return
+    try:
+        try:
+            tp_rank = get_tensor_model_parallel_rank()
+        except Exception:  # noqa: BLE001 - 调度进程无 TP 组
+            tp_rank = -1
+        parts = []
+        for group_idx, ids in enumerate(block_ids_per_group):
+            if ids is None:
+                parts.append(f"g{group_idx}:(none)")
+                continue
+            stats, _hit = _ced_block_list_stats(list(ids), tail_page_idx)
+            parts.append(f"g{group_idx}:({stats})")
+        print(
+            f"[CED-BLOCKS] role={role} tp={tp_rank} req={req_id} tail_page={tail_page_idx} "
+            f"{extra}| " + " ".join(parts),
+            flush=True,
+        )
+    except Exception as exc:  # noqa: BLE001 - 探针绝不允许影响主路径
+        print(f"[CED-BLOCKS] trace skipped: {exc!r}", flush=True)
+
+
 @dataclass
 class SizedDict(OrderedDict):
     def __init__(self, max_size=16000, *args, **kwargs):
@@ -1514,6 +1572,14 @@ class MooncakeConnectorScheduler:
             computed_block_ids = tuple(block_lists)
         computed_block_lens = [len(block_id_list) for block_id_list in computed_block_ids]
         delay_free_blocks = sum(computed_block_lens) > 0
+        # [CED-BLOCKS] P 侧：本次要发给 D 的每 group 物理块形态（只读）。
+        _ced_block_trace(
+            "prefill",
+            request.request_id,
+            computed_block_ids,
+            (request.num_prompt_tokens - 1) // self.block_size,
+            extra=f"prompt={request.num_prompt_tokens} ",
+        )
         if delay_free_blocks:
             logger.info("Delaying free of %d blocks for request %s", sum(computed_block_lens), request.request_id)
             self._reqs_need_send[request.request_id] = time.time()
@@ -1874,6 +1940,15 @@ class MooncakeConnectorWorker:
     def start_load_kv(self, metadata: MooncakeConnectorMetadata):
         """Start loading KV blocks from remote engine."""
         for req_id, meta in metadata.requests.items():
+            # [CED-BLOCKS] D 侧：本请求实际拿到（并被 P 数据填入）的物理块形态（只读）。
+            _ced_block_trace(
+                "decode",
+                req_id,
+                meta.local_block_ids,
+                max(0, int(meta.num_external_tokens))
+                // max(1, int(self.vllm_config.cache_config.block_size)),
+                extra=f"ext_tokens={meta.num_external_tokens} ",
+            )
             if os.environ.get("V41_CED_ROLE", "") == "decode":
                 # G7..G11 are deliberately absent from the P transfer. Clear
                 # their D-local physical pages before any replay attention can

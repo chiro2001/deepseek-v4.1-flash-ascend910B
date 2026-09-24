@@ -103,6 +103,95 @@ _PAGE_WRITE_NUMPY_MIN_TOKENS = 16
 
 _SHIFT_INDEX_CACHE: dict[int, torch.Tensor] = {}
 
+# ==== [ENGRAM-HIST-TRACE] 只读历史来源探针（默认关闭）====
+# 目的：CED 长上下文偶发“首 token 直接 EOS + logits 压平”时，判断尾 token 的
+# 4-gram 历史是否来自「不该存在的旧值 / 缺页 barrier」。探针只读，不改写镜像。
+_HIST_TRACE = {"pos": None, "budget": 4, "loaded": False}
+
+
+def _engram_hist_trace_pos() -> int | None:
+    if not _HIST_TRACE["loaded"]:
+        _HIST_TRACE["loaded"] = True
+        raw = os.environ.get("V41_ENGRAM_HIST_TRACE_POS", "").strip()
+        if raw:
+            try:
+                _HIST_TRACE["pos"] = int(raw)
+            except ValueError:
+                print(f"[ENGRAM-HIST-TRACE] 忽略非法 V41_ENGRAM_HIST_TRACE_POS={raw!r}", flush=True)
+    return _HIST_TRACE["pos"]
+
+
+def _engram_mirror_slot(hist, page, offset, block_size):
+    """返回 (槽位值, 该页当前是否已在镜像里)；缺页按 barrier 语义给 (-1, False)。"""
+    jit_pages = getattr(hist, "_jit_pages", None)
+    if jit_pages is not None and getattr(hist, "_jit_block_size", 0) == block_size:
+        present_arr = hist._jit_page_present
+        if 0 <= page < jit_pages.shape[0]:
+            return int(jit_pages[page, offset]), bool(present_arr[page])
+        return int(hist.pad_id), False
+    row = hist.pages.get(int(page))
+    if row is None:
+        return int(hist.pad_id), False
+    return int(row[offset]), True
+
+
+def _engram_hist_trace_probe(hist, input_ids, positions, request_ids, block_table, block_size):
+    """本批写入之前：把目标位置的 4-gram 逐 shift 来源打出来。返回给 after 用。"""
+    target = _engram_hist_trace_pos()
+    if target is None or _HIST_TRACE["budget"] <= 0:
+        return None
+    rows = np.flatnonzero(positions.numpy() == target) if hasattr(positions, "numpy") else None
+    if rows is None or rows.size == 0:
+        return None
+    row = int(rows[0])
+    _HIST_TRACE["budget"] -= 1
+    req = int(request_ids[row])
+    block_table_np = block_table.numpy() if hasattr(block_table, "numpy") else np.asarray(block_table)
+    shifts = []
+    for shift in range(hist.lookback):
+        pos = target - shift
+        page = int(block_table_np[req, pos // block_size]) if pos >= 0 else -1
+        offset = int(pos % block_size) if pos >= 0 else -1
+        value, was_present = _engram_mirror_slot(hist, page, offset, block_size)
+        shifts.append((shift, pos, page, offset, value, was_present))
+    text = " ".join(
+        f"s{shift}:pos={pos},page={page},off={offset},val={value},present={int(present)}"
+        for shift, pos, page, offset, value, present in shifts
+    )
+    print(
+        f"[ENGRAM-HIST-TRACE] rank={os.environ.get('RANK', '?')} row={row} req={req} "
+        f"target={target} batch_tokens={int(input_ids.numel())} before | {text}",
+        flush=True,
+    )
+    return {"target": target, "row": row, "shifts": shifts}
+
+
+def _engram_hist_trace_after(hist, traced, result):
+    """本批写入/计算之后：打印 kernel 实际喂给哈希的历史行，和镜像重读值对照。"""
+    if not traced:
+        return
+    row = traced["row"]
+    used = None
+    jit_hist = getattr(hist, "_jit_hist", None)
+    if jit_hist is not None and row < jit_hist.shape[0]:
+        used = [int(v) for v in jit_hist[row]]
+    recheck = []
+    for shift, pos, page, offset, value, _present in traced["shifts"]:
+        now, present = _engram_mirror_slot(hist, page, offset, 128)
+        recheck.append(f"s{shift}:val={now},present={int(present)}")
+    hashes = None
+    if result is not None and len(result) >= 2 and result[0] is not None:
+        try:
+            hashes = [int(v) for v in result[0][row].reshape(-1)[:8]]
+        except Exception:  # noqa: BLE001 - 探针绝不能影响主路径
+            hashes = None
+    print(
+        f"[ENGRAM-HIST-TRACE] rank={os.environ.get('RANK', '?')} row={row} "
+        f"target={traced['target']} after | kernel_hist={used} "
+        f"| mirror_reread={' '.join(recheck)} | hash8={hashes}",
+        flush=True,
+    )
+
 
 def shift_index(lookback: int) -> torch.Tensor:
     """``[0, 1, ..., lookback - 1]`` as an int64 CPU tensor, built once per lookback."""
@@ -315,10 +404,29 @@ class PagedNgramHistory:
                 torch.empty((0, self.primes.shape[0], columns), dtype=torch.int64, device="cpu"),
                 torch.empty(0, dtype=torch.bool, device="cpu"),
             )
+        # [ENGRAM-HIST-TRACE] 只读探针：打印指定绝对位置在“本批写入之前”的
+        # 4-gram 镜像来源（物理页 / 页内偏移 / 该页当时是否已在镜像里 / 槽位值），
+        # 以及本批算完后 kernel 实际使用的历史行。用于区分
+        #   (a) 镜像页缺失（首次见到该页 → 全 -1 barrier），
+        #   (b) 镜像页存在但槽位仍是上一请求的旧值，
+        #   (c) 镜像与 kernel 一致但哈希仍与通过请求不同。
+        # 默认关闭；V41_ENGRAM_HIST_TRACE_POS=<绝对位置> 时每 rank 最多打 4 次。
+        try:
+            _hist_trace_before = _engram_hist_trace_probe(
+                self, input_ids, positions, request_ids, block_table, block_size
+            )
+        except Exception as _exc:  # noqa: BLE001 - 探针绝不允许影响主路径
+            _hist_trace_before = None
+            print(f"[ENGRAM-HIST-TRACE] probe(before) skipped: {_exc!r}", flush=True)
         if self._jit_ok:
-            return self._engram_update_jit(
+            result = self._engram_update_jit(
                 input_ids, positions, request_ids, block_table, block_size
             )
+            try:
+                _engram_hist_trace_after(self, _hist_trace_before, result)
+            except Exception as _exc:  # noqa: BLE001 - 同上
+                print(f"[ENGRAM-HIST-TRACE] probe(after) skipped: {_exc!r}", flush=True)
+            return result
         compressed = self.token_map[input_ids]
         mask = valid_engram_token_mask(
             input_ids,

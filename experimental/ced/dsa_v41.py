@@ -49,6 +49,94 @@ from vllm_ascend.worker.device_metadata import (
 
 V41_METADATA_BUFFER_SIZE = 1024
 _CED_DECODE_ROLE = os.environ.get("V41_CED_ROLE", "") == "decode"
+
+# ==== [CED-LAYER-TRACE] 只读逐层数值探针（默认关闭）====
+# 复用启动脚本已透传的 V41_CED_LAYER_SNAPSHOT_POS / _LAYERS 两个变量：
+# 在目标位置所在的那一步，对指定层打印「进入该层 attention 的 hidden_states」
+# 与「attention 输出」的校验和。用于在“同一 prompt、同一算力路径、仅物理块布局
+# 不同”的一对请求之间定位第一个数值发散的层。默认关闭 ⇒ 零开销。
+_CED_LAYER_TRACE_CACHE: dict[str, object] = {"pos": None, "layers": None, "loaded": False}
+
+
+def _ced_layer_trace_config():
+    if not _CED_LAYER_TRACE_CACHE["loaded"]:
+        _CED_LAYER_TRACE_CACHE["loaded"] = True
+        raw_pos = os.environ.get("V41_CED_LAYER_SNAPSHOT_POS", "").strip()
+        raw_layers = os.environ.get("V41_CED_LAYER_SNAPSHOT_LAYERS", "").strip()
+        try:
+            _CED_LAYER_TRACE_CACHE["pos"] = int(raw_pos) if raw_pos else None
+        except ValueError:
+            print(f"[CED-LAYER-TRACE] 忽略非法 pos={raw_pos!r}", flush=True)
+            _CED_LAYER_TRACE_CACHE["pos"] = None
+        layers = None
+        if raw_layers:
+            try:
+                layers = {int(part) for part in raw_layers.split(",") if part.strip() != ""}
+            except ValueError:
+                print(f"[CED-LAYER-TRACE] 忽略非法 layers={raw_layers!r}", flush=True)
+                layers = None
+        _CED_LAYER_TRACE_CACHE["layers"] = layers
+    return _CED_LAYER_TRACE_CACHE["pos"], _CED_LAYER_TRACE_CACHE["layers"]
+
+
+def _ced_tensor_digest(tensor):
+    """返回 (fp32 求和, 绝对值最大, 前 4 个值)；小行张量，D2H 开销可接受。"""
+    row = tensor.detach().float()
+    flat = row.reshape(-1)
+    return (
+        float(flat.sum().item()),
+        float(flat.abs().max().item()),
+        [round(float(v), 6) for v in flat[:4].tolist()],
+    )
+
+
+def _ced_layer_trace(
+    layer_idx,
+    positions,
+    hidden_states,
+    attention_output,
+    forward_context,
+    compressed_indices=None,
+):
+    """在目标位置所在步打印该层的输入/输出校验和（只读，fail-open）。"""
+    target, layers = _ced_layer_trace_config()
+    if target is None:
+        return
+    if layers is not None and layer_idx not in layers:
+        return
+    if getattr(forward_context, "capturing", False):
+        return
+    try:
+        found = (positions == target).nonzero()
+        if found.numel() == 0:
+            return
+        token_idx = int(found[0].item())
+        in_sum, in_max, in_head = _ced_tensor_digest(hidden_states[token_idx])
+        out_sum, out_max, out_head = _ced_tensor_digest(attention_output[token_idx])
+        sel_desc = ""
+        if compressed_indices is not None:
+            candidate = compressed_indices
+            if isinstance(candidate, (tuple, list)) and candidate:
+                candidate = candidate[0]
+            if torch.is_tensor(candidate) and candidate.numel() > 0:
+                sel_sum, sel_max, sel_head = _ced_tensor_digest(candidate.reshape(-1)[:64])
+                sel_desc = (
+                    f" sel_shape={tuple(candidate.shape)} sel_sum={sel_sum:.1f} "
+                    f"sel_head={sel_head}"
+                )
+        try:
+            tp_rank = get_tensor_model_parallel_rank()
+        except Exception:  # noqa: BLE001
+            tp_rank = -1
+        print(
+            f"[CED-LAYER-TRACE] tp={tp_rank} layer={layer_idx} pos={target} "
+            f"in_sum={in_sum:.4f} in_absmax={in_max:.4f} in_head={in_head} "
+            f"attn_sum={out_sum:.4f} attn_absmax={out_max:.4f} attn_head={out_head}"
+            f"{sel_desc}",
+            flush=True,
+        )
+    except Exception as exc:  # noqa: BLE001 - 探针绝不允许影响主路径
+        print(f"[CED-LAYER-TRACE] skip layer={layer_idx}: {exc!r}", flush=True)
 _CED_SNAPSHOT_POS = os.environ.get("V41_CED_SNAPSHOT_POS", "")
 _CED_SNAPSHOT_DIR = os.environ.get("V41_CED_SNAPSHOT_DIR", "")
 _CED_CAPTURE_DECODE = os.environ.get("V41_CED_CAPTURE_DECODE", "0") == "1"
@@ -675,6 +763,14 @@ class DeepseekV41EagerAttentionImpl:
             )
         compressed_indices = self._select_sparse_indices(attn, hidden_states, qr, positions, cos, sin, metadata)
         attention_output = self._attention(attn, q, metadata, compressed_indices)
+        _ced_layer_trace(
+            self.role.layer_idx,
+            positions,
+            hidden_states,
+            attention_output,
+            forward_context,
+            compressed_indices=compressed_indices,
+        )
         torch.ops._C_ascend.inplace_partial_rotary_mul(
             attention_output.unsqueeze(1),
             cos,

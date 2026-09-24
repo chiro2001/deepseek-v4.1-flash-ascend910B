@@ -26,7 +26,7 @@
 | # | 目标文件（容器内，`$A=/vllm-workspace/vllm-ascend/vllm_ascend`） | 包内文件 | md5 | 门控 env（默认值） | 作用 / 实测收益 |
 |---|---|---|---|---|---|
 | 1 | `$A/models/deepseek_v41/engram_hbm.py` | `files/engram_hbm.py` | `02ba2b7c258ff16663cd316b69c44fb8` | （总是开）`V41_ENGRAM_HOST_RESIDENT=1` `V41_ENGRAM_LOCAL_OWNER_FILE=/tmp/v41_engram_localowner` | Engram host 常驻 + `LOCAL_OWNER=fast`（走 numpy/numba plan 分支）。route 少一次 metadata all_gather 与 ids all_to_all |
-| 2 | `$A/models/deepseek_v41/engram_hash.py` | `files/engram_hash.py` | `dc63b40b1ec739ddc467edceebe85478` | `V41_ENGRAM_JIT=1` | hash 0.427 → **0.076 ms/step**（numba JIT） |
+| 2 | `$A/models/deepseek_v41/engram_hash.py` | `files/engram_hash.py` | `56dea733d9df82cd773d98b4ba1a7e10` | `V41_ENGRAM_JIT=1` | hash 0.427 → **0.076 ms/step**（numba JIT） |
 | 3 | `$A/models/deepseek_v41/engram_jit_kernel.py` | `files/engram_jit_kernel.py` | `6668d3fe3c6333b47e9dde3df7cfe03a` | `V41_ENGRAM_JIT=1` | 上一行的 sidecar（新文件，**目标目录必须同放**） |
 | 4 | `$A/models/deepseek_v41/engram_plan_kernel.py` | `files/engram_plan_kernel.py` | `0be62d7775374b0167a54f5b393a65ac` | `V41_ENGRAM_JIT=1` | plan 0.261 → **0.068 ms/step**（sidecar） |
 | 5 | `$A/models/deepseek_v41/engram_gate.py` | `files/engram_gate.py` | `146010cac42261e9dc4380699e156252` | `V41_ENGRAM_GATE_CHUNK=0` `V41_ENGRAM_GATE_MAX_TOKENS=2048` | 分块 gate，去掉 2048 行 padding：**−1.56 ms**（8K），KV 反而更省 |
