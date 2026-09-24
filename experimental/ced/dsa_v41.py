@@ -126,7 +126,10 @@ def _ced_layer_trace(
         return
     if layers is not None and layer_idx not in layers:
         return
-    if getattr(forward_context, "capturing", False):
+    # 与 `_ced_swa_trace` 同样的理由：下面的 `(positions == target).nonzero()`
+    # 是 `aclnnNonzero`，capture 流不允许同步，触发后是 NPU 算子级致命错误，
+    # Python 侧 try/except 兜不住（2026-09-24 实测打崩过 D）。
+    if getattr(forward_context, "capturing", False) or _ced_is_capturing():
         return
     try:
         found = (positions == target).nonzero()
@@ -176,6 +179,14 @@ def _ced_swa_trace_enabled() -> bool:
 def _ced_swa_trace(role_layer_idx, metadata, positions, replay_chunk):
     """打印 layer 20 的 SWA 寻址真值（只读，fail-open）。"""
     if not _ced_swa_trace_enabled() or role_layer_idx != 20:
+        return
+    # ★★★ 必须在 graph capture 期间**完全跳过**：本探针要算 `(row != 0).nonzero()`，
+    # 即 `aclnnNonzero`；capture 流不允许同步，底层报
+    #   `rtStreamSynchronize execution failed, reason=stream is captured`
+    # 这是 NPU 算子级致命错误，Python 侧的 try/except **兜不住**，整个 worker 进程会退出
+    # （2026-09-24 实测：D 起服 6 分钟未就绪，日志出现 aclnnNonzero 崩溃栈）。
+    # 同类约束见 `_ced_layer_trace`（它早已有 capturing 守卫）。
+    if _ced_is_capturing():
         return
     try:
         swa = metadata.swa

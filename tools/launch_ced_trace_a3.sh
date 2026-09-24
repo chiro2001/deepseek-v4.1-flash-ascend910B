@@ -47,10 +47,14 @@ else
   export V41_CED_GRAPH_PROMPT_TAIL_EAGER=1 V41_CED_METADATA_INLINE=1
   export V41_ENGRAM_HIST_TRACE_POS=${V41_ENGRAM_HIST_TRACE_POS:-1019846}
   # 逐层数值探针（针对最终 token 步）与 cache 快照（可针对 replay 窗口内的位置）分开。
-  #   TRACE_POS：逐层 digest 的位置（默认 1019846 = 最后一个 prompt token）
-  #   SNAP_POS ：cache 快照的位置（默认同 TRACE_POS；设为 1019845 可抓 replay 步写入的值）
-  export TRACE_POS=${TRACE_POS:-1019846}
-  export SNAP_POS=${SNAP_POS:-$TRACE_POS}
+  #   TRACE_POS：逐层 digest 的位置。**设成空串即关闭**；默认关闭。
+  #             ⚠️ 打开它会让 D 启动变慢甚至卡住：该探针在 warmup/dummy 阶段对未
+  #             初始化的 positions 取 found[0].item()，抛 IndexError 并做大量 D2H。
+  #             日常/验收实验不要开，只在需要逐层定位时开。
+  #   SNAP_POS ：cache 快照的位置（默认空 = 关闭；设 1019845 可抓 replay 步写入的值）
+  # 这里用 `${VAR-default}`（不带冒号）以便显式传空串时能覆盖默认值。
+  export TRACE_POS=${TRACE_POS-}
+  export SNAP_POS=${SNAP_POS-}
   export V41_CED_LAYER_SNAPSHOT_POS=$TRACE_POS
   export V41_CED_LAYER_SNAPSHOT_LAYERS=${V41_CED_LAYER_SNAPSHOT_LAYERS:-0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31,32,33,34,35,36,37,38,39}
   export V41_CED_LAYER_SNAPSHOT_DIR=/opt/dsv41/results/$RUN_ID/layer_trace

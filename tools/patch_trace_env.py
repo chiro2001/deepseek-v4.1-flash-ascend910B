@@ -14,6 +14,7 @@ from pathlib import Path
 ANCHOR = "-e V41_CED_CAPTURE_DECODE="
 # 需要存在的 env 透传行（幂等：缺哪条补哪条；全部存在则跳过）。
 WANTED = (
+    '  -e V41_CED_SWA_CLIP="${V41_CED_SWA_CLIP:-1}" \\\n',
     '  -e V41_CED_BLOCK_TRACE="${V41_CED_BLOCK_TRACE:-0}" \\\n',
     '  -e V41_ENGRAM_HIST_TRACE_POS="${V41_ENGRAM_HIST_TRACE_POS:-}" \\\n',
     '  -e V41_CED_SWA_TRACE="${V41_CED_SWA_TRACE:-0}" \\\n',
