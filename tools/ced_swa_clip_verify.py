@@ -116,6 +116,34 @@ def held_columns_final(prompt_len: int, block_size: int) -> set[int]:
     return set(range(window_start // block_size, (prompt_len - 1) // block_size + 1))
 
 
+def window_profile(prompt_len: int, block_size: int = 128, replay: int = REPLAY) -> dict:
+    """replay 块内每个 query 的**可见 token 数**（裁剪后 vs 未裁剪）。
+
+    裁剪后 query i 在局部坐标 `L = S + i - S_page*block_size`，窗口为
+    `[max(0, L-(W-1)), L]`；未裁剪时窗口起点可以是负数对应的更早 token（若那些页
+    在本请求手里）。这个剖面说明修复与论文「重放最近 nwin 个 token」的偏差有多大：
+    只有最前面 `(block_size - S%block_size) - 1` 个 query 的窗口会短于 W。
+    """
+    end = prompt_len - 1
+    start = max(0, end - replay)
+    base = (start // block_size) * block_size
+    lengths = []
+    for i in range(replay):
+        local = start + i - base
+        lengths.append(min(WINDOW, local + 1))
+    short = [i for i, n in enumerate(lengths) if n < WINDOW]
+    return {
+        "prompt_len": prompt_len,
+        "replay_start": start,
+        "base_page_offset": start % block_size,
+        "window_lengths": lengths,
+        "min_window": min(lengths),
+        "max_window": max(lengths),
+        "num_short": len(short),
+        "first_full_query": next((i for i, n in enumerate(lengths) if n == WINDOW), None),
+    }
+
+
 def check(prompt_len: int, block_size: int = 128, replay: int = REPLAY) -> dict:
     end = prompt_len - 1
     start = max(0, end - replay)
@@ -174,6 +202,7 @@ def check(prompt_len: int, block_size: int = 128, replay: int = REPLAY) -> dict:
             "columns_read": final_cols,
             "out_of_hold": sorted(set(final_cols) - held_final),
         },
+        "window_profile": window_profile(prompt_len, block_size, replay),
     }
 
 
@@ -308,6 +337,10 @@ def main() -> int:
           f" ⇒ 全局列={r['clip']['columns_read_abs']} 越界={r['clip']['out_of_hold']}")
     print(f"  final ：读到列={r['final']['columns_read']}"
           f" ⇒ 越界={r['final']['out_of_hold']}（修复不覆盖该步，必须天然安全）")
+    wp = r["window_profile"]
+    print(f"  窗口剖面：replay 块 {r['replay']} 个 query 中，{wp['num_short']} 个因裁剪"
+          f"短于 {WINDOW}（最短 {wp['min_window']}）；第 {wp['first_full_query']} 个起"
+          f"恢复满窗。start%{r['block_size']}={wp['base_page_offset']}")
 
     if args.json:
         with open(args.json, "w", encoding="utf-8") as handle:
