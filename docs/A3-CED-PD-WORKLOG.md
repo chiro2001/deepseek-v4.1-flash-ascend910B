@@ -1,5 +1,20 @@
 # A3 双 TP8 CED-PD 实现日志
 
+## 2026-09-24 暂停前最后一组：metadata-inline D-only 八次
+
+- 用户要求暂停后，A3-21 当前已发出的D-only8组安全收尾，无第9条请求。
+  新 D实例没有短针/144K前置，直接用同一原始1M D请求SHA
+  `f25d0b8b1a0ea3e4ff37131dc90182a2940ef075f7fc1ab8fcbb7c99cd9f9d8e`
+  严格串行8次，均HTTP200、相同128-token replay。
+- D1–D3、D5–D7精确返回`RB9N-6014`；D4、D8返回`content=null`、
+  completion_tokens=1。**第4/第8次现象可重复，但尚未定位原因**；日志
+  没有采样token ID，不能判定为EOS。
+- 本组逐条原始request/response、sidecar、replay在A3-21路径
+  `/home/l00886679/tmp/20260924/ced_numeric/pkg_d7953e5/src/results/ced_metadata_inline_repeat8_20260924_1450/probe/inline_repeat8/`。
+  聚合SHA清单和tar未生成，未同步本地。P/D/proxy暂停时均保持运行，
+  配置与恢复顺序见
+  [`暂停交接`](A3-CED-PD-PAUSE-20260924.md)。
+
 ## 2026-09-24：D 图执行短针单变量对照
 
 - A3-21 真实权重、BF16 KV、`MAX_LEN=1048576`、`SPEC=0`、`PREFIX=0`。
@@ -88,6 +103,24 @@ forced-eager；KV transfer、容量与错误日志没有解释正确/错误的�
 四次前三次精确，第四次HTTP200却 `content=null`、仅1 completion token，
 故结果 **3/4**。此消融不能单独排除其它图内stream/metadata状态，
 也不能作为稳定交付。第四条原始响应及全量日志仍在归档中。
+
+**两处模型多流都关闭的图模式消融：** 从上一 DSA_OFF 臂只改
+`MULTISTREAM=1→0`，`DSA_OVERLAP=0`不变，FULL decode 图和 prompt-tail
+修复不变。短针、144K A精确；同 SHA 1M D四次前三次精确，第四次
+HTTP200、`content=null`、completion_tokens=1，结果仍 **3/4**。
+D4 原始 choice 的工具/推理/拒绝字段为空或缺失，日志没有token ID或采样
+事件，故不把它写成 EOS。DSA_OFF与MS0两臂都在第四次出现这一形态，
+但四次样本不足以证明固定第4次触发。`causal_conv1d_update_npu`
+回退 warning 在 eager 和图臂各8条，非独有指纹。
+
+**下一单变量（本地包已备、未上卡）：** `fix/ced-metadata-inline@d7953e5`
+在 `experimental/ced/dsa_v41.py` 加 opt-in 的
+`V41_CED_METADATA_INLINE=1`，使metadata生成在模型runner当前流直接执行，
+绕过该builder的独立设备metadata流/external event；常驻buffer、模型
+forward及FULL decode图不变。将以 `DSA_OVERLAP=0 MULTISTREAM=0` 的
+MS0臂为基线复测，包内DSA SHA
+`72788c494bfbb12510ad36687e8578ce1ab85b87220ba72ea4b30cac8de381ac`。
+该包已通过本机 `tools/selfcheck_pkg.sh`，实际启动/精度/性能均未验证。
 
 **A3-22 1+1 profiler：** tiny D eager/graph 各自对同一固定请求采集
 `max_tokens=1/8`，图臂在采集窗内确认实际 ACL graph replay。tiny 两臂

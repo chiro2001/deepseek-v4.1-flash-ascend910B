@@ -1,5 +1,8 @@
 # CED-PD 交接：2026-09-24
 
+**暂停时的最新状态与恢复顺序见
+[`A3-CED-PD-PAUSE-20260924.md`](A3-CED-PD-PAUSE-20260924.md)。**
+
 ## 当日最新进展：D 图模式短针故障已复现
 
 - A3-21 的同一 P 进程、同一 `f28cd71` 包、同一 22-token 请求（SHA-256
@@ -59,6 +62,16 @@
   仅关闭 `DSA_OVERLAP`；短针及144K A正确，同 SHA 1M D四次中前三次
   正确，第四次 HTTP 200 但 `content=null`、completion_tokens=1，
   即 **3/4**。关闭 DSA 辅助 stream 不足以稳定修复1M。
+- 再仅关闭 D 的共享专家 `MULTISTREAM`（保持 DSA overlap=0、FULL 图）时，
+  短针、144K A仍正确，同 SHA 1M D前三次正确，第四次仍是
+  `content=null`/completion 1，即 **3/4**。D4没有可见工具调用或推理
+  字段；日志未记录 sampler token ID，不能断言它是 EOS。
+  下一隔离消融 `fix/ced-metadata-inline@d7953e5` 只让 D 的 V4.1 设备
+  metadata 在当前主流生成，保留 FULL decode 图与 prompt-tail 修复；
+  COS私有包 `share/xfer/ced_pkg_d7953e5_20260924.tar.gz`，SHA-256
+  `da885de69ce53a5991894aad266e26ae57ee6f041cc1bdb123ed1bc29efc50f2`。
+  本地 selfcheck 已过，A3-21 真机结果待测。主实验分支截至
+  `688fe1e` 已推送 GitHub，后续 MS0/metadata-inline 证据尚未推送。
 - A3-22 1+1 tiny 的 eager/graph profiler 已归档到
   [`ced_tiny_pos21_20260924/`](../evidence/ced_tiny_pos21_20260924/)，
   小型证据已作为 `759d444` 合入本分支，原始 trace 在私有 COS。
