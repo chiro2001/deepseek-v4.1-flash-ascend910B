@@ -1529,7 +1529,30 @@ class MooncakeConnectorScheduler:
         if params is not None and params.get("do_remote_prefill"):
             if params.get("remote_block_ids"):
                 if all(p in params for p in ("remote_engine_id", "remote_host", "remote_port", "remote_request_id")):
-                    local_block_ids = blocks.get_unhashed_block_ids_all_groups() if num_external_tokens > 0 else []
+                    if num_external_tokens > 0:
+                        local_block_ids = blocks.get_unhashed_block_ids_all_groups()
+                    else:
+                        # [CED-FULL-HIT] 2026-09-26：**整池命中**时上游 stock 语义是
+                        # "没有块要拉" ⇒ 给裸 `[]`。但 CED 的 D 侧契约是
+                        # "每请求 12 个 group 列表"，裸 `[]` 与
+                        # `start_load_kv` 的形状校验冲突，会在长上下文全命中时
+                        # 直接杀死 D 引擎：
+                        #   RuntimeError: CED decoder expected 12 KV cache groups
+                        #                 without DSpark
+                        # 实测触发条件：`(prompt_len - 1) % 128 == 0`
+                        # ⇒ 缓存覆盖了全部 N-1 个 token ⇒ `count == 0`。
+                        # （1M 那两条里 P1 少 63 个 token 所以是部分命中、没崩；
+                        #   P2 正好对齐所以全命中、崩了。）
+                        #
+                        # 统一成"12 个空列表"：后续 `sum(len(g))` 为 0，
+                        # 会走 `_transfer_kv_cache_all_groups` 里既有的早退分支
+                        # （不拉数据、只发完成信号），语义与 stock 一致。
+                        local_block_ids = tuple(() for _ in range(len(self.kv_cache_specs)))
+                        logger.info(
+                            "[CED-FULL-HIT] request %s 整池命中（num_external_tokens=0）："
+                            "不发 KV 传输，改用 D 本地缓存 + 128-token 重放",
+                            request.request_id,
+                        )
                     # Get unhashed blocks to pull from remote.
                     self._reqs_need_recv[request.request_id] = (request, local_block_ids, num_external_tokens)
                 else:
