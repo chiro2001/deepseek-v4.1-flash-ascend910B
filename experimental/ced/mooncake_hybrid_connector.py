@@ -100,7 +100,14 @@ def _ced_detect_swa_groups(kv_cache_config) -> tuple[tuple[int, ...], tuple[int,
     for group_idx, group in enumerate(kv_cache_config.kv_cache_groups):
         spec = group.kv_cache_spec
         if isinstance(spec, UniformTypeKVCacheSpecs):
-            specs = list(dict.fromkeys(spec.kv_cache_specs.values()))
+            # 与原实现保持一致的**按值去重**（`not in` 用 `__eq__`）而不是
+            # `dict.fromkeys`（那会要求 spec 可 hash）。KV spec 是 frozen
+            # dataclass，正常可 hash，但这里没必要引入一个新的失败模式：
+            # 这个函数同时跑在调度进程与 8 个 worker 上，任何一侧抛错都是起服失败。
+            specs = []
+            for one in spec.kv_cache_specs.values():
+                if one not in specs:
+                    specs.append(one)
         else:
             specs = [spec]
         if not all(getattr(s, "sliding_window", None) == 128 for s in specs):
