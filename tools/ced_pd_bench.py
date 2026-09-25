@@ -36,6 +36,22 @@ NEEDLE = "【运维备忘 D】构建机临时令牌是 RB9N-6014，用完即废�
 QUESTION = "运维备忘 D 里的构建机临时令牌是什么？只给令牌本身。"
 
 
+def read_metrics(url: str, timeout: float = 30.0) -> dict[str, float]:
+    """抓一次 /metrics，只留数值型计数（用于算 spec decode 的 step 数）。"""
+    import re
+
+    with urllib.request.urlopen(url.rstrip("/") + "/metrics", timeout=timeout) as fh:
+        text = fh.read().decode("utf-8", "replace")
+    out: dict[str, float] = {}
+    for line in text.splitlines():
+        if line.startswith("#"):
+            continue
+        m = re.match(r"([a-zA-Z0-9_:]+)(?:\{[^}]*\})?\s+([0-9.eE+-]+)$", line)
+        if m:
+            out[m.group(1)] = float(m.group(2))
+    return out
+
+
 def stream_timed(url: str, payload: dict, timeout: float):
     """返回 (status, marks, n_text_chunks, usage, finish_reason, raw_tail)。
 
@@ -104,12 +120,17 @@ def main() -> int:
     ap.add_argument("--repeat", type=int, default=1)
     ap.add_argument("--timeout", type=float, default=3600.0)
     ap.add_argument("--out", default="")
+    ap.add_argument("--metrics-url", default="http://127.0.0.1:18991",
+                    help="D 的 /metrics（代理不透传它）；用来数真实的 decode step 数")
+    ap.add_argument("--spec-tokens", type=int, default=7,
+                    help="每个 decode step 草稿多少个 token（= SP_TOKENS）")
     args = ap.parse_args()
 
     corpus = open(args.corpus, encoding="utf-8", errors="replace").read()
     rows = []
     print(f"{'ctx_target':>10} {'prompt':>9} {'rep':>3} {'ttft_s':>8} {'prefill_tok/s':>14} "
-          f"{'tokens':>7} {'decode_ms/step':>15} {'p10':>8} {'p90':>8} {'decode_tok/s':>13}")
+          f"{'tokens':>7} {'ms/step':>9} {'A':>6} {'steps':>7} "
+          f"{'ms/tok':>8} {'decode_tok/s':>13}")
     for target in [int(x) for x in args.contexts.split(",") if x.strip()]:
         base, _ = slice_for_tokens(args.tokenize_url, args.model, corpus, target, 0)
         prompt = base + "\n" + NEEDLE + "\n\n" + QUESTION
@@ -128,9 +149,23 @@ def main() -> int:
             }
             if args.ignore_eos:
                 payload["ignore_eos"] = True
+            # [STEP-口径] 2026-09-26：开了推测解码后，**step** 才是引擎的工作量单位。
+            # 每个 decode step 会 draft 恰好 SP_TOKENS 个草稿 token，所以
+            #     steps = Δdraft_tokens / SP_TOKENS
+            #     A     = 1 + SP × Δaccepted / Δdraft   （与 vLLM 自己打的
+            #             "Mean acceptance length" 同式，已逐位核对）
+            # 关系：ms/step = ms/tok × A。A≈1.0 时 ms/tok 会骗人，ms/step 不会。
+            try:
+                before = read_metrics(args.metrics_url)
+            except Exception:  # noqa: BLE001
+                before = {}
             status, marks, ntok, usage, finish, tail = stream_timed(
                 args.base_url.rstrip("/") + "/v1/chat/completions", payload, args.timeout
             )
+            try:
+                after = read_metrics(args.metrics_url)
+            except Exception:  # noqa: BLE001
+                after = {}
             if status != 200 or not marks:
                 print(f"{target:>10} {prompt_tokens:>9} {rep:>3} FAIL status={status} {tail[:60]!r}")
                 rows.append({"target": target, "prompt_tokens": prompt_tokens, "rep": rep,
@@ -145,6 +180,16 @@ def main() -> int:
             decode_total_s = sum(steps)
             true_decode_tokens = ((usage or {}).get("completion_tokens") or len(steps) + 1) - 1
             avg_ms = 1000.0 * decode_total_s / max(1, true_decode_tokens)
+            # --- step 口径（权威）：从服务端计数反推引擎真实步数 ---
+            d_draft = after.get("vllm:spec_decode_num_draft_tokens_total", 0.0) - before.get(
+                "vllm:spec_decode_num_draft_tokens_total", 0.0
+            )
+            d_acc = after.get("vllm:spec_decode_num_accepted_tokens_total", 0.0) - before.get(
+                "vllm:spec_decode_num_accepted_tokens_total", 0.0
+            )
+            n_steps = (d_draft / args.spec_tokens) if d_draft > 0 else 0.0
+            mean_a = (1.0 + args.spec_tokens * d_acc / d_draft) if d_draft > 0 else float("nan")
+            step_ms = (1000.0 * decode_total_s / n_steps) if n_steps > 0 else avg_ms
             p10 = sorted(steps)[len(steps) // 10] * 1000.0 if len(steps) >= 10 else med
             p90 = sorted(steps)[-max(1, len(steps) // 10)] * 1000.0 if len(steps) >= 10 else med
             row = {
@@ -156,7 +201,12 @@ def main() -> int:
                 "decode_total_s": round(decode_total_s, 3),
                 "decode_ms_per_token_avg": round(avg_ms, 2),
                 "decode_tok_per_s_avg": round(1000.0 / avg_ms, 3) if avg_ms > 0 else None,
-                "decode_ms_per_step": round(med, 1),
+                "decode_steps": round(n_steps, 2),
+                "decode_ms_per_step_true": round(step_ms, 2),
+                "mean_acceptance_length": round(mean_a, 3) if mean_a == mean_a else None,
+                "draft_tokens_delta": d_draft,
+                "accepted_tokens_delta": d_acc,
+                "decode_ms_per_sse_chunk_median": round(med, 1),
                 "decode_ms_p10": round(p10, 1), "decode_ms_p90": round(p90, 1),
                 "decode_tok_per_s": round(1000.0 / med, 3) if med == med else None,
                 "first_step_ms": round(steps[0] * 1000.0, 1) if steps else None,
@@ -164,10 +214,11 @@ def main() -> int:
                 "usage": usage, "finish_reason": finish, "answer_head": tail,
             }
             rows.append(row)
+            a_txt = f"{mean_a:>6.2f}" if mean_a == mean_a else f"{'n/a':>6}"
             print(f"{target:>10} {prompt_tokens:>9} {rep:>3} {ttft:>8.3f} "
-                  f"{row['prefill_tok_per_s']:>14.1f} {len(steps):>7} "
-                  f"avg={avg_ms:>7.1f} med={med:>7.1f} p90={p90:>6.1f} "
-                  f"{row['decode_tok_per_s_avg'] or 0:>10.2f} tok/s")
+                  f"{row['prefill_tok_per_s']:>14.1f} {true_decode_tokens:>7} "
+                  f"{step_ms:>9.2f} {a_txt} {n_steps:>7.1f} "
+                  f"{avg_ms:>8.2f} {row['decode_tok_per_s_avg'] or 0:>10.2f} tok/s")
             if args.out:
                 os.makedirs(os.path.dirname(args.out) or ".", exist_ok=True)
                 json.dump(rows, open(args.out, "w", encoding="utf-8"),
