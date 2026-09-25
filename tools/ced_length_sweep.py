@@ -16,11 +16,16 @@ R 由 prompt 长度推出：R = ceil((N-1)/128) + 21
 （g0 的 ceil((N-1)/128) 块 + g1 的 1 块 + g2..g11 各 2 块）。
 
 用法：
-  python3 tools/ced_length_sweep.py --template <1M 请求 json> \
+  python3 tools/ced_length_sweep.py --corpus data/hongloumeng.txt \
       --url http://127.0.0.1:18992/v1/chat/completions \
       --tokenize http://127.0.0.1:18990/tokenize --model deepseek-v41-ced-pd \
       --targets 200000,400000,700000,900000 --count 8 \
       --out /path/outdir
+
+★★ 修过一个会让整轮结果作废的 bug：初版用"从 1M 模板**头部**截断用户内容"来造短
+prompt，而针与提问都在内容**末尾**，于是短 prompt 里既没有问题也没有针 —— 模型答出
+了另一个针的码（`ZQ7K-3341`），全部 FAIL 都是假故障。现在改为**从语料重新构造**：
+切片语料 → 在 ~80% 深度插入针 D → 追加提问，并在发请求前断言两者都在。
 """
 
 from __future__ import annotations
@@ -36,6 +41,11 @@ import urllib.request
 EXPECTED = "RB9N-6014"
 BLOCK = 128
 EXTRA_GROUPS = 21  # g1 + (g2..g11) 各 2 块
+
+NEEDLE = "【运维备忘 D】构建机临时令牌是 RB9N-6014，用完即废。"
+QUESTION = "运维备忘 D 里的构建机临时令牌是什么？只给令牌本身。"
+SYSTEM = ("你是一个严谨的中文助手。回答要直接、简短；"
+          '被要求"只给密码/口令/访问码/令牌"时就只输出它本身，不要解释。')
 
 
 def post(url: str, payload: dict, timeout: float):
@@ -60,29 +70,37 @@ def count_tokens(tokenize_url: str, model: str, text: str, timeout: float) -> in
     return int(data.get("count") or len(data.get("tokens") or []))
 
 
-def build_prompt(template: dict, tokenize_url: str, model: str, target: int, timeout: float):
-    """按目标 token 数切片模板里的用户内容；用 /tokenize 迭代校准。"""
-    messages = template["messages"]
-    user_idx = max(i for i, m in enumerate(messages) if m.get("role") == "user")
-    full = messages[user_idx]["content"]
-    # 先按字符比例切，再按实测 token 数修正
-    chars = max(1, round(len(full) * target / 1000000))
-    text, got = "", 0
+def build_prompt(corpus: str, tokenize_url: str, model: str, target: int,
+                 timeout: float):
+    """用**语料**构造目标长度的 prompt：切片 → 80% 处插针 → 追加提问。
+
+    长度校准针对**最终 prompt**（含针与提问）做，这样 R 的推算才准确。
+    """
+    chars = max(1, target)          # 初始猜测：中文约 1 token/字
+    prompt, got = "", 0
     for _ in range(6):
-        text = full[:chars]
-        got = count_tokens(tokenize_url, model, text, timeout)
+        body = (corpus * (chars // max(1, len(corpus)) + 1))[:chars]
+        # 针插在 80% 深度（与既有四针语料同口径）
+        cut = int(len(body) * 0.8)
+        user = body[:cut] + "\n" + NEEDLE + "\n" + body[cut:] + "\n\n" + QUESTION
+        prompt = user
+        got = count_tokens(tokenize_url, model, prompt, timeout)
         if abs(got - target) <= max(200, target // 500):
             break
         chars = max(1, round(chars * target / max(1, got)))
-    out = json.loads(json.dumps(template))
-    out["messages"][user_idx]["content"] = text
-    return out, got
+    if NEEDLE not in prompt or QUESTION not in prompt:
+        raise SystemExit("构造失败：prompt 里缺少针或提问（拒绝发出无效请求）")
+    payload = {"model": model,
+               "messages": [{"role": "system", "content": SYSTEM},
+                            {"role": "user", "content": prompt}],
+               "max_tokens": 64, "temperature": 0.0, "stream": False}
+    return payload, got
 
 
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__,
                                  formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument("--template", required=True)
+    ap.add_argument("--corpus", required=True, help="长语料文件（如 data/hongloumeng.txt）")
     ap.add_argument("--url", required=True)
     ap.add_argument("--tokenize", required=True)
     ap.add_argument("--model", required=True)
@@ -92,12 +110,14 @@ def main() -> int:
     ap.add_argument("--out", required=True)
     args = ap.parse_args()
 
-    template = json.load(open(args.template, encoding="utf-8"))
+    corpus = open(args.corpus, encoding="utf-8", errors="replace").read()
+    if len(corpus) < 10000:
+        raise SystemExit(f"语料太短：{args.corpus}")
     os.makedirs(args.out, exist_ok=True)
     summary = []
 
     for target in [int(x) for x in args.targets.split(",") if x.strip()]:
-        req_template, got = build_prompt(template, args.tokenize, args.model, target, 300.0)
+        req_template, got = build_prompt(corpus, args.tokenize, args.model, target, 300.0)
         r_blocks = -(-(got - 1) // BLOCK) + EXTRA_GROUPS
         print(f"\n=== 目标 {target} → 实际 {got} tokens，R≈{r_blocks} 块 ===", flush=True)
 
