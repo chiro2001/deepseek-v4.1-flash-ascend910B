@@ -266,6 +266,53 @@ sp4_1 … sp4_12  PASS   completion=7   wall=102.9–107.2 s
 标准臂 D=30082 比 P 多 **361** 块，小池 19494 远小于 P。
 用 `tools/ced_pool_threshold_experiment.sh` 跑两个臂：
 D≈29000（**小于** P）应全过；D≈30500（**大于** P）应每 4 个失败。
+
+### I. 池阈值实验：A 臂成立，但 **B 臂是无效数据**（2026-09-25 01:43–02:16）
+
+**有效结果**：`below` 臂 D=**29024**（< P 29721），**8/8 通过**。
+
+**B 臂（`above`）没有跑起来，它的 8 条 "通过" 是假象。** 事后核对：
+
+```
+docker ps -a  →  dsv41-ced-trace-d-above: No such object   （容器从未创建）
+docker inspect dsv41-ced-trace-d-below → StartedAt=2026-09-24T17:43:32Z（01:43 CST，一直存活）
+pt_above_launch.log → serve_a3.sh 报"选中的卡里有正在被占用的"，拒绝启动
+```
+
+机制：脚本只 `docker rm` 了**上一臂**的容器名，没删更早的 `below`；而就绪检查只是
+`curl 18991/health` —— **旧容器替新容器回答了健康检查**。于是 `above_1..8` 全部
+发给了仍在运行的 `below` 实例。`above_6/7/8` 的"通过"只是 `below` 序列的第
+14–16 个请求。
+
+⇒ 因此**把 `below` 的有效样本数合并计算：D=29024（< P）连续 16/16 通过**。
+
+> 这个 bug 本身和本次调查的主线是同族问题：**静默降级**（失败的前置条件不报错、
+> 由旧状态顶上）。修正版脚本 `tools/ced_pool_arms_experiment.sh` 因此加了四道硬门：
+> ① 启动前删除**所有** `dsv41-ced-trace-d*` 并等 `VLLMWorker` 归零；
+> ② 就绪必须同时满足"新容器在运行"；
+> ③ 新容器的 `serve.log` 必须存在且 mtime 晚于本次启动时刻；
+> ④ 该日志里必须已打印 `num_blocks`。任一不满足即 `FAIL` 退出，不发请求。
+
+### J. 决定性双臂（已启动，2026-09-25 12:13）
+
+`C>P` 与 `C≈30k` 之前是混淆的。修正版脚本在 P=29721 两侧各取一个**尽量贴近**的点：
+
+| 臂 | 目标块数 | 与 P 的关系 | 预测（若"D>P"成立） |
+|---|---:|---|---|
+| `hi` | ≈29850 | D **>** P（+129） | 每 4 个长请求失败 |
+| `lo` | ≈29600 | D **<** P（−121） | 全过 |
+
+两点只差约 250 块，可把"关系"与"绝对大小"分开。脚本同时打开
+`V41_CED_BLOCK_DUMP_DIR`，把每个请求的**完整 g0 块列表**落盘。
+
+判读要点（恢复时）：
+- 若 `hi` 失败且 `lo` 全过 ⇒ **D>P 关系确认**，转去查两侧 `num_blocks` 参与的计算。
+- 若 `hi` 也全过 ⇒ 关系假说否掉；用完整块列表找"失败请求是否触及某个 id 区间"。
+
+**为此需要的额外一步**：远端 shadow 包原本**没有** block-dump 代码（只在本地仓库里），
+现已同步 `experimental/ced/mooncake_hybrid_connector.py` 并用
+`tools/patch_trace_env.py` 补上 `V41_CED_BLOCK_DUMP_DIR` 透传，实测
+`grep -c _ced_block_dump` = 2、`grep -c V41_CED_BLOCK_DUMP_DIR` = 1。
 该脚本同时打开 `V41_CED_BLOCK_DUMP_DIR`，把每个请求的**完整 g0 块列表**落盘
 ——因为摘要（`first/last/descents`）已被证明无法区分顺序不同的列表。
 
