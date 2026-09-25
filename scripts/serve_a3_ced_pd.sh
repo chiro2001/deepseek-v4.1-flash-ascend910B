@@ -57,25 +57,33 @@ fi
 export SERVED_NAME=${SERVED_NAME:-deepseek-v41-ced-pd}
 export NAME=${NAME:-dsv41-ced-${role}-${stamp}}
 
-# [CED-D-POOL-GUARD] 2026-09-25：D 侧的 KV 池若放大到 29084 块以上，长上下文请求
-# 会偶发静默空回答（HTTP 200 + completion_tokens=1 + token_ids=[1]）。实测边界
-# T ∈ (29077, 29084]（见 docs/CED-PD-BLOCK-BOUND-20260925.md）：
-#   C=29077/29078 → 池顶 29076/29077，全过
-#   C=29128/29129 → 池顶 29127/29128，必失败
-#   C=29600 同一实例内 max=29084 失败、max=29063/27482 通过
-# 在找到 32 位截断的确切位置之前，decode 角色的池一律钳到 T-1 = 29077 块，
-# 换算成 KV_CACHE_MEMORY_BYTES = 29078 × 540928（每块实测 540928 B）。
+# [CED-D-POOL-GUARD] 2026-09-25：D 侧池一旦让
+# `num_blocks × 每块页步长` 越过 2³²，算子读到的块地址会 32 位回绕到别的块上，
+# 长上下文请求随即静默变成"HTTP 200 + completion_tokens=1 + token_ids=[1]"。
+# 详见 docs/CED-PD-BLOCK-BOUND-20260925.md §5.1.2 / §5.1.4。
+#
+# 每块页步长的最大值出现在槽位 3：layer-20 C1 KV(131072) + INT8 index K(16384)
+# + FP16 scales(256) = 147712 B。回绕边界 ⌊2³²/147712⌋ = 29076。
+#
+# 判据用**页尾**（整页必须落在 4 GiB 内），所以是
+#     num_blocks ≤ ⌊2³² / 147712⌋ = 29076
+# 而不是"最大块号 ≤ 29076"。两者差一块：num_blocks=29077 时块 29076 的
+# 最后 54528 B 已经回绕（实测它"通过"只是因为回绕落点恰为恒零的 null block 0）。
+#
+# 这里只是**配置侧的预防**；真正的强制校验在
+# experimental/ced/mooncake_hybrid_connector.py 的 [CED-32BIT-GUARD]，
+# 那里拿得到 worker 实际注册的 stride，且 num_blocks 已经定稿。
 if [ "$role" = decode ]; then
-  CED_D_MAX_POOL_BLOCKS=${CED_D_MAX_POOL_BLOCKS:-29077}
+  CED_D_MAX_NUM_BLOCKS=${CED_D_MAX_NUM_BLOCKS:-29076}
   CED_D_BYTES_PER_BLOCK=${CED_D_BYTES_PER_BLOCK:-540928}
-  ced_pool_cap=$(( (CED_D_MAX_POOL_BLOCKS + 1) * CED_D_BYTES_PER_BLOCK ))
+  ced_pool_cap=$(( CED_D_MAX_NUM_BLOCKS * CED_D_BYTES_PER_BLOCK ))
   if [ -n "${KV_CACHE_MEMORY_BYTES:-}" ] && [ "$KV_CACHE_MEMORY_BYTES" -gt "$ced_pool_cap" ]; then
     echo "[a3-ced][WARN] KV_CACHE_MEMORY_BYTES=$KV_CACHE_MEMORY_BYTES 会让 D 池超过安全块数" >&2
-    echo "[a3-ced][WARN] 钳到 $ced_pool_cap（=$((CED_D_MAX_POOL_BLOCKS + 1)) 块，池顶 $CED_D_MAX_POOL_BLOCKS）" >&2
+    echo "[a3-ced][WARN] 钳到 $ced_pool_cap（num_blocks=$CED_D_MAX_NUM_BLOCKS，最大可用块号 $((CED_D_MAX_NUM_BLOCKS - 1))）" >&2
     export KV_CACHE_MEMORY_BYTES=$ced_pool_cap
   elif [ -z "${KV_CACHE_MEMORY_BYTES:-}" ]; then
     export KV_CACHE_MEMORY_BYTES=$ced_pool_cap
-    echo "[a3-ced] D 池按安全上限设置：$KV_CACHE_MEMORY_BYTES B（$((CED_D_MAX_POOL_BLOCKS + 1)) 块）"
+    echo "[a3-ced] D 池按安全上限设置：$KV_CACHE_MEMORY_BYTES B（num_blocks=$CED_D_MAX_NUM_BLOCKS）"
   fi
 fi
 if [ -n "${CED_SNAPSHOT_POS:-}" ]; then

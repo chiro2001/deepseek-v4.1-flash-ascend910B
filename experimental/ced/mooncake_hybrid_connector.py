@@ -1881,6 +1881,61 @@ class MooncakeConnectorWorker:
         else:
             raise TypeError("Mooncake connector does not support this type kv_cache now.")
 
+        # [CED-32BIT-GUARD] 按 4 GiB 寻址上界校验池容量。
+        #
+        # 背景（docs/CED-PD-BLOCK-BOUND-20260925.md §5.1.2）：槽位 3 的页步长是
+        # 147712 B（layer-20 C1 KV 131072 + INT8 index K 16384 + FP16 scales 256），
+        # 一旦 `num_blocks * 147712` 越过 2³²，算子读到的块地址就会回绕到别的块上，
+        # 长上下文请求随即静默变成"HTTP 200 + 1 token（EOS）"。
+        #
+        # 为什么在这里查而不是在 planner 里：**只有这里能拿到真实的 stride**。
+        # planner 用的是 KVCacheTensor.size，而 stride 是打包布局算出来的；
+        # 且 num_blocks 之后还会被"多 rank 取 min"和 may_override_num_blocks 改动。
+        # 这里拿到的是 worker 实际注册的每个平面，口径与 kernel 一致。
+        #
+        # 判据用**页尾**而不是页首：要求整页都在 4 GiB 之内，
+        # 即 `num_blocks * max_page_stride <= 2^32`。页首口径会允许最大块号的
+        # 末尾若干字节回绕（实测块 29076 的结尾 54528 B 会落到块 0），
+        # 那只是因为块 0 恰好是恒零的 null block 才没被观测到，不能当安全。
+        if os.environ.get("V41_CED_ALLOW_32BIT_OVERFLOW", "0") != "1":
+            try:
+                worst = 0
+                worst_name = ""
+                for layer_name, kv_cache_tuple in kv_caches.items():
+                    tensors = (
+                        kv_cache_tuple
+                        if isinstance(kv_cache_tuple, (list, tuple))
+                        else [kv_cache_tuple]
+                    )
+                    for single in tensors:
+                        stride_bytes = int(single.stride(0)) * single.element_size()
+                        if stride_bytes > worst:
+                            worst, worst_name = stride_bytes, str(layer_name)
+                if worst > 0:
+                    limit = 1 << 32
+                    max_safe = limit // worst
+                    if self.num_blocks * worst > limit:
+                        raise RuntimeError(
+                            "[CED-32BIT-GUARD] KV 池超出 4 GiB 寻址上界："
+                            f"num_blocks={self.num_blocks} × max_page_stride={worst} "
+                            f"({worst_name}) = {self.num_blocks * worst} > 2^32={limit}。"
+                            f"该配置下块号 ≥ {max_safe} 的访问会 32 位回绕并静默读错数据。"
+                            f"把 D 侧 KV_CACHE_MEMORY_BYTES 压到 ≤ {max_safe} × {worst} "
+                            f"（本卡实测每全局块号 540928 B ⇒ 约 {max_safe} 块）。"
+                            " 确认风险后可设 V41_CED_ALLOW_32BIT_OVERFLOW=1 绕过。"
+                        )
+                    print(
+                        f"[CED-32BIT-GUARD] role={self.kv_role} num_blocks={self.num_blocks} "
+                        f"max_page_stride={worst} ({worst_name}) "
+                        f"用到地址空间 {self.num_blocks * worst}/{limit} B "
+                        f"（{(self.num_blocks * worst) * 100 // limit}%），安全上界 {max_safe} 块",
+                        flush=True,
+                    )
+            except RuntimeError:
+                raise
+            except Exception as exc:  # noqa: BLE001 - 取几何失败不能拖垮起服
+                print(f"[CED-32BIT-GUARD] 校验跳过：{exc!r}", flush=True)
+
         # [CED-KVGEOM] 只读几何探针：把连接器看到的每层 KV 张量形状/stride 与
         # 传输用的 block_len/block_stride、注册长度打出来。用于核对"块号阈值"
         # 假说里真正参与寻址的每块字节数（147456 = 128x576x2 还是 packed stride）。
