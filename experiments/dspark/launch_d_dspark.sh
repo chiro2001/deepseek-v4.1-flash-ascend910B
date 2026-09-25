@@ -57,6 +57,11 @@ done
     export DSPARK_DRAFT_METADATA_MODE=${DSPARK_DRAFT_METADATA_MODE:-sync}
     export DSPARK_GRAPH_CAPTURE_METADATA=1
   fi
+  # [SLOT-MAP-FUSED] decode 稳态每步 `_compute_slot_mapping_kernel` 启动
+  # KV 组数次（D 侧 13 组）。单次 device 只有 2.5–3.2 µs，但每次要付 ~65–70 µs
+  # 的 host/排队代价 ⇒ 每步约 0.8 ms 的 host 串行。融合成一次二维 grid 启动。
+  #  0/off = stock 逐组；verify = 两条路径都跑并逐元素比对；1/on = 融合
+  export V41_SLOT_MAP_FUSED=${V41_SLOT_MAP_FUSED:-0}
   export NAME=dsv41-ced-d4b RUN_ID=$RUN_ID
   export PORT=18991 KV_PORT=19091 DEVS="8 9 10 11 12 13 14 15"
   mkdir -p "$PKG/results/$RUN_ID"

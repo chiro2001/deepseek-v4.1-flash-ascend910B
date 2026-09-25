@@ -117,6 +117,34 @@ multistream 路径（`dsa_v41.py:352` 单独 `quantize`）没接上。
 对 1 个 query token，属于典型的 M=1 低效形态）。
 **工作量最大，不建议先动。**
 
+### 已实测排除的方向
+
+#### 排除 1：`V41_SLOT_MAP_FUSED`（host 优化对 device-bound 无效）
+
+这个开关原来是个**死开关**：`serve_a2.sh` 挂了 `patches/files/block_table.py`，
+却**没有 `-e V41_SLOT_MAP_FUSED=...` 透传**，所以容器里根本没有这个 env
+（已用 `/proc/<pid>/environ` 核对）。本轮补上了透传并做了单变量实验。
+
+它的机制是：decode 稳态每步 `_compute_slot_mapping_kernel` 启动
+**KV 组数次**（D 侧 13 组），单次 device 只有 2.5–3.2 µs，但每次要付
+~65–70 µs 的 host/排队代价 ⇒ 每步约 0.8 ms 的 host 串行；融合成一次
+二维 grid 启动后 host 时间 1.774 → 1.048 ms/step（−41%）。
+
+**实测（只改这一个变量，DRAFT_GRAPH=1 不变，144K 四针 4/4 PASS、答案逐字节相同）**：
+
+| ctx | 融合前 ms/step | 融合后 ms/step |
+|---|---:|---:|
+| 32K | 34.20 / 34.10 | 34.22 / 34.22 |
+| 144K | 36.60 / 36.52 | 36.43 / 36.56 |
+
+**没有任何变化**。原因是 §0 已经给出的那条：**设备利用率 97.5%**，
+host 在 device 忙的时候异步准备下一步，那 0.8 ms 的 host 时间**完全被隐藏**，
+根本不落在关键路径上。
+
+⇒ 这条实验的价值是**证伪了"host 还有 0.8 ms 可省"的直觉**，
+并把"必须减 device 工作量"这个方向钉死。
+（透传的修复保留：它是真 bug，且在 prefill 主导的场景下 host 时间未必被隐藏。）
+
 ### 已排除的方向
 
 * **SP_TOKENS 调优**：per-position 接受率 0.653/0.297/0.208/0.079/0.040/0.020/0.020，
@@ -126,6 +154,27 @@ multistream 路径（`dsa_v41.py:352` 单独 `quantize`）没接上。
   32K 上反而更差（10.7 → 11.3/11.7）。draft 只有 3 层，图 replay 的固定开销
   盖过了省下的 launch。保留它是为了与 A2 口径一致，**不要指望它降时延**。
 * **同步/调度优化**：设备利用率 97.5%，没有气泡。
+
+## 4.5 下一步该做什么（按可行性）
+
+**能立即做、但现在还没做的**：
+
+1. **草稿路径的 slot-mapping 融合**。`compute_slot_mapping_draft()`
+   （`patches/files/block_table.py:759`）**没有走融合路径**，仍是逐组循环，
+   而 DSpark 下它每步都会被调用。按排除 1 的结论，这大概率也是 host-only、
+   被 device 隐藏 —— 但它是同一族代码里的明显不一致，值得对齐。
+
+**需要算子/内核开发（收益大、周期长）**：
+
+2. **HyperConnection 融合**（3.88 ms/step，9.8%）：把 `npu_hc_pre_v2`
+   与紧随其后的 `input_layernorm` / `rms_norm_cast` 合并。
+3. **QLI**（5.72 ms/step，14.5%）：candidate 池 2048 块对 1 个 query token，
+   典型的 M=1 低效形态。
+4. `rms_norm_dynamic_quant` 解锁到 W4A8（0.25–0.40 ms/step）、
+   共享专家并入 routed 路径（0.8–1.6 ms/step）。
+
+**已经到头的**：SP_TOKENS（7 最优）、draft 入图（无收益但保留）、
+host 侧优化（被隐藏）。
 
 ## 5. 复现方式
 
