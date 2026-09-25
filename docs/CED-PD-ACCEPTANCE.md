@@ -133,7 +133,7 @@ python3 tools/ced_pd_acceptance.py --calibrate-only \
 | 2 | 144K 四针 A/B/C/D | 4/4 命中（`ZQ7K-3341/VX2M-8890/HT4P-5527/RB9N-6014`），`u_fffd=0` | `needle144k_*.result.json` |
 | 3 | 1M 四针 A/B/C/D | 同上，且**重复 ≥2 轮全过** | `needle1000k_*.result.json` |
 | 4 | 流式 | 答案正确 + 记录 TTFT + `finish_reason` | `stream*.result.json` |
-| 5 | 多轮 | 同会话三轮问不同针，逐轮正确（状态未被带坏） | `multiturn*.result.json` |
+| 5 | 多轮 | 同会话三轮问不同针，逐轮正确（状态未被带坏）。**必须核对证据里的 `usage.prompt_tokens`**：2026-09-25 之前 runner 把语料按 `target//8` 构造，声称 144K/1M 实际只有 18K/125K（见 [`../evidence/ced_acceptance_20260925/README.md`](../evidence/ced_acceptance_20260925/README.md) §2）；现已改为按 `max_model_len` 反推并在缩水时打警告 | `multiturn*.result.json` |
 | 6 | 缓存命中 | 第二次同前缀 `cached_tokens > 0` | `prefix*.result.json`。**CED 配置下记 N/A**：原型硬门禁止 `PREFIX=1`，见第 7 节 |
 | 7 | 性能 | prefill / TTFT / TPOT / 吞吐 / KV 占用 | 结果的 `wall_s`/`ttft_s`/`tpot_ms` + `metrics_before/after` |
 | 0 | runner 自证 | `--selfcheck` 通过（内置 mock + 负控） | 退出码 0 |
