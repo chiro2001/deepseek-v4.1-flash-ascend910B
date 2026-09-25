@@ -1270,11 +1270,16 @@ mkdir -p "$OUT"
 # 放在上层会被实验用的旁路启动器绕过（已踩过一次）。
 # 判据同样用**页尾**：num_blocks ≤ ⌊2³² / 147712⌋ = 29076。
 # 与它配套的**强制**校验在连接器里（[CED-32BIT-GUARD]，按实测 stride 抛错）。
-if [ "${V41_CED_ALLOW_32BIT_OVERFLOW:-0}" != "1" ] && [ -n "${KV_CACHE_MEMORY_BYTES:-}" ]; then
+if [ "${V41_CED_ALLOW_32BIT_OVERFLOW:-0}" != "1" ]; then
   _ced_max_blocks=${CED_MAX_NUM_BLOCKS:-29076}
   _ced_bytes_per_block=${CED_BYTES_PER_BLOCK:-540928}
   _ced_cap=$(( _ced_max_blocks * _ced_bytes_per_block ))
-  if [ "$KV_CACHE_MEMORY_BYTES" -gt "$_ced_cap" ]; then
+  if [ -z "${KV_CACHE_MEMORY_BYTES:-}" ]; then
+    # 未指定时不能靠 GPU_UTIL 自动 profiling —— 它会按"显存能装多少"算出
+    # 30080 块（P 侧实测），同样越界。这里直接给一个安全值。
+    KV_CACHE_MEMORY_BYTES=$_ced_cap
+    echo "[serve_a2] 池按 4 GiB 上界设置：$KV_CACHE_MEMORY_BYTES B（num_blocks=$_ced_max_blocks）"
+  elif [ "$KV_CACHE_MEMORY_BYTES" -gt "$_ced_cap" ]; then
     echo "[serve_a2] WARNING: KV_CACHE_MEMORY_BYTES=$KV_CACHE_MEMORY_BYTES 会让池超过 4 GiB 寻址上界（$_ced_max_blocks 块）"
     echo "[serve_a2] WARNING: 钳到 $_ced_cap B（num_blocks=$_ced_max_blocks）。要绕过设 V41_CED_ALLOW_32BIT_OVERFLOW=1"
     KV_CACHE_MEMORY_BYTES=$_ced_cap
