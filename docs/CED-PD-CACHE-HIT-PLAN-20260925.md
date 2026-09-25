@@ -254,7 +254,43 @@ stock vLLM + P 的"截去最后一个 token" + 前缀缓存 的交互。
 完整证据与下一轮的最小实验见
 [`../evidence/ced_prefix_hit_20260926/CED_SIDE_RESULT.md`](../evidence/ced_prefix_hit_20260926/CED_SIDE_RESULT.md)。
 
-## 9. 当前状态（2026-09-26 02:15 更新）
+
+## 10. 第四轮（2026-09-26 02:30–03:25）：**两个崩溃都修好了，CED 口径缓存命中打通**
+
+上两轮各留了一个崩溃。这轮先**诊断**（不是猜）再修，两条都已验证：
+
+| # | 位置 | 原报错 | 根因（实测） | 修法 |
+|---|---|---|---|---|
+| 1 | **P** | `assert num_new_tokens > 0`（stock scheduler.py:1063） | 整段本地命中：`num_tokens=num_computed=local=902912`（=128×7054）、`external=0`、`WAITING`、`max_tokens=1` ⇒ `num_new_tokens=0`。stock 只在 `_update_waiting_for_remote_kv` 里做"整段命中重算末 token"，**P 走不到那里** | 用 vLLM 自带的 `truncate_computed_blocks()` 把命中拉回**上一个 128 对齐边界**（902912→902784），尾部重算 |
+| 2 | **D** | `assert RequestStatus.is_finished(req.status)`（scheduler.py:3060） | D 整段命中 ⇒ `num_external_tokens==0` ⇒ 请求不进 `WAITING_FOR_REMOTE_KVS`；但连接器仍注册一次接收用于给 P 回 ack ⇒ worker 报 `finished_recving` 时请求已是 `RUNNING` | 加第三分支：空接收（没拉数据、不用还块）记 `[CED-KVRECV]` 后返回 |
++
++两条修复都只在 CED 角色下生效，且各有独立开关可关
++（`V41_CED_P_HIT_FIX=1`、`V41_CED_KVRECV_NOOP=1`）。
++
++### 修复后的实测（原来必崩的用例现在全过）
++
++| 用例 | 修复前 | 修复后 |
++|---|---|---|
++| `N=902909`（部分命中→整段命中） | 连两轮打死 P | **6/6 正确，88.5 s → 5.2 s（≈17×）** |
++| `N=1000065`（1M 整池命中） | 上一轮已通（16×） | **无回归：105.7 s → 6.0 s（≈18×）**，3/3 正确 |
++
++所有命中答案与冷路径**逐字节相同**；两个容器日志里
++`AssertionError` / `EngineDeadError` 计数都是 **0**。
++
++### 更正上一轮的一句话
++
++上一轮我说"第二轮的 D 崩溃没复现，所以那个 `[] → 12 个空列表` 的规范化没有被验证"。
++**现在有证据了：它是对的** —— 修复 #2 之前请求已经能穿过那条形状检查、
++走到 `assert RequestStatus.is_finished`。
++
++### 构建坑（踩了两次，记下来）
++
++启动器的 sha 门 `533eed493cb...` 是
++**镜像原始文件 + `patches/admission_gate.patch`** 之后的内容，
++**不是**镜像原始文件（`c67bda2886...`）。生成补丁必须先把 admission gate 打上再 diff；
++在容器里 `git checkout` 会把 admission gate 一起抹掉。
++
+## 11. 当前状态（2026-09-26 03:25 更新）
 
 * §1 的冒烟：**已完成**，基础设施可用、命中路径正确（§4）。
 * 基线口径：**可用且正确**（§4）。
