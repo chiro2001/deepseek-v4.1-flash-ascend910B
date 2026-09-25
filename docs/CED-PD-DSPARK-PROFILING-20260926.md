@@ -157,6 +157,34 @@ host 在 device 忙的时候异步准备下一步，那 0.8 ms 的 host 时间**
 
 ## 4.5 下一步该做什么（按可行性）
 
+### 已定位：长上下文 decode 变慢的**唯一主因就是 QLI**
+
+同口径采了两份 profiler（32K 与 144K，都是 128-token 输出、同一实例配置），
+decode 段的算子对比：
+
+| 算子 | 32K µs/op | 144K µs/op | Δ ms/step |
+|---|---:|---:|---:|
+| **QuantLightningIndexerV2** | **313.6** | **715.1** | **+3.13** |
+| AivKernel（通信） | 28.1 | 33.0 | +0.38 |
+| aclnnMatmul | 24.8 | 25.0 | −0.16 |
+| GroupedMatmulSwigluQuant | 82.4 | 79.1 | −0.31 |
+| HcPre | 39.1 | 36.7 | −0.36 |
+| QuantBatchMatmulV3 | 14.1 | 13.9 | −0.19 |
+| GroupedMatmul（MoE gmm2） | 46.0 | 45.4 | −0.12 |
+| | | **净** | **≈ +2.4** |
+
+**净 +2.4 ms/step，与端到端实测的 34.2 → 36.6 完全吻合。**
+
+也就是说：**从 32K 到 144K，decode 变慢的钱全部花在 QLI 上**
+（QLI 次数不变、恒为 8 次/步，变的是**单次耗时**）。
+
+机制上说得通：QLI 从 candidate 池里选 top-512（`candidate_topk_blocks=2048`、
+`candidate_block_size=8`），池子随上下文增长直到 2048 块的上限
+（32K ≈ 250 块、144K ≈ 1125 块），所以单次耗时 ∝ 候选块数。
+
+**含义**：长上下文（尤其 1M，池子到上限）的 decode 时延由 QLI 主导，
+而砍候选集会直接动模型精度。**这不是配置能解决的，属 kernel / 算法层。**
+
 **能立即做、但现在还没做的**：
 
 1. **草稿路径的 slot-mapping 融合**。`compute_slot_mapping_draft()`

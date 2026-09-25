@@ -106,3 +106,19 @@ grep -a "SpecDecoding metrics" d/serve.log | tail -1
   验收里的 `cached_tokens=0` 是预期行为。缓存命中是 CED 的独立实验臂
   （见 [`CED-PD-CACHE-HIT-PLAN-20260925.md`](CED-PD-CACHE-HIT-PLAN-20260925.md)），
   与 DSpark 组合需要单独一轮。
+
+* **DSpark 的收益只在低并发成立**。2K prompt + 128 token 输出、`MAX_SEQS=4`：
+
+  | 并发 | DSpark 总吞吐 | SPEC=0 交付口径总吞吐 | 比 |
+  |---:|---:|---:|---:|
+  | 1 | **73.1 tok/s** | 41.4 | **1.77×** |
+  | 2 | 57.2 | 70.6 | **0.81×** |
+  | 4 | 76.7 | 114.5 | **0.67×** |
+
+  原因是推测解码把每步的行数从 `batch × 1` 抬到 `batch × (1 + SP_TOKENS)`：
+  并发 4 时 M = 32（vs SPEC=0 的 M = 4），而产出只多 A≈3 倍
+  ⇒ 每步的算子时间增长快过 token 产出。
+
+  **⇒ 部署建议**：DSpark 适合**低并发、交互式**场景（单流时延/吞吐最优）；
+  高并发吞吐场景应保持 `SPEC=0`，或按并发自适应开关。
+  这组数字是短 decode 窗口（128 token）测的，绝对值有噪声，但**趋势是明确的**。
