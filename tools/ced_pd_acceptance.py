@@ -348,10 +348,30 @@ def run_stream(args, target: int, results: list[dict]) -> None:
 
 
 def run_multiturn(args, target: int, results: list[dict]) -> None:
-    """同一会话连续三轮；第一轮埋针，后两轮追问 + 复述，检查状态是否被带坏。"""
+    """同一会话连续三轮；第一轮埋针，后两轮追问 + 复述，检查状态是否被带坏。
+
+    ★ 2026-09-25 修正：这里原本是 `target // 8`，于是"1M 多轮"实际只用 125K，
+      报告出来却像 1M 通过。改成按 `max_model_len` 反推：
+      第 k 轮的 prompt ≈ base + (k-1)*(问题+回答)，所以
+          base ≤ max_model_len − (轮数−1)×max_tokens − 余量
+      取 `min(target, 这个上界)`。并把**每一轮的真实 prompt_tokens**写进证据，
+      这样"1M 多轮"是否名副其实可以直接核。
+    """
+    n_turns = 3
+    # 每轮追问的文字长度 + 回答上限 + tokenizer 抖动余量
+    reserve = (n_turns - 1) * (args.max_tokens + 64) + 512
+    base_cap = max(4096, args.max_model_len - reserve)
+    base_target = min(target, base_cap)
     base, base_count = slice_for_tokens(
-        args.tokenize_url, args.model, args.corpus_text, max(4096, target // 8), 0
+        args.tokenize_url, args.model, args.corpus_text, base_target, 0
     )
+    if base_target < target:
+        print(
+            f"    [multiturn] 注意：目标上下文 {target} 装不下 {n_turns} 轮"
+            f"（max_model_len={args.max_model_len}，需给后续轮次留 {reserve} token），"
+            f"语料按 {base_target} 构造 ⇒ 本轮真实上下文约 {base_count} token",
+            flush=True,
+        )
     body = embed_needles(base, ["A", "B", "C", "D"])
     turns = [NEEDLE_Q["D"], NEEDLE_Q["A"], NEEDLE_Q["B"]]
     messages = [
@@ -381,7 +401,9 @@ def run_multiturn(args, target: int, results: list[dict]) -> None:
         results.append(
             record(args.out_dir, f"multiturn{target//1000}k_t{turn}", payload, status, wall,
                    answer, expected, usage=usage, body=sent,
-                   note=f"corpus_prompt_tokens={base_count}")
+                   note=f"corpus_prompt_tokens={base_count} "
+                        f"prompt_tokens={(usage or {}).get('prompt_tokens')} "
+                        f"max_model_len={args.max_model_len}")
         )
         print(
             f"    multiturn t{turn}: {'PASS' if results[-1]['passed'] else 'FAIL'} "
@@ -548,6 +570,7 @@ def selfcheck() -> int:
                 context_tokens=[1000], max_tokens=16, timeout=30.0, repeat=1,
                 offset=0, out=os.path.join(tmp, "out.json"),
                 out_dir=os.path.join(tmp, "evidence"), metrics_urls="",
+                max_model_len=1048576,
             )
             results: list[dict] = []
             run_short(args, results)
@@ -587,14 +610,17 @@ def selfcheck() -> int:
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__,
                                      formatter_class=argparse.RawDescriptionHelpFormatter)
-    parser.add_argument("--base-url", required=True, help="PD proxy（或单实例）URL")
+    parser.add_argument("--base-url", help="PD proxy（或单实例）URL；--selfcheck 时不需要")
     parser.add_argument("--tokenize-url", default="", help="P 的 URL（提供 /tokenize）")
-    parser.add_argument("--model", required=True)
+    parser.add_argument("--model", help="served model name；--selfcheck 时不需要")
     parser.add_argument("--corpus", default="data/hongloumeng.txt")
     parser.add_argument("--mode", default="all",
                         choices=["all", "short", "needle", "stream", "multiturn", "prefix"])
     parser.add_argument("--context-tokens", default="144000,1000000")
     parser.add_argument("--max-tokens", type=int, default=64)
+    parser.add_argument("--max-model-len", type=int, default=1048576,
+                        help="服务的 --max-model-len；multiturn 用它反推每轮可用上下文，"
+                             "避免'目标 1M 实际只发 125K'这类静默缩水")
     parser.add_argument("--timeout", type=float, default=3600.0)
     parser.add_argument("--repeat", type=int, default=1, help="needle 模式重复次数")
     parser.add_argument("--offset", type=int, default=0, help="语料起点偏移")
@@ -610,6 +636,9 @@ def main() -> int:
 
     if args.selfcheck:
         return selfcheck()
+    missing = [n for n, v in (("--base-url", args.base_url), ("--model", args.model)) if not v]
+    if missing:
+        parser.error("缺少必需参数：" + ", ".join(missing))
     if not args.tokenize_url:
         args.tokenize_url = args.base_url
     args.corpus_text = load_corpus(args.corpus)
