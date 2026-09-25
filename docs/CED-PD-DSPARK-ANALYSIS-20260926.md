@@ -59,8 +59,20 @@ for layer in self.layers:
         aux_hidden_states.append(hidden_states.mean(dim=1))
 ```
 
-`aux_hidden_state_layers` 来自 `dspark_target_layer_ids=[37, 38, 39]`
-（权重目录 `config.json` 实测值）。P 在第 20 层 break ⇒ `aux_hidden_states` 永远是 `[]`
+**`aux_hidden_state_layers` 的完整来源链（已逐行核实）**：
+
+```
+config.json: dspark_target_layer_ids = [37, 38, 39]
+  ↓  vllm/v1/worker/gpu/spec_decode/eagle/eagle3_utils.py:48
+     layer_ids = [i + 1 for i in dspark_target_layer_ids]   # → [38, 39, 40]，转成 1-based
+  ↓  vllm/v1/worker/gpu_model_runner.py:5501
+     self.model.set_aux_hidden_state_layers(aux_layers)
+  ↓  patches/files/model.py:1434（层循环内）
+     if layer.layer_idx + 1 in self.aux_hidden_state_layers:   # → 命中 layer_idx = 37/38/39
+         aux_hidden_states.append(hidden_states.mean(dim=1))
+```
+
+而 CED 的 P 在第 20 层 break ⇒ `aux_hidden_states` 永远是 `[]`
 ⇒ ③ 走"只返回 tensor"⇒ ② 拿一个 tensor 去解包两个变量 ⇒ 报错。
 
 **这条无法通过配置绕过**：P 只有前 20 层的权重与计算，37/38/39 层的残差在 P 上
