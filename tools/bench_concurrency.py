@@ -431,6 +431,10 @@ def wait_idle(base: str, timeout: float = 120.0) -> None:
 def main() -> int:
     ap = argparse.ArgumentParser(description="并发吞吐扫描（单流 + 总吞吐）")
     ap.add_argument("--base-url", default="http://127.0.0.1:8001")
+    ap.add_argument("--tokenize-url", default="",
+                    help="/tokenize 只在 P 上有，PD 代理不提供。默认与 --base-url 相同；"
+                         "走代理测吞吐时必须显式指到 P（否则 404），"
+                         "例如 --tokenize-url http://127.0.0.1:18990")
     ap.add_argument("--model", default="deepseek-v41")
     ap.add_argument("--concurrency", default="1,2,4,8,16,32,64")
     ap.add_argument("--prompt-tokens", type=int, default=1024)
@@ -480,7 +484,10 @@ def main() -> int:
 
     # 为最大并发数预先校准出每条正好 target_tokens 个 token 的 prompt
     max_conc = max(concs)
-    prompts = prepare_prompts(base, a.model, max_conc, a.prompt_tokens)
+    tok_base = (a.tokenize_url or a.base_url).rstrip('/')
+    if tok_base != base:
+        print(f"[bench] /tokenize 走 {tok_base}（代理不提供该端点）")
+    prompts = prepare_prompts(tok_base, a.model, max_conc, a.prompt_tokens)
 
     # 预热（不计入结果）
     wait_idle(base)
