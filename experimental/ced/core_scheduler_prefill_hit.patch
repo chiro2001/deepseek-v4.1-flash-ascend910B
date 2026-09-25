@@ -1,40 +1,66 @@
 --- a/vllm/v1/core/sched/scheduler.py
 +++ b/vllm/v1/core/sched/scheduler.py
-@@ -1012,6 +1012,38 @@
+@@ -1012,6 +1012,64 @@
                  new_encoder_compute_budget = encoder_compute_budget
                  pad_spec_decode = False
  
-+                # [CED-P-HIT] 2026-09-26 read-only diagnostic (see
-+                # docs/CED-PD-CACHE-HIT-PLAN-20260925.md). P (the CED prefill
-+                # role) has no CED scheduler patch, and with prefix caching on
-+                # it dies at the later `assert num_new_tokens > 0` because
-+                # num_new_tokens = request.num_tokens - num_computed_tokens
-+                # becomes <= 0. This prints the four quantities that decide
-+                # which of the three candidate causes it is. No branch changes.
++                # [CED-P-HIT] 2026-09-26. P (the CED prefill role) serves with
++                # prefix caching enabled but has no CED scheduler patch, and it
++                # dies at the later `assert num_new_tokens > 0` whenever the
++                # local prefix cache covers the *entire* (already truncated)
++                # prompt: num_new_tokens = num_tokens - num_computed_tokens = 0.
++                #
++                # Measured instance: num_tokens=num_prompt_tokens=902912
++                # (=128*7054), local=902912, external=0, status=WAITING,
++                # max_tokens=1 (P truncated one token). The last token still has
++                # to be recomputed to sample, exactly like stock does for a full
++                # hit -- but that adjustment lives in
++                # _update_waiting_for_remote_kv, which P never reaches.
++                #
++                # Fix: pull the lookup back to the previous aligned boundary so
++                # the tail is recomputed. truncate_computed_blocks() requires
++                # num_computed_tokens to be divisible by every group's block
++                # size, so step by the largest block size and require it to be a
++                # multiple of the rest (32 and 128 here). Scheduler-side only;
++                # triggers only when a full hit would otherwise yield 0 tokens.
 +                if (
 +                    os.environ.get("V41_CED_ROLE") == "prefill"
-+                    and os.environ.get("V41_CED_P_HIT_DIAG", "1") == "1"
++                    and os.environ.get("V41_CED_P_HIT_FIX", "1") == "1"
 +                    and not load_kv_async
 +                    and num_computed_tokens >= request.num_tokens
 +                ):
-+                    print(
-+                        "[CED-P-HIT] req=%s status=%s num_tokens=%d prompt_tokens=%d "
-+                        "num_computed=%d local=%d external=%d n_output=%d max_tokens=%s "
-+                        "n_computed_block_groups=%d"
-+                        % (
-+                            request.request_id,
-+                            request.status,
-+                            request.num_tokens,
-+                            request.num_prompt_tokens,
-+                            num_computed_tokens,
-+                            num_new_local_computed_tokens,
-+                            num_external_computed_tokens,
-+                            len(request.output_token_ids or ()),
-+                            getattr(request, "max_tokens", None),
-+                            len(getattr(new_computed_blocks, "blocks", ()) or ()),
-+                        ),
-+                        flush=True,
-+                    )
++                    _sizes = [
++                        _m.block_size
++                        for _m in self.kv_cache_manager.coordinator.single_type_managers
++                    ]
++                    _step = max(_sizes) if _sizes else 0
++                    _ok = bool(_step) and all(_step % _b == 0 for _b in _sizes)
++                    if _ok and request.num_tokens > _step:
++                        _new = (request.num_tokens // _step - 1) * _step
++                        new_computed_blocks = self.kv_cache_manager.truncate_computed_blocks(
++                            new_computed_blocks, _new
++                        )
++                        if os.environ.get("V41_CED_P_HIT_DIAG", "1") == "1":
++                            print(
++                                "[CED-P-HIT] req=%s status=%s num_tokens=%d "
++                                "num_computed=%d -> truncated to %d (step=%d, "
++                                "local=%d external=%d max_tokens=%s)"
++                                % (
++                                    request.request_id,
++                                    request.status,
++                                    request.num_tokens,
++                                    num_computed_tokens,
++                                    _new,
++                                    _step,
++                                    num_new_local_computed_tokens,
++                                    num_external_computed_tokens,
++                                    getattr(request, "max_tokens", None),
++                                ),
++                                flush=True,
++                            )
++                        num_new_local_computed_tokens = _new
++                        num_external_computed_tokens = 0
++                        num_computed_tokens = _new
 +
                  if load_kv_async:
                      # KVTransfer: loading remote KV, do not allocate for new work.
