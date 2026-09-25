@@ -885,6 +885,15 @@ if [ -n "${V41_CED_ROLE:-}" ]; then
     [ -f "$_ced_dsa" ] && [ -f "$_ced_scheduler" ] || die "CED decode 缺少注意力或调度补丁"
     MOUNTS+=(-v "$_ced_dsa:/vllm-workspace/vllm-ascend/vllm_ascend/attention/dsa_v41.py:ro")
     MOUNTS+=(-v "$_ced_scheduler:/opt/dsv41/ced_scheduler_replay.patch:ro")
+  elif [ "${V41_CED_P_HIT_DIAG:-1}" = "1" ]; then
+    # [CED-P-HIT] 2026-09-26：P（prefill 角色）开 PREFIX=1 时会在 stock 的
+    # `assert num_new_tokens > 0` 上崩。P 不装 decode 的 replay 补丁，所以这里单独
+    # 挂一份**只读诊断**补丁，把 num_tokens / num_computed_tokens / local / external
+    # 四个量摊开，用来定位是"整段本地命中"还是"截断导致的口径不一致"。
+    # 纯观测，不改任何分支。设 V41_CED_P_HIT_DIAG=0 可关。
+    _ced_p_hit_patch="$PKG/experimental/ced/core_scheduler_prefill_hit.patch"
+    [ -f "$_ced_p_hit_patch" ] || die "CED prefill 命中诊断缺少 $_ced_p_hit_patch"
+    MOUNTS+=(-v "$_ced_p_hit_patch:/opt/dsv41/ced_scheduler_prefill_hit.patch:ro")
   fi
 fi
 if [ "${V41_CED_GRAPH_PROMPT_TAIL_EAGER:-0}" = "1" ]; then
@@ -1203,6 +1212,19 @@ if [ "${V41_CED_ROLE:-}" = "decode" ]; then
     grep -Fq "[CED-D] replay request=" vllm/v1/core/sched/scheduler.py || exit 1
     echo APPLIED' 2>/dev/null | tail -1)
   [ "${_ced_patch:-}" = "APPLIED" ] || die "CED decode replay 调度补丁未应用"
+fi
+if [ "${V41_CED_ROLE:-}" = "prefill" ] && [ "${V41_CED_P_HIT_DIAG:-1}" = "1" ]; then
+  say "[CED-P] 应用只读命中诊断补丁（不改分支）"
+  _ced_phhit=$($DOCKER exec "$NAME" bash -lc '
+    cd /vllm-workspace/vllm || exit 1
+    _base=$(sha256sum vllm/v1/core/sched/scheduler.py | cut -d " " -f1)
+    [ "$_base" = 533eed493cb307e6d4423ff550910278f6434d71f00581737ce420d60298e8bc ] || exit 1
+    git apply --unidiff-zero --check /opt/dsv41/ced_scheduler_prefill_hit.patch || exit 1
+    git apply --unidiff-zero /opt/dsv41/ced_scheduler_prefill_hit.patch || exit 1
+    grep -Fq "[CED-P-HIT]" vllm/v1/core/sched/scheduler.py || exit 1
+    python3 -m py_compile vllm/v1/core/sched/scheduler.py || exit 1
+    echo APPLIED' 2>/dev/null | tail -1)
+  [ "${_ced_phhit:-}" = "APPLIED" ] || die "CED prefill 命中诊断补丁未应用"
 fi
 if [ "${V41_CED_GRAPH_PROMPT_TAIL_EAGER:-0}" = "1" ]; then
   say "[CED-GRAPH] 应用固定 runner 版本的单 token prompt 尾部 eager 补丁"

@@ -1,0 +1,41 @@
+--- a/vllm/v1/core/sched/scheduler.py
++++ b/vllm/v1/core/sched/scheduler.py
+@@ -1012,6 +1012,38 @@
+                 new_encoder_compute_budget = encoder_compute_budget
+                 pad_spec_decode = False
+ 
++                # [CED-P-HIT] 2026-09-26 read-only diagnostic (see
++                # docs/CED-PD-CACHE-HIT-PLAN-20260925.md). P (the CED prefill
++                # role) has no CED scheduler patch, and with prefix caching on
++                # it dies at the later `assert num_new_tokens > 0` because
++                # num_new_tokens = request.num_tokens - num_computed_tokens
++                # becomes <= 0. This prints the four quantities that decide
++                # which of the three candidate causes it is. No branch changes.
++                if (
++                    os.environ.get("V41_CED_ROLE") == "prefill"
++                    and os.environ.get("V41_CED_P_HIT_DIAG", "1") == "1"
++                    and not load_kv_async
++                    and num_computed_tokens >= request.num_tokens
++                ):
++                    print(
++                        "[CED-P-HIT] req=%s status=%s num_tokens=%d prompt_tokens=%d "
++                        "num_computed=%d local=%d external=%d n_output=%d max_tokens=%s "
++                        "n_computed_block_groups=%d"
++                        % (
++                            request.request_id,
++                            request.status,
++                            request.num_tokens,
++                            request.num_prompt_tokens,
++                            num_computed_tokens,
++                            num_new_local_computed_tokens,
++                            num_external_computed_tokens,
++                            len(request.output_token_ids or ()),
++                            getattr(request, "max_tokens", None),
++                            len(getattr(new_computed_blocks, "blocks", ()) or ()),
++                        ),
++                        flush=True,
++                    )
++
+                 if load_kv_async:
+                     # KVTransfer: loading remote KV, do not allocate for new work.
+                     assert num_external_computed_tokens > 0
