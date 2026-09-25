@@ -2079,7 +2079,30 @@ class MooncakeConnectorWorker:
                 # their D-local physical pages before any replay attention can
                 # read an old allocation; this runs on the worker's NPU thread.
                 if len(meta.remote_block_ids) != 12 or len(meta.local_block_ids) != 12:
-                    raise RuntimeError("CED decoder expected 12 KV cache groups without DSpark")
+                    # [CED-GROUP-DIAG] 2026-09-26：这条断言在开 `PREFIX=1` 的 1M
+                    # 命中路径上会触发，但原消息只有"expected 12"、看不出**实际**形态，
+                    # 排查时只能靠猜。把两侧的组数与每组块数都打出来。
+                    #
+                    # 已知的参考形态（前缀命中时，调度层 dump 里的按组块数）：
+                    #   [7054, 0, 7054, 7054, ...]   ← 组 1（压缩器 state，块 32）为 0
+                    # 所以"某些组为 0/长度不同"是命中路径的正常产物，不是数据损坏；
+                    # 需要判断的是**连接器契约**该怎么放宽（见
+                    # docs/CED-PD-CACHE-HIT-PLAN-20260925.md §6）。
+                    def _shape(x):
+                        try:
+                            return [len(g) if g is not None else -1 for g in x]
+                        except TypeError:
+                            return f"not-a-sequence ({type(x).__name__})"
+
+                    raise RuntimeError(
+                        "CED decoder expected 12 KV cache groups without DSpark; "
+                        f"remote_groups={len(meta.remote_block_ids)} "
+                        f"remote_blocks_per_group={_shape(meta.remote_block_ids)} "
+                        f"local_groups={len(meta.local_block_ids)} "
+                        f"local_blocks_per_group={_shape(meta.local_block_ids)} "
+                        f"num_external_tokens={meta.num_external_tokens} "
+                        f"req={req_id}"
+                    )
                 for group_idx in range(7, 12):
                     if meta.remote_block_ids[group_idx]:
                         raise RuntimeError(f"CED upper SWA group {group_idx} unexpectedly has remote blocks")
