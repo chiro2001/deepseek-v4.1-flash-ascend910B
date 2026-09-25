@@ -236,7 +236,9 @@ for setting in "SPEC:${SPEC:-0}" "PREFIX:${PREFIX:-0}" "DRAFT_GRAPH:${DRAFT_GRAP
     exit 2
 ```
 
-即 `PREFIX=1` 会被直接拒绝。要把它变成可验收项，至少要先处理两处代码级前提：
+即 `PREFIX=1` 会被直接拒绝。要把它变成可验收项，至少要先处理两处代码级前提
+（完整的改动清单、方案取舍与实验顺序见
+[`CED-PD-CACHE-HIT-PLAN-20260925.md`](CED-PD-CACHE-HIT-PLAN-20260925.md)）：
 
 1. **上半层 SWA 的"清零"不变量会被缓存块绕过。**
    `experimental/ced/mooncake_hybrid_connector.py` 的 D 侧预清零目标是
