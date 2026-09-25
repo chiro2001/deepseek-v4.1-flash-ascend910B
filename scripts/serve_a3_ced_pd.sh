@@ -46,24 +46,29 @@ if [ "$role" = decode ]; then
         echo "[a3-ced][FAIL] CED_EXPERIMENTAL_GRAPH=1 要求 GRAPH=1 EAGER=0" >&2
         exit 2
       fi
-      # [CED-GRAPH-PREREQ] 2026-09-25 加：图模式**必须**同时带这两个开关，
-      # 否则会按"图模式裸跑"的坏路径执行并输出乱码（长这样：HTTP 200、
-      # completion_tokens 打满 max_tokens、无 finish_reason、含 <｜box｜>）。
+      # [CED-GRAPH-PREREQ] 2026-09-25 加：图模式**必须**带
+      # V41_CED_GRAPH_PROMPT_TAIL_EAGER=1，否则会按"图模式裸跑"的坏路径执行
+      # 并输出乱码（形态：HTTP 200、completion_tokens 打满 max_tokens、
+      # 无 finish_reason、含 <|box|>）。
       #
-      # 踩过一次：`launch_ced_full.sh` 只设了 CED_EXPERIMENTAL_GRAPH=1，
-      # 忘了这两个，于是 144K 多轮 3/3 全乱码 —— 看起来像 CED 的缺陷，
-      # 实际是启动参数不全。这里改成 fail-closed，缺一个就拒绝起服。
-      #   V41_CED_GRAPH_PROMPT_TAIL_EAGER=1  单 token prompt 尾步强制走 eager
-      #   V41_CED_METADATA_INLINE=1          metadata 走主流
-      _missing=""
-      [ "${V41_CED_GRAPH_PROMPT_TAIL_EAGER:-0}" = "1" ] || _missing="$_missing V41_CED_GRAPH_PROMPT_TAIL_EAGER=1"
-      [ "${V41_CED_METADATA_INLINE:-0}" = "1" ] || _missing="$_missing V41_CED_METADATA_INLINE=1"
-      if [ -n "$_missing" ]; then
-        echo "[a3-ced][FAIL] CED_EXPERIMENTAL_GRAPH=1 还要求：$_missing" >&2
-        echo "[a3-ced][FAIL] 缺它们会静默输出乱码（实测 144K 多轮 3/3 全错）。" >&2
-        echo "[a3-ced][FAIL] 若确实要裸跑图模式做诊断，设 V41_CED_ALLOW_BARE_GRAPH=1。" >&2
-        [ "${V41_CED_ALLOW_BARE_GRAPH:-0}" = "1" ] || exit 2
-        echo "[a3-ced][WARN] V41_CED_ALLOW_BARE_GRAPH=1：已放行裸图模式，结果不可当正确性证据" >&2
+      # 踩过一次：`launch_ced_full.sh` 只设了 CED_EXPERIMENTAL_GRAPH=1、
+      # 忘了这个开关，于是 144K 多轮 3/3 全乱码 —— 看起来像 CED 的缺陷，
+      # 实际是启动参数不全（见 docs/CED-PD-GRAPH-PREREQ-20260925.md）。
+      #
+      # ⚠️ 这里**不再**要求 V41_CED_METADATA_INLINE：2026-09-25 核实，
+      # 当前分支上没有任何代码读它（只出现在脚本与文档里）；
+      # device-metadata 路径已无条件启用（dsa_v41.py::enable_device_metadata
+      # 直接置 True）。通过 21/21 验收的那台 D 日志里
+      # `[CED-META] inline metadata` 出现 **0** 次 ⇒ 它从来不是真判据。
+      if [ "${V41_CED_GRAPH_PROMPT_TAIL_EAGER:-0}" != "1" ]; then
+        echo "[a3-ced][FAIL] CED_EXPERIMENTAL_GRAPH=1 还要求 V41_CED_GRAPH_PROMPT_TAIL_EAGER=1" >&2
+        echo "[a3-ced][FAIL] 缺它会静默输出乱码（实测 144K 多轮 3/3 全错）。" >&2
+        if [ "${V41_CED_ALLOW_BARE_GRAPH:-0}" = "1" ]; then
+          echo "[a3-ced][WARN] V41_CED_ALLOW_BARE_GRAPH=1：已放行裸图模式，结果不可当正确性证据" >&2
+        else
+          echo "[a3-ced][FAIL] 若确实要裸跑图模式做诊断，设 V41_CED_ALLOW_BARE_GRAPH=1。" >&2
+          exit 2
+        fi
       fi
       echo "[a3-ced][WARN] D 图模式仅供定位；真实权重短针在此模式 2/2 失败" >&2
       ;;

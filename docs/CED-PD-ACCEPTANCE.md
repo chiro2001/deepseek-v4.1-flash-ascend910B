@@ -51,7 +51,9 @@ export KV_DTYPE=bfloat16 ENGRAM=1 ENGRAM_DEVICE_INDEX=0 CPU_BIND=0
 export STATIC_KERNEL=0 NPUGRAPH_EX=1 MULTISTREAM=0 DSA_OVERLAP=0
 # 图模式 + prompt 尾步 eager + metadata 主流；SWA clip 修复默认开。
 export CED_EXPERIMENTAL_GRAPH=1
-export V41_CED_GRAPH_PROMPT_TAIL_EAGER=1 V41_CED_METADATA_INLINE=1
+# ★ 必需：缺它图模式会静默输出乱码（launcher 已 fail-closed）
+export V41_CED_GRAPH_PROMPT_TAIL_EAGER=1
+# V41_CED_METADATA_INLINE 已废弃（无代码读取），留着无害但不要当判据
 export V41_CED_SWA_CLIP=1
 bash scripts/serve_a3_ced_pd.sh decode
 ```
@@ -74,9 +76,14 @@ bash scripts/serve_a3_pd_proxy.sh
 curl -sf http://127.0.0.1:18990/health && curl -sf http://127.0.0.1:18991/health
 curl -sf http://127.0.0.1:18992/v1/models | head -c 200
 # D 侧必须看到（缺任何一条都说明跑的不是本文口径）：
-#   [CED-META] inline metadata group=...            （metadata 主流）
-#   [CED-GRAPH] one-token prompt tail forced eager  （prompt 尾步 eager）
+#   [CED-GRAPH] one-token prompt tail forced eager  （prompt 尾步 eager；由
+#       V41_CED_GRAPH_PROMPT_TAIL_EAGER=1 触发，**缺它会长上下文静默乱码**）
 #   Replaying aclgraph                              （生成仍走图）
+#
+# ⚠️ 2026-09-25 更正：这里原本还要求 `[CED-META] inline metadata`，那条**已过期** ——
+# 当前分支上没有任何代码打印它，V41_CED_METADATA_INLINE 也不被任何代码读取
+# （device-metadata 已无条件走主流）。通过 21/21 验收的那台 D 日志里它出现 0 次。
+# 详见 docs/CED-PD-GRAPH-PREREQ-20260925.md。
 ```
 
 ## 3. 验收矩阵
