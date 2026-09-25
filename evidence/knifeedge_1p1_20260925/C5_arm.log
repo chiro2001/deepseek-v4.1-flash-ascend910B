@@ -1,0 +1,25 @@
+[arm C5] 起 D（C=29600，池顶=29599）
+[KVGEOM] role=kv_consumer num_blocks=29600 n_addr=4 block_len=[131072, 131072, 131072, 147712] block_stride=[131072, 131072, 131072, 147712] lengths=[3879731200, 3879731200, 3879731200, 4372275200]
+[arm C5] 桥请求 n=64386
+  64386   504       1     504   504       
+[arm C5] 同长度序列 n=64898，stop_max=29599
+[walk] #053 series[53] n=64898 http=200 wall=4.6s dump_n=508 min=28034 max=28541 mono=True tok=' SJ' lp=-11.769637 usage=64898
+[walk] #054 series[54] n=64898 http=200 wall=4.6s dump_n=508 min=28563 max=29070 mono=True tok=' SJ' lp=-11.769637 usage=64898
+[walk] #055 series[55] n=64898 http=200 wall=4.6s dump_n=508 min=29092 max=29599 mono=True tok=' SJ' lp=-11.769637 usage=64898
+[series] ✓ 第 55 条精确停在 stop_max=29599
+[walk] #056 post[1] n=64898 http=200 wall=4.6s dump_n=508 min=1 max=1033 mono=False tok=' SJ' lp=-11.769637 usage=64898
+[walk] #057 post[2] n=64898 http=200 wall=4.6s dump_n=508 min=526 max=1562 mono=False tok=' SJ' lp=-11.769637 usage=64898
+[arm C5] 判据表
+ 53 series[53]              64898   508   28034   28541             SJ  -11.769637  200    4.6
+ 54 series[54]              64898   508   28563   29070             SJ  -11.769637  200    4.6
+ 55 series[55]              64898   508   29092   29599             SJ  -11.769637  200    4.6
+ 56 post[1]                 64898   508       1    1033             SJ  -11.769637  200    4.6
+ 57 post[2]                 64898   508     526    1562             SJ  -11.769637  200    4.6
+
+# 同 n 分组一致性（单变量判据：同 prompt 长度 ⇒ 输出应逐字段一致）
+  n= 64386 请求数=1 max_id=[504..504] 输出指纹=一致
+  n= 64898 请求数=57 max_id=[1033..29599] 输出指纹=一致
+
+# 池顶判定
+  max=29599 n=64898 label=series[55] tok=' SJ' lp=-11.769637 → 与低块号同 n 输出一致 ⇒ 池顶未造成变化
+[arm C5] 完成：/home/l00886679/projects/dsv41-ced-singlechip/pkg-swa-clip/results/C5_d/series.jsonl
