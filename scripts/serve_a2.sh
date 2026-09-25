@@ -1210,6 +1210,7 @@ if [ "${V41_CED_ROLE:-}" = "decode" ]; then
     git apply --unidiff-zero --check /opt/dsv41/ced_scheduler_replay.patch || exit 1
     git apply --unidiff-zero /opt/dsv41/ced_scheduler_replay.patch || exit 1
     grep -Fq "[CED-D] replay request=" vllm/v1/core/sched/scheduler.py || exit 1
+    grep -Fq "[CED-KVRECV]" vllm/v1/core/sched/scheduler.py || exit 1
     echo APPLIED' 2>/dev/null | tail -1)
   [ "${_ced_patch:-}" = "APPLIED" ] || die "CED decode replay 调度补丁未应用"
 fi

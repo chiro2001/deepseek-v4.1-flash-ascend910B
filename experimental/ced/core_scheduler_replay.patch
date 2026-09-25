@@ -1,16 +1,29 @@
-diff --git a/vllm/v1/core/sched/scheduler.py b/vllm/v1/core/sched/scheduler.py
-index 851260f..1961699 100644
 --- a/vllm/v1/core/sched/scheduler.py
 +++ b/vllm/v1/core/sched/scheduler.py
-@@ -653,0 +654,3 @@ class Scheduler(SchedulerInterface):
+@@ -651,6 +651,9 @@
+                 + request.num_output_placeholders
+                 - request.num_computed_tokens
+             )
 +            ced_replay_end = getattr(request, "ced_replay_end", 0)
 +            if ced_replay_end and request.num_computed_tokens < ced_replay_end:
 +                num_new_tokens = min(num_new_tokens, ced_replay_end - request.num_computed_tokens)
-@@ -1028,0 +1032,3 @@ class Scheduler(SchedulerInterface):
+             if 0 < self.scheduler_config.long_prefill_token_threshold < num_new_tokens:
+                 num_new_tokens = self.scheduler_config.long_prefill_token_threshold
+             num_new_tokens = min(num_new_tokens, token_budget)
+@@ -1026,6 +1029,9 @@
+                     # `request.num_prompt_tokens` to consider the resumed
+                     # requests, which have output tokens.
+                     num_new_tokens = request.num_tokens - num_computed_tokens
 +                    ced_replay_end = getattr(request, "ced_replay_end", 0)
 +                    if ced_replay_end and num_computed_tokens < ced_replay_end:
 +                        num_new_tokens = min(num_new_tokens, ced_replay_end - num_computed_tokens)
-@@ -2952,3 +2958,40 @@ class Scheduler(SchedulerInterface):
+ 
+                     # Pad new decode requests to uniform spec decoding size to
+                     # preserve full cudagraph for this step.
+@@ -2949,9 +2955,46 @@
+             # This will cache the blocks iff caching is enabled.
+             self.kv_cache_manager.cache_blocks(request, request.num_computed_tokens)
+ 
 -            # on a full prompt hit, we need to re-compute the last token
 -            # in order to be able to sample the next token
 -            if request.num_computed_tokens == request.num_tokens:
@@ -54,3 +67,35 @@ index 851260f..1961699 100644
 +                    )
 +            # On a full prompt hit, re-compute the last token for logits.
 +            elif request.num_computed_tokens == request.num_tokens:
+                 request.num_computed_tokens = request.num_tokens - 1
+ 
+         self.finished_recving_kv_req_ids.remove(request.request_id)
+@@ -3013,6 +3056,28 @@
+             req = self.requests[req_id]
+             if req.status == RequestStatus.WAITING_FOR_REMOTE_KVS:
+                 self.finished_recving_kv_req_ids.add(req_id)
++            elif RequestStatus.is_finished(req.status):
++                self._free_blocks(self.requests[req_id])
++            elif os.environ.get("V41_CED_ROLE") == "decode" and os.environ.get(
++                "V41_CED_KVRECV_NOOP", "1"
++            ) == "1":
++                # [CED-KVRECV-NOOP] 2026-09-26. When D's local prefix cache covers
++                # the whole prompt, num_external_tokens == 0, so the scheduler
++                # never parks the request in WAITING_FOR_REMOTE_KVS -- yet the
++                # connector still registers one receive so that P's send gets an
++                # ack (_transfer_kv_cache_all_groups early-returns when
++                # num_local_blocks == 0 and only sends the done signal). The
++                # worker then reports finished_recving while the request is
++                # already RUNNING, and stock's
++                # `assert RequestStatus.is_finished(req.status)` kills the engine
++                # (observed: 1M cache hit, scheduler.py:3060).
++                # Nothing was pulled and nothing must be freed, so ignore it.
++                logger.info(
++                    "[CED-KVRECV] no-op recv for running req %s (status=%s): "
++                    "D local full hit, nothing to pull or free",
++                    req_id,
++                    req.status,
++                )
+             else:
+                 assert RequestStatus.is_finished(req.status)
+                 self._free_blocks(self.requests[req_id])
