@@ -1259,6 +1259,28 @@ if [ "$DRAFT_GRAPH" = "1" ]; then
 fi
 
 mkdir -p "$OUT"
+# ---------- [CED-POOL-GUARD] 4 GiB 页步长上界 ----------
+# 背景（docs/CED-PD-BLOCK-BOUND-20260925.md §5.1.2/§5.1.4）：KV cache 的打包布局
+# 里槽位 3 的页步长是 147712 B（layer-20 C1 KV 131072 + INT8 index K 16384
+# + FP16 scales 256）。一旦 `num_blocks × 页步长` 越过 2³²，算子按 32 位算出的
+# 块地址会回绕到别的块，长上下文请求静默变成"HTTP 200 + 1 token（EOS）"。
+#
+# 这里放在**公共底层**（serve_a2.sh）而不是某个角色脚本里，因为
+# serve_a3_pd.sh / serve_a3_ced_pd.sh / serve_a3_ced_single.sh 最终都汇到这里，
+# 放在上层会被实验用的旁路启动器绕过（已踩过一次）。
+# 判据同样用**页尾**：num_blocks ≤ ⌊2³² / 147712⌋ = 29076。
+# 与它配套的**强制**校验在连接器里（[CED-32BIT-GUARD]，按实测 stride 抛错）。
+if [ "${V41_CED_ALLOW_32BIT_OVERFLOW:-0}" != "1" ] && [ -n "${KV_CACHE_MEMORY_BYTES:-}" ]; then
+  _ced_max_blocks=${CED_MAX_NUM_BLOCKS:-29076}
+  _ced_bytes_per_block=${CED_BYTES_PER_BLOCK:-540928}
+  _ced_cap=$(( _ced_max_blocks * _ced_bytes_per_block ))
+  if [ "$KV_CACHE_MEMORY_BYTES" -gt "$_ced_cap" ]; then
+    echo "[serve_a2] WARNING: KV_CACHE_MEMORY_BYTES=$KV_CACHE_MEMORY_BYTES 会让池超过 4 GiB 寻址上界（$_ced_max_blocks 块）"
+    echo "[serve_a2] WARNING: 钳到 $_ced_cap B（num_blocks=$_ced_max_blocks）。要绕过设 V41_CED_ALLOW_32BIT_OVERFLOW=1"
+    KV_CACHE_MEMORY_BYTES=$_ced_cap
+  fi
+fi
+
 {
   echo "[serve_a2] run_id=$RUN_ID image=$IMAGE model=$MODEL"
   echo "[serve_a2] port=$PORT served_name=$SERVED_NAME tp=$TP dp=$DP util=$GPU_UTIL max_len=$MAX_LEN max_seqs=$MAX_SEQS bat=$BAT_TOKENS"
