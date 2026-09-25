@@ -42,8 +42,11 @@ cleanup_d_containers() {
     echo "$names" | xargs -r docker rm -f >/dev/null 2>&1 || true
   fi
   # 等卡真正释放（VLLMWorker 退出），最多 5 分钟
+  # ★ 只数 **D 的 chip8–15**：P 容器在 chip0–7 也有 8 个 VLLMWorker，
+  #   第一版按全机计数 ⇒ 永远看到 8 ⇒ 白等满 5 分钟（2026-09-25 实测）。
   for _ in $(seq 1 60); do
-    n=$(npu-smi info 2>/dev/null | sed -n '/Process id/,$p' | grep -c "VLLMWorker")
+    n=$(npu-smi info 2>/dev/null | sed -n '/Process id/,$p' \
+        | awk -F'|' '/VLLMWorker/ {split($2,a," "); phy=a[1]*2+a[2]; if (phy>=8 && phy<=15) c++} END{print c+0}')
     [ "$n" = "0" ] && { say "卡已释放（VLLMWorker=0）"; return 0; }
     sleep 5
   done
