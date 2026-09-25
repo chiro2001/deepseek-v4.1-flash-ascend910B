@@ -1881,6 +1881,46 @@ class MooncakeConnectorWorker:
         else:
             raise TypeError("Mooncake connector does not support this type kv_cache now.")
 
+        # [CED-KVGEOM] 只读几何探针：把连接器看到的每层 KV 张量形状/stride 与
+        # 传输用的 block_len/block_stride、注册长度打出来。用于核对"块号阈值"
+        # 假说里真正参与寻址的每块字节数（147456 = 128x576x2 还是 packed stride）。
+        if os.environ.get("V41_CED_KVGEOM", "0") == "1":
+            try:
+                seen = set()
+                for layer_name, kv_cache_tuple in kv_caches.items():
+                    tensors = kv_cache_tuple if isinstance(kv_cache_tuple, (list, tuple)) else [kv_cache_tuple]
+                    for single in tensors:
+                        key = (str(layer_name).rsplit(".", 1)[-1], tuple(single.shape), tuple(single.stride()))
+                        if key in seen:
+                            continue
+                        seen.add(key)
+                        es = single.element_size()
+                        page = 1
+                        for dim in single.shape[1:]:
+                            page *= int(dim)
+                        ptr = int(single.data_ptr())
+                        stride_bytes = int(single.stride(0)) * es
+                        print(
+                            f"[CED-KVGEOM] role={self.kv_role} layer={layer_name} "
+                            f"shape={tuple(single.shape)} stride={tuple(single.stride())} "
+                            f"dtype={single.dtype} es={es} ptr=0x{ptr:x} "
+                            f"ptr_mod_4g={ptr % (2**32)} "
+                            f"last_block_start_mod_4g={(ptr + (self.num_blocks - 1) * stride_bytes) % (2**32)} "
+                            f"end_addr_mod_4g={(ptr + self.num_blocks * stride_bytes) % (2**32)} "
+                            f"block_stride_bytes={stride_bytes} "
+                            f"page_content_bytes={page * es} "
+                            f"limit_2p32_on_stride={2**32 // max(1, int(single.stride(0)) * es)} "
+                            f"limit_2p32_on_page={2**32 // max(1, page * es)}",
+                            flush=True,
+                        )
+                print(
+                    f"[CED-KVGEOM] role={self.kv_role} num_blocks={self.num_blocks} "
+                    f"n_addr={len(ptrs)} block_len={self.block_len_per_addr} "
+                    f"block_stride={self.block_stride_per_addr} lengths={lengths}",
+                    flush=True,
+                )
+            except Exception as exc:  # noqa: BLE001 - 探针不得影响主路径
+                print(f"[CED-KVGEOM] skipped: {exc!r}", flush=True)
         global_te.register_buffer(ptrs, lengths)
         # After KV Caches registered, start the sending or receiving thread.
         metadata = MooncakeAgentMetadata(

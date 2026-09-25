@@ -31,11 +31,10 @@ case "$role" in
   *) echo "用法：$0 prefill|decode|baseline" >&2; exit 2 ;;
 esac
 
-case " $DEVS " in
-  " 0 "|" 1 ") echo "A3-22 chip0/chip1 已预留，不能用于本实验" >&2; exit 2 ;;
-esac
-[ "$DEVS" = 6 ] || [ "$DEVS" = 7 ] || {
-  echo "本单卡实验仅使用 A3-22 当前空闲的 Phy-ID 6/7；收到 DEVS=$DEVS" >&2
+# 可用卡：0/1（用户 2026-09-25 明确划给本实验的 1+1）与 6/7（原空闲卡）。
+# 其余卡一律拒绝，避免踩到同事的进程。
+[ "$DEVS" = 0 ] || [ "$DEVS" = 1 ] || [ "$DEVS" = 6 ] || [ "$DEVS" = 7 ] || {
+  echo "本单卡实验仅使用 A3-22 的 Phy-ID 0/1/6/7；收到 DEVS=$DEVS" >&2
   exit 2
 }
 

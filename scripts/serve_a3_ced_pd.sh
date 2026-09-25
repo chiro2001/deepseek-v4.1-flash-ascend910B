@@ -56,6 +56,28 @@ if [ "$role" = decode ]; then
 fi
 export SERVED_NAME=${SERVED_NAME:-deepseek-v41-ced-pd}
 export NAME=${NAME:-dsv41-ced-${role}-${stamp}}
+
+# [CED-D-POOL-GUARD] 2026-09-25：D 侧的 KV 池若放大到 29084 块以上，长上下文请求
+# 会偶发静默空回答（HTTP 200 + completion_tokens=1 + token_ids=[1]）。实测边界
+# T ∈ (29077, 29084]（见 docs/CED-PD-BLOCK-BOUND-20260925.md）：
+#   C=29077/29078 → 池顶 29076/29077，全过
+#   C=29128/29129 → 池顶 29127/29128，必失败
+#   C=29600 同一实例内 max=29084 失败、max=29063/27482 通过
+# 在找到 32 位截断的确切位置之前，decode 角色的池一律钳到 T-1 = 29077 块，
+# 换算成 KV_CACHE_MEMORY_BYTES = 29078 × 540928（每块实测 540928 B）。
+if [ "$role" = decode ]; then
+  CED_D_MAX_POOL_BLOCKS=${CED_D_MAX_POOL_BLOCKS:-29077}
+  CED_D_BYTES_PER_BLOCK=${CED_D_BYTES_PER_BLOCK:-540928}
+  ced_pool_cap=$(( (CED_D_MAX_POOL_BLOCKS + 1) * CED_D_BYTES_PER_BLOCK ))
+  if [ -n "${KV_CACHE_MEMORY_BYTES:-}" ] && [ "$KV_CACHE_MEMORY_BYTES" -gt "$ced_pool_cap" ]; then
+    echo "[a3-ced][WARN] KV_CACHE_MEMORY_BYTES=$KV_CACHE_MEMORY_BYTES 会让 D 池超过安全块数" >&2
+    echo "[a3-ced][WARN] 钳到 $ced_pool_cap（=$((CED_D_MAX_POOL_BLOCKS + 1)) 块，池顶 $CED_D_MAX_POOL_BLOCKS）" >&2
+    export KV_CACHE_MEMORY_BYTES=$ced_pool_cap
+  elif [ -z "${KV_CACHE_MEMORY_BYTES:-}" ]; then
+    export KV_CACHE_MEMORY_BYTES=$ced_pool_cap
+    echo "[a3-ced] D 池按安全上限设置：$KV_CACHE_MEMORY_BYTES B（$((CED_D_MAX_POOL_BLOCKS + 1)) 块）"
+  fi
+fi
 if [ -n "${CED_SNAPSHOT_POS:-}" ]; then
   export V41_CED_SNAPSHOT_POS=$CED_SNAPSHOT_POS
   export V41_CED_SNAPSHOT_DIR="/opt/dsv41/results/$RUN_ID/snapshots"

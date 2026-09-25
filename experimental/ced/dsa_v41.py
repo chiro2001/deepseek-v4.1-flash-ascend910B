@@ -58,6 +58,7 @@ _CED_SWA_CLIP = os.environ.get("V41_CED_SWA_CLIP", "1") == "1"
 # 未裁剪路径会让这个 bug 悄悄复活 —— 本次调查里"静默降级 ⇒ 偶发错误"踩过太多次，
 # 所以这里至少留一条响亮的一次性告警。
 _CED_SWA_CLIP_CAPTURE_WARNED = [False]
+_CED_KVGEOM_SEEN: set[tuple[int, str]] = set()
 
 
 def _ced_is_capturing() -> bool:
@@ -783,6 +784,40 @@ class DeepseekV41EagerAttentionImpl:
         op_metadata = operator_metadata.smla_metadata
         if op_metadata is None:
             raise RuntimeError(f"V4.1 ratio-{ratio} SMLA metadata was not built")
+        # [CED-KVGEOM] 只读几何探针：打印算子实际收到的 KV / 块表张量的 shape、stride、
+        # dtype，以及"由页大小推出的 32 位寻址上限"。用于验证"块号 ≥ 2^32 / 页字节数
+        # 时静默失效"这一假说（见 docs/CED-PD-HANDOVER-20260925-1345.md 第 5.2 节）。
+        if os.environ.get("V41_CED_KVGEOM", "0") == "1" and not _ced_is_capturing():
+            try:
+                def _geom(tag, tensor):
+                    if tensor is None:
+                        return
+                    key = (self.role.layer_idx, tag)
+                    if key in _CED_KVGEOM_SEEN:
+                        return
+                    _CED_KVGEOM_SEEN.add(key)
+                    es = tensor.element_size()
+                    page_bytes = int(tensor.stride(0)) * es
+                    print(
+                        f"[CED-KVGEOM] layer={self.role.layer_idx} {tag} "
+                        f"shape={tuple(tensor.shape)} stride={tuple(tensor.stride())} "
+                        f"dtype={tensor.dtype} es={es} page_bytes={page_bytes} "
+                        f"limit_2p32_bytes={2**32 // max(1, page_bytes)} "
+                        f"limit_2p31_bytes={(2**31) // max(1, page_bytes)}",
+                        flush=True,
+                    )
+
+                _geom("ori_kv", attn.dsa_attn.swa_cache_layer.kv_cache[0])
+                _geom("cmp_kv", source_cache)
+                _geom("ori_block_table", ori_block_table)
+                _geom("cmp_block_table", cmp_block_table)
+                for _name in ("long_kv_cache", "indexer"):
+                    _mod = getattr(attn, _name, None)
+                    _cache = getattr(getattr(_mod, "k_cache", None), "kv_cache", None)
+                    if _cache:
+                        _geom(f"{_name}.k_cache", _cache[0])
+            except Exception as exc:  # noqa: BLE001 - 探针不得影响主路径
+                print(f"[CED-KVGEOM] skipped: {exc!r}", flush=True)
         wait_for_device_metadata(
             DeviceMetadataStage.ATTENTION,
             id(op_metadata),
