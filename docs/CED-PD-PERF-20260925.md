@@ -241,28 +241,45 @@ prefill 比随上下文放大：**1.74× → 2.07× → 2.78×**。
 ## 5. 尚未完成
 
 1. ~~基线 1M 的**四针正确性**只跑到第一条~~ —— **已在 22:13 补齐 4/4**（见 §2.1）。
-2. 1M 比值 2.77× 大于层数比 2.0×，**未归因**：需要 P 侧 profiler 对照
-   （20 层 vs 40 层的算子/访存构成）。两侧 144K 的 profiler 已采集：
+2. 1M 比值 2.77× 大于层数比 2.0×。**部分归因**（剩下的不打算再追）：
+   两臂的 prefill 速率随上下文衰减得不一样 ——
+   基线 32K→1M 是 **7,219 → 3,557 tok/s（−51%）**，
+   CED 是 **12,536 → 9,897（−21%）**。
+   也就是说 40 层 P 在长序列下的退化比 20 层 P 更陡，所以比值从 2.0× 涨到 2.77×。
+   这符合"被砍掉的正是长序列下最贵的那 20 层"，不需要额外的机制解释。
+   若要进一步拆到算子/访存级，两侧 144K 的 profiler 都已采集：
 
    | 臂 | 容器 | `torch_profiler_dir` | 大小 |
    |---|---|---|---|
    | CED P | `dsv41-ced-prof-p` | `/opt/dsv41/results/ced_prof_p_0925_171906/prof` | 4.3 G |
    | CED D | `dsv41-ced-prof-d` | `/opt/dsv41/results/ced_prof_d_0925_165058/prof` | 1.2 G |
-   | 基线 P | `dsv41-base-p` | `/opt/dsv41/results/ced_base_p_0925_181150/prof` | 待测 |
-   | 基线 D | `dsv41-base-d-ms0` | `/opt/dsv41/results/ced_base_d_ms0_0925_184318/prof` | 待测 |
+   | 基线 P | `dsv41-base-p` | `/opt/dsv41/results/ced_base_p_0925_181150/prof` | 8.1 G（已采集） |
+   | 基线 D | `dsv41-base-d-ms0` | `/opt/dsv41/results/ced_base_d_ms0_0925_184318/prof` | 811 M（已采集） |
 
    目录属主是容器内 root，宿主侧 `ls` 会 Permission denied，需
    `docker exec <容器> bash -lc 'ls /opt/dsv41/results/<run>/prof'`；
    分析用容器内的 `msprof`（CANn 9.1.0）。
-3. D 侧多流在什么长度开始出错、以及具体是哪条流缺少依赖，尚未定位。
+3. 缓存命中已在 CED 臂验证（见 §5.1 与
+   [`CED-PD-CACHE-HIT-PLAN-20260925.md`](CED-PD-CACHE-HIT-PLAN-20260925.md) §10）。
+4. **明确不在本目标范围内**的遗留项：D 侧多流（基线的 `MULTISTREAM=1`）在什么长度
+   开始出错、以及具体缺哪条同步 —— 这是**全 40 层基线自身**的缺陷
+   （§3 单变量定位到开关，但根因未定），与 CED 无关。
 
-### 5.1 顺带的独立结论：缓存命中仍不可用
+### 5.1 缓存命中：**已解决**（本节早先的"不可用"结论已作废）
 
-`prefix` 模式两臂都能答对（CED 144K 2/2、1M 2/2），但两次请求的
-`usage.prompt_tokens_details.cached_tokens` **都是 0**，`prefix_cache_hits_total` 增量也是 0
-⇒ 这两次只是"同前缀各算一遍"，**没有验证到缓存命中**。原因见
-[`CED-PD-ACCEPTANCE.md`](CED-PD-ACCEPTANCE.md)：CED 启动器硬门 `PREFIX=0`，
-且 D 侧预清零只覆盖 `get_unhashed_block_ids`。这一项仍是代码级阻断。
+早先这里写的是"`cached_tokens` 恒为 0 ⇒ 缓存命中不可用"。那个判断有两处错：
+
+1. **判据错了**：`usage.prompt_tokens_details.cached_tokens` 经 PD 代理**恒为 0**，
+   即使真的命中也一样。正确判据是服务端
+   `vllm:prefix_cache_hits_total` / `prompt_tokens_by_source_total{source="local_cache_hit"}`。
+2. **结论错了**：缓存命中本身是好的 —— 基线已实测可用且正确；
+   CED 臂在 144K 与 1M 的常规/整池/交错命中**全部通过**，
+   1M 命中 105.7 s → 6.0 s（≈18×）。
+
+期间修掉两个**独立**的 stock 断言崩溃（P 的 `assert num_new_tokens > 0`、
+D 的 `assert RequestStatus.is_finished`）。完整证据见
+[`CED-PD-CACHE-HIT-PLAN-20260925.md`](CED-PD-CACHE-HIT-PLAN-20260925.md) §4/§6/§10
+与 [`../evidence/ced_prefix_hit_20260926/CED_SIDE_RESULT.md`](../evidence/ced_prefix_hit_20260926/CED_SIDE_RESULT.md)。
 
 ## 6. 复现命令
 
