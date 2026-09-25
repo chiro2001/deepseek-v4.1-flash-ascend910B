@@ -15,7 +15,8 @@ if [ -n "${V41_CED_ROLE:-}" ] && [ "$V41_CED_ROLE" != "$role" ]; then
   echo "[a3-ced][FAIL] V41_CED_ROLE=$V41_CED_ROLE 与角色 $role 不一致" >&2
   exit 2
 fi
-for setting in "SPEC:${SPEC:-0}" "PREFIX:${PREFIX:-0}" "DRAFT_GRAPH:${DRAFT_GRAPH:-0}"; do
+# SPEC / DRAFT_GRAPH 保持硬门；PREFIX 的硬门在下面单独处理（可用显式开关放行）。
+for setting in "SPEC:${SPEC:-0}" "DRAFT_GRAPH:${DRAFT_GRAPH:-0}"; do
   key=${setting%%:*}
   value=${setting#*:}
   if [ "$value" != 0 ]; then
@@ -26,7 +27,27 @@ done
 
 stamp=$(date +%Y%m%d_%H%M%S)
 export RUN_ID=${RUN_ID:-ced_${role}_${stamp}}
-export V41_CED_ROLE=$role SPEC=0 PREFIX=0 DRAFT_GRAPH=0 PATCH_MODE=mount
+export V41_CED_ROLE=$role SPEC=0 DRAFT_GRAPH=0 PATCH_MODE=mount
+# [CED-PREFIX-EXPERIMENT] 2026-09-26：`PREFIX=1` 原先是硬门（直接 exit 2）。
+# 基线口径的前缀缓存已在真机上验证**可用且正确**（144,000 tok 命中、命中答案与冷
+# 路径逐字节相同，见 evidence/ced_prefix_hit_20260926/），所以"CED 能不能开缓存"
+# 值得实测，而不是停在推断上。
+#
+# 打开方式（显式）：V41_CED_ALLOW_PREFIX=1 + PREFIX=1
+#   ⚠️ 这是**实验臂**。文档 CED-PD-CACHE-HIT-PLAN-20260925.md §2 列了三处代码级前提
+#   （调度器边界断言 / D 侧对 hashed 块预清零 / 上半层 SWA 的残留），
+#   其中任一处没处理干净都会**静默算错**，所以结果不能当交付口径。
+if [ "${PREFIX:-0}" != "0" ]; then
+  if [ "${V41_CED_ALLOW_PREFIX:-0}" != "1" ]; then
+    echo "[a3-ced][FAIL] PREFIX=$PREFIX；CED 原型默认要求 PREFIX=0。" >&2
+    echo "[a3-ced][FAIL] 要跑缓存命中实验臂，显式设 V41_CED_ALLOW_PREFIX=1。" >&2
+    exit 2
+  fi
+  echo "[a3-ced][WARN] V41_CED_ALLOW_PREFIX=1：CED 开前缀缓存属实验臂，结果不可当交付证据" >&2
+  echo "[a3-ced][WARN] 需先处理 CED-PD-CACHE-HIT-PLAN-20260925.md §2 的三处前提" >&2
+else
+  export PREFIX=0
+fi
 export STATIC_KERNEL=${STATIC_KERNEL:-0}
 if [ "$role" = decode ]; then
   # Both arms are diagnostic until the graph-mode corruption is fixed.
