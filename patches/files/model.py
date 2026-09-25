@@ -903,8 +903,31 @@ class DeepseekV41Model(DeepseekV4Model):
         if ced_role not in ("", "prefill", "decode"):
             raise ValueError(f"Unsupported V41_CED_ROLE={ced_role!r}")
         self._ced_prefill_only = ced_role == "prefill"
-        if ced_role and vllm_config.speculative_config is not None:
-            raise ValueError("V41_CED_ROLE=prefill/decode requires SPEC=0 during the replay prototype")
+        # [CED-DSPARK] 2026-09-26：把一刀切禁令按角色拆开。
+        #
+        #   * prefill：**架构性不可行**，永远拒绝。DSpark 的 aux hidden state 取自
+        #     目标层 37/38/39（config.json 的 dspark_target_layer_ids=[37,38,39]
+        #     → eagle3_utils 转成 1-based [38,39,40] → 命中 layer_idx 37/38/39），
+        #     而 CED 的 P 在第 20 层就 break：这三层的残差在 P 上物理不存在。
+        #     runner 又因为 dspark 强制 use_aux_hidden_state_outputs=True 而无条件
+        #     解包两个返回值 ⇒ aux=[] ⇒ 启动即崩。
+        #   * decode：**允许，但必须显式放行**。默认拒绝，与 PREFIX 一样把
+        #     "实验臂"和"交付口径"分开；开了以后结果不能当交付证据。
+        if ced_role == "prefill" and vllm_config.speculative_config is not None:
+            raise ValueError(
+                "V41_CED_ROLE=prefill requires SPEC=0: DSpark consumes the residual "
+                "streams entering target layers 37/38/39, which the layers 0..19 "
+                "producer never executes"
+            )
+        if (
+            ced_role == "decode"
+            and vllm_config.speculative_config is not None
+            and _os_ids.environ.get("V41_CED_ALLOW_DSPARK", "0") != "1"
+        ):
+            raise ValueError(
+                "V41_CED_ROLE=decode with SPEC!=0 is an experimental arm: "
+                "set V41_CED_ALLOW_DSPARK=1 to acknowledge it"
+            )
         if self._ced_prefill_only:
             print("[CED-P] internal producer: layers 0..19 plus layer-20 global source; response is a transfer marker", flush=True)
         # Development gate: compare the isolated CED layer-20 source write with

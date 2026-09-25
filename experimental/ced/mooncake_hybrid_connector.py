@@ -76,6 +76,50 @@ DONE_RECVING_MSG = b"done_recving_msg"
 MAX_REQUESTS_PER_PEER_HANDLER = 5
 
 
+def _ced_detect_swa_groups(kv_cache_config) -> tuple[tuple[int, ...], tuple[int, ...]]:
+    """认出"生产者不发送、D 侧必须自己管"的 SWA 组。
+
+    返回 ``(missing, draft_only)``：
+
+    * ``missing``：含 ``*.layers.N.*`` 且最小层号 ≥ 20 的 128 窗口 SWA 组，
+      即上半层 SWA（交付口径下是 ``(7,8,9,10,11)``）。这个元组**是跨实例契约**：
+      P 在 transfer params 里把它发给 D，D 会逐字比对（见
+      ``get_num_new_matched_tokens``），所以两边必须算出完全一样的值。
+    * ``draft_only``：组内**没有任何** ``*.layers.N.*`` 名字的 128 窗口 SWA 组，
+      即 Aurora DSpark 的草稿层组（``mtp.{0,1,2}.*``，交付口径下是 ``(12,)``）。
+      它**不属于跨实例契约**（P 上没有草稿层），只用于 D 侧的预清零与形状校验。
+
+    这个函数在**两个类**里都要用：调度侧的 ``MooncakeConnector``（要发契约）和
+    执行侧的 ``MooncakeConnectorWorker``（要按组预清零）。2026-09-26 这里踩过一次：
+    只在调度侧算、执行侧直接用，结果 `start_load_kv` 抛
+    ``'MooncakeConnectorWorker' object has no attribute 'ced_draft_swa_groups'``，
+    引擎在处理第一条请求时直接死掉 —— 起服阶段完全看不出来。
+    """
+    missing: list[int] = []
+    draft_only: list[int] = []
+    for group_idx, group in enumerate(kv_cache_config.kv_cache_groups):
+        spec = group.kv_cache_spec
+        if isinstance(spec, UniformTypeKVCacheSpecs):
+            specs = list(dict.fromkeys(spec.kv_cache_specs.values()))
+        else:
+            specs = [spec]
+        if not all(getattr(s, "sliding_window", None) == 128 for s in specs):
+            continue
+        layer_indices = {
+            int(match.group(1))
+            for name in group.layer_names
+            if (match := re.search(r"\.layers\.(\d+)\.", name)) is not None
+        }
+        if layer_indices and min(layer_indices) >= 20:
+            missing.append(group_idx)
+        elif not layer_indices:
+            # 组内没有任何 `*.layers.N.*` 名字 ⇒ 只可能是草稿层组。
+            # `group_cache_specs` 把 draft 组**追加在最后**，所以索引必须与
+            # 目标组 0..11 完全错开，不能插在中间。
+            draft_only.append(group_idx)
+    return tuple(missing), tuple(draft_only)
+
+
 class RemotePortInfo(TypedDict):
     num: int
     host: str
@@ -792,7 +836,12 @@ class KVCacheRecvingThread(threading.Thread):
 
         req_start_time = time.perf_counter()
         src_list, dst_list, length_list = [], [], []
-        for i in range(self.hma_group_size):
+        # [CED-DSPARK] 2026-09-26：开了 DSpark 之后 D 有 13 组、生产者只有 12 组。
+        # 传输能覆盖的天然只是双方都有的前缀；第 13 组（草稿 SWA）由
+        # `start_load_kv` 的预清零 + proposer 的 context-KV 投影负责，不参与传输。
+        # 之前三者长度相等，这里按最小长度取避免越界读 `remote_block_ids[12]`。
+        num_transfer_groups = min(self.hma_group_size, len(remote_block_ids), len(local_block_ids))
+        for i in range(num_transfer_groups):
             if not remote_block_ids[i] or not local_block_ids[i]:
                 continue
             cur_remote_block_ids = remote_block_ids[i]
@@ -1388,24 +1437,43 @@ class MooncakeConnectorScheduler:
             cdiv(n_tokens, block_size) + 1 if n_tokens else 0 for n_tokens, block_size in sw_sizes_tokens
         ]
         self.ced_missing_swa_groups: tuple[int, ...] = ()
+        # [CED-DSPARK] 2026-09-26：DSpark 会给 decode 侧追加一个**只含草稿层**
+        # （`mtp.{0,1,2}.*`）的 SWA 组 G12。它同样不与生产者做任何传输，因此属于
+        # "D 本地必须预清零"的集合，但它**不属于跨实例契约**：P 上没有 DSpark，
+        # `ced_missing_swa_groups` 必须保持 (7,8,9,10,11) 原样，否则
+        # `get_num_new_matched_tokens` 里的契约校验会两边对不上。
+        self.ced_draft_swa_groups: tuple[int, ...] = ()
         if self.ced_role:
             if not self.use_compress:
                 raise ValueError("CED connector requires DeepSeek V4.1 compressed cache groups")
-            missing = []
-            for group_idx, group in enumerate(kv_cache_config.kv_cache_groups):
-                if not all(getattr(spec, "sliding_window", None) == 128 for spec in self.kv_cache_specs[group_idx]):
-                    continue
-                layer_indices = {
-                    int(match.group(1))
-                    for name in group.layer_names
-                    if (match := re.search(r"\.layers\.(\d+)\.", name)) is not None
-                }
-                if layer_indices and min(layer_indices) >= 20:
-                    missing.append(group_idx)
+            missing, draft_only = _ced_detect_swa_groups(kv_cache_config)
             if self.ced_role == "prefill" and tuple(missing) != (7, 8, 9, 10, 11):
-                raise RuntimeError(f"CED producer expected upper SWA groups 7..11, got {missing}")
+                raise RuntimeError(f"CED producer expected upper SWA groups 7..11, got {list(missing)}")
+            if self.ced_role == "decode":
+                # [CED-DSPARK-GUARD] P 侧的组索引是 D 侧的前缀；一旦 DSpark 把某个
+                # 组插到中间，`ced_missing_swa_groups` 的 (7..11) 会指向别的组，
+                # 连接器就会**静默清错页**。这条断言把它变成启动期硬错误。
+                if tuple(missing) != (7, 8, 9, 10, 11):
+                    raise RuntimeError(
+                        "CED decoder expected the upper SWA groups at the same indices as "
+                        f"the producer (7..11), got {list(missing)}; P/D group-index alignment is a "
+                        "hard contract and DSpark must not insert groups before index 12"
+                    )
+                if draft_only and tuple(draft_only) != (len(kv_cache_config.kv_cache_groups) - 1,):
+                    raise RuntimeError(
+                        f"CED decoder expected the Aurora DSpark draft group to be the last "
+                        f"group, got draft groups at {list(draft_only)} of "
+                        f"{len(kv_cache_config.kv_cache_groups)}"
+                    )
             self.ced_missing_swa_groups = tuple(missing)
-            logger.info("CED %s: upper SWA groups=%s", self.ced_role, self.ced_missing_swa_groups)
+            self.ced_draft_swa_groups = tuple(draft_only)
+            logger.info(
+                "CED %s: upper SWA groups=%s draft(g12) groups=%s total_groups=%s",
+                self.ced_role,
+                self.ced_missing_swa_groups,
+                self.ced_draft_swa_groups,
+                len(kv_cache_config.kv_cache_groups),
+            )
 
     def get_sw_clipped_blocks(self, block_ids: BlockIds) -> BlockIds:
         """
@@ -1739,6 +1807,33 @@ class MooncakeConnectorWorker:
             and len(kv_cache_config.kv_cache_groups) > 1
         )
         self.hma_group_size = len(kv_cache_config.kv_cache_groups)
+
+        # [CED-DSPARK] 2026-09-26：预清零要在**执行侧**按组做，所以这里也必须拿到
+        # 那两组索引。用与调度侧同一个 `_ced_detect_swa_groups`，保证两边定义一致
+        # （只在一边算过一次，报错是
+        # `'MooncakeConnectorWorker' object has no attribute 'ced_draft_swa_groups'`，
+        # 引擎处理第一条请求时才炸）。
+        self.ced_role = os.environ.get("V41_CED_ROLE", "")
+        if self.ced_role:
+            self.ced_missing_swa_groups, self.ced_draft_swa_groups = _ced_detect_swa_groups(kv_cache_config)
+            if self.ced_role == "decode" and len(kv_cache_config.kv_cache_groups) != (
+                12 + len(self.ced_draft_swa_groups)
+            ):
+                raise RuntimeError(
+                    "CED decoder worker expected 12 producer groups plus the Aurora DSpark "
+                    f"draft groups, got {len(kv_cache_config.kv_cache_groups)} total and "
+                    f"draft={list(self.ced_draft_swa_groups)}"
+                )
+            logger.info(
+                "CED %s (worker): upper SWA groups=%s draft groups=%s total_groups=%s",
+                self.ced_role,
+                self.ced_missing_swa_groups,
+                self.ced_draft_swa_groups,
+                len(kv_cache_config.kv_cache_groups),
+            )
+        else:
+            self.ced_missing_swa_groups = ()
+            self.ced_draft_swa_groups = ()
 
         # Mamba metadata
         self._is_mamba_group = [isinstance(group.kv_cache_spec, MambaSpec) for group in kv_cache_config.kv_cache_groups]
@@ -2101,7 +2196,11 @@ class MooncakeConnectorWorker:
                 # G7..G11 are deliberately absent from the P transfer. Clear
                 # their D-local physical pages before any replay attention can
                 # read an old allocation; this runs on the worker's NPU thread.
-                if len(meta.remote_block_ids) != 12 or len(meta.local_block_ids) != 12:
+                # [CED-DSPARK] 2026-09-26：开了 DSpark 就多一个只含草稿层的 G12，
+                # 它同样不来自 P 传输（P 上没有草稿层），所以预清零集合也要扩到它。
+                # 远端始终是 12：那个契约由 P 侧（无 DSpark）决定，不能跟着 D 变。
+                expected_local_groups = 12 + len(self.ced_draft_swa_groups)
+                if len(meta.remote_block_ids) != 12 or len(meta.local_block_ids) != expected_local_groups:
                     # [CED-GROUP-DIAG] 2026-09-26：这条断言在开 `PREFIX=1` 的 1M
                     # 命中路径上会触发，但原消息只有"expected 12"、看不出**实际**形态，
                     # 排查时只能靠猜。把两侧的组数与每组块数都打出来。
@@ -2118,7 +2217,9 @@ class MooncakeConnectorWorker:
                             return f"not-a-sequence ({type(x).__name__})"
 
                     raise RuntimeError(
-                        "CED decoder expected 12 KV cache groups without DSpark; "
+                        f"CED decoder expected 12 remote (producer) and "
+                        f"{expected_local_groups} local KV cache groups "
+                        f"({len(self.ced_draft_swa_groups)} Aurora DSpark draft-only); "
                         f"remote_groups={len(meta.remote_block_ids)} "
                         f"remote_blocks_per_group={_shape(meta.remote_block_ids)} "
                         f"local_groups={len(meta.local_block_ids)} "
@@ -2126,8 +2227,9 @@ class MooncakeConnectorWorker:
                         f"num_external_tokens={meta.num_external_tokens} "
                         f"req={req_id}"
                     )
-                for group_idx in range(7, 12):
-                    if meta.remote_block_ids[group_idx]:
+                for group_idx in (*self.ced_missing_swa_groups, *self.ced_draft_swa_groups):
+                    # 远端只有 12 组（生产者无 DSpark），G12 在这一侧天然不存在。
+                    if group_idx < len(meta.remote_block_ids) and meta.remote_block_ids[group_idx]:
                         raise RuntimeError(f"CED upper SWA group {group_idx} unexpectedly has remote blocks")
                     local_ids = meta.local_block_ids[group_idx]
                     if not local_ids:

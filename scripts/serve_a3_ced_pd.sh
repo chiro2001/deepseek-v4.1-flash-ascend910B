@@ -15,19 +15,59 @@ if [ -n "${V41_CED_ROLE:-}" ] && [ "$V41_CED_ROLE" != "$role" ]; then
   echo "[a3-ced][FAIL] V41_CED_ROLE=$V41_CED_ROLE 与角色 $role 不一致" >&2
   exit 2
 fi
-# SPEC / DRAFT_GRAPH 保持硬门；PREFIX 的硬门在下面单独处理（可用显式开关放行）。
-for setting in "SPEC:${SPEC:-0}" "DRAFT_GRAPH:${DRAFT_GRAPH:-0}"; do
-  key=${setting%%:*}
-  value=${setting#*:}
-  if [ "$value" != 0 ]; then
-    echo "[a3-ced][FAIL] $key=$value；当前 CED replay 原型要求 $key=0" >&2
-    exit 2
-  fi
-done
+# [CED-DSPARK] 2026-09-26：SPEC / DRAFT_GRAPH 的硬门按角色拆开。
+#
+#   * prefill（P）：**永远**要求 SPEC=0。DSpark 的 aux hidden state 取自目标层
+#     37/38/39，而 P 在第 20 层 break —— 这三层的残差在 P 上物理不存在，
+#     不是配置问题。见 docs/CED-PD-DSPARK-ANALYSIS-20260926.md §1。
+#   * decode（D）：允许 SPEC=1 + DRAFT_GRAPH=0/1，但必须显式设
+#     V41_CED_ALLOW_DSPARK=1。默认拒绝，与 PREFIX 同模式。
+case "$role" in
+  prefill)
+    for setting in "SPEC:${SPEC:-0}" "DRAFT_GRAPH:${DRAFT_GRAPH:-0}"; do
+      key=${setting%%:*}
+      value=${setting#*:}
+      if [ "$value" != 0 ]; then
+        echo "[a3-ced][FAIL] prefill 角色要求 $key=0（当前 $key=$value）" >&2
+        echo "[a3-ced][FAIL] DSpark 需要目标层 37/38/39，P 只跑 0..19，属架构性不可行。" >&2
+        exit 2
+      fi
+    done
+    ;;
+  decode)
+    if [ "${SPEC:-0}" != 0 ] || [ "${DRAFT_GRAPH:-0}" != 0 ]; then
+      if [ "${V41_CED_ALLOW_DSPARK:-0}" != "1" ]; then
+        echo "[a3-ced][FAIL] D 侧 SPEC=$SPEC DRAFT_GRAPH=$DRAFT_GRAPH 是实验臂；" >&2
+        echo "[a3-ced][FAIL] 要跑请显式设 V41_CED_ALLOW_DSPARK=1。" >&2
+        exit 2
+      fi
+      if [ "${SPEC:-0}" != 1 ]; then
+        echo "[a3-ced][FAIL] 当前分支只验证过 SPEC=1（DSpark 单模型草稿）；当前 SPEC=$SPEC" >&2
+        exit 2
+      fi
+      if [ "${DRAFT_GRAPH:-0}" != 0 ] && [ "${DRAFT_GRAPH:-0}" != 1 ]; then
+        echo "[a3-ced][FAIL] DRAFT_GRAPH 只能是 0 或 1；当前 $DRAFT_GRAPH" >&2
+        exit 2
+      fi
+      echo "[a3-ced][WARN] V41_CED_ALLOW_DSPARK=1：D 侧 DSpark（SPEC=$SPEC DRAFT_GRAPH=$DRAFT_GRAPH）属实验臂" >&2
+    fi
+    ;;
+esac
 
 stamp=$(date +%Y%m%d_%H%M%S)
 export RUN_ID=${RUN_ID:-ced_${role}_${stamp}}
-export V41_CED_ROLE=$role SPEC=0 DRAFT_GRAPH=0 PATCH_MODE=mount
+export V41_CED_ROLE=$role PATCH_MODE=mount
+if [ "$role" = prefill ]; then
+  # P 的 SPEC/DRAFT_GRAPH 由上面的硬门保证为 0，这里显式定稿。
+  export SPEC=0 DRAFT_GRAPH=0
+else
+  # D 侧保留调用方传入的值（默认 0），放行与否已在上面的门里判过。
+  export SPEC=${SPEC:-0} DRAFT_GRAPH=${DRAFT_GRAPH:-0}
+  # DSpark 的 eager 草稿在 SPEC=1 时必须让引擎知道；其余情况保持默认。
+  if [ "$SPEC" != 0 ]; then
+    export V41_CED_ALLOW_DSPARK=${V41_CED_ALLOW_DSPARK:-0}
+  fi
+fi
 # [CED-PREFIX-EXPERIMENT] 2026-09-26：`PREFIX=1` 原先是硬门（直接 exit 2）。
 # 基线口径的前缀缓存已在真机上验证**可用且正确**（144,000 tok 命中、命中答案与冷
 # 路径逐字节相同，见 evidence/ced_prefix_hit_20260926/），所以"CED 能不能开缓存"
