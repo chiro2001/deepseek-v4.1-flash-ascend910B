@@ -141,6 +141,8 @@ dsh/Codex 一个回合里并行调用两次 `read_image` 就会踩中。
 
 ### 4.1 离线（可重复、秒级）
 
+（真机结果见 4.2；先跑离线，再动真机。）
+
 `python3 -m pytest tests/test_decode_guard.py -q` —— 8 个用例，两个方向都覆盖：
 
 * 拦得住：decode + 无 KV 参数 → 400，且**断言下游没被调用**；
@@ -150,10 +152,26 @@ dsh/Codex 一个回合里并行调用两次 `read_image` 就会踩中。
 
 ### 4.2 真机（起服后）
 
-1. 起服日志出现 §2.2 的四行痕迹；
-2. **直连 18991** 发一条不带 `kv_transfer_params` 的生成请求 → 期望 400；
-3. 紧接着再查 `/health` → 仍 200（证明引擎没被打死，这就是事故的负控）；
-4. 经 18992 发一条**两张图**的请求 → 期望不再是图片数 400。
+2026-09-27 00:2x 在 a3-21 实测（P=18990 / D=18991 / 代理=18992，
+P/D 均为 `MM_LIMIT_IMAGES=4`、`HOST=127.0.0.1`，D 挂护栏）：
+
+| # | 动作 | 结果 |
+|---|---|---|
+| 1 | 起服日志痕迹 | `[serve-v2] bind=127.0.0.1 mm_limit_images=4 decode_guard=on` + `--middleware v41_decode_guard.decode_guard` + `[V41-DECODE-GUARD] middleware loaded` |
+| 2 | **直连 18991**，无 `kv_transfer_params`，prompt > 128 token（**事故形状**） | **HTTP 400**，`code=ced_decode_role_requires_kv_transfer_params` |
+| 3 | 紧接着查 D 的 `/health` 与 `/v1/models` | **均 200**，`vllm serve` 进程仍在 —— 引擎没被打死（事故的负控） |
+| 4 | D 侧日志 | `rejected /v1/chat/completions：没有 kv_transfer_params …；累计拦截 1 次`（恰为负控那一条） |
+| 5 | 经 18992 纯文本 | 200，回答 `2` |
+| 6 | 经 18992 **两张图** | 200，模型分别认出两张图 |
+| 7 | 经 18992 **四张图**（上限） | 200，`prompt_tokens=2263`，逐张认全；第 4 张的 `ZEBRA-4821` 也读对 |
+| 8 | 代理 `/v1/models` 与 `/healthcheck` | 200 / `{"status":"ok","prefill_instances":1,"decode_instances":1}`（护栏没挡住探活） |
+
+第 3 条是这次加固的核心价值：**同一个请求形状，事故时打死实例，现在只得到 400**。
+
+第 7 条同时回答了"一个请求内能不能放多张图"：能，而且不是"不报错"级别的能 ——
+模型是真的逐张看了（第 2 张 `shot.png` 与第 3 张 `montage.png` 内容高度相似，
+它仍分清了后者多出 `1/2`/`2/2` 标记与 `7391` 框）。这条路径 P、D 两边都过，
+说明"P/D 必须同值"的约束在真实链路上成立。
 
 ---
 

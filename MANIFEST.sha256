@@ -277,6 +277,7 @@ de2ae20757a865a4ff39260d227c9a45b767297da3d4abd725dd3492b8f3730c  ./docs/A3-PD-B
 c25585ef563fa6279634e6cb8018a938cc8f90ce3ba7a28e26124d81d3dfece2  ./docs/BENCH-METHODOLOGY.md
 c5454e6d634e110df3037e4984582c2de08906b2c4aa45931ec85ae6ebf8a1fd  ./docs/CED-D-1M-LAYOUT-BUG-20260924.md
 f257e6d68cc2e3865f417b86baa913b231aa2d4da4bc2cca729669d37ae366c7  ./docs/CED-D-STATUS-20260924-2030.md
+83cf84bf1ea073b888d43429045ada5c11e76ae389533d374b4d37bca9acb0b4  ./docs/CED-DECODE-API-GUARD-20260927.md
 db5c17f4e24d49b15612d75701ac281390cda392e0c6e963c4037887ef45a27c  ./docs/CED-PD-ACCEPTANCE.md
 b0e9df3e2af68645035f1f6c8aef5ce894a9fdcc174b4cf5d2477f9061e02d5a  ./docs/CED-PD-ACCURACY-MEASURES-20260926.md
 e97e8153ca737c1630d4e621210f43cba883130a0e70e2e4bd78319c334e4fb1  ./docs/CED-PD-BLOCK-BOUND-20260925.md
@@ -2106,6 +2107,7 @@ c607b687659b65edae6954306c0feebf1a553b48ab72a918f362da9773f72125  ./patches/file
 37f96f834b98e257b5b82eaab607c451199b191c9c01078f61213c4e592fc9b8  ./patches/files/token_dispatcher_moemask.py
 b09f61f500c171e6e18121c5b33c4ed61a3f69e64578d7d725c8f84a305c76ea  ./patches/files/token_dispatcher_moennf.py
 c6218047dcca9487807163bf2532bfcda08ae86859fbbf147b7a815d72689d9e  ./patches/files/token_dispatcher_moezero.py
+40287e09f7e3855983fb5efac2376134270adac8267d9a1d7ca310342f6a0abb  ./patches/files/v41_decode_guard.py
 53c738614ed776464c948c451c1e8b4e95dd78df634beb07471c922c8892962d  ./patches/msmodelslim/0001-feat-dsv41-DeepSeek-V4.1-W4A8.patch
 143ab8abeadaa58611f63765a734b9ba05fc2ef20d1a007fe5b4bf5fba59eeb5  ./patches/msmodelslim/0002-feat-dsv41-hiaux-variant-of-the-W4A8-quant-recipe.patch
 a389615fe2239903f67d5f48c7c0dc562b40a9edd375a7f652b9d869f72329e3  ./patches/msmodelslim/base.txt
@@ -2239,6 +2241,7 @@ c73073e3560b4fb6932cd90a18cdfa2e9d655be3d8c0e24c7fffb65844d14b16  ./tests/multib
 4f697c713a1c3b107882474a78ec0aa1ba404496d2e4ec5e57f5917751004223  ./tests/t_gsm8k.py
 aeeac0f3b1683f80bd71757128a6f3cc251148e3d8d483eca9d9b51207262e8d  ./tests/t_quote.sh
 b3fb3062cefa09deb72f140a139410666cfc045b774c466fafeadbc456b240ae  ./tests/t_vision.py
+3f33264eb6663980c6388d490ae96fd1be04237906c1b17dea34434abfba45ed  ./tests/test_decode_guard.py
 3413db18ddf3680010115f776b6de6274519d45820acb20a0d857a7db02902d6  ./tests/verify_dram_offload.py
 af13bc4785bfcddcd46a398fe7611c6942a4875e1eee8c767ce31148ebee675f  ./tests/vision_accuracy_check.py
 5db3adf54f2099d573913614fa9505c24a11c3c75a0eb37839f66456e19a537f  ./tools/_check_probe_json.py
@@ -2293,6 +2296,9 @@ a87ddea7fafbee22fdfb45958006ae670fc6fa13b40f4f6322f8b3a2ca83c737  ./tools/check_
 ffe8281c1c9a2343e6a7da5f782c694c9cea47eec463681aade341efa3ae66ec  ./tools/compare_ced_layer_snapshots.py
 39414cb327474e3b63dd3116cb413f3aa3af3a650efa01470c74ef993e559155  ./tools/compare_ced_single_precision.py
 93962eee3748aeb7c63bb1be2e2e4116826aa6b052c9d4049974eed975fed842  ./tools/ctx_agent_probe.py
+943df9da89342b2d8daa9b08f24880259bd0141e94459d12d37a992d397c3d93  ./tools/decode_guard_activate.sh
+deb2866ed4f2933df4214204bf03b54aec0c181671ba607bd46420d09b955e8b  ./tools/decode_guard_negative_control.sh
+b17f0e94fa8da0fde1319771b6b9a8cdf363756d1bd6c606120b8203d72de3c5  ./tools/decode_guard_proxy_smoke.sh
 3b835d54a41bc8ac7ec9807a20c0ceef3697dfed145bd86dc96dcdf1638cef69  ./tools/deploy_a3.sh
 f41feb3775ace227aab46ccfcac4a3be2ef3971095207fb64143fbcc3618e32c  ./tools/diag_a3_hccl.sh
 e07d0e3467bfb07b7ed341a523f131930df8715eb7fffe41047fa23e4b55c9cb  ./tools/draft_ab_launch.sh
