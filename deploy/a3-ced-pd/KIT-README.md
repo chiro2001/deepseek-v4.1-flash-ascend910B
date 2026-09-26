@@ -4,7 +4,7 @@
 
 ```
 官方基础镜像（内网已有，18 层，24.9 GB）
-        +   我们的 14 个“工作层”（本包携带，压缩后 1.2 MiB）
+        +   我们的 15 个“工作层”（本包携带，压缩后 1.3 MiB）
 = local/dsv41-a3-ced-pd:v1
 ```
 
@@ -13,7 +13,7 @@
 
 > 与 GitHub 侧启动器的关系：两者装的是**同一批文件**，
 > 清单见 `deploy/a3-ced-pd/PAYLOAD.md`，逐文件 md5 比对由
-> `deploy/a3-ced-pd/verify_consistency.sh` 完成（本包实测 **30/30 一致**）。
+> `deploy/a3-ced-pd/verify_consistency.sh` 完成（本包实测 **31/31 一致**）。
 
 ---
 
@@ -22,11 +22,14 @@
 **GitHub Release（推荐，长期归档）**：
 
 ```
-https://github.com/chiro2001/deepseek-v4.1-flash-ascend910B/releases/tag/a3-ced-pd-v1
+https://github.com/chiro2001/deepseek-v4.1-flash-ascend910B/releases/tag/a3-ced-pd-v2
 ```
 
-资源 `dsv41-a3-ced-pd-imagekit-v1.tar.zst`（9.5 MB）+ 同名 `.sha256`。
-本 README 描述的就是那一包的基线 `main@dafea50`。
+资源 `dsv41-a3-ced-pd-imagekit-v2.tar.zst` + 同名 `.sha256`。
+本 README 描述的就是那一包的基线 `main@2d5ff15`。
+
+> `a3-ced-pd-v1` 是上一版，**不含 decode 请求边界护栏**（那条护栏修的是「直连
+> decode 半边的一条普通请求把整个 D 实例打死」的事故）。请用 v2。
 
 ---
 
@@ -89,8 +92,8 @@ bash deploy/a3-ced-pd/launch/serve_p.sh    &&  bash deploy/a3-ced-pd/launch/serv
 | 判据 | 标准 |
 |---|---|
 | ① 基础镜像 | `docker inspect` 的 **18 个 layer diffID 与打包时逐条相同**；不同 ⇒ 直接 FATAL（说明不是同一基底） |
-| ② 文件系统 | 重建镜像的根文件系统清单 **305,787 条，与原镜像逐条相同**（覆盖全部路径与类型） |
-| ③ 工作层文件 | **90 个 payload 文件**逐个 sha256 一致 |
+| ② 文件系统 | 重建镜像的根文件系统清单 **305,791 条，与原镜像逐条相同**（覆盖全部路径与类型） |
+| ③ 工作层文件 | **92 个 payload 文件**逐个 sha256 一致 |
 | ④ 冒烟 L1（不需 NPU） | payload md5 清单逐条、补丁件 `py_compile`、起服脚本在位 |
 | ⑤ 冒烟 L2（需 NPU） | `import vllm`（挂了设备才跑，无卡自动跳过） |
 
@@ -120,6 +123,18 @@ grep -a "dspark-graph-capture" d/serve.log | head -1
 # ⑤ 接受长度（唯一能证明草稿在干活的判据）
 grep -a "SpecDecoding metrics" d/serve.log | tail -1
 #   期望 Mean acceptance length ≈2.4–3.4；**A≈1.0 就是草稿没产出**
+
+# ⑥ ★ decode 请求边界护栏：漏了 → **一条普通请求就能把整个 D 实例打死**
+#    （2026-09-27 00:01 实测事故：要重载 ~20 分钟权重）
+grep -a "V41-DECODE-GUARD" d/serve.log | head -1
+#   期望 "[V41-DECODE-GUARD] middleware loaded: 无 kv_transfer_params 的生成请求 → 400"
+#   起服命令行里应能看到 `--middleware v41_decode_guard.decode_guard`
+#   复现事故形状的验证脚本：tools/decode_guard_activate.sh <D_PORT> <serve.log>
+#   它会先自检护栏已加载，没装就拒绝执行（否则这条脚本本身就是事故复现器）
+
+# ⑦ 多图上限：P/D 必须同值（D 更小 → 请求在 D 上被 400）
+grep -ao 'limit-mm-per-prompt [^ ]*' p/serve.log d/serve.log | head -2
+#   期望两边都是 {"image": 4}（MM_LIMIT_IMAGES=4）
 
 # ⑥ 组拓扑：P 12 组、D 13 组
 grep -a "CED decode: upper SWA groups" d/serve.log
@@ -155,13 +170,13 @@ decode 并发 4 时 **41.07 ms/step**（`STATIC_KERNEL=1`）；
 | 项 | 值 |
 |---|---|
 | 基底 | `quay.nju.edu.cn/ascend/vllm-ascend:deepseek-v4.1-flash-a3`（18 层，id `sha256:1f2c08195c5b…`） |
-| 源镜像（本层从它切出） | `local/dsv41-a3-ced-pd:v1`（32 层，id `sha256:f9a66cf61e58…`） |
-| 工作层 | **14 层**，压缩后 **1.2 MiB** |
-| 文件系统条目 | 305,787 |
-| payload 文件 | 90 |
-| **代码基线** | 本仓 `feat/ced-pd-a3` @ `ffb75ca`（镜像内 `/opt/dsv41/BUILD_INFO.txt` 的 `repo_rev`） |
+| 源镜像（本层从它切出） | `local/dsv41-a3-ced-pd:v2`（id `sha256:51ec51a54dd0…`） |
+| 工作层 | **15 层**，压缩后 **1.3 MiB** |
+| 文件系统条目 | 305,791 |
+| payload 文件 | 92 |
+| **代码基线** | 本仓 `main` @ `2d5ff15`（镜像内 `/opt/dsv41/BUILD_INFO.txt` 的 `repo_rev`） |
 | 基底内的 vLLM 基线 | `vllm 6e448d0`（+1 dirty = admission gate）/ `vllm-ascend e43cf1e9f`（+24 dirty = 我们的补丁件 + `.cedpdorig` 备份） |
-| 生成工具 | `scripts/make_image_patch_kit.py`（本仓 `main`），`--job 'dsv41-a3-ced-pd\|local/dsv41-a3-ced-pd:v1\|v41'` |
+| 生成工具 | `scripts/make_image_patch_kit.py`（本仓 `main`），`--job 'dsv41-a3-ced-pd\|local/dsv41-a3-ced-pd:v2\|v41'` |
 | 生成时间/机器 | 见 `MANIFEST.json`（a3-21） |
 
 **镜像内自带可核对的东西**：
