@@ -472,3 +472,94 @@ D 的缓存**在查询**（`prefix_cache_queries_total` 与 P 同步增长）却
 * 144K/1M 的**四针完整矩阵**（本次仍是一针 + 两图）；
 * 多轮长会话；
 * 13.4 的机制验证（需要一次带 DEBUG 的重启）。
+
+---
+
+## 14. 默认值转正与「默认 == 交付口径」的真机验证（2026-09-27 02:31）
+
+§11–§13 之后，DSpark 与前缀缓存已**转成 A3 PD 分离的默认**。本节只验一件事：
+**不带任何功能覆盖启动时，解析出来的配置是否真的就是交付口径**
+—— 因为"改默认值"最容易的失效方式是"默认被某个分支覆盖回旧值"，
+而 `bash -n` 查不出来。
+
+### 14.1 改了什么（`scripts/serve_a3_ced_pd.sh`）
+
+| 项 | 旧默认 | 新默认 | 关掉的办法 |
+|---|---|---|---|
+| D 侧 `SPEC` / `DRAFT_GRAPH` | 0 / 0 | **1 / 1** | `V41_CED_ALLOW_DSPARK=0`（退回 0/0）或 `SPEC=0` |
+| `PREFIX`（两侧） | 0 | **1** | `PREFIX=0`（旧写法 `V41_CED_ALLOW_PREFIX=0` 也认） |
+| `STATIC_KERNEL` | 0（两角色） | **D=1 / P=0** | 显式覆盖 |
+| decode 的执行臂 | 必须显式二选一 | **默认图模式**（+ 图模式硬前提） | `CED_DIAGNOSTIC_EAGER=1` 走 eager 诊断臂 |
+
+两处配套（漏一处就会在别的层炸）：
+
+* `patches/files/model.py` 用**同一个 env** 做引擎侧的门，其默认必须一起改成 1
+  —— 否则默认启动会在模型构造期被拒；
+* `deploy/a3-ced-pd/launch/_common.sh` 的 `PREFIX` 默认也要跟上，
+  否则两种交付面口径不一致。
+
+### 14.2 新增防回归自测：`tools/selftest_ced_defaults.sh`（11 项，已并入 selfcheck）
+
+它**既查默认解析、也查门仍然咬人**：
+
+| 类别 | 用例 |
+|---|---|
+| 负控（门必须咬） | `prefill + SPEC=1`、`decode + SPEC=2`、`decode + DRAFT_GRAPH=2` 都必须被拒 |
+| 正控（默认解析） | decode 默认 = `spec=1 draft=1 prefix=1 static=1`；prefill 默认 = `spec=0 draft=0 prefix=1 static=0` |
+| 显式关闭仍有效 | `V41_CED_ALLOW_DSPARK=0`、`PREFIX=0`、`V41_CED_ALLOW_PREFIX=0` |
+| 两个交付面一致 | `model.py` 的默认、`_common.sh` 的 `PREFIX` 默认都必须与脚本一致 |
+
+> ★ 这个自测**当场抓到两个真 bug**（都是我加默认值时引入的，`bash -n` 都查不出来）：
+> ① 默认路径下 `$SPEC` 裸引用 ⇒ `set -u` 直接 `SPEC: unbound variable`，
+>    也就是"不带任何 env 启动 D"会崩；
+> ② 外层条件已用 `${SPEC:-1}` 而内层检查仍是 `${SPEC:-0}` ⇒ 把默认值判成非法并 `exit 2`。
+> 两处已修。这正是"判据本身也要被检验"的价值。
+
+### 14.3 真机：只给部署必需项，其余全交给默认
+
+重启命令里**只**传 `MODEL / PATCH_MODE / NAME / RUN_ID / PORT / KV_PORT / DEVS`，
+功能开关一个都不传（`main@31e637c`）。脚本自己打印的解析结果：
+
+```
+[a3-ced] role=prefill name=dsv41-ced-p2b max_len=147456 spec=0 prefix=1 graph=1 eager=0
+[a3-ced] D 侧 DSpark：SPEC=1 DRAFT_GRAPH=1（交付口径）
+[a3-ced] D 图模式（交付口径）：GRAPH=1 EAGER=0，prompt-tail eager 已就位
+[a3-ced] role=decode  name=dsv41-ced-d4b max_len=147456 spec=1 prefix=1 graph=1 eager=0
+```
+
+引擎侧的实际生效痕迹：
+
+| 判据 | P | D |
+|---|---|---|
+| 命令行 prefix 开关 | `--enable-prefix-caching` | `--enable-prefix-caching` |
+| `--speculative-config` 出现次数 | **0**（DSpark 不该在 P） | 1（`{"method":"dspark","num_speculative_tokens":7,"enforce_eager":false}`） |
+| `enable_static_kernel` | `false` | `true` |
+| `num_blocks` | 29076 | 29076 |
+| 解码护栏 | — | `middleware loaded` ✓ |
+| **图模式硬前提**（请求后打印） | — | **128 次** |
+
+### 14.4 功能自测（同一实例，全部默认值）
+
+| 用例 | 结果 |
+|---|---|
+| 144K P1/P2 冷·热·热 | ✅ 6/6 正确，冷 17.35/11.29 s → 热 1.15–1.22 s |
+| 经代理纯文本 | ✅ `8*9` → `72`，`finish_reason=stop` |
+| 流式 | ✅ 5 帧 + `[DONE]`，内容正确 |
+| 并发 4 路 | ✅ 4/4 正确（3/6/9/12），0.52–4.71 s |
+| Responses API 8787（2 图） | ✅ 200 completed，分别认出两张图 |
+| 代理探活 | ✅ 200 / `{"status":"ok","prefill_instances":1,"decode_instances":1}` |
+| 直连 D 的事故形状请求 | ✅ 400，紧接着 `/health` 仍 200 |
+| 接受长度 | **3.33 / 2.43**（DSpark 真在产出） |
+| 缓存命中（P 侧） | `local_cache_hit=576,000`，`prefix_cache_hits_total=576,000` |
+| 两侧错误计数 | `AssertionError` / `EngineDeadError` / `RuntimeError` **全 0** |
+
+### 14.5 两个仍然存在的边界（如实标注）
+
+1. **raw 脚本的 `MAX_LEN` 默认是 147456（144K），不是 1M。**
+   `deploy/a3-ced-pd/launch/_common.sh` 才是 1048576。所以本次默认值验证跑的是
+   144K（1M 在本默认下会被 `--max-model-len` 拒掉）。要 1M 得显式
+   `MAX_LEN=1048576`（deploy 形态已经是）。**没把 `MAX_LEN` 一起改默认**，
+   因为它是容量/准入决策，不属于"缓存与 DSpark 转正"这件事。
+2. 用 `PREFIX=1` 的 **21 项完整矩阵尚未重跑**（本次是 144K/1M 探针 + 流式 +
+   并发 + 两图 + 用户链路，见 §13/§14.4）。KIT-README 的 21/21 仍是
+   `PREFIX=0` 口径跑的。
