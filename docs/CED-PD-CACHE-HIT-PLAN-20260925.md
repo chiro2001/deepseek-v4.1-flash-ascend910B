@@ -564,3 +564,57 @@ D 的缓存**在查询**（`prefix_cache_queries_total` 与 P 同步增长）却
 2. 用 `PREFIX=1` 的 **21 项完整矩阵尚未重跑**（本次是 144K/1M 探针 + 流式 +
    并发 + 两图 + 用户链路，见 §13/§14.4）。KIT-README 的 21/21 仍是
    `PREFIX=0` 口径跑的。
+
+---
+
+## 15. 默认窗口改到 1M，并在 1M 上复测（2026-09-27 03:07–03:35）
+
+### 15.1 改动
+
+`scripts/serve_a3_ced_pd.sh` 增加 `export MAX_LEN=${MAX_LEN:-1048576}`，
+置于 `exec serve_a3_pd.sh` 之前 ⇒ 覆盖后者 147456 的兜底。
+于是"用脚本起"与"用 `deploy/launch` 起"窗口一致，尾部 `echo` 的兜底值同步改。
+
+**容量提醒**（写进注释与 §14.5）：默认池 `num_blocks=29076` ⇒ **3.72M tokens**，
+`MAX_SEQS=4` 时四路同时满 1M 会超出池 ⇒ 引擎自行限流，不会崩。
+
+### 15.2 真机：只给部署必需项，默认解析出 1M
+
+| 判据 | P | D |
+|---|---|---|
+| `--max-model-len` | **1048576** | **1048576** |
+| `--enable-prefix-caching` | ✓ | ✓ |
+| `--speculative-config` | 无（符合架构） | `dspark, sp=7, enforce_eager=false` |
+| `enable_static_kernel` | false | true |
+| `num_blocks` | 29076 | 29076 |
+| 图模式硬前提（请求后） | — | **104 次** |
+| 解码护栏 | — | `middleware loaded` ✓ |
+
+### 15.3 1M 功能验证（判据 = 答案对 + 冷热逐字节相同）
+
+| 用例 | 冷 | 热 | 结果 |
+|---|---:|---:|---|
+| 1M 整池命中 `N=1000065` | 137.73 s | 7.96 / 6.13 s | ✅ 3/3（≈17×） |
+| 1M 部分命中→整段命中 `N=902909` | 88.97 s | 5.71 / 5.71 s | ✅ 3/3（≈15.6×） |
+
+用户路径同样全过：代理纯文本 `9*9`→`81`、流式 5 帧 + `[DONE]`、
+并发 4 路 4/4（0.51–4.77 s）、Responses API 两图 200 completed、
+代理探活 200、直连 D 负控 400 且引擎存活。
+
+接受长度 **2.43 / 3.50**（DSpark 在产出）；两侧
+`AssertionError` / `EngineDeadError` **全 0**。
+
+> 缓存命中来源与 §13.4 的观察一致：P 侧 `local_cache_hit=3.81M`，
+D 侧 `local_cache_hit=0`、`external_kv_transfer=5.71M`
+—— DSpark 开着时 D 不做本地命中（§13.4 的机制待验证那条仍成立）。
+
+### 15.4 一处操作注意（不影响运行）
+
+发布这次改动时 **a3-21 到 github.com 的 443 不可达**（
+`Failed to connect to github.com port 443 after 134524 ms`），
+所以现场是通过 `tar` 直接同步 `7497a06..10da076` 的改动文件到 a3-21 的
+`~/cedpd-repo`，**没有**走 `git fetch`。因此那台机器上
+`git rev-parse HEAD` 仍显示 `7497a06`，而**实际运行的脚本字节 = `10da076`**
+（已用 `grep export MAX_LEN` 核实 `1048576`）。
+等网络恢复后 `git -C ~/cedpd-repo fetch && git reset --hard origin/main` 即可对齐，
+**不需要重启服务**（脚本已在内存里解析完，重启才会重读）。
