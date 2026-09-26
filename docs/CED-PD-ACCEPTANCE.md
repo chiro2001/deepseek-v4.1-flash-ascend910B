@@ -229,23 +229,31 @@ global/SWA 分层 TTL、CSA2 候选池跨节点一致性、vision/EPD 独立扩�
 与 4+4 拓扑都尚未实现。因此本文验收的是 **CED 计算切分 + 有界重放**这条主线，
 不是论文的完整系统。
 
-## 7. 目标里「缓存命中」这一项目前**无法验收**（是缺口，不是待测）
+## 7. 目标里「缓存命中」这一项：**实验臂已验证，交付口径未转正**
+
+> ⚠️ 本节原文（2026-09-25）写的是"在启动层就被禁止、所以跑不了"。
+> 2026-09-26 已实测并修掉全部阻断，**2026-09-27 修正本节**。
+> 与上面的验收矩阵第 6 行（已更新）保持一致。
 
 目标要求「144K 与 1M 上下文、流式/多轮/**缓存命中**正确性验证」。今天 CED 原型
-**在启动层就禁止**了缓存命中，所以这一项不是"还没跑"，而是"跑不了"：
+**默认在启动层禁止**缓存命中（硬门，`PREFIX != 0` 直接 `exit 2`），
+但已提供显式放行（`V41_CED_ALLOW_PREFIX=1` + `PREFIX=1`），并在此口径下**跑通**：
 
 ```bash
-# scripts/serve_a3_ced_pd.sh 开头的硬门
-for setting in "SPEC:${SPEC:-0}" "PREFIX:${PREFIX:-0}" "DRAFT_GRAPH:${DRAFT_GRAPH:-0}"; do
-  ...
-  if [ "$value" != 0 ]; then
-    echo "[a3-ced][FAIL] $key=$value；当前 CED replay 原型要求 $key=0" >&2
-    exit 2
+# scripts/serve_a3_ced_pd.sh（2026-09-26 起）
+if [ "${PREFIX:-0}" != "0" ]; then
+  if [ "${V41_CED_ALLOW_PREFIX:-0}" != "1" ]; then
+    echo "[a3-ced][FAIL] PREFIX=$PREFIX；CED 原型默认要求 PREFIX=0。" >&2
+    exit 2                       # ← 默认仍然拒绝
+  fi
+  echo "[a3-ced][WARN] CED 开前缀缓存属实验臂，结果不可当交付证据" >&2
+fi
 ```
 
-即 `PREFIX=1` 会被直接拒绝。要把它变成可验收项，至少要先处理两处代码级前提
-（完整的改动清单、方案取舍与实验顺序见
-[`CED-PD-CACHE-HIT-PLAN-20260925.md`](CED-PD-CACHE-HIT-PLAN-20260925.md)）：
+### 7.1 原先预测的两处前提，实测后只中了一半
+
+原文预测了两处代码级前提。2026-09-26 的真机实测（144K 6+6 次、1M 3+6 次）
+给出的账是：
 
 1. **上半层 SWA 的"清零"不变量会被缓存块绕过。**
    `experimental/ced/mooncake_hybrid_connector.py` 的 D 侧预清零目标是
@@ -253,8 +261,21 @@ for setting in "SPEC:${SPEC:-0}" "PREFIX:${PREFIX:-0}" "DRAFT_GRAPH:${DRAFT_GRAP
    开启前缀缓存后，被复用的命中块是 hashed 的、**不在**这个集合里；而 CED 的 P
    在层 20 截断、上层（G7–G11）SWA 从未由 P 计算过，所以那些缓存页里是**上一次
    请求的残留**。这与 9 月 24 日定位的那类"读到不属于本请求的页"是同一族问题，
-   只不过这次来源是缓存块而不是空块。要开缓存，必须先决定：缓存块参与清零，
+  只不过这次来源是缓存块而不是空块。要开缓存，必须先决定：缓存块参与清零，
    还是把 G7–G11 整体排除在前缀缓存之外（后者更省事，但要动 cache 分组配置）。
+
+   → **实测未触发**：144K 交错命中（P1/P2 交替，专门设计来测"清零会不会破坏
+   别的请求的缓存"）**6/6 正确且各自与冷值逐字节相同**。
+   结构性原因（调度层 dump 实测）：
+
+   ```
+   num_common_prefix_blocks=[7055, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+   ```
+
+   即 **hybrid/SWA 布局下前缀命中只对 group 0 给出公共前缀块，其余 11 组为 0**
+   ⇒ G7–G11 本来就不会有 hashed 命中块落进来，清零路径碰不到别人的缓存。
+   （这不是"清零点已加固"，而是"这些组压根不参与复用"。）
+
 2. **调度器的边界断言假定"恰好从 P 装载 N−1 个 token"。**
    `experimental/ced/core_scheduler_replay.patch` 里
    `if replay_end != prompt_len - 1 or request.num_computed_tokens != replay_end: raise`。
@@ -263,9 +284,41 @@ for setting in "SPEC:${SPEC:-0}" "PREFIX:${PREFIX:-0}" "DRAFT_GRAPH:${DRAFT_GRAP
    缓存提供、以及"末 token 必重算"的语义在有缓存时是否仍成立，都需要单独推导与
    真机验证。**这一条是分析结论，未在真机上证明会失败。**
 
-因此本文的验收矩阵里，「缓存命中」一项在 CED 配置下记 **N/A（原型未支持）**，
-不要用 `PREFIX=0` 的结果去填这一格。要覆盖它，需要一个 `PREFIX=1` 的独立原型臂，
-并按上面两条先做单变量验证。
+   → **实测未触发**：144K 6 次 + 1M 3 次请求里**一次都没有 boundary mismatch 日志**。
+
+### 7.2 真正会崩的是另外三处（已修）
+
+预测之外，实测撞出并修掉了三处**会打死引擎**的问题：
+
+| # | 位置 | 报错 | 根因 | 修法 |
+|---|---|---|---|---|
+| 1 | D | `CED decoder expected 12 KV cache groups without DSpark` | 整池命中时 `num_external_tokens==0` ⇒ 上游 stock 语义给裸 `[]`，与 CED"每请求 12 个 group"契约冲突 | 规范成 12 个空列表（`[CED-FULL-HIT]`） |
+| 2 | **P** | `assert num_new_tokens > 0`（stock `scheduler.py:1063`） | 整段本地命中：`num_tokens == num_computed == local`、`external=0` ⇒ 新 token 为 0；stock 的"整段命中就重算末 token"只在 `_update_waiting_for_remote_kv` 里做，**P 走不到** | 用 `truncate_computed_blocks()` 把命中拉回上一个 128 对齐边界（`V41_CED_P_HIT_FIX`，默认 1） |
+| 3 | D | `assert RequestStatus.is_finished`（`scheduler.py:3060`） | D 整段命中 ⇒ 请求不进 `WAITING_FOR_REMOTE_KVS`，但连接器仍注册一次接收用于回 ack | 加"空接收"分支（`V41_CED_KVRECV_NOOP`，默认 1） |
+
+### 7.3 结论与转正条件
+
+**CED 口径的缓存命中原先记为"跑不了"，现在记为"实验臂已跑通、交付口径未转正"。**
+
+| 用例 | 结果 | 加速 |
+|---|---|---|
+| 144K 常规 / 整池 / 交错 | ✅ 6/6、6/6、6/6 正确 | 9.5–31.5 s → 1.2–1.3 s |
+| 1M 整池命中 | ✅ 3/3 正确 | 105.7 s → 6.0 s（≈18×） |
+| 1M 部分命中→整段命中 | ✅ 6/6 正确 | 88.5 s → 5.2 s（≈17×） |
+
+所有命中答案与冷路径**逐字节相同**；`AssertionError` / `EngineDeadError` 计数为 0。
+
+要转正（把交付口径改成 `PREFIX=1`）需要：
+① 把上述三条修复当正式改动（去掉"实验臂"标记与 kill switch）；
+② 用 `PREFIX=1` 重跑完整验收矩阵（144K/1M 四针、流式、多轮，21 项）；
+③ 改 `serve_a3_ced_pd.sh` 的硬门为默认值。
+
+在此之前，本文的验收矩阵里「缓存命中」一项在 CED 配置下仍记
+**N/A（交付口径未支持）**，不要用 `PREFIX=0` 的结果去填这一格。
+
+> 完整的实验过程、每轮崩溃的现场与判据见
+> [`CED-PD-CACHE-HIT-PLAN-20260925.md`](CED-PD-CACHE-HIT-PLAN-20260925.md) §4/§6/§8/§10/§11
+> 与 [`../evidence/ced_prefix_hit_20260926/CED_SIDE_RESULT.md`](../evidence/ced_prefix_hit_20260926/CED_SIDE_RESULT.md)。
 
 > 相关的历史口径：全 40 层 `AscendStore` 臂曾经跑通 1M 且四针 4/4 正确
 > （见 [`../evidence/ced_8x8_length_scan_20260924/baseline_pdstore_bf16_needle1m.json`](../evidence/ced_8x8_length_scan_20260924/baseline_pdstore_bf16_needle1m.json)），
