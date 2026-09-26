@@ -20,7 +20,7 @@ ok()  { printf '  \033[32mPASS\033[0m %s\n' "$*"; pass=$((pass+1)); }
 bad() { printf '  \033[31mFAIL\033[0m %s\n' "$*"; fail=$((fail+1)); }
 
 # 造一个"只解析不 exec"的副本：最后一行是 exec，替换成打印。
-sed 's|^exec bash "$HERE/serve_a3_pd.sh" "$role"$|echo "RESOLVED spec=${SPEC:-<unset>} draft=${DRAFT_GRAPH:-<unset>} prefix=${PREFIX:-<unset>} static=${STATIC_KERNEL:-<unset>} allow_dspark=${V41_CED_ALLOW_DSPARK:-<unset>} allow_prefix=${V41_CED_ALLOW_PREFIX:-<unset>}"|' \
+sed 's|^exec bash "$HERE/serve_a3_pd.sh" "$role"$|echo "RESOLVED spec=${SPEC:-<unset>} draft=${DRAFT_GRAPH:-<unset>} prefix=${PREFIX:-<unset>} static=${STATIC_KERNEL:-<unset>} max=${MAX_LEN:-<unset>} allow_dspark=${V41_CED_ALLOW_DSPARK:-<unset>} allow_prefix=${V41_CED_ALLOW_PREFIX:-<unset>}"|' \
   "$SRC" > "$TMPD/ced.sh"
 if grep -q "^exec bash" "$TMPD/ced.sh"; then
   bad "替换 exec 失败（脚本尾行变了？本自测需要同步更新）"; exit 1
@@ -30,7 +30,7 @@ fi
 run() {
   local expect="$1" label="$2" role="$3"; shift 3
   local out rc
-  out=$(env -u SPEC -u DRAFT_GRAPH -u PREFIX -u STATIC_KERNEL \
+  out=$(env -u SPEC -u DRAFT_GRAPH -u PREFIX -u STATIC_KERNEL -u MAX_LEN \
         -u V41_CED_ALLOW_DSPARK -u V41_CED_ALLOW_PREFIX -u V41_CED_ROLE \
         "$@" MODEL=/nonexistent bash "$TMPD/ced.sh" "$role" 2>&1)
   rc=$?
@@ -58,8 +58,9 @@ run "" "负控: decode + SPEC=2 必须拒绝"         decode  SPEC=2
 run "" "负控: decode + DRAFT_GRAPH=2 必须拒绝"  decode  DRAFT_GRAPH=2
 
 echo "[ced-defaults] 正控：默认解析"
-run "spec=1 draft=1 prefix=1 static=1 allow_dspark=1" "decode 默认（= 交付口径）" decode
-run "spec=0 draft=0 prefix=1 static=0" "prefill 默认（P 永不开 DSpark）" prefill
+run "spec=1 draft=1 prefix=1 static=1 allow_dspark=1 max=1048576" "decode 默认（= 交付口径）" decode
+run "spec=0 draft=0 prefix=1 static=0 max=1048576" "prefill 默认（P 永不开 DSpark）" prefill
+run "max=4096" "MAX_LEN 可显式收窄" decode MAX_LEN=4096
 
 echo "[ced-defaults] 显式关闭仍有效（旧写法兼容）"
 run "spec=0 draft=0" "V41_CED_ALLOW_DSPARK=0 ⇒ 退回 SPEC=0" decode V41_CED_ALLOW_DSPARK=0

@@ -555,11 +555,12 @@ D 的缓存**在查询**（`prefix_cache_queries_total` 与 P 同步增长）却
 
 ### 14.5 两个仍然存在的边界（如实标注）
 
-1. **raw 脚本的 `MAX_LEN` 默认是 147456（144K），不是 1M。**
-   `deploy/a3-ced-pd/launch/_common.sh` 才是 1048576。所以本次默认值验证跑的是
-   144K（1M 在本默认下会被 `--max-model-len` 拒掉）。要 1M 得显式
-   `MAX_LEN=1048576`（deploy 形态已经是）。**没把 `MAX_LEN` 一起改默认**，
-   因为它是容量/准入决策，不属于"缓存与 DSpark 转正"这件事。
+1. ~~raw 脚本的 `MAX_LEN` 默认是 147456（144K）~~ → **2026-09-27 已改为 1M**
+   （`scripts/serve_a3_ced_pd.sh` 显式 `export MAX_LEN=${MAX_LEN:-1048576}`），
+   与 `deploy/` 形态同口径，两种交付面不再有窗口差异。
+   容量提醒：默认 KV 池 = `num_blocks=29076` ⇒ **3.72M tokens**，
+   `MAX_SEQS=4` 时四路同时满 1M 会超出池，引擎自行限流（不会崩）。
+   收窄窗口用显式 `MAX_LEN=<值>`。
 2. 用 `PREFIX=1` 的 **21 项完整矩阵尚未重跑**（本次是 144K/1M 探针 + 流式 +
    并发 + 两图 + 用户链路，见 §13/§14.4）。KIT-README 的 21/21 仍是
    `PREFIX=0` 口径跑的。

@@ -94,6 +94,15 @@ if [ "${V41_CED_ALLOW_PREFIX:-1}" = "0" ]; then
   export PREFIX=0
 fi
 export PREFIX=${PREFIX:-1}
+# [MAX_LEN] 上下文窗口默认 **1M**（2026-09-27 起与 deploy 形态同口径）。
+#   原先这里沿用 serve_a3_pd.sh 的 147456(144K)，于是"用脚本起"和
+#   "用 deploy/launch 起"拿到的窗口不同 —— 1M 是这套 CED-PD 形态的
+#   已验证能力（144K/1M 常规·整池·交错命中均通过），不该只在一种交付面开放。
+#   ⚠️ 1M 需要 KV 池够大：本形态默认 KV_CACHE_MEMORY_BYTES 对应 num_blocks=29076
+#      ⇒ 29076×128 = 3.72M tokens 容量。`MAX_SEQS=4` 时**四路同时满 1M 会超出池**，
+#      引擎会自行限流（不会崩，但别假定 4×1M 一定同时进得来）。
+#   收窄窗口：显式 `MAX_LEN=<更小的值>`。
+export MAX_LEN=${MAX_LEN:-1048576}
 # [STATIC_KERNEL] 按角色取交付口径默认：D=1（−4.4 ms/step、−9.6%）、
 #   P=0（P 侧没做过单变量，保守）。与 deploy/a3-ced-pd/launch/serve_{p,d}.sh
 #   以及 2026-09-27 验证过的配置逐项一致 —— 避免"脚本默认 ≠ 交付默认"。
@@ -215,5 +224,5 @@ fi
 if [ "${CED_CAPTURE_DECODE:-0}" = 1 ]; then
   export V41_CED_CAPTURE_DECODE=1
 fi
-echo "[a3-ced] role=$V41_CED_ROLE name=$NAME max_len=${MAX_LEN:-147456} spec=$SPEC prefix=$PREFIX graph=${GRAPH:-1} eager=${EAGER:-0}"
+echo "[a3-ced] role=$V41_CED_ROLE name=$NAME max_len=${MAX_LEN:-1048576} spec=$SPEC prefix=$PREFIX graph=${GRAPH:-1} eager=${EAGER:-0}"
 exec bash "$HERE/serve_a3_pd.sh" "$role"
