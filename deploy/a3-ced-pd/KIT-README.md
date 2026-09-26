@@ -175,7 +175,7 @@ docker run --rm --entrypoint cat local/dsv41-a3-ced-pd:v1 /opt/dsv41/deploy/PAYL
 **逐字节相同**（实测三处 md5 全等：本仓重新生成 = a3-21 payload = 镜像内），
 ⇒ `仓库 → payload → 镜像` 这条链是闭合的。
 
-## 七、这个包里到底装了什么（90 个 payload 文件）
+## 七、这个包里到底装了什么（payload 文件清单）
 
 | 组 | 数量 | 装到哪 |
 |---|---:|---|
@@ -184,6 +184,7 @@ docker run --rm --entrypoint cat local/dsv41-a3-ced-pd:v1 /opt/dsv41/deploy/PAYL
 | draft 版暂存 | 3 | `/opt/dsv41/patches/draft/`（`PATCH_MODE=baked` + `DRAFT_GRAPH=1` 时装到 live tree） |
 | vLLM core 补丁 | 4 | `/opt/dsv41/ced_*.patch`、`/opt/dsv41/admission_gate.patch`（后者构建期已 apply） |
 | 起服脚本 | 8 | `/opt/dsv41/scripts/`（含 `serve_a3_ced_pd.sh`） |
+| **decode 请求边界护栏** | 1 | `/opt/dsv41/guards/v41_decode_guard.py`（仅 `V41_CED_ROLE=decode` 时注册为 `--middleware`） |
 | 溯源 | 3 | `/opt/dsv41/BUILD_INFO.txt`、`/opt/dsv41/deploy/{PAYLOAD.sha256,build_smoke.py}` |
 | 备份 | 13 | 每个被覆盖的 vLLM 文件旁边留 `.cedpdorig`（可回滚） |
 | 其它 | 44 | `__pycache__` 等构建产物 |

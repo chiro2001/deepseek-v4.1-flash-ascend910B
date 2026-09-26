@@ -80,6 +80,10 @@ $DOCKER run --rm --entrypoint bash "$IMAGE" -lc "
   for s in serve_a2.sh serve_v2.sh serve_a3.sh serve_a3_pd.sh serve_a3_pd_proxy.sh serve_a3_ced_pd.sh serve_a3_ced_single.sh run_test.sh ; do
       printf 'IMG  %s  %s\n' \"\$(md5sum /opt/dsv41/scripts/\$s | cut -d' ' -f1)\" \"SCRIPT/\$s\"
   done
+  # [DECODE-API-GUARD] decode 半边请求边界护栏（事故 2026-09-27）。
+  # 必须在这里逐文件比对：漏了它，镜像里少装护栏照样报 PASS ——
+  # 而少了护栏的 decode 实例会被一条普通请求打死（要重载 ~20 分钟权重）。
+  printf 'IMG  %s  %s\n' \"\$(md5sum /opt/dsv41/guards/v41_decode_guard.py | cut -d' ' -f1)\" \"GUARD/v41_decode_guard.py\"
 " > "$_tmp" 2>/dev/null || { echo "FATAL: 读镜像内文件失败" >&2; exit 21; }
 img_md5() { awk -v k="$1" '$3==k{print $2}' "$_tmp" | head -1; }
 
@@ -115,6 +119,7 @@ SCRIPT/serve_a3_pd_proxy.sh	scripts/serve_a3_pd_proxy.sh	scripts/serve_a3_pd_pro
 SCRIPT/serve_a3_ced_pd.sh	scripts/serve_a3_ced_pd.sh	scripts/serve_a3_ced_pd.sh
 SCRIPT/serve_a3_ced_single.sh	scripts/serve_a3_ced_single.sh	scripts/serve_a3_ced_single.sh
 SCRIPT/run_test.sh	scripts/run_test.sh	scripts/run_test.sh
+GUARD/v41_decode_guard.py	patches/files/v41_decode_guard.py	guard/v41_decode_guard.py
 EOF
 )
 
