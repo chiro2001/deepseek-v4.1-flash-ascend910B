@@ -196,8 +196,8 @@ docker exec <容器> bash /opt/dsv41/tools/enable_codex_responses.sh status  # P
 |---|---|---|
 | **`BAT_TOKENS`** | **8192** | ★ **长上下文正确率的开关**。2048 时 chunk 数翻 4 倍，长文通过率塌到 ~0（机制是 chunked prefill 每刀约 2% 偏离）。代价：KV 从 4.15M 降到 2.82M tokens（activation 峰值 0.79→3.21 GiB） |
 | **`GPU_UTIL`** | **0.92** | 调到 0.94 能多 ~9% KV（3.09M），但**长 prompt 首 token 从 1.1 s 涨到 8 s**（实测 6~7×）。这是"KV 容量换 prefill 速度"的主动取舍 |
-| **`DRAFT_GRAPH`** | **0** | 投机解码入图。**低并发推荐显式开**（`=1`）；但必须同时有 `DSPARK_GRAPH_CAPTURE_METADATA=1`，否则**静默失效**（`A≈1.0` 而 ms/step 反而更好看） |
-| **`PREFIX`** | 0（性能口径）/ 1（生产口径） | 前缀缓存。**取决于业务是否高度复用前缀** —— 若输入输出比很大且命中率低（实测某负载仅 3.52%），关掉反而 TTFT −14.6% |
+| **`DRAFT_GRAPH`** | **1**（CED-PD 形态）／0（其它入口） | 投机解码入图。CED-PD 自 2026-09-27 起默认 1；其它入口仍是 0，**低并发推荐显式开**。两种口径都必须同时有 `DSPARK_GRAPH_CAPTURE_METADATA=1`，否则**静默失效**（`A≈1.0` 而 ms/step 反而更好看） |
+| **`PREFIX`** | **1**（CED-PD） | 前缀缓存。**仍然取决于业务是否高度复用前缀** —— 若输入输出比很大且命中率低（实测某负载仅 3.52%），`PREFIX=0` 反而 TTFT −14.6%。CED-PD 自 2026-09-27 起默认开；做无缓存性能对照时必须显式 `PREFIX=0`，且**不要与开缓存的 ms/step、接受长度混比** |
 | **`SPEC`** | 1 | 投机解码总开关。**高并发吞吐场景建议关**：并发 4 时它把 ms/step 从 28.2 抬到 41.1（1.45×），换接受长度 A≈2.4 —— 收益集中在接受长度高的请求上，**成本由全批承担** |
 | **`CPU_BIND`** / **`DROPCACHE`** | A3: 0 / 0 | **A3 共用机必需**：`CPU_BIND=0` 关掉内部 NUMA 绑核（否则目标节点满时 `migratepages` 内核态空转、服务永不就绪、`docker stop` 都停不下来）；`DROPCACHE=0` 不清整机 page cache（会打到别人） |
 

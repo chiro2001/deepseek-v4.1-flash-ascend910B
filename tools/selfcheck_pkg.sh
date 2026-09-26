@@ -407,6 +407,24 @@ else
   warn "缺 patches/files/v41_decode_guard.py（decode 半边没有请求边界保护）"
 fi
 
+# ------------------------------------------------- 9j) CED 交付默认值
+# 背景（2026-09-27）：把 DSpark 与前缀缓存转成 A3 PD 分离的**默认**。
+# 改默认值最容易出的两个错 `bash -n` 都查不出来：
+#   ① 默认被某个分支覆盖回旧值（用户拿到旧口径）；
+#   ② 门被顺手拆掉（P 带 SPEC、SPEC=2 这类非法组合静默放行）。
+# 所以这一项既查默认解析、也查负控。
+if [ -f tools/selftest_ced_defaults.sh ]; then
+  if out=$(bash tools/selftest_ced_defaults.sh 2>&1); then
+    n=$(printf '%s' "$out" | grep -c 'PASS' || true)
+    ok "CED 交付默认值：${n:-?} 项全过（默认解析 + 非法组合负控 + 两种交付面一致）"
+  else
+    bad "CED 交付默认值自测失败（默认被覆盖 / 门失效）—— 不要带着它发布："
+    printf '%s' "$out" | grep -E 'FAIL' | sed 's/^/        /' | head -8
+  fi
+else
+  warn "缺 tools/selftest_ced_defaults.sh（无法自动抓"默认值被覆盖/门失效"这类错误）"
+fi
+
 echo
 if [ "$fail" = "0" ]; then
   echo "[selfcheck] 全部通过 ✅  可以开始：bash scripts/build_image.sh"

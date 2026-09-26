@@ -318,8 +318,13 @@ stock vLLM + P 的"截去最后一个 token" + 前缀缓存 的交互。
   ② 用 `PREFIX=1` 重跑 144K/1M 四针与多轮；
   ③ 把 `serve_a3_ced_pd.sh` 的硬门从"显式放行"改成默认值。
 
-* 验收表里"缓存命中"一行：基线口径与 CED 口径**都已验证**，
-  但 CED 口径的结论只在实验臂下成立。
+* 验收表里"缓存命中"一行：基线口径与 CED 口径**都已验证**。
+
+> **2026-09-27 更新：已转为交付默认。** 见 §12/§13 的复现验证，以及
+> `scripts/serve_a3_ced_pd.sh`（D 侧 `SPEC=1 DRAFT_GRAPH=1`、两侧 `PREFIX=1`，
+> decode 默认图模式）、`patches/files/model.py`（引擎侧同门默认 1）、
+> `deploy/a3-ced-pd/launch/_common.sh`（`PREFIX` 默认 1）。
+> 防回归自测：`tools/selftest_ced_defaults.sh`（11 项，已并入 selfcheck）。
 
 ---
 

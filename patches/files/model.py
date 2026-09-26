@@ -911,8 +911,10 @@ class DeepseekV41Model(DeepseekV4Model):
         #     而 CED 的 P 在第 20 层就 break：这三层的残差在 P 上物理不存在。
         #     runner 又因为 dspark 强制 use_aux_hidden_state_outputs=True 而无条件
         #     解包两个返回值 ⇒ aux=[] ⇒ 启动即崩。
-        #   * decode：**允许，但必须显式放行**。默认拒绝，与 PREFIX 一样把
-        #     "实验臂"和"交付口径"分开；开了以后结果不能当交付证据。
+        #   * decode：**默认放行**（2026-09-27 起 DSpark 是交付口径）。要退回
+        #     旧行为就把 SPEC 设成 0；显式 `V41_CED_ALLOW_DSPARK=0` 表示
+        #     "我明确不要 DSpark"，此时仍然拒绝 —— 这是为了抓"env 与 SPEC
+        #     互相矛盾"的配置（报在这里比让它跑起来更容易定位）。
         if ced_role == "prefill" and vllm_config.speculative_config is not None:
             raise ValueError(
                 "V41_CED_ROLE=prefill requires SPEC=0: DSpark consumes the residual "
@@ -922,11 +924,13 @@ class DeepseekV41Model(DeepseekV4Model):
         if (
             ced_role == "decode"
             and vllm_config.speculative_config is not None
-            and _os_ids.environ.get("V41_CED_ALLOW_DSPARK", "0") != "1"
+            and _os_ids.environ.get("V41_CED_ALLOW_DSPARK", "1") != "1"
         ):
             raise ValueError(
-                "V41_CED_ROLE=decode with SPEC!=0 is an experimental arm: "
-                "set V41_CED_ALLOW_DSPARK=1 to acknowledge it"
+                "V41_CED_ROLE=decode got SPEC!=0 (DSpark enabled) together with "
+                "V41_CED_ALLOW_DSPARK=0. These contradict each other: DSpark is the "
+                "delivered default on decode, so drop the switch, or set SPEC=0 to "
+                "run without it."
             )
         if self._ced_prefill_only:
             print("[CED-P] internal producer: layers 0..19 plus layer-20 global source; response is a transfer marker", flush=True)

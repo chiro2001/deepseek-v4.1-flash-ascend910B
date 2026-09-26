@@ -43,6 +43,10 @@ export KV_CACHE_MEMORY_BYTES=${KV_CACHE_MEMORY_BYTES:-15728022528}   # 29076 × 
 # ---- ★ D 侧必须关多流（漏了 = 长上下文静默算错，实测 0/4）----
 export MULTISTREAM=${MULTISTREAM:-0}
 export DSA_OVERLAP=${DSA_OVERLAP:-0}
-export PREFIX=${PREFIX:-0}                # 缓存命中是独立实验臂
+# 前缀缓存：**默认开**（2026-09-27 起交付口径）。关掉用 PREFIX=0。
+# 依据 = 144K/1M 常规·整池·交错命中全部正确、冷热逐字节一致（≈16–18×），
+# 且三处会打死引擎的问题已修并有真机触发痕迹。
+# 见 docs/CED-PD-CACHE-HIT-PLAN-20260925.md §11–§13。
+export PREFIX=${PREFIX:-1}
 
 say() { printf '\033[1m[a3-ced-pd]\033[0m %s\n' "$*"; }

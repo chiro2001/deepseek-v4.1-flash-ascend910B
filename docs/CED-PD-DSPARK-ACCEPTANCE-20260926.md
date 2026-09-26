@@ -61,7 +61,7 @@ ARM=draft_graph V41_SLOT_MAP_FUSED=on bash launch_d_dspark.sh
 | `SPEC` | 1 | 开推测解码（P 侧必须为 0） |
 | `SP_TOKENS` | 7 | 已扫过 5/7/9，7 最优 |
 | `DRAFT_GRAPH` | 1 | 草稿入图（必需 `DSPARK_GRAPH_CAPTURE_METADATA=1` 配套，脚本自动设） |
-| `V41_CED_ALLOW_DSPARK` | 1 | **显式放行** D 侧开 SPEC 的实验臂（默认拒绝） |
+| `V41_CED_ALLOW_DSPARK` | 1 | **2026-09-27 起 D 侧 DSpark 是交付默认**；显式 `=0` 表示不要 DSpark（退回 `SPEC=0`），此时引擎侧的门仍会拒绝矛盾配置 |
 | `V41_SLOT_MAP_FUSED` | on | slot-mapping 融合；**注意这是 host-only 优化，实测对 step 时延无影响**，只修了原来的死开关 |
 
 ### 3.3 起服后的硬门（必须逐条确认）

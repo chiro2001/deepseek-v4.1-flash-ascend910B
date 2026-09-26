@@ -15,13 +15,21 @@ if [ -n "${V41_CED_ROLE:-}" ] && [ "$V41_CED_ROLE" != "$role" ]; then
   echo "[a3-ced][FAIL] V41_CED_ROLE=$V41_CED_ROLE 与角色 $role 不一致" >&2
   exit 2
 fi
-# [CED-DSPARK] 2026-09-26：SPEC / DRAFT_GRAPH 的硬门按角色拆开。
+# [CED-DSPARK] SPEC / DRAFT_GRAPH 的硬门按角色拆开。
 #
 #   * prefill（P）：**永远**要求 SPEC=0。DSpark 的 aux hidden state 取自目标层
 #     37/38/39，而 P 在第 20 层 break —— 这三层的残差在 P 上物理不存在，
 #     不是配置问题。见 docs/CED-PD-DSPARK-ANALYSIS-20260926.md §1。
-#   * decode（D）：允许 SPEC=1 + DRAFT_GRAPH=0/1，但必须显式设
-#     V41_CED_ALLOW_DSPARK=1。默认拒绝，与 PREFIX 同模式。
+#   * decode（D）：**默认 SPEC=1 + DRAFT_GRAPH=1**（2026-09-27 起为交付口径，
+#     实测见 docs/CED-PD-CACHE-HIT-PLAN-20260925.md §13）。
+#
+# 显式 `V41_CED_ALLOW_DSPARK=0` ⇒ D 侧退回 SPEC=0/DRAFT_GRAPH=0。
+#   必须保留这个"显式关"：`patches/files/model.py` 用**同一个 env** 做引擎侧
+#   的门（默认已改为 1）。若这里不认它，设了 0 的人会拿到 SPEC=1，然后在模型
+#   构造时被引擎侧的门拒掉 —— 报错点离原因很远。
+if [ "${V41_CED_ALLOW_DSPARK:-1}" = "0" ]; then
+  export SPEC=0 DRAFT_GRAPH=0
+fi
 case "$role" in
   prefill)
     for setting in "SPEC:${SPEC:-0}" "DRAFT_GRAPH:${DRAFT_GRAPH:-0}"; do
@@ -35,21 +43,23 @@ case "$role" in
     done
     ;;
   decode)
-    if [ "${SPEC:-0}" != 0 ] || [ "${DRAFT_GRAPH:-0}" != 0 ]; then
-      if [ "${V41_CED_ALLOW_DSPARK:-0}" != "1" ]; then
-        echo "[a3-ced][FAIL] D 侧 SPEC=$SPEC DRAFT_GRAPH=$DRAFT_GRAPH 是实验臂；" >&2
-        echo "[a3-ced][FAIL] 要跑请显式设 V41_CED_ALLOW_DSPARK=1。" >&2
+    # ⚠️ 全块统一用 `${VAR:-1}`：默认路径下这两个变量**可能真的未设置**，
+    #    而本脚本是 `set -u`。裸写或混用 `:-0` 会让"不带任何 env 启动 D"
+    #    直接崩（2026-09-27 加默认值时踩过两次：裸 `$SPEC` → unbound；
+    #    内层仍用 `:-0` → 把默认值判成非法）。`bash -n` 两种都查不出来，
+    #    由 tools/selftest_ced_defaults.sh 抓到。
+    spec=${SPEC:-1}
+    draft=${DRAFT_GRAPH:-1}
+    if [ "$spec" != 0 ] || [ "$draft" != 0 ]; then
+      if [ "$spec" != 1 ]; then
+        echo "[a3-ced][FAIL] 当前分支只验证过 SPEC=1（DSpark 单模型草稿）；当前 SPEC=$spec" >&2
         exit 2
       fi
-      if [ "${SPEC:-0}" != 1 ]; then
-        echo "[a3-ced][FAIL] 当前分支只验证过 SPEC=1（DSpark 单模型草稿）；当前 SPEC=$SPEC" >&2
+      if [ "$draft" != 0 ] && [ "$draft" != 1 ]; then
+        echo "[a3-ced][FAIL] DRAFT_GRAPH 只能是 0 或 1；当前 DRAFT_GRAPH=$draft" >&2
         exit 2
       fi
-      if [ "${DRAFT_GRAPH:-0}" != 0 ] && [ "${DRAFT_GRAPH:-0}" != 1 ]; then
-        echo "[a3-ced][FAIL] DRAFT_GRAPH 只能是 0 或 1；当前 $DRAFT_GRAPH" >&2
-        exit 2
-      fi
-      echo "[a3-ced][WARN] V41_CED_ALLOW_DSPARK=1：D 侧 DSpark（SPEC=$SPEC DRAFT_GRAPH=$DRAFT_GRAPH）属实验臂" >&2
+      echo "[a3-ced] D 侧 DSpark：SPEC=$spec DRAFT_GRAPH=$draft（交付口径）"
     fi
     ;;
 esac
@@ -64,37 +74,47 @@ if [ "$role" = prefill ]; then
   # P 的 SPEC/DRAFT_GRAPH 由上面的硬门保证为 0，这里显式定稿。
   export SPEC=0 DRAFT_GRAPH=0
 else
-  # D 侧保留调用方传入的值（默认 0），放行与否已在上面的门里判过。
-  export SPEC=${SPEC:-0} DRAFT_GRAPH=${DRAFT_GRAPH:-0}
-  # DSpark 的 eager 草稿在 SPEC=1 时必须让引擎知道；其余情况保持默认。
+  # D 侧默认 = 交付口径（DSpark 开）；取值合法性已在上面的门里判过。
+  export SPEC=${SPEC:-1} DRAFT_GRAPH=${DRAFT_GRAPH:-1}
+  # DSpark 的草稿在 SPEC=1 时必须让引擎知道（`model.py` 用同一个 env 做门）。
   if [ "$SPEC" != 0 ]; then
-    export V41_CED_ALLOW_DSPARK=${V41_CED_ALLOW_DSPARK:-0}
+    export V41_CED_ALLOW_DSPARK=${V41_CED_ALLOW_DSPARK:-1}
   fi
 fi
-# [CED-PREFIX-EXPERIMENT] 2026-09-26：`PREFIX=1` 原先是硬门（直接 exit 2）。
-# 基线口径的前缀缓存已在真机上验证**可用且正确**（144,000 tok 命中、命中答案与冷
-# 路径逐字节相同，见 evidence/ced_prefix_hit_20260926/），所以"CED 能不能开缓存"
-# 值得实测，而不是停在推断上。
+# [CED-PREFIX] 前缀缓存**默认开**（2026-09-27 起为交付口径）。
 #
-# 打开方式（显式）：V41_CED_ALLOW_PREFIX=1 + PREFIX=1
-#   ⚠️ 这是**实验臂**。文档 CED-PD-CACHE-HIT-PLAN-20260925.md §2 列了三处代码级前提
-#   （调度器边界断言 / D 侧对 hashed 块预清零 / 上半层 SWA 的残留），
-#   其中任一处没处理干净都会**静默算错**，所以结果不能当交付口径。
-if [ "${PREFIX:-0}" != "0" ]; then
-  if [ "${V41_CED_ALLOW_PREFIX:-0}" != "1" ]; then
-    echo "[a3-ced][FAIL] PREFIX=$PREFIX；CED 原型默认要求 PREFIX=0。" >&2
-    echo "[a3-ced][FAIL] 要跑缓存命中实验臂，显式设 V41_CED_ALLOW_PREFIX=1。" >&2
-    exit 2
-  fi
-  echo "[a3-ced][WARN] V41_CED_ALLOW_PREFIX=1：CED 开前缀缓存属实验臂，结果不可当交付证据" >&2
-  echo "[a3-ced][WARN] 需先处理 CED-PD-CACHE-HIT-PLAN-20260925.md §2 的三处前提" >&2
-else
+# 转正依据：144K 常规/整池/交错 + 1M 整池 + 1M 部分命中→整段命中全部正确，
+# 命中答案与冷路径逐字节相同（≈16–18×）；另修掉三处会打死引擎的问题
+# （12-group 形状、P 侧命中回退、D 侧空接收），且三者在真机上都有可观测触发
+# 痕迹。见 docs/CED-PD-CACHE-HIT-PLAN-20260925.md §11–§13 与
+# evidence/ced_prefix_hit_20260926/。
+#
+# 关掉：`PREFIX=0`（显式）。旧写法 `V41_CED_ALLOW_PREFIX=0` 也认。
+if [ "${V41_CED_ALLOW_PREFIX:-1}" = "0" ]; then
   export PREFIX=0
 fi
-export STATIC_KERNEL=${STATIC_KERNEL:-0}
+export PREFIX=${PREFIX:-1}
+# [STATIC_KERNEL] 按角色取交付口径默认：D=1（−4.4 ms/step、−9.6%）、
+#   P=0（P 侧没做过单变量，保守）。与 deploy/a3-ced-pd/launch/serve_{p,d}.sh
+#   以及 2026-09-27 验证过的配置逐项一致 —— 避免"脚本默认 ≠ 交付默认"。
 if [ "$role" = decode ]; then
-  # Both arms are diagnostic until the graph-mode corruption is fixed.
-  # Never turn the accurate but slower eager arm into an implicit delivery.
+  export STATIC_KERNEL=${STATIC_KERNEL:-1}
+else
+  export STATIC_KERNEL=${STATIC_KERNEL:-0}
+fi
+if [ "$role" = decode ]; then
+  # [CED-GRAPH-DEFAULT] 交付口径 = **图模式**（GRAPH=1 EAGER=0）。
+  #   原先两个臂都必须显式选（裸跑会 exit 2），理由是"图模式短针 2/2 乱码"。
+  #   那条乱码已由 [CED-SWA-CLIP] 修掉，并通过 144K/1M 四针 21/21 验收
+  #   ⇒ 图模式现在是交付口径，把它设成默认；eager 仍是**显式的**诊断臂
+  #   （`CED_DIAGNOSTIC_EAGER=1`），不会被隐式选中。
+  #   ⚠️ 只在没点名 eager 时才默认：否则 `CED_DIAGNOSTIC_EAGER=1` 会同时踩到
+  #      两个开关，落到下面的 `*)` 分支被拒。
+  if [ "${CED_DIAGNOSTIC_EAGER:-0}" != "1" ]; then
+    export CED_EXPERIMENTAL_GRAPH=${CED_EXPERIMENTAL_GRAPH:-1}
+  fi
+  # 图模式的硬前提（漏了会静默乱码，见下方 [CED-GRAPH-PREREQ]）。
+  export V41_CED_GRAPH_PROMPT_TAIL_EAGER=${V41_CED_GRAPH_PROMPT_TAIL_EAGER:-1}
   case "${CED_DIAGNOSTIC_EAGER:-0}:${CED_EXPERIMENTAL_GRAPH:-0}" in
     1:0)
       export GRAPH=${GRAPH:-0} EAGER=${EAGER:-1}
@@ -134,7 +154,7 @@ if [ "$role" = decode ]; then
           exit 2
         fi
       fi
-      echo "[a3-ced][WARN] D 图模式仅供定位；真实权重短针在此模式 2/2 失败" >&2
+      echo "[a3-ced] D 图模式（交付口径）：GRAPH=1 EAGER=0，prompt-tail eager 已就位"
       ;;
     *)
       echo "[a3-ced][FAIL] CED D 尚无可交付配置：eager 仅供诊断，图模式短针 2/2 乱码。定位时显式设置 CED_DIAGNOSTIC_EAGER=1 或 CED_EXPERIMENTAL_GRAPH=1" >&2
