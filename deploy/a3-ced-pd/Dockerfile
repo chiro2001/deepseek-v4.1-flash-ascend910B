@@ -41,6 +41,9 @@ COPY payload/ced/ /tmp/bake/ced/
 COPY payload/draft/ /tmp/bake/draft/
 COPY payload/patches/ /tmp/bake/patches/
 COPY payload/scripts/ /tmp/bake/scripts/
+# payload 清单也打进镜像：事后可以对着它核对"这层到底装了哪些文件"，
+# 不需要回头找仓库（清单本身逐字节派生自仓库源文件）。
+COPY payload/PAYLOAD.sha256 /opt/dsv41/deploy/PAYLOAD.sha256
 
 # ---------- 2) vllm-ascend 补丁件落位 + 备份 + 逐文件编译校验 ----------
 # 备份成 .cedpdorig（原图镜像里已有的同名文件才备份）。
@@ -165,36 +168,11 @@ RUN set -euo pipefail; \
     cat /opt/dsv41/BUILD_INFO.txt
 
 # ---------- 8) 构建期冒烟（不需要 NPU）----------
+# ⚠️ 冒烟脚本从外部 COPY 进来，**不要**在 Dockerfile 里写 heredoc：
+#    `RUN ...; \` + `python3 - <<'PY'` 会被 Dockerfile 解析器截断成
+#    `unknown instruction: IMPORT`（已踩）。只有 BuildKit 的 heredoc 语法才支持。
+COPY checks/build_smoke.py /opt/dsv41/deploy/build_smoke.py
 RUN set -euo pipefail; \
-    python3 - <<'PY'
-import py_compile, sys, pathlib
-base = pathlib.Path("/vllm-workspace/vllm-ascend/vllm_ascend")
-files = [
-    "models/deepseek_v41/engram_hbm.py",
-    "models/deepseek_v41/engram_hash.py",
-    "models/deepseek_v41/engram_gate.py",
-    "models/deepseek_v41/engram_jit_kernel.py",
-    "models/deepseek_v41/engram_plan_kernel.py",
-    "models/deepseek_v41/engram_device_index.py",
-    "models/deepseek_v41/engram_graph.py",
-    "models/deepseek_v41/model.py",
-    "models/deepseek_v41/indexer.py",
-    "ascend_forward_context.py",
-    "ops/rope_dsv4.py",
-    "worker/block_table.py",
-    "ops/fused_moe/token_dispatcher.py",
-    "attention/dsa_v41.py",
-    "distributed/kv_transfer/kv_p2p/mooncake_hybrid_connector.py",
-]
-bad = []
-for f in files:
-    try:
-        py_compile.compile(str(base / f), doraise=True)
-    except Exception as e:
-        bad.append(f"{f}: {e}")
-print(f"[build-smoke] py_compile {len(files) - len(bad)}/{len(files)} ok")
-if bad:
-    print("\n".join(bad)); sys.exit(1)
-PY
+    python3 /opt/dsv41/deploy/build_smoke.py
 
 WORKDIR /workspace
