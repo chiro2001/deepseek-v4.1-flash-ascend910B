@@ -139,7 +139,7 @@ bash deploy/a3-ced-pd/launch/smoke.sh          # 144K 四针冒烟
 ```
 
 也可以直接下载**已构建好的镜像包**（3.8 MB，不需要仓库）：
-[Release `a3-ced-pd-v2`](https://github.com/chiro2001/deepseek-v4.1-flash-ascend910B/releases/tag/a3-ced-pd-v2)
+[Release `a3-ced-pd-v3`](https://github.com/chiro2001/deepseek-v4.1-flash-ascend910B/releases/tag/a3-ced-pd-v3)
 —— 或看 [`deploy/a3-ced-pd/README.md`](deploy/a3-ced-pd/README.md) 的完整硬门清单。
 
 ### 3.4 A2：单实例 TP8

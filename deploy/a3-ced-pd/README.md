@@ -22,9 +22,10 @@ proxy          ：官方 load_balance_proxy，客户端只连它
 * **KV 精度**：BF16（`KV_DTYPE=bfloat16`），不是 INT8。
 
 > 📦 **可以直接下载已构建好的镜像包**（不需仓库）：
-> [Release `a3-ced-pd-v2`](https://github.com/chiro2001/deepseek-v4.1-flash-ascend910B/releases/tag/a3-ced-pd-v2)
-> —— `dsv41-a3-ced-pd-imagekit-v2.tar.zst`（3.8 MB，基线 `main@2d5ff15`，含 decode 请求边界护栏）。
-> 上一版 `a3-ced-pd-v1` **不含护栏**，不要用。
+> [Release `a3-ced-pd-v3`](https://github.com/chiro2001/deepseek-v4.1-flash-ascend910B/releases/tag/a3-ced-pd-v3)
+> —— `dsv41-a3-ced-pd-imagekit-v3.tar.zst`（3.8 MB，基线 `main@7497a06`）。
+> v3 = **交付默认**（D 侧 DSpark 开、两侧前缀缓存开、D 图模式）+ decode 请求边界护栏；
+> v1 连护栏都没有，不要用。
 
 ## 1. 两种交付面（**逐字节等价**）
 
@@ -70,7 +71,7 @@ bash deploy/a3-ced-pd/launch/serve_proxy.sh  #            → :18992
 
 ```bash
 # 先拿到镜像（二选一）
-docker load < dsv41-a3-ced-pd-imagekit-v2.tar.zst    # 或
+docker load < dsv41-a3-ced-pd-imagekit-v3.tar.zst    # 或
 bash deploy/a3-ced-pd/build_image.sh                  # 有基底镜像时本地构建
 
 export MODEL=<完整模型目录>

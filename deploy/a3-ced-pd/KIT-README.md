@@ -26,7 +26,7 @@ https://github.com/chiro2001/deepseek-v4.1-flash-ascend910B/releases/tag/a3-ced-
 ```
 
 资源 `dsv41-a3-ced-pd-imagekit-v3.tar.zst` + 同名 `.sha256`。
-本 README 描述的就是那一包的基线 `main@80d8974`。
+本 README 描述的就是那一包的基线 `main@7497a06`（镜像内 `repo_rev` 实测同值）。
 
 > 版本关系：
 > * **v3（本包）** —— A3 PD 分离的**交付默认**：D 侧 DSpark 开、两侧前缀缓存开、
@@ -178,11 +178,11 @@ decode 并发 4 时 **41.07 ms/step**（`STATIC_KERNEL=1`）；
 | 项 | 值 |
 |---|---|
 | 基底 | `quay.nju.edu.cn/ascend/vllm-ascend:deepseek-v4.1-flash-a3`（18 层，id `sha256:1f2c08195c5b…`） |
-| 源镜像（本层从它切出） | `local/dsv41-a3-ced-pd:v3`（id `sha256:e74fa9e9a3fa…`） |
+| 源镜像（本层从它切出） | `local/dsv41-a3-ced-pd:v3`（id `sha256:416a3e5a8234…`） |
 | 工作层 | **15 层**，压缩后 **1.2 MiB** |
 | 文件系统条目 | 305,791 |
 | payload 文件 | 92 |
-| **代码基线** | 本仓 `main` @ `80d8974`（镜像内 `/opt/dsv41/BUILD_INFO.txt` 的 `repo_rev`） |
+| **代码基线** | 本仓 `main` @ `7497a06`（镜像内 `/opt/dsv41/BUILD_INFO.txt` 的 `repo_rev`） |
 | 基底内的 vLLM 基线 | `vllm 6e448d0`（+1 dirty = admission gate）/ `vllm-ascend e43cf1e9f`（+24 dirty = 我们的补丁件 + `.cedpdorig` 备份） |
 | 生成工具 | `scripts/make_image_patch_kit.py`（本仓 `main`），`--job 'dsv41-a3-ced-pd\|local/dsv41-a3-ced-pd:v3\|v41'` |
 | 生成时间/机器 | 见 `MANIFEST.json`（a3-21） |
