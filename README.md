@@ -78,6 +78,34 @@ DEVS="8 9 10 11 12 13 14 15" \
 `DEVS` 是**用户输入**：一台机器上哪 8 张能用取决于当前谁在跑什么，脚本无法替你判断。
 默认会**拒绝已被占用的卡**并打印占用进程（确实要带占用起服务才加 `ALLOW_BUSY=1`）。
 
+### 2.1b A3 单机 **8+8 PD 分离 + CED**（16 卡全用）
+
+上面 2.1 是**单实例 TP8**（用 8 张卡）。如果一台 A3 的 16 张卡都在手，
+可以起**PD 分离 + CED** 形态：P 只跑前 20 层、D 做 128-token 有界重放 + 全 40 层
++ DSpark。**prefill 相对全 40 层基线 2.07×（144K）**，144K/1M 验收 21/21 通过。
+
+```bash
+export MODEL=/path/to/v41-w4a8-engram-dr-vision-qrot-mtpq
+bash deploy/a3-ced-pd/launch/serve_p.sh        # chip 0–7  → :18990
+bash deploy/a3-ced-pd/launch/serve_d.sh        # chip 8–15 → :18991
+bash deploy/a3-ced-pd/launch/serve_proxy.sh    #           → :18992（客户端连这个）
+bash deploy/a3-ced-pd/launch/smoke.sh          # 144K 四针冒烟
+```
+
+| 想了解 | 看 |
+|---|---|
+| 部署形态、起服与硬门 | [`deploy/a3-ced-pd/README.md`](deploy/a3-ced-pd/README.md) |
+| 架构（P 为什么只跑 20 层、DSpark 为什么只能在 D 侧） | [`docs/CED-PD-DSPARK-CED-RELATION-20260926.md`](docs/CED-PD-DSPARK-CED-RELATION-20260926.md) |
+| 验收矩阵与判据 | [`docs/CED-PD-ACCEPTANCE.md`](docs/CED-PD-ACCEPTANCE.md) |
+| 性能（prefill/decode/吞吐） | [`docs/CED-PD-PERF-20260925.md`](docs/CED-PD-PERF-20260925.md) |
+| 精度/乱码措施总账 | [`docs/CED-PD-ACCURACY-MEASURES-20260926.md`](docs/CED-PD-ACCURACY-MEASURES-20260926.md) |
+
+> 另有**镜像层 patch 包**（官方基底 + 我们的工作层，9.5 MB，
+> 不需要仓库/联网）：见 [`deploy/a3-ced-pd/KIT-README.md`](deploy/a3-ced-pd/KIT-README.md)。
+>
+> ⚠️ **DSpark 的收益只在低并发成立**：并发 4 时它把 decode ms/step 从 28.2 抬到 41.1
+> （1.45×），换来接受长度 A≈2.4。高并发吞吐场景建议保持 `SPEC=0`。
+
 ### 2.2 A2（8×910B3）
 
 ```bash
