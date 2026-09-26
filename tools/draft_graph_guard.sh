@@ -37,8 +37,40 @@ mkdir -p "$OUT"
 
 say() { printf '\n=== %s ===\n' "$*"; }
 
+# [PY] ★ 打印**实际用的解释器**并前置检查依赖。
+#
+# 为什么必须有（issue #2 报告者踩的坑）：脚本原先裸调 `python3`，而它有依赖
+# （`requests` 之类）。用系统 python3 跑时缺包 ⇒ 内部报错被 `> guard.log 2>&1`
+# 吞进日志，外层只看到**退出码 2「拿不到基准结果」** —— 与"服务没起来"的症状
+# 一模一样，排查方向被带偏。现在把解释器路径与缺包情况**显式打出来**。
+PY=${PY:-python3}
+say "0. 解释器与依赖自检"
+PY_BIN=$(command -v "$PY" 2>/dev/null || true)
+PY_VER=$("$PY" -V 2>&1 || echo "无法执行")
+echo "[guard] python = ${PY_BIN:-<找不到 $PY>}  ($PY_VER)"
+if [ -z "$PY_BIN" ]; then echo "[guard] FAIL: 找不到解释器 $PY（可用 PY=<路径> 指定）"; exit 2; fi
+_missing=$("$PY" - <<'PYCHK' 2>&1
+import importlib, sys
+need = []
+for m in ("requests",):
+    try:
+        importlib.import_module(m)
+    except Exception as exc:
+        need.append(f"{m} ({exc.__class__.__name__})")
+print(",".join(need))
+PYCHK
+)
+if [ -n "$_missing" ]; then
+  echo "[guard] FAIL: 解释器 $PY_BIN 缺依赖：$_missing"
+  echo "[guard]       换个解释器（PY=/path/to/python3）或先 pip install。"
+  echo "[guard]       ⚠️ 这不是服务故障 —— 原先这里只报退出码 2，很容易误判。"
+  exit 2
+fi
+echo "[guard] 依赖自检通过"
+
 say "1. 服务活着吗"
-code=$(curl -s -o /dev/null -w '%{http_code}' -m 10 "$BASE/health" || echo 000)
+code=$(curl -s -o /dev/null -w '%{http_code}' -m 10 "$BASE/health" 2>/dev/null)
+code=${code:-000}
 [ "$code" = "200" ] || { echo "[guard] FAIL: health=$code"; exit 2; }
 echo "health=$code"
 

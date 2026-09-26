@@ -440,7 +440,13 @@ def main() -> int:
                     help="/tokenize 只在 P 上有，PD 代理不提供。默认与 --base-url 相同；"
                          "走代理测吞吐时必须显式指到 P（否则 404），"
                          "例如 --tokenize-url http://127.0.0.1:18990")
-    ap.add_argument("--model", default="deepseek-v41")
+    # ★ 默认从 "deepseek-v41" 改成空串：非空默认值会让"未指定"这个状态
+    # **不存在**，于是在网关场景下静默假定一个模型名，而实际压的是别的东西
+    # （issue #2 报告者撞的就是这类）。改成空 ⇒ 未指定时明确用 /v1/models 的
+    # data[0] 并打印提示，而不是假装用户选过了。
+    ap.add_argument("--model", default="",
+                    help="served model name。留空则用 /v1/models 的 data[0]（会打印提示）；"
+                         "走聚合网关时**建议显式指定**")
     ap.add_argument("--concurrency", default="1,2,4,8,16,32,64")
     ap.add_argument("--prompt-tokens", type=int, default=1024)
     ap.add_argument("--output-tokens", type=int, default=256)
@@ -473,12 +479,36 @@ def main() -> int:
 
     try:
         models = _get_json(f"{base}/v1/models")
-        served = models["data"][0]["id"]
+        ids = [m.get("id") for m in (models.get("data") or []) if m.get("id")]
     except Exception as exc:  # noqa: BLE001
         print(f"[bench] 服务不可达：{exc}", file=sys.stderr)
         return 3
-    if a.model and a.model != served:
-        print(f"[bench] NOTE: --model={a.model} != 服务端 id={served}；改用服务端 id", file=sys.stderr)
+    if not ids:
+        print("[bench] /v1/models 没返回任何 id", file=sys.stderr)
+        return 3
+
+    # ★ 优先**在列表里找 `--model` 指定的那个**，找不到才回退 `data[0]`。
+    #
+    # 原先直接 `served = data[0]["id"]` 并用它**覆盖** `--model`。走聚合网关时
+    # `data[0]` 可能是**别的模型**（issue #2 报告者那边第一项是 bge-embedding），
+    # 于是压测目标被**悄悄改成 embedding 模型、结果全废**，而且没有任何报错 ——
+    # 典型的"判据绑错对象"。
+    if a.model:
+        if a.model in ids:
+            served = a.model
+            if ids[0] != a.model:
+                print(f"[bench] /v1/models 里 data[0]={ids[0]}，但 --model={a.model} 也在列表里 "
+                      f"⇒ 用 --model（**不覆盖**）", file=sys.stderr)
+        else:
+            served = ids[0]
+            print(f"[bench] WARNING: --model={a.model} 不在 /v1/models（{ids[:3]}…）⇒ "
+                  f"回退 data[0]={served}。压测目标可能不是你想要的，请核对。", file=sys.stderr)
+            a.model = served
+    else:
+        served = ids[0]
+        if len(ids) > 1:
+            print(f"[bench] 未指定 --model，用 /v1/models 的 data[0]={served}"
+                  f"（列表里还有 {len(ids) - 1} 个；走网关时建议显式指定）", file=sys.stderr)
         a.model = served
 
     print(f"[bench] base={base} model={a.model} label={a.label or '-'}")

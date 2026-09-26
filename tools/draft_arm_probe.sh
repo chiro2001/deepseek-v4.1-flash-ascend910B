@@ -29,7 +29,8 @@ LOG="$RUN/serve.log"
 say() { printf '\n=== %s ===\n' "$*"; }
 
 say "0. health"
-code=$(curl -s -o /dev/null -w '%{http_code}' -m 10 "$BASE/health" || echo 000)
+code=$(curl -s -o /dev/null -w '%{http_code}' -m 10 "$BASE/health" 2>/dev/null)
+code=${code:-000}   # 不写 `|| echo 000`：那会拼成 000000
 [ "$code" = "200" ] || { echo "[probe] FAIL: health=$code"; exit 2; }
 echo "health=$code"
 

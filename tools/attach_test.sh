@@ -9,7 +9,7 @@
 # ⇒ 会把你正在跑的服务杀掉重建。[3]–[7] 其实都是纯客户端，本脚本把它们摘出来。
 #
 # 做的事（与 run_test.sh 逐条同口径）：
-#   [3] 必查   static_kernel 未降级 / Engram local-owner validate / KV > 3Mi
+#   [3] 必查   static_kernel 未降级 / Engram local-owner validate / KV > $KV_MIN（默认 2.8M，非 3Mi）
 #              （日志里若有 DRAFT_GRAPH 指纹则一并打印）
 #   [4] 性能   quote 单流 8K / 32K（MODE=full 再加 128K）
 #   [5] 视觉   23 例（需官方图片目录）
@@ -195,13 +195,27 @@ else
 fi
 echo "$LO_EFF" > "$OUT/local_owner_effective.txt"
 
-say "必查 ③ KV 容量（门槛 3,145,728 tokens = 3Mi）"
+# ★ 门槛跟着**默认 GPU_UTIL** 走 —— 原先写死 3,145,728（3Mi），
+#   那是 `GPU_UTIL=0.94` 时代的数；现默认 0.92 下只有 ~2.82M
+#   ⇒ **对默认配置每次必报假红**（issue #2 报告者发现的，与 run_test.sh 同一处口径）。
+#   `scripts/run_test.sh` 早已改成 `KV_MIN=${KV_MIN:-2800000}`，本脚本漏了。
+#
+#   GPU_UTIL=0.92（现默认）→ 约 2.82M tokens   ← 门槛取 2,800,000
+#   GPU_UTIL=0.94（旧默认）→ 3,088,412 tokens，但长 prompt 的 prefill 慢 6~7×
+#   要卡 3Mi 就显式 `KV_MIN=3145728` 并同时 `GPU_UTIL=0.94`。
+KV_MIN=${KV_MIN:-2800000}
+say "必查 ③ KV 容量（门槛 $KV_MIN tokens；GPU_UTIL=${GPU_UTIL:-n/a}）"
 KV_PASS=0
 if [ -n "$SLOG" ] && [ -f "$SLOG" ]; then
   KV=$(grep -oE "GPU KV cache size: [0-9,]+ tokens" "$SLOG" | tail -1 | tr -dc '0-9')
   KV=${KV:-0}
-  if [ "$KV" -gt 3145728 ]; then ok "KV $KV tokens > 3Mi"; KV_PASS=1
-  else bad "KV $KV tokens ≤ 3Mi"; KV_PASS=0; fi
+  if [ "$KV" -gt "$KV_MIN" ]; then ok "KV $KV tokens > $KV_MIN"; KV_PASS=1
+  else
+    bad "KV $KV tokens ≤ $KV_MIN"
+    KV_PASS=0
+    echo "     提示：默认 GPU_UTIL=0.92 下 KV 约 2.82M 是**有意取舍**（换 prefill 快 6~7×）。"
+    echo "           这不是故障；要更大 KV 请设 GPU_UTIL=0.94（长 prompt 首 token 会从 1.1 s 涨到 8 s）。"
+  fi
 else
   KV=0; bad "无日志可查 ⇒ KV 容量未知"
 fi

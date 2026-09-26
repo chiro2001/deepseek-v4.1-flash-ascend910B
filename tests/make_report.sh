@@ -21,8 +21,11 @@ echo "|---|---|---|---|"
 
 KV=$(grep -oE "kv_tokens=[0-9]+" "$OUT/env.txt" 2>/dev/null | cut -d= -f2)
 KV=${KV:-0}
-if [ "$KV" -gt 3145728 ]; then KVJ="✅ PASS"; else KVJ="❌ FAIL"; fi
-echo "| GPU KV cache tokens | ${KV} | > 3,145,728 | $KVJ |"
+# ★ 门槛跟着**默认 GPU_UTIL** 走（与 scripts/run_test.sh / tools/attach_test.sh 同口径）：
+#   写死 3,145,728 是 GPU_UTIL=0.94 时代的数，现默认 0.92 只有 ~2.82M ⇒ 会报假红。
+KV_MIN=${KV_MIN:-2800000}
+if [ "$KV" -gt "$KV_MIN" ]; then KVJ="✅ PASS"; else KVJ="❌ FAIL"; fi
+echo "| GPU KV cache tokens | ${KV} | > ${KV_MIN}（默认 0.92 ⇒ 约 2.82M；0.94 ⇒ 3.09M） | $KVJ |"
 
 for tag in 8k 128k; do
   f=$(ls "$OUT"/p42_t4_quote_*_quote_${tag}.jsonl 2>/dev/null | head -1)

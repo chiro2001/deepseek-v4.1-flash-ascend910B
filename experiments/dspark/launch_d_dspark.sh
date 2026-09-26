@@ -73,7 +73,9 @@ done
 ) > "$LOG" 2>&1 &
 
 for i in $(seq 1 180); do
-  h=$(curl -s -o /dev/null -w '%{http_code}' --max-time 3 http://127.0.0.1:18991/health || echo 000)
+  # 不写 `|| echo 000`（会拼成 000000）；见 AGENTS.md §3.2
+  h=$(curl -s -o /dev/null -w '%{http_code}' --max-time 3 http://127.0.0.1:18991/health 2>/dev/null)
+  h=${h:-000}
   [ "$h" = "200" ] && { echo "[dspark-d] D health=200 after ${i}0s"; break; }
   [ $((i % 6)) -eq 0 ] && echo "   ... D=${i}0s h=$h"
   sleep 10

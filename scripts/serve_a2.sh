@@ -8,7 +8,11 @@
 #   * DEVS 固定 0..7（A2 单机 8 卡；A3-node1 用 back8 = 8..15）
 #   * 补丁来自**镜像内已烘焙**的版本（build_image.sh 产出）；PATCH_MODE=mount 时才用 -v 挂
 #   * 默认关掉 A3-node1 的实验设施：HOTSPIKE=0、ROUTE_PROBE=0、探针不挂
-#   * 默认开 DRAFT_GRAPH=1（draft 入图，含 DSPARK_GRAPH_CAPTURE_METADATA 绑定与校验）
+#   * **默认关** DRAFT_GRAPH=0（draft 入图；需显式 `DRAFT_GRAPH=1`）
+#     ⚠️ 这里原先写的是"默认开"，与代码 `DRAFT_GRAPH=${DRAFT_GRAPH:-0}` 自相矛盾。
+#     而"默认关"是**刻意决定**：默认开会让用户拿到 `A≈1.07` 的坏配置且**无任何报错**
+#     （见 CHANGELOG §6）。文案与代码不一致会让人以为"我没设应该是开着的"，
+#     正好踩中那个静默失效。
 #   * 默认关未验证/负结果开关：MOE_ZERO=0、MOE_NF=0
 #   * 缓存目录默认落在包目录 ./cache（A2 无外网，缓存持久化很重要）
 #
@@ -29,6 +33,32 @@
 #   MOE_NF     默认 0（负结果，不采纳；见 README「别踩坑」表）
 # =============================================================================
 set -uo pipefail
+
+# ---------------------------------------------------------------------------
+# [NO_PROXY] 企业代理会**拦截 127.0.0.1**，把"服务已就绪"判成"起服挂死"。
+#
+# 实测（issue #2 报告者，2026-09-21）：他们的 Squid 代理对 `127.0.0.1` 的请求
+# 直接返回 **503 错误页**。表现是模型已经启动完成、直连 `/v1/models` 也正常，
+# 但走代理的 `curl http://127.0.0.1:<port>/health` **永远拿 503**
+# ⇒ 所有就绪轮询/健康检查超时 ⇒ 看起来像"起服挂死"，把后面的判断全带偏。
+#
+# 一眼识别：返回的是 **HTML** 而不是 JSON 就是被劫持了：
+#     curl -s http://127.0.0.1:8100/health | head -3
+#     curl -s --noproxy '*' http://127.0.0.1:8100/health | head -3   # 立即 200
+#
+# 只在**用户没设过**时补默认值 ⇒ **不覆盖**已有的 no_proxy 配置。
+# 要显式关掉：`KEEP_PROXY_FOR_LOCALHOST=1`。
+# ---------------------------------------------------------------------------
+if [ "${KEEP_PROXY_FOR_LOCALHOST:-0}" != "1" ]; then
+  _v41_np_default='127.0.0.1,localhost,::1'
+  if [ -z "${no_proxy:-}" ]; then
+    export no_proxy="$_v41_np_default"
+  elif ! printf '%s' "$no_proxy" | grep -q '127\.0\.0\.1'; then
+    export no_proxy="${no_proxy},${_v41_np_default}"
+  fi
+  export NO_PROXY="${no_proxy}"
+fi
+unset _v41_np_default
 
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PKG="$(cd "$HERE/.." && pwd)"
@@ -280,6 +310,18 @@ WAIT_READY=${WAIT_READY:-1}
 # 由 tests/multibatch/verify_serve_flags.sh 的 12 组合矩阵调用。
 DRY_RUN=${DRY_RUN:-0}
 
+# [SAY-BEFORE-MKDIR] ★ 实测踩过的坑：`say()` 会 `tee -a "$OUT/driver.log"`，
+# 而 `OUT` 原先直到 **:664** 才 `mkdir -p`。于是起服时**头 ~100 行日志全部丢失**，
+# 终端只留一行红字（issue #2 报告者先发现的）：
+#
+#     tee: /.../results/<run>/driver.log: No such file or directory
+#
+# 而 `serve_a3.sh` 结尾是 `exec bash "$HERE/serve_a2.sh"`、**自身不建 OUT**
+# ⇒ 官方路径**每次起服必踩**。我们自己的 launcher 里有 `mkdir -p` 才掩盖了它。
+#
+# 修法：把目录创建提到 `say()` 定义之前。这里**只能建 `$OUT`**（`$CACHE` 那几个
+# 目录依赖后面才解析的变量），所以 :664 的 `mkdir -p` 保留不动。
+mkdir -p "$OUT" 2>/dev/null || true
 say() { printf '\n\033[1m[serve_a2]\033[0m %s\n' "$*" | tee -a "$OUT/driver.log"; }
 # [FAIL-CLEANUP] v5 的坑：容器入口是 `bash -lc "sleep infinity"`，vLLM 崩了容器**还活着**，
 # 一直占着 ~313 GB（Engram 206 GB 常驻 + 权重）。这直接导致"第二次起服叠加失败"。
@@ -1300,8 +1342,14 @@ if [ "$DRAFT_GRAPH" = "1" ]; then
   #       /opt/dsv41/patches/draft/，**没有人把它拷到 live tree**。所以这里显式装。
   say "DRAFT_GRAPH=1：安装 draft 版文件 + 打开图捕获元数据（PATCH_MODE=$PATCH_MODE）"
   if [ "$PATCH_MODE" != "mount" ]; then
+    # ⚠️ 这里**不能带 `|| true`**（原先有）：吞掉失败会让"幂等入口没跑起来"
+    # 和"跑起来了"长得一模一样，只能靠后面的兜底分支兜住；而兜底一旦也失败，
+    # 报出来的原因会指向兜底而不是真正失效的那一步（issue #2 报告者踩的正是这类）。
+    # 现在：入口失败就明确打印，接着走兜底；**兜底才是最终判据**。
     if [ -f "$PKG/tools/enable_draft_graph.sh" ]; then
-      $DOCKER exec "$NAME" bash -lc "bash /opt/dsv41/tools/enable_draft_graph.sh on" >/dev/null 2>&1 || true
+      if ! $DOCKER exec "$NAME" bash -lc "bash /opt/dsv41/tools/enable_draft_graph.sh on" 2>&1 | tail -3; then
+        echo "[serve_a2] WARNING: enable_draft_graph.sh on 失败 ⇒ 改走下面的直接安装兜底" >&2
+      fi
     fi
     # 兜底：直接从镜像内已 COPY 的 draft 目录装（不依赖 tools/ 是否被挂进去）
     $DOCKER exec "$NAME" bash -lc '
@@ -1442,7 +1490,10 @@ say "等待就绪（每 15 s 报一次，最多 $((READY_TIMEOUT/60)) 分钟；�
 t0=$(date +%s)
 while :; do
   el=$(( $(date +%s) - t0 ))
-  code=$(curl -s -m 5 -o /dev/null -w '%{http_code}' "http://127.0.0.1:$PORT/health" 2>/dev/null || echo 000)
+  # ⚠️ 不能写 `|| echo 000`：curl 失败时 -w **已经**打印了 000，再追加一个
+  # 就变成 "000000"，后续所有 `= "200"` 比较都失效（AGENTS.md §3.2 同族坑）。
+  code=$(curl -s -m 5 -o /dev/null -w '%{http_code}' "http://127.0.0.1:$PORT/health" 2>/dev/null)
+  code=${code:-000}
   [ "$code" = "200" ] && { say "就绪（用时 ${el}s）"; break; }
   if ! $DOCKER inspect -f '{{.State.Running}}' "$NAME" 2>/dev/null | grep -q true; then
     tail -30 "$LOG" 2>/dev/null; die "容器退出"

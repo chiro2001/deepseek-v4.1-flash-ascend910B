@@ -25,6 +25,32 @@
 # =============================================================================
 set -uo pipefail
 
+# ---------------------------------------------------------------------------
+# [NO_PROXY] 企业代理会**拦截 127.0.0.1**，把"服务已就绪"判成"起服挂死"。
+#
+# 实测（issue #2 报告者，2026-09-21）：他们的 Squid 代理对 `127.0.0.1` 的请求
+# 直接返回 **503 错误页**。表现是模型已经启动完成、直连 `/v1/models` 也正常，
+# 但走代理的 `curl http://127.0.0.1:<port>/health` **永远拿 503**
+# ⇒ 所有就绪轮询/健康检查超时 ⇒ 看起来像"起服挂死"，把后面的判断全带偏。
+#
+# 一眼识别：返回的是 **HTML** 而不是 JSON 就是被劫持了：
+#     curl -s http://127.0.0.1:8100/health | head -3
+#     curl -s --noproxy '*' http://127.0.0.1:8100/health | head -3   # 立即 200
+#
+# 只在**用户没设过**时补默认值 ⇒ **不覆盖**已有的 no_proxy 配置。
+# 要显式关掉：`KEEP_PROXY_FOR_LOCALHOST=1`。
+# ---------------------------------------------------------------------------
+if [ "${KEEP_PROXY_FOR_LOCALHOST:-0}" != "1" ]; then
+  _v41_np_default='127.0.0.1,localhost,::1'
+  if [ -z "${no_proxy:-}" ]; then
+    export no_proxy="$_v41_np_default"
+  elif ! printf '%s' "$no_proxy" | grep -q '127\.0\.0\.1'; then
+    export no_proxy="${no_proxy},${_v41_np_default}"
+  fi
+  export NO_PROXY="${no_proxy}"
+fi
+unset _v41_np_default
+
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 DRY_RUN=${DRY_RUN:-0}
 

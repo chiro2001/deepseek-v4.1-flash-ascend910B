@@ -62,7 +62,8 @@ MODEL="$MODEL" NAME="$NAME" PORT="$PORT" MAX_SEQS="$MAX_SEQS" PREFIX="$PREFIX" \
   RUN_ID="$TAG" OUT="$OUT" LOG="$LOG" WAIT_READY=1 READY_TIMEOUT=${READY_TIMEOUT:-3000} \
   bash "$PKG/scripts/serve_a2.sh" || { say "$TAG 起服失败"; exit 1; }
 
-code=$(curl -s -m 5 -o /dev/null -w '%{http_code}' "$URL/health" 2>/dev/null || echo 000)
+code=$(curl -s -m 5 -o /dev/null -w '%{http_code}' "$URL/health" 2>/dev/null)
+code=${code:-000}   # 不写 `|| echo 000`：那会拼成 000000
 [ "$code" = "200" ] || { say "$TAG 未就绪（health=$code）"; tail -8 "$LOG" | sed 's/^/    /'; exit 1; }
 
 say "$TAG READY degrade=$(grep -ac 'static_kernel.py:650' "$LOG") $(grep -m1 -o 'GPU KV cache size: [0-9,]*' "$LOG")"

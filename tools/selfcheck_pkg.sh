@@ -339,6 +339,25 @@ else
   warn "缺 a2/scripts/selftest_make_shadow_pkg.sh"
 fi
 
+# ------------------------------------------------- 9h) ★ 本轮的 issue 跟进修复
+# 每条都对应一个**外部报告过的真实故障**，不是内部重构。判据：正控过 + 负控能抓。
+#   issue #2 ② 代理劫持 127.0.0.1 ⇒ 三个起服脚本必须补 no_proxy（且**不覆盖**用户已设的）
+#   issue #2 3.1 `say()` 早于 `mkdir` ⇒ driver.log 头 ~100 行丢失
+#   issue #2 3.6 / 待办 3 KV 门槛写死 3Mi ⇒ 默认配置必报假红；三处必须同口径
+#   issue #2 7.2 bench_concurrency 用 data[0] 覆盖 --model ⇒ 压测目标被悄悄改掉
+#   本仓自查  `curl ... \|\| echo 000` 会拼出 "000000"（AGENTS §3.2 同族），5 处
+if [ -f tools/selftest_issue_followups.sh ]; then
+  if out=$(bash tools/selftest_issue_followups.sh 2>&1); then
+    n=$(printf '%s' "$out" | grep -c '^  ✓' || true)
+    ok "issue 跟进修复回归：${n:-?} 条全过（no_proxy / say-mkdir / KV 门槛口径 / bench --model / http_code 拼接）"
+  else
+    bad "issue 跟进修复回归失败："
+    printf '%s' "$out" | grep -E '✗|FAIL' | sed 's/^/        /' | head -10
+  fi
+else
+  bad "缺 tools/selftest_issue_followups.sh（无法自动抓本轮这几处回归）"
+fi
+
 # ------------------------------------------------- 9g) 证据收集器的**沙箱自测**
 # 收集器是"出问题时唯一救命的工具"，而它的入口有三条（SERVE_LOG / RUN_DIR / RUN_ID+自动取最新）。
 # 入口写错的表现是**静默抽错文件**（抽到别人的臂），在真出问题时最贵。
