@@ -21,6 +21,10 @@ proxy          ：官方 load_balance_proxy，客户端只连它
   都绑在 `DeepseekV41SWASpec.sliding_window == 128` 上）。
 * **KV 精度**：BF16（`KV_DTYPE=bfloat16`），不是 INT8。
 
+> 📦 **可以直接下载已构建好的镜像包**（不需仓库）：
+> [Release `a3-ced-pd-v1`](https://github.com/chiro2001/deepseek-v4.1-flash-ascend910B/releases/tag/a3-ced-pd-v1)
+> —— `dsv41-a3-ced-pd-imagekit-v1.tar.zst`（9.5 MB，基线 `main@dafea50`）。
+
 ## 1. 两种交付面（**逐字节等价**）
 
 | | ① GitHub 形态 | ② 镜像层 patch 形态 |

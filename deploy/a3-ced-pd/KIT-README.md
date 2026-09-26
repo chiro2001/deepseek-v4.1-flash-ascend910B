@@ -17,6 +17,19 @@
 
 ---
 
+## 获取
+
+**GitHub Release（推荐，长期归档）**：
+
+```
+https://github.com/chiro2001/deepseek-v4.1-flash-ascend910B/releases/tag/a3-ced-pd-v1
+```
+
+资源 `dsv41-a3-ced-pd-imagekit-v1.tar.zst`（9.5 MB）+ 同名 `.sha256`。
+本 README 描述的就是那一包的基线 `main@dafea50`。
+
+---
+
 ## 一、这是什么部署形态
 
 | | |
