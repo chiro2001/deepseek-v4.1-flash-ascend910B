@@ -79,13 +79,17 @@ def spec_counters(base: str) -> dict:
     return out
 
 
-def accept_length(m0: dict, m1: dict, n_spec: int = 5) -> tuple[float, float]:
+def accept_length(m0: dict, m1: dict, n_spec: int = 7) -> tuple[float, float]:
     """返回 (接受长度, 接受率%)。接受长度 = 每步接受的 draft 数 + 1。
 
     ⚠️ 接受长度异常高（> 3.5）时先怀疑**复读退化**：
     模型卡在重复同一小段，重复 token 极易被草稿模型命中，
     会把接受长度虚高到 5 左右、吞吐冲到 140+ tok/s。
     详见 docs/BENCH-METHODOLOGY.md。
+
+    ⚠️ `n_spec` 必须等于服务端的 `SP_TOKENS`。历史默认值 5 是旧口径
+    （v4 时期），当前交付口径是 **7**（`serve_a2.sh` 的 `SP_TOKENS=${SP_TOKENS:-7}`）。
+    对不上会让 A 静默错算：A = 1 + n_spec × acc/draft。
     """
     acc = m1.get("num_accepted", 0.0) - m0.get("num_accepted", 0.0)
     drf = m1.get("num_draft", 0.0) - m0.get("num_draft", 0.0)
@@ -338,7 +342,8 @@ def one_request(base: str, model: str, rid: int, prompt: str, max_tokens: int,
 
 
 def run_level(base: str, model: str, conc: int, prompts: list[str],
-              max_tokens: int, timeout: float, ignore_eos: bool = True) -> dict:
+              max_tokens: int, timeout: float, ignore_eos: bool = True,
+              metrics_base: str | None = None, n_spec: int = 7) -> dict:
     """以**并发度 conc** 跑完**全部** prompts（按 conc 切批），返回该级别的统计。
 
     prompts 已由 prepare_prompts 预先校准为**正好 target_tokens 个 token**，
@@ -351,7 +356,7 @@ def run_level(base: str, model: str, conc: int, prompts: list[str],
     """
     results: list[StreamResult] = []
     dec_win_total = 0.0        # Σ 各批的 decode 窗口（批间有间隔，不能算成一段）
-    m_start = spec_counters(base)
+    m_start = spec_counters(metrics_base or base)
     t_start = time.perf_counter()
     for b0 in range(0, len(prompts), conc):
         batch = prompts[b0:b0 + conc]
@@ -374,8 +379,8 @@ def run_level(base: str, model: str, conc: int, prompts: list[str],
         if conc > 1 and b0 + conc < len(prompts):
             wait_idle(base)
     t_end = time.perf_counter()
-    m_end = spec_counters(base)
-    acc_len, acc_rate = accept_length(m_start, m_end)
+    m_end = spec_counters(metrics_base or base)
+    acc_len, acc_rate = accept_length(m_start, m_end, n_spec)
 
     good = [r for r in results if r.ok]
     if not good:
@@ -440,6 +445,12 @@ def main() -> int:
     ap.add_argument("--prompt-tokens", type=int, default=1024)
     ap.add_argument("--output-tokens", type=int, default=256)
     ap.add_argument("--repeats", type=int, default=1)
+    ap.add_argument("--metrics-url", default="",
+                    help="读 /metrics 的地址。PD 分离时**必须**指到 D"
+                         "（官方代理不透传 /metrics，否则 A 恒报 0.00）")
+    ap.add_argument("--spec-tokens", type=int, default=7,
+                    help="服务端 SP_TOKENS；A = 1 + spec_tokens × acc/draft。"
+                         "历史默认 5 是旧口径，当前交付是 7")
     ap.add_argument("--timeout", type=float, default=900.0)
     ap.add_argument("--json-out", default="")
     ap.add_argument("--label", default="")
@@ -491,7 +502,14 @@ def main() -> int:
 
     # 预热（不计入结果）
     wait_idle(base)
-    warm = run_level(base, a.model, 1, prompts, 32, a.timeout, ignore_eos)
+    met = a.metrics_url.rstrip("/") or base
+    if a.metrics_url:
+        print(f"[bench] /metrics 走 {met}（A 与 step 口径依赖它）")
+    else:
+        print("[bench] ⚠️ 未指定 --metrics-url：PD 分离下代理不透传 /metrics，"
+              "接受长度会恒报 0.00")
+    warm = run_level(base, a.model, 1, prompts, 32, a.timeout, ignore_eos,
+                     metrics_base=met, n_spec=a.spec_tokens)
     if warm.get("ok", 0) == 0:
         print(f"[bench] 预热失败：{warm.get('err')}", file=sys.stderr)
         return 4
@@ -502,7 +520,8 @@ def main() -> int:
         for rep in range(a.repeats):
             wait_idle(base)
             r = run_level(base, a.model, conc, prompts, a.output_tokens,
-                          a.timeout, ignore_eos)
+                          a.timeout, ignore_eos,
+                          metrics_base=met, n_spec=a.spec_tokens)
             if r.get("ok", 0) == 0:
                 print(f"[bench] conc={conc:3d} 失败：{r.get('err')}")
                 break
