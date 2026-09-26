@@ -68,7 +68,7 @@ steep 15% / flat 7% / shallow 77%）。实测同一条臂：
 
 仓库里现在有**两种部署形态**，数字不可互相引用：
 
-| | 单实例 TP8（8 卡） | **CED-PD（16 卡）** |
+| | 单实例 TP8（8 **die** = 4 块卡） | **CED-PD（16 die = 8 块卡）** |
 |---|---|---|
 | 入口 | `scripts/serve_a3.sh` | **`deploy/a3-ced-pd/`** |
 | P | — | chip 0–7，只跑 layer 0–19 + layer-20 全局源 |
@@ -271,12 +271,13 @@ python3 tools/check_checksums.py        # 期望：三方一致 ✅
 
 | 项 | 约定 |
 |---|---|
-| 默认芯片 | **A2**：`DEVS="0 1 2 3 4 5 6 7"`（单机 8 卡）｜**A3**：`DEVS` **必填**，脚本不替你选 |
+| 默认芯片 | **A2**：`DEVS="0 1 2 3 4 5 6 7"`（8 个 device）｜**A3**：`DEVS` **必填**，脚本不替你选 |
+| **★ `DEVS` 数的是 die，不是卡** | **A3 上 1 块卡 = 2 个 die**（实测：8 块卡 / 16 个 `/dev/davinci*`）⇒ `DEVS="8 9 … 15"` = 8 个 die = **4 块卡**；CED-PD 的 P(0–7)+D(8–15) = **8 块卡全用**。核对命令与原理见 `README.md` 开头的「术语」节 |
 | 默认口径 | A3 开 Engram 算子入图（`ENGRAM_DEVICE_INDEX` 自动）｜**A2 关**（`=0` 走 host 路径）—— A2 上整表 host_register 会 `ret=207001`，见 `CHANGELOG.md` v8 §3 |
 | 性能口径 | `MAX_SEQS=4 PREFIX=0` |
 | 生产口径 | `MAX_SEQS=32 PREFIX=1` |
 | 长 prompt 首 token 的命门 | `GPU_UTIL`：**0.92 是默认**，0.94 会让 8K prefill 从 1.14 s 掉到 8.0–8.6 s（`docs/prefill-memory-headroom.md`） |
-| **CED-PD 形态的卡分配** | **P = chip 0–7 / D = chip 8–15**（16 卡全用）；全部实测参数在 `deploy/a3-ced-pd/launch/_common.sh` |
+| **CED-PD 形态的卡分配** | **P = die 0–7 / D = die 8–15**（16 个 die = **8 块卡全用**）；全部实测参数在 `deploy/a3-ced-pd/launch/_common.sh` |
 | **CED-PD 的 D 必须关多流** | `MULTISTREAM=0 DSA_OVERLAP=0` —— 开了长上下文**静默算错**（实测 144K 四针 0/4） |
 | **CED-PD 的 D 池有硬上界** | `num_blocks ≤ ⌊2³²/147712⌋ = **29076**`（按**页尾**取界）；越界 ⇒ 1M 静默空答（族 A） |
 | 大文件传输 | 走 `scripts/cos-put.sh`（**在 dsv41 仓根，不在 dsv41-release 里**）；**禁止 ssh 传 ≥1 MB** |

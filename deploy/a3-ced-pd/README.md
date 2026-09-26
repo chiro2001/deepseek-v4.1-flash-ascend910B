@@ -1,14 +1,14 @@
 # DeepSeek-V4.1-Flash —— **A3 单机 8+8 PD 分离 + CED 形态**
 
 > 这是一个**部署形态**（deploy form），不是一个实验目录。
-> 它把"怎么在**一台 A3（16×910C）**上起 DeepSeek-V4.1-Flash 的
+> 它把"怎么在**一台 A3（8 块 910C 卡 = 16 个 die）**上起 DeepSeek-V4.1-Flash 的
 > **PD 分离 + CED** 服务"固化下来，并提供**两种等价、可交叉验证的交付面**。
 
 ## 0. 一句话
 
 ```
-P（chip 0–7）  ：只跑 layer 0–19 + layer-20 全局源投影（≈40% 的 prefill 计算）
-D（chip 8–15） ：128-token 有界重放 + 全 40 层 decode
+P（die 0–7，= 卡 0–3）  ：只跑 layer 0–19 + layer-20 全局源投影（≈40% 的 prefill 计算）
+D（die 8–15，= 卡 4–7）：128-token 有界重放 + 全 40 层 decode
 proxy          ：官方 load_balance_proxy，客户端只连它
 ```
 
@@ -128,7 +128,7 @@ bash deploy/a3-ced-pd/launch/serve_proxy.sh
 
 | 项 | 要求 |
 |---|---|
-| 硬件 | **单台 A3，16×910C**（P 用 0–7，D 用 8–15） |
+| 硬件 | **单台 A3，8 块 910C 卡 = 16 个 die**（P 用 die 0–7 = 卡 0–3，D 用 die 8–15 = 卡 4–7） |
 | 镜像 | `quay.nju.edu.cn/ascend/vllm-ascend:deepseek-v4.1-flash-a3`（18 层）或本形态的工作镜像 |
 | 模型 | DeepSeek-V4.1-Flash W4A8 + DSpark 权重（273 GB），`MODEL=<路径>` 传入 |
 | 内核 KV | **BF16**（本形态不用 int8） |

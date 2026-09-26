@@ -3,6 +3,44 @@
 在 **Ascend 910B（A2，8×910B3）** 与 **Ascend 910C（A3，8×910C）** 上拉起
 DeepSeek-V4.1-Flash 的 W4A8 量化推理服务，含完整补丁、一键起服、自检与验收。
 
+---
+
+## 术语：**卡 ≠ die** —— `DEVS` 数的是 device，不是卡
+
+> ⚠️ 本文档里凡出现 `DEVS=`、`TP=`、"芯片号"、"卡号" 的地方，
+> 数的都是 **`/dev/davinciN` 的编号（= die）**，**不是物理卡**。
+> 两者在 A3 上**不等价**，用"卡"指代会有歧义。
+
+| 机器 | 物理卡（`npu-smi` 的 `NPU` 列） | **device / die**（`/dev/davinciN`） | 关系 |
+|---|---|---|---|
+| **A3（910C）** | **8 块** | **16 个** | **1 块卡 = 2 个 die** |
+| **A2（910B3）** | 8 块 | 8 个 | 本包按 8 个 device 使用（8×910B3） |
+
+**A3 上的实测核准**（2026-09-26，a3-21，三重独立证据互相印证）：
+
+```
+npu-smi info        NPU 0..7（8 块卡） × Chip Phy-ID 0..15（16 个 die），每卡 2 个
+/dev/davinci*       16 个设备节点
+ASCEND_RT_VISIBLE_DEVICES=0..7  →  torch.npu.device_count() == 8
+```
+
+⇒ 换算关系：
+
+* `DEVS="8 9 10 11 12 13 14 15"`（§2.1 的 A3 例子）= **8 个 die = 4 块卡**
+* CED-PD（§2.1b）的 **P = die 0–7 / D = die 8–15** = 16 个 die = **8 块卡全部用满**
+  （不是"16 卡"）
+
+⇒ 本包一律**以 device 号为准**；说"8 卡"时请写明是 8 个 die 还是 8 块卡。
+
+**在自己机器上核对**（两条都不写任何东西）：
+
+```bash
+# 物理卡数（去重后的 NPU 号）
+npu-smi info | grep -oE '^\| [0-9]+ +Ascend9[0-9]+' | awk '{print $2}' | sort -un | wc -l
+# device / die 数（= DEVS 的可选范围）
+ls /dev/davinci[0-9]* | wc -l
+```
+
 **本包的全部优化工作（算子分析、补丁编写、性能调优、文档）均由 `deepseek-v4.1-flash`
 模型自主完成**，未经人工逐行改写。
 
@@ -63,31 +101,34 @@ bash reassemble_engram_weights.sh      # 逐片 sha256 → 拼接 → 结果再�
 
 ## 2. 一键起服
 
-### 2.1 A3（8×910C）
+### 2.1 A3（8×910C，单实例 TP8 = **8 个 die = 4 块卡**）
 
 ```bash
-# ① 先看哪些卡空着（只读，打印每张卡的占用与进程属主）
+# ① 先看哪些 device 空着（只读，打印每个 device 的占用与进程属主）
 bash tools/list_chips.sh
 
-# ② 指定要用的 8 张卡（DEVS 必填，脚本不替你选）
+# ② 指定要用的 8 个 device（DEVS 必填，脚本不替你选）
+#     ⚠️ 是 **device（die）号**，不是卡号：A3 上 8 个 device = 4 块卡（见开头「术语」）
 DEVS="8 9 10 11 12 13 14 15" \
   MODEL=/path/to/v41-w4a8-engram-dr-vision-qrot-mtpq \
   bash scripts/serve_a3.sh
 ```
 
-`DEVS` 是**用户输入**：一台机器上哪 8 张能用取决于当前谁在跑什么，脚本无法替你判断。
-默认会**拒绝已被占用的卡**并打印占用进程（确实要带占用起服务才加 `ALLOW_BUSY=1`）。
+`DEVS` 是**用户输入**：一台机器上哪 8 个 device 能用取决于当前谁在跑什么，脚本无法替你判断。
+默认会**拒绝已被占用的 device** 并打印占用进程（确实要带占用起服务才加 `ALLOW_BUSY=1`）。
 
-### 2.1b A3 单机 **8+8 PD 分离 + CED**（16 卡全用）
+> 上例的 `8 9 ... 15` = **后 4 块卡**（每块卡 2 个 die：8/9 是第 5 块，10/11 是第 6 块 …）。
 
-上面 2.1 是**单实例 TP8**（用 8 张卡）。如果一台 A3 的 16 张卡都在手，
+### 2.1b A3 单机 **8+8 PD 分离 + CED**（**16 个 die = 8 块卡全用**）
+
+上面 2.1 是**单实例 TP8**（用 8 个 die = 4 块卡）。如果一台 A3 的 **16 个 die（= 8 块卡）**都在手，
 可以起**PD 分离 + CED** 形态：P 只跑前 20 层、D 做 128-token 有界重放 + 全 40 层
 + DSpark。**prefill 相对全 40 层基线 2.07×（144K）**，144K/1M 验收 21/21 通过。
 
 ```bash
 export MODEL=/path/to/v41-w4a8-engram-dr-vision-qrot-mtpq
-bash deploy/a3-ced-pd/launch/serve_p.sh        # chip 0–7  → :18990
-bash deploy/a3-ced-pd/launch/serve_d.sh        # chip 8–15 → :18991
+bash deploy/a3-ced-pd/launch/serve_p.sh        # die 0–7（= 卡 0–3）→ :18990
+bash deploy/a3-ced-pd/launch/serve_d.sh        # die 8–15（= 卡 4–7）→ :18991
 bash deploy/a3-ced-pd/launch/serve_proxy.sh    #           → :18992（客户端连这个）
 bash deploy/a3-ced-pd/launch/smoke.sh          # 144K 四针冒烟
 ```
@@ -233,7 +274,7 @@ chunked prefill 把长 prompt 切成 `ceil(prompt / BAT_TOKENS)` 段依次前向
 输出逐字节一致。
 
 **代价**：activation 峰值从 0.79 涨到 **3.21 GiB**，KV cache 从
-**4,145,957 → 2,823,080 tokens**（8×910C、默认 `GPU_UTIL=0.92` 实测；
+**4,145,957 → 2,823,080 tokens**（A3、TP8 = 8 个 die = 4 块卡、默认 `GPU_UTIL=0.92` 实测；
 若用 0.94 则是 3,088,412，但那样 prefill 会慢 6~7×，见下）。
 若你的场景更看重 KV 容量、且上下文主要在 <20K，可以显式 `BAT_TOKENS=2048`。
 
@@ -319,7 +360,7 @@ DRAFT_GRAPH=1 DEVS="8 9 ..." bash scripts/serve_a3.sh   # A3
 
 | 机器 | 指标 | eager（默认 `DRAFT_GRAPH=0`） | **入图（`=1`）** | 变化 |
 |---|---|---:|---:|---|
-| **A3** 8×910C | decode per-step | 36.9 ms | **23.9 – 24.9 ms** | −12 ~ −13 ms（**−35%**） |
+| **A3**（8 个 die = 4 块卡，TP8） | decode per-step | 36.9 ms | **23.9 – 24.9 ms** | −12 ~ −13 ms（**−35%**） |
 | **A3** | 单流吞吐 | 66.5 tok/s | **100.7 – 109.8 tok/s** | **+51% ~ +65%** |
 | **A3** | 接受长度 A | 2.455 | 2.403 – 2.738 | **持平** |
 | **A2** 8×910B3 | decode per-step | 64.8 ms | **34.3 ms** | **−30.5 ms（−47%）** |
@@ -427,7 +468,7 @@ wire_api = "responses"
 
 ### 3.1 单流延迟（128K 上下文）
 
-**A3（8×910C）实测**，128K 上下文、单流独占：
+**A3（TP8 = 8 个 die = 4 块卡）实测**，128K 上下文、单流独占：
 
 | 指标 | 值 |
 |---|---|
@@ -455,7 +496,7 @@ wire_api = "responses"
 
 ![concurrency](docs/img/conc_dihuo_en.png)
 
-**A3（8×910C，TP8+EP8）实测**，`MAX_SEQS=64` + `PREFIX=1`（生产口径），
+**A3（TP8 = 8 个 die = 4 块卡，TP8+EP8）实测**，`MAX_SEQS=64` + `PREFIX=1`（生产口径），
 prompt **每条精确 1024 token** / 输出 256 token（`ignore_eos` 强制生成满），
 **每档都跑完同一批 64 条请求**，2 次取中位数。下面 A / B 两组**方法完全一致**，
 只差一个 `DRAFT_GRAPH`：
@@ -573,7 +614,7 @@ python3 tools/plot_concurrency.py results/bench/*.json -o docs/img --prefix conc
 上面两节量的是 **decode**。长 prompt 的首 token 延迟（≈ prefill 时间）单独列在这里，
 因为**它由 `GPU_UTIL` 主导**（见 §2.5），而不是由 decode 的优化决定。
 
-**A3（8×910C，TP8+EP8）实测**，**发布默认配置**（`STATIC_KERNEL=1` + `PREFIX=1` +
+**A3（TP8 = 8 个 die = 4 块卡，TP8+EP8）实测**，**发布默认配置**（`STATIC_KERNEL=1` + `PREFIX=1` +
 `GPU_UTIL=0.92`），单请求、真实语料切片（各请求 token 区间互不重叠，
 服务端 prefix cache 命中率全程 0.0%）：
 

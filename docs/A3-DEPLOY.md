@@ -1,4 +1,4 @@
-# A3 新机部署（8×910C）—— 从 `git clone` 到服务就绪
+# A3 新机部署（8 块 910C 卡 = 16 个 die）—— 从 `git clone` 到服务就绪
 
 > 适用：**一台全新的 A3 机器**（没有镜像、没有模型、没有缓存）。
 > 目标读者：拿到这个仓库、要在新机器上把它跑起来的人。
@@ -11,7 +11,7 @@
 ```bash
 git clone <本仓> && cd <本仓>
 bash tools/selfcheck_pkg.sh                  # 10 秒：包内一致性（镜像 tag / 补丁 md5 / MANIFEST）
-bash tools/list_chips.sh                     # 只读：看哪 8 张卡是空的、属主是谁
+bash tools/list_chips.sh                     # 只读：看哪 8 个 device 是空的、属主是谁
 MODEL=/path/to/model bash tools/deploy_a3.sh # ★ 干跑：把"容器里真会生效的配置"打全
 MODEL=/path/to/model LAUNCH=1 bash tools/deploy_a3.sh   # 真起服
 ```
@@ -26,7 +26,7 @@ MODEL=/path/to/model LAUNCH=1 bash tools/deploy_a3.sh   # 真起服
 
 | 项 | 要求 | 说明 |
 |---|---|---|
-| NPU | 8×910C（`npu-smi` 可见 16 个 die / 8 张卡） | 本包的 TP=8；卡数不同要显式 `TP=<n>` |
+| NPU | **8 块 910C 卡 / 16 个 die**（`npu-smi` 的 `NPU` 列 = 卡，`Chip Phy-ID` = die） | 本包 TP=8 数的是 **die**；`DEVS` 也是 die 号 ⇒ 8 个 die = **4 块卡** |
 | 内存 | ≥ **1 TB** 可用 | 权重 + Engram 表（206 GiB）+ 静态内核编译缓冲；实测 a3-21 机器 2 TB，起服时 used ≈965 GB |
 | 磁盘 | 模型 ≈**520 GiB** + 镜像 ≈25 GB + 缓存 | 见 §2（模型是软链拼的，闭包远大于单目录） |
 | Docker | 可用且**当前用户有权限** | 新机最常见：用户不在 `docker` 组 ⇒ 所有 docker 命令 permission denied |
@@ -152,7 +152,7 @@ connect to the root node within the timeout period. List of unconnected ranks: "
 
 ```bash
 DEVS="8 9 10 11 12 13 14 15" SERVE_LOG=/path/to/serve.log bash tools/diag_a3_hccl.sh
-DEVS="..." RUN_HCCL_TEST=1 bash tools/diag_a3_hccl.sh   # 额外真跑 8 卡 HCCL all-reduce（决策性证据）
+DEVS="..." RUN_HCCL_TEST=1 bash tools/diag_a3_hccl.sh   # 额外真跑 8 个 device 的 HCCL all-reduce（决策性证据）
 ```
 
 `diag_a3_hccl.sh` 会：① 逐卡查占用（含"无进程但 HBM 高"）② 列网卡并给 `HCCL_SOCKET_IFNAME` 写法
