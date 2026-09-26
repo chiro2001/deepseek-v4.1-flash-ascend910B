@@ -30,7 +30,7 @@ say "仓库根 = $PKG"
 say "输出   = $OUT"
 
 rm -rf "$OUT"
-mkdir -p "$OUT"/{ascend,ced,draft,patches,scripts}
+mkdir -p "$OUT"/{ascend,ced,draft,guard,patches,scripts}
 
 # ---- A. vllm-ascend 补丁件（13）----
 A=(
@@ -57,6 +57,13 @@ for f in dsa_v1.py dspark_proposer.py llm_base_proposer.py; do
   need "patches/files/draft/$f"
   cp -f "$PKG/patches/files/draft/$f" "$OUT/draft/$f"
 done
+
+# ---- C2. decode 侧请求边界护栏（1）----
+# 挂载口径落在容器 /opt/dsv41/guards/（serve_a2.sh 的 [DECODE-API-GUARD] 挂载点）。
+# 事故背景：2026-09-27 一条直连 decode 半边的普通请求让 EngineCore 退出、
+# 整个 D 实例死掉（docs/CED-DECODE-API-GUARD-20260927.md）。
+need "patches/files/v41_decode_guard.py"
+cp -f "$PKG/patches/files/v41_decode_guard.py" "$OUT/guard/"
 
 # ---- D. vLLM core 补丁（4）----
 for p in admission_gate.patch; do

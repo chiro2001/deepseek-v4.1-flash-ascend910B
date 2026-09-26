@@ -192,6 +192,7 @@ def main(argv: list[str] | None = None) -> int:
     RUNTIME_MOUNTED = {
         # 由 serve_a2.sh 的门控在**运行时以 host 挂载**方式提供的实验载荷（不进镜像）
         "token_dispatcher_moennf.py": "serve_a2.sh 的 MOE_NF=1 分支按需挂载（host 侧 patches/files/）",
+        "v41_decode_guard.py": "serve_a2.sh 的 [DECODE-API-GUARD] 无条件挂到 /opt/dsv41/guards/（仅 decode 角色启用）",
     }
     for kind, mid, dst in entries:
         src = bake_map.get(mid, mid)

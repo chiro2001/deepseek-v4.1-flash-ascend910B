@@ -63,6 +63,21 @@
 | `scripts/serve_a3_ced_single.sh` | `/opt/dsv41/scripts/serve_a3_ced_single.sh` |
 | `scripts/run_test.sh` | `/opt/dsv41/scripts/run_test.sh` |
 
+## D2. decode 侧请求边界护栏
+
+| 仓库源 | 容器目标 | 触发条件 |
+|---|---|---|
+| `patches/files/v41_decode_guard.py` | `/opt/dsv41/guards/v41_decode_guard.py` | `V41_CED_ROLE=decode` 时由 `serve_v2.sh` 注册为 `--middleware` |
+
+作用：decode 半边拒绝**没有 `kv_transfer_params`** 的生成请求（400，不进引擎）。
+背景是 2026-09-27 00:01 的事故：一条直连 18991 的普通请求让 D 自己去 prefill，
+撞上固定 128-token replay 守卫，worker `raise` ⇒ EngineCore 退出 ⇒ 整个 D 实例死掉、
+要重载 20 分钟权重。详见 `docs/CED-DECODE-API-GUARD-20260927.md`。
+
+判据（起服日志）：`[V41-DECODE-GUARD] middleware loaded` 与
+`[serve-v2] decode API guard: ON`。缺文件时 `serve_v2.sh` 会打 WARNING，
+`serve_a2.sh` 在 decode 角色下会直接 `die`（不带着未加固的 D 起服）。
+
 ## E. ★ 为什么一份 `dsa_v41.py` 能同时供 P 和 D
 
 挂载模式下，P **不挂** `experimental/ced/dsa_v41.py`，D 挂 ⇒ 两实例可以用不同文件。

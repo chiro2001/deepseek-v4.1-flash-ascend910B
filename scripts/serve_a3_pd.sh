@@ -83,6 +83,25 @@ KV_CONFIG=$(printf '{"kv_connector":"MooncakeHybridConnector","kv_role":"%s","kv
 export MODEL IMAGE=${IMAGE:-quay.nju.edu.cn/ascend/vllm-ascend:deepseek-v4.1-flash-a3}
 export PATCH_MODE=${PATCH_MODE:-mount} NAME PORT SERVED_NAME=${SERVED_NAME:-deepseek-v41-pd}
 export TP DP DEVS RUN_ID
+# [BIND-HOST] P/D 两个半边都只应由**本机**的负载均衡代理访问（18992 本身绑在
+#   127.0.0.1，跨机访问走隧道而不是直连半边）⇒ 默认只监听回环。
+#   把半边暴露到 0.0.0.0 的后果有实测先例：2026-09-27 00:01，一条直连 decode
+#   的普通请求让 EngineCore 退出、整个 D 实例死掉（见 v41_decode_guard.py 头注释）。
+#   确实需要跨机直连时显式 HOST=0.0.0.0，并同时处理来源限制/鉴权。
+export HOST=${HOST:-127.0.0.1}
+# [MM-LIMIT] 多图上限：**P 与 D 必须同值**（两边都在 API 层校验同一份请求体，
+#   D 更小的话请求会在 D 上被 400）。默认 4 张；要收更多图就 P/D 同时调大。
+#   0 张图（纯文本部署）用 VISION=0 表达，不是把这里设成 0。
+MM_LIMIT_IMAGES=${MM_LIMIT_IMAGES:-4}
+case "$MM_LIMIT_IMAGES" in
+  ''|*[!0-9]*)
+    echo "[a3-pd][FAIL] MM_LIMIT_IMAGES 必须是正整数，当前 '$MM_LIMIT_IMAGES'" >&2
+    exit 2 ;;
+  0)
+    echo "[a3-pd][FAIL] MM_LIMIT_IMAGES=0 会让所有带图的请求被 400；纯文本请用 VISION=0。" >&2
+    exit 2 ;;
+esac
+export MM_LIMIT_IMAGES
 export KV_ARGS_EXTRA="--kv-transfer-config $KV_CONFIG"
 
 # 下面是 2026-09-23 A3-21 完整模型验收时的基线：
@@ -101,6 +120,7 @@ if [ "$DRY_RUN" = "1" ]; then
     || { echo "[a3-pd][FAIL] scripts/serve_v2.sh 没有 KV_ARGS_EXTRA CLI 入口" >&2; exit 2; }
   echo "[a3-pd-dry] role=$role devs='$DEVS' port=$PORT kv_port=$KV_PORT name=$NAME"
   echo "[a3-pd-dry] tp=$TP dp=$DP kv_dtype=$KV_DTYPE engram_device_index=$ENGRAM_DEVICE_INDEX cpu_bind=$CPU_BIND"
+  echo "[a3-pd-dry] host=$HOST mm_limit_images=$MM_LIMIT_IMAGES（P/D 同值；客户端 --max-images 应一致）"
   echo "[a3-pd-dry] kv_args=$KV_ARGS_EXTRA"
   echo "[a3-pd-dry] draft_graph=$DRAFT_GRAPH prefix=$PREFIX max_len=$MAX_LEN max_seqs=$MAX_SEQS bat=$BAT_TOKENS"
 fi

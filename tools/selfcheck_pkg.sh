@@ -373,6 +373,40 @@ else
   warn "缺 a2/scripts/selftest_collect_evidence.sh（无法自动抓"抽错日志"这类静默错误）"
 fi
 
+# ------------------------------------------------- 9i) decode 请求边界护栏
+# 背景（2026-09-27 00:01）：一条直连 decode 半边的普通请求让 D 自己去 prefill，
+#   撞上 CED 固定 128-token replay 守卫 ⇒ worker raise ⇒ EngineCore 退出、
+#   整个 D 实例死掉（要重载 20 分钟权重）。
+# 这条护栏的两种失效都很贵：拦不住 = 引擎还会被打死；拦多了 = 正常 P→D
+#   转发链路被 400（服务等于挂）。所以**两个方向**都要有离线用例。
+# 判据是"起服日志里那行 middleware loaded"，因此这里还要保证接线真的在：
+#   serve_v2.sh 注册 --middleware、serve_a2.sh 挂 /opt/dsv41/guards 并透传开关。
+if [ -f patches/files/v41_decode_guard.py ]; then
+  _dg_missing=""
+  grep -q "v41_decode_guard.decode_guard" scripts/serve_v2.sh || _dg_missing="$_dg_missing serve_v2.sh/--middleware"
+  grep -q "V41_CED_ROLE" scripts/serve_v2.sh || _dg_missing="$_dg_missing serve_v2.sh/角色门"
+  grep -q "guards/v41_decode_guard.py" scripts/serve_a2.sh || _dg_missing="$_dg_missing serve_a2.sh/挂载"
+  grep -q "V41_DECODE_API_GUARD" scripts/serve_a2.sh || _dg_missing="$_dg_missing serve_a2.sh/env"
+  if [ -n "$_dg_missing" ]; then
+    bad "decode 护栏没有接线：$_dg_missing（护栏文件在但没有任何实例会用它 ⇒ 静默失效）"
+  else
+    ok "decode 护栏接线：serve_v2.sh 注册 + serve_a2.sh 挂载/env，角色门齐"
+  fi
+  if [ -f tests/test_decode_guard.py ]; then
+    if out=$(python3 -m pytest tests/test_decode_guard.py -q 2>&1); then
+      n=$(printf '%s' "$out" | grep -oE '[0-9]+ passed' | head -1)
+      ok "decode 护栏离线用例：${n:-全过}（拦住新形状 / 放行 P→D 转发 / 不误伤探针）"
+    else
+      bad "decode 护栏离线用例失败 —— 护栏本身不可信，先修再起服："
+      printf '%s' "$out" | tail -5 | sed 's/^/        /'
+    fi
+  else
+    warn "缺 tests/test_decode_guard.py（无法验证护栏两个方向都正确）"
+  fi
+else
+  warn "缺 patches/files/v41_decode_guard.py（decode 半边没有请求边界保护）"
+fi
+
 echo
 if [ "$fail" = "0" ]; then
   echo "[selfcheck] 全部通过 ✅  可以开始：bash scripts/build_image.sh"

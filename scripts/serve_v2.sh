@@ -51,6 +51,17 @@ FORCE_EPLB=${FORCE_EPLB:-0}; DSA_CP=${DSA_CP:-0}; ENGRAM_HOST_RESTORE=${ENGRAM_H
 CAPTURE_SIZES=${CAPTURE_SIZES:-}
 LOADER_MT=${LOADER_MT:-1}; LAZY=${LAZY:-1}
 VISION=${VISION:-0}; CHAT_TEMPLATE=${CHAT_TEMPLATE:-}
+# [MM-LIMIT] 一个请求允许的图片数，**默认 4**（原历史口径是 1）。
+#   模型与处理器本身支持多图（deepseek_v41 的 vl_model._process_image_input
+#   是逐图循环），限制只来自这个启动参数：它被编译进 vLLM 的 Rust chat 校验
+#   （validate_mm_limits），**改它必须重启实例**。
+#   ⚠️ P/D 两个角色必须同值（P 校验一次、D 再校验一次，D 更小就会在 D 上 400）。
+#   ⚠️ 客户端侧也要跟上：llm-api-tunnel 的 --max-images 默认已同步为 4。
+MM_LIMIT_IMAGES=${MM_LIMIT_IMAGES:-4}
+# [BIND-HOST] 监听地址。P/D 分离里的两个半边都只应由本机的负载均衡代理访问
+#   ⇒ 角色脚本默认给 127.0.0.1。留 0.0.0.0 的后果是有实例被直连打死的先例
+#   （2026-09-27：直连 decode 的一条普通请求让 EngineCore 退出）。
+HOST=${HOST:-0.0.0.0}
 PROFILE=${PROFILE:-0}; PROFILE_DIR=${PROFILE_DIR:-$P/logs/prof}
 EXTRA=${EXTRA:-}
 KV_ARGS_EXTRA=${KV_ARGS_EXTRA:-}
@@ -81,7 +92,7 @@ AC=$(printf '{"enable_engram":%s,"enable_cpu_binding":%s,"ascend_compilation_con
   "$(b "$MULTISTREAM")" "$(b "$DSA_OVERLAP")" "$(b "$MC2")" "$(b "$MC2_HIER")" "$EXTRA_KEYS")
 
 QUANTIZATION=${QUANTIZATION:-ascend}
-ARGS=(serve "$MODEL" --host 0.0.0.0 --port "$PORT" --served-model-name "$SERVED_NAME"
+ARGS=(serve "$MODEL" --host "$HOST" --port "$PORT" --served-model-name "$SERVED_NAME"
   --tensor-parallel-size "$TP" --enable-expert-parallel
   --trust-remote-code --dtype bfloat16 --kv-cache-dtype "$KV_DTYPE"
   --max-model-len "$MAX_LEN" --max-num-seqs "$MAX_SEQS" --max-num-batched-tokens "$BAT_TOKENS"
@@ -115,7 +126,7 @@ fi
 # 注意：dummy 下 Engram 的 host 路径会被 model.py:654 主动跳过
 # （engram_history 保持 None），所以 **Engram 读取无法用 dummy 测**。
 [ -n "${LOAD_FORMAT:-}" ] && ARGS+=(--load-format "$LOAD_FORMAT")
-if [ "$VISION" = "1" ]; then ARGS+=(--limit-mm-per-prompt '{"image": 1}'); else ARGS+=(--limit-mm-per-prompt '{"image": 0}'); fi
+if [ "$VISION" = "1" ]; then ARGS+=(--limit-mm-per-prompt "{\"image\": $MM_LIMIT_IMAGES}"); else ARGS+=(--limit-mm-per-prompt '{"image": 0}'); fi
 [ -n "$CHAT_TEMPLATE" ] && ARGS+=(--chat-template "$CHAT_TEMPLATE")
 # [LOG_REQUESTS] 端到端请求日志（进 serve.log，带长度上限避免炸日志）
 [ "${LOG_REQUESTS:-0}" = "1" ] && ARGS+=(--enable-log-requests --max-log-len "${MAX_LOG_LEN:-4096}")
@@ -128,7 +139,26 @@ if [ "$PROFILE" = "1" ]; then mkdir -p "$PROFILE_DIR"; ARGS+=(--profiler-config 
 # shellcheck disable=SC2206
 [ -n "$EXTRA" ] && ARGS+=($EXTRA)
 
+# [DECODE-API-GUARD] decode 半边只接受 prefill 转发的请求（带 kv_transfer_params）。
+# 没有这道护栏时，任何直连 decode 的普通请求都会让 D 自己去 prefill，
+# 撞上固定 128-token replay 的守卫并在 worker 里 raise ⇒ EngineCore 退出、
+# 整个 D 实例死掉（2026-09-27 00:01 事故：一条探针请求打死 18991）。
+# vLLM 自带 --middleware 扩展点，护栏代码 patches/files/v41_decode_guard.py
+# 由 serve_a2.sh 挂到 /opt/dsv41/guards/，这里只负责注册。
+if [ "${V41_CED_ROLE:-}" = "decode" ]; then
+  _guard=/opt/dsv41/guards/v41_decode_guard.py
+  if [ -f "$_guard" ]; then
+    export PYTHONPATH="/opt/dsv41/guards${PYTHONPATH:+:$PYTHONPATH}"
+    ARGS+=(--middleware v41_decode_guard.decode_guard)
+    echo "[serve-v2] decode API guard: ON（无 kv_transfer_params 的生成请求 → 400，不进引擎）"
+  else
+    echo "[serve-v2] WARNING: 缺 $_guard ⇒ decode API guard **静默失效**；" >&2
+    echo "[serve-v2] WARNING:   请确认 patches/files/v41_decode_guard.py 已随 serve_a2.sh 挂载。" >&2
+  fi
+fi
+
 echo "[serve-v2] model=$(basename "$MODEL") tp=$TP dp=$DP port=$PORT graph=$GRAPH prefix=$PREFIX spec=$SPEC(sp=$SP_TOKENS) kv=$KV_DTYPE vision=$VISION"
+echo "[serve-v2] bind=$HOST mm_limit_images=$MM_LIMIT_IMAGES decode_guard=$([ "${V41_CED_ROLE:-}" = decode ] && echo on || echo off)"
 echo "[serve-v2] npugraph_ex=$NPUGRAPH_EX static=$STATIC_KERNEL cpu_bind=$CPU_BIND multistream=$MULTISTREAM dsa=$DSA_OVERLAP fused_mc2=$FUSED_MC2 mc2_alg=$MC2_ALG reduce_sample=$REDUCE_SAMPLE loader_mt=$LOADER_MT lazy=$LAZY max_len=$MAX_LEN bat=$BAT_TOKENS seqs=$MAX_SEQS"
 echo "[serve-v2] cmd: vllm ${ARGS[*]}"
 exec vllm "${ARGS[@]}"

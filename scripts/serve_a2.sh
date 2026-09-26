@@ -169,6 +169,19 @@ SP_TOKENS=${SP_TOKENS:-5}
 SPEC=${SPEC:-1}
 ENGRAM=${ENGRAM:-1}
 VISION=${VISION:-1}
+# [MM-LIMIT] 一个请求允许几张图（编译进 vLLM 的 Rust 校验，改它必须重启）。
+#   模型与处理器本身支持多图（deepseek_v41 的 vl_model._process_image_input
+#   是逐图循环，每张图有自己的 vit_grid/llm_grid/占位区间），限制纯粹来自
+#   这个启动参数。**默认 4**：dsh/Codex 一个回合读两张图是常见形态，设 1 会
+#   让整个会话历史永久 400（图片留在历史里，每一轮都超限）。
+#   ⚠️ P/D 两个角色必须取同一个值：P 先校验、D 再校验一次，D 更小的话请求
+#   会在 D 上被 400。serve_a3_pd.sh 对两个角色都显式导出同一个默认值。
+#   ⚠️ 代价：--max-num-seqs 4 时最坏 4×4 张图同时在编，视觉侧要留 HBM 余量；
+#   每张图 ≤1024 视觉 token，而 BAT_TOKENS=8192，文本侧一批放得下。
+MM_LIMIT_IMAGES=${MM_LIMIT_IMAGES:-4}
+# [BIND-HOST] 监听地址。P/D 半边默认只监听回环（角色脚本给 127.0.0.1）；
+#   这里给 0.0.0.0 是为了不改变单实例/非 PD 部署的既有行为。
+HOST=${HOST:-0.0.0.0}
 HCCL_BUFFSIZE=${HCCL_BUFFSIZE:-1024}
 LOCAL_WORLD_SIZE=${LOCAL_WORLD_SIZE:-8}
 HOTSPIKE=${HOTSPIKE:-0}
@@ -850,6 +863,15 @@ MOUNTS=()
 # 原实现依赖镜像里烘焙好的 /opt/dsv41/scripts/serve_v2.sh ——
 # 换用未打我们补丁的基础镜像（用于 A/B 对照）时那个路径不存在，会直接起不来。
 MOUNTS+=(-v "$PKG/scripts:/opt/dsv41/scripts:ro")
+# [DECODE-API-GUARD] decode 半边的请求边界护栏（事故 2026-09-27 00:01：
+# 一条直连 18991 的普通请求让 EngineCore 退出、整个 D 实例死掉）。
+# 护栏本体是 patches/files/v41_decode_guard.py，挂到 /opt/dsv41/guards/
+# 让 vLLM 的 `--middleware v41_decode_guard.decode_guard` 能 import 到。
+# 这里**无条件挂**（与 PATCH_MODE 无关）：判据是"起服日志里那行 middleware loaded"，
+# 缺文件时 serve_v2.sh 会响亮告警，不会静默退化。
+if [ -f "$PKG/patches/files/v41_decode_guard.py" ]; then
+  MOUNTS+=(-v "$PKG/patches/files/v41_decode_guard.py:/opt/dsv41/guards/v41_decode_guard.py:ro")
+fi
 if [ "$PATCH_MODE" = "mount" ]; then
   F=$PKG/patches/files
   # [ADMISSION-GATE] vLLM core 的 admission gate 是**补丁**（不是整文件），
@@ -1222,6 +1244,7 @@ $DOCKER run -d --name "$NAME" --net=host --shm-size=512g --privileged=true \
   -e V41_CED_LAYER_SNAPSHOT_DIR="${V41_CED_LAYER_SNAPSHOT_DIR:-}" \
   -e V41_CED_LAYER_SNAPSHOT_LAYERS="${V41_CED_LAYER_SNAPSHOT_LAYERS:-0,1,2,13,14,15,19,20}" \
   -e V41_CED_CAPTURE_DECODE="${V41_CED_CAPTURE_DECODE:-0}" \
+  -e V41_DECODE_API_GUARD="${V41_DECODE_API_GUARD:-1}" \
   -e LOAD_FORMAT="$LOAD_FORMAT" \
   -e KV_ARGS_EXTRA="$KV_ARGS_EXTRA" \
   ${HCCL_ENV_ARGS[@]+"${HCCL_ENV_ARGS[@]}"} \
@@ -1332,6 +1355,31 @@ if [ "${V41_CED_GRAPH_PROMPT_TAIL_EAGER:-0}" = "1" ]; then
   [ "${_ced_runner:-}" = "APPLIED" ] || die "CED prompt-tail runner 补丁未应用"
 fi
 
+# ---------- [DECODE-API-GUARD] decode 侧请求边界护栏 ----------
+# 事故（2026-09-27 00:01）：18991 是 P/D 分离的 decode 半边，被一条普通请求
+# 直连后自己去 prefill，撞上固定 128-token replay 的守卫并在 worker 里 raise
+# ⇒ EngineCore 退出（EngineDeadError），整个 D 实例死掉、要重载 ~20 分钟。
+# 护栏在 HTTP 层就把"没有 kv_transfer_params 的生成请求"判成 400，进不了引擎。
+#
+# 这里断言的是**可加载**（而不是"文件在"）：真正生效的判据是起服日志里
+# `[V41-DECODE-GUARD] middleware loaded`，由 serve_v2.sh 打印。
+if [ "${V41_CED_ROLE:-}" = "decode" ]; then
+  say "[DECODE-API-GUARD] 校验 decode 侧请求边界护栏可加载"
+  _dg=$($DOCKER exec "$NAME" bash -lc '
+    G=/opt/dsv41/guards/v41_decode_guard.py
+    [ -f "$G" ] || { echo MISSING_FILE; exit 0; }
+    cd /tmp || exit 0
+    PYTHONPATH=/opt/dsv41/guards python3 -c "import sys, v41_decode_guard as m; sys.exit(0 if callable(m.decode_guard) else 3)" 2>/dev/null \
+      || { echo IMPORT_FAILED; exit 0; }
+    echo OK' 2>/dev/null | tail -1)
+  case "${_dg:-}" in
+    OK) say "[DECODE-API-GUARD] 可加载（decode_guard 是 callable）✓" ;;
+    MISSING_FILE) die "V41_CED_ROLE=decode 但容器里没有 /opt/dsv41/guards/v41_decode_guard.py ——
+      护栏缺失意味着任何直连 decode 的请求仍能打死实例。请确认包内有 patches/files/v41_decode_guard.py。" ;;
+    *) die "V41_CED_ROLE=decode 但护栏模块无法加载（$_dg）——不要带着未加固的 D 起服。" ;;
+  esac
+fi
+
 if [ "$DRAFT_GRAPH" = "1" ]; then
   # draft 版三个整文件（含 0002/0004/0005/0006 + F3）必须真的**装到实际位置**，
   # 否则 DSPARK_GRAPH_CAPTURE_METADATA=1 设了也没人消费 —— 就是那个静默失效。
@@ -1434,6 +1482,7 @@ export QUANTIZATION=${QUANTIZATION:-ascend} KV_CACHE_MEMORY_BYTES=${KV_CACHE_MEM
 export KV_DTYPE=$KV_DTYPE GRAPH=$GRAPH EAGER=$EAGER PREFIX=$PREFIX SPEC=$SPEC SP_TOKENS=$SP_TOKENS
 if [ "$DRAFT_GRAPH" = "1" ]; then export SPEC_EAGER=0; else export SPEC_EAGER=1; fi
 export ENGRAM=$ENGRAM ENGRAM_STORAGE=int8 VISION=$VISION
+export MM_LIMIT_IMAGES=$MM_LIMIT_IMAGES HOST=$HOST
 export NPUGRAPH_EX=$NPUGRAPH_EX STATIC_KERNEL=$STATIC_KERNEL CPU_BIND=$CPU_BIND
 export MULTISTREAM=$MULTISTREAM DSA_OVERLAP=$DSA_OVERLAP FUSED_MC2=$FUSED_MC2 MC2=$MC2 MC2_HIER=$MC2_HIER REDUCE_SAMPLE=$REDUCE_SAMPLE
 export LOADER_MT=1 LAZY=1

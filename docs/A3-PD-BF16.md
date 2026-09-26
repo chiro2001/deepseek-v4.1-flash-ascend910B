@@ -39,6 +39,29 @@ DeepSeek 的 MooncakeHybridConnector 会在 P 侧截去 prompt 的最后一个 t
 
 发布包新增了两个入口。先确认 16 张卡未被占用，并使用同一份完整模型目录。
 
+### ★ 半边不可直连（2026-09-27 起默认只监听回环）
+
+P/D 是**内部半成品**：P 只产 KV、D 只消费 KV，谁都不是能独立服务的实例。
+2026-09-27 00:01 有一条普通请求被直接发到 D 的端口，D 只能自己去 prefill，
+撞上 CED 固定 128-token replay 的守卫，worker 里 `raise` 让 EngineCore 退出
+——**整个 decode 实例死掉，恢复要重载 20 分钟的权重**。
+
+因此：
+
+* `serve_a3_pd.sh` 默认 `HOST=127.0.0.1`（两个半边都只监听本机）；要暴露得显式
+  设 `HOST=0.0.0.0`，并自行处理来源限制或鉴权；
+* decode 角色另外挂一层**请求边界护栏**：没有 `kv_transfer_params` 的生成请求
+  直接 400，不进引擎。细节、判据与负控见
+  [CED-DECODE-API-GUARD-20260927.md](CED-DECODE-API-GUARD-20260927.md)；
+* 客户端一律连代理（`serve_a3_pd_proxy.sh` 起的 18992 一类），不要连半边。
+
+### 多图上限（`MM_LIMIT_IMAGES`，默认 4）
+
+P/D 两侧都是 `MM_LIMIT_IMAGES=4`（即 `--limit-mm-per-prompt {"image": 4}`）。
+**必须同值**：两边都校验同一份请求体，D 更小的话请求会在 D 上被 400。
+历史上这个值是 1，导致"一个回合读两张图 ⇒ 图片留在历史里 ⇒ 会话永久 400"。
+该参数被编译进请求校验，**改它必须重启实例**。
+
 在 P 终端执行：
 
 ```bash

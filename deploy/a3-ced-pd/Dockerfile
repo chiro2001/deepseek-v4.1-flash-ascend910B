@@ -39,6 +39,7 @@ USER root
 COPY payload/ascend/ /tmp/bake/ascend/
 COPY payload/ced/ /tmp/bake/ced/
 COPY payload/draft/ /tmp/bake/draft/
+COPY payload/guard/ /tmp/bake/guard/
 COPY payload/patches/ /tmp/bake/patches/
 COPY payload/scripts/ /tmp/bake/scripts/
 # payload 清单也打进镜像：事后可以对着它核对"这层到底装了哪些文件"，
@@ -118,7 +119,7 @@ RUN set -euo pipefail; \
     test "${n:-0}" -ge 1 || { echo "[build] FATAL: live tree 里找不到 admission gate"; exit 24; }; \
     echo "[build] admission gate live hits=$n"
 
-# ---------- 6) CED core 补丁与起服脚本到位 ----------
+# ---------- 6) CED core 补丁、请求边界护栏与起服脚本到位 ----------
 # 三个 CED 补丁**故意不在这里 apply**：它们各自带基线 sha256 硬门，
 # 留到运行期打 → 基底版本不同会拒绝起服，而不是静默跑错版本。
 RUN set -euo pipefail; \
@@ -131,6 +132,10 @@ RUN set -euo pipefail; \
     for f in /opt/dsv41/ced_scheduler_replay.patch /opt/dsv41/ced_scheduler_prefill_hit.patch /opt/dsv41/ced_runner_prompt_tail.patch; do \
       test -s "$f" || { echo "[build] FATAL: missing $f"; exit 25; }; \
     done; \
+    mkdir -p /opt/dsv41/guards; \
+    cp -f /tmp/bake/guard/v41_decode_guard.py /opt/dsv41/guards/v41_decode_guard.py; \
+    test -s /opt/dsv41/guards/v41_decode_guard.py || { echo "[build] FATAL: missing decode guard"; exit 26; }; \
+    grep -q "def decode_guard" /opt/dsv41/guards/v41_decode_guard.py || { echo "[build] FATAL: decode guard 里没有 decode_guard"; exit 27; }; \
     ls -la /opt/dsv41/scripts/
 
 # ---------- 7) 源码基线指纹（可复算：告诉别人这层是在哪个 commit 上切的）----------
