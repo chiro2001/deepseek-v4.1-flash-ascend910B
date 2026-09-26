@@ -4,8 +4,8 @@
 
 ```
 官方基础镜像（内网已有，18 层，24.9 GB）
-        +   我们的 15 个“工作层”（本包携带，压缩后 1.3 MiB）
-= local/dsv41-a3-ced-pd:v1
+        +   我们的 15 个“工作层”（本包携带，压缩后 1.2 MiB）
+= local/dsv41-a3-ced-pd:v3
 ```
 
 **不需要 skopeo、不需要联网、不需要 NPU** 就能重建；
@@ -22,14 +22,17 @@
 **GitHub Release（推荐，长期归档）**：
 
 ```
-https://github.com/chiro2001/deepseek-v4.1-flash-ascend910B/releases/tag/a3-ced-pd-v2
+https://github.com/chiro2001/deepseek-v4.1-flash-ascend910B/releases/tag/a3-ced-pd-v3
 ```
 
-资源 `dsv41-a3-ced-pd-imagekit-v2.tar.zst` + 同名 `.sha256`。
-本 README 描述的就是那一包的基线 `main@2d5ff15`。
+资源 `dsv41-a3-ced-pd-imagekit-v3.tar.zst` + 同名 `.sha256`。
+本 README 描述的就是那一包的基线 `main@80d8974`。
 
-> `a3-ced-pd-v1` 是上一版，**不含 decode 请求边界护栏**（那条护栏修的是「直连
-> decode 半边的一条普通请求把整个 D 实例打死」的事故）。请用 v2。
+> 版本关系：
+> * **v3（本包）** —— A3 PD 分离的**交付默认**：D 侧 DSpark 开、两侧前缀缓存开、
+>   D 图模式；带 decode 请求边界护栏。
+> * v2 —— 有护栏，但 DSpark 与前缀缓存仍需显式开。
+> * v1 —— 连护栏都没有（直连 decode 半边的一条普通请求会打死整个 D 实例）。请用 v3。
 
 ---
 
@@ -175,13 +178,13 @@ decode 并发 4 时 **41.07 ms/step**（`STATIC_KERNEL=1`）；
 | 项 | 值 |
 |---|---|
 | 基底 | `quay.nju.edu.cn/ascend/vllm-ascend:deepseek-v4.1-flash-a3`（18 层，id `sha256:1f2c08195c5b…`） |
-| 源镜像（本层从它切出） | `local/dsv41-a3-ced-pd:v2`（id `sha256:51ec51a54dd0…`） |
-| 工作层 | **15 层**，压缩后 **1.3 MiB** |
+| 源镜像（本层从它切出） | `local/dsv41-a3-ced-pd:v3`（id `sha256:e74fa9e9a3fa…`） |
+| 工作层 | **15 层**，压缩后 **1.2 MiB** |
 | 文件系统条目 | 305,791 |
 | payload 文件 | 92 |
-| **代码基线** | 本仓 `main` @ `2d5ff15`（镜像内 `/opt/dsv41/BUILD_INFO.txt` 的 `repo_rev`） |
+| **代码基线** | 本仓 `main` @ `80d8974`（镜像内 `/opt/dsv41/BUILD_INFO.txt` 的 `repo_rev`） |
 | 基底内的 vLLM 基线 | `vllm 6e448d0`（+1 dirty = admission gate）/ `vllm-ascend e43cf1e9f`（+24 dirty = 我们的补丁件 + `.cedpdorig` 备份） |
-| 生成工具 | `scripts/make_image_patch_kit.py`（本仓 `main`），`--job 'dsv41-a3-ced-pd\|local/dsv41-a3-ced-pd:v2\|v41'` |
+| 生成工具 | `scripts/make_image_patch_kit.py`（本仓 `main`），`--job 'dsv41-a3-ced-pd\|local/dsv41-a3-ced-pd:v3\|v41'` |
 | 生成时间/机器 | 见 `MANIFEST.json`（a3-21） |
 
 **镜像内自带可核对的东西**：
