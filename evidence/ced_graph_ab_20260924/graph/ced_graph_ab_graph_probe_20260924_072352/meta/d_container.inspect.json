@@ -1,0 +1,675 @@
+[
+    {
+        "Id": "6ef83ec656c169fadb9fdaeada992036c05ef3ef112f67d43ec31a9daab3f0ab",
+        "Created": "2026-09-23T23:24:05.83167811Z",
+        "Path": "/bin/bash",
+        "Args": [
+            "-c",
+            "    source /usr/local/Ascend/ascend-toolkit/set_env.sh &&     source /usr/local/Ascend/cann-9.1.0/share/info/ascendnpu-ir/bin/set_env.sh &&     source /usr/local/Ascend/nnal/atb/set_env.sh --cxx_abi=${ATB_CXX_ABI:-1}&&     exec \"$@\"",
+            "--",
+            "bash",
+            "-lc",
+            "sleep infinity"
+        ],
+        "State": {
+            "Status": "running",
+            "Running": true,
+            "Paused": false,
+            "Restarting": false,
+            "OOMKilled": false,
+            "Dead": false,
+            "Pid": 160618,
+            "ExitCode": 0,
+            "Error": "",
+            "StartedAt": "2026-09-23T23:24:05.97444556Z",
+            "FinishedAt": "0001-01-01T00:00:00Z"
+        },
+        "Image": "sha256:1f2c08195c5b119aa9a107861fa2efa5d2b93b161f1ae91cb5358923a78cbcef",
+        "ResolvConfPath": "/home/docker-data/containers/6ef83ec656c169fadb9fdaeada992036c05ef3ef112f67d43ec31a9daab3f0ab/resolv.conf",
+        "HostnamePath": "/home/docker-data/containers/6ef83ec656c169fadb9fdaeada992036c05ef3ef112f67d43ec31a9daab3f0ab/hostname",
+        "HostsPath": "/home/docker-data/containers/6ef83ec656c169fadb9fdaeada992036c05ef3ef112f67d43ec31a9daab3f0ab/hosts",
+        "LogPath": "/home/docker-data/containers/6ef83ec656c169fadb9fdaeada992036c05ef3ef112f67d43ec31a9daab3f0ab/6ef83ec656c169fadb9fdaeada992036c05ef3ef112f67d43ec31a9daab3f0ab-json.log",
+        "Name": "/dsv41-ced-ab-d-graph-20260924-072352",
+        "RestartCount": 0,
+        "Driver": "overlay2",
+        "Platform": "linux",
+        "MountLabel": "",
+        "ProcessLabel": "",
+        "AppArmorProfile": "",
+        "ExecIDs": [
+            "ea30981d008df9d329f22e6d7c093d876fe028662213b9579c392ac6cabccaf9"
+        ],
+        "HostConfig": {
+            "Binds": [
+                "/home/l00886679/tmp/20260924/ced_numeric/pkg_f28cd71/src/cache/skcache/compile_outputs:/vllm-workspace/vllm/static_kernel_compile_outputs",
+                "/usr/local/Ascend/driver/tools/hccn_tool:/usr/local/Ascend/driver/tools/hccn_tool",
+                "/home/l00886679/tmp/20260924/ced_numeric/pkg_f28cd71/src/results/ced_graph_ab_d_graph_20260924_072352:/opt/dsv41/results/ced_graph_ab_d_graph_20260924_072352",
+                "/home/l00886679/tmp/20260924/ced_numeric/pkg_f28cd71/src/patches/files/engram_hash.py:/vllm-workspace/vllm-ascend/vllm_ascend/models/deepseek_v41/engram_hash.py:rw",
+                "/home/l00886679/tmp/20260924/ced_numeric/pkg_f28cd71/src/patches/files/engram_jit_kernel.py:/vllm-workspace/vllm-ascend/vllm_ascend/models/deepseek_v41/engram_jit_kernel.py:ro",
+                "/home/l00886679/tmp/20260924/ced_numeric/pkg_f28cd71/src/patches/files/model.py:/vllm-workspace/vllm-ascend/vllm_ascend/models/deepseek_v41/model.py:rw",
+                "/home/l00886679/tmp/20260924/ced_numeric/pkg_f28cd71/src/patches/files/block_table.py:/vllm-workspace/vllm-ascend/vllm_ascend/worker/block_table.py:rw",
+                "/home/l00886679/tmp/20260924/ced_numeric/pkg_f28cd71/src/patches/files/dsa_v1.py:/vllm-workspace/vllm-ascend/vllm_ascend/attention/dsa_v1.py:rw",
+                "/home/l00886679/tmp/20260924/ced_numeric/pkg_f28cd71/src/cache/skcache/compile_outputs:/workspace/static_kernel_compile_outputs",
+                "/home/l00886679/tmp/20260924/ced_numeric/pkg_f28cd71/src/cache/vllm:/root/.cache/vllm",
+                "/home/l00886679/tmp/20260924/ced_numeric/pkg_f28cd71/src/cache/npugraph:/root/npugraph_ex_cache",
+                "/home/l00886679/tmp/20260924/ced_numeric/pkg_f28cd71/src/cache/skcache/install:/workspace/static_kernel_install",
+                "/home/l00886679/tmp/20260924/ced_numeric/pkg_f28cd71/src/experimental/ced/mooncake_hybrid_connector.py:/vllm-workspace/vllm-ascend/vllm_ascend/distributed/kv_transfer/kv_p2p/mooncake_hybrid_connector.py:ro",
+                "/home/l00886679/models/out/v41-flat-verify3:/home/l00886679/models/out/v41-flat-verify3:ro",
+                "/home/l00886679/tmp/20260924/ced_numeric/pkg_f28cd71/src/patches/files/engram_device_index.py:/vllm-workspace/vllm-ascend/vllm_ascend/models/deepseek_v41/engram_device_index.py:ro",
+                "/etc/ascend_install.info:/etc/ascend_install.info",
+                "/home/l00886679/tmp/20260924/ced_numeric/pkg_f28cd71/src/patches/admission_gate.patch:/opt/dsv41/admission_gate.patch:ro",
+                "/home/l00886679/tmp/20260924/ced_numeric/pkg_f28cd71/src/patches/files/engram_graph.py:/vllm-workspace/vllm-ascend/vllm_ascend/models/deepseek_v41/engram_graph.py:ro",
+                "/home/l00886679/tmp/20260924/ced_numeric/pkg_f28cd71/src/patches/files/engram_gate.py:/vllm-workspace/vllm-ascend/vllm_ascend/models/deepseek_v41/engram_gate.py:ro",
+                "/home/l00886679/tmp/20260924/ced_numeric/pkg_f28cd71/src/patches/files/rope_dsv4.py:/vllm-workspace/vllm-ascend/vllm_ascend/ops/rope_dsv4.py:ro",
+                "/home/l00886679/tmp/20260924/ced_numeric/pkg_f28cd71/src/experimental/ced/dsa_v41.py:/vllm-workspace/vllm-ascend/vllm_ascend/attention/dsa_v41.py:ro",
+                "/usr/local/bin/npu-smi:/usr/local/bin/npu-smi",
+                "/home/l00886679/tmp/20260924/ced_numeric/pkg_f28cd71/src/patches/files/ascend_forward_context.py:/vllm-workspace/vllm-ascend/vllm_ascend/ascend_forward_context.py:ro",
+                "/home/l00886679/tmp/20260924/ced_numeric/pkg_f28cd71/src/cache/skcache/compile_outputs:/vllm-workspace/vllm-ascend/static_kernel_compile_outputs",
+                "/home/l00886679/tmp/20260924/ced_numeric/pkg_f28cd71/src/patches/files/token_dispatcher_moemask.py:/vllm-workspace/vllm-ascend/vllm_ascend/ops/fused_moe/token_dispatcher.py:ro",
+                "/home/l00886679/tmp/20260924/ced_numeric/pkg_f28cd71/src/experimental/ced/core_scheduler_replay.patch:/opt/dsv41/ced_scheduler_replay.patch:ro",
+                "/home/l00886679/tmp/20260924/ced_numeric/pkg_f28cd71/src/patches/files/engram_plan_kernel.py:/vllm-workspace/vllm-ascend/vllm_ascend/models/deepseek_v41/engram_plan_kernel.py:ro",
+                "/usr/local/Ascend/driver:/usr/local/Ascend/driver",
+                "/etc/hccn.conf:/etc/hccn.conf",
+                "/home/l00886679/tmp/20260924/ced_numeric/pkg_f28cd71/src/cache/numba:/numba_cache",
+                "/home/l00886679/tmp/20260924/ced_numeric/pkg_f28cd71/src/cache/skcache/install:/vllm-workspace/vllm-ascend/static_kernel_install",
+                "/home/l00886679/tmp/20260924/ced_numeric/pkg_f28cd71/src/scripts:/opt/dsv41/scripts:ro",
+                "/home/l00886679/tmp/20260924/ced_numeric/pkg_f28cd71/src/patches/files/engram_hbm.py:/vllm-workspace/vllm-ascend/vllm_ascend/models/deepseek_v41/engram_hbm.py:rw",
+                "/usr/local/dcmi:/usr/local/dcmi"
+            ],
+            "ContainerIDFile": "",
+            "LogConfig": {
+                "Type": "json-file",
+                "Config": {}
+            },
+            "NetworkMode": "host",
+            "PortBindings": {},
+            "RestartPolicy": {
+                "Name": "no",
+                "MaximumRetryCount": 0
+            },
+            "AutoRemove": false,
+            "VolumeDriver": "",
+            "VolumesFrom": null,
+            "CapAdd": null,
+            "CapDrop": null,
+            "Dns": [],
+            "DnsOptions": [],
+            "DnsSearch": [],
+            "ExtraHosts": null,
+            "GroupAdd": null,
+            "IpcMode": "shareable",
+            "Cgroup": "",
+            "Links": null,
+            "OomScoreAdj": 0,
+            "PidMode": "",
+            "Privileged": true,
+            "PublishAllPorts": false,
+            "ReadonlyRootfs": false,
+            "SecurityOpt": [
+                "label=disable"
+            ],
+            "UTSMode": "",
+            "UsernsMode": "",
+            "ShmSize": 549755813888,
+            "Runtime": "runc",
+            "ConsoleSize": [
+                0,
+                0
+            ],
+            "Isolation": "",
+            "HookSpec": "",
+            "CpuShares": 0,
+            "Memory": 0,
+            "NanoCpus": 0,
+            "CgroupParent": "",
+            "BlkioWeight": 0,
+            "BlkioWeightDevice": [],
+            "BlkioDeviceReadBps": null,
+            "BlkioDeviceWriteBps": null,
+            "BlkioDeviceReadIOps": null,
+            "BlkioDeviceWriteIOps": null,
+            "CpuPeriod": 0,
+            "CpuQuota": 0,
+            "CpuRealtimePeriod": 0,
+            "CpuRealtimeRuntime": 0,
+            "CpusetCpus": "",
+            "CpusetMems": "",
+            "Devices": [
+                {
+                    "PathOnHost": "/dev/davinci8",
+                    "PathInContainer": "/dev/davinci8",
+                    "CgroupPermissions": "rwm"
+                },
+                {
+                    "PathOnHost": "/dev/davinci9",
+                    "PathInContainer": "/dev/davinci9",
+                    "CgroupPermissions": "rwm"
+                },
+                {
+                    "PathOnHost": "/dev/davinci10",
+                    "PathInContainer": "/dev/davinci10",
+                    "CgroupPermissions": "rwm"
+                },
+                {
+                    "PathOnHost": "/dev/davinci11",
+                    "PathInContainer": "/dev/davinci11",
+                    "CgroupPermissions": "rwm"
+                },
+                {
+                    "PathOnHost": "/dev/davinci12",
+                    "PathInContainer": "/dev/davinci12",
+                    "CgroupPermissions": "rwm"
+                },
+                {
+                    "PathOnHost": "/dev/davinci13",
+                    "PathInContainer": "/dev/davinci13",
+                    "CgroupPermissions": "rwm"
+                },
+                {
+                    "PathOnHost": "/dev/davinci14",
+                    "PathInContainer": "/dev/davinci14",
+                    "CgroupPermissions": "rwm"
+                },
+                {
+                    "PathOnHost": "/dev/davinci15",
+                    "PathInContainer": "/dev/davinci15",
+                    "CgroupPermissions": "rwm"
+                },
+                {
+                    "PathOnHost": "/dev/davinci_manager",
+                    "PathInContainer": "/dev/davinci_manager",
+                    "CgroupPermissions": "rwm"
+                },
+                {
+                    "PathOnHost": "/dev/devmm_svm",
+                    "PathInContainer": "/dev/devmm_svm",
+                    "CgroupPermissions": "rwm"
+                },
+                {
+                    "PathOnHost": "/dev/hisi_hdc",
+                    "PathInContainer": "/dev/hisi_hdc",
+                    "CgroupPermissions": "rwm"
+                }
+            ],
+            "DeviceCgroupRules": null,
+            "DiskQuota": 0,
+            "KernelMemory": 0,
+            "MemoryReservation": 0,
+            "MemorySwap": 0,
+            "MemorySwappiness": null,
+            "OomKillDisable": false,
+            "PidsLimit": 0,
+            "FilesLimit": 0,
+            "Ulimits": [
+                {
+                    "Name": "memlock",
+                    "Hard": -1,
+                    "Soft": -1
+                }
+            ],
+            "CpuCount": 0,
+            "CpuPercent": 0,
+            "IOMaximumIOps": 0,
+            "IOMaximumBandwidth": 0,
+            "Hugetlbs": [],
+            "MaskedPaths": null,
+            "ReadonlyPaths": null
+        },
+        "GraphDriver": {
+            "Data": {
+                "LowerDir": "/home/docker-data/overlay2/52ec02204a64c113b4270e75788519a2f4f9f119e3b423dc53404d779cf7679f-init/diff:/home/docker-data/overlay2/c90c3d330a4a64d37ecdf77a7b12801f66fa21a7fcfd78c21c828949b1da8031/diff:/home/docker-data/overlay2/4affdc9b94d27ebab7c8419309f929640c07e63ef89849c86602d7c848c33e17/diff:/home/docker-data/overlay2/b3e3d09bbb441327216f912e335cd0fcd2d7e061b31d85f8063046e17fef3ba1/diff:/home/docker-data/overlay2/30fa0529567355f2b79db4439010beff0be8712225b5378823f7c53948b83904/diff:/home/docker-data/overlay2/73b7df911acc990458eaefa42fb4f7ea831fd1755af9a64a626e58f4b5238f91/diff:/home/docker-data/overlay2/c3faaf3f7709b26e1b48f77dc39f641489f95b7b530b8770faf339be059bd575/diff:/home/docker-data/overlay2/0491af7070164db99f8b361808a595c6c971c90d8a6a57a3c428a8732f7914e3/diff:/home/docker-data/overlay2/ec9d8698d81820cd5c5b0beb768b8ce5b95405b31ee8e0076247a4de129329ee/diff:/home/docker-data/overlay2/f5e7f501f3dbf50227fcebeac149fbf86eb1ef5e2bf77d4d3667de364abc4a1f/diff:/home/docker-data/overlay2/e914d7853ab28eec1b2ce734fdb289978cb856cedc36c8a6dd4ba30eeb6d2244/diff:/home/docker-data/overlay2/8a9a6899060ae950dc2fab600ccf62bd4ce0b133bd975b120f76903302846a7b/diff:/home/docker-data/overlay2/2c71651564294bb25c2c110c45491e4230cb71dbfee12673524761c0042e30d9/diff:/home/docker-data/overlay2/7e0b2a21623fafd672a0f1cb86f6fc3c41a9359682dec1fdb4df8ad495570409/diff:/home/docker-data/overlay2/cd1528e62cc8d8dbb292929d9dafd4b384f70079619f622c0b35282eac463d66/diff:/home/docker-data/overlay2/89821a69d3810b27032f33950020719da04ef205a837503b19f206d6bab8de33/diff:/home/docker-data/overlay2/b2e7610fe342656d5df5eee0dbb867e7ba8dd4eee719729849337132994ff154/diff:/home/docker-data/overlay2/b22ccedc83244bd06c1f4a22b0041b7fdcefef42fb8eae3db457363d9acad087/diff:/home/docker-data/overlay2/7228539f7be7c9ef9a2f4d76de7f01b14f1adabfdbbe85d2dc209930e3414be2/diff",
+                "MergedDir": "/home/docker-data/overlay2/52ec02204a64c113b4270e75788519a2f4f9f119e3b423dc53404d779cf7679f/merged",
+                "UpperDir": "/home/docker-data/overlay2/52ec02204a64c113b4270e75788519a2f4f9f119e3b423dc53404d779cf7679f/diff",
+                "WorkDir": "/home/docker-data/overlay2/52ec02204a64c113b4270e75788519a2f4f9f119e3b423dc53404d779cf7679f/work"
+            },
+            "Name": "overlay2"
+        },
+        "Mounts": [
+            {
+                "Type": "bind",
+                "Source": "/home/l00886679/tmp/20260924/ced_numeric/pkg_f28cd71/src/scripts",
+                "Destination": "/opt/dsv41/scripts",
+                "Mode": "ro",
+                "RW": false,
+                "Propagation": "rprivate"
+            },
+            {
+                "Type": "bind",
+                "Source": "/home/l00886679/tmp/20260924/ced_numeric/pkg_f28cd71/src/patches/files/engram_jit_kernel.py",
+                "Destination": "/vllm-workspace/vllm-ascend/vllm_ascend/models/deepseek_v41/engram_jit_kernel.py",
+                "Mode": "ro",
+                "RW": false,
+                "Propagation": "rprivate"
+            },
+            {
+                "Type": "bind",
+                "Source": "/home/l00886679/tmp/20260924/ced_numeric/pkg_f28cd71/src/patches/files/model.py",
+                "Destination": "/vllm-workspace/vllm-ascend/vllm_ascend/models/deepseek_v41/model.py",
+                "Mode": "rw",
+                "RW": true,
+                "Propagation": "rprivate"
+            },
+            {
+                "Type": "bind",
+                "Source": "/home/l00886679/tmp/20260924/ced_numeric/pkg_f28cd71/src/patches/files/dsa_v1.py",
+                "Destination": "/vllm-workspace/vllm-ascend/vllm_ascend/attention/dsa_v1.py",
+                "Mode": "rw",
+                "RW": true,
+                "Propagation": "rprivate"
+            },
+            {
+                "Type": "bind",
+                "Source": "/home/l00886679/models/out/v41-flat-verify3",
+                "Destination": "/home/l00886679/models/out/v41-flat-verify3",
+                "Mode": "ro",
+                "RW": false,
+                "Propagation": "rprivate"
+            },
+            {
+                "Type": "bind",
+                "Source": "/etc/hccn.conf",
+                "Destination": "/etc/hccn.conf",
+                "Mode": "",
+                "RW": true,
+                "Propagation": "rprivate"
+            },
+            {
+                "Type": "bind",
+                "Source": "/home/l00886679/tmp/20260924/ced_numeric/pkg_f28cd71/src/cache/skcache/install",
+                "Destination": "/workspace/static_kernel_install",
+                "Mode": "",
+                "RW": true,
+                "Propagation": "rprivate"
+            },
+            {
+                "Type": "bind",
+                "Source": "/home/l00886679/tmp/20260924/ced_numeric/pkg_f28cd71/src/patches/files/engram_device_index.py",
+                "Destination": "/vllm-workspace/vllm-ascend/vllm_ascend/models/deepseek_v41/engram_device_index.py",
+                "Mode": "ro",
+                "RW": false,
+                "Propagation": "rprivate"
+            },
+            {
+                "Type": "bind",
+                "Source": "/home/l00886679/tmp/20260924/ced_numeric/pkg_f28cd71/src/patches/files/rope_dsv4.py",
+                "Destination": "/vllm-workspace/vllm-ascend/vllm_ascend/ops/rope_dsv4.py",
+                "Mode": "ro",
+                "RW": false,
+                "Propagation": "rprivate"
+            },
+            {
+                "Type": "bind",
+                "Source": "/home/l00886679/tmp/20260924/ced_numeric/pkg_f28cd71/src/experimental/ced/core_scheduler_replay.patch",
+                "Destination": "/opt/dsv41/ced_scheduler_replay.patch",
+                "Mode": "ro",
+                "RW": false,
+                "Propagation": "rprivate"
+            },
+            {
+                "Type": "bind",
+                "Source": "/usr/local/Ascend/driver",
+                "Destination": "/usr/local/Ascend/driver",
+                "Mode": "",
+                "RW": true,
+                "Propagation": "rprivate"
+            },
+            {
+                "Type": "bind",
+                "Source": "/usr/local/Ascend/driver/tools/hccn_tool",
+                "Destination": "/usr/local/Ascend/driver/tools/hccn_tool",
+                "Mode": "",
+                "RW": true,
+                "Propagation": "rprivate"
+            },
+            {
+                "Type": "bind",
+                "Source": "/home/l00886679/tmp/20260924/ced_numeric/pkg_f28cd71/src/results/ced_graph_ab_d_graph_20260924_072352",
+                "Destination": "/opt/dsv41/results/ced_graph_ab_d_graph_20260924_072352",
+                "Mode": "",
+                "RW": true,
+                "Propagation": "rprivate"
+            },
+            {
+                "Type": "bind",
+                "Source": "/etc/ascend_install.info",
+                "Destination": "/etc/ascend_install.info",
+                "Mode": "",
+                "RW": true,
+                "Propagation": "rprivate"
+            },
+            {
+                "Type": "bind",
+                "Source": "/home/l00886679/tmp/20260924/ced_numeric/pkg_f28cd71/src/patches/files/engram_gate.py",
+                "Destination": "/vllm-workspace/vllm-ascend/vllm_ascend/models/deepseek_v41/engram_gate.py",
+                "Mode": "ro",
+                "RW": false,
+                "Propagation": "rprivate"
+            },
+            {
+                "Type": "bind",
+                "Source": "/home/l00886679/tmp/20260924/ced_numeric/pkg_f28cd71/src/cache/skcache/compile_outputs",
+                "Destination": "/vllm-workspace/vllm-ascend/static_kernel_compile_outputs",
+                "Mode": "",
+                "RW": true,
+                "Propagation": "rprivate"
+            },
+            {
+                "Type": "bind",
+                "Source": "/home/l00886679/tmp/20260924/ced_numeric/pkg_f28cd71/src/cache/npugraph",
+                "Destination": "/root/npugraph_ex_cache",
+                "Mode": "",
+                "RW": true,
+                "Propagation": "rprivate"
+            },
+            {
+                "Type": "bind",
+                "Source": "/home/l00886679/tmp/20260924/ced_numeric/pkg_f28cd71/src/patches/files/engram_graph.py",
+                "Destination": "/vllm-workspace/vllm-ascend/vllm_ascend/models/deepseek_v41/engram_graph.py",
+                "Mode": "ro",
+                "RW": false,
+                "Propagation": "rprivate"
+            },
+            {
+                "Type": "bind",
+                "Source": "/home/l00886679/tmp/20260924/ced_numeric/pkg_f28cd71/src/patches/files/engram_plan_kernel.py",
+                "Destination": "/vllm-workspace/vllm-ascend/vllm_ascend/models/deepseek_v41/engram_plan_kernel.py",
+                "Mode": "ro",
+                "RW": false,
+                "Propagation": "rprivate"
+            },
+            {
+                "Type": "bind",
+                "Source": "/home/l00886679/tmp/20260924/ced_numeric/pkg_f28cd71/src/cache/skcache/compile_outputs",
+                "Destination": "/vllm-workspace/vllm/static_kernel_compile_outputs",
+                "Mode": "",
+                "RW": true,
+                "Propagation": "rprivate"
+            },
+            {
+                "Type": "bind",
+                "Source": "/home/l00886679/tmp/20260924/ced_numeric/pkg_f28cd71/src/patches/files/block_table.py",
+                "Destination": "/vllm-workspace/vllm-ascend/vllm_ascend/worker/block_table.py",
+                "Mode": "rw",
+                "RW": true,
+                "Propagation": "rprivate"
+            },
+            {
+                "Type": "bind",
+                "Source": "/home/l00886679/tmp/20260924/ced_numeric/pkg_f28cd71/src/cache/skcache/compile_outputs",
+                "Destination": "/workspace/static_kernel_compile_outputs",
+                "Mode": "",
+                "RW": true,
+                "Propagation": "rprivate"
+            },
+            {
+                "Type": "bind",
+                "Source": "/home/l00886679/tmp/20260924/ced_numeric/pkg_f28cd71/src/cache/vllm",
+                "Destination": "/root/.cache/vllm",
+                "Mode": "",
+                "RW": true,
+                "Propagation": "rprivate"
+            },
+            {
+                "Type": "bind",
+                "Source": "/home/l00886679/tmp/20260924/ced_numeric/pkg_f28cd71/src/experimental/ced/dsa_v41.py",
+                "Destination": "/vllm-workspace/vllm-ascend/vllm_ascend/attention/dsa_v41.py",
+                "Mode": "ro",
+                "RW": false,
+                "Propagation": "rprivate"
+            },
+            {
+                "Type": "bind",
+                "Source": "/home/l00886679/tmp/20260924/ced_numeric/pkg_f28cd71/src/patches/files/token_dispatcher_moemask.py",
+                "Destination": "/vllm-workspace/vllm-ascend/vllm_ascend/ops/fused_moe/token_dispatcher.py",
+                "Mode": "ro",
+                "RW": false,
+                "Propagation": "rprivate"
+            },
+            {
+                "Type": "bind",
+                "Source": "/home/l00886679/tmp/20260924/ced_numeric/pkg_f28cd71/src/cache/numba",
+                "Destination": "/numba_cache",
+                "Mode": "",
+                "RW": true,
+                "Propagation": "rprivate"
+            },
+            {
+                "Type": "bind",
+                "Source": "/home/l00886679/tmp/20260924/ced_numeric/pkg_f28cd71/src/patches/files/engram_hash.py",
+                "Destination": "/vllm-workspace/vllm-ascend/vllm_ascend/models/deepseek_v41/engram_hash.py",
+                "Mode": "rw",
+                "RW": true,
+                "Propagation": "rprivate"
+            },
+            {
+                "Type": "bind",
+                "Source": "/home/l00886679/tmp/20260924/ced_numeric/pkg_f28cd71/src/experimental/ced/mooncake_hybrid_connector.py",
+                "Destination": "/vllm-workspace/vllm-ascend/vllm_ascend/distributed/kv_transfer/kv_p2p/mooncake_hybrid_connector.py",
+                "Mode": "ro",
+                "RW": false,
+                "Propagation": "rprivate"
+            },
+            {
+                "Type": "bind",
+                "Source": "/home/l00886679/tmp/20260924/ced_numeric/pkg_f28cd71/src/patches/admission_gate.patch",
+                "Destination": "/opt/dsv41/admission_gate.patch",
+                "Mode": "ro",
+                "RW": false,
+                "Propagation": "rprivate"
+            },
+            {
+                "Type": "bind",
+                "Source": "/usr/local/bin/npu-smi",
+                "Destination": "/usr/local/bin/npu-smi",
+                "Mode": "",
+                "RW": true,
+                "Propagation": "rprivate"
+            },
+            {
+                "Type": "bind",
+                "Source": "/home/l00886679/tmp/20260924/ced_numeric/pkg_f28cd71/src/patches/files/ascend_forward_context.py",
+                "Destination": "/vllm-workspace/vllm-ascend/vllm_ascend/ascend_forward_context.py",
+                "Mode": "ro",
+                "RW": false,
+                "Propagation": "rprivate"
+            },
+            {
+                "Type": "bind",
+                "Source": "/usr/local/dcmi",
+                "Destination": "/usr/local/dcmi",
+                "Mode": "",
+                "RW": true,
+                "Propagation": "rprivate"
+            },
+            {
+                "Type": "bind",
+                "Source": "/home/l00886679/tmp/20260924/ced_numeric/pkg_f28cd71/src/cache/skcache/install",
+                "Destination": "/vllm-workspace/vllm-ascend/static_kernel_install",
+                "Mode": "",
+                "RW": true,
+                "Propagation": "rprivate"
+            },
+            {
+                "Type": "bind",
+                "Source": "/home/l00886679/tmp/20260924/ced_numeric/pkg_f28cd71/src/patches/files/engram_hbm.py",
+                "Destination": "/vllm-workspace/vllm-ascend/vllm_ascend/models/deepseek_v41/engram_hbm.py",
+                "Mode": "rw",
+                "RW": true,
+                "Propagation": "rprivate"
+            }
+        ],
+        "Config": {
+            "Hostname": "localhost.localdomain",
+            "Domainname": "",
+            "User": "",
+            "AttachStdin": false,
+            "AttachStdout": false,
+            "AttachStderr": false,
+            "Tty": false,
+            "OpenStdin": false,
+            "StdinOnce": false,
+            "Env": [
+                "V41_MOE_MASK_RANGE=1",
+                "V41_O_PROJ_2D=1",
+                "ASCEND_RT_VISIBLE_DEVICES=8,9,10,11,12,13,14,15",
+                "DSPARK_DRAFT_USE_CUDAGRAPH=1",
+                "DSPARK_CAPTURE_PAD_SLOTS=0",
+                "DSPARK_DRAFT_SERIAL=0",
+                "DSPARK_CAPTURE_MAXSEQLEN=0",
+                "DSPARK_HOIST_CONTEXT_KV=0",
+                "V41_CED_SNAPSHOT_POS=",
+                "V41_ENGRAM_DEVICE_INDEX=0",
+                "DSPARK_GRAPH_SHADOW_EAGER=0",
+                "DSPARK_GRAPH_DEBUG=0",
+                "DSPARK_DRAFT_NO_ATTN=0",
+                "V41_ROPE_IDXSEL=1",
+                "V41_MOE_ZERO_NONFINITE_FILE=/tmp/v41_moe_nf",
+                "DSPARK_DSA_WRITE_PROBE=0",
+                "DSPARK_DSA_WRITE_PROBE_STEPS=12",
+                "DSPARK_TOKEN_DUMP=0",
+                "V41_CED_CAPTURE_DECODE=0",
+                "DSPARK_GRAPH_SHADOW_STEPS=2",
+                "V41_CED_H20_SNAPSHOT_POS=",
+                "CAPTURE_SIZES=1,2,3,4,8,12,16,20,24,32",
+                "V41_ENGRAM_GATE_CHUNK=0",
+                "DSPARK_GRAPH_DEVICE_METADATA=0",
+                "DSPARK_STEP_PROBE=0",
+                "DSPARK_DSA_PROBE_STEPS=60",
+                "V41_MOE_ZERO_NONFINITE=0",
+                "DSPARK_SWA_INDICES_RESIDENT=1",
+                "V41_MOE_ZERO_INVALID_FILE=/tmp/v41_moe_zero_file",
+                "V41_CED_SOURCE_COMPARE_CHUNKS=1",
+                "V41_CED_SNAPSHOT_DIR=",
+                "ASCEND_MAX_OP_CACHE_SIZE=-1",
+                "V41_ENGRAM_GATE_HOIST=0",
+                "DSPARK_GRAPH_PTR_PROBE=0",
+                "V41_MOE_COMM_ALLGATHER=1",
+                "V41_FORCE_CAND_MODE=0",
+                "V41_CED_SOURCE_COMPARE=0",
+                "PYTORCH_NPU_ALLOC_CONF=expandable_segments:True",
+                "TASK_QUEUE_ENABLE=1",
+                "DSPARK_DRAFT_SYNC_AFTER=0",
+                "DSPARK_TOKEN_DUMP_STEPS=12",
+                "DSPARK_ROW_DUMP=0",
+                "DSPARK_CAPTURE_DISPATCH=0",
+                "V41_ENGRAM_DEVICE_FALLBACK=0",
+                "V41_MOE_ZERO_INVALID=0",
+                "LOCAL_WORLD_SIZE=8",
+                "DSPARK_DSA_PROBE_CAPTURE=0",
+                "DSPARK_DRAFT_SYNC_BEFORE=0",
+                "DSPARK_CAPTURE_SEQ_LEN=0",
+                "V41_ENGRAM_JIT=1",
+                "DSPARK_DSA_PROBE=0",
+                "DSPARK_RT_FLAGS=0",
+                "DSPARK_GRAPH_PTR_PROBE_STEPS=5",
+                "VLLM_ADMISSION_GATE=1",
+                "DSPARK_CAPTURE_NCTX_FIX=1",
+                "V41_ENGRAM_ROUTE_PROBE=0",
+                "V41_ENGRAM_REUSE_EP_GROUP=1",
+                "MAX_TOKENS=2048",
+                "DSPARK_NO_TOPK_SHARE=0",
+                "NUMBA_CACHE_DIR=/numba_cache",
+                "V41_ENGRAM_GATE_MAX_TOKENS=2048",
+                "DSPARK_STEP_PROBE_STEPS=40",
+                "V41_QLI_NO_CANDIDATE=1",
+                "KV_ARGS_EXTRA=--kv-transfer-config {\"kv_connector\":\"MooncakeHybridConnector\",\"kv_role\":\"kv_consumer\",\"kv_port\":\"19091\",\"kv_connector_extra_config\":{\"prefill\":{\"dp_size\":1,\"tp_size\":8},\"decode\":{\"dp_size\":1,\"tp_size\":8}}}",
+                "DSPARK_GRAPH_CAPTURE_METADATA=0",
+                "DSPARK_DISPATCH_DIAG_STEPS=0",
+                "V41_CED_H20_SNAPSHOT_DIR=",
+                "V41_CED_LAYER_SNAPSHOT_POS=",
+                "V41_CED_LAYER_SNAPSHOT_LAYERS=0,1,2,13,14,15,19,20",
+                "V41_CED_LAYER_SNAPSHOT_DIR=",
+                "LOAD_FORMAT=",
+                "HCCL_BUFFSIZE=1024",
+                "HCCL_OP_EXPANSION_MODE=AIV",
+                "V41_ENGRAM_HOST_RESIDENT=1",
+                "DSPARK_DRAFT_METADATA_MODE=sync",
+                "DSPARK_CAPTURE_VALUE_FIX=1",
+                "V41_CED_ROLE=decode",
+                "PATH=/usr/local/Ascend/nnal/atb/latest/atb/cxx_abi_1/bin:/usr/local/Ascend/ascend-toolkit/latest/bin:/usr/local/Ascend/ascend-toolkit/latest/compiler/ccec_compiler/bin:/usr/local/Ascend/ascend-toolkit/latest/tools/ccec_compiler/bin:/usr/local/Ascend/cann-9.1.0/tools/show_kernel_debug_data:/usr/local/Ascend/cann-9.1.0/tools/msobjdump:/usr/local/Ascend/cann-9.1.0/bin:/usr/local/Ascend/cann-9.1.0/tools/ccec_compiler/bin:/usr/local/Ascend/cann-9.1.0/tools/profiler/bin:/usr/local/Ascend/cann-9.1.0/tools/ascend_system_advisor/asys:/usr/local/python3.12.13/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
+                "LD_LIBRARY_PATH=/usr/local/Ascend/cann-9.1.0/lib64:/usr/local/Ascend/cann-9.1.0/lib64/plugin/opskernel:/usr/local/Ascend/cann-9.1.0/lib64/plugin/nnengine:/usr/local/Ascend/cann-9.1.0/opp/built-in/op_impl/ai_core/tbe/op_tiling:/usr/local/Ascend/driver/lib64:/usr/local/Ascend/driver/lib64/common:/usr/local/Ascend/driver/lib64/driver:/usr/local/Ascend/nnal/atb/latest/atb/cxx_abi_1/lib:/usr/local/Ascend/nnal/atb/latest/atb/cxx_abi_1/examples:/usr/local/Ascend/nnal/atb/latest/atb/cxx_abi_1/tests/atbopstest:/usr/local/Ascend/ascend-toolkit/latest/tools/aml/lib64:/usr/local/Ascend/ascend-toolkit/latest/tools/aml/lib64/plugin:/usr/local/Ascend/ascend-toolkit/latest/lib64:/usr/local/Ascend/ascend-toolkit/latest/lib64/plugin/opskernel:/usr/local/Ascend/ascend-toolkit/latest/lib64/plugin/nnengine:/usr/local/Ascend/ascend-toolkit/latest/opp/built-in/op_impl/ai_core/tbe/op_tiling:/usr/local/python3.12.13/lib:",
+                "ASCEND_TOOLKIT_HOME=/usr/local/Ascend/cann-9.1.0",
+                "ASCEND_TOOLKIT_LATEST_HOME=/usr/local/Ascend/ascend-toolkit/latest",
+                "PYTHONPATH=/usr/local/Ascend/ascend-toolkit/latest/python/site-packages:/usr/local/Ascend/ascend-toolkit/latest/opp/built-in/op_impl/ai_core/tbe:/usr/local/Ascend/cann-9.1.0/python/site-packages:/usr/local/Ascend/cann-9.1.0/opp/built-in/op_impl/ai_core/tbe:",
+                "ASCEND_AICPU_PATH=/usr/local/Ascend/cann-9.1.0",
+                "ASCEND_OPP_PATH=/usr/local/Ascend/cann-9.1.0/opp",
+                "TOOLCHAIN_HOME=/usr/local/Ascend/cann-9.1.0/toolkit",
+                "ASCEND_HOME_PATH=/usr/local/Ascend/cann-9.1.0",
+                "CMAKE_PREFIX_PATH=/usr/local/Ascend/cann-9.1.0/toolkit/tools/tikicpulib/lib/cmake:/usr/local/Ascend/cann-9.1.0/lib64/cmake",
+                "ATB_HOME_PATH=/usr/local/Ascend/nnal/atb/latest/atb/cxx_abi_1",
+                "ATB_STREAM_SYNC_EVERY_KERNEL_ENABLE=0",
+                "ATB_STREAM_SYNC_EVERY_RUNNER_ENABLE=0",
+                "ATB_STREAM_SYNC_EVERY_OPERATION_ENABLE=0",
+                "ATB_OPSRUNNER_KERNEL_CACHE_LOCAL_COUNT=1",
+                "ATB_OPSRUNNER_KERNEL_CACHE_GLOABL_COUNT=5",
+                "ATB_WORKSPACE_MEM_ALLOC_ALG_TYPE=1",
+                "ATB_COMPARE_TILING_EVERY_KERNEL=0",
+                "ATB_SHARE_MEMORY_NAME_SUFFIX=",
+                "ATB_MATMUL_SHUFFLE_K_ENABLE=1",
+                "LCCL_DETERMINISTIC=0",
+                "LCCL_PARALLEL=0",
+                "ATB_CXX_ABI=1",
+                "DEBIAN_FRONTEND=noninteractive",
+                "SOC_VERSION=ascend910_9391",
+                "OMP_NUM_THREADS=1"
+            ],
+            "Cmd": [
+                "bash",
+                "-lc",
+                "sleep infinity"
+            ],
+            "Image": "quay.nju.edu.cn/ascend/vllm-ascend:deepseek-v4.1-flash-a3",
+            "Volumes": null,
+            "WorkingDir": "/workspace",
+            "Entrypoint": [
+                "/bin/bash",
+                "-c",
+                "    source /usr/local/Ascend/ascend-toolkit/set_env.sh &&     source /usr/local/Ascend/cann-9.1.0/share/info/ascendnpu-ir/bin/set_env.sh &&     source /usr/local/Ascend/nnal/atb/set_env.sh --cxx_abi=${ATB_CXX_ABI:-1}&&     exec \"$@\"",
+                "--"
+            ],
+            "OnBuild": null,
+            "Labels": {
+                "org.opencontainers.image.version": "22.04"
+            },
+            "Annotations": {
+                "native.umask": "secure"
+            }
+        },
+        "NetworkSettings": {
+            "Bridge": "",
+            "SandboxID": "995dd1f73620a1665a5ab6904069468f1d7536f899f5cb264beb9e7f6b34c51f",
+            "HairpinMode": false,
+            "LinkLocalIPv6Address": "",
+            "LinkLocalIPv6PrefixLen": 0,
+            "Ports": {},
+            "SandboxKey": "/var/run/docker/netns/default",
+            "SecondaryIPAddresses": null,
+            "SecondaryIPv6Addresses": null,
+            "EndpointID": "",
+            "Gateway": "",
+            "GlobalIPv6Address": "",
+            "GlobalIPv6PrefixLen": 0,
+            "IPAddress": "",
+            "IPPrefixLen": 0,
+            "IPv6Gateway": "",
+            "MacAddress": "",
+            "Networks": {
+                "host": {
+                    "IPAMConfig": null,
+                    "Links": null,
+                    "Aliases": null,
+                    "NetworkID": "2069b478cba2a09aa73a962e48b4e2db1f2b4118aa3988da3357ac2321678524",
+                    "EndpointID": "29cb3c6a87272b5425931e761da31f3db39d6d7766922afec21e113db7c050d5",
+                    "Gateway": "",
+                    "IPAddress": "",
+                    "IPPrefixLen": 0,
+                    "IPv6Gateway": "",
+                    "GlobalIPv6Address": "",
+                    "GlobalIPv6PrefixLen": 0,
+                    "MacAddress": "",
+                    "DriverOpts": null
+                }
+            }
+        }
+    }
+]

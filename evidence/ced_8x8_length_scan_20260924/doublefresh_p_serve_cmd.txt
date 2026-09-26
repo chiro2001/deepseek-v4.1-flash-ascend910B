@@ -1,0 +1,14 @@
+[serve_a2] run_id=ced_p_1m_doublefresh_20260924 image=quay.nju.edu.cn/ascend/vllm-ascend:deepseek-v4.1-flash-a3 model=/home/l00886679/models/out/v41-flat-verify3
+[serve_a2] port=18990 served_name=deepseek-v41-ced-pd-1m tp=8 dp=1 util=0.92 max_len=1048576 max_seqs=4 bat=8192
+[serve_a2] sptok=7 capture_sizes=1,2,3,4,8,12,16,20,24,32
+[serve_a2] MOE_AG=1 O_PROJ_2D=1 MOE_MASK=1 ROPE_IDXSEL=1
+[serve_a2] ENGRAM_JIT=1 QLI_NOCAND=1 LOCAL_OWNER=fast GATE_CHUNK=0
+[serve_a2] PYTHON_PGO=0 pgo_target=none STATIC_KERNEL=0 NPUGRAPH_EX=1
+[serve_a2] LOAD_FORMAT=<real weights> MOE_ZERO=0(unverified) MOE_NF=0(negative-result) DRAFT_GRAPH=0(unverified)
+[serve_a2] 口径：MAX_SEQS=4 PREFIX=0(0=性能口径/1=生产口径) capture_max=32
+[serve_a2] 诊断项：HCCL_DET=none（true 会掉 GSM8K 到 91/100，仅诊断）
+[serve_a2] cpuset=-1 mems=-1
+[serve_a2] PROFILE=0（1 => /start_profile 与 /stop_profile 可用，落到 /home/l00886679/projects/dsv41-ced-pd-a3-3a45922/results/ced_p_1m_doublefresh_20260924/prof）
+[serve_a2] ENGRAM_DEVICE_INDEX=0 ENGRAM_DEVICE_FALLBACK=0
+[serve_a2] KV_ARGS_EXTRA=--kv-transfer-config {"kv_connector":"MooncakeHybridConnector","kv_role":"kv_producer","kv_port":"19090","kv_connector_extra_config":{"prefill":{"dp_size":1,"tp_size":8},"decode":{"dp_size":1,"tp_size":8}}}
+[serve_a2] PATCH_MODE=mount ADMISSION_GATE=APPLIED(live_hits=15)

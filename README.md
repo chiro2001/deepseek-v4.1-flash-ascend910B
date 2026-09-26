@@ -155,6 +155,10 @@ cat /proc/svm/dev0/feature/host_mem_pool     # 1 = A3 口径，0 = A2 口径
 
 ### 2.3 起服前/后
 
+完整模型在单台 A3 上的双 TP8、BF16 KV、Mooncake PD 基线及代理命令见
+[`docs/A3-PD-BF16.md`](docs/A3-PD-BF16.md)。该文档同时列出已实测范围与尚未验证的
+DRAM KV、KV8、draft 入图和 1M 配置。
+
 ```bash
 # 起服前（30 秒，不起容器）：9 组自检
 MODEL=/path/to/model bash tools/preflight_a2.sh

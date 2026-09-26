@@ -34,7 +34,14 @@ HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PKG="$(cd "$HERE/.." && pwd)"
 
 MODEL=${MODEL:-}
-IMAGE=${IMAGE:-dsv41-a2:v8}
+# ★★★ 2026-09-22 21:4x：默认镜像升到 **v9** —— v9 起烘焙了 ENGRAM×卸载 的 P0 修复
+#   （`patches/files/{engram_hash.py,engram_jit_kernel.py}`：镜像缺页从 `KeyError`
+#    降级为 barrier，见 `a2/logs/075`）。
+#   ⇒ 若沿用 v8（不含修复），`ENGRAM=1 + 卸载` 会在 replay 轮 `KeyError(2486)` 引擎死。
+#   ★ 这条"默认值必须跟着修复走"的纪律，正是本日反复出现的失败模式（`065` §3/`074`：
+#     开关/文件送不到 = 静默降级）。`a2/scripts/serve_a2_offload.sh` 里还有一道
+#     **起服前指纹门**会在 5 秒内把"镜像里没有修复"这件事抓出来并拒绝起服。
+IMAGE=${IMAGE:-dsv41-a2:v9}
 NAME=${NAME:-dsv41-a2}
 PORT=${PORT:-8100}
 # [SERVED_NAME] `--served-model-name`（API 请求 body 里的 `"model"` 字段）。
@@ -45,6 +52,10 @@ PORT=${PORT:-8100}
 #    （`tools/*.sh` 与 `tests/*.py` 会读 `SERVED_NAME`，默认同样回落 deepseek-v41）。
 SERVED_NAME=${SERVED_NAME:-deepseek-v41}
 TP=${TP:-8}
+DP=${DP:-1}
+case "$DP" in
+  ''|*[!0-9]*|0) echo "[serve_a2][FAIL] DP 必须是正整数，得到 '$DP'" >&2; exit 2 ;;
+esac
 DEVS=${DEVS:-"0 1 2 3 4 5 6 7"}
 # [SCRIPT-VER] 起服时打印脚本版本 + 指纹。为什么需要：镜像里也有一份烘焙的
 # `/opt/dsv41/scripts/serve_a2.sh`（Dockerfile COPY），而镜像可能是**旧脚本**构建的
@@ -120,6 +131,8 @@ PREFIX=${PREFIX:-1}
 BAT_TOKENS=${BAT_TOKENS:-8192}
 BLOCK=${BLOCK:-128}
 KV_DTYPE=${KV_DTYPE:-bfloat16}
+GRAPH=${GRAPH:-1}
+EAGER=${EAGER:-0}
 STATIC_KERNEL=${STATIC_KERNEL:-1}
 NPUGRAPH_EX=${NPUGRAPH_EX:-1}
 SP_TOKENS=${SP_TOKENS:-5}
@@ -257,6 +270,7 @@ CPUSET=${CPUSET:--1}
 MEMS=${MEMS:--1}
 RUN_ID=${RUN_ID:-a2_$(date +%Y%m%d_%H%M%S)}
 CACHE=${CACHE:-$PKG/cache}
+KV_ARGS_EXTRA=${KV_ARGS_EXTRA:-}
 OUT=${OUT:-$PKG/results/$RUN_ID}
 LOG=${LOG:-$OUT/serve.log}
 READY_TIMEOUT=${READY_TIMEOUT:-2100}
@@ -859,6 +873,59 @@ if [ "$PATCH_MODE" = "mount" ]; then
     MOUNTS+=(-v "$F/indexer.py:/vllm-workspace/vllm-ascend/vllm_ascend/models/deepseek_v41/indexer.py:rw")
   fi
 fi
+if [ -n "${V41_CED_ROLE:-}" ]; then
+  # [PATCH_MODE] 两条路都支持：
+  #   mount —— 官方基础镜像 + `-v` 挂本仓的 CED 文件（默认，开发时用）
+  #   baked —— `local/dsv41-a3-ced-pd:*` 工作镜像，文件已在真实路径（部署时用）
+  # 两者装的是**同一批文件**（清单见 deploy/a3-ced-pd/PAYLOAD.md）。
+  case "$PATCH_MODE" in
+    mount)
+      _ced_connector="$PKG/experimental/ced/mooncake_hybrid_connector.py"
+      [ -f "$_ced_connector" ] || die "V41_CED_ROLE 缺少 $_ced_connector"
+      MOUNTS+=(-v "$_ced_connector:/vllm-workspace/vllm-ascend/vllm_ascend/distributed/kv_transfer/kv_p2p/mooncake_hybrid_connector.py:ro")
+      ;;
+    baked)
+      # baked 不挂载；但要**立刻**证明镜像里那份确实是 CED 版，
+      # 否则会静默跑 stock 连接器（起服成功、行为完全不同）。
+      # 真正的判据放在容器起来之后（见下方 [CED-BAKED-GUARD]）。
+      ;;
+    *)
+      die "V41_CED_ROLE 要求 PATCH_MODE=mount 或 baked，当前 $PATCH_MODE"
+      ;;
+  esac
+  if [ "${PATCH_MODE}" = "mount" ] && [ "${V41_CED_ROLE:-}" = "decode" ]; then
+    [ "${PROBE:-0}" != "1" ] || die "CED decode 实验不能与 PROBE=1 同时覆盖 dsa_v41.py"
+    _ced_dsa="$PKG/experimental/ced/dsa_v41.py"
+    _ced_scheduler="$PKG/experimental/ced/core_scheduler_replay.patch"
+    [ -f "$_ced_dsa" ] && [ -f "$_ced_scheduler" ] || die "CED decode 缺少注意力或调度补丁"
+    MOUNTS+=(-v "$_ced_dsa:/vllm-workspace/vllm-ascend/vllm_ascend/attention/dsa_v41.py:ro")
+    MOUNTS+=(-v "$_ced_scheduler:/opt/dsv41/ced_scheduler_replay.patch:ro")
+  elif [ "${PATCH_MODE}" = "mount" ] && [ "${V41_CED_P_HIT_DIAG:-1}" = "1" ]; then
+    # [CED-P-HIT] 2026-09-26：P（prefill 角色）开 PREFIX=1 时会在 stock 的
+    # `assert num_new_tokens > 0` 上崩。P 不装 decode 的 replay 补丁，所以这里单独
+    # 挂一份**只读诊断**补丁，把 num_tokens / num_computed_tokens / local / external
+    # 四个量摊开，用来定位是"整段本地命中"还是"截断导致的口径不一致"。
+    # 纯观测，不改任何分支。设 V41_CED_P_HIT_DIAG=0 可关。
+    _ced_p_hit_patch="$PKG/experimental/ced/core_scheduler_prefill_hit.patch"
+    [ -f "$_ced_p_hit_patch" ] || die "CED prefill 命中诊断缺少 $_ced_p_hit_patch"
+    MOUNTS+=(-v "$_ced_p_hit_patch:/opt/dsv41/ced_scheduler_prefill_hit.patch:ro")
+  fi
+fi
+if [ "${V41_CED_GRAPH_PROMPT_TAIL_EAGER:-0}" = "1" ]; then
+  [ "${V41_CED_ROLE:-}" = "decode" ] || die "CED prompt-tail 图补丁只允许 decode 角色"
+  [ "$GRAPH" = "1" ] && [ "$EAGER" = "0" ] || die "CED prompt-tail 图补丁要求 GRAPH=1 EAGER=0"
+  if [ "$PATCH_MODE" = "mount" ]; then
+    _ced_runner_patch="$PKG/experimental/ced/core_model_runner_prompt_tail.patch"
+    [ -f "$_ced_runner_patch" ] || die "CED prompt-tail 图补丁缺少 $_ced_runner_patch"
+    MOUNTS+=(-v "$_ced_runner_patch:/opt/dsv41/ced_runner_prompt_tail.patch:ro")
+  fi
+fi
+if [ -n "${V41_CED_SNAPSHOT_POS:-}" ] && [ -z "${V41_CED_ROLE:-}" ]; then
+  [ "${PROBE:-0}" != "1" ] || die "CED cache snapshot 不能与 PROBE=1 同时覆盖 dsa_v41.py"
+  _ced_dsa="$PKG/experimental/ced/dsa_v41.py"
+  [ -f "$_ced_dsa" ] || die "CED cache snapshot 缺少 $_ced_dsa"
+  MOUNTS+=(-v "$_ced_dsa:/vllm-workspace/vllm-ascend/vllm_ascend/attention/dsa_v41.py:ro")
+fi
 [ -n "$PGO_LIB" ] && MOUNTS+=(-v "$PKG/optim/pgo/libpython3.12.so.1.0:$PGO_LIB:ro")
 # ---------- [PROBE] 稀疏状态插针（事后取证；独立于 PATCH_MODE） ----------
 # PROBE=1 时用只读挂载覆盖 dsa_v41.py 并注入 sparse_capture.py。
@@ -914,10 +981,12 @@ if [ "$DRY_RUN" = "1" ]; then
   echo "[a2-dry] OK"
   echo "[a2-dry] ver=$SERVE_A2_VER md5=$_script_md5 script=$_script_self"
   echo "[a2-dry] image=$IMAGE name=$NAME port=$PORT served_name=$SERVED_NAME devs='$DEVS' util=$GPU_UTIL max_len=$MAX_LEN"
-  echo "[a2-dry] MAX_SEQS=$MAX_SEQS PREFIX=$PREFIX SP_TOKENS=$SP_TOKENS BAT_TOKENS=$BAT_TOKENS"
+  echo "[a2-dry] TP=$TP DP=$DP MAX_SEQS=$MAX_SEQS PREFIX=$PREFIX SP_TOKENS=$SP_TOKENS BAT_TOKENS=$BAT_TOKENS"
+  echo "[a2-dry] GRAPH=$GRAPH EAGER=$EAGER"
   echo "[a2-dry] CAPTURE_SIZES=$CAPTURE_SIZES"
   echo "[a2-dry] MOE_AG=$MOE_AG O_PROJ_2D=$O_PROJ_2D MOE_MASK=$MOE_MASK ROPE_IDXSEL=$ROPE_IDXSEL ENGRAM_JIT=$ENGRAM_JIT QLI_NOCAND=$QLI_NOCAND LOCAL_OWNER=$LOCAL_OWNER"
   echo "[a2-dry] PROFILE=$V41_PROFILE ENGRAM_DEVICE_INDEX=$ENGRAM_DEVICE_INDEX ENGRAM_DEVICE_FALLBACK=$ENGRAM_DEVICE_FALLBACK"
+  echo "[a2-dry] KV_ARGS_EXTRA=${KV_ARGS_EXTRA:-<none>}（inner.sh 会原样透传）"
   echo "[a2-dry] DROPCACHE=$DROPCACHE（起服前清 page cache；0 关闭）"
   echo "[a2-dry] MOE_ZERO=$MOE_ZERO MOE_NF=$MOE_NF DRAFT_GRAPH=$DRAFT_GRAPH PYTHON_PGO=$PYTHON_PGO pgo_target=${PGO_LIB:-none} LOAD_FORMAT=${LOAD_FORMAT:-<real>} CAND_MODE=$CAND_MODE PATCH_MODE=$PATCH_MODE"
   echo "[a2-dry] CPUSET=$CPUSET${CPUSET_SRC:+ ($CPUSET_SRC)} MEMS=$MEMS${MEMS_SRC:+ ($MEMS_SRC)} STATIC_KERNEL=$STATIC_KERNEL NPUGRAPH_EX=$NPUGRAPH_EX MULTISTREAM=$MULTISTREAM HCCL_DET=${HCCL_DET:-none}"
@@ -1091,7 +1160,28 @@ $DOCKER run -d --name "$NAME" --net=host --shm-size=512g --privileged=true \
   -e V41_MOE_ZERO_INVALID="$MOE_ZERO" -e V41_MOE_ZERO_INVALID_FILE=/tmp/v41_moe_zero_file \
   -e V41_MOE_ZERO_NONFINITE="$MOE_NF" -e V41_MOE_ZERO_NONFINITE_FILE=/tmp/v41_moe_nf \
   -e V41_FORCE_CAND_MODE="$CAND_MODE" \
+  -e V41_CED_SOURCE_COMPARE="${V41_CED_SOURCE_COMPARE:-0}" \
+  -e V41_CED_SOURCE_COMPARE_CHUNKS="${V41_CED_SOURCE_COMPARE_CHUNKS:-1}" \
+  -e V41_CED_ROLE="${V41_CED_ROLE:-}" \
+  -e V41_CED_ALLOW_DSPARK="${V41_CED_ALLOW_DSPARK:-0}" \
+  -e V41_SLOT_MAP_FUSED="${V41_SLOT_MAP_FUSED:-0}" \
+  -e V41_CED_GRAPH_PROMPT_TAIL_EAGER="${V41_CED_GRAPH_PROMPT_TAIL_EAGER:-0}" \
+  -e V41_CED_SWA_CLIP="${V41_CED_SWA_CLIP:-1}" \
+  -e V41_CED_SWA_TRACE="${V41_CED_SWA_TRACE:-0}" \
+  -e V41_CED_BLOCK_TRACE="${V41_CED_BLOCK_TRACE:-0}" \
+  -e V41_CED_BLOCK_DUMP_DIR="${V41_CED_BLOCK_DUMP_DIR:-}" \
+  -e V41_CED_KVGEOM="${V41_CED_KVGEOM:-0}" \
+  -e V41_ENGRAM_HIST_TRACE_POS="${V41_ENGRAM_HIST_TRACE_POS:-}" \
+  -e V41_CED_SNAPSHOT_POS="${V41_CED_SNAPSHOT_POS:-}" \
+  -e V41_CED_SNAPSHOT_DIR="${V41_CED_SNAPSHOT_DIR:-}" \
+  -e V41_CED_H20_SNAPSHOT_POS="${V41_CED_H20_SNAPSHOT_POS:-}" \
+  -e V41_CED_H20_SNAPSHOT_DIR="${V41_CED_H20_SNAPSHOT_DIR:-}" \
+  -e V41_CED_LAYER_SNAPSHOT_POS="${V41_CED_LAYER_SNAPSHOT_POS:-}" \
+  -e V41_CED_LAYER_SNAPSHOT_DIR="${V41_CED_LAYER_SNAPSHOT_DIR:-}" \
+  -e V41_CED_LAYER_SNAPSHOT_LAYERS="${V41_CED_LAYER_SNAPSHOT_LAYERS:-0,1,2,13,14,15,19,20}" \
+  -e V41_CED_CAPTURE_DECODE="${V41_CED_CAPTURE_DECODE:-0}" \
   -e LOAD_FORMAT="$LOAD_FORMAT" \
+  -e KV_ARGS_EXTRA="$KV_ARGS_EXTRA" \
   ${HCCL_ENV_ARGS[@]+"${HCCL_ENV_ARGS[@]}"} \
   -w /workspace "$IMAGE" \
   bash -lc "sleep infinity" >/dev/null || die "docker run 失败"
@@ -1128,6 +1218,76 @@ if [ "$PATCH_MODE" = "mount" ]; then
   else
     echo "[serve_a2] WARNING: live tree 里找不到 admission gate ⇒ 该补丁未生效" >&2
   fi
+fi
+
+# ---------- [CED-BAKED-GUARD] baked 模式必须**证明**镜像里的 CED 件真的在 ----------
+# 判据落在"实际生效后的可观测痕迹"上，不能落在"我传了 PATCH_MODE=baked"：
+# 烘错一层会**静默跑 stock 连接器**（起服成功、health 200、行为完全不同，
+# 而且往往是长上下文才发作）。
+if [ "${V41_CED_ROLE:-}" != "" ] && [ "${PATCH_MODE:-}" = "baked" ]; then
+  say "[CED-BAKED-GUARD] 校验镜像内 CED 件（baked 模式不挂载）"
+  _cedchk=$($DOCKER exec "$NAME" bash -lc '
+    A=/vllm-workspace/vllm-ascend/vllm_ascend
+    C=$A/distributed/kv_transfer/kv_p2p/mooncake_hybrid_connector.py
+    D=$A/attention/dsa_v41.py
+    [ -f "$C" ] || { echo "MISSING_CONNECTOR"; exit 0; }
+    [ -f "$D" ] || { echo "MISSING_DSA"; exit 0; }
+    c1=$(grep -c "CED-32BIT-GUARD" "$C" || true)
+    c2=$(grep -c "ced_missing_swa_groups" "$C" || true)
+    d1=$(grep -c "CED-SWA-CLIP" "$D" || true)
+    echo "conn=${c1:-0}/${c2:-0} dsa=${d1:-0}"' 2>/dev/null | tail -1)
+  case "${_cedchk:-}" in
+    MISSING_*) die "[CED-BAKED-GUARD] 镜像里缺 CED 件（$_cedchk）——装的不是 dsv41-a3-ced-pd 工作镜像" ;;
+    "")        die "[CED-BAKED-GUARD] 无法校验镜像内 CED 件（docker exec 失败）" ;;
+    *)         say "[CED-BAKED-GUARD] 标记命中 = $_cedchk" ;;
+  esac
+  _ok=$($DOCKER exec "$NAME" bash -lc '
+    A=/vllm-workspace/vllm-ascend/vllm_ascend
+    c=$(grep -c "CED-32BIT-GUARD" $A/distributed/kv_transfer/kv_p2p/mooncake_hybrid_connector.py || true)
+    d=$(grep -c "CED-SWA-CLIP" $A/attention/dsa_v41.py || true)
+    [ "${c:-0}" -ge 1 ] && [ "${d:-0}" -ge 1 ] && echo OK || echo BAD' 2>/dev/null | tail -1)
+  [ "${_ok:-}" = "OK" ] || die "[CED-BAKED-GUARD] CED 件未生效（connector/dsa_v41 里找不到 CED 标记）——结果不可当正确性证据"
+  say "[CED-BAKED-GUARD] CED 连接器 + dsa_v41 均已生效 ✓"
+fi
+
+if [ "${V41_CED_ROLE:-}" = "decode" ]; then
+  say "[CED-D] 应用固定 Core 版本的 128-token replay 调度补丁"
+  _ced_patch=$($DOCKER exec "$NAME" bash -lc '
+    cd /vllm-workspace/vllm || exit 1
+    _base=$(sha256sum vllm/v1/core/sched/scheduler.py | cut -d " " -f1)
+    [ "$_base" = 533eed493cb307e6d4423ff550910278f6434d71f00581737ce420d60298e8bc ] || exit 1
+    git apply --unidiff-zero --check /opt/dsv41/ced_scheduler_replay.patch || exit 1
+    git apply --unidiff-zero /opt/dsv41/ced_scheduler_replay.patch || exit 1
+    grep -Fq "[CED-D] replay request=" vllm/v1/core/sched/scheduler.py || exit 1
+    grep -Fq "[CED-KVRECV]" vllm/v1/core/sched/scheduler.py || exit 1
+    echo APPLIED' 2>/dev/null | tail -1)
+  [ "${_ced_patch:-}" = "APPLIED" ] || die "CED decode replay 调度补丁未应用"
+fi
+if [ "${V41_CED_ROLE:-}" = "prefill" ] && [ "${V41_CED_P_HIT_DIAG:-1}" = "1" ]; then
+  say "[CED-P] 应用只读命中诊断补丁（不改分支）"
+  _ced_phhit=$($DOCKER exec "$NAME" bash -lc '
+    cd /vllm-workspace/vllm || exit 1
+    _base=$(sha256sum vllm/v1/core/sched/scheduler.py | cut -d " " -f1)
+    [ "$_base" = 533eed493cb307e6d4423ff550910278f6434d71f00581737ce420d60298e8bc ] || exit 1
+    git apply --unidiff-zero --check /opt/dsv41/ced_scheduler_prefill_hit.patch || exit 1
+    git apply --unidiff-zero /opt/dsv41/ced_scheduler_prefill_hit.patch || exit 1
+    grep -Fq "[CED-P-HIT]" vllm/v1/core/sched/scheduler.py || exit 1
+    python3 -m py_compile vllm/v1/core/sched/scheduler.py || exit 1
+    echo APPLIED' 2>/dev/null | tail -1)
+  [ "${_ced_phhit:-}" = "APPLIED" ] || die "CED prefill 命中诊断补丁未应用"
+fi
+if [ "${V41_CED_GRAPH_PROMPT_TAIL_EAGER:-0}" = "1" ]; then
+  say "[CED-GRAPH] 应用固定 runner 版本的单 token prompt 尾部 eager 补丁"
+  _ced_runner=$($DOCKER exec "$NAME" bash -lc '
+    cd /vllm-workspace/vllm-ascend || exit 1
+    _base=$(sha256sum vllm_ascend/worker/model_runner_v1.py | cut -d " " -f1)
+    [ "$_base" = 67035d97f1cea4ae2df31adcc33f1de952f4cab6d8421e76df512296e0e3185e ] || exit 1
+    git apply --check /opt/dsv41/ced_runner_prompt_tail.patch || exit 1
+    git apply /opt/dsv41/ced_runner_prompt_tail.patch || exit 1
+    grep -Fq "[CED-GRAPH] one-token prompt tail forced eager" vllm_ascend/worker/model_runner_v1.py || exit 1
+    python3 -m py_compile vllm_ascend/worker/model_runner_v1.py || exit 1
+    echo APPLIED' 2>/dev/null | tail -1)
+  [ "${_ced_runner:-}" = "APPLIED" ] || die "CED prompt-tail runner 补丁未应用"
 fi
 
 if [ "$DRAFT_GRAPH" = "1" ]; then
@@ -1171,9 +1331,36 @@ if [ "$DRAFT_GRAPH" = "1" ]; then
 fi
 
 mkdir -p "$OUT"
+# ---------- [CED-POOL-GUARD] 4 GiB 页步长上界 ----------
+# 背景（docs/CED-PD-BLOCK-BOUND-20260925.md §5.1.2/§5.1.4）：KV cache 的打包布局
+# 里槽位 3 的页步长是 147712 B（layer-20 C1 KV 131072 + INT8 index K 16384
+# + FP16 scales 256）。一旦 `num_blocks × 页步长` 越过 2³²，算子按 32 位算出的
+# 块地址会回绕到别的块，长上下文请求静默变成"HTTP 200 + 1 token（EOS）"。
+#
+# 这里放在**公共底层**（serve_a2.sh）而不是某个角色脚本里，因为
+# serve_a3_pd.sh / serve_a3_ced_pd.sh / serve_a3_ced_single.sh 最终都汇到这里，
+# 放在上层会被实验用的旁路启动器绕过（已踩过一次）。
+# 判据同样用**页尾**：num_blocks ≤ ⌊2³² / 147712⌋ = 29076。
+# 与它配套的**强制**校验在连接器里（[CED-32BIT-GUARD]，按实测 stride 抛错）。
+if [ "${V41_CED_ALLOW_32BIT_OVERFLOW:-0}" != "1" ]; then
+  _ced_max_blocks=${CED_MAX_NUM_BLOCKS:-29076}
+  _ced_bytes_per_block=${CED_BYTES_PER_BLOCK:-540928}
+  _ced_cap=$(( _ced_max_blocks * _ced_bytes_per_block ))
+  if [ -z "${KV_CACHE_MEMORY_BYTES:-}" ]; then
+    # 未指定时不能靠 GPU_UTIL 自动 profiling —— 它会按"显存能装多少"算出
+    # 30080 块（P 侧实测），同样越界。这里直接给一个安全值。
+    KV_CACHE_MEMORY_BYTES=$_ced_cap
+    echo "[serve_a2] 池按 4 GiB 上界设置：$KV_CACHE_MEMORY_BYTES B（num_blocks=$_ced_max_blocks）"
+  elif [ "$KV_CACHE_MEMORY_BYTES" -gt "$_ced_cap" ]; then
+    echo "[serve_a2] WARNING: KV_CACHE_MEMORY_BYTES=$KV_CACHE_MEMORY_BYTES 会让池超过 4 GiB 寻址上界（$_ced_max_blocks 块）"
+    echo "[serve_a2] WARNING: 钳到 $_ced_cap B（num_blocks=$_ced_max_blocks）。要绕过设 V41_CED_ALLOW_32BIT_OVERFLOW=1"
+    KV_CACHE_MEMORY_BYTES=$_ced_cap
+  fi
+fi
+
 {
   echo "[serve_a2] run_id=$RUN_ID image=$IMAGE model=$MODEL"
-  echo "[serve_a2] port=$PORT served_name=$SERVED_NAME tp=$TP util=$GPU_UTIL max_len=$MAX_LEN max_seqs=$MAX_SEQS bat=$BAT_TOKENS"
+  echo "[serve_a2] port=$PORT served_name=$SERVED_NAME tp=$TP dp=$DP util=$GPU_UTIL max_len=$MAX_LEN max_seqs=$MAX_SEQS bat=$BAT_TOKENS"
   echo "[serve_a2] sptok=$SP_TOKENS capture_sizes=$CAPTURE_SIZES"
   echo "[serve_a2] MOE_AG=$MOE_AG O_PROJ_2D=$O_PROJ_2D MOE_MASK=$MOE_MASK ROPE_IDXSEL=$ROPE_IDXSEL"
   echo "[serve_a2] ENGRAM_JIT=$ENGRAM_JIT QLI_NOCAND=$QLI_NOCAND LOCAL_OWNER=$LOCAL_OWNER GATE_CHUNK=$GATE_CHUNK"
@@ -1184,6 +1371,7 @@ mkdir -p "$OUT"
   echo "[serve_a2] cpuset=$CPUSET mems=$MEMS"
   echo "[serve_a2] PROFILE=$V41_PROFILE（1 => /start_profile 与 /stop_profile 可用，落到 $OUT/prof）"
   echo "[serve_a2] ENGRAM_DEVICE_INDEX=$ENGRAM_DEVICE_INDEX ENGRAM_DEVICE_FALLBACK=$ENGRAM_DEVICE_FALLBACK"
+  echo "[serve_a2] KV_ARGS_EXTRA=${KV_ARGS_EXTRA:-<none>}"
   echo "[serve_a2] PATCH_MODE=$PATCH_MODE ADMISSION_GATE=${_gate:-n/a}(live_hits=${_gh:-0})"
 } | tee "$OUT/serve_cmd.txt"
 
@@ -1192,9 +1380,10 @@ cat > "$OUT/inner.sh" <<INNER_EOF
 #!/usr/bin/env bash
 set -uo pipefail
 cd /workspace
-export MODEL="$MODEL" TP=$TP DP=1 PORT=$PORT SERVED_NAME="$SERVED_NAME"
+export MODEL="$MODEL" TP=$TP DP=$DP PORT=$PORT SERVED_NAME="$SERVED_NAME"
 export MAX_LEN=$MAX_LEN MAX_SEQS=$MAX_SEQS BAT_TOKENS=$BAT_TOKENS GPU_UTIL=$GPU_UTIL BLOCK=$BLOCK
-export KV_DTYPE=$KV_DTYPE GRAPH=1 EAGER=0 PREFIX=$PREFIX SPEC=$SPEC SP_TOKENS=$SP_TOKENS
+export QUANTIZATION=${QUANTIZATION:-ascend} KV_CACHE_MEMORY_BYTES=${KV_CACHE_MEMORY_BYTES:-} SEED=${SEED:-}
+export KV_DTYPE=$KV_DTYPE GRAPH=$GRAPH EAGER=$EAGER PREFIX=$PREFIX SPEC=$SPEC SP_TOKENS=$SP_TOKENS
 if [ "$DRAFT_GRAPH" = "1" ]; then export SPEC_EAGER=0; else export SPEC_EAGER=1; fi
 export ENGRAM=$ENGRAM ENGRAM_STORAGE=int8 VISION=$VISION
 export NPUGRAPH_EX=$NPUGRAPH_EX STATIC_KERNEL=$STATIC_KERNEL CPU_BIND=$CPU_BIND
@@ -1208,6 +1397,7 @@ export ASCEND_MAX_OP_CACHE_SIZE=-1
 # 这样 /stop_profile 一落盘就能直接分析，不用再 docker cp。
 export PROFILE=$V41_PROFILE
 export PROFILE_DIR=/opt/dsv41/results/$RUN_ID/prof
+export KV_ARGS_EXTRA="\${KV_ARGS_EXTRA:-}"
 # [OPS-SWITCHES] 三个排障开关，**默认全关**（发布口径）。
 # 排查长上下文/精度问题时把它们打开很有用：
 #   VLLM_SERVER_DEV_MODE=1  → 额外挂出 12 个运维端点（/reset_prefix_cache /pause

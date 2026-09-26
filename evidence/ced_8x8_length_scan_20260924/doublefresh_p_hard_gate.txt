@@ -1,0 +1,31 @@
+container dsv41-ced-p-1m-doublefresh-20260924 32ccd119167824a2b542eab2fedd8a3b302880107726177785525847cf2438b3 sha256:1f2c08195c5b119aa9a107861fa2efa5d2b93b161f1ae91cb5358923a78cbcef running 3754702
+env {'V41_ENGRAM_DEVICE_INDEX': '0', 'V41_CED_ROLE': 'prefill', 'ASCEND_RT_VISIBLE_DEVICES': '0,1,2,3,4,5,6,7', 'KV_ARGS_EXTRA': '--kv-transfer-config {"kv_connector":"MooncakeHybridConnector","kv_role":"kv_producer","kv_port":"19090","kv_connector_extra_config":{"prefill":{"dp_size":1,"tp_size":8},"decode":{"dp_size":1,"tp_size":8}}}'}
+mount /home/l00886679/projects/dsv41-ced-pd-a3-3a45922/patches/files/engram_device_index.py -> /vllm-workspace/vllm-ascend/vllm_ascend/models/deepseek_v41/engram_device_index.py
+mount /home/l00886679/projects/dsv41-ced-pd-a3-3a45922/cache/skcache/install -> /workspace/static_kernel_install
+mount /home/l00886679/projects/dsv41-ced-pd-a3-3a45922/patches/files/engram_jit_kernel.py -> /vllm-workspace/vllm-ascend/vllm_ascend/models/deepseek_v41/engram_jit_kernel.py
+mount /home/l00886679/projects/dsv41-ced-pd-a3-3a45922/scripts -> /opt/dsv41/scripts
+mount /home/l00886679/projects/dsv41-ced-pd-a3-3a45922/patches/files/engram_hbm.py -> /vllm-workspace/vllm-ascend/vllm_ascend/models/deepseek_v41/engram_hbm.py
+mount /home/l00886679/projects/dsv41-ced-pd-a3-3a45922/patches/files/token_dispatcher_moemask.py -> /vllm-workspace/vllm-ascend/vllm_ascend/ops/fused_moe/token_dispatcher.py
+mount /home/l00886679/projects/dsv41-ced-pd-a3-3a45922/cache/vllm -> /root/.cache/vllm
+mount /home/l00886679/projects/dsv41-ced-pd-a3-3a45922/cache/skcache/install -> /vllm-workspace/vllm-ascend/static_kernel_install
+mount /home/l00886679/projects/dsv41-ced-pd-a3-3a45922/cache/skcache/compile_outputs -> /vllm-workspace/vllm-ascend/static_kernel_compile_outputs
+mount /home/l00886679/projects/dsv41-ced-pd-a3-3a45922/cache/npugraph -> /root/npugraph_ex_cache
+mount /home/l00886679/projects/dsv41-ced-pd-a3-3a45922/patches/files/engram_plan_kernel.py -> /vllm-workspace/vllm-ascend/vllm_ascend/models/deepseek_v41/engram_plan_kernel.py
+mount /home/l00886679/projects/dsv41-ced-pd-a3-3a45922/patches/files/rope_dsv4.py -> /vllm-workspace/vllm-ascend/vllm_ascend/ops/rope_dsv4.py
+mount /home/l00886679/projects/dsv41-ced-pd-a3-3a45922/results/ced_p_1m_doublefresh_20260924 -> /opt/dsv41/results/ced_p_1m_doublefresh_20260924
+mount /home/l00886679/projects/dsv41-ced-pd-a3-3a45922/patches/files/engram_gate.py -> /vllm-workspace/vllm-ascend/vllm_ascend/models/deepseek_v41/engram_gate.py
+mount /home/l00886679/projects/dsv41-ced-pd-a3-3a45922/patches/files/block_table.py -> /vllm-workspace/vllm-ascend/vllm_ascend/worker/block_table.py
+mount /home/l00886679/projects/dsv41-ced-pd-a3-3a45922/patches/files/engram_hash.py -> /vllm-workspace/vllm-ascend/vllm_ascend/models/deepseek_v41/engram_hash.py
+mount /home/l00886679/projects/dsv41-ced-pd-a3-3a45922/patches/admission_gate.patch -> /opt/dsv41/admission_gate.patch
+mount /home/l00886679/projects/dsv41-ced-pd-a3-3a45922/patches/files/dsa_v1.py -> /vllm-workspace/vllm-ascend/vllm_ascend/attention/dsa_v1.py
+mount /home/l00886679/projects/dsv41-ced-pd-a3-3a45922/patches/files/model.py -> /vllm-workspace/vllm-ascend/vllm_ascend/models/deepseek_v41/model.py
+mount /home/l00886679/projects/dsv41-ced-pd-a3-3a45922/patches/files/ascend_forward_context.py -> /vllm-workspace/vllm-ascend/vllm_ascend/ascend_forward_context.py
+mount /home/l00886679/projects/dsv41-ced-pd-a3-3a45922/cache/numba -> /numba_cache
+mount /home/l00886679/projects/dsv41-ced-pd-a3-3a45922/experimental/ced/mooncake_hybrid_connector.py -> /vllm-workspace/vllm-ascend/vllm_ascend/distributed/kv_transfer/kv_p2p/mooncake_hybrid_connector.py
+mount /home/l00886679/projects/dsv41-ced-pd-a3-3a45922/cache/skcache/compile_outputs -> /vllm-workspace/vllm/static_kernel_compile_outputs
+mount /home/l00886679/projects/dsv41-ced-pd-a3-3a45922/cache/skcache/compile_outputs -> /workspace/static_kernel_compile_outputs
+mount /home/l00886679/projects/dsv41-ced-pd-a3-3a45922/patches/files/engram_graph.py -> /vllm-workspace/vllm-ascend/vllm_ascend/models/deepseek_v41/engram_graph.py
+container_sha256
+a93bd6054b349647f5650bbadc9b60d6596d0d992f4c0574398fe12b8c3e3dfe /vllm-workspace/vllm-ascend/vllm_ascend/distributed/kv_transfer/kv_p2p/mooncake_hybrid_connector.py
+dc8dd1dff473a581c6c84f8e30f1f62424db7366d4c200562c0fc15d8ede93f9 /vllm-workspace/vllm-ascend/vllm_ascend/models/deepseek_v41/model.py
+

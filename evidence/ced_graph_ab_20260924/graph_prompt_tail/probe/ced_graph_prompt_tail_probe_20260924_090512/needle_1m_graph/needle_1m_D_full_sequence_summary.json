@@ -1,0 +1,135 @@
+{
+  "run": "A3-21 TP8+TP8 graph+prompt-tail D, all requests used same live P/D/proxy instances",
+  "source_request_sha256": "f25d0b8b1a0ea3e4ff37131dc90182a2940ef075f7fc1ab8fcbb7c99cd9f9d8e",
+  "full_D_correct": 2,
+  "full_D_total": 4,
+  "max1_diagnostic_interposed_between_D1_and_D2": true,
+  "max1_diagnostic_api_id": "chatcmpl-6d7c6bec-af98-45c2-a4f5-066dac48cb8d",
+  "max1_content": "RB",
+  "full_D_results": [
+    {
+      "order": "D1",
+      "phase": "D1 first full D",
+      "request_file": "needle_1m_D_request.json",
+      "request_sha256": "f25d0b8b1a0ea3e4ff37131dc90182a2940ef075f7fc1ab8fcbb7c99cd9f9d8e",
+      "request_parameters": {
+        "temperature": 0.0,
+        "max_tokens": 64,
+        "stream": false,
+        "logprobs": false
+      },
+      "start_host": "2026-09-24T09:46:19+08:00",
+      "end_host": "2026-09-24T09:48:32+08:00",
+      "curl_status": "curl_exit=0 http_seconds=200 133.174500",
+      "wall_s": 133.1745,
+      "api_id": "chatcmpl-d1f40b8b-cf56-4611-9ed9-272b3120020f",
+      "expected": "RB9N-6014",
+      "actual": "Tech-D9q7Wm",
+      "exact_match": false,
+      "response_sha256": "d3f998ff7ccddd22bf53336a9032efabd61750896249ac27ee889d857a38b46b",
+      "finish_reason": "stop",
+      "usage": {
+        "prompt_tokens": 1019847,
+        "total_tokens": 1019855,
+        "completion_tokens": 8,
+        "prompt_tokens_details": {
+          "cached_tokens": 0
+        }
+      },
+      "u_fffd": 0
+    },
+    {
+      "order": "D2",
+      "phase": "same-SHA full D after max1",
+      "request_file": "needle_1m_D_request.json",
+      "request_sha256": "f25d0b8b1a0ea3e4ff37131dc90182a2940ef075f7fc1ab8fcbb7c99cd9f9d8e",
+      "request_parameters": {
+        "temperature": 0.0,
+        "max_tokens": 64,
+        "stream": false,
+        "logprobs": false
+      },
+      "start_host": "2026-09-24T10:25:04+08:00",
+      "end_host": "2026-09-24T10:29:25+08:00",
+      "curl_status": "http_status=200 wall_s=224.115470",
+      "wall_s": 224.11547,
+      "api_id": "chatcmpl-cfd16b81-c2b3-482c-a3a2-aac60b41d89c",
+      "expected": "RB9N-6014",
+      "actual": "RB9N-6014",
+      "exact_match": true,
+      "response_sha256": "81b50f134e85376ba84a480e312993002bcecad800ab7938a210116783c70059",
+      "finish_reason": "stop",
+      "usage": {
+        "prompt_tokens": 1019847,
+        "total_tokens": 1019854,
+        "completion_tokens": 7,
+        "prompt_tokens_details": {
+          "cached_tokens": 0
+        }
+      },
+      "u_fffd": 0
+    },
+    {
+      "order": "D3",
+      "phase": "first of two sequential repeats",
+      "request_file": "needle_1m_D_repeat_after_max1_a_request.json",
+      "request_sha256": "f25d0b8b1a0ea3e4ff37131dc90182a2940ef075f7fc1ab8fcbb7c99cd9f9d8e",
+      "request_parameters": {
+        "temperature": 0.0,
+        "max_tokens": 64,
+        "stream": false,
+        "logprobs": false
+      },
+      "start_host": "2026-09-24T10:55:17+08:00",
+      "end_host": "2026-09-24T10:56:59+08:00",
+      "curl_status": "curl_exit=0 http_status=200 wall_s=101.673388",
+      "wall_s": 101.673388,
+      "api_id": "chatcmpl-42db0df7-4ecb-4dab-9341-db0dd4858c51",
+      "expected": "RB9N-6014",
+      "actual": "RB9N-6014",
+      "exact_match": true,
+      "response_sha256": "606d4e77961cfc153551c00c73a895f73146409fffdaff3d06bd03793a34c935",
+      "finish_reason": "stop",
+      "usage": {
+        "prompt_tokens": 1019847,
+        "total_tokens": 1019854,
+        "completion_tokens": 7,
+        "prompt_tokens_details": {
+          "cached_tokens": 0
+        }
+      },
+      "u_fffd": 0
+    },
+    {
+      "order": "D4",
+      "phase": "second of two sequential repeats",
+      "request_file": "needle_1m_D_repeat_after_max1_b_request.json",
+      "request_sha256": "f25d0b8b1a0ea3e4ff37131dc90182a2940ef075f7fc1ab8fcbb7c99cd9f9d8e",
+      "request_parameters": {
+        "temperature": 0.0,
+        "max_tokens": 64,
+        "stream": false,
+        "logprobs": false
+      },
+      "start_host": "2026-09-24T10:59:25+08:00",
+      "end_host": "2026-09-24T11:01:06+08:00",
+      "curl_status": "curl_exit=0 http_status=200 wall_s=101.599612",
+      "wall_s": 101.599612,
+      "api_id": "chatcmpl-81d4a2f7-beca-4a35-b391-bd7be8db3a80",
+      "expected": "RB9N-6014",
+      "actual": "Uhq9-3DqT",
+      "exact_match": false,
+      "response_sha256": "f4a25d2645150a6f18c9532ce7d2a7b8aca892dd16a17a7fd554229e627cbba3",
+      "finish_reason": "stop",
+      "usage": {
+        "prompt_tokens": 1019847,
+        "total_tokens": 1019856,
+        "completion_tokens": 9,
+        "prompt_tokens_details": {
+          "cached_tokens": 0
+        }
+      },
+      "u_fffd": 0
+    }
+  ]
+}

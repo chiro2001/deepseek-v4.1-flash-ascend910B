@@ -1,0 +1,1051 @@
+{
+  "scope": "HTTP wall-time windows; CANN events have no vLLM request ID",
+  "matching_limits": [
+    "aclrt API and device tasks are paired by connection_id",
+    "trace does not expose the event handle linking a producer EVENT_RECORD to a consumer EVENT_WAIT"
+  ],
+  "profiles": {
+    "eager": {
+      "trace_events_total": 690956,
+      "windows": [
+        {
+          "label": "measured_m1",
+          "request_id": "cmpl-c008829a-d829-4df8-816a-3faea922e551",
+          "start_iso": "2026-09-24T08:32:16.338364840+08:00",
+          "wall_s": 0.412182,
+          "start_us": 1790209936338364.0,
+          "end_us": 1790209936750546.0,
+          "trace_events_in_window": 77246,
+          "trace_event_names_top30": {
+            "empty_tensor": 4851,
+            "Node@launch": 3938,
+            "Free": 3937,
+            "Computing": 3936,
+            "AscendCL@aclrtLaunchKernelWithHostArgs": 3881,
+            "AscendCL@aclrtGetStreamAttribute": 3575,
+            "aten::as_strided": 3289,
+            "AscendCL@aclrtGetResInCurrentThread": 2808,
+            "aten::empty": 1963,
+            "aten::slice": 1488,
+            "AscendCL@aclrtCtxGetSysParamOpt": 1083,
+            "aten::unsqueeze": 855,
+            "record_event": 716,
+            "Event::record": 716,
+            "Dequeue@record_event": 716,
+            "Enqueue@record_event": 716,
+            "EVENT_RECORD": 716,
+            "AscendCL@aclrtRecordEvent": 716,
+            "aten::to": 694,
+            "AscendCL@aclrtCreateEventExWithFlag": 694,
+            "destroy_event": 691,
+            "Dequeue@destroy_event": 691,
+            "Enqueue@destroy_event": 691,
+            "AscendCL@aclrtDestroyEvent": 691,
+            "wait_event": 569,
+            "Event::wait": 569,
+            "Dequeue@wait_event": 569,
+            "Enqueue@wait_event": 569,
+            "AscendCL@aclrtStreamWaitEvent": 569,
+            "aten::view": 535
+          },
+          "trace_selected_counts": {
+            "AscendCL@aclrtRecordEvent": 716,
+            "AscendCL@aclrtStreamWaitEvent": 569,
+            "AscendCL@aclrtMemcpyAsync": 180,
+            "EVENT_RECORD": 716,
+            "EVENT_WAIT": 495,
+            "MEMCPY_ASYNC": 184,
+            "Event::synchronize": 7
+          },
+          "device_connection_id_reuse": {
+            "EVENT_RECORD": {
+              "events": 716,
+              "unique_connection_ids": 716,
+              "ids_used_more_than_once": 0,
+              "top_reused_ids": []
+            },
+            "EVENT_WAIT": {
+              "events": 495,
+              "unique_connection_ids": 495,
+              "ids_used_more_than_once": 0,
+              "top_reused_ids": []
+            },
+            "MEMCPY_ASYNC": {
+              "events": 184,
+              "unique_connection_ids": 184,
+              "ids_used_more_than_once": 0,
+              "top_reused_ids": []
+            },
+            "EVENT_RESET": {
+              "events": 0,
+              "unique_connection_ids": 0,
+              "ids_used_more_than_once": 0,
+              "top_reused_ids": []
+            }
+          },
+          "kernel_rows_in_window": 3938,
+          "kernel_rows_by_stream": {
+            "11": 1,
+            "42": 277,
+            "43": 72,
+            "44": 701,
+            "47": 2886,
+            "N/A": 1
+          },
+          "kernel_patterns": {
+            "smla": {
+              "count": 75,
+              "by_stream": {
+                "43": 6,
+                "47": 69
+              },
+              "names": {
+                "SparseFlashMla": 69,
+                "aclnnSparseFlashMlaMetadata_SparseFlashMlaMetadata_SparseFlashMlaMetadata": 6
+              }
+            },
+            "indexer": {
+              "count": 46,
+              "by_stream": {
+                "43": 4,
+                "47": 42
+              },
+              "names": {
+                "_quantize_indexer_query_kernel": 14,
+                "QuantLightningIndexerV2": 14,
+                "_prepare_indexer_indices_kernel": 14,
+                "aclnnQuantLightningIndexerV2Metadata_QuantLightningIndexerV2Metadata_QuantLightningIndexerV2Metadata": 4
+              }
+            },
+            "copy": {
+              "count": 350,
+              "by_stream": {
+                "47": 350
+              },
+              "names": {
+                "aclnnInplaceCopy_CastAiCore_Cast": 185,
+                "aclnnClamp_ViewCopyAiCore_ViewCopy": 138,
+                "aclnnInplaceCopy_ViewCopyAiCore_ViewCopy": 25,
+                "aclnnInplaceCopy_BroadcastToAiCore_BroadcastTo": 2
+              }
+            }
+          },
+          "smla_attention_kernel_count": 69,
+          "smla_metadata_kernel_count": 6,
+          "host_api_to_device_task_by_connection_id": {
+            "aclrtRecordEvent": {
+              "api_calls_in_window": 716,
+              "device_task_events_in_window": 716,
+              "unique_api_connection_ids": 716,
+              "unique_device_connection_ids": 716,
+              "connection_ids_common_within_window": 716,
+              "one_to_one_connection_ids_within_window": 716,
+              "device_minus_api_us_median_for_one_to_one_ids": 12.75,
+              "device_minus_api_us_min": -0.25,
+              "device_minus_api_us_max": 463.0
+            },
+            "aclrtStreamWaitEvent": {
+              "api_calls_in_window": 569,
+              "device_task_events_in_window": 495,
+              "unique_api_connection_ids": 569,
+              "unique_device_connection_ids": 495,
+              "connection_ids_common_within_window": 495,
+              "one_to_one_connection_ids_within_window": 495,
+              "device_minus_api_us_median_for_one_to_one_ids": 10.5,
+              "device_minus_api_us_min": -2.25,
+              "device_minus_api_us_max": 38.75
+            },
+            "aclrtMemcpyAsync": {
+              "api_calls_in_window": 180,
+              "device_task_events_in_window": 184,
+              "unique_api_connection_ids": 180,
+              "unique_device_connection_ids": 184,
+              "connection_ids_common_within_window": 39,
+              "one_to_one_connection_ids_within_window": 39,
+              "device_minus_api_us_median_for_one_to_one_ids": 15.75,
+              "device_minus_api_us_min": -0.75,
+              "device_minus_api_us_max": 42.0
+            }
+          },
+          "last_smla_start_us": 1790209936747726.5,
+          "last_smla_stream": "47",
+          "last_smla_task_id": "51567",
+          "http_end_minus_last_smla_end_us": 2791.25,
+          "trace_event_names_at_or_after_last_smla": {
+            "Computing": 39,
+            "Free": 39,
+            "Node@launch": 38,
+            "AscendCL@aclrtLaunchKernelWithHostArgs": 38,
+            "AscendCL@aclrtGetStreamAttribute": 35,
+            "AscendCL@aclrtGetResInCurrentThread": 26,
+            "AscendCL@aclrtCtxGetSysParamOpt": 11,
+            "AscendCL@aclrtCreateEventExWithFlag": 8,
+            "Enqueue@record_event": 8,
+            "Dequeue@record_event": 8,
+            "AscendCL@aclrtRecordEvent": 8,
+            "EVENT_RECORD": 8,
+            "Enqueue@aclnnMatmul": 6,
+            "Dequeue@aclnnMatmul": 6,
+            "AscendCL@aclnnMatmul": 6,
+            "aclnnMatmul_MatMulCommon_MatMulV2": 6,
+            "Enqueue@destroy_event": 6,
+            "Dequeue@destroy_event": 6,
+            "AscendCL@aclrtDestroyEvent": 6,
+            "AscendCL@aclrtGetHardwareSyncAddr": 5,
+            "Enqueue@wait_event": 5,
+            "Dequeue@wait_event": 5,
+            "AscendCL@aclrtStreamWaitEvent": 5,
+            "Enqueue@aclnnClamp": 4,
+            "Dequeue@aclnnClamp": 4,
+            "AscendCL@aclnnClamp": 4,
+            "aclnnClamp_ClipByValueV2AiCore_ClipByValueV2": 4,
+            "Enqueue@aclnnInplaceCopy": 3,
+            "Dequeue@aclnnInplaceCopy": 3,
+            "AscendCL@aclnnInplaceCopy": 3
+          }
+        },
+        {
+          "label": "measured_m8",
+          "request_id": "cmpl-c91f4790-f081-4cdd-879f-c419a722c7a1",
+          "start_iso": "2026-09-24T08:32:16.805482780+08:00",
+          "wall_s": 1.5422,
+          "start_us": 1790209936805482.0,
+          "end_us": 1790209938347682.0,
+          "trace_events_in_window": 387122,
+          "trace_event_names_top30": {
+            "empty_tensor": 24506,
+            "Node@launch": 19355,
+            "Free": 19353,
+            "Computing": 19352,
+            "AscendCL@aclrtLaunchKernelWithHostArgs": 19067,
+            "AscendCL@aclrtGetStreamAttribute": 17950,
+            "aten::as_strided": 16603,
+            "AscendCL@aclrtGetResInCurrentThread": 14324,
+            "aten::empty": 9912,
+            "aten::slice": 7368,
+            "AscendCL@aclrtCtxGetSysParamOpt": 5523,
+            "aten::unsqueeze": 4377,
+            "Dequeue@record_event": 3621,
+            "Enqueue@record_event": 3621,
+            "EVENT_RECORD": 3621,
+            "AscendCL@aclrtRecordEvent": 3621,
+            "record_event": 3606,
+            "aten::to": 3598,
+            "Event::record": 3596,
+            "AscendCL@aclrtCreateEventExWithFlag": 3512,
+            "destroy_event": 3509,
+            "Dequeue@destroy_event": 3509,
+            "Enqueue@destroy_event": 3509,
+            "AscendCL@aclrtDestroyEvent": 3509,
+            "wait_event": 2875,
+            "Event::wait": 2875,
+            "Dequeue@wait_event": 2875,
+            "Enqueue@wait_event": 2875,
+            "AscendCL@aclrtStreamWaitEvent": 2875,
+            "aten::view": 2725
+          },
+          "trace_selected_counts": {
+            "AscendCL@aclrtRecordEvent": 3621,
+            "AscendCL@aclrtStreamWaitEvent": 2875,
+            "AscendCL@aclrtMemcpyAsync": 951,
+            "EVENT_RECORD": 3621,
+            "EVENT_WAIT": 2550,
+            "MEMCPY_ASYNC": 983,
+            "Event::synchronize": 20
+          },
+          "device_connection_id_reuse": {
+            "EVENT_RECORD": {
+              "events": 3621,
+              "unique_connection_ids": 3621,
+              "ids_used_more_than_once": 0,
+              "top_reused_ids": []
+            },
+            "EVENT_WAIT": {
+              "events": 2550,
+              "unique_connection_ids": 2550,
+              "ids_used_more_than_once": 0,
+              "top_reused_ids": []
+            },
+            "MEMCPY_ASYNC": {
+              "events": 983,
+              "unique_connection_ids": 983,
+              "ids_used_more_than_once": 0,
+              "top_reused_ids": []
+            },
+            "EVENT_RESET": {
+              "events": 0,
+              "unique_connection_ids": 0,
+              "ids_used_more_than_once": 0,
+              "top_reused_ids": []
+            }
+          },
+          "kernel_rows_in_window": 19354,
+          "kernel_rows_by_stream": {
+            "11": 1,
+            "42": 1400,
+            "43": 324,
+            "44": 3221,
+            "47": 14407,
+            "N/A": 1
+          },
+          "kernel_patterns": {
+            "smla": {
+              "count": 377,
+              "by_stream": {
+                "43": 27,
+                "47": 350
+              },
+              "names": {
+                "SparseFlashMla": 350,
+                "aclnnSparseFlashMlaMetadata_SparseFlashMlaMetadata_SparseFlashMlaMetadata": 27
+              }
+            },
+            "indexer": {
+              "count": 228,
+              "by_stream": {
+                "43": 18,
+                "47": 210
+              },
+              "names": {
+                "_quantize_indexer_query_kernel": 70,
+                "QuantLightningIndexerV2": 70,
+                "_prepare_indexer_indices_kernel": 70,
+                "aclnnQuantLightningIndexerV2Metadata_QuantLightningIndexerV2Metadata_QuantLightningIndexerV2Metadata": 18
+              }
+            },
+            "copy": {
+              "count": 1688,
+              "by_stream": {
+                "47": 1688
+              },
+              "names": {
+                "aclnnInplaceCopy_CastAiCore_Cast": 963,
+                "aclnnClamp_ViewCopyAiCore_ViewCopy": 698,
+                "aclnnInplaceCopy_ViewCopyAiCore_ViewCopy": 25,
+                "aclnnInplaceCopy_BroadcastToAiCore_BroadcastTo": 2
+              }
+            }
+          },
+          "smla_attention_kernel_count": 350,
+          "smla_metadata_kernel_count": 27,
+          "host_api_to_device_task_by_connection_id": {
+            "aclrtRecordEvent": {
+              "api_calls_in_window": 3621,
+              "device_task_events_in_window": 3621,
+              "unique_api_connection_ids": 3621,
+              "unique_device_connection_ids": 3621,
+              "connection_ids_common_within_window": 3621,
+              "one_to_one_connection_ids_within_window": 3621,
+              "device_minus_api_us_median_for_one_to_one_ids": 44.25,
+              "device_minus_api_us_min": 14.0,
+              "device_minus_api_us_max": 536.25
+            },
+            "aclrtStreamWaitEvent": {
+              "api_calls_in_window": 2875,
+              "device_task_events_in_window": 2550,
+              "unique_api_connection_ids": 2875,
+              "unique_device_connection_ids": 2550,
+              "connection_ids_common_within_window": 2550,
+              "one_to_one_connection_ids_within_window": 2550,
+              "device_minus_api_us_median_for_one_to_one_ids": 42.25,
+              "device_minus_api_us_min": 11.0,
+              "device_minus_api_us_max": 89.0
+            },
+            "aclrtMemcpyAsync": {
+              "api_calls_in_window": 951,
+              "device_task_events_in_window": 983,
+              "unique_api_connection_ids": 951,
+              "unique_device_connection_ids": 983,
+              "connection_ids_common_within_window": 172,
+              "one_to_one_connection_ids_within_window": 172,
+              "device_minus_api_us_median_for_one_to_one_ids": 45.25,
+              "device_minus_api_us_min": 14.0,
+              "device_minus_api_us_max": 109.5
+            }
+          },
+          "last_smla_start_us": 1790209938346913.5,
+          "last_smla_stream": "47",
+          "last_smla_task_id": "5339",
+          "http_end_minus_last_smla_end_us": 743.75,
+          "trace_event_names_at_or_after_last_smla": {
+            "Computing": 10,
+            "Free": 10,
+            "AscendCL@aclrtGetResInCurrentThread": 10,
+            "AscendCL@aclrtGetStreamAttribute": 9,
+            "Node@launch": 8,
+            "AscendCL@aclrtLaunchKernelWithHostArgs": 8,
+            "AscendCL@aclrtCtxGetSysParamOpt": 4,
+            "Enqueue@aclnnMatmul": 2,
+            "Dequeue@aclnnMatmul": 2,
+            "AscendCL@aclnnMatmul": 2,
+            "Enqueue@aclnnInplaceCopy": 2,
+            "Dequeue@aclnnInplaceCopy": 2,
+            "AscendCL@aclnnInplaceCopy": 2,
+            "aclnnMatmul_MatMulCommon_MatMulV2": 2,
+            "AscendCL@aclrtCreateEventExWithFlag": 2,
+            "Enqueue@record_event": 2,
+            "Dequeue@record_event": 2,
+            "AscendCL@aclrtRecordEvent": 2,
+            "EVENT_RECORD": 2,
+            "SparseFlashMla": 1,
+            "aclnnNeg_NegAiCore_Neg": 1,
+            "Enqueue@aclnnTransposeBatchMatMul": 1,
+            "Dequeue@aclnnTransposeBatchMatMul": 1,
+            "AscendCL@aclnnTransposeBatchMatMul": 1,
+            "InplacePartialRotaryMul": 1,
+            "aclnnTransposeBatchMatMul_TransposeBatchMatMul_TransposeBatchMatMul": 1,
+            "AscendCL@aclnnInplaceCopyGetWorkspaceSize": 1,
+            "AscendCL@aclrtMemcpyAsync": 1,
+            "AscendCL@aclnnHcPostGetWorkspaceSize": 1,
+            "Enqueue@aclnnHcPost": 1
+          }
+        }
+      ]
+    },
+    "graph": {
+      "trace_events_total": 336051,
+      "windows": [
+        {
+          "label": "warmup_m1",
+          "request_id": "cmpl-d3b55ddd-92d7-4220-867a-9eddcc171ad3",
+          "start_iso": "2026-09-24T09:03:37.751360740+08:00",
+          "wall_s": 4.232251,
+          "start_us": 1790211817751360.0,
+          "end_us": 1790211821983611.0,
+          "trace_events_in_window": 56917,
+          "trace_event_names_top30": {
+            "Free": 4053,
+            "Computing": 4052,
+            "empty_tensor": 2938,
+            "Node@launch": 2529,
+            "AscendCL@aclrtLaunchKernelWithHostArgs": 2489,
+            "AscendCL@aclrtGetStreamAttribute": 2256,
+            "aten::as_strided": 2102,
+            "AscendCL@aclrtGetResInCurrentThread": 1922,
+            "aten::empty": 1176,
+            "aten::slice": 1047,
+            "EVENT_RECORD": 989,
+            "AscendCL@aclrtCtxGetSysParamOpt": 787,
+            "EVENT_WAIT": 614,
+            "aclnnMatmul_MatMulCommon_MatMulV2": 599,
+            "Dequeue@record_event": 595,
+            "Enqueue@record_event": 595,
+            "record_event": 592,
+            "AscendCL@aclrtRecordEvent": 589,
+            "Event::record": 581,
+            "aten::unsqueeze": 492,
+            "aten::to": 453,
+            "AscendCL@aclrtCreateEventExWithFlag": 412,
+            "destroy_event": 404,
+            "Dequeue@destroy_event": 404,
+            "Enqueue@destroy_event": 404,
+            "AscendCL@aclrtDestroyEvent": 404,
+            "EVENT_RESET": 400,
+            "wait_event": 331,
+            "Event::wait": 331,
+            "Dequeue@wait_event": 331
+          },
+          "trace_selected_counts": {
+            "AscendCL@aclrtRecordEvent": 589,
+            "AscendCL@aclrtStreamWaitEvent": 331,
+            "AscendCL@aclrtMemcpyAsync": 144,
+            "EVENT_RECORD": 989,
+            "EVENT_WAIT": 614,
+            "MEMCPY_ASYNC": 205,
+            "Event::synchronize": 169
+          },
+          "device_connection_id_reuse": {
+            "EVENT_RECORD": {
+              "events": 989,
+              "unique_connection_ids": 590,
+              "ids_used_more_than_once": 1,
+              "top_reused_ids": [
+                {
+                  "connection_id": "90707",
+                  "events": 400
+                }
+              ]
+            },
+            "EVENT_WAIT": {
+              "events": 614,
+              "unique_connection_ids": 295,
+              "ids_used_more_than_once": 1,
+              "top_reused_ids": [
+                {
+                  "connection_id": "90707",
+                  "events": 320
+                }
+              ]
+            },
+            "MEMCPY_ASYNC": {
+              "events": 205,
+              "unique_connection_ids": 153,
+              "ids_used_more_than_once": 1,
+              "top_reused_ids": [
+                {
+                  "connection_id": "90707",
+                  "events": 53
+                }
+              ]
+            },
+            "EVENT_RESET": {
+              "events": 400,
+              "unique_connection_ids": 1,
+              "ids_used_more_than_once": 1,
+              "top_reused_ids": [
+                {
+                  "connection_id": "90704",
+                  "events": 400
+                }
+              ]
+            }
+          },
+          "kernel_rows_in_window": 4473,
+          "kernel_rows_by_stream": {
+            "0": 360,
+            "1": 160,
+            "100": 2,
+            "2": 1424,
+            "39": 160,
+            "41": 72,
+            "42": 440,
+            "47": 1854,
+            "N/A": 1
+          },
+          "kernel_patterns": {
+            "smla": {
+              "count": 86,
+              "by_stream": {
+                "2": 40,
+                "41": 6,
+                "47": 40
+              },
+              "names": {
+                "SparseFlashMla": 80,
+                "aclnnSparseFlashMlaMetadata_SparseFlashMlaMetadata_SparseFlashMlaMetadata": 6
+              }
+            },
+            "indexer": {
+              "count": 52,
+              "by_stream": {
+                "2": 24,
+                "41": 4,
+                "47": 24
+              },
+              "names": {
+                "_quantize_indexer_query_kernel": 16,
+                "QuantLightningIndexerV2": 16,
+                "_prepare_indexer_indices_kernel": 16,
+                "aclnnQuantLightningIndexerV2Metadata_QuantLightningIndexerV2Metadata_QuantLightningIndexerV2Metadata": 4
+              }
+            },
+            "copy": {
+              "count": 404,
+              "by_stream": {
+                "2": 186,
+                "47": 218
+              },
+              "names": {
+                "aclnnInplaceCopy_CastAiCore_Cast": 217,
+                "aclnnClamp_ViewCopyAiCore_ViewCopy": 160,
+                "aclnnInplaceCopy_ViewCopyAiCore_ViewCopy": 25,
+                "aclnnInplaceCopy_BroadcastToAiCore_BroadcastTo": 2
+              }
+            }
+          },
+          "smla_attention_kernel_count": 80,
+          "smla_metadata_kernel_count": 6,
+          "host_api_to_device_task_by_connection_id": {
+            "aclrtRecordEvent": {
+              "api_calls_in_window": 589,
+              "device_task_events_in_window": 989,
+              "unique_api_connection_ids": 589,
+              "unique_device_connection_ids": 590,
+              "connection_ids_common_within_window": 589,
+              "one_to_one_connection_ids_within_window": 589,
+              "device_minus_api_us_median_for_one_to_one_ids": 122.5,
+              "device_minus_api_us_min": 7.5,
+              "device_minus_api_us_max": 17896.0
+            },
+            "aclrtStreamWaitEvent": {
+              "api_calls_in_window": 331,
+              "device_task_events_in_window": 614,
+              "unique_api_connection_ids": 331,
+              "unique_device_connection_ids": 295,
+              "connection_ids_common_within_window": 294,
+              "one_to_one_connection_ids_within_window": 294,
+              "device_minus_api_us_median_for_one_to_one_ids": 122.625,
+              "device_minus_api_us_min": 109.25,
+              "device_minus_api_us_max": 146.0
+            },
+            "aclrtMemcpyAsync": {
+              "api_calls_in_window": 144,
+              "device_task_events_in_window": 205,
+              "unique_api_connection_ids": 144,
+              "unique_device_connection_ids": 153,
+              "connection_ids_common_within_window": 40,
+              "one_to_one_connection_ids_within_window": 40,
+              "device_minus_api_us_median_for_one_to_one_ids": 88.0,
+              "device_minus_api_us_min": 6.5,
+              "device_minus_api_us_max": 162.25
+            }
+          },
+          "last_smla_start_us": 1790211821864658.8,
+          "last_smla_stream": "2",
+          "last_smla_task_id": "1851",
+          "http_end_minus_last_smla_end_us": 118927.75,
+          "trace_event_names_at_or_after_last_smla": {
+            "EVENT_RESET": 400,
+            "Computing": 54,
+            "Free": 54,
+            "EVENT_RECORD": 19,
+            "aclnnInplaceCopy_CastAiCore_Cast": 8,
+            "aclnnMatmul_MatMulCommon_MatMulV2": 5,
+            "MEMCPY_ASYNC": 5,
+            "Enqueue@record_event": 5,
+            "Dequeue@record_event": 5,
+            "AscendCL@aclrtRecordEvent": 5,
+            "aclnnClamp_ClipByValueV2AiCore_ClipByValueV2": 4,
+            "AscendCL@aclrtCreateEventExWithFlag": 4,
+            "EVENT_WAIT": 3,
+            "aclnnMul_MulAiCore_Mul": 3,
+            "HcPost": 2,
+            "aclnnGroupedMatmulV5_GroupedMatmul_GroupedMatmul": 2,
+            "aclnnClamp_SliceAiCore_Slice": 2,
+            "aclnnClamp_ViewCopyAiCore_ViewCopy": 2,
+            "aclnnReduceSum_ReduceSumOpAiCore_ReduceSum": 2,
+            "aclnnReduceSum_CastAiCore_Cast": 2,
+            "aclnnCat_ConcatD_ConcatD": 2,
+            "SparseFlashMla": 1,
+            "aclnnNeg_NegAiCore_Neg": 1,
+            "InplacePartialRotaryMul": 1,
+            "aclnnTransposeBatchMatMul_TransposeBatchMatMul_TransposeBatchMatMul": 1,
+            "HcPre": 1,
+            "RmsNormCast": 1,
+            "MoeGatingTopKHash": 1,
+            "aclnnMoeInitRoutingV3_MoeInitRoutingV3_MoeInitRoutingV3": 1,
+            "SwiGlu": 1
+          }
+        },
+        {
+          "label": "measured_m1",
+          "request_id": "cmpl-bab7da9f-8c3a-4ebc-9b76-e1ad14193af3",
+          "start_iso": "2026-09-24T09:03:42.039729790+08:00",
+          "wall_s": 0.331919,
+          "start_us": 1790211822039729.0,
+          "end_us": 1790211822371648.0,
+          "trace_events_in_window": 41252,
+          "trace_event_names_top30": {
+            "empty_tensor": 2582,
+            "Node@launch": 2127,
+            "Free": 2124,
+            "Computing": 2123,
+            "AscendCL@aclrtLaunchKernelWithHostArgs": 2099,
+            "AscendCL@aclrtGetStreamAttribute": 1895,
+            "aten::as_strided": 1736,
+            "AscendCL@aclrtGetResInCurrentThread": 1490,
+            "aten::empty": 1060,
+            "aten::slice": 786,
+            "AscendCL@aclrtCtxGetSysParamOpt": 583,
+            "aten::unsqueeze": 459,
+            "record_event": 388,
+            "Event::record": 388,
+            "Dequeue@record_event": 388,
+            "Enqueue@record_event": 388,
+            "AscendCL@aclrtRecordEvent": 388,
+            "EVENT_RECORD": 388,
+            "AscendCL@aclrtCreateEventExWithFlag": 376,
+            "destroy_event": 374,
+            "Dequeue@destroy_event": 374,
+            "Enqueue@destroy_event": 374,
+            "AscendCL@aclrtDestroyEvent": 374,
+            "aten::to": 360,
+            "wait_event": 307,
+            "Event::wait": 307,
+            "Dequeue@wait_event": 307,
+            "Enqueue@wait_event": 307,
+            "AscendCL@aclrtStreamWaitEvent": 307,
+            "aten::view": 287
+          },
+          "trace_selected_counts": {
+            "AscendCL@aclrtRecordEvent": 388,
+            "AscendCL@aclrtStreamWaitEvent": 307,
+            "AscendCL@aclrtMemcpyAsync": 82,
+            "EVENT_RECORD": 388,
+            "EVENT_WAIT": 271,
+            "MEMCPY_ASYNC": 82,
+            "Event::synchronize": 5
+          },
+          "device_connection_id_reuse": {
+            "EVENT_RECORD": {
+              "events": 388,
+              "unique_connection_ids": 388,
+              "ids_used_more_than_once": 0,
+              "top_reused_ids": []
+            },
+            "EVENT_WAIT": {
+              "events": 271,
+              "unique_connection_ids": 271,
+              "ids_used_more_than_once": 0,
+              "top_reused_ids": []
+            },
+            "MEMCPY_ASYNC": {
+              "events": 82,
+              "unique_connection_ids": 82,
+              "ids_used_more_than_once": 0,
+              "top_reused_ids": []
+            },
+            "EVENT_RESET": {
+              "events": 0,
+              "unique_connection_ids": 0,
+              "ids_used_more_than_once": 0,
+              "top_reused_ids": []
+            }
+          },
+          "kernel_rows_in_window": 2125,
+          "kernel_rows_by_stream": {
+            "100": 1,
+            "39": 152,
+            "41": 36,
+            "42": 407,
+            "47": 1528,
+            "N/A": 1
+          },
+          "kernel_patterns": {
+            "smla": {
+              "count": 41,
+              "by_stream": {
+                "41": 3,
+                "47": 38
+              },
+              "names": {
+                "SparseFlashMla": 38,
+                "aclnnSparseFlashMlaMetadata_SparseFlashMlaMetadata_SparseFlashMlaMetadata": 3
+              }
+            },
+            "indexer": {
+              "count": 26,
+              "by_stream": {
+                "41": 2,
+                "47": 24
+              },
+              "names": {
+                "_quantize_indexer_query_kernel": 8,
+                "QuantLightningIndexerV2": 8,
+                "_prepare_indexer_indices_kernel": 8,
+                "aclnnQuantLightningIndexerV2Metadata_QuantLightningIndexerV2Metadata_QuantLightningIndexerV2Metadata": 2
+              }
+            },
+            "copy": {
+              "count": 195,
+              "by_stream": {
+                "47": 195
+              },
+              "names": {
+                "aclnnInplaceCopy_CastAiCore_Cast": 94,
+                "aclnnClamp_ViewCopyAiCore_ViewCopy": 74,
+                "aclnnInplaceCopy_ViewCopyAiCore_ViewCopy": 25,
+                "aclnnInplaceCopy_BroadcastToAiCore_BroadcastTo": 2
+              }
+            }
+          },
+          "smla_attention_kernel_count": 38,
+          "smla_metadata_kernel_count": 3,
+          "host_api_to_device_task_by_connection_id": {
+            "aclrtRecordEvent": {
+              "api_calls_in_window": 388,
+              "device_task_events_in_window": 388,
+              "unique_api_connection_ids": 388,
+              "unique_device_connection_ids": 388,
+              "connection_ids_common_within_window": 388,
+              "one_to_one_connection_ids_within_window": 388,
+              "device_minus_api_us_median_for_one_to_one_ids": 145.25,
+              "device_minus_api_us_min": 132.5,
+              "device_minus_api_us_max": 184.25
+            },
+            "aclrtStreamWaitEvent": {
+              "api_calls_in_window": 307,
+              "device_task_events_in_window": 271,
+              "unique_api_connection_ids": 307,
+              "unique_device_connection_ids": 271,
+              "connection_ids_common_within_window": 271,
+              "one_to_one_connection_ids_within_window": 271,
+              "device_minus_api_us_median_for_one_to_one_ids": 143.25,
+              "device_minus_api_us_min": 130.25,
+              "device_minus_api_us_max": 158.75
+            },
+            "aclrtMemcpyAsync": {
+              "api_calls_in_window": 82,
+              "device_task_events_in_window": 82,
+              "unique_api_connection_ids": 82,
+              "unique_device_connection_ids": 82,
+              "connection_ids_common_within_window": 20,
+              "one_to_one_connection_ids_within_window": 20,
+              "device_minus_api_us_median_for_one_to_one_ids": 148.75,
+              "device_minus_api_us_min": 132.5,
+              "device_minus_api_us_max": 163.25
+            }
+          },
+          "last_smla_start_us": 1790211822370987.2,
+          "last_smla_stream": "47",
+          "last_smla_task_id": "33043",
+          "http_end_minus_last_smla_end_us": 624.25,
+          "trace_event_names_at_or_after_last_smla": {
+            "AscendCL@aclrtGetResInCurrentThread": 10,
+            "Computing": 9,
+            "Free": 9,
+            "AscendCL@aclrtGetStreamAttribute": 8,
+            "Node@launch": 7,
+            "AscendCL@aclrtLaunchKernelWithHostArgs": 7,
+            "AscendCL@aclrtCtxGetSysParamOpt": 4,
+            "Enqueue@aclnnMatmul": 2,
+            "Dequeue@aclnnMatmul": 2,
+            "AscendCL@aclnnMatmul": 2,
+            "Enqueue@aclnnInplaceCopy": 2,
+            "Dequeue@aclnnInplaceCopy": 2,
+            "AscendCL@aclnnInplaceCopy": 2,
+            "aclnnMatmul_MatMulCommon_MatMulV2": 2,
+            "AscendCL@aclrtCreateEventExWithFlag": 2,
+            "Enqueue@record_event": 2,
+            "Dequeue@record_event": 2,
+            "AscendCL@aclrtRecordEvent": 2,
+            "EVENT_RECORD": 2,
+            "SparseFlashMla": 1,
+            "aclnnNeg_NegAiCore_Neg": 1,
+            "AscendCL@aclnnInplaceCopyGetWorkspaceSize": 1,
+            "InplacePartialRotaryMul": 1,
+            "AscendCL@aclrtMemcpyAsync": 1,
+            "AscendCL@aclnnHcPostGetWorkspaceSize": 1,
+            "aclnnTransposeBatchMatMul_TransposeBatchMatMul_TransposeBatchMatMul": 1,
+            "Enqueue@aclnnHcPost": 1,
+            "Dequeue@aclnnHcPost": 1,
+            "AscendCL@aclnnHcPost": 1,
+            "AscendCL@aclnnHcPreGetWorkspaceSize": 1
+          }
+        },
+        {
+          "label": "measured_m8",
+          "request_id": "cmpl-f6662a93-4e86-4cb2-a893-787b551b2e60",
+          "start_iso": "2026-09-24T09:03:42.426043340+08:00",
+          "wall_s": 0.418656,
+          "start_us": 1790211822426043.0,
+          "end_us": 1790211822844699.0,
+          "trace_events_in_window": 110245,
+          "trace_event_names_top30": {
+            "Computing": 12812,
+            "Free": 12812,
+            "Node@launch": 4044,
+            "empty_tensor": 4026,
+            "AscendCL@aclrtLaunchKernelWithHostArgs": 3939,
+            "aten::as_strided": 3802,
+            "AscendCL@aclrtGetStreamAttribute": 3676,
+            "EVENT_RECORD": 2860,
+            "aten::slice": 2477,
+            "EVENT_RESET": 2400,
+            "EVENT_WAIT": 2227,
+            "AscendCL@aclrtGetResInCurrentThread": 2218,
+            "aclnnMatmul_MatMulCommon_MatMulV2": 2109,
+            "aten::empty": 1546,
+            "aclnnClamp_ClipByValueV2AiCore_ClipByValueV2": 1120,
+            "InplacePartialRotaryMul": 944,
+            "RmsNorm": 895,
+            "MEMCPY_ASYNC": 791,
+            "aten::to": 773,
+            "aclnnInplaceCopy_CastAiCore_Cast": 768,
+            "aten::copy_": 754,
+            "aclnnClamp_SliceAiCore_Slice": 640,
+            "AscendCL@aclrtCtxGetSysParamOpt": 617,
+            "AscendCL@aclrtPointerGetAttributes": 588,
+            "aclnnMul_MulAiCore_Mul": 567,
+            "HcPre": 560,
+            "HcPost": 560,
+            "aclnnGroupedMatmulV5_GroupedMatmul_GroupedMatmul": 560,
+            "aclnnClamp_ViewCopyAiCore_ViewCopy": 560,
+            "aclnnInplaceCopy": 511
+          },
+          "trace_selected_counts": {
+            "AscendCL@aclrtRecordEvent": 468,
+            "AscendCL@aclrtStreamWaitEvent": 348,
+            "AscendCL@aclrtMemcpyAsync": 510,
+            "EVENT_RECORD": 2860,
+            "EVENT_WAIT": 2227,
+            "MEMCPY_ASYNC": 791,
+            "Event::synchronize": 18
+          },
+          "device_connection_id_reuse": {
+            "EVENT_RECORD": {
+              "events": 2860,
+              "unique_connection_ids": 461,
+              "ids_used_more_than_once": 1,
+              "top_reused_ids": [
+                {
+                  "connection_id": "90707",
+                  "events": 2400
+                }
+              ]
+            },
+            "EVENT_WAIT": {
+              "events": 2227,
+              "unique_connection_ids": 308,
+              "ids_used_more_than_once": 1,
+              "top_reused_ids": [
+                {
+                  "connection_id": "90707",
+                  "events": 1920
+                }
+              ]
+            },
+            "MEMCPY_ASYNC": {
+              "events": 791,
+              "unique_connection_ids": 474,
+              "ids_used_more_than_once": 1,
+              "top_reused_ids": [
+                {
+                  "connection_id": "90707",
+                  "events": 318
+                }
+              ]
+            },
+            "EVENT_RESET": {
+              "events": 2400,
+              "unique_connection_ids": 1,
+              "ids_used_more_than_once": 1,
+              "top_reused_ids": [
+                {
+                  "connection_id": "90704",
+                  "events": 2400
+                }
+              ]
+            }
+          },
+          "kernel_rows_in_window": 15455,
+          "kernel_rows_by_stream": {
+            "0": 2160,
+            "1": 960,
+            "100": 1,
+            "2": 8544,
+            "39": 160,
+            "41": 252,
+            "42": 440,
+            "47": 2937,
+            "N/A": 1
+          },
+          "kernel_patterns": {
+            "smla": {
+              "count": 301,
+              "by_stream": {
+                "2": 240,
+                "41": 21,
+                "47": 40
+              },
+              "names": {
+                "SparseFlashMla": 280,
+                "aclnnSparseFlashMlaMetadata_SparseFlashMlaMetadata_SparseFlashMlaMetadata": 21
+              }
+            },
+            "indexer": {
+              "count": 182,
+              "by_stream": {
+                "2": 144,
+                "41": 14,
+                "47": 24
+              },
+              "names": {
+                "_quantize_indexer_query_kernel": 56,
+                "QuantLightningIndexerV2": 56,
+                "_prepare_indexer_indices_kernel": 56,
+                "aclnnQuantLightningIndexerV2Metadata_QuantLightningIndexerV2Metadata_QuantLightningIndexerV2Metadata": 14
+              }
+            },
+            "copy": {
+              "count": 1355,
+              "by_stream": {
+                "2": 1116,
+                "47": 239
+              },
+              "names": {
+                "aclnnInplaceCopy_CastAiCore_Cast": 768,
+                "aclnnClamp_ViewCopyAiCore_ViewCopy": 560,
+                "aclnnInplaceCopy_ViewCopyAiCore_ViewCopy": 25,
+                "aclnnInplaceCopy_BroadcastToAiCore_BroadcastTo": 2
+              }
+            }
+          },
+          "smla_attention_kernel_count": 280,
+          "smla_metadata_kernel_count": 21,
+          "host_api_to_device_task_by_connection_id": {
+            "aclrtRecordEvent": {
+              "api_calls_in_window": 468,
+              "device_task_events_in_window": 2860,
+              "unique_api_connection_ids": 468,
+              "unique_device_connection_ids": 461,
+              "connection_ids_common_within_window": 460,
+              "one_to_one_connection_ids_within_window": 460,
+              "device_minus_api_us_median_for_one_to_one_ids": 159.0,
+              "device_minus_api_us_min": 143.5,
+              "device_minus_api_us_max": 18929.25
+            },
+            "aclrtStreamWaitEvent": {
+              "api_calls_in_window": 348,
+              "device_task_events_in_window": 2227,
+              "unique_api_connection_ids": 348,
+              "unique_device_connection_ids": 308,
+              "connection_ids_common_within_window": 307,
+              "one_to_one_connection_ids_within_window": 307,
+              "device_minus_api_us_median_for_one_to_one_ids": 155.75,
+              "device_minus_api_us_min": 141.25,
+              "device_minus_api_us_max": 10253.0
+            },
+            "aclrtMemcpyAsync": {
+              "api_calls_in_window": 510,
+              "device_task_events_in_window": 791,
+              "unique_api_connection_ids": 510,
+              "unique_device_connection_ids": 474,
+              "connection_ids_common_within_window": 140,
+              "one_to_one_connection_ids_within_window": 140,
+              "device_minus_api_us_median_for_one_to_one_ids": 17345.625,
+              "device_minus_api_us_min": 146.75,
+              "device_minus_api_us_max": 18068.75
+            }
+          },
+          "last_smla_start_us": 1790211822843818.0,
+          "last_smla_stream": "2",
+          "last_smla_task_id": "1851",
+          "http_end_minus_last_smla_end_us": 856.5,
+          "trace_event_names_at_or_after_last_smla": {
+            "EVENT_RESET": 400,
+            "Computing": 36,
+            "Free": 35,
+            "EVENT_RECORD": 7,
+            "aclnnMatmul_MatMulCommon_MatMulV2": 5,
+            "aclnnInplaceCopy_CastAiCore_Cast": 4,
+            "aclnnClamp_ClipByValueV2AiCore_ClipByValueV2": 4,
+            "EVENT_WAIT": 3,
+            "aclnnMul_MulAiCore_Mul": 3,
+            "HcPost": 2,
+            "aclnnGroupedMatmulV5_GroupedMatmul_GroupedMatmul": 2,
+            "aclnnClamp_SliceAiCore_Slice": 2,
+            "aclnnClamp_ViewCopyAiCore_ViewCopy": 2,
+            "SparseFlashMla": 1,
+            "aclnnNeg_NegAiCore_Neg": 1,
+            "InplacePartialRotaryMul": 1,
+            "aclnnTransposeBatchMatMul_TransposeBatchMatMul_TransposeBatchMatMul": 1,
+            "MEMCPY_ASYNC": 1,
+            "HcPre": 1,
+            "RmsNormCast": 1,
+            "MoeGatingTopKHash": 1,
+            "aclnnMoeInitRoutingV3_MoeInitRoutingV3_MoeInitRoutingV3": 1,
+            "SwiGlu": 1,
+            "aclnnAbs_AbsAiCore_Abs": 1,
+            "MoeTokenUnpermute": 1,
+            "aclnnMuls_Muls_Muls": 1,
+            "aclnnSigmoid_SigmoidAiCore_Sigmoid": 1,
+            "aclnnAdds_AddAiCore_Add": 1,
+            "aclnnAdd_AddAiCore_Add": 1,
+            "aclnnReduceSum_ReduceSumOpAiCore_ReduceSum": 1
+          }
+        }
+      ]
+    }
+  }
+}

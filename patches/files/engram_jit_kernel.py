@@ -6,13 +6,26 @@
 
 ## 与 stock 的逐位对齐点
 
-1. **缺页 bail-out**（最容易错的地方）：
+1. **缺页语义**（最容易错的地方）：
    stock 的 `_vectorized_history` 在「镜像里缺页」时返回 None → 回退标量走法。
    dense 数组无法区分「缺页」与「槽位 = -1」，所以用 `page_present` 复刻该判据：
      * 先扫全部 `n*lookback` 个 flat page（已按 `torch.where(in_range, pages, pages[:, :1])`
        把越界槽位重定向到本行 shift0 的页）；
-     * 有缺页 → 走标量走法；标量走法真的读到缺页 → 返回该页号，由 Python 侧抛 `KeyError`
-       （与 `self.pages[page]` 的 KeyError 同型）。
+     * 有缺页 → 走标量走法。
+
+   ★★★ 2026-09-22 21:0x **ENGRAM-PAGELESS（本日 P0 修复）**：
+   stock 的标量走法在遇到缺页时把页号上报，`engram_hash.py` 随即 `raise KeyError(err)`
+   ⇒ **引擎死**。触发条件是「前缀经 DRAM 卸载池取回」：
+   `pages / page_present` 这两个镜像**只由流经 `update()` 的 token 写入**，而被取回的
+   块从未流经 `update()` ⇒ 命中边界（block 对齐）上第一个 token 的 lookback 需要的
+   前 1–3 个位置必然落在**已取回的旧块**里 ⇒ `page_present == 0`。
+   （实测：`a2/logs/073` + `a2/logs/072` §3.3；`KeyError: 2486`，`num_computed_tokens=56320`。）
+
+   ⇒ 现在：**缺页 = 一个 barrier**，与「槽位 = -1（未写入的 token）」**完全同义** ——
+   该行该 shift 及其之后的 shift 保持 `pad_id`，**哈希照常计算**；缺页通过第 4 个返回值
+   `miss_rows` 与 `err_page`（首个缺页页号，**软**信息）上报，由调用方决定计数还是抛错。
+   ★ 为什么这不是"将就"：`pad_id` 历史正是「序列在此处开始」的语义 ⇒ 降级是有界的
+   （每个取回边界最多 `1 + (lookback-1)` 个位置），而不是算错一大片。
 2. **图像 token**：`compressed.masked_fill(~mask, -1)` → 写进页里当屏障；历史读遇 `<0` 即断。
 3. **running-min**：`values.masked_fill(values.cummin(dim=1).values < 0, pad_id)`。
 4. **prefill（n >= small_max）**：`active` 逐 shift 收窄；`page_ids` 全量存在性检查
@@ -60,17 +73,22 @@ def engram_update_kernel(
     out_hashes, out_mask,
     hist, flat, prev, ir, vals, rows, pid, offb, prs, act,
 ):
-    """页写 + n-gram 历史 + 哈希。返回 (err_page, oob_page, fell_back)。
+    """页写 + n-gram 历史 + 哈希。返回 (err_page, oob_page, fell_back, miss_rows)。
 
-    err_page >= 0 : 标量回退时读到缺页 → 调用方抛 KeyError
+    err_page >= 0 : ★ **软**信息 —— 出现过缺页，值是首个缺页的页号。
+                    ★ 2026-09-22 ENGRAM-PAGELESS：缺页不再中止本批，也不再意味着
+                    "哈希没算"；该行按 barrier 语义取 pad 历史。是否致命由调用方决定
+                    （`V41_ENGRAM_PAGELESS_STRICT=1` 时才抛 KeyError）。
     oob_page >= 0 : 页号超出 pages 容量 → 调用方扩容后重跑
     fell_back     : 本次走了标量回退（用于 scalar_history_fallbacks 计数器）
+    miss_rows     : ★ 本次因**缺页**而降级的行数（0 = 需要的历史槽位全在镜像里）
     """
     cap = pages.shape[0]
     n_layers = primes.shape[0]
     n_shifts = primes.shape[1]          # lookback - 1
     err_page = np.int64(-1)
     oob_page = np.int64(-1)
+    miss_rows = np.int64(0)
 
     # ---------- 1) token_map + 图像 mask + 页写 ----------
     for i in range(n):
@@ -93,7 +111,7 @@ def engram_update_kernel(
             page_present[page] = 1
         pages[page, pos % block_size] = comp
     if oob_page >= 0:
-        return err_page, oob_page, np.int64(0)
+        return err_page, oob_page, np.int64(0), miss_rows
 
     # ---------- 2) n-gram 历史 ----------
     for r in range(n):
@@ -145,7 +163,8 @@ def engram_update_kernel(
                     else:
                         hist[r, sh] = v
         else:
-            # 缺页回退：标量走法（遇缺页即上报，Python 侧抛 KeyError）
+            # 缺页回退：标量走法。★ ENGRAM-PAGELESS：缺页 = barrier（与 tok<0 同义），
+            # 不再中止本批 —— 该行剩余 shift 保持 pad_id，其余行照常取值。
             fell_back = np.int64(1)
             for r in range(n):
                 for sh in range(lookback):
@@ -154,14 +173,14 @@ def engram_update_kernel(
                         break
                     page = flat[r * lookback + sh]
                     if page_present[page] == 0:
-                        err_page = page
+                        if err_page < 0:
+                            err_page = page
+                        miss_rows += 1
                         break
                     tok = pages[page, p % block_size]
                     if tok < 0:
                         break
                     hist[r, sh] = tok
-                if err_page >= 0:
-                    break
     else:
         # prefill：逐 shift 收窄 active（与 slab 路径同构）
         for r in range(n):
@@ -181,17 +200,23 @@ def engram_update_kernel(
                 if page < 0 or page >= cap:
                     if page > oob_page:
                         oob_page = page
+                    prs[j] = 0                      # 越界：本行不参与（外层会扩容重跑）
                     continue
                 pid[j] = page
                 offb[j] = p % block_size
                 if page_present[page] == 0:
-                    err_page = page
-                    break
+                    # ★ [ENGRAM-PAGELESS] 缺页 = barrier：停用该行（与 tok<0 同义）
+                    if err_page < 0:
+                        err_page = page
+                    miss_rows += 1
+                    prs[j] = 0
+                    continue
+                prs[j] = 1                          # 该行本轮可以取值
             if oob_page >= 0:
-                return err_page, oob_page, fell_back
-            if err_page >= 0:
-                break
+                return err_page, oob_page, fell_back, miss_rows
             for j in range(m):
+                if prs[j] == 0:
+                    continue                        # ★ 缺页/越界 → 该行本轮不取值
                 v = pages[pid[j], offb[j]]
                 if v >= 0:
                     hist[rows[j], sh] = v
@@ -202,26 +227,31 @@ def engram_update_kernel(
                 act[rows[j]] = prs[j]
 
     # ---------- 3) 滚动 XOR + 取模哈希 ----------
-    if err_page < 0:
-        for r in range(n):
-            for lay in range(n_layers):
-                roll = hist[r, 0] * multipliers[lay, 0]
-                for sh in range(1, lookback):
-                    roll = roll ^ (hist[r, sh] * multipliers[lay, sh])
-                    base = (sh - 1) * n_heads
-                    for h in range(n_heads):
-                        pm = primes[lay, sh - 1, h]
-                        v = roll % pm
-                        if v < 0:
-                            v += pm
-                        out_hashes[r, lay, base + h] = v + offsets[lay, base + h]
-    return err_page, oob_page, fell_back
+    # ★ [ENGRAM-PAGELESS] 这里**不再**用 err_page 当开关：缺页已降级为 barrier
+    #   （hist 里就是 pad_id），必须继续算哈希 —— 否则"遇到一个缺页 ⇒ 整批没有哈希"，
+    #   那比 pad 历史更糟（会把整批 token 的 Engram 注入清零）。
+    for r in range(n):
+        for lay in range(n_layers):
+            roll = hist[r, 0] * multipliers[lay, 0]
+            for sh in range(1, lookback):
+                roll = roll ^ (hist[r, sh] * multipliers[lay, sh])
+                base = (sh - 1) * n_heads
+                for h in range(n_heads):
+                    pm = primes[lay, sh - 1, h]
+                    v = roll % pm
+                    if v < 0:
+                        v += pm
+                    out_hashes[r, lay, base + h] = v + offsets[lay, base + h]
+    return err_page, oob_page, fell_back, miss_rows
 
 
 def selftest():
     """合成小输入跑一遍内核：首次编译 + 正确性自检。
 
     期望历史：row0=[3,pad,pad,pad]，row1=[5,3,pad,pad]（block_size=4, lookback=4）。
+
+    ★ 2026-09-22 ENGRAM-PAGELESS 追加 case 2：镜像缺页时**不再**中止本批，
+      而是按 barrier 取 pad 历史、并且**照常算哈希**。
     """
     tm = np.arange(64, dtype=np.int64)
     ii = np.array([3, 5], dtype=np.int64)
@@ -245,7 +275,7 @@ def selftest():
     offb = np.zeros(2, np.int64)
     prs = np.zeros(2, np.uint8)
     act = np.zeros(2, np.uint8)
-    err, oob, _fb = engram_update_kernel(
+    err, oob, _fb, _miss = engram_update_kernel(
         tm, ii, pos, req, bt, 4, 2, 1, -1, -2,
         pages, present, mult, pr, off, 4, 8, 16,
         oh, om, hist, flat, prev, ir, vals, rows, pid, offb, prs, act,
@@ -258,4 +288,42 @@ def selftest():
         raise RuntimeError(f"selftest pad mismatch {hist.tolist()}")
     if not (bool(om[0]) and bool(om[1])):
         raise RuntimeError("selftest mask mismatch")
+
+    # ---- case 2: ENGRAM-PAGELESS（缺页 = barrier，哈希照算）----
+    # 单请求：positions=[4]（block 1 的第一个槽），历史需要
+    #   sh0 -> page1 slot0（本步写入 comp(7)=7）
+    #   sh1 -> page0 slot3（page0 在镜像里【缺页】⇒ 必须降级为 barrier 而不是报错）
+    bs2, pad2 = 4, 1
+    bt2 = np.array([[0, 1]], dtype=np.int64)
+    ii2 = np.array([7], dtype=np.int64)
+    pos2 = np.array([4], dtype=np.int64)
+    req2 = np.array([0], dtype=np.int64)
+    pages2 = np.full((8, bs2), -1, np.int64)
+    pages2[1, 3] = 6                     # page1 slot3 是"上一步"写的旧 token
+    present2 = np.zeros(8, np.uint8)
+    present2[1] = 1                      # ★ page0 故意保持 0 = 缺页
+    oh2 = np.zeros((1, 2, 24), np.int64)
+    om2 = np.zeros(1, np.bool_)
+    hist2 = np.zeros((1, 4), np.int64)
+    err2, oob2, fb2, miss2 = engram_update_kernel(
+        tm, ii2, pos2, req2, bt2, bs2, 1, pad2, -1, -2,
+        pages2, present2, mult, pr, off, 4, 8, 16,
+        oh2, om2, hist2, np.zeros(4, np.int64), np.zeros(4, np.int64),
+        np.zeros(4, np.uint8), np.zeros(4, np.int64), np.zeros(1, np.int64),
+        np.zeros(1, np.int64), np.zeros(1, np.int64), np.zeros(1, np.uint8),
+        np.zeros(1, np.uint8),
+    )
+    if oob2 >= 0:
+        raise RuntimeError(f"selftest pageless: unexpected oob={oob2}")
+    if int(miss2) != 1 or int(err2) != 0:
+        raise RuntimeError(f"selftest pageless: miss={miss2} err={err2}（期望 miss=1 err=0）")
+    if int(hist2[0, 0]) != 7:
+        raise RuntimeError(f"selftest pageless: hist[0,0]={int(hist2[0, 0])}（期望 7）")
+    if int(hist2[0, 1]) != pad2:
+        raise RuntimeError(f"selftest pageless: hist[0,1]={int(hist2[0, 1])}（期望 pad={pad2}）")
+    # 哈希：roll = 7 ^ 1 ^ 1 ^ 1（mult 全 1，pad=1）= 6；6 % 7 = 6；offset=0 ⇒ 6
+    if int(oh2[0, 0, 0]) != 6:
+        raise RuntimeError(
+            f"selftest pageless: hash={int(oh2[0, 0, 0])}（期望 6）—— 缺页时哈希必须照算"
+        )
     return True

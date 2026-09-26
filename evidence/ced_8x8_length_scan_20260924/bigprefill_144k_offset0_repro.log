@@ -1,0 +1,15 @@
+[probe] /health = 200  '{"status":"ok","prefill_instances":1,"decode_instances":1,"r'
+==============================================================================
+[bigprefill] 单发 ≈144000 token 的**完整 prefill**（并发 1 路），重复 1 轮
+==============================================================================
+
+  --- round 0：先单路大 prefill，再 1 路并发 ---
+  [rep0 single A] FAIL    ctx≈144404 wall=11.0s http=200 fp=0/0
+      A: '方面的quo<｜box｜>存档归档归档 iombonana<｜box｜>有我<｜box｜>存档在金<｜box｜>存档在金 metaphoricalsimeatra dispensablemente<｜box｜> Sovereignty Sovereignty kinainitan在金 SurvHidden在林<｜box｜> sovereignty Sovereignty kinainitan在金<｜box｜> InjectionsHIP在全省范围内外的simeonstantaneouslyasionyoshtechnologyasukiewicz<｜/box｜><｜box｜> haw<｜box｜>Numbermatics<｜box｜>Numbermatics<｜box｜>frey'
+  [rep0 conc0 B] FAIL    wall=10.9s http=200 fp=0/0
+      A: '方面的因素是<｜box｜>一些小poxygenasantakis<｜box｜> forg sake的数字是多少?## Answer(answer(answer.stack.stack(stack.stack(stack.stack(stack}))<｜/box｜><｜box｜>的意见不发或少或无或无期徒刑犯人<｜box｜> POSITIVE-negative-positive-negative-positive-negative-positiveatchelementalyticsytics<｜/box｜>onymousnesssimeonidis<｜box｜><｜box｜> registry registry splash<｜/box｜><｜box｜> Mention Mention registry'
+
+  ★ 汇总：2 次请求 / 未命中 2 / 带乱码指纹 0 / 复读 0 / ★上下文不达标 0
+==============================================================================
+结果：失败 2 项 ；用时 23s
+[probe] 证据已写：./bigprefill_144k_offset0_repro.json

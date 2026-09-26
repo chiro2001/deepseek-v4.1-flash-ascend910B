@@ -1,0 +1,333 @@
+{
+  "mode": "graph D, CED P/D, 22-token prompt; only D graph setting differs from eager token baseline",
+  "eager_reference": {
+    "max1_request_sha256": "bd6276adca2e71471858eb7402972561c1d543f39db67f76c3a706a38e6e2ff5",
+    "max1_content": "Z",
+    "max1_tokens": [
+      {
+        "token": "Z",
+        "logprob": -1.1920928244535389e-07
+      }
+    ],
+    "max2_request_sha256": "403e6cb2b9f26f1cd6adc8fc7ac21af1bd265769fa42fab2f6f2ccfce021378a",
+    "max2_content": "ZQ",
+    "max2_tokens": [
+      {
+        "token": "Z",
+        "logprob": -1.1920928244535389e-07
+      },
+      {
+        "token": "Q",
+        "logprob": 0.0
+      }
+    ]
+  },
+  "graph_results": [
+    {
+      "max_tokens": 1,
+      "expected_prefix": "Z",
+      "request_file": "max1_logprobs_request.json",
+      "request_sha256": "bd6276adca2e71471858eb7402972561c1d543f39db67f76c3a706a38e6e2ff5",
+      "response_file": "max1_response.json",
+      "response_sha256": "0e2ce9d593980de5ac5bb7dae491e99a6ad5b60ff3e045745c75b85ac747e2e6",
+      "api_id": "chatcmpl-29848fe7-dad8-452c-b392-3e3d1b7867a9",
+      "content": "正确答案",
+      "finish_reason": "length",
+      "usage": {
+        "prompt_tokens": 22,
+        "total_tokens": 23,
+        "completion_tokens": 1,
+        "prompt_tokens_details": {
+          "cached_tokens": 0
+        }
+      },
+      "wall_s": 4.891405,
+      "u_fffd": 0,
+      "logprobs": [
+        {
+          "token": "正确答案",
+          "logprob": -2.1355385780334473,
+          "bytes": [
+            230,
+            173,
+            163,
+            231,
+            161,
+            174,
+            231,
+            173,
+            148,
+            230,
+            161,
+            136
+          ],
+          "top_logprobs": [
+            {
+              "token": "正确答案",
+              "logprob": -2.1355385780334473,
+              "bytes": [
+                230,
+                173,
+                163,
+                231,
+                161,
+                174,
+                231,
+                173,
+                148,
+                230,
+                161,
+                136
+              ]
+            },
+            {
+              "token": " aten",
+              "logprob": -2.3230385780334473,
+              "bytes": [
+                32,
+                97,
+                116,
+                101,
+                110
+              ]
+            },
+            {
+              "token": " crest",
+              "logprob": -2.6355385780334473,
+              "bytes": [
+                32,
+                99,
+                114,
+                101,
+                115,
+                116
+              ]
+            },
+            {
+              "token": "铃",
+              "logprob": -2.8855385780334473,
+              "bytes": [
+                233,
+                147,
+                131
+              ]
+            },
+            {
+              "token": "您好",
+              "logprob": -3.7605385780334473,
+              "bytes": [
+                230,
+                130,
+                168,
+                229,
+                165,
+                189
+              ]
+            }
+          ]
+        }
+      ],
+      "replay": "positions=0..20; chunk=21"
+    },
+    {
+      "max_tokens": 2,
+      "expected_prefix": "ZQ",
+      "request_file": "max2_logprobs_request.json",
+      "request_sha256": "403e6cb2b9f26f1cd6adc8fc7ac21af1bd265769fa42fab2f6f2ccfce021378a",
+      "response_file": "max2_response.json",
+      "response_sha256": "3fa175d51c45791e6dc812c964b728f1e23badad098992bf74c3c9a18674df3c",
+      "api_id": "chatcmpl-1d57fb7e-5fae-4ff6-af13-16f8eb09a577",
+      "content": "正确答案只有一个",
+      "finish_reason": "length",
+      "usage": {
+        "prompt_tokens": 22,
+        "total_tokens": 24,
+        "completion_tokens": 2,
+        "prompt_tokens_details": {
+          "cached_tokens": 0
+        }
+      },
+      "wall_s": 0.365961,
+      "u_fffd": 0,
+      "logprobs": [
+        {
+          "token": "正确答案",
+          "logprob": -1.9200279712677002,
+          "bytes": [
+            230,
+            173,
+            163,
+            231,
+            161,
+            174,
+            231,
+            173,
+            148,
+            230,
+            161,
+            136
+          ],
+          "top_logprobs": [
+            {
+              "token": "正确答案",
+              "logprob": -1.9200279712677002,
+              "bytes": [
+                230,
+                173,
+                163,
+                231,
+                161,
+                174,
+                231,
+                173,
+                148,
+                230,
+                161,
+                136
+              ]
+            },
+            {
+              "token": " aten",
+              "logprob": -2.1700279712677,
+              "bytes": [
+                32,
+                97,
+                116,
+                101,
+                110
+              ]
+            },
+            {
+              "token": "铃",
+              "logprob": -2.6700279712677,
+              "bytes": [
+                233,
+                147,
+                131
+              ]
+            },
+            {
+              "token": " crest",
+              "logprob": -3.0450279712677,
+              "bytes": [
+                32,
+                99,
+                114,
+                101,
+                115,
+                116
+              ]
+            },
+            {
+              "token": "您好",
+              "logprob": -3.8575279712677,
+              "bytes": [
+                230,
+                130,
+                168,
+                229,
+                165,
+                189
+              ]
+            }
+          ]
+        },
+        {
+          "token": "只有一个",
+          "logprob": -0.5143976211547852,
+          "bytes": [
+            229,
+            143,
+            170,
+            230,
+            156,
+            137,
+            228,
+            184,
+            128,
+            228,
+            184,
+            170
+          ],
+          "top_logprobs": [
+            {
+              "token": "只有一个",
+              "logprob": -0.5143976211547852,
+              "bytes": [
+                229,
+                143,
+                170,
+                230,
+                156,
+                137,
+                228,
+                184,
+                128,
+                228,
+                184,
+                170
+              ]
+            },
+            {
+              "token": "应当是",
+              "logprob": -2.514397621154785,
+              "bytes": [
+                229,
+                186,
+                148,
+                229,
+                189,
+                147,
+                230,
+                152,
+                175
+              ]
+            },
+            {
+              "token": "是什么呢",
+              "logprob": -3.264397621154785,
+              "bytes": [
+                230,
+                152,
+                175,
+                228,
+                187,
+                128,
+                228,
+                185,
+                136,
+                229,
+                145,
+                162
+              ]
+            },
+            {
+              "token": "应为",
+              "logprob": -4.451897621154785,
+              "bytes": [
+                229,
+                186,
+                148,
+                228,
+                184,
+                186
+              ]
+            },
+            {
+              "token": " Hook",
+              "logprob": -4.889397621154785,
+              "bytes": [
+                32,
+                72,
+                111,
+                111,
+                107
+              ]
+            }
+          ]
+        }
+      ],
+      "replay": "positions=0..20; chunk=21"
+    }
+  ]
+}

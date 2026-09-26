@@ -1,0 +1,34 @@
+Actual runtime source fingerprint captured from running A3-21 P container dsv41-ced-ab-p-graph-20260924-070428 before restarting D into the graph-minimal arm.
+Image ref: quay.nju.edu.cn/ascend/vllm-ascend:deepseek-v4.1-flash-a3
+Image ID: sha256:1f2c08195c5b119aa9a107861fa2efa5d2b93b161f1ae91cb5358923a78cbcef
+
+Container file SHA256:
+722683b44b4461ffd9a6498741da18945cbaac231c3bb01f0b0443dafe9e053e  /vllm-workspace/vllm/vllm/compilation/breakable_cudagraph.py
+71c3fdc997abff4eba9df8084d76744ddd14d112d669cc1076bfbc8e39040bb8  /vllm-workspace/vllm-ascend/vllm_ascend/worker/device_metadata.py
+c8ab2fe6aaae034b03e9e34b9c07fd445046564acd5d45e2c24b5ea5232c5a74  /vllm-workspace/vllm-ascend/vllm_ascend/compilation/acl_graph.py
+67035d97f1cea4ae2df31adcc33f1de952f4cab6d8421e76df512296e0e3185e  /vllm-workspace/vllm-ascend/vllm_ascend/worker/model_runner_v1.py
+993f2c926012241bcb8cc7f568c8e82968e4d81ca125641c831ecf501aac02ac  /vllm-workspace/vllm/vllm/v1/worker/gpu_model_runner.py
+
+Matching local source files:
+722683b44b4461ffd9a6498741da18945cbaac231c3bb01f0b0443dafe9e053e  /home/chiro/projects/dsv41/graph_prep/ref/vllm/compilation/breakable_cudagraph.py
+71c3fdc997abff4eba9df8084d76744ddd14d112d669cc1076bfbc8e39040bb8  /home/chiro/projects/dsv41/graph_prep/src/vllm_ascend/worker/device_metadata.py
+c8ab2fe6aaae034b03e9e34b9c07fd445046564acd5d45e2c24b5ea5232c5a74  /home/chiro/projects/dsv41/graph_prep/src/vllm_ascend/compilation/acl_graph.py
+67035d97f1cea4ae2df31adcc33f1de952f4cab6d8421e76df512296e0e3185e  /home/chiro/projects/dsv41/lite-port/official/asc/worker/model_runner_v1.py
+993f2c926012241bcb8cc7f568c8e82968e4d81ca125641c831ecf501aac02ac  /home/chiro/projects/dsv41/lite-port/official/v1/worker/gpu_model_runner.py
+
+Actual model runner dispatch excerpt (container file vllm_ascend/worker/model_runner_v1.py):
+2240-2248: _determine_batch_execution_and_padding receives num_tokens, num_reqs, num_scheduled_tokens_np, max_num_scheduled_tokens, use_cascade_attn, force_eager=self.model_config.enforce_eager, and num_encoder_reqs.
+3065-3118: dispatcher computes uniform_decode from has_initial_state and scheduled-token shape; if force_eager, selects NONE; otherwise calls cudagraph_dispatcher.dispatch with num_tokens, has_lora, uniform_decode, valid_modes, and active-LoRA count. It has no is_prefilling input.
+3166-3285: _build_attention_metadata runs after dispatch; is_prefilling is assigned at lines 3284-3285 from num_computed_tokens_cpu < num_prompt_tokens_cpu.
+2965-3000: _model_forward executes the model from the selected forward context; it does not reclassify the dispatch based on is_prefilling.
+
+Actual breakable_cudagraph.py excerpt:
+59-103: eager_break_during_capture returns the wrapped function directly when forward_context.cudagraph_runtime_mode is FULL; the eager split is only created for other eligible breakable capture modes.
+310-333: BreakableCUDAGraphWrapper bypasses only runtime mode NONE, otherwise captures/replays by batch descriptor.
+This is the source basis for the one-token prompt investigation; runtime logs remain the authority for the exact graph mode selected by the 1-token request.
+
+Actual device_metadata.py excerpt:
+46-52: DeviceMetadataExecutor owns a torch.npu.Stream and external-stage events.
+86-110: submission records input-ready event, waits on it in the worker stream, and records stage events, using ExternalEvent for external frontiers.
+113-124: consumer stream waits on and resets the matching stage event.
+These event paths are fingerprinted above; the D graph container SHA will be recaptured after it starts.

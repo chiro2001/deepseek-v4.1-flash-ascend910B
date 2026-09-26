@@ -6,6 +6,13 @@
 #
 # 流程（全自动，失败即停并打印原因）：
 #   [0] 预检     docker / 镜像 / 模型目录完整性 / 芯片占用
+#   ★★ 本脚本的 7 项里**没有"DRAM 卸载是否生效"的检查**（它测的是起服/性能/视觉/精度）。
+#      要证明卸载真的在存取，**在服务已经跑着的时候**另跑一条：
+#          bash a2/scripts/verify_dram_offload.sh                 # 默认 32K 前缀
+#          PROMPT_TOKENS=131072 bash a2/scripts/verify_dram_offload.sh
+#      它只发 HTTP 请求（fill → POST /reset_prefix_cache → replay），
+#      硬判据 = `GPU_to_CPU` 增量>0（存进 DRAM）且 ★ `CPU_to_GPU` 增量>0（**从 DRAM 取回**）。
+#      产物 JSON 与 A3 客户端同形 ⇒ 可直接喂 `a2/scripts/check_4axis_acceptance.py --client`。
 #   [1] 起服     serve_a2.sh（TP8 + 图模式主干 + Engram int8 host + DSpark S=5 + Vision）
 #   [2] 等就绪   每 15 s 报进度，35 min 超时
 #   [3] 必查     ✓ static_kernel 未被静默降级（static_kernel.py:650 == 0）
@@ -18,7 +25,7 @@
 #   [7] 报告     results/<run_id>/REPORT.md + 全部原始 jsonl
 #
 # 常用变量：
-#   MODEL       必填；IMAGE 默认 dsv41-a2:v8；PORT 默认 8100
+#   MODEL       必填；IMAGE 默认 dsv41-a2:v9（★ 带 ENGRAM×卸载 的 P0 修复）；PORT 默认 8100
 #   MODE        quick(默认)=8K+32K+vision | full=+128K+GSM8K | prod=生产口径 + 多 batch 三块
 #               prod = MAX_SEQS=32 + PREFIX=1（A2 真机口径）：只跑 必查三项 + [A]多轮/[B]并发/[C]长短交错，
 #               **不跑 quote 性能**（生产口径的 ms/A 与单流口径不可比）。两臂对照见
@@ -40,7 +47,10 @@ PKG="$(cd "$HERE/.." && pwd)"
 cd "$PKG"
 
 MODEL=${MODEL:-}
-IMAGE=${IMAGE:-dsv41-a2:v8}
+# ★★★ 2026-09-22 21:4x：与 `scripts/serve_a2.sh` / `scripts/build_image.sh` 一起升到 **v9**
+#   （v9 起烘焙了 ENGRAM×卸载 的 P0 修复，见 a2/logs/075/077）。
+#   ★ 三处必须一致 —— `tools/selfcheck_pkg.sh` 会检查，不一致直接拒发（本日实测抓到过）。
+IMAGE=${IMAGE:-dsv41-a2:v9}
 PORT=${PORT:-8100}
 # [SERVED_NAME] API 请求 body 里的 `"model"` 字段。必须与起服时的
 # `--served-model-name` 一致（`serve_a2.sh` 里同名 env，默认 deepseek-v41）。

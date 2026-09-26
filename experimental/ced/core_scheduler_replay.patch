@@ -1,0 +1,101 @@
+--- a/vllm/v1/core/sched/scheduler.py
++++ b/vllm/v1/core/sched/scheduler.py
+@@ -651,6 +651,9 @@
+                 + request.num_output_placeholders
+                 - request.num_computed_tokens
+             )
++            ced_replay_end = getattr(request, "ced_replay_end", 0)
++            if ced_replay_end and request.num_computed_tokens < ced_replay_end:
++                num_new_tokens = min(num_new_tokens, ced_replay_end - request.num_computed_tokens)
+             if 0 < self.scheduler_config.long_prefill_token_threshold < num_new_tokens:
+                 num_new_tokens = self.scheduler_config.long_prefill_token_threshold
+             num_new_tokens = min(num_new_tokens, token_budget)
+@@ -1026,6 +1029,9 @@
+                     # `request.num_prompt_tokens` to consider the resumed
+                     # requests, which have output tokens.
+                     num_new_tokens = request.num_tokens - num_computed_tokens
++                    ced_replay_end = getattr(request, "ced_replay_end", 0)
++                    if ced_replay_end and num_computed_tokens < ced_replay_end:
++                        num_new_tokens = min(num_new_tokens, ced_replay_end - num_computed_tokens)
+ 
+                     # Pad new decode requests to uniform spec decoding size to
+                     # preserve full cudagraph for this step.
+@@ -2949,9 +2955,46 @@
+             # This will cache the blocks iff caching is enabled.
+             self.kv_cache_manager.cache_blocks(request, request.num_computed_tokens)
+ 
+-            # on a full prompt hit, we need to re-compute the last token
+-            # in order to be able to sample the next token
+-            if request.num_computed_tokens == request.num_tokens:
++            ced_params = request.kv_transfer_params or {}
++            ced_replay = int(ced_params.get("ced_replay_tokens") or 0)
++            if ced_replay:
++                if os.environ.get("V41_CED_ROLE") != "decode":
++                    raise RuntimeError("CED replay metadata requires a dedicated decode role")
++                replay_end = int(ced_params.get("ced_prefix_tokens") or 0)
++                prompt_len = request.num_prompt_tokens
++                if prompt_len == 1:
++                    if replay_end != prompt_len or request.num_computed_tokens != prompt_len:
++                        raise RuntimeError(
++                            "CED single-token prefix boundary mismatch: "
++                            f"prompt={prompt_len} loaded={request.num_computed_tokens} "
++                            f"declared={replay_end}"
++                        )
++                    # Recompute the only prompt token so layer 20 writes its
++                    # normal global source and the sampler receives fresh logits.
++                    request.ced_replay_end = prompt_len
++                    request.ced_replay_start = 0
++                    request.num_computed_tokens = 0
++                    logger.info(
++                        "[CED-D] single-token prompt: recompute position 0 for logits"
++                    )
++                else:
++                    if replay_end != prompt_len - 1 or request.num_computed_tokens != replay_end:
++                        raise RuntimeError(
++                            "CED replay prefix boundary mismatch: "
++                            f"prompt={prompt_len} loaded={request.num_computed_tokens} "
++                            f"declared={replay_end}"
++                        )
++                    request.ced_replay_end = replay_end
++                    request.ced_replay_start = max(0, replay_end - ced_replay)
++                    request.num_computed_tokens = request.ced_replay_start
++                    logger.info(
++                        "[CED-D] replay request=%s positions=%d..%d before uncached last token",
++                        request.request_id,
++                        request.ced_replay_start,
++                        replay_end - 1,
++                    )
++            # On a full prompt hit, re-compute the last token for logits.
++            elif request.num_computed_tokens == request.num_tokens:
+                 request.num_computed_tokens = request.num_tokens - 1
+ 
+         self.finished_recving_kv_req_ids.remove(request.request_id)
+@@ -3013,6 +3056,28 @@
+             req = self.requests[req_id]
+             if req.status == RequestStatus.WAITING_FOR_REMOTE_KVS:
+                 self.finished_recving_kv_req_ids.add(req_id)
++            elif RequestStatus.is_finished(req.status):
++                self._free_blocks(self.requests[req_id])
++            elif os.environ.get("V41_CED_ROLE") == "decode" and os.environ.get(
++                "V41_CED_KVRECV_NOOP", "1"
++            ) == "1":
++                # [CED-KVRECV-NOOP] 2026-09-26. When D's local prefix cache covers
++                # the whole prompt, num_external_tokens == 0, so the scheduler
++                # never parks the request in WAITING_FOR_REMOTE_KVS -- yet the
++                # connector still registers one receive so that P's send gets an
++                # ack (_transfer_kv_cache_all_groups early-returns when
++                # num_local_blocks == 0 and only sends the done signal). The
++                # worker then reports finished_recving while the request is
++                # already RUNNING, and stock's
++                # `assert RequestStatus.is_finished(req.status)` kills the engine
++                # (observed: 1M cache hit, scheduler.py:3060).
++                # Nothing was pulled and nothing must be freed, so ignore it.
++                logger.info(
++                    "[CED-KVRECV] no-op recv for running req %s (status=%s): "
++                    "D local full hit, nothing to pull or free",
++                    req_id,
++                    req.status,
++                )
+             else:
+                 assert RequestStatus.is_finished(req.status)
+                 self._free_blocks(self.requests[req_id])

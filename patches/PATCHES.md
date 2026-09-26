@@ -26,18 +26,18 @@
 | # | 目标文件（容器内，`$A=/vllm-workspace/vllm-ascend/vllm_ascend`） | 包内文件 | md5 | 门控 env（默认值） | 作用 / 实测收益 |
 |---|---|---|---|---|---|
 | 1 | `$A/models/deepseek_v41/engram_hbm.py` | `files/engram_hbm.py` | `02ba2b7c258ff16663cd316b69c44fb8` | （总是开）`V41_ENGRAM_HOST_RESIDENT=1` `V41_ENGRAM_LOCAL_OWNER_FILE=/tmp/v41_engram_localowner` | Engram host 常驻 + `LOCAL_OWNER=fast`（走 numpy/numba plan 分支）。route 少一次 metadata all_gather 与 ids all_to_all |
-| 2 | `$A/models/deepseek_v41/engram_hash.py` | `files/engram_hash.py` | `3a842bbb6d0dd783c65087ccef347370` | `V41_ENGRAM_JIT=1` | hash 0.427 → **0.076 ms/step**（numba JIT） |
-| 3 | `$A/models/deepseek_v41/engram_jit_kernel.py` | `files/engram_jit_kernel.py` | `1add256a203d7f6dfd98874c575ce24a` | `V41_ENGRAM_JIT=1` | 上一行的 sidecar（新文件，**目标目录必须同放**） |
+| 2 | `$A/models/deepseek_v41/engram_hash.py` | `files/engram_hash.py` | `56dea733d9df82cd773d98b4ba1a7e10` | `V41_ENGRAM_JIT=1` | hash 0.427 → **0.076 ms/step**（numba JIT） |
+| 3 | `$A/models/deepseek_v41/engram_jit_kernel.py` | `files/engram_jit_kernel.py` | `6668d3fe3c6333b47e9dde3df7cfe03a` | `V41_ENGRAM_JIT=1` | 上一行的 sidecar（新文件，**目标目录必须同放**） |
 | 4 | `$A/models/deepseek_v41/engram_plan_kernel.py` | `files/engram_plan_kernel.py` | `0be62d7775374b0167a54f5b393a65ac` | `V41_ENGRAM_JIT=1` | plan 0.261 → **0.068 ms/step**（sidecar） |
 | 5 | `$A/models/deepseek_v41/engram_gate.py` | `files/engram_gate.py` | `146010cac42261e9dc4380699e156252` | `V41_ENGRAM_GATE_CHUNK=0` `V41_ENGRAM_GATE_MAX_TOKENS=2048` | 分块 gate，去掉 2048 行 padding：**−1.56 ms**（8K），KV 反而更省 |
-| 6 | `$A/models/deepseek_v41/model.py` | `files/model.py` | `d22eec4c7401a2f6a37f99c4898b964d` | （与 #1 配对） | Engram host-resident + **device-index 入图**的模型侧改动（probe 版整文件） |
+| 6 | `$A/models/deepseek_v41/model.py` | `files/model.py` | `6bd61e15afe383251852b8a0939474e7` | （与 #1 配对） | Engram host-resident + device-index 入图及 CED P/D 实验 |
 | 7 | `$A/ascend_forward_context.py` | `files/ascend_forward_context.py` | `6cccd4259bd65c907ef9d9dd42a83dca` | `V41_MOE_COMM_ALLGATHER=1` | **MoE 走 AllGather**：128K **−4.25 ms**、32K −1.35、8K −1.23；KV 3.39M→4.16M；输出逐字节一致 |
 | 8 | `$A/attention/dsa_v1.py` | `files/dsa_v1.py` | `9a36e709b0937589eab05c5316a62591` | `V41_O_PROJ_2D=1` | **F3**：`wo_a` 退化 batch matmul → 2D matmul，**−0.31~0.76 ms/step** |
-| 9 | `$A/ops/fused_moe/token_dispatcher.py` | `files/token_dispatcher_moemask.py` | `a695735ae3e03096a432468eb9ad6b83` | `V41_MOE_MASK_RANGE=1` | **moe-mask-range**：范围比较替代 Index+IndexCheck 掩码链，**−0.51 ms**；精度已过（GSM8K 100/100、Vision 23/23） |
+| 9 | `$A/ops/fused_moe/token_dispatcher.py` | `files/token_dispatcher_moemask.py` | **`a91fbc48350530d987ef3bb1ff15f1cb`** | `V41_MOE_MASK_RANGE=1` | **moe-mask-range**：范围比较替代 Index+IndexCheck 掩码链，**−0.51 ms**；精度已过（GSM8K 100/100、Vision 23/23）。★ 本版加 **[SAFE-L1]**：比较改在 **int32 域**（`_i32_scalar`），去掉每层 2 次 `Cast INT32→INT64`（A3 实测 **80 次/步 → 0**，≈0.096 ms/step）；逐位等价。旧 md5 = `a695735a…` |
 | 10 | `$A/ops/rope_dsv4.py` | `files/rope_dsv4.py` | `6a19890850ac7cb41c535b070c2dfbf6` | `V41_ROPE_IDXSEL=1` | **rope-idxsel**：cos/sin 取表链 6 kernel → 2，**−0.45~0.62 ms/pass** |
 | 11 | `$A/models/deepseek_v41/indexer.py` | `files/indexer.py` | `f61f242df4f060106ce1bf4500ff5844` | `V41_QLI_NO_CANDIDATE=1` | **QLI no-candidate**：QLI per-op 99.3 → 50.3 µs，**−0.49 ms** |
-| 12 | `$A/models/deepseek_v41/engram_device_index.py` | `files/engram_device_index.py` | `9076716bafd14d8210e674e3489be1ee` | `V41_ENGRAM_DEVICE_INDEX=auto` | **v8 新增**：host-mapped 表（设备直读 host DRAM）+ 设备侧向量化哈希 + 能力探测（只做 `host_register`） |
-| 13 | `$A/models/deepseek_v41/engram_graph.py` | `files/engram_graph.py` | `adc0bd8683cded42ea4e45cb9a67e654` | `V41_ENGRAM_DEVICE_INDEX=auto` | **v8 新增**：每个 batch shape 一张 ACLGraph（零拷贝 + 指针校验），把整条设备路径入图 |
+| 12 | `$A/models/deepseek_v41/engram_device_index.py` | `files/engram_device_index.py` | `41e7f012c596cc7539162e5f7ed8475d` | `V41_ENGRAM_DEVICE_INDEX=auto` | **v8 新增**：host-mapped 表（设备直读 host DRAM）+ 设备侧向量化哈希 + 能力探测（只做 `host_register`） |
+| 13 | `$A/models/deepseek_v41/engram_graph.py` | `files/engram_graph.py` | `bee1bdb20491ce0dfb2df1c3be1bf1f4` | `V41_ENGRAM_DEVICE_INDEX=auto` | **v8 新增**：每个 batch shape 一张 ACLGraph（零拷贝 + 指针校验），把整条设备路径入图 |
 | 14 | `patches/admission_gate.patch`（git apply 到 `$VLLM_ROOT=/vllm-workspace/vllm`） | `admission_gate.patch` | `8243dff6c9dc3d87805f1dfd7820c23f` | `VLLM_ADMISSION_GATE=1` | 预填充隔离，prefill 不饿死 decode |
 
 > 注：#3/#4/#12/#13 是**新增文件**（不是覆盖），构建脚本会直接 COPY；其余是覆盖 + `.a2orig` 备份。

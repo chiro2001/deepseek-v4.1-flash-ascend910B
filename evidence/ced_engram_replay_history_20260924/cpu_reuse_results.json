@@ -1,0 +1,6037 @@
+{
+  "scope": "CPU simulation of page mirror semantics; not an A3 allocator trace or model-output test",
+  "token_representation": "prompt() emits synthetic compressed token IDs; production maps raw IDs through token_map and maps image tokens to -1",
+  "source_case": {
+    "evidence": "evidence/ced_p_mask_34fdf08/ced_p_mask_144k.json",
+    "prompt_tokens": 143963,
+    "p_prefix_tokens": 143962,
+    "replay_tokens": 128,
+    "replay_positions_inclusive": [
+      143834,
+      143961
+    ],
+    "replay_start_offset_in_block": 90
+  },
+  "geometry": {
+    "prompt_len": 143963,
+    "prefix_end_exclusive": 143962,
+    "replay_range": [
+      143834,
+      143962
+    ],
+    "block_size": 128,
+    "lookback": 4,
+    "replay_start_mod_block": 90,
+    "prestart_tokens_needed": 3
+  },
+  "modeled_code_facts": [
+    "page mirror keyed by physical page ID, not request ID or allocation generation",
+    "current scheduled tokens are written before lookback hashes are computed",
+    "a page is initialized to -1 only on first page-ID sighting; reused pages are not cleared",
+    "missing host mirror rows become -1 barriers; present old values are consumed as tokens"
+  ],
+  "hash_scope": "toy 1-layer/1-head hash (not the model's production prime/multiplier tables); an index change means a different Engram lookup row in this simulation",
+  "arms": [
+    "missing_page_barrier: allocate an empty host mirror row before replay writes; earlier offsets stay -1 barriers",
+    "stale_foreign_owner: reuse one physical page ID containing a different prompt's pre-replay values",
+    "canonical_prompt_seed: read positions before replay_start from the full prompt token source; replay positions still use the page mirror",
+    "stale_same_prompt_owner: same-prompt reuse control; retained values happen to match this prompt"
+  ],
+  "scenarios": [
+    {
+      "scenario": "same_prompt_repeated_4_times_same_physical_page",
+      "arms": [
+        {
+          "arm": "missing_page_barrier",
+          "page_state": "fresh mirror row for each request",
+          "canonical_prestart_seed_enabled": false,
+          "requests": [
+            {
+              "request_index": 1,
+              "prompt_seed": 17,
+              "replay_physical_page": 8823,
+              "replay_start_mod_block": 90,
+              "rows": [
+                {
+                  "position": 143834,
+                  "expected_history": [
+                    591,
+                    554,
+                    517,
+                    480
+                  ],
+                  "mirror_history": [
+                    591,
+                    0,
+                    0,
+                    0
+                  ],
+                  "history_sources": [
+                    "replay_write",
+                    "barrier_slot",
+                    "pad_after_barrier",
+                    "pad_after_barrier"
+                  ],
+                  "canonical_prompt_seed_history": [
+                    591,
+                    554,
+                    517,
+                    480
+                  ],
+                  "canonical_prompt_seed_sources": [
+                    "replay_write",
+                    "canonical_prompt_control",
+                    "canonical_prompt_control",
+                    "canonical_prompt_control"
+                  ],
+                  "expected_hash_ids": [
+                    4,
+                    126,
+                    246
+                  ],
+                  "mirror_hash_ids": [
+                    56,
+                    123,
+                    265
+                  ],
+                  "hash_matches_expected": false,
+                  "lookup_ids_change_vs_canonical": true,
+                  "canonical_prompt_seed_hash_ids": [
+                    4,
+                    126,
+                    246
+                  ],
+                  "canonical_prompt_seed_hash_matches": true
+                },
+                {
+                  "position": 143835,
+                  "expected_history": [
+                    628,
+                    591,
+                    554,
+                    517
+                  ],
+                  "mirror_history": [
+                    628,
+                    591,
+                    0,
+                    0
+                  ],
+                  "history_sources": [
+                    "replay_write",
+                    "replay_write",
+                    "barrier_slot",
+                    "pad_after_barrier"
+                  ],
+                  "canonical_prompt_seed_history": [
+                    628,
+                    591,
+                    554,
+                    517
+                  ],
+                  "canonical_prompt_seed_sources": [
+                    "replay_write",
+                    "replay_write",
+                    "canonical_prompt_control",
+                    "canonical_prompt_control"
+                  ],
+                  "expected_hash_ids": [
+                    55,
+                    183,
+                    214
+                  ],
+                  "mirror_hash_ids": [
+                    55,
+                    195,
+                    281
+                  ],
+                  "hash_matches_expected": false,
+                  "lookup_ids_change_vs_canonical": true,
+                  "canonical_prompt_seed_hash_ids": [
+                    55,
+                    183,
+                    214
+                  ],
+                  "canonical_prompt_seed_hash_matches": true
+                },
+                {
+                  "position": 143836,
+                  "expected_history": [
+                    678,
+                    628,
+                    591,
+                    554
+                  ],
+                  "mirror_history": [
+                    678,
+                    628,
+                    591,
+                    0
+                  ],
+                  "history_sources": [
+                    "replay_write",
+                    "replay_write",
+                    "replay_write",
+                    "barrier_slot"
+                  ],
+                  "canonical_prompt_seed_history": [
+                    678,
+                    628,
+                    591,
+                    554
+                  ],
+                  "canonical_prompt_seed_sources": [
+                    "replay_write",
+                    "replay_write",
+                    "replay_write",
+                    "canonical_prompt_control"
+                  ],
+                  "expected_hash_ids": [
+                    69,
+                    168,
+                    254
+                  ],
+                  "mirror_hash_ids": [
+                    69,
+                    168,
+                    213
+                  ],
+                  "hash_matches_expected": false,
+                  "lookup_ids_change_vs_canonical": true,
+                  "canonical_prompt_seed_hash_ids": [
+                    69,
+                    168,
+                    254
+                  ],
+                  "canonical_prompt_seed_hash_matches": true
+                },
+                {
+                  "position": 143837,
+                  "expected_history": [
+                    715,
+                    678,
+                    628,
+                    591
+                  ],
+                  "mirror_history": [
+                    715,
+                    678,
+                    628,
+                    591
+                  ],
+                  "history_sources": [
+                    "replay_write",
+                    "replay_write",
+                    "replay_write",
+                    "replay_write"
+                  ],
+                  "canonical_prompt_seed_history": [
+                    715,
+                    678,
+                    628,
+                    591
+                  ],
+                  "canonical_prompt_seed_sources": [
+                    "replay_write",
+                    "replay_write",
+                    "replay_write",
+                    "replay_write"
+                  ],
+                  "expected_hash_ids": [
+                    62,
+                    186,
+                    237
+                  ],
+                  "mirror_hash_ids": [
+                    62,
+                    186,
+                    237
+                  ],
+                  "hash_matches_expected": true,
+                  "lookup_ids_change_vs_canonical": false,
+                  "canonical_prompt_seed_hash_ids": [
+                    62,
+                    186,
+                    237
+                  ],
+                  "canonical_prompt_seed_hash_matches": true
+                }
+              ]
+            },
+            {
+              "request_index": 2,
+              "prompt_seed": 17,
+              "replay_physical_page": 8823,
+              "replay_start_mod_block": 90,
+              "rows": [
+                {
+                  "position": 143834,
+                  "expected_history": [
+                    591,
+                    554,
+                    517,
+                    480
+                  ],
+                  "mirror_history": [
+                    591,
+                    0,
+                    0,
+                    0
+                  ],
+                  "history_sources": [
+                    "replay_write",
+                    "barrier_slot",
+                    "pad_after_barrier",
+                    "pad_after_barrier"
+                  ],
+                  "canonical_prompt_seed_history": [
+                    591,
+                    554,
+                    517,
+                    480
+                  ],
+                  "canonical_prompt_seed_sources": [
+                    "replay_write",
+                    "canonical_prompt_control",
+                    "canonical_prompt_control",
+                    "canonical_prompt_control"
+                  ],
+                  "expected_hash_ids": [
+                    4,
+                    126,
+                    246
+                  ],
+                  "mirror_hash_ids": [
+                    56,
+                    123,
+                    265
+                  ],
+                  "hash_matches_expected": false,
+                  "lookup_ids_change_vs_canonical": true,
+                  "canonical_prompt_seed_hash_ids": [
+                    4,
+                    126,
+                    246
+                  ],
+                  "canonical_prompt_seed_hash_matches": true
+                },
+                {
+                  "position": 143835,
+                  "expected_history": [
+                    628,
+                    591,
+                    554,
+                    517
+                  ],
+                  "mirror_history": [
+                    628,
+                    591,
+                    0,
+                    0
+                  ],
+                  "history_sources": [
+                    "replay_write",
+                    "replay_write",
+                    "barrier_slot",
+                    "pad_after_barrier"
+                  ],
+                  "canonical_prompt_seed_history": [
+                    628,
+                    591,
+                    554,
+                    517
+                  ],
+                  "canonical_prompt_seed_sources": [
+                    "replay_write",
+                    "replay_write",
+                    "canonical_prompt_control",
+                    "canonical_prompt_control"
+                  ],
+                  "expected_hash_ids": [
+                    55,
+                    183,
+                    214
+                  ],
+                  "mirror_hash_ids": [
+                    55,
+                    195,
+                    281
+                  ],
+                  "hash_matches_expected": false,
+                  "lookup_ids_change_vs_canonical": true,
+                  "canonical_prompt_seed_hash_ids": [
+                    55,
+                    183,
+                    214
+                  ],
+                  "canonical_prompt_seed_hash_matches": true
+                },
+                {
+                  "position": 143836,
+                  "expected_history": [
+                    678,
+                    628,
+                    591,
+                    554
+                  ],
+                  "mirror_history": [
+                    678,
+                    628,
+                    591,
+                    0
+                  ],
+                  "history_sources": [
+                    "replay_write",
+                    "replay_write",
+                    "replay_write",
+                    "barrier_slot"
+                  ],
+                  "canonical_prompt_seed_history": [
+                    678,
+                    628,
+                    591,
+                    554
+                  ],
+                  "canonical_prompt_seed_sources": [
+                    "replay_write",
+                    "replay_write",
+                    "replay_write",
+                    "canonical_prompt_control"
+                  ],
+                  "expected_hash_ids": [
+                    69,
+                    168,
+                    254
+                  ],
+                  "mirror_hash_ids": [
+                    69,
+                    168,
+                    213
+                  ],
+                  "hash_matches_expected": false,
+                  "lookup_ids_change_vs_canonical": true,
+                  "canonical_prompt_seed_hash_ids": [
+                    69,
+                    168,
+                    254
+                  ],
+                  "canonical_prompt_seed_hash_matches": true
+                },
+                {
+                  "position": 143837,
+                  "expected_history": [
+                    715,
+                    678,
+                    628,
+                    591
+                  ],
+                  "mirror_history": [
+                    715,
+                    678,
+                    628,
+                    591
+                  ],
+                  "history_sources": [
+                    "replay_write",
+                    "replay_write",
+                    "replay_write",
+                    "replay_write"
+                  ],
+                  "canonical_prompt_seed_history": [
+                    715,
+                    678,
+                    628,
+                    591
+                  ],
+                  "canonical_prompt_seed_sources": [
+                    "replay_write",
+                    "replay_write",
+                    "replay_write",
+                    "replay_write"
+                  ],
+                  "expected_hash_ids": [
+                    62,
+                    186,
+                    237
+                  ],
+                  "mirror_hash_ids": [
+                    62,
+                    186,
+                    237
+                  ],
+                  "hash_matches_expected": true,
+                  "lookup_ids_change_vs_canonical": false,
+                  "canonical_prompt_seed_hash_ids": [
+                    62,
+                    186,
+                    237
+                  ],
+                  "canonical_prompt_seed_hash_matches": true
+                }
+              ]
+            },
+            {
+              "request_index": 3,
+              "prompt_seed": 17,
+              "replay_physical_page": 8823,
+              "replay_start_mod_block": 90,
+              "rows": [
+                {
+                  "position": 143834,
+                  "expected_history": [
+                    591,
+                    554,
+                    517,
+                    480
+                  ],
+                  "mirror_history": [
+                    591,
+                    0,
+                    0,
+                    0
+                  ],
+                  "history_sources": [
+                    "replay_write",
+                    "barrier_slot",
+                    "pad_after_barrier",
+                    "pad_after_barrier"
+                  ],
+                  "canonical_prompt_seed_history": [
+                    591,
+                    554,
+                    517,
+                    480
+                  ],
+                  "canonical_prompt_seed_sources": [
+                    "replay_write",
+                    "canonical_prompt_control",
+                    "canonical_prompt_control",
+                    "canonical_prompt_control"
+                  ],
+                  "expected_hash_ids": [
+                    4,
+                    126,
+                    246
+                  ],
+                  "mirror_hash_ids": [
+                    56,
+                    123,
+                    265
+                  ],
+                  "hash_matches_expected": false,
+                  "lookup_ids_change_vs_canonical": true,
+                  "canonical_prompt_seed_hash_ids": [
+                    4,
+                    126,
+                    246
+                  ],
+                  "canonical_prompt_seed_hash_matches": true
+                },
+                {
+                  "position": 143835,
+                  "expected_history": [
+                    628,
+                    591,
+                    554,
+                    517
+                  ],
+                  "mirror_history": [
+                    628,
+                    591,
+                    0,
+                    0
+                  ],
+                  "history_sources": [
+                    "replay_write",
+                    "replay_write",
+                    "barrier_slot",
+                    "pad_after_barrier"
+                  ],
+                  "canonical_prompt_seed_history": [
+                    628,
+                    591,
+                    554,
+                    517
+                  ],
+                  "canonical_prompt_seed_sources": [
+                    "replay_write",
+                    "replay_write",
+                    "canonical_prompt_control",
+                    "canonical_prompt_control"
+                  ],
+                  "expected_hash_ids": [
+                    55,
+                    183,
+                    214
+                  ],
+                  "mirror_hash_ids": [
+                    55,
+                    195,
+                    281
+                  ],
+                  "hash_matches_expected": false,
+                  "lookup_ids_change_vs_canonical": true,
+                  "canonical_prompt_seed_hash_ids": [
+                    55,
+                    183,
+                    214
+                  ],
+                  "canonical_prompt_seed_hash_matches": true
+                },
+                {
+                  "position": 143836,
+                  "expected_history": [
+                    678,
+                    628,
+                    591,
+                    554
+                  ],
+                  "mirror_history": [
+                    678,
+                    628,
+                    591,
+                    0
+                  ],
+                  "history_sources": [
+                    "replay_write",
+                    "replay_write",
+                    "replay_write",
+                    "barrier_slot"
+                  ],
+                  "canonical_prompt_seed_history": [
+                    678,
+                    628,
+                    591,
+                    554
+                  ],
+                  "canonical_prompt_seed_sources": [
+                    "replay_write",
+                    "replay_write",
+                    "replay_write",
+                    "canonical_prompt_control"
+                  ],
+                  "expected_hash_ids": [
+                    69,
+                    168,
+                    254
+                  ],
+                  "mirror_hash_ids": [
+                    69,
+                    168,
+                    213
+                  ],
+                  "hash_matches_expected": false,
+                  "lookup_ids_change_vs_canonical": true,
+                  "canonical_prompt_seed_hash_ids": [
+                    69,
+                    168,
+                    254
+                  ],
+                  "canonical_prompt_seed_hash_matches": true
+                },
+                {
+                  "position": 143837,
+                  "expected_history": [
+                    715,
+                    678,
+                    628,
+                    591
+                  ],
+                  "mirror_history": [
+                    715,
+                    678,
+                    628,
+                    591
+                  ],
+                  "history_sources": [
+                    "replay_write",
+                    "replay_write",
+                    "replay_write",
+                    "replay_write"
+                  ],
+                  "canonical_prompt_seed_history": [
+                    715,
+                    678,
+                    628,
+                    591
+                  ],
+                  "canonical_prompt_seed_sources": [
+                    "replay_write",
+                    "replay_write",
+                    "replay_write",
+                    "replay_write"
+                  ],
+                  "expected_hash_ids": [
+                    62,
+                    186,
+                    237
+                  ],
+                  "mirror_hash_ids": [
+                    62,
+                    186,
+                    237
+                  ],
+                  "hash_matches_expected": true,
+                  "lookup_ids_change_vs_canonical": false,
+                  "canonical_prompt_seed_hash_ids": [
+                    62,
+                    186,
+                    237
+                  ],
+                  "canonical_prompt_seed_hash_matches": true
+                }
+              ]
+            },
+            {
+              "request_index": 4,
+              "prompt_seed": 17,
+              "replay_physical_page": 8823,
+              "replay_start_mod_block": 90,
+              "rows": [
+                {
+                  "position": 143834,
+                  "expected_history": [
+                    591,
+                    554,
+                    517,
+                    480
+                  ],
+                  "mirror_history": [
+                    591,
+                    0,
+                    0,
+                    0
+                  ],
+                  "history_sources": [
+                    "replay_write",
+                    "barrier_slot",
+                    "pad_after_barrier",
+                    "pad_after_barrier"
+                  ],
+                  "canonical_prompt_seed_history": [
+                    591,
+                    554,
+                    517,
+                    480
+                  ],
+                  "canonical_prompt_seed_sources": [
+                    "replay_write",
+                    "canonical_prompt_control",
+                    "canonical_prompt_control",
+                    "canonical_prompt_control"
+                  ],
+                  "expected_hash_ids": [
+                    4,
+                    126,
+                    246
+                  ],
+                  "mirror_hash_ids": [
+                    56,
+                    123,
+                    265
+                  ],
+                  "hash_matches_expected": false,
+                  "lookup_ids_change_vs_canonical": true,
+                  "canonical_prompt_seed_hash_ids": [
+                    4,
+                    126,
+                    246
+                  ],
+                  "canonical_prompt_seed_hash_matches": true
+                },
+                {
+                  "position": 143835,
+                  "expected_history": [
+                    628,
+                    591,
+                    554,
+                    517
+                  ],
+                  "mirror_history": [
+                    628,
+                    591,
+                    0,
+                    0
+                  ],
+                  "history_sources": [
+                    "replay_write",
+                    "replay_write",
+                    "barrier_slot",
+                    "pad_after_barrier"
+                  ],
+                  "canonical_prompt_seed_history": [
+                    628,
+                    591,
+                    554,
+                    517
+                  ],
+                  "canonical_prompt_seed_sources": [
+                    "replay_write",
+                    "replay_write",
+                    "canonical_prompt_control",
+                    "canonical_prompt_control"
+                  ],
+                  "expected_hash_ids": [
+                    55,
+                    183,
+                    214
+                  ],
+                  "mirror_hash_ids": [
+                    55,
+                    195,
+                    281
+                  ],
+                  "hash_matches_expected": false,
+                  "lookup_ids_change_vs_canonical": true,
+                  "canonical_prompt_seed_hash_ids": [
+                    55,
+                    183,
+                    214
+                  ],
+                  "canonical_prompt_seed_hash_matches": true
+                },
+                {
+                  "position": 143836,
+                  "expected_history": [
+                    678,
+                    628,
+                    591,
+                    554
+                  ],
+                  "mirror_history": [
+                    678,
+                    628,
+                    591,
+                    0
+                  ],
+                  "history_sources": [
+                    "replay_write",
+                    "replay_write",
+                    "replay_write",
+                    "barrier_slot"
+                  ],
+                  "canonical_prompt_seed_history": [
+                    678,
+                    628,
+                    591,
+                    554
+                  ],
+                  "canonical_prompt_seed_sources": [
+                    "replay_write",
+                    "replay_write",
+                    "replay_write",
+                    "canonical_prompt_control"
+                  ],
+                  "expected_hash_ids": [
+                    69,
+                    168,
+                    254
+                  ],
+                  "mirror_hash_ids": [
+                    69,
+                    168,
+                    213
+                  ],
+                  "hash_matches_expected": false,
+                  "lookup_ids_change_vs_canonical": true,
+                  "canonical_prompt_seed_hash_ids": [
+                    69,
+                    168,
+                    254
+                  ],
+                  "canonical_prompt_seed_hash_matches": true
+                },
+                {
+                  "position": 143837,
+                  "expected_history": [
+                    715,
+                    678,
+                    628,
+                    591
+                  ],
+                  "mirror_history": [
+                    715,
+                    678,
+                    628,
+                    591
+                  ],
+                  "history_sources": [
+                    "replay_write",
+                    "replay_write",
+                    "replay_write",
+                    "replay_write"
+                  ],
+                  "canonical_prompt_seed_history": [
+                    715,
+                    678,
+                    628,
+                    591
+                  ],
+                  "canonical_prompt_seed_sources": [
+                    "replay_write",
+                    "replay_write",
+                    "replay_write",
+                    "replay_write"
+                  ],
+                  "expected_hash_ids": [
+                    62,
+                    186,
+                    237
+                  ],
+                  "mirror_hash_ids": [
+                    62,
+                    186,
+                    237
+                  ],
+                  "hash_matches_expected": true,
+                  "lookup_ids_change_vs_canonical": false,
+                  "canonical_prompt_seed_hash_ids": [
+                    62,
+                    186,
+                    237
+                  ],
+                  "canonical_prompt_seed_hash_matches": true
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "arm": "stale_foreign_owner",
+          "page_state": "old owner page retained",
+          "canonical_prestart_seed_enabled": false,
+          "requests": [
+            {
+              "request_index": 1,
+              "prompt_seed": 17,
+              "replay_physical_page": 8823,
+              "replay_start_mod_block": 90,
+              "rows": [
+                {
+                  "position": 143834,
+                  "expected_history": [
+                    591,
+                    554,
+                    517,
+                    480
+                  ],
+                  "mirror_history": [
+                    591,
+                    532,
+                    495,
+                    458
+                  ],
+                  "history_sources": [
+                    "replay_write",
+                    "stale_or_unverified_page_value",
+                    "stale_or_unverified_page_value",
+                    "stale_or_unverified_page_value"
+                  ],
+                  "canonical_prompt_seed_history": [
+                    591,
+                    554,
+                    517,
+                    480
+                  ],
+                  "canonical_prompt_seed_sources": [
+                    "replay_write",
+                    "canonical_prompt_control",
+                    "canonical_prompt_control",
+                    "canonical_prompt_control"
+                  ],
+                  "expected_hash_ids": [
+                    4,
+                    126,
+                    246
+                  ],
+                  "mirror_hash_ids": [
+                    78,
+                    151,
+                    278
+                  ],
+                  "hash_matches_expected": false,
+                  "lookup_ids_change_vs_canonical": true,
+                  "canonical_prompt_seed_hash_ids": [
+                    4,
+                    126,
+                    246
+                  ],
+                  "canonical_prompt_seed_hash_matches": true
+                },
+                {
+                  "position": 143835,
+                  "expected_history": [
+                    628,
+                    591,
+                    554,
+                    517
+                  ],
+                  "mirror_history": [
+                    628,
+                    591,
+                    532,
+                    495
+                  ],
+                  "history_sources": [
+                    "replay_write",
+                    "replay_write",
+                    "stale_or_unverified_page_value",
+                    "stale_or_unverified_page_value"
+                  ],
+                  "canonical_prompt_seed_history": [
+                    628,
+                    591,
+                    554,
+                    517
+                  ],
+                  "canonical_prompt_seed_sources": [
+                    "replay_write",
+                    "replay_write",
+                    "canonical_prompt_control",
+                    "canonical_prompt_control"
+                  ],
+                  "expected_hash_ids": [
+                    55,
+                    183,
+                    214
+                  ],
+                  "mirror_hash_ids": [
+                    55,
+                    189,
+                    237
+                  ],
+                  "hash_matches_expected": false,
+                  "lookup_ids_change_vs_canonical": true,
+                  "canonical_prompt_seed_hash_ids": [
+                    55,
+                    183,
+                    214
+                  ],
+                  "canonical_prompt_seed_hash_matches": true
+                },
+                {
+                  "position": 143836,
+                  "expected_history": [
+                    678,
+                    628,
+                    591,
+                    554
+                  ],
+                  "mirror_history": [
+                    678,
+                    628,
+                    591,
+                    532
+                  ],
+                  "history_sources": [
+                    "replay_write",
+                    "replay_write",
+                    "replay_write",
+                    "stale_or_unverified_page_value"
+                  ],
+                  "canonical_prompt_seed_history": [
+                    678,
+                    628,
+                    591,
+                    554
+                  ],
+                  "canonical_prompt_seed_sources": [
+                    "replay_write",
+                    "replay_write",
+                    "replay_write",
+                    "canonical_prompt_control"
+                  ],
+                  "expected_hash_ids": [
+                    69,
+                    168,
+                    254
+                  ],
+                  "mirror_hash_ids": [
+                    69,
+                    168,
+                    282
+                  ],
+                  "hash_matches_expected": false,
+                  "lookup_ids_change_vs_canonical": true,
+                  "canonical_prompt_seed_hash_ids": [
+                    69,
+                    168,
+                    254
+                  ],
+                  "canonical_prompt_seed_hash_matches": true
+                },
+                {
+                  "position": 143837,
+                  "expected_history": [
+                    715,
+                    678,
+                    628,
+                    591
+                  ],
+                  "mirror_history": [
+                    715,
+                    678,
+                    628,
+                    591
+                  ],
+                  "history_sources": [
+                    "replay_write",
+                    "replay_write",
+                    "replay_write",
+                    "replay_write"
+                  ],
+                  "canonical_prompt_seed_history": [
+                    715,
+                    678,
+                    628,
+                    591
+                  ],
+                  "canonical_prompt_seed_sources": [
+                    "replay_write",
+                    "replay_write",
+                    "replay_write",
+                    "replay_write"
+                  ],
+                  "expected_hash_ids": [
+                    62,
+                    186,
+                    237
+                  ],
+                  "mirror_hash_ids": [
+                    62,
+                    186,
+                    237
+                  ],
+                  "hash_matches_expected": true,
+                  "lookup_ids_change_vs_canonical": false,
+                  "canonical_prompt_seed_hash_ids": [
+                    62,
+                    186,
+                    237
+                  ],
+                  "canonical_prompt_seed_hash_matches": true
+                }
+              ]
+            },
+            {
+              "request_index": 2,
+              "prompt_seed": 17,
+              "replay_physical_page": 8823,
+              "replay_start_mod_block": 90,
+              "rows": [
+                {
+                  "position": 143834,
+                  "expected_history": [
+                    591,
+                    554,
+                    517,
+                    480
+                  ],
+                  "mirror_history": [
+                    591,
+                    532,
+                    495,
+                    458
+                  ],
+                  "history_sources": [
+                    "replay_write",
+                    "stale_or_unverified_page_value",
+                    "stale_or_unverified_page_value",
+                    "stale_or_unverified_page_value"
+                  ],
+                  "canonical_prompt_seed_history": [
+                    591,
+                    554,
+                    517,
+                    480
+                  ],
+                  "canonical_prompt_seed_sources": [
+                    "replay_write",
+                    "canonical_prompt_control",
+                    "canonical_prompt_control",
+                    "canonical_prompt_control"
+                  ],
+                  "expected_hash_ids": [
+                    4,
+                    126,
+                    246
+                  ],
+                  "mirror_hash_ids": [
+                    78,
+                    151,
+                    278
+                  ],
+                  "hash_matches_expected": false,
+                  "lookup_ids_change_vs_canonical": true,
+                  "canonical_prompt_seed_hash_ids": [
+                    4,
+                    126,
+                    246
+                  ],
+                  "canonical_prompt_seed_hash_matches": true
+                },
+                {
+                  "position": 143835,
+                  "expected_history": [
+                    628,
+                    591,
+                    554,
+                    517
+                  ],
+                  "mirror_history": [
+                    628,
+                    591,
+                    532,
+                    495
+                  ],
+                  "history_sources": [
+                    "replay_write",
+                    "replay_write",
+                    "stale_or_unverified_page_value",
+                    "stale_or_unverified_page_value"
+                  ],
+                  "canonical_prompt_seed_history": [
+                    628,
+                    591,
+                    554,
+                    517
+                  ],
+                  "canonical_prompt_seed_sources": [
+                    "replay_write",
+                    "replay_write",
+                    "canonical_prompt_control",
+                    "canonical_prompt_control"
+                  ],
+                  "expected_hash_ids": [
+                    55,
+                    183,
+                    214
+                  ],
+                  "mirror_hash_ids": [
+                    55,
+                    189,
+                    237
+                  ],
+                  "hash_matches_expected": false,
+                  "lookup_ids_change_vs_canonical": true,
+                  "canonical_prompt_seed_hash_ids": [
+                    55,
+                    183,
+                    214
+                  ],
+                  "canonical_prompt_seed_hash_matches": true
+                },
+                {
+                  "position": 143836,
+                  "expected_history": [
+                    678,
+                    628,
+                    591,
+                    554
+                  ],
+                  "mirror_history": [
+                    678,
+                    628,
+                    591,
+                    532
+                  ],
+                  "history_sources": [
+                    "replay_write",
+                    "replay_write",
+                    "replay_write",
+                    "stale_or_unverified_page_value"
+                  ],
+                  "canonical_prompt_seed_history": [
+                    678,
+                    628,
+                    591,
+                    554
+                  ],
+                  "canonical_prompt_seed_sources": [
+                    "replay_write",
+                    "replay_write",
+                    "replay_write",
+                    "canonical_prompt_control"
+                  ],
+                  "expected_hash_ids": [
+                    69,
+                    168,
+                    254
+                  ],
+                  "mirror_hash_ids": [
+                    69,
+                    168,
+                    282
+                  ],
+                  "hash_matches_expected": false,
+                  "lookup_ids_change_vs_canonical": true,
+                  "canonical_prompt_seed_hash_ids": [
+                    69,
+                    168,
+                    254
+                  ],
+                  "canonical_prompt_seed_hash_matches": true
+                },
+                {
+                  "position": 143837,
+                  "expected_history": [
+                    715,
+                    678,
+                    628,
+                    591
+                  ],
+                  "mirror_history": [
+                    715,
+                    678,
+                    628,
+                    591
+                  ],
+                  "history_sources": [
+                    "replay_write",
+                    "replay_write",
+                    "replay_write",
+                    "replay_write"
+                  ],
+                  "canonical_prompt_seed_history": [
+                    715,
+                    678,
+                    628,
+                    591
+                  ],
+                  "canonical_prompt_seed_sources": [
+                    "replay_write",
+                    "replay_write",
+                    "replay_write",
+                    "replay_write"
+                  ],
+                  "expected_hash_ids": [
+                    62,
+                    186,
+                    237
+                  ],
+                  "mirror_hash_ids": [
+                    62,
+                    186,
+                    237
+                  ],
+                  "hash_matches_expected": true,
+                  "lookup_ids_change_vs_canonical": false,
+                  "canonical_prompt_seed_hash_ids": [
+                    62,
+                    186,
+                    237
+                  ],
+                  "canonical_prompt_seed_hash_matches": true
+                }
+              ]
+            },
+            {
+              "request_index": 3,
+              "prompt_seed": 17,
+              "replay_physical_page": 8823,
+              "replay_start_mod_block": 90,
+              "rows": [
+                {
+                  "position": 143834,
+                  "expected_history": [
+                    591,
+                    554,
+                    517,
+                    480
+                  ],
+                  "mirror_history": [
+                    591,
+                    532,
+                    495,
+                    458
+                  ],
+                  "history_sources": [
+                    "replay_write",
+                    "stale_or_unverified_page_value",
+                    "stale_or_unverified_page_value",
+                    "stale_or_unverified_page_value"
+                  ],
+                  "canonical_prompt_seed_history": [
+                    591,
+                    554,
+                    517,
+                    480
+                  ],
+                  "canonical_prompt_seed_sources": [
+                    "replay_write",
+                    "canonical_prompt_control",
+                    "canonical_prompt_control",
+                    "canonical_prompt_control"
+                  ],
+                  "expected_hash_ids": [
+                    4,
+                    126,
+                    246
+                  ],
+                  "mirror_hash_ids": [
+                    78,
+                    151,
+                    278
+                  ],
+                  "hash_matches_expected": false,
+                  "lookup_ids_change_vs_canonical": true,
+                  "canonical_prompt_seed_hash_ids": [
+                    4,
+                    126,
+                    246
+                  ],
+                  "canonical_prompt_seed_hash_matches": true
+                },
+                {
+                  "position": 143835,
+                  "expected_history": [
+                    628,
+                    591,
+                    554,
+                    517
+                  ],
+                  "mirror_history": [
+                    628,
+                    591,
+                    532,
+                    495
+                  ],
+                  "history_sources": [
+                    "replay_write",
+                    "replay_write",
+                    "stale_or_unverified_page_value",
+                    "stale_or_unverified_page_value"
+                  ],
+                  "canonical_prompt_seed_history": [
+                    628,
+                    591,
+                    554,
+                    517
+                  ],
+                  "canonical_prompt_seed_sources": [
+                    "replay_write",
+                    "replay_write",
+                    "canonical_prompt_control",
+                    "canonical_prompt_control"
+                  ],
+                  "expected_hash_ids": [
+                    55,
+                    183,
+                    214
+                  ],
+                  "mirror_hash_ids": [
+                    55,
+                    189,
+                    237
+                  ],
+                  "hash_matches_expected": false,
+                  "lookup_ids_change_vs_canonical": true,
+                  "canonical_prompt_seed_hash_ids": [
+                    55,
+                    183,
+                    214
+                  ],
+                  "canonical_prompt_seed_hash_matches": true
+                },
+                {
+                  "position": 143836,
+                  "expected_history": [
+                    678,
+                    628,
+                    591,
+                    554
+                  ],
+                  "mirror_history": [
+                    678,
+                    628,
+                    591,
+                    532
+                  ],
+                  "history_sources": [
+                    "replay_write",
+                    "replay_write",
+                    "replay_write",
+                    "stale_or_unverified_page_value"
+                  ],
+                  "canonical_prompt_seed_history": [
+                    678,
+                    628,
+                    591,
+                    554
+                  ],
+                  "canonical_prompt_seed_sources": [
+                    "replay_write",
+                    "replay_write",
+                    "replay_write",
+                    "canonical_prompt_control"
+                  ],
+                  "expected_hash_ids": [
+                    69,
+                    168,
+                    254
+                  ],
+                  "mirror_hash_ids": [
+                    69,
+                    168,
+                    282
+                  ],
+                  "hash_matches_expected": false,
+                  "lookup_ids_change_vs_canonical": true,
+                  "canonical_prompt_seed_hash_ids": [
+                    69,
+                    168,
+                    254
+                  ],
+                  "canonical_prompt_seed_hash_matches": true
+                },
+                {
+                  "position": 143837,
+                  "expected_history": [
+                    715,
+                    678,
+                    628,
+                    591
+                  ],
+                  "mirror_history": [
+                    715,
+                    678,
+                    628,
+                    591
+                  ],
+                  "history_sources": [
+                    "replay_write",
+                    "replay_write",
+                    "replay_write",
+                    "replay_write"
+                  ],
+                  "canonical_prompt_seed_history": [
+                    715,
+                    678,
+                    628,
+                    591
+                  ],
+                  "canonical_prompt_seed_sources": [
+                    "replay_write",
+                    "replay_write",
+                    "replay_write",
+                    "replay_write"
+                  ],
+                  "expected_hash_ids": [
+                    62,
+                    186,
+                    237
+                  ],
+                  "mirror_hash_ids": [
+                    62,
+                    186,
+                    237
+                  ],
+                  "hash_matches_expected": true,
+                  "lookup_ids_change_vs_canonical": false,
+                  "canonical_prompt_seed_hash_ids": [
+                    62,
+                    186,
+                    237
+                  ],
+                  "canonical_prompt_seed_hash_matches": true
+                }
+              ]
+            },
+            {
+              "request_index": 4,
+              "prompt_seed": 17,
+              "replay_physical_page": 8823,
+              "replay_start_mod_block": 90,
+              "rows": [
+                {
+                  "position": 143834,
+                  "expected_history": [
+                    591,
+                    554,
+                    517,
+                    480
+                  ],
+                  "mirror_history": [
+                    591,
+                    532,
+                    495,
+                    458
+                  ],
+                  "history_sources": [
+                    "replay_write",
+                    "stale_or_unverified_page_value",
+                    "stale_or_unverified_page_value",
+                    "stale_or_unverified_page_value"
+                  ],
+                  "canonical_prompt_seed_history": [
+                    591,
+                    554,
+                    517,
+                    480
+                  ],
+                  "canonical_prompt_seed_sources": [
+                    "replay_write",
+                    "canonical_prompt_control",
+                    "canonical_prompt_control",
+                    "canonical_prompt_control"
+                  ],
+                  "expected_hash_ids": [
+                    4,
+                    126,
+                    246
+                  ],
+                  "mirror_hash_ids": [
+                    78,
+                    151,
+                    278
+                  ],
+                  "hash_matches_expected": false,
+                  "lookup_ids_change_vs_canonical": true,
+                  "canonical_prompt_seed_hash_ids": [
+                    4,
+                    126,
+                    246
+                  ],
+                  "canonical_prompt_seed_hash_matches": true
+                },
+                {
+                  "position": 143835,
+                  "expected_history": [
+                    628,
+                    591,
+                    554,
+                    517
+                  ],
+                  "mirror_history": [
+                    628,
+                    591,
+                    532,
+                    495
+                  ],
+                  "history_sources": [
+                    "replay_write",
+                    "replay_write",
+                    "stale_or_unverified_page_value",
+                    "stale_or_unverified_page_value"
+                  ],
+                  "canonical_prompt_seed_history": [
+                    628,
+                    591,
+                    554,
+                    517
+                  ],
+                  "canonical_prompt_seed_sources": [
+                    "replay_write",
+                    "replay_write",
+                    "canonical_prompt_control",
+                    "canonical_prompt_control"
+                  ],
+                  "expected_hash_ids": [
+                    55,
+                    183,
+                    214
+                  ],
+                  "mirror_hash_ids": [
+                    55,
+                    189,
+                    237
+                  ],
+                  "hash_matches_expected": false,
+                  "lookup_ids_change_vs_canonical": true,
+                  "canonical_prompt_seed_hash_ids": [
+                    55,
+                    183,
+                    214
+                  ],
+                  "canonical_prompt_seed_hash_matches": true
+                },
+                {
+                  "position": 143836,
+                  "expected_history": [
+                    678,
+                    628,
+                    591,
+                    554
+                  ],
+                  "mirror_history": [
+                    678,
+                    628,
+                    591,
+                    532
+                  ],
+                  "history_sources": [
+                    "replay_write",
+                    "replay_write",
+                    "replay_write",
+                    "stale_or_unverified_page_value"
+                  ],
+                  "canonical_prompt_seed_history": [
+                    678,
+                    628,
+                    591,
+                    554
+                  ],
+                  "canonical_prompt_seed_sources": [
+                    "replay_write",
+                    "replay_write",
+                    "replay_write",
+                    "canonical_prompt_control"
+                  ],
+                  "expected_hash_ids": [
+                    69,
+                    168,
+                    254
+                  ],
+                  "mirror_hash_ids": [
+                    69,
+                    168,
+                    282
+                  ],
+                  "hash_matches_expected": false,
+                  "lookup_ids_change_vs_canonical": true,
+                  "canonical_prompt_seed_hash_ids": [
+                    69,
+                    168,
+                    254
+                  ],
+                  "canonical_prompt_seed_hash_matches": true
+                },
+                {
+                  "position": 143837,
+                  "expected_history": [
+                    715,
+                    678,
+                    628,
+                    591
+                  ],
+                  "mirror_history": [
+                    715,
+                    678,
+                    628,
+                    591
+                  ],
+                  "history_sources": [
+                    "replay_write",
+                    "replay_write",
+                    "replay_write",
+                    "replay_write"
+                  ],
+                  "canonical_prompt_seed_history": [
+                    715,
+                    678,
+                    628,
+                    591
+                  ],
+                  "canonical_prompt_seed_sources": [
+                    "replay_write",
+                    "replay_write",
+                    "replay_write",
+                    "replay_write"
+                  ],
+                  "expected_hash_ids": [
+                    62,
+                    186,
+                    237
+                  ],
+                  "mirror_hash_ids": [
+                    62,
+                    186,
+                    237
+                  ],
+                  "hash_matches_expected": true,
+                  "lookup_ids_change_vs_canonical": false,
+                  "canonical_prompt_seed_hash_ids": [
+                    62,
+                    186,
+                    237
+                  ],
+                  "canonical_prompt_seed_hash_matches": true
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "arm": "canonical_prompt_seed",
+          "page_state": "old owner page retained",
+          "canonical_prestart_seed_enabled": true,
+          "requests": [
+            {
+              "request_index": 1,
+              "prompt_seed": 17,
+              "replay_physical_page": 8823,
+              "replay_start_mod_block": 90,
+              "rows": [
+                {
+                  "position": 143834,
+                  "expected_history": [
+                    591,
+                    554,
+                    517,
+                    480
+                  ],
+                  "mirror_history": [
+                    591,
+                    554,
+                    517,
+                    480
+                  ],
+                  "history_sources": [
+                    "replay_write",
+                    "canonical_prompt_control",
+                    "canonical_prompt_control",
+                    "canonical_prompt_control"
+                  ],
+                  "canonical_prompt_seed_history": [
+                    591,
+                    554,
+                    517,
+                    480
+                  ],
+                  "canonical_prompt_seed_sources": [
+                    "replay_write",
+                    "canonical_prompt_control",
+                    "canonical_prompt_control",
+                    "canonical_prompt_control"
+                  ],
+                  "expected_hash_ids": [
+                    4,
+                    126,
+                    246
+                  ],
+                  "mirror_hash_ids": [
+                    4,
+                    126,
+                    246
+                  ],
+                  "hash_matches_expected": true,
+                  "lookup_ids_change_vs_canonical": false,
+                  "canonical_prompt_seed_hash_ids": [
+                    4,
+                    126,
+                    246
+                  ],
+                  "canonical_prompt_seed_hash_matches": true
+                },
+                {
+                  "position": 143835,
+                  "expected_history": [
+                    628,
+                    591,
+                    554,
+                    517
+                  ],
+                  "mirror_history": [
+                    628,
+                    591,
+                    554,
+                    517
+                  ],
+                  "history_sources": [
+                    "replay_write",
+                    "replay_write",
+                    "canonical_prompt_control",
+                    "canonical_prompt_control"
+                  ],
+                  "canonical_prompt_seed_history": [
+                    628,
+                    591,
+                    554,
+                    517
+                  ],
+                  "canonical_prompt_seed_sources": [
+                    "replay_write",
+                    "replay_write",
+                    "canonical_prompt_control",
+                    "canonical_prompt_control"
+                  ],
+                  "expected_hash_ids": [
+                    55,
+                    183,
+                    214
+                  ],
+                  "mirror_hash_ids": [
+                    55,
+                    183,
+                    214
+                  ],
+                  "hash_matches_expected": true,
+                  "lookup_ids_change_vs_canonical": false,
+                  "canonical_prompt_seed_hash_ids": [
+                    55,
+                    183,
+                    214
+                  ],
+                  "canonical_prompt_seed_hash_matches": true
+                },
+                {
+                  "position": 143836,
+                  "expected_history": [
+                    678,
+                    628,
+                    591,
+                    554
+                  ],
+                  "mirror_history": [
+                    678,
+                    628,
+                    591,
+                    554
+                  ],
+                  "history_sources": [
+                    "replay_write",
+                    "replay_write",
+                    "replay_write",
+                    "canonical_prompt_control"
+                  ],
+                  "canonical_prompt_seed_history": [
+                    678,
+                    628,
+                    591,
+                    554
+                  ],
+                  "canonical_prompt_seed_sources": [
+                    "replay_write",
+                    "replay_write",
+                    "replay_write",
+                    "canonical_prompt_control"
+                  ],
+                  "expected_hash_ids": [
+                    69,
+                    168,
+                    254
+                  ],
+                  "mirror_hash_ids": [
+                    69,
+                    168,
+                    254
+                  ],
+                  "hash_matches_expected": true,
+                  "lookup_ids_change_vs_canonical": false,
+                  "canonical_prompt_seed_hash_ids": [
+                    69,
+                    168,
+                    254
+                  ],
+                  "canonical_prompt_seed_hash_matches": true
+                },
+                {
+                  "position": 143837,
+                  "expected_history": [
+                    715,
+                    678,
+                    628,
+                    591
+                  ],
+                  "mirror_history": [
+                    715,
+                    678,
+                    628,
+                    591
+                  ],
+                  "history_sources": [
+                    "replay_write",
+                    "replay_write",
+                    "replay_write",
+                    "replay_write"
+                  ],
+                  "canonical_prompt_seed_history": [
+                    715,
+                    678,
+                    628,
+                    591
+                  ],
+                  "canonical_prompt_seed_sources": [
+                    "replay_write",
+                    "replay_write",
+                    "replay_write",
+                    "replay_write"
+                  ],
+                  "expected_hash_ids": [
+                    62,
+                    186,
+                    237
+                  ],
+                  "mirror_hash_ids": [
+                    62,
+                    186,
+                    237
+                  ],
+                  "hash_matches_expected": true,
+                  "lookup_ids_change_vs_canonical": false,
+                  "canonical_prompt_seed_hash_ids": [
+                    62,
+                    186,
+                    237
+                  ],
+                  "canonical_prompt_seed_hash_matches": true
+                }
+              ]
+            },
+            {
+              "request_index": 2,
+              "prompt_seed": 17,
+              "replay_physical_page": 8823,
+              "replay_start_mod_block": 90,
+              "rows": [
+                {
+                  "position": 143834,
+                  "expected_history": [
+                    591,
+                    554,
+                    517,
+                    480
+                  ],
+                  "mirror_history": [
+                    591,
+                    554,
+                    517,
+                    480
+                  ],
+                  "history_sources": [
+                    "replay_write",
+                    "canonical_prompt_control",
+                    "canonical_prompt_control",
+                    "canonical_prompt_control"
+                  ],
+                  "canonical_prompt_seed_history": [
+                    591,
+                    554,
+                    517,
+                    480
+                  ],
+                  "canonical_prompt_seed_sources": [
+                    "replay_write",
+                    "canonical_prompt_control",
+                    "canonical_prompt_control",
+                    "canonical_prompt_control"
+                  ],
+                  "expected_hash_ids": [
+                    4,
+                    126,
+                    246
+                  ],
+                  "mirror_hash_ids": [
+                    4,
+                    126,
+                    246
+                  ],
+                  "hash_matches_expected": true,
+                  "lookup_ids_change_vs_canonical": false,
+                  "canonical_prompt_seed_hash_ids": [
+                    4,
+                    126,
+                    246
+                  ],
+                  "canonical_prompt_seed_hash_matches": true
+                },
+                {
+                  "position": 143835,
+                  "expected_history": [
+                    628,
+                    591,
+                    554,
+                    517
+                  ],
+                  "mirror_history": [
+                    628,
+                    591,
+                    554,
+                    517
+                  ],
+                  "history_sources": [
+                    "replay_write",
+                    "replay_write",
+                    "canonical_prompt_control",
+                    "canonical_prompt_control"
+                  ],
+                  "canonical_prompt_seed_history": [
+                    628,
+                    591,
+                    554,
+                    517
+                  ],
+                  "canonical_prompt_seed_sources": [
+                    "replay_write",
+                    "replay_write",
+                    "canonical_prompt_control",
+                    "canonical_prompt_control"
+                  ],
+                  "expected_hash_ids": [
+                    55,
+                    183,
+                    214
+                  ],
+                  "mirror_hash_ids": [
+                    55,
+                    183,
+                    214
+                  ],
+                  "hash_matches_expected": true,
+                  "lookup_ids_change_vs_canonical": false,
+                  "canonical_prompt_seed_hash_ids": [
+                    55,
+                    183,
+                    214
+                  ],
+                  "canonical_prompt_seed_hash_matches": true
+                },
+                {
+                  "position": 143836,
+                  "expected_history": [
+                    678,
+                    628,
+                    591,
+                    554
+                  ],
+                  "mirror_history": [
+                    678,
+                    628,
+                    591,
+                    554
+                  ],
+                  "history_sources": [
+                    "replay_write",
+                    "replay_write",
+                    "replay_write",
+                    "canonical_prompt_control"
+                  ],
+                  "canonical_prompt_seed_history": [
+                    678,
+                    628,
+                    591,
+                    554
+                  ],
+                  "canonical_prompt_seed_sources": [
+                    "replay_write",
+                    "replay_write",
+                    "replay_write",
+                    "canonical_prompt_control"
+                  ],
+                  "expected_hash_ids": [
+                    69,
+                    168,
+                    254
+                  ],
+                  "mirror_hash_ids": [
+                    69,
+                    168,
+                    254
+                  ],
+                  "hash_matches_expected": true,
+                  "lookup_ids_change_vs_canonical": false,
+                  "canonical_prompt_seed_hash_ids": [
+                    69,
+                    168,
+                    254
+                  ],
+                  "canonical_prompt_seed_hash_matches": true
+                },
+                {
+                  "position": 143837,
+                  "expected_history": [
+                    715,
+                    678,
+                    628,
+                    591
+                  ],
+                  "mirror_history": [
+                    715,
+                    678,
+                    628,
+                    591
+                  ],
+                  "history_sources": [
+                    "replay_write",
+                    "replay_write",
+                    "replay_write",
+                    "replay_write"
+                  ],
+                  "canonical_prompt_seed_history": [
+                    715,
+                    678,
+                    628,
+                    591
+                  ],
+                  "canonical_prompt_seed_sources": [
+                    "replay_write",
+                    "replay_write",
+                    "replay_write",
+                    "replay_write"
+                  ],
+                  "expected_hash_ids": [
+                    62,
+                    186,
+                    237
+                  ],
+                  "mirror_hash_ids": [
+                    62,
+                    186,
+                    237
+                  ],
+                  "hash_matches_expected": true,
+                  "lookup_ids_change_vs_canonical": false,
+                  "canonical_prompt_seed_hash_ids": [
+                    62,
+                    186,
+                    237
+                  ],
+                  "canonical_prompt_seed_hash_matches": true
+                }
+              ]
+            },
+            {
+              "request_index": 3,
+              "prompt_seed": 17,
+              "replay_physical_page": 8823,
+              "replay_start_mod_block": 90,
+              "rows": [
+                {
+                  "position": 143834,
+                  "expected_history": [
+                    591,
+                    554,
+                    517,
+                    480
+                  ],
+                  "mirror_history": [
+                    591,
+                    554,
+                    517,
+                    480
+                  ],
+                  "history_sources": [
+                    "replay_write",
+                    "canonical_prompt_control",
+                    "canonical_prompt_control",
+                    "canonical_prompt_control"
+                  ],
+                  "canonical_prompt_seed_history": [
+                    591,
+                    554,
+                    517,
+                    480
+                  ],
+                  "canonical_prompt_seed_sources": [
+                    "replay_write",
+                    "canonical_prompt_control",
+                    "canonical_prompt_control",
+                    "canonical_prompt_control"
+                  ],
+                  "expected_hash_ids": [
+                    4,
+                    126,
+                    246
+                  ],
+                  "mirror_hash_ids": [
+                    4,
+                    126,
+                    246
+                  ],
+                  "hash_matches_expected": true,
+                  "lookup_ids_change_vs_canonical": false,
+                  "canonical_prompt_seed_hash_ids": [
+                    4,
+                    126,
+                    246
+                  ],
+                  "canonical_prompt_seed_hash_matches": true
+                },
+                {
+                  "position": 143835,
+                  "expected_history": [
+                    628,
+                    591,
+                    554,
+                    517
+                  ],
+                  "mirror_history": [
+                    628,
+                    591,
+                    554,
+                    517
+                  ],
+                  "history_sources": [
+                    "replay_write",
+                    "replay_write",
+                    "canonical_prompt_control",
+                    "canonical_prompt_control"
+                  ],
+                  "canonical_prompt_seed_history": [
+                    628,
+                    591,
+                    554,
+                    517
+                  ],
+                  "canonical_prompt_seed_sources": [
+                    "replay_write",
+                    "replay_write",
+                    "canonical_prompt_control",
+                    "canonical_prompt_control"
+                  ],
+                  "expected_hash_ids": [
+                    55,
+                    183,
+                    214
+                  ],
+                  "mirror_hash_ids": [
+                    55,
+                    183,
+                    214
+                  ],
+                  "hash_matches_expected": true,
+                  "lookup_ids_change_vs_canonical": false,
+                  "canonical_prompt_seed_hash_ids": [
+                    55,
+                    183,
+                    214
+                  ],
+                  "canonical_prompt_seed_hash_matches": true
+                },
+                {
+                  "position": 143836,
+                  "expected_history": [
+                    678,
+                    628,
+                    591,
+                    554
+                  ],
+                  "mirror_history": [
+                    678,
+                    628,
+                    591,
+                    554
+                  ],
+                  "history_sources": [
+                    "replay_write",
+                    "replay_write",
+                    "replay_write",
+                    "canonical_prompt_control"
+                  ],
+                  "canonical_prompt_seed_history": [
+                    678,
+                    628,
+                    591,
+                    554
+                  ],
+                  "canonical_prompt_seed_sources": [
+                    "replay_write",
+                    "replay_write",
+                    "replay_write",
+                    "canonical_prompt_control"
+                  ],
+                  "expected_hash_ids": [
+                    69,
+                    168,
+                    254
+                  ],
+                  "mirror_hash_ids": [
+                    69,
+                    168,
+                    254
+                  ],
+                  "hash_matches_expected": true,
+                  "lookup_ids_change_vs_canonical": false,
+                  "canonical_prompt_seed_hash_ids": [
+                    69,
+                    168,
+                    254
+                  ],
+                  "canonical_prompt_seed_hash_matches": true
+                },
+                {
+                  "position": 143837,
+                  "expected_history": [
+                    715,
+                    678,
+                    628,
+                    591
+                  ],
+                  "mirror_history": [
+                    715,
+                    678,
+                    628,
+                    591
+                  ],
+                  "history_sources": [
+                    "replay_write",
+                    "replay_write",
+                    "replay_write",
+                    "replay_write"
+                  ],
+                  "canonical_prompt_seed_history": [
+                    715,
+                    678,
+                    628,
+                    591
+                  ],
+                  "canonical_prompt_seed_sources": [
+                    "replay_write",
+                    "replay_write",
+                    "replay_write",
+                    "replay_write"
+                  ],
+                  "expected_hash_ids": [
+                    62,
+                    186,
+                    237
+                  ],
+                  "mirror_hash_ids": [
+                    62,
+                    186,
+                    237
+                  ],
+                  "hash_matches_expected": true,
+                  "lookup_ids_change_vs_canonical": false,
+                  "canonical_prompt_seed_hash_ids": [
+                    62,
+                    186,
+                    237
+                  ],
+                  "canonical_prompt_seed_hash_matches": true
+                }
+              ]
+            },
+            {
+              "request_index": 4,
+              "prompt_seed": 17,
+              "replay_physical_page": 8823,
+              "replay_start_mod_block": 90,
+              "rows": [
+                {
+                  "position": 143834,
+                  "expected_history": [
+                    591,
+                    554,
+                    517,
+                    480
+                  ],
+                  "mirror_history": [
+                    591,
+                    554,
+                    517,
+                    480
+                  ],
+                  "history_sources": [
+                    "replay_write",
+                    "canonical_prompt_control",
+                    "canonical_prompt_control",
+                    "canonical_prompt_control"
+                  ],
+                  "canonical_prompt_seed_history": [
+                    591,
+                    554,
+                    517,
+                    480
+                  ],
+                  "canonical_prompt_seed_sources": [
+                    "replay_write",
+                    "canonical_prompt_control",
+                    "canonical_prompt_control",
+                    "canonical_prompt_control"
+                  ],
+                  "expected_hash_ids": [
+                    4,
+                    126,
+                    246
+                  ],
+                  "mirror_hash_ids": [
+                    4,
+                    126,
+                    246
+                  ],
+                  "hash_matches_expected": true,
+                  "lookup_ids_change_vs_canonical": false,
+                  "canonical_prompt_seed_hash_ids": [
+                    4,
+                    126,
+                    246
+                  ],
+                  "canonical_prompt_seed_hash_matches": true
+                },
+                {
+                  "position": 143835,
+                  "expected_history": [
+                    628,
+                    591,
+                    554,
+                    517
+                  ],
+                  "mirror_history": [
+                    628,
+                    591,
+                    554,
+                    517
+                  ],
+                  "history_sources": [
+                    "replay_write",
+                    "replay_write",
+                    "canonical_prompt_control",
+                    "canonical_prompt_control"
+                  ],
+                  "canonical_prompt_seed_history": [
+                    628,
+                    591,
+                    554,
+                    517
+                  ],
+                  "canonical_prompt_seed_sources": [
+                    "replay_write",
+                    "replay_write",
+                    "canonical_prompt_control",
+                    "canonical_prompt_control"
+                  ],
+                  "expected_hash_ids": [
+                    55,
+                    183,
+                    214
+                  ],
+                  "mirror_hash_ids": [
+                    55,
+                    183,
+                    214
+                  ],
+                  "hash_matches_expected": true,
+                  "lookup_ids_change_vs_canonical": false,
+                  "canonical_prompt_seed_hash_ids": [
+                    55,
+                    183,
+                    214
+                  ],
+                  "canonical_prompt_seed_hash_matches": true
+                },
+                {
+                  "position": 143836,
+                  "expected_history": [
+                    678,
+                    628,
+                    591,
+                    554
+                  ],
+                  "mirror_history": [
+                    678,
+                    628,
+                    591,
+                    554
+                  ],
+                  "history_sources": [
+                    "replay_write",
+                    "replay_write",
+                    "replay_write",
+                    "canonical_prompt_control"
+                  ],
+                  "canonical_prompt_seed_history": [
+                    678,
+                    628,
+                    591,
+                    554
+                  ],
+                  "canonical_prompt_seed_sources": [
+                    "replay_write",
+                    "replay_write",
+                    "replay_write",
+                    "canonical_prompt_control"
+                  ],
+                  "expected_hash_ids": [
+                    69,
+                    168,
+                    254
+                  ],
+                  "mirror_hash_ids": [
+                    69,
+                    168,
+                    254
+                  ],
+                  "hash_matches_expected": true,
+                  "lookup_ids_change_vs_canonical": false,
+                  "canonical_prompt_seed_hash_ids": [
+                    69,
+                    168,
+                    254
+                  ],
+                  "canonical_prompt_seed_hash_matches": true
+                },
+                {
+                  "position": 143837,
+                  "expected_history": [
+                    715,
+                    678,
+                    628,
+                    591
+                  ],
+                  "mirror_history": [
+                    715,
+                    678,
+                    628,
+                    591
+                  ],
+                  "history_sources": [
+                    "replay_write",
+                    "replay_write",
+                    "replay_write",
+                    "replay_write"
+                  ],
+                  "canonical_prompt_seed_history": [
+                    715,
+                    678,
+                    628,
+                    591
+                  ],
+                  "canonical_prompt_seed_sources": [
+                    "replay_write",
+                    "replay_write",
+                    "replay_write",
+                    "replay_write"
+                  ],
+                  "expected_hash_ids": [
+                    62,
+                    186,
+                    237
+                  ],
+                  "mirror_hash_ids": [
+                    62,
+                    186,
+                    237
+                  ],
+                  "hash_matches_expected": true,
+                  "lookup_ids_change_vs_canonical": false,
+                  "canonical_prompt_seed_hash_ids": [
+                    62,
+                    186,
+                    237
+                  ],
+                  "canonical_prompt_seed_hash_matches": true
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "arm": "stale_same_prompt_owner",
+          "page_state": "old owner page retained",
+          "canonical_prestart_seed_enabled": false,
+          "requests": [
+            {
+              "request_index": 1,
+              "prompt_seed": 17,
+              "replay_physical_page": 8823,
+              "replay_start_mod_block": 90,
+              "rows": [
+                {
+                  "position": 143834,
+                  "expected_history": [
+                    591,
+                    554,
+                    517,
+                    480
+                  ],
+                  "mirror_history": [
+                    591,
+                    554,
+                    517,
+                    480
+                  ],
+                  "history_sources": [
+                    "replay_write",
+                    "stale_or_unverified_page_value",
+                    "stale_or_unverified_page_value",
+                    "stale_or_unverified_page_value"
+                  ],
+                  "canonical_prompt_seed_history": [
+                    591,
+                    554,
+                    517,
+                    480
+                  ],
+                  "canonical_prompt_seed_sources": [
+                    "replay_write",
+                    "canonical_prompt_control",
+                    "canonical_prompt_control",
+                    "canonical_prompt_control"
+                  ],
+                  "expected_hash_ids": [
+                    4,
+                    126,
+                    246
+                  ],
+                  "mirror_hash_ids": [
+                    4,
+                    126,
+                    246
+                  ],
+                  "hash_matches_expected": true,
+                  "lookup_ids_change_vs_canonical": false,
+                  "canonical_prompt_seed_hash_ids": [
+                    4,
+                    126,
+                    246
+                  ],
+                  "canonical_prompt_seed_hash_matches": true
+                },
+                {
+                  "position": 143835,
+                  "expected_history": [
+                    628,
+                    591,
+                    554,
+                    517
+                  ],
+                  "mirror_history": [
+                    628,
+                    591,
+                    554,
+                    517
+                  ],
+                  "history_sources": [
+                    "replay_write",
+                    "replay_write",
+                    "stale_or_unverified_page_value",
+                    "stale_or_unverified_page_value"
+                  ],
+                  "canonical_prompt_seed_history": [
+                    628,
+                    591,
+                    554,
+                    517
+                  ],
+                  "canonical_prompt_seed_sources": [
+                    "replay_write",
+                    "replay_write",
+                    "canonical_prompt_control",
+                    "canonical_prompt_control"
+                  ],
+                  "expected_hash_ids": [
+                    55,
+                    183,
+                    214
+                  ],
+                  "mirror_hash_ids": [
+                    55,
+                    183,
+                    214
+                  ],
+                  "hash_matches_expected": true,
+                  "lookup_ids_change_vs_canonical": false,
+                  "canonical_prompt_seed_hash_ids": [
+                    55,
+                    183,
+                    214
+                  ],
+                  "canonical_prompt_seed_hash_matches": true
+                },
+                {
+                  "position": 143836,
+                  "expected_history": [
+                    678,
+                    628,
+                    591,
+                    554
+                  ],
+                  "mirror_history": [
+                    678,
+                    628,
+                    591,
+                    554
+                  ],
+                  "history_sources": [
+                    "replay_write",
+                    "replay_write",
+                    "replay_write",
+                    "stale_or_unverified_page_value"
+                  ],
+                  "canonical_prompt_seed_history": [
+                    678,
+                    628,
+                    591,
+                    554
+                  ],
+                  "canonical_prompt_seed_sources": [
+                    "replay_write",
+                    "replay_write",
+                    "replay_write",
+                    "canonical_prompt_control"
+                  ],
+                  "expected_hash_ids": [
+                    69,
+                    168,
+                    254
+                  ],
+                  "mirror_hash_ids": [
+                    69,
+                    168,
+                    254
+                  ],
+                  "hash_matches_expected": true,
+                  "lookup_ids_change_vs_canonical": false,
+                  "canonical_prompt_seed_hash_ids": [
+                    69,
+                    168,
+                    254
+                  ],
+                  "canonical_prompt_seed_hash_matches": true
+                },
+                {
+                  "position": 143837,
+                  "expected_history": [
+                    715,
+                    678,
+                    628,
+                    591
+                  ],
+                  "mirror_history": [
+                    715,
+                    678,
+                    628,
+                    591
+                  ],
+                  "history_sources": [
+                    "replay_write",
+                    "replay_write",
+                    "replay_write",
+                    "replay_write"
+                  ],
+                  "canonical_prompt_seed_history": [
+                    715,
+                    678,
+                    628,
+                    591
+                  ],
+                  "canonical_prompt_seed_sources": [
+                    "replay_write",
+                    "replay_write",
+                    "replay_write",
+                    "replay_write"
+                  ],
+                  "expected_hash_ids": [
+                    62,
+                    186,
+                    237
+                  ],
+                  "mirror_hash_ids": [
+                    62,
+                    186,
+                    237
+                  ],
+                  "hash_matches_expected": true,
+                  "lookup_ids_change_vs_canonical": false,
+                  "canonical_prompt_seed_hash_ids": [
+                    62,
+                    186,
+                    237
+                  ],
+                  "canonical_prompt_seed_hash_matches": true
+                }
+              ]
+            },
+            {
+              "request_index": 2,
+              "prompt_seed": 17,
+              "replay_physical_page": 8823,
+              "replay_start_mod_block": 90,
+              "rows": [
+                {
+                  "position": 143834,
+                  "expected_history": [
+                    591,
+                    554,
+                    517,
+                    480
+                  ],
+                  "mirror_history": [
+                    591,
+                    554,
+                    517,
+                    480
+                  ],
+                  "history_sources": [
+                    "replay_write",
+                    "stale_or_unverified_page_value",
+                    "stale_or_unverified_page_value",
+                    "stale_or_unverified_page_value"
+                  ],
+                  "canonical_prompt_seed_history": [
+                    591,
+                    554,
+                    517,
+                    480
+                  ],
+                  "canonical_prompt_seed_sources": [
+                    "replay_write",
+                    "canonical_prompt_control",
+                    "canonical_prompt_control",
+                    "canonical_prompt_control"
+                  ],
+                  "expected_hash_ids": [
+                    4,
+                    126,
+                    246
+                  ],
+                  "mirror_hash_ids": [
+                    4,
+                    126,
+                    246
+                  ],
+                  "hash_matches_expected": true,
+                  "lookup_ids_change_vs_canonical": false,
+                  "canonical_prompt_seed_hash_ids": [
+                    4,
+                    126,
+                    246
+                  ],
+                  "canonical_prompt_seed_hash_matches": true
+                },
+                {
+                  "position": 143835,
+                  "expected_history": [
+                    628,
+                    591,
+                    554,
+                    517
+                  ],
+                  "mirror_history": [
+                    628,
+                    591,
+                    554,
+                    517
+                  ],
+                  "history_sources": [
+                    "replay_write",
+                    "replay_write",
+                    "stale_or_unverified_page_value",
+                    "stale_or_unverified_page_value"
+                  ],
+                  "canonical_prompt_seed_history": [
+                    628,
+                    591,
+                    554,
+                    517
+                  ],
+                  "canonical_prompt_seed_sources": [
+                    "replay_write",
+                    "replay_write",
+                    "canonical_prompt_control",
+                    "canonical_prompt_control"
+                  ],
+                  "expected_hash_ids": [
+                    55,
+                    183,
+                    214
+                  ],
+                  "mirror_hash_ids": [
+                    55,
+                    183,
+                    214
+                  ],
+                  "hash_matches_expected": true,
+                  "lookup_ids_change_vs_canonical": false,
+                  "canonical_prompt_seed_hash_ids": [
+                    55,
+                    183,
+                    214
+                  ],
+                  "canonical_prompt_seed_hash_matches": true
+                },
+                {
+                  "position": 143836,
+                  "expected_history": [
+                    678,
+                    628,
+                    591,
+                    554
+                  ],
+                  "mirror_history": [
+                    678,
+                    628,
+                    591,
+                    554
+                  ],
+                  "history_sources": [
+                    "replay_write",
+                    "replay_write",
+                    "replay_write",
+                    "stale_or_unverified_page_value"
+                  ],
+                  "canonical_prompt_seed_history": [
+                    678,
+                    628,
+                    591,
+                    554
+                  ],
+                  "canonical_prompt_seed_sources": [
+                    "replay_write",
+                    "replay_write",
+                    "replay_write",
+                    "canonical_prompt_control"
+                  ],
+                  "expected_hash_ids": [
+                    69,
+                    168,
+                    254
+                  ],
+                  "mirror_hash_ids": [
+                    69,
+                    168,
+                    254
+                  ],
+                  "hash_matches_expected": true,
+                  "lookup_ids_change_vs_canonical": false,
+                  "canonical_prompt_seed_hash_ids": [
+                    69,
+                    168,
+                    254
+                  ],
+                  "canonical_prompt_seed_hash_matches": true
+                },
+                {
+                  "position": 143837,
+                  "expected_history": [
+                    715,
+                    678,
+                    628,
+                    591
+                  ],
+                  "mirror_history": [
+                    715,
+                    678,
+                    628,
+                    591
+                  ],
+                  "history_sources": [
+                    "replay_write",
+                    "replay_write",
+                    "replay_write",
+                    "replay_write"
+                  ],
+                  "canonical_prompt_seed_history": [
+                    715,
+                    678,
+                    628,
+                    591
+                  ],
+                  "canonical_prompt_seed_sources": [
+                    "replay_write",
+                    "replay_write",
+                    "replay_write",
+                    "replay_write"
+                  ],
+                  "expected_hash_ids": [
+                    62,
+                    186,
+                    237
+                  ],
+                  "mirror_hash_ids": [
+                    62,
+                    186,
+                    237
+                  ],
+                  "hash_matches_expected": true,
+                  "lookup_ids_change_vs_canonical": false,
+                  "canonical_prompt_seed_hash_ids": [
+                    62,
+                    186,
+                    237
+                  ],
+                  "canonical_prompt_seed_hash_matches": true
+                }
+              ]
+            },
+            {
+              "request_index": 3,
+              "prompt_seed": 17,
+              "replay_physical_page": 8823,
+              "replay_start_mod_block": 90,
+              "rows": [
+                {
+                  "position": 143834,
+                  "expected_history": [
+                    591,
+                    554,
+                    517,
+                    480
+                  ],
+                  "mirror_history": [
+                    591,
+                    554,
+                    517,
+                    480
+                  ],
+                  "history_sources": [
+                    "replay_write",
+                    "stale_or_unverified_page_value",
+                    "stale_or_unverified_page_value",
+                    "stale_or_unverified_page_value"
+                  ],
+                  "canonical_prompt_seed_history": [
+                    591,
+                    554,
+                    517,
+                    480
+                  ],
+                  "canonical_prompt_seed_sources": [
+                    "replay_write",
+                    "canonical_prompt_control",
+                    "canonical_prompt_control",
+                    "canonical_prompt_control"
+                  ],
+                  "expected_hash_ids": [
+                    4,
+                    126,
+                    246
+                  ],
+                  "mirror_hash_ids": [
+                    4,
+                    126,
+                    246
+                  ],
+                  "hash_matches_expected": true,
+                  "lookup_ids_change_vs_canonical": false,
+                  "canonical_prompt_seed_hash_ids": [
+                    4,
+                    126,
+                    246
+                  ],
+                  "canonical_prompt_seed_hash_matches": true
+                },
+                {
+                  "position": 143835,
+                  "expected_history": [
+                    628,
+                    591,
+                    554,
+                    517
+                  ],
+                  "mirror_history": [
+                    628,
+                    591,
+                    554,
+                    517
+                  ],
+                  "history_sources": [
+                    "replay_write",
+                    "replay_write",
+                    "stale_or_unverified_page_value",
+                    "stale_or_unverified_page_value"
+                  ],
+                  "canonical_prompt_seed_history": [
+                    628,
+                    591,
+                    554,
+                    517
+                  ],
+                  "canonical_prompt_seed_sources": [
+                    "replay_write",
+                    "replay_write",
+                    "canonical_prompt_control",
+                    "canonical_prompt_control"
+                  ],
+                  "expected_hash_ids": [
+                    55,
+                    183,
+                    214
+                  ],
+                  "mirror_hash_ids": [
+                    55,
+                    183,
+                    214
+                  ],
+                  "hash_matches_expected": true,
+                  "lookup_ids_change_vs_canonical": false,
+                  "canonical_prompt_seed_hash_ids": [
+                    55,
+                    183,
+                    214
+                  ],
+                  "canonical_prompt_seed_hash_matches": true
+                },
+                {
+                  "position": 143836,
+                  "expected_history": [
+                    678,
+                    628,
+                    591,
+                    554
+                  ],
+                  "mirror_history": [
+                    678,
+                    628,
+                    591,
+                    554
+                  ],
+                  "history_sources": [
+                    "replay_write",
+                    "replay_write",
+                    "replay_write",
+                    "stale_or_unverified_page_value"
+                  ],
+                  "canonical_prompt_seed_history": [
+                    678,
+                    628,
+                    591,
+                    554
+                  ],
+                  "canonical_prompt_seed_sources": [
+                    "replay_write",
+                    "replay_write",
+                    "replay_write",
+                    "canonical_prompt_control"
+                  ],
+                  "expected_hash_ids": [
+                    69,
+                    168,
+                    254
+                  ],
+                  "mirror_hash_ids": [
+                    69,
+                    168,
+                    254
+                  ],
+                  "hash_matches_expected": true,
+                  "lookup_ids_change_vs_canonical": false,
+                  "canonical_prompt_seed_hash_ids": [
+                    69,
+                    168,
+                    254
+                  ],
+                  "canonical_prompt_seed_hash_matches": true
+                },
+                {
+                  "position": 143837,
+                  "expected_history": [
+                    715,
+                    678,
+                    628,
+                    591
+                  ],
+                  "mirror_history": [
+                    715,
+                    678,
+                    628,
+                    591
+                  ],
+                  "history_sources": [
+                    "replay_write",
+                    "replay_write",
+                    "replay_write",
+                    "replay_write"
+                  ],
+                  "canonical_prompt_seed_history": [
+                    715,
+                    678,
+                    628,
+                    591
+                  ],
+                  "canonical_prompt_seed_sources": [
+                    "replay_write",
+                    "replay_write",
+                    "replay_write",
+                    "replay_write"
+                  ],
+                  "expected_hash_ids": [
+                    62,
+                    186,
+                    237
+                  ],
+                  "mirror_hash_ids": [
+                    62,
+                    186,
+                    237
+                  ],
+                  "hash_matches_expected": true,
+                  "lookup_ids_change_vs_canonical": false,
+                  "canonical_prompt_seed_hash_ids": [
+                    62,
+                    186,
+                    237
+                  ],
+                  "canonical_prompt_seed_hash_matches": true
+                }
+              ]
+            },
+            {
+              "request_index": 4,
+              "prompt_seed": 17,
+              "replay_physical_page": 8823,
+              "replay_start_mod_block": 90,
+              "rows": [
+                {
+                  "position": 143834,
+                  "expected_history": [
+                    591,
+                    554,
+                    517,
+                    480
+                  ],
+                  "mirror_history": [
+                    591,
+                    554,
+                    517,
+                    480
+                  ],
+                  "history_sources": [
+                    "replay_write",
+                    "stale_or_unverified_page_value",
+                    "stale_or_unverified_page_value",
+                    "stale_or_unverified_page_value"
+                  ],
+                  "canonical_prompt_seed_history": [
+                    591,
+                    554,
+                    517,
+                    480
+                  ],
+                  "canonical_prompt_seed_sources": [
+                    "replay_write",
+                    "canonical_prompt_control",
+                    "canonical_prompt_control",
+                    "canonical_prompt_control"
+                  ],
+                  "expected_hash_ids": [
+                    4,
+                    126,
+                    246
+                  ],
+                  "mirror_hash_ids": [
+                    4,
+                    126,
+                    246
+                  ],
+                  "hash_matches_expected": true,
+                  "lookup_ids_change_vs_canonical": false,
+                  "canonical_prompt_seed_hash_ids": [
+                    4,
+                    126,
+                    246
+                  ],
+                  "canonical_prompt_seed_hash_matches": true
+                },
+                {
+                  "position": 143835,
+                  "expected_history": [
+                    628,
+                    591,
+                    554,
+                    517
+                  ],
+                  "mirror_history": [
+                    628,
+                    591,
+                    554,
+                    517
+                  ],
+                  "history_sources": [
+                    "replay_write",
+                    "replay_write",
+                    "stale_or_unverified_page_value",
+                    "stale_or_unverified_page_value"
+                  ],
+                  "canonical_prompt_seed_history": [
+                    628,
+                    591,
+                    554,
+                    517
+                  ],
+                  "canonical_prompt_seed_sources": [
+                    "replay_write",
+                    "replay_write",
+                    "canonical_prompt_control",
+                    "canonical_prompt_control"
+                  ],
+                  "expected_hash_ids": [
+                    55,
+                    183,
+                    214
+                  ],
+                  "mirror_hash_ids": [
+                    55,
+                    183,
+                    214
+                  ],
+                  "hash_matches_expected": true,
+                  "lookup_ids_change_vs_canonical": false,
+                  "canonical_prompt_seed_hash_ids": [
+                    55,
+                    183,
+                    214
+                  ],
+                  "canonical_prompt_seed_hash_matches": true
+                },
+                {
+                  "position": 143836,
+                  "expected_history": [
+                    678,
+                    628,
+                    591,
+                    554
+                  ],
+                  "mirror_history": [
+                    678,
+                    628,
+                    591,
+                    554
+                  ],
+                  "history_sources": [
+                    "replay_write",
+                    "replay_write",
+                    "replay_write",
+                    "stale_or_unverified_page_value"
+                  ],
+                  "canonical_prompt_seed_history": [
+                    678,
+                    628,
+                    591,
+                    554
+                  ],
+                  "canonical_prompt_seed_sources": [
+                    "replay_write",
+                    "replay_write",
+                    "replay_write",
+                    "canonical_prompt_control"
+                  ],
+                  "expected_hash_ids": [
+                    69,
+                    168,
+                    254
+                  ],
+                  "mirror_hash_ids": [
+                    69,
+                    168,
+                    254
+                  ],
+                  "hash_matches_expected": true,
+                  "lookup_ids_change_vs_canonical": false,
+                  "canonical_prompt_seed_hash_ids": [
+                    69,
+                    168,
+                    254
+                  ],
+                  "canonical_prompt_seed_hash_matches": true
+                },
+                {
+                  "position": 143837,
+                  "expected_history": [
+                    715,
+                    678,
+                    628,
+                    591
+                  ],
+                  "mirror_history": [
+                    715,
+                    678,
+                    628,
+                    591
+                  ],
+                  "history_sources": [
+                    "replay_write",
+                    "replay_write",
+                    "replay_write",
+                    "replay_write"
+                  ],
+                  "canonical_prompt_seed_history": [
+                    715,
+                    678,
+                    628,
+                    591
+                  ],
+                  "canonical_prompt_seed_sources": [
+                    "replay_write",
+                    "replay_write",
+                    "replay_write",
+                    "replay_write"
+                  ],
+                  "expected_hash_ids": [
+                    62,
+                    186,
+                    237
+                  ],
+                  "mirror_hash_ids": [
+                    62,
+                    186,
+                    237
+                  ],
+                  "hash_matches_expected": true,
+                  "lookup_ids_change_vs_canonical": false,
+                  "canonical_prompt_seed_hash_ids": [
+                    62,
+                    186,
+                    237
+                  ],
+                  "canonical_prompt_seed_hash_matches": true
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "scenario": "different_prompts_repeated_4_times_same_physical_page",
+      "arms": [
+        {
+          "arm": "missing_page_barrier",
+          "page_state": "fresh mirror row for each request",
+          "canonical_prestart_seed_enabled": false,
+          "requests": [
+            {
+              "request_index": 1,
+              "prompt_seed": 17,
+              "replay_physical_page": 8823,
+              "replay_start_mod_block": 90,
+              "rows": [
+                {
+                  "position": 143834,
+                  "expected_history": [
+                    591,
+                    554,
+                    517,
+                    480
+                  ],
+                  "mirror_history": [
+                    591,
+                    0,
+                    0,
+                    0
+                  ],
+                  "history_sources": [
+                    "replay_write",
+                    "barrier_slot",
+                    "pad_after_barrier",
+                    "pad_after_barrier"
+                  ],
+                  "canonical_prompt_seed_history": [
+                    591,
+                    554,
+                    517,
+                    480
+                  ],
+                  "canonical_prompt_seed_sources": [
+                    "replay_write",
+                    "canonical_prompt_control",
+                    "canonical_prompt_control",
+                    "canonical_prompt_control"
+                  ],
+                  "expected_hash_ids": [
+                    4,
+                    126,
+                    246
+                  ],
+                  "mirror_hash_ids": [
+                    56,
+                    123,
+                    265
+                  ],
+                  "hash_matches_expected": false,
+                  "lookup_ids_change_vs_canonical": true,
+                  "canonical_prompt_seed_hash_ids": [
+                    4,
+                    126,
+                    246
+                  ],
+                  "canonical_prompt_seed_hash_matches": true
+                },
+                {
+                  "position": 143835,
+                  "expected_history": [
+                    628,
+                    591,
+                    554,
+                    517
+                  ],
+                  "mirror_history": [
+                    628,
+                    591,
+                    0,
+                    0
+                  ],
+                  "history_sources": [
+                    "replay_write",
+                    "replay_write",
+                    "barrier_slot",
+                    "pad_after_barrier"
+                  ],
+                  "canonical_prompt_seed_history": [
+                    628,
+                    591,
+                    554,
+                    517
+                  ],
+                  "canonical_prompt_seed_sources": [
+                    "replay_write",
+                    "replay_write",
+                    "canonical_prompt_control",
+                    "canonical_prompt_control"
+                  ],
+                  "expected_hash_ids": [
+                    55,
+                    183,
+                    214
+                  ],
+                  "mirror_hash_ids": [
+                    55,
+                    195,
+                    281
+                  ],
+                  "hash_matches_expected": false,
+                  "lookup_ids_change_vs_canonical": true,
+                  "canonical_prompt_seed_hash_ids": [
+                    55,
+                    183,
+                    214
+                  ],
+                  "canonical_prompt_seed_hash_matches": true
+                },
+                {
+                  "position": 143836,
+                  "expected_history": [
+                    678,
+                    628,
+                    591,
+                    554
+                  ],
+                  "mirror_history": [
+                    678,
+                    628,
+                    591,
+                    0
+                  ],
+                  "history_sources": [
+                    "replay_write",
+                    "replay_write",
+                    "replay_write",
+                    "barrier_slot"
+                  ],
+                  "canonical_prompt_seed_history": [
+                    678,
+                    628,
+                    591,
+                    554
+                  ],
+                  "canonical_prompt_seed_sources": [
+                    "replay_write",
+                    "replay_write",
+                    "replay_write",
+                    "canonical_prompt_control"
+                  ],
+                  "expected_hash_ids": [
+                    69,
+                    168,
+                    254
+                  ],
+                  "mirror_hash_ids": [
+                    69,
+                    168,
+                    213
+                  ],
+                  "hash_matches_expected": false,
+                  "lookup_ids_change_vs_canonical": true,
+                  "canonical_prompt_seed_hash_ids": [
+                    69,
+                    168,
+                    254
+                  ],
+                  "canonical_prompt_seed_hash_matches": true
+                },
+                {
+                  "position": 143837,
+                  "expected_history": [
+                    715,
+                    678,
+                    628,
+                    591
+                  ],
+                  "mirror_history": [
+                    715,
+                    678,
+                    628,
+                    591
+                  ],
+                  "history_sources": [
+                    "replay_write",
+                    "replay_write",
+                    "replay_write",
+                    "replay_write"
+                  ],
+                  "canonical_prompt_seed_history": [
+                    715,
+                    678,
+                    628,
+                    591
+                  ],
+                  "canonical_prompt_seed_sources": [
+                    "replay_write",
+                    "replay_write",
+                    "replay_write",
+                    "replay_write"
+                  ],
+                  "expected_hash_ids": [
+                    62,
+                    186,
+                    237
+                  ],
+                  "mirror_hash_ids": [
+                    62,
+                    186,
+                    237
+                  ],
+                  "hash_matches_expected": true,
+                  "lookup_ids_change_vs_canonical": false,
+                  "canonical_prompt_seed_hash_ids": [
+                    62,
+                    186,
+                    237
+                  ],
+                  "canonical_prompt_seed_hash_matches": true
+                }
+              ]
+            },
+            {
+              "request_index": 2,
+              "prompt_seed": 29,
+              "replay_physical_page": 8823,
+              "replay_start_mod_block": 90,
+              "rows": [
+                {
+                  "position": 143834,
+                  "expected_history": [
+                    169,
+                    132,
+                    95,
+                    58
+                  ],
+                  "mirror_history": [
+                    169,
+                    0,
+                    0,
+                    0
+                  ],
+                  "history_sources": [
+                    "replay_write",
+                    "barrier_slot",
+                    "pad_after_barrier",
+                    "pad_after_barrier"
+                  ],
+                  "canonical_prompt_seed_history": [
+                    169,
+                    132,
+                    95,
+                    58
+                  ],
+                  "canonical_prompt_seed_sources": [
+                    "replay_write",
+                    "canonical_prompt_control",
+                    "canonical_prompt_control",
+                    "canonical_prompt_control"
+                  ],
+                  "expected_hash_ids": [
+                    71,
+                    191,
+                    252
+                  ],
+                  "mirror_hash_ids": [
+                    2,
+                    196,
+                    283
+                  ],
+                  "hash_matches_expected": false,
+                  "lookup_ids_change_vs_canonical": true,
+                  "canonical_prompt_seed_hash_ids": [
+                    71,
+                    191,
+                    252
+                  ],
+                  "canonical_prompt_seed_hash_matches": true
+                },
+                {
+                  "position": 143835,
+                  "expected_history": [
+                    206,
+                    169,
+                    132,
+                    95
+                  ],
+                  "mirror_history": [
+                    206,
+                    169,
+                    0,
+                    0
+                  ],
+                  "history_sources": [
+                    "replay_write",
+                    "replay_write",
+                    "barrier_slot",
+                    "pad_after_barrier"
+                  ],
+                  "canonical_prompt_seed_history": [
+                    206,
+                    169,
+                    132,
+                    95
+                  ],
+                  "canonical_prompt_seed_sources": [
+                    "replay_write",
+                    "replay_write",
+                    "canonical_prompt_control",
+                    "canonical_prompt_control"
+                  ],
+                  "expected_hash_ids": [
+                    93,
+                    182,
+                    309
+                  ],
+                  "mirror_hash_ids": [
+                    93,
+                    190,
+                    285
+                  ],
+                  "hash_matches_expected": false,
+                  "lookup_ids_change_vs_canonical": true,
+                  "canonical_prompt_seed_hash_ids": [
+                    93,
+                    182,
+                    309
+                  ],
+                  "canonical_prompt_seed_hash_matches": true
+                },
+                {
+                  "position": 143836,
+                  "expected_history": [
+                    256,
+                    206,
+                    169,
+                    132
+                  ],
+                  "mirror_history": [
+                    256,
+                    206,
+                    169,
+                    0
+                  ],
+                  "history_sources": [
+                    "replay_write",
+                    "replay_write",
+                    "replay_write",
+                    "barrier_slot"
+                  ],
+                  "canonical_prompt_seed_history": [
+                    256,
+                    206,
+                    169,
+                    132
+                  ],
+                  "canonical_prompt_seed_sources": [
+                    "replay_write",
+                    "replay_write",
+                    "replay_write",
+                    "canonical_prompt_control"
+                  ],
+                  "expected_hash_ids": [
+                    81,
+                    198,
+                    295
+                  ],
+                  "mirror_hash_ids": [
+                    81,
+                    198,
+                    269
+                  ],
+                  "hash_matches_expected": false,
+                  "lookup_ids_change_vs_canonical": true,
+                  "canonical_prompt_seed_hash_ids": [
+                    81,
+                    198,
+                    295
+                  ],
+                  "canonical_prompt_seed_hash_matches": true
+                },
+                {
+                  "position": 143837,
+                  "expected_history": [
+                    293,
+                    256,
+                    206,
+                    169
+                  ],
+                  "mirror_history": [
+                    293,
+                    256,
+                    206,
+                    169
+                  ],
+                  "history_sources": [
+                    "replay_write",
+                    "replay_write",
+                    "replay_write",
+                    "replay_write"
+                  ],
+                  "canonical_prompt_seed_history": [
+                    293,
+                    256,
+                    206,
+                    169
+                  ],
+                  "canonical_prompt_seed_sources": [
+                    "replay_write",
+                    "replay_write",
+                    "replay_write",
+                    "replay_write"
+                  ],
+                  "expected_hash_ids": [
+                    31,
+                    147,
+                    300
+                  ],
+                  "mirror_hash_ids": [
+                    31,
+                    147,
+                    300
+                  ],
+                  "hash_matches_expected": true,
+                  "lookup_ids_change_vs_canonical": false,
+                  "canonical_prompt_seed_hash_ids": [
+                    31,
+                    147,
+                    300
+                  ],
+                  "canonical_prompt_seed_hash_matches": true
+                }
+              ]
+            },
+            {
+              "request_index": 3,
+              "prompt_seed": 41,
+              "replay_physical_page": 8823,
+              "replay_start_mod_block": 90,
+              "rows": [
+                {
+                  "position": 143834,
+                  "expected_history": [
+                    744,
+                    707,
+                    670,
+                    633
+                  ],
+                  "mirror_history": [
+                    744,
+                    0,
+                    0,
+                    0
+                  ],
+                  "history_sources": [
+                    "replay_write",
+                    "barrier_slot",
+                    "pad_after_barrier",
+                    "pad_after_barrier"
+                  ],
+                  "canonical_prompt_seed_history": [
+                    744,
+                    707,
+                    670,
+                    633
+                  ],
+                  "canonical_prompt_seed_sources": [
+                    "replay_write",
+                    "canonical_prompt_control",
+                    "canonical_prompt_control",
+                    "canonical_prompt_control"
+                  ],
+                  "expected_hash_ids": [
+                    86,
+                    155,
+                    302
+                  ],
+                  "mirror_hash_ids": [
+                    10,
+                    170,
+                    296
+                  ],
+                  "hash_matches_expected": false,
+                  "lookup_ids_change_vs_canonical": true,
+                  "canonical_prompt_seed_hash_ids": [
+                    86,
+                    155,
+                    302
+                  ],
+                  "canonical_prompt_seed_hash_matches": true
+                },
+                {
+                  "position": 143835,
+                  "expected_history": [
+                    781,
+                    744,
+                    707,
+                    670
+                  ],
+                  "mirror_history": [
+                    781,
+                    744,
+                    0,
+                    0
+                  ],
+                  "history_sources": [
+                    "replay_write",
+                    "replay_write",
+                    "barrier_slot",
+                    "pad_after_barrier"
+                  ],
+                  "canonical_prompt_seed_history": [
+                    781,
+                    744,
+                    707,
+                    670
+                  ],
+                  "canonical_prompt_seed_sources": [
+                    "replay_write",
+                    "replay_write",
+                    "canonical_prompt_control",
+                    "canonical_prompt_control"
+                  ],
+                  "expected_hash_ids": [
+                    48,
+                    115,
+                    267
+                  ],
+                  "mirror_hash_ids": [
+                    48,
+                    111,
+                    245
+                  ],
+                  "hash_matches_expected": false,
+                  "lookup_ids_change_vs_canonical": true,
+                  "canonical_prompt_seed_hash_ids": [
+                    48,
+                    115,
+                    267
+                  ],
+                  "canonical_prompt_seed_hash_matches": true
+                },
+                {
+                  "position": 143836,
+                  "expected_history": [
+                    831,
+                    781,
+                    744,
+                    707
+                  ],
+                  "mirror_history": [
+                    831,
+                    781,
+                    744,
+                    0
+                  ],
+                  "history_sources": [
+                    "replay_write",
+                    "replay_write",
+                    "replay_write",
+                    "barrier_slot"
+                  ],
+                  "canonical_prompt_seed_history": [
+                    831,
+                    781,
+                    744,
+                    707
+                  ],
+                  "canonical_prompt_seed_sources": [
+                    "replay_write",
+                    "replay_write",
+                    "replay_write",
+                    "canonical_prompt_control"
+                  ],
+                  "expected_hash_ids": [
+                    71,
+                    135,
+                    263
+                  ],
+                  "mirror_hash_ids": [
+                    71,
+                    135,
+                    268
+                  ],
+                  "hash_matches_expected": false,
+                  "lookup_ids_change_vs_canonical": true,
+                  "canonical_prompt_seed_hash_ids": [
+                    71,
+                    135,
+                    263
+                  ],
+                  "canonical_prompt_seed_hash_matches": true
+                },
+                {
+                  "position": 143837,
+                  "expected_history": [
+                    868,
+                    831,
+                    781,
+                    744
+                  ],
+                  "mirror_history": [
+                    868,
+                    831,
+                    781,
+                    744
+                  ],
+                  "history_sources": [
+                    "replay_write",
+                    "replay_write",
+                    "replay_write",
+                    "replay_write"
+                  ],
+                  "canonical_prompt_seed_history": [
+                    868,
+                    831,
+                    781,
+                    744
+                  ],
+                  "canonical_prompt_seed_sources": [
+                    "replay_write",
+                    "replay_write",
+                    "replay_write",
+                    "replay_write"
+                  ],
+                  "expected_hash_ids": [
+                    13,
+                    103,
+                    307
+                  ],
+                  "mirror_hash_ids": [
+                    13,
+                    103,
+                    307
+                  ],
+                  "hash_matches_expected": true,
+                  "lookup_ids_change_vs_canonical": false,
+                  "canonical_prompt_seed_hash_ids": [
+                    13,
+                    103,
+                    307
+                  ],
+                  "canonical_prompt_seed_hash_matches": true
+                }
+              ]
+            },
+            {
+              "request_index": 4,
+              "prompt_seed": 53,
+              "replay_physical_page": 8823,
+              "replay_start_mod_block": 90,
+              "rows": [
+                {
+                  "position": 143834,
+                  "expected_history": [
+                    322,
+                    285,
+                    248,
+                    211
+                  ],
+                  "mirror_history": [
+                    322,
+                    0,
+                    0,
+                    0
+                  ],
+                  "history_sources": [
+                    "replay_write",
+                    "barrier_slot",
+                    "pad_after_barrier",
+                    "pad_after_barrier"
+                  ],
+                  "canonical_prompt_seed_history": [
+                    322,
+                    285,
+                    248,
+                    211
+                  ],
+                  "canonical_prompt_seed_sources": [
+                    "replay_write",
+                    "canonical_prompt_control",
+                    "canonical_prompt_control",
+                    "canonical_prompt_control"
+                  ],
+                  "expected_hash_ids": [
+                    7,
+                    157,
+                    296
+                  ],
+                  "mirror_hash_ids": [
+                    57,
+                    140,
+                    207
+                  ],
+                  "hash_matches_expected": false,
+                  "lookup_ids_change_vs_canonical": true,
+                  "canonical_prompt_seed_hash_ids": [
+                    7,
+                    157,
+                    296
+                  ],
+                  "canonical_prompt_seed_hash_matches": true
+                },
+                {
+                  "position": 143835,
+                  "expected_history": [
+                    359,
+                    322,
+                    285,
+                    248
+                  ],
+                  "mirror_history": [
+                    359,
+                    322,
+                    0,
+                    0
+                  ],
+                  "history_sources": [
+                    "replay_write",
+                    "replay_write",
+                    "barrier_slot",
+                    "pad_after_barrier"
+                  ],
+                  "canonical_prompt_seed_history": [
+                    359,
+                    322,
+                    285,
+                    248
+                  ],
+                  "canonical_prompt_seed_sources": [
+                    "replay_write",
+                    "replay_write",
+                    "canonical_prompt_control",
+                    "canonical_prompt_control"
+                  ],
+                  "expected_hash_ids": [
+                    33,
+                    119,
+                    220
+                  ],
+                  "mirror_hash_ids": [
+                    33,
+                    122,
+                    308
+                  ],
+                  "hash_matches_expected": false,
+                  "lookup_ids_change_vs_canonical": true,
+                  "canonical_prompt_seed_hash_ids": [
+                    33,
+                    119,
+                    220
+                  ],
+                  "canonical_prompt_seed_hash_matches": true
+                },
+                {
+                  "position": 143836,
+                  "expected_history": [
+                    409,
+                    359,
+                    322,
+                    285
+                  ],
+                  "mirror_history": [
+                    409,
+                    359,
+                    322,
+                    0
+                  ],
+                  "history_sources": [
+                    "replay_write",
+                    "replay_write",
+                    "replay_write",
+                    "barrier_slot"
+                  ],
+                  "canonical_prompt_seed_history": [
+                    409,
+                    359,
+                    322,
+                    285
+                  ],
+                  "canonical_prompt_seed_sources": [
+                    "replay_write",
+                    "replay_write",
+                    "replay_write",
+                    "canonical_prompt_control"
+                  ],
+                  "expected_hash_ids": [
+                    59,
+                    142,
+                    234
+                  ],
+                  "mirror_hash_ids": [
+                    59,
+                    142,
+                    244
+                  ],
+                  "hash_matches_expected": false,
+                  "lookup_ids_change_vs_canonical": true,
+                  "canonical_prompt_seed_hash_ids": [
+                    59,
+                    142,
+                    234
+                  ],
+                  "canonical_prompt_seed_hash_matches": true
+                },
+                {
+                  "position": 143837,
+                  "expected_history": [
+                    446,
+                    409,
+                    359,
+                    322
+                  ],
+                  "mirror_history": [
+                    446,
+                    409,
+                    359,
+                    322
+                  ],
+                  "history_sources": [
+                    "replay_write",
+                    "replay_write",
+                    "replay_write",
+                    "replay_write"
+                  ],
+                  "canonical_prompt_seed_history": [
+                    446,
+                    409,
+                    359,
+                    322
+                  ],
+                  "canonical_prompt_seed_sources": [
+                    "replay_write",
+                    "replay_write",
+                    "replay_write",
+                    "replay_write"
+                  ],
+                  "expected_hash_ids": [
+                    4,
+                    158,
+                    220
+                  ],
+                  "mirror_hash_ids": [
+                    4,
+                    158,
+                    220
+                  ],
+                  "hash_matches_expected": true,
+                  "lookup_ids_change_vs_canonical": false,
+                  "canonical_prompt_seed_hash_ids": [
+                    4,
+                    158,
+                    220
+                  ],
+                  "canonical_prompt_seed_hash_matches": true
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "arm": "stale_foreign_owner",
+          "page_state": "old owner page retained",
+          "canonical_prestart_seed_enabled": false,
+          "requests": [
+            {
+              "request_index": 1,
+              "prompt_seed": 17,
+              "replay_physical_page": 8823,
+              "replay_start_mod_block": 90,
+              "rows": [
+                {
+                  "position": 143834,
+                  "expected_history": [
+                    591,
+                    554,
+                    517,
+                    480
+                  ],
+                  "mirror_history": [
+                    591,
+                    532,
+                    495,
+                    458
+                  ],
+                  "history_sources": [
+                    "replay_write",
+                    "stale_or_unverified_page_value",
+                    "stale_or_unverified_page_value",
+                    "stale_or_unverified_page_value"
+                  ],
+                  "canonical_prompt_seed_history": [
+                    591,
+                    554,
+                    517,
+                    480
+                  ],
+                  "canonical_prompt_seed_sources": [
+                    "replay_write",
+                    "canonical_prompt_control",
+                    "canonical_prompt_control",
+                    "canonical_prompt_control"
+                  ],
+                  "expected_hash_ids": [
+                    4,
+                    126,
+                    246
+                  ],
+                  "mirror_hash_ids": [
+                    78,
+                    151,
+                    278
+                  ],
+                  "hash_matches_expected": false,
+                  "lookup_ids_change_vs_canonical": true,
+                  "canonical_prompt_seed_hash_ids": [
+                    4,
+                    126,
+                    246
+                  ],
+                  "canonical_prompt_seed_hash_matches": true
+                },
+                {
+                  "position": 143835,
+                  "expected_history": [
+                    628,
+                    591,
+                    554,
+                    517
+                  ],
+                  "mirror_history": [
+                    628,
+                    591,
+                    532,
+                    495
+                  ],
+                  "history_sources": [
+                    "replay_write",
+                    "replay_write",
+                    "stale_or_unverified_page_value",
+                    "stale_or_unverified_page_value"
+                  ],
+                  "canonical_prompt_seed_history": [
+                    628,
+                    591,
+                    554,
+                    517
+                  ],
+                  "canonical_prompt_seed_sources": [
+                    "replay_write",
+                    "replay_write",
+                    "canonical_prompt_control",
+                    "canonical_prompt_control"
+                  ],
+                  "expected_hash_ids": [
+                    55,
+                    183,
+                    214
+                  ],
+                  "mirror_hash_ids": [
+                    55,
+                    189,
+                    237
+                  ],
+                  "hash_matches_expected": false,
+                  "lookup_ids_change_vs_canonical": true,
+                  "canonical_prompt_seed_hash_ids": [
+                    55,
+                    183,
+                    214
+                  ],
+                  "canonical_prompt_seed_hash_matches": true
+                },
+                {
+                  "position": 143836,
+                  "expected_history": [
+                    678,
+                    628,
+                    591,
+                    554
+                  ],
+                  "mirror_history": [
+                    678,
+                    628,
+                    591,
+                    532
+                  ],
+                  "history_sources": [
+                    "replay_write",
+                    "replay_write",
+                    "replay_write",
+                    "stale_or_unverified_page_value"
+                  ],
+                  "canonical_prompt_seed_history": [
+                    678,
+                    628,
+                    591,
+                    554
+                  ],
+                  "canonical_prompt_seed_sources": [
+                    "replay_write",
+                    "replay_write",
+                    "replay_write",
+                    "canonical_prompt_control"
+                  ],
+                  "expected_hash_ids": [
+                    69,
+                    168,
+                    254
+                  ],
+                  "mirror_hash_ids": [
+                    69,
+                    168,
+                    282
+                  ],
+                  "hash_matches_expected": false,
+                  "lookup_ids_change_vs_canonical": true,
+                  "canonical_prompt_seed_hash_ids": [
+                    69,
+                    168,
+                    254
+                  ],
+                  "canonical_prompt_seed_hash_matches": true
+                },
+                {
+                  "position": 143837,
+                  "expected_history": [
+                    715,
+                    678,
+                    628,
+                    591
+                  ],
+                  "mirror_history": [
+                    715,
+                    678,
+                    628,
+                    591
+                  ],
+                  "history_sources": [
+                    "replay_write",
+                    "replay_write",
+                    "replay_write",
+                    "replay_write"
+                  ],
+                  "canonical_prompt_seed_history": [
+                    715,
+                    678,
+                    628,
+                    591
+                  ],
+                  "canonical_prompt_seed_sources": [
+                    "replay_write",
+                    "replay_write",
+                    "replay_write",
+                    "replay_write"
+                  ],
+                  "expected_hash_ids": [
+                    62,
+                    186,
+                    237
+                  ],
+                  "mirror_hash_ids": [
+                    62,
+                    186,
+                    237
+                  ],
+                  "hash_matches_expected": true,
+                  "lookup_ids_change_vs_canonical": false,
+                  "canonical_prompt_seed_hash_ids": [
+                    62,
+                    186,
+                    237
+                  ],
+                  "canonical_prompt_seed_hash_matches": true
+                }
+              ]
+            },
+            {
+              "request_index": 2,
+              "prompt_seed": 29,
+              "replay_physical_page": 8823,
+              "replay_start_mod_block": 90,
+              "rows": [
+                {
+                  "position": 143834,
+                  "expected_history": [
+                    169,
+                    132,
+                    95,
+                    58
+                  ],
+                  "mirror_history": [
+                    169,
+                    532,
+                    495,
+                    458
+                  ],
+                  "history_sources": [
+                    "replay_write",
+                    "stale_or_unverified_page_value",
+                    "stale_or_unverified_page_value",
+                    "stale_or_unverified_page_value"
+                  ],
+                  "canonical_prompt_seed_history": [
+                    169,
+                    132,
+                    95,
+                    58
+                  ],
+                  "canonical_prompt_seed_sources": [
+                    "replay_write",
+                    "canonical_prompt_control",
+                    "canonical_prompt_control",
+                    "canonical_prompt_control"
+                  ],
+                  "expected_hash_ids": [
+                    71,
+                    191,
+                    252
+                  ],
+                  "mirror_hash_ids": [
+                    46,
+                    114,
+                    307
+                  ],
+                  "hash_matches_expected": false,
+                  "lookup_ids_change_vs_canonical": true,
+                  "canonical_prompt_seed_hash_ids": [
+                    71,
+                    191,
+                    252
+                  ],
+                  "canonical_prompt_seed_hash_matches": true
+                },
+                {
+                  "position": 143835,
+                  "expected_history": [
+                    206,
+                    169,
+                    132,
+                    95
+                  ],
+                  "mirror_history": [
+                    206,
+                    169,
+                    532,
+                    495
+                  ],
+                  "history_sources": [
+                    "replay_write",
+                    "replay_write",
+                    "stale_or_unverified_page_value",
+                    "stale_or_unverified_page_value"
+                  ],
+                  "canonical_prompt_seed_history": [
+                    206,
+                    169,
+                    132,
+                    95
+                  ],
+                  "canonical_prompt_seed_sources": [
+                    "replay_write",
+                    "replay_write",
+                    "canonical_prompt_control",
+                    "canonical_prompt_control"
+                  ],
+                  "expected_hash_ids": [
+                    93,
+                    182,
+                    309
+                  ],
+                  "mirror_hash_ids": [
+                    93,
+                    198,
+                    250
+                  ],
+                  "hash_matches_expected": false,
+                  "lookup_ids_change_vs_canonical": true,
+                  "canonical_prompt_seed_hash_ids": [
+                    93,
+                    182,
+                    309
+                  ],
+                  "canonical_prompt_seed_hash_matches": true
+                },
+                {
+                  "position": 143836,
+                  "expected_history": [
+                    256,
+                    206,
+                    169,
+                    132
+                  ],
+                  "mirror_history": [
+                    256,
+                    206,
+                    169,
+                    532
+                  ],
+                  "history_sources": [
+                    "replay_write",
+                    "replay_write",
+                    "replay_write",
+                    "stale_or_unverified_page_value"
+                  ],
+                  "canonical_prompt_seed_history": [
+                    256,
+                    206,
+                    169,
+                    132
+                  ],
+                  "canonical_prompt_seed_sources": [
+                    "replay_write",
+                    "replay_write",
+                    "replay_write",
+                    "canonical_prompt_control"
+                  ],
+                  "expected_hash_ids": [
+                    81,
+                    198,
+                    295
+                  ],
+                  "mirror_hash_ids": [
+                    81,
+                    198,
+                    299
+                  ],
+                  "hash_matches_expected": false,
+                  "lookup_ids_change_vs_canonical": true,
+                  "canonical_prompt_seed_hash_ids": [
+                    81,
+                    198,
+                    295
+                  ],
+                  "canonical_prompt_seed_hash_matches": true
+                },
+                {
+                  "position": 143837,
+                  "expected_history": [
+                    293,
+                    256,
+                    206,
+                    169
+                  ],
+                  "mirror_history": [
+                    293,
+                    256,
+                    206,
+                    169
+                  ],
+                  "history_sources": [
+                    "replay_write",
+                    "replay_write",
+                    "replay_write",
+                    "replay_write"
+                  ],
+                  "canonical_prompt_seed_history": [
+                    293,
+                    256,
+                    206,
+                    169
+                  ],
+                  "canonical_prompt_seed_sources": [
+                    "replay_write",
+                    "replay_write",
+                    "replay_write",
+                    "replay_write"
+                  ],
+                  "expected_hash_ids": [
+                    31,
+                    147,
+                    300
+                  ],
+                  "mirror_hash_ids": [
+                    31,
+                    147,
+                    300
+                  ],
+                  "hash_matches_expected": true,
+                  "lookup_ids_change_vs_canonical": false,
+                  "canonical_prompt_seed_hash_ids": [
+                    31,
+                    147,
+                    300
+                  ],
+                  "canonical_prompt_seed_hash_matches": true
+                }
+              ]
+            },
+            {
+              "request_index": 3,
+              "prompt_seed": 41,
+              "replay_physical_page": 8823,
+              "replay_start_mod_block": 90,
+              "rows": [
+                {
+                  "position": 143834,
+                  "expected_history": [
+                    744,
+                    707,
+                    670,
+                    633
+                  ],
+                  "mirror_history": [
+                    744,
+                    532,
+                    495,
+                    458
+                  ],
+                  "history_sources": [
+                    "replay_write",
+                    "stale_or_unverified_page_value",
+                    "stale_or_unverified_page_value",
+                    "stale_or_unverified_page_value"
+                  ],
+                  "canonical_prompt_seed_history": [
+                    744,
+                    707,
+                    670,
+                    633
+                  ],
+                  "canonical_prompt_seed_sources": [
+                    "replay_write",
+                    "canonical_prompt_control",
+                    "canonical_prompt_control",
+                    "canonical_prompt_control"
+                  ],
+                  "expected_hash_ids": [
+                    86,
+                    155,
+                    302
+                  ],
+                  "mirror_hash_ids": [
+                    25,
+                    112,
+                    240
+                  ],
+                  "hash_matches_expected": false,
+                  "lookup_ids_change_vs_canonical": true,
+                  "canonical_prompt_seed_hash_ids": [
+                    86,
+                    155,
+                    302
+                  ],
+                  "canonical_prompt_seed_hash_matches": true
+                },
+                {
+                  "position": 143835,
+                  "expected_history": [
+                    781,
+                    744,
+                    707,
+                    670
+                  ],
+                  "mirror_history": [
+                    781,
+                    744,
+                    532,
+                    495
+                  ],
+                  "history_sources": [
+                    "replay_write",
+                    "replay_write",
+                    "stale_or_unverified_page_value",
+                    "stale_or_unverified_page_value"
+                  ],
+                  "canonical_prompt_seed_history": [
+                    781,
+                    744,
+                    707,
+                    670
+                  ],
+                  "canonical_prompt_seed_sources": [
+                    "replay_write",
+                    "replay_write",
+                    "canonical_prompt_control",
+                    "canonical_prompt_control"
+                  ],
+                  "expected_hash_ids": [
+                    48,
+                    115,
+                    267
+                  ],
+                  "mirror_hash_ids": [
+                    48,
+                    174,
+                    305
+                  ],
+                  "hash_matches_expected": false,
+                  "lookup_ids_change_vs_canonical": true,
+                  "canonical_prompt_seed_hash_ids": [
+                    48,
+                    115,
+                    267
+                  ],
+                  "canonical_prompt_seed_hash_matches": true
+                },
+                {
+                  "position": 143836,
+                  "expected_history": [
+                    831,
+                    781,
+                    744,
+                    707
+                  ],
+                  "mirror_history": [
+                    831,
+                    781,
+                    744,
+                    532
+                  ],
+                  "history_sources": [
+                    "replay_write",
+                    "replay_write",
+                    "replay_write",
+                    "stale_or_unverified_page_value"
+                  ],
+                  "canonical_prompt_seed_history": [
+                    831,
+                    781,
+                    744,
+                    707
+                  ],
+                  "canonical_prompt_seed_sources": [
+                    "replay_write",
+                    "replay_write",
+                    "replay_write",
+                    "canonical_prompt_control"
+                  ],
+                  "expected_hash_ids": [
+                    71,
+                    135,
+                    263
+                  ],
+                  "mirror_hash_ids": [
+                    71,
+                    135,
+                    278
+                  ],
+                  "hash_matches_expected": false,
+                  "lookup_ids_change_vs_canonical": true,
+                  "canonical_prompt_seed_hash_ids": [
+                    71,
+                    135,
+                    263
+                  ],
+                  "canonical_prompt_seed_hash_matches": true
+                },
+                {
+                  "position": 143837,
+                  "expected_history": [
+                    868,
+                    831,
+                    781,
+                    744
+                  ],
+                  "mirror_history": [
+                    868,
+                    831,
+                    781,
+                    744
+                  ],
+                  "history_sources": [
+                    "replay_write",
+                    "replay_write",
+                    "replay_write",
+                    "replay_write"
+                  ],
+                  "canonical_prompt_seed_history": [
+                    868,
+                    831,
+                    781,
+                    744
+                  ],
+                  "canonical_prompt_seed_sources": [
+                    "replay_write",
+                    "replay_write",
+                    "replay_write",
+                    "replay_write"
+                  ],
+                  "expected_hash_ids": [
+                    13,
+                    103,
+                    307
+                  ],
+                  "mirror_hash_ids": [
+                    13,
+                    103,
+                    307
+                  ],
+                  "hash_matches_expected": true,
+                  "lookup_ids_change_vs_canonical": false,
+                  "canonical_prompt_seed_hash_ids": [
+                    13,
+                    103,
+                    307
+                  ],
+                  "canonical_prompt_seed_hash_matches": true
+                }
+              ]
+            },
+            {
+              "request_index": 4,
+              "prompt_seed": 53,
+              "replay_physical_page": 8823,
+              "replay_start_mod_block": 90,
+              "rows": [
+                {
+                  "position": 143834,
+                  "expected_history": [
+                    322,
+                    285,
+                    248,
+                    211
+                  ],
+                  "mirror_history": [
+                    322,
+                    532,
+                    495,
+                    458
+                  ],
+                  "history_sources": [
+                    "replay_write",
+                    "stale_or_unverified_page_value",
+                    "stale_or_unverified_page_value",
+                    "stale_or_unverified_page_value"
+                  ],
+                  "canonical_prompt_seed_history": [
+                    322,
+                    285,
+                    248,
+                    211
+                  ],
+                  "canonical_prompt_seed_sources": [
+                    "replay_write",
+                    "canonical_prompt_control",
+                    "canonical_prompt_control",
+                    "canonical_prompt_control"
+                  ],
+                  "expected_hash_ids": [
+                    7,
+                    157,
+                    296
+                  ],
+                  "mirror_hash_ids": [
+                    42,
+                    138,
+                    233
+                  ],
+                  "hash_matches_expected": false,
+                  "lookup_ids_change_vs_canonical": true,
+                  "canonical_prompt_seed_hash_ids": [
+                    7,
+                    157,
+                    296
+                  ],
+                  "canonical_prompt_seed_hash_matches": true
+                },
+                {
+                  "position": 143835,
+                  "expected_history": [
+                    359,
+                    322,
+                    285,
+                    248
+                  ],
+                  "mirror_history": [
+                    359,
+                    322,
+                    532,
+                    495
+                  ],
+                  "history_sources": [
+                    "replay_write",
+                    "replay_write",
+                    "stale_or_unverified_page_value",
+                    "stale_or_unverified_page_value"
+                  ],
+                  "canonical_prompt_seed_history": [
+                    359,
+                    322,
+                    285,
+                    248
+                  ],
+                  "canonical_prompt_seed_sources": [
+                    "replay_write",
+                    "replay_write",
+                    "canonical_prompt_control",
+                    "canonical_prompt_control"
+                  ],
+                  "expected_hash_ids": [
+                    33,
+                    119,
+                    220
+                  ],
+                  "mirror_hash_ids": [
+                    33,
+                    120,
+                    259
+                  ],
+                  "hash_matches_expected": false,
+                  "lookup_ids_change_vs_canonical": true,
+                  "canonical_prompt_seed_hash_ids": [
+                    33,
+                    119,
+                    220
+                  ],
+                  "canonical_prompt_seed_hash_matches": true
+                },
+                {
+                  "position": 143836,
+                  "expected_history": [
+                    409,
+                    359,
+                    322,
+                    285
+                  ],
+                  "mirror_history": [
+                    409,
+                    359,
+                    322,
+                    532
+                  ],
+                  "history_sources": [
+                    "replay_write",
+                    "replay_write",
+                    "replay_write",
+                    "stale_or_unverified_page_value"
+                  ],
+                  "canonical_prompt_seed_history": [
+                    409,
+                    359,
+                    322,
+                    285
+                  ],
+                  "canonical_prompt_seed_sources": [
+                    "replay_write",
+                    "replay_write",
+                    "replay_write",
+                    "canonical_prompt_control"
+                  ],
+                  "expected_hash_ids": [
+                    59,
+                    142,
+                    234
+                  ],
+                  "mirror_hash_ids": [
+                    59,
+                    142,
+                    249
+                  ],
+                  "hash_matches_expected": false,
+                  "lookup_ids_change_vs_canonical": true,
+                  "canonical_prompt_seed_hash_ids": [
+                    59,
+                    142,
+                    234
+                  ],
+                  "canonical_prompt_seed_hash_matches": true
+                },
+                {
+                  "position": 143837,
+                  "expected_history": [
+                    446,
+                    409,
+                    359,
+                    322
+                  ],
+                  "mirror_history": [
+                    446,
+                    409,
+                    359,
+                    322
+                  ],
+                  "history_sources": [
+                    "replay_write",
+                    "replay_write",
+                    "replay_write",
+                    "replay_write"
+                  ],
+                  "canonical_prompt_seed_history": [
+                    446,
+                    409,
+                    359,
+                    322
+                  ],
+                  "canonical_prompt_seed_sources": [
+                    "replay_write",
+                    "replay_write",
+                    "replay_write",
+                    "replay_write"
+                  ],
+                  "expected_hash_ids": [
+                    4,
+                    158,
+                    220
+                  ],
+                  "mirror_hash_ids": [
+                    4,
+                    158,
+                    220
+                  ],
+                  "hash_matches_expected": true,
+                  "lookup_ids_change_vs_canonical": false,
+                  "canonical_prompt_seed_hash_ids": [
+                    4,
+                    158,
+                    220
+                  ],
+                  "canonical_prompt_seed_hash_matches": true
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "arm": "canonical_prompt_seed",
+          "page_state": "old owner page retained",
+          "canonical_prestart_seed_enabled": true,
+          "requests": [
+            {
+              "request_index": 1,
+              "prompt_seed": 17,
+              "replay_physical_page": 8823,
+              "replay_start_mod_block": 90,
+              "rows": [
+                {
+                  "position": 143834,
+                  "expected_history": [
+                    591,
+                    554,
+                    517,
+                    480
+                  ],
+                  "mirror_history": [
+                    591,
+                    554,
+                    517,
+                    480
+                  ],
+                  "history_sources": [
+                    "replay_write",
+                    "canonical_prompt_control",
+                    "canonical_prompt_control",
+                    "canonical_prompt_control"
+                  ],
+                  "canonical_prompt_seed_history": [
+                    591,
+                    554,
+                    517,
+                    480
+                  ],
+                  "canonical_prompt_seed_sources": [
+                    "replay_write",
+                    "canonical_prompt_control",
+                    "canonical_prompt_control",
+                    "canonical_prompt_control"
+                  ],
+                  "expected_hash_ids": [
+                    4,
+                    126,
+                    246
+                  ],
+                  "mirror_hash_ids": [
+                    4,
+                    126,
+                    246
+                  ],
+                  "hash_matches_expected": true,
+                  "lookup_ids_change_vs_canonical": false,
+                  "canonical_prompt_seed_hash_ids": [
+                    4,
+                    126,
+                    246
+                  ],
+                  "canonical_prompt_seed_hash_matches": true
+                },
+                {
+                  "position": 143835,
+                  "expected_history": [
+                    628,
+                    591,
+                    554,
+                    517
+                  ],
+                  "mirror_history": [
+                    628,
+                    591,
+                    554,
+                    517
+                  ],
+                  "history_sources": [
+                    "replay_write",
+                    "replay_write",
+                    "canonical_prompt_control",
+                    "canonical_prompt_control"
+                  ],
+                  "canonical_prompt_seed_history": [
+                    628,
+                    591,
+                    554,
+                    517
+                  ],
+                  "canonical_prompt_seed_sources": [
+                    "replay_write",
+                    "replay_write",
+                    "canonical_prompt_control",
+                    "canonical_prompt_control"
+                  ],
+                  "expected_hash_ids": [
+                    55,
+                    183,
+                    214
+                  ],
+                  "mirror_hash_ids": [
+                    55,
+                    183,
+                    214
+                  ],
+                  "hash_matches_expected": true,
+                  "lookup_ids_change_vs_canonical": false,
+                  "canonical_prompt_seed_hash_ids": [
+                    55,
+                    183,
+                    214
+                  ],
+                  "canonical_prompt_seed_hash_matches": true
+                },
+                {
+                  "position": 143836,
+                  "expected_history": [
+                    678,
+                    628,
+                    591,
+                    554
+                  ],
+                  "mirror_history": [
+                    678,
+                    628,
+                    591,
+                    554
+                  ],
+                  "history_sources": [
+                    "replay_write",
+                    "replay_write",
+                    "replay_write",
+                    "canonical_prompt_control"
+                  ],
+                  "canonical_prompt_seed_history": [
+                    678,
+                    628,
+                    591,
+                    554
+                  ],
+                  "canonical_prompt_seed_sources": [
+                    "replay_write",
+                    "replay_write",
+                    "replay_write",
+                    "canonical_prompt_control"
+                  ],
+                  "expected_hash_ids": [
+                    69,
+                    168,
+                    254
+                  ],
+                  "mirror_hash_ids": [
+                    69,
+                    168,
+                    254
+                  ],
+                  "hash_matches_expected": true,
+                  "lookup_ids_change_vs_canonical": false,
+                  "canonical_prompt_seed_hash_ids": [
+                    69,
+                    168,
+                    254
+                  ],
+                  "canonical_prompt_seed_hash_matches": true
+                },
+                {
+                  "position": 143837,
+                  "expected_history": [
+                    715,
+                    678,
+                    628,
+                    591
+                  ],
+                  "mirror_history": [
+                    715,
+                    678,
+                    628,
+                    591
+                  ],
+                  "history_sources": [
+                    "replay_write",
+                    "replay_write",
+                    "replay_write",
+                    "replay_write"
+                  ],
+                  "canonical_prompt_seed_history": [
+                    715,
+                    678,
+                    628,
+                    591
+                  ],
+                  "canonical_prompt_seed_sources": [
+                    "replay_write",
+                    "replay_write",
+                    "replay_write",
+                    "replay_write"
+                  ],
+                  "expected_hash_ids": [
+                    62,
+                    186,
+                    237
+                  ],
+                  "mirror_hash_ids": [
+                    62,
+                    186,
+                    237
+                  ],
+                  "hash_matches_expected": true,
+                  "lookup_ids_change_vs_canonical": false,
+                  "canonical_prompt_seed_hash_ids": [
+                    62,
+                    186,
+                    237
+                  ],
+                  "canonical_prompt_seed_hash_matches": true
+                }
+              ]
+            },
+            {
+              "request_index": 2,
+              "prompt_seed": 29,
+              "replay_physical_page": 8823,
+              "replay_start_mod_block": 90,
+              "rows": [
+                {
+                  "position": 143834,
+                  "expected_history": [
+                    169,
+                    132,
+                    95,
+                    58
+                  ],
+                  "mirror_history": [
+                    169,
+                    132,
+                    95,
+                    58
+                  ],
+                  "history_sources": [
+                    "replay_write",
+                    "canonical_prompt_control",
+                    "canonical_prompt_control",
+                    "canonical_prompt_control"
+                  ],
+                  "canonical_prompt_seed_history": [
+                    169,
+                    132,
+                    95,
+                    58
+                  ],
+                  "canonical_prompt_seed_sources": [
+                    "replay_write",
+                    "canonical_prompt_control",
+                    "canonical_prompt_control",
+                    "canonical_prompt_control"
+                  ],
+                  "expected_hash_ids": [
+                    71,
+                    191,
+                    252
+                  ],
+                  "mirror_hash_ids": [
+                    71,
+                    191,
+                    252
+                  ],
+                  "hash_matches_expected": true,
+                  "lookup_ids_change_vs_canonical": false,
+                  "canonical_prompt_seed_hash_ids": [
+                    71,
+                    191,
+                    252
+                  ],
+                  "canonical_prompt_seed_hash_matches": true
+                },
+                {
+                  "position": 143835,
+                  "expected_history": [
+                    206,
+                    169,
+                    132,
+                    95
+                  ],
+                  "mirror_history": [
+                    206,
+                    169,
+                    132,
+                    95
+                  ],
+                  "history_sources": [
+                    "replay_write",
+                    "replay_write",
+                    "canonical_prompt_control",
+                    "canonical_prompt_control"
+                  ],
+                  "canonical_prompt_seed_history": [
+                    206,
+                    169,
+                    132,
+                    95
+                  ],
+                  "canonical_prompt_seed_sources": [
+                    "replay_write",
+                    "replay_write",
+                    "canonical_prompt_control",
+                    "canonical_prompt_control"
+                  ],
+                  "expected_hash_ids": [
+                    93,
+                    182,
+                    309
+                  ],
+                  "mirror_hash_ids": [
+                    93,
+                    182,
+                    309
+                  ],
+                  "hash_matches_expected": true,
+                  "lookup_ids_change_vs_canonical": false,
+                  "canonical_prompt_seed_hash_ids": [
+                    93,
+                    182,
+                    309
+                  ],
+                  "canonical_prompt_seed_hash_matches": true
+                },
+                {
+                  "position": 143836,
+                  "expected_history": [
+                    256,
+                    206,
+                    169,
+                    132
+                  ],
+                  "mirror_history": [
+                    256,
+                    206,
+                    169,
+                    132
+                  ],
+                  "history_sources": [
+                    "replay_write",
+                    "replay_write",
+                    "replay_write",
+                    "canonical_prompt_control"
+                  ],
+                  "canonical_prompt_seed_history": [
+                    256,
+                    206,
+                    169,
+                    132
+                  ],
+                  "canonical_prompt_seed_sources": [
+                    "replay_write",
+                    "replay_write",
+                    "replay_write",
+                    "canonical_prompt_control"
+                  ],
+                  "expected_hash_ids": [
+                    81,
+                    198,
+                    295
+                  ],
+                  "mirror_hash_ids": [
+                    81,
+                    198,
+                    295
+                  ],
+                  "hash_matches_expected": true,
+                  "lookup_ids_change_vs_canonical": false,
+                  "canonical_prompt_seed_hash_ids": [
+                    81,
+                    198,
+                    295
+                  ],
+                  "canonical_prompt_seed_hash_matches": true
+                },
+                {
+                  "position": 143837,
+                  "expected_history": [
+                    293,
+                    256,
+                    206,
+                    169
+                  ],
+                  "mirror_history": [
+                    293,
+                    256,
+                    206,
+                    169
+                  ],
+                  "history_sources": [
+                    "replay_write",
+                    "replay_write",
+                    "replay_write",
+                    "replay_write"
+                  ],
+                  "canonical_prompt_seed_history": [
+                    293,
+                    256,
+                    206,
+                    169
+                  ],
+                  "canonical_prompt_seed_sources": [
+                    "replay_write",
+                    "replay_write",
+                    "replay_write",
+                    "replay_write"
+                  ],
+                  "expected_hash_ids": [
+                    31,
+                    147,
+                    300
+                  ],
+                  "mirror_hash_ids": [
+                    31,
+                    147,
+                    300
+                  ],
+                  "hash_matches_expected": true,
+                  "lookup_ids_change_vs_canonical": false,
+                  "canonical_prompt_seed_hash_ids": [
+                    31,
+                    147,
+                    300
+                  ],
+                  "canonical_prompt_seed_hash_matches": true
+                }
+              ]
+            },
+            {
+              "request_index": 3,
+              "prompt_seed": 41,
+              "replay_physical_page": 8823,
+              "replay_start_mod_block": 90,
+              "rows": [
+                {
+                  "position": 143834,
+                  "expected_history": [
+                    744,
+                    707,
+                    670,
+                    633
+                  ],
+                  "mirror_history": [
+                    744,
+                    707,
+                    670,
+                    633
+                  ],
+                  "history_sources": [
+                    "replay_write",
+                    "canonical_prompt_control",
+                    "canonical_prompt_control",
+                    "canonical_prompt_control"
+                  ],
+                  "canonical_prompt_seed_history": [
+                    744,
+                    707,
+                    670,
+                    633
+                  ],
+                  "canonical_prompt_seed_sources": [
+                    "replay_write",
+                    "canonical_prompt_control",
+                    "canonical_prompt_control",
+                    "canonical_prompt_control"
+                  ],
+                  "expected_hash_ids": [
+                    86,
+                    155,
+                    302
+                  ],
+                  "mirror_hash_ids": [
+                    86,
+                    155,
+                    302
+                  ],
+                  "hash_matches_expected": true,
+                  "lookup_ids_change_vs_canonical": false,
+                  "canonical_prompt_seed_hash_ids": [
+                    86,
+                    155,
+                    302
+                  ],
+                  "canonical_prompt_seed_hash_matches": true
+                },
+                {
+                  "position": 143835,
+                  "expected_history": [
+                    781,
+                    744,
+                    707,
+                    670
+                  ],
+                  "mirror_history": [
+                    781,
+                    744,
+                    707,
+                    670
+                  ],
+                  "history_sources": [
+                    "replay_write",
+                    "replay_write",
+                    "canonical_prompt_control",
+                    "canonical_prompt_control"
+                  ],
+                  "canonical_prompt_seed_history": [
+                    781,
+                    744,
+                    707,
+                    670
+                  ],
+                  "canonical_prompt_seed_sources": [
+                    "replay_write",
+                    "replay_write",
+                    "canonical_prompt_control",
+                    "canonical_prompt_control"
+                  ],
+                  "expected_hash_ids": [
+                    48,
+                    115,
+                    267
+                  ],
+                  "mirror_hash_ids": [
+                    48,
+                    115,
+                    267
+                  ],
+                  "hash_matches_expected": true,
+                  "lookup_ids_change_vs_canonical": false,
+                  "canonical_prompt_seed_hash_ids": [
+                    48,
+                    115,
+                    267
+                  ],
+                  "canonical_prompt_seed_hash_matches": true
+                },
+                {
+                  "position": 143836,
+                  "expected_history": [
+                    831,
+                    781,
+                    744,
+                    707
+                  ],
+                  "mirror_history": [
+                    831,
+                    781,
+                    744,
+                    707
+                  ],
+                  "history_sources": [
+                    "replay_write",
+                    "replay_write",
+                    "replay_write",
+                    "canonical_prompt_control"
+                  ],
+                  "canonical_prompt_seed_history": [
+                    831,
+                    781,
+                    744,
+                    707
+                  ],
+                  "canonical_prompt_seed_sources": [
+                    "replay_write",
+                    "replay_write",
+                    "replay_write",
+                    "canonical_prompt_control"
+                  ],
+                  "expected_hash_ids": [
+                    71,
+                    135,
+                    263
+                  ],
+                  "mirror_hash_ids": [
+                    71,
+                    135,
+                    263
+                  ],
+                  "hash_matches_expected": true,
+                  "lookup_ids_change_vs_canonical": false,
+                  "canonical_prompt_seed_hash_ids": [
+                    71,
+                    135,
+                    263
+                  ],
+                  "canonical_prompt_seed_hash_matches": true
+                },
+                {
+                  "position": 143837,
+                  "expected_history": [
+                    868,
+                    831,
+                    781,
+                    744
+                  ],
+                  "mirror_history": [
+                    868,
+                    831,
+                    781,
+                    744
+                  ],
+                  "history_sources": [
+                    "replay_write",
+                    "replay_write",
+                    "replay_write",
+                    "replay_write"
+                  ],
+                  "canonical_prompt_seed_history": [
+                    868,
+                    831,
+                    781,
+                    744
+                  ],
+                  "canonical_prompt_seed_sources": [
+                    "replay_write",
+                    "replay_write",
+                    "replay_write",
+                    "replay_write"
+                  ],
+                  "expected_hash_ids": [
+                    13,
+                    103,
+                    307
+                  ],
+                  "mirror_hash_ids": [
+                    13,
+                    103,
+                    307
+                  ],
+                  "hash_matches_expected": true,
+                  "lookup_ids_change_vs_canonical": false,
+                  "canonical_prompt_seed_hash_ids": [
+                    13,
+                    103,
+                    307
+                  ],
+                  "canonical_prompt_seed_hash_matches": true
+                }
+              ]
+            },
+            {
+              "request_index": 4,
+              "prompt_seed": 53,
+              "replay_physical_page": 8823,
+              "replay_start_mod_block": 90,
+              "rows": [
+                {
+                  "position": 143834,
+                  "expected_history": [
+                    322,
+                    285,
+                    248,
+                    211
+                  ],
+                  "mirror_history": [
+                    322,
+                    285,
+                    248,
+                    211
+                  ],
+                  "history_sources": [
+                    "replay_write",
+                    "canonical_prompt_control",
+                    "canonical_prompt_control",
+                    "canonical_prompt_control"
+                  ],
+                  "canonical_prompt_seed_history": [
+                    322,
+                    285,
+                    248,
+                    211
+                  ],
+                  "canonical_prompt_seed_sources": [
+                    "replay_write",
+                    "canonical_prompt_control",
+                    "canonical_prompt_control",
+                    "canonical_prompt_control"
+                  ],
+                  "expected_hash_ids": [
+                    7,
+                    157,
+                    296
+                  ],
+                  "mirror_hash_ids": [
+                    7,
+                    157,
+                    296
+                  ],
+                  "hash_matches_expected": true,
+                  "lookup_ids_change_vs_canonical": false,
+                  "canonical_prompt_seed_hash_ids": [
+                    7,
+                    157,
+                    296
+                  ],
+                  "canonical_prompt_seed_hash_matches": true
+                },
+                {
+                  "position": 143835,
+                  "expected_history": [
+                    359,
+                    322,
+                    285,
+                    248
+                  ],
+                  "mirror_history": [
+                    359,
+                    322,
+                    285,
+                    248
+                  ],
+                  "history_sources": [
+                    "replay_write",
+                    "replay_write",
+                    "canonical_prompt_control",
+                    "canonical_prompt_control"
+                  ],
+                  "canonical_prompt_seed_history": [
+                    359,
+                    322,
+                    285,
+                    248
+                  ],
+                  "canonical_prompt_seed_sources": [
+                    "replay_write",
+                    "replay_write",
+                    "canonical_prompt_control",
+                    "canonical_prompt_control"
+                  ],
+                  "expected_hash_ids": [
+                    33,
+                    119,
+                    220
+                  ],
+                  "mirror_hash_ids": [
+                    33,
+                    119,
+                    220
+                  ],
+                  "hash_matches_expected": true,
+                  "lookup_ids_change_vs_canonical": false,
+                  "canonical_prompt_seed_hash_ids": [
+                    33,
+                    119,
+                    220
+                  ],
+                  "canonical_prompt_seed_hash_matches": true
+                },
+                {
+                  "position": 143836,
+                  "expected_history": [
+                    409,
+                    359,
+                    322,
+                    285
+                  ],
+                  "mirror_history": [
+                    409,
+                    359,
+                    322,
+                    285
+                  ],
+                  "history_sources": [
+                    "replay_write",
+                    "replay_write",
+                    "replay_write",
+                    "canonical_prompt_control"
+                  ],
+                  "canonical_prompt_seed_history": [
+                    409,
+                    359,
+                    322,
+                    285
+                  ],
+                  "canonical_prompt_seed_sources": [
+                    "replay_write",
+                    "replay_write",
+                    "replay_write",
+                    "canonical_prompt_control"
+                  ],
+                  "expected_hash_ids": [
+                    59,
+                    142,
+                    234
+                  ],
+                  "mirror_hash_ids": [
+                    59,
+                    142,
+                    234
+                  ],
+                  "hash_matches_expected": true,
+                  "lookup_ids_change_vs_canonical": false,
+                  "canonical_prompt_seed_hash_ids": [
+                    59,
+                    142,
+                    234
+                  ],
+                  "canonical_prompt_seed_hash_matches": true
+                },
+                {
+                  "position": 143837,
+                  "expected_history": [
+                    446,
+                    409,
+                    359,
+                    322
+                  ],
+                  "mirror_history": [
+                    446,
+                    409,
+                    359,
+                    322
+                  ],
+                  "history_sources": [
+                    "replay_write",
+                    "replay_write",
+                    "replay_write",
+                    "replay_write"
+                  ],
+                  "canonical_prompt_seed_history": [
+                    446,
+                    409,
+                    359,
+                    322
+                  ],
+                  "canonical_prompt_seed_sources": [
+                    "replay_write",
+                    "replay_write",
+                    "replay_write",
+                    "replay_write"
+                  ],
+                  "expected_hash_ids": [
+                    4,
+                    158,
+                    220
+                  ],
+                  "mirror_hash_ids": [
+                    4,
+                    158,
+                    220
+                  ],
+                  "hash_matches_expected": true,
+                  "lookup_ids_change_vs_canonical": false,
+                  "canonical_prompt_seed_hash_ids": [
+                    4,
+                    158,
+                    220
+                  ],
+                  "canonical_prompt_seed_hash_matches": true
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

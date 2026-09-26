@@ -49,14 +49,26 @@ def _engram_gate_rotation_f32(rotation):
 # [ENGRAM-GATE-HOIST] ----------------------------------------------------
 
 import torch
+import numpy as _np
 
 _ENGRAM_WITH_DUMMY = _os_egd.environ.get("V41_ENGRAM_WITH_DUMMY", "0") == "1"
 _ENGRAM_PAD_SKIP = _os_egd.environ.get("V41_ENGRAM_PAD_SKIP", "0") == "1"
 
 _IDS64_HOIST = _os_ids.environ.get("V41_IDS64_HOIST", "0") == "1"
+_CED_PREFILL_ROLE = _os_ids.environ.get("V41_CED_ROLE", "") == "prefill"
+_CED_H20_SNAPSHOT_POS = _os_ids.environ.get("V41_CED_H20_SNAPSHOT_POS", "")
+_CED_H20_SNAPSHOT_DIR = _os_ids.environ.get("V41_CED_H20_SNAPSHOT_DIR", "")
+_CED_LAYER_SNAPSHOT_POS = _os_ids.environ.get("V41_CED_LAYER_SNAPSHOT_POS", "")
+_CED_LAYER_SNAPSHOT_DIR = _os_ids.environ.get("V41_CED_LAYER_SNAPSHOT_DIR", "")
+_CED_LAYER_SNAPSHOT_LAYERS = {
+    int(value)
+    for value in _os_ids.environ.get("V41_CED_LAYER_SNAPSHOT_LAYERS", "0,1,2,13,14,15,19,20").split(",")
+    if value.strip()
+}
+_CED_CAPTURE_DECODE = _os_ids.environ.get("V41_CED_CAPTURE_DECODE", "0") == "1"
 from safetensors import safe_open
 from transformers import AutoTokenizer
-from vllm.distributed import get_pp_group
+from vllm.distributed import get_pp_group, get_tensor_model_parallel_rank
 from vllm.forward_context import get_forward_context
 
 from vllm_ascend.ascend_config import get_ascend_config
@@ -82,6 +94,106 @@ from .compressor import DeepseekV41Compressor, _read, text_config_of
 from .engram_gate import engram_gate
 from .engram_hash import PagedNgramHistory
 from .engram_hbm import EngramQueryGroup, NodeShardedEngram
+
+
+def _maybe_snapshot_ced_h20(layer, positions, hidden_states, pre_mix):
+    """Export the exact layer-20 input row for an isolated numeric comparison.
+
+    H20 includes the mHC streams and their FP32 mixing coefficients.  The
+    diagnostic is opt-in and reads one active prefill row outside graph capture.
+    It does not change either tensor or the model's forward result.
+    """
+    if not _CED_H20_SNAPSHOT_POS or not _CED_H20_SNAPSHOT_DIR:
+        return
+    context = get_forward_context()
+    if (
+        context.attn_metadata is None
+        or getattr(context, "capturing", False)
+        or getattr(context, "in_profile_run", False)
+    ):
+        return
+    metadata = layer.self_attn.v41_impl._get_layer_metadata(context.attn_metadata)
+    if metadata.swa.num_prefills == 0 and not _CED_CAPTURE_DECODE:
+        return
+    target = int(_CED_H20_SNAPSHOT_POS)
+    active = metadata.swa.num_actual_tokens
+    found = (positions[:active] == target).nonzero(as_tuple=False).flatten().cpu().tolist()
+    if not found:
+        return
+    if len(found) != 1:
+        raise RuntimeError(f"CED H20 snapshot position {target} appears {len(found)} times")
+    rank = get_tensor_model_parallel_rank()
+    output_dir = Path(_CED_H20_SNAPSHOT_DIR)
+    output_dir.mkdir(parents=True, exist_ok=True)
+    output = output_dir / f"rank{rank}_pos{target}.npz"
+    if output.exists():
+        return
+    row = found[0]
+    _np.savez_compressed(
+        output,
+        position=target,
+        rank=rank,
+        role=_os_ids.environ.get("V41_CED_ROLE", "baseline"),
+        hidden_states=hidden_states[row].detach().float().cpu().numpy().copy(),
+        pre_mix=pre_mix[row].detach().float().cpu().numpy().copy(),
+    )
+    print(f"[CED-H20] snapshot rank={rank} position={target} path={output}", flush=True)
+
+
+def _maybe_snapshot_ced_layer(
+    layer, positions, input_ids, hidden_states, pre_mix, stage, lookup=None, token_mask=None
+):
+    """Capture one active token around selected encoder and Engram layers."""
+    if (
+        not _CED_LAYER_SNAPSHOT_POS
+        or not _CED_LAYER_SNAPSHOT_DIR
+        or layer.layer_idx not in _CED_LAYER_SNAPSHOT_LAYERS
+    ):
+        return
+    context = get_forward_context()
+    if (
+        context.attn_metadata is None
+        or getattr(context, "capturing", False)
+        or getattr(context, "in_profile_run", False)
+    ):
+        return
+    metadata = layer.self_attn.v41_impl._get_layer_metadata(context.attn_metadata)
+    if metadata.swa.num_prefills == 0 and not _CED_CAPTURE_DECODE:
+        return
+    target = int(_CED_LAYER_SNAPSHOT_POS)
+    active = metadata.swa.num_actual_tokens
+    found = (positions[:active] == target).nonzero(as_tuple=False).flatten().cpu().tolist()
+    if not found:
+        return
+    if len(found) != 1:
+        raise RuntimeError(f"CED layer snapshot position {target} appears {len(found)} times")
+    rank = get_tensor_model_parallel_rank()
+    output_dir = Path(_CED_LAYER_SNAPSHOT_DIR) / f"rank{rank}"
+    output_dir.mkdir(parents=True, exist_ok=True)
+    output = output_dir / f"layer{layer.layer_idx:02d}_{stage}_pos{target}.npz"
+    if output.exists():
+        return
+    row = found[0]
+    snapshot = dict(
+        position=target,
+        layer=layer.layer_idx,
+        stage=stage,
+        tp_rank=rank,
+        role=_os_ids.environ.get("V41_CED_ROLE", ""),
+        input_id=int(input_ids[row].detach().cpu().item()),
+        hidden_states=hidden_states[row].detach().float().cpu().numpy().copy(),
+        pre_mix=pre_mix[row].detach().float().cpu().numpy().copy(),
+    )
+    if lookup is not None:
+        snapshot["engram_lookup"] = lookup[row].detach().float().cpu().numpy().copy()
+    if token_mask is not None:
+        snapshot["engram_token_mask"] = bool(token_mask[row].detach().cpu().item())
+    _np.savez_compressed(output, **snapshot)
+    print(
+        f"[CED-LAYER] snapshot rank={rank} layer={layer.layer_idx} "
+        f"stage={stage} position={target} path={output}",
+        flush=True,
+    )
 
 # ==== [DEVICE-INDEX] Engram 端到端设备化 =====================================
 # V41_ENGRAM_DEVICE_INDEX=1 时，查表不再经过 host：
@@ -617,6 +729,36 @@ class DeepseekV41Attention(DeepseekV4Attention):
         torch.ops.vllm.dsa_v41_forward(hidden_states, output, self.v41_layer_name)
         return output
 
+    def write_global_source_only(self, normalized_hidden_states):
+        """Write layer 20's CSA2 source without running its query or attention.
+
+        CED prefill obtains this layer's main KV and Indexer K from the final
+        encoder state.  Reuse the regular attention implementation's writer so
+        the cache layout, RoPE and slot mapping stay identical.  This method
+        deliberately produces no SWA KV, attention output or logits; callers
+        must use it only inside a dedicated producer phase.
+        """
+        if self.role.layer_idx != 20 or not self.role.is_kv_source or self.role.compress_ratio != 1:
+            raise ValueError("CED source-only write requires the ratio-1 Full layer at index 20")
+        forward_context = get_forward_context()
+        if forward_context.attn_metadata is None:
+            return 0
+        metadata = self.v41_impl._get_layer_metadata(forward_context.attn_metadata)
+        num_tokens = metadata.swa.num_actual_tokens
+        if not num_tokens:
+            return 0
+        positions = metadata.positions[:num_tokens]
+        cos, sin = metadata.rope(self.rotary_emb.layername, num_tokens)
+        self.v41_impl._write_compressed_source(
+            self,
+            normalized_hidden_states[:num_tokens],
+            positions,
+            cos,
+            sin,
+            metadata,
+        )
+        return num_tokens
+
 
 class DeepseekV41DecoderLayer(DeepseekV2DecoderLayer):
     """V4.1 block with the checkpoint's delayed mHC coefficient handoff."""
@@ -669,6 +811,25 @@ class DeepseekV41DecoderLayer(DeepseekV2DecoderLayer):
             comb.unsqueeze(0),
         ).squeeze(0)
 
+    def write_global_source_from_encoder(self, hidden_states, pre_mix):
+        """Project the CED decoder's global source from encoder output H20.
+
+        The normal layer-20 forward feeds ``hc_pre -> input_layernorm`` into
+        attention before writing its source.  Preserve that exact input path;
+        the surrounding layer's SWA, MoE and mHC post are not run here.
+        """
+        if self.layer_idx != 20:
+            raise ValueError("CED decoder source projection belongs to layer 20")
+        x, _, _, _ = self.hc_pre(
+            hidden_states,
+            self.hc_attn_fn,
+            self.hc_attn_scale,
+            self.hc_attn_base,
+            pre_mix,
+        )
+        x = self.input_layernorm(x)
+        return self.self_attn.write_global_source_only(x)
+
     def forward(
         self,
         positions,
@@ -677,6 +838,8 @@ class DeepseekV41DecoderLayer(DeepseekV2DecoderLayer):
         llama_4_scaling=None,
         input_ids=None,
     ):
+        if self.layer_idx >= 20 and _CED_PREFILL_ROLE:
+            raise RuntimeError("CED producer executed a decoder layer instead of source-only projection")
         residual = hidden_states
         x, attn_post, attn_comb, attn_pre = self.hc_pre(
             hidden_states,
@@ -732,6 +895,55 @@ class DeepseekV41Model(DeepseekV4Model):
             self.topk_indices_buffer,
             candidate_buffer,
         )
+        # Experimental producer role. The public P/D proxy discards the P
+        # response; this role must only serve that internal transfer request.
+        # DSpark is disabled until its draft cache has a dedicated D-side
+        # initialization protocol.
+        ced_role = _os_ids.environ.get("V41_CED_ROLE", "")
+        if ced_role not in ("", "prefill", "decode"):
+            raise ValueError(f"Unsupported V41_CED_ROLE={ced_role!r}")
+        self._ced_prefill_only = ced_role == "prefill"
+        # [CED-DSPARK] 2026-09-26：把一刀切禁令按角色拆开。
+        #
+        #   * prefill：**架构性不可行**，永远拒绝。DSpark 的 aux hidden state 取自
+        #     目标层 37/38/39（config.json 的 dspark_target_layer_ids=[37,38,39]
+        #     → eagle3_utils 转成 1-based [38,39,40] → 命中 layer_idx 37/38/39），
+        #     而 CED 的 P 在第 20 层就 break：这三层的残差在 P 上物理不存在。
+        #     runner 又因为 dspark 强制 use_aux_hidden_state_outputs=True 而无条件
+        #     解包两个返回值 ⇒ aux=[] ⇒ 启动即崩。
+        #   * decode：**允许，但必须显式放行**。默认拒绝，与 PREFIX 一样把
+        #     "实验臂"和"交付口径"分开；开了以后结果不能当交付证据。
+        if ced_role == "prefill" and vllm_config.speculative_config is not None:
+            raise ValueError(
+                "V41_CED_ROLE=prefill requires SPEC=0: DSpark consumes the residual "
+                "streams entering target layers 37/38/39, which the layers 0..19 "
+                "producer never executes"
+            )
+        if (
+            ced_role == "decode"
+            and vllm_config.speculative_config is not None
+            and _os_ids.environ.get("V41_CED_ALLOW_DSPARK", "0") != "1"
+        ):
+            raise ValueError(
+                "V41_CED_ROLE=decode with SPEC!=0 is an experimental arm: "
+                "set V41_CED_ALLOW_DSPARK=1 to acknowledge it"
+            )
+        if self._ced_prefill_only:
+            print("[CED-P] internal producer: layers 0..19 plus layer-20 global source; response is a transfer marker", flush=True)
+        # Development gate: compare the isolated CED layer-20 source write with
+        # ordinary layer-20 forwards. A bounded chunk count lets a real long
+        # prefill exercise the 8192-token chunk boundaries without logging
+        # every subsequent request in a long-running service.
+        self._ced_source_compare_remaining = (
+            int(_os_ids.environ.get("V41_CED_SOURCE_COMPARE_CHUNKS", "1"))
+            if _os_ids.environ.get("V41_CED_SOURCE_COMPARE", "0") == "1"
+            else 0
+        )
+        if self._ced_source_compare_remaining < 0:
+            raise ValueError("V41_CED_SOURCE_COMPARE_CHUNKS must be nonnegative")
+        if self._ced_prefill_only and self._ced_source_compare_remaining:
+            raise ValueError("CED source comparison needs the normal layer-20 forward")
+        self._ced_source_compare_count = 0
         for layer in self.layers:
             if isinstance(layer, DeepseekV41DecoderLayer):
                 layer.self_attn.shared_state = self.shared_attention_state
@@ -1231,6 +1443,14 @@ class DeepseekV41Model(DeepseekV4Model):
             # is unchanged, so communication shape/dtype is identical.
             moe_input_ids = moe_input_ids.to(torch.int64)
         for layer in self.layers:
+            if layer.layer_idx == 20:
+                _maybe_snapshot_ced_h20(layer, positions, hidden_states, pre_mix)
+            _maybe_snapshot_ced_layer(
+                layer, positions, input_ids, hidden_states, pre_mix, "pre"
+            )
+            if self._ced_prefill_only and layer.layer_idx == 20:
+                layer.write_global_source_from_encoder(hidden_states, pre_mix)
+                break
             last_layer = layer
             # DSpark consumes the residual stream entering its configured
             # target layers. The runner expresses checkpoint IDs as one-based.
@@ -1253,7 +1473,58 @@ class DeepseekV41Model(DeepseekV4Model):
                     active_mask,
                     self.config.rms_norm_eps,
                 )
+                _maybe_snapshot_ced_layer(
+                    layer, positions, input_ids, hidden_states, pre_mix,
+                    "after_engram", lookup=lookup, token_mask=active_mask,
+                )
+            ced_source_snapshot = None
+            if (
+                self._ced_source_compare_remaining > 0
+                and layer.layer_idx == 20
+                and not getattr(get_forward_context(), "capturing", False)
+                and get_forward_context().attn_metadata is not None
+            ):
+                written = layer.write_global_source_from_encoder(hidden_states, pre_mix)
+                if written:
+                    metadata = layer.self_attn.v41_impl._get_layer_metadata(get_forward_context().attn_metadata)
+                    slots = metadata.compressor.cache.slot_mapping[:written]
+                    # Sample both ends of every chunk: the last rows are the
+                    # ones most likely to cross a block or chunk boundary.
+                    sampled = torch.cat((slots[:8], slots[-8:]), dim=0).cpu().tolist()
+                    rows = list(dict.fromkeys(
+                        (int(block), int(offset))
+                        for block, offset in sampled
+                        if block >= 0 and offset >= 0
+                    ))
+                    if rows:
+                        index_k, index_scale = layer.self_attn.indexer.k_cache.kv_cache[0]
+                        planes = (layer.self_attn.long_kv_cache.kv_cache[0], index_k, index_scale)
+                        before = tuple(tuple(plane[block, offset].detach().clone() for block, offset in rows) for plane in planes)
+                        positions = metadata.positions[:written]
+                        pos_edges = (int(positions[0].item()), int(positions[-1].item()))
+                        ced_source_snapshot = (rows, planes, before, pos_edges)
+                        self._ced_source_compare_remaining -= 1
+                        self._ced_source_compare_count += 1
             hidden_states, pre_mix = layer(positions, hidden_states, pre_mix, None, input_ids=moe_input_ids)
+            _maybe_snapshot_ced_layer(
+                layer, positions, input_ids, hidden_states, pre_mix, "post"
+            )
+            if ced_source_snapshot is not None:
+                rows, planes, before, pos_edges = ced_source_snapshot
+                for plane_idx, (plane, saved) in enumerate(zip(planes, before)):
+                    for row_idx, ((block, offset), expected) in enumerate(zip(rows, saved)):
+                        if not torch.equal(expected, plane[block, offset]):
+                            raise RuntimeError(
+                                "CED layer-20 source differs from normal forward: "
+                                f"plane={plane_idx} row={row_idx} slot=({block},{offset})"
+                            )
+                print(
+                    "[CED-SOURCE] layer20 source-only cache rows match normal "
+                    f"forward: chunk={self._ced_source_compare_count} "
+                    f"tokens={written} positions={pos_edges[0]}..{pos_edges[1]} "
+                    f"rows={len(rows)}",
+                    flush=True,
+                )
         assert last_layer is not None
         hidden_states = last_layer.hc_collapse(hidden_states, pre_mix)
         hidden_states = self.norm(hidden_states)
@@ -1267,6 +1538,21 @@ class AscendDeepseekV41ForCausalLM(AscendDeepseekV4ForCausalLM):
     requires_raw_input_tokens = True
     _DEFERRED_WEIGHT_MARKERS = ()
     _DEFERRED_WEIGHT_PREFIXES = ("aligner.", "vision.", "image_", "mtp.")
+
+    def compute_logits(self, hidden_states):
+        logits = super().compute_logits(hidden_states)
+        if logits is not None and self.model._ced_prefill_only:
+            # The P-side Mooncake request must finish with LENGTH_CAPPED so
+            # request_finished_all_groups can publish its cache blocks. The
+            # marker is a valid non-EOS token, explicitly *not* a model answer.
+            # Never expose this dedicated P endpoint as a chat service.
+            marker = 42
+            eos = self.config.eos_token_id
+            if marker >= logits.shape[-1] or marker == eos or (isinstance(eos, (tuple, list)) and marker in eos):
+                raise RuntimeError("CED internal transfer marker conflicts with tokenizer")
+            logits.fill_(-10000.0)
+            logits[..., marker] = 0.0
+        return logits
 
     def prepare_engram_inputs(self, input_ids, positions, padded_tokens=None):
         return self.model.prepare_engram_inputs(input_ids, positions, padded_tokens)

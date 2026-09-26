@@ -1,0 +1,23 @@
+--- KV8_gather/shadow/vllm_ascend/attention/dsa_v41.py	2026-09-22 02:00:18.634169393 +0800
++++ KV8_fuse/shadow/vllm_ascend/attention/dsa_v41.py	2026-09-22 02:08:00.318415638 +0800
+@@ -1366,3 +1366,20 @@
+ 
+     def get_attn_backend(self):
+         return DeepseekV41CacheBackend
++
++
++# --------------------------------------------------------------- KV8 read-side
++# `logs/023` localised the KV8 read cost to *operator count x ~5 us* rather than
++# bandwidth, so the rebuild is fused into Triton kernels here: one launch for
++# the SWA window (rows), one for its block table, one for the cmp selection
++# (index maths + row gather + dequant + renumbering in the same kernel).
++# Imported last on purpose: the torch implementations have to be complete before
++# `capture_originals` snapshots them as the prefill / unsupported-shape fallback.
++import os as _kv8_os
++
++if _kv8_os.environ.get("VLLM_V41_KV8_FUSE", "1") == "1":
++    from vllm_ascend.attention import kv8_fuse_triton as _kv8_fuse
++
++    _kv8_fuse.capture_originals()
++    kv8_ori_plane = _kv8_fuse.fused_ori_plane
++    DeepseekV41EagerAttentionImpl._kv8_cmp_plane = _kv8_fuse.fused_cmp_plane

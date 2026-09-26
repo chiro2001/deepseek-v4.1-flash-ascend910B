@@ -1,0 +1,56 @@
+diff --git a/vllm/v1/core/sched/scheduler.py b/vllm/v1/core/sched/scheduler.py
+index 851260f..1961699 100644
+--- a/vllm/v1/core/sched/scheduler.py
++++ b/vllm/v1/core/sched/scheduler.py
+@@ -653,0 +654,3 @@ class Scheduler(SchedulerInterface):
++            ced_replay_end = getattr(request, "ced_replay_end", 0)
++            if ced_replay_end and request.num_computed_tokens < ced_replay_end:
++                num_new_tokens = min(num_new_tokens, ced_replay_end - request.num_computed_tokens)
+@@ -1028,0 +1032,3 @@ class Scheduler(SchedulerInterface):
++                    ced_replay_end = getattr(request, "ced_replay_end", 0)
++                    if ced_replay_end and num_computed_tokens < ced_replay_end:
++                        num_new_tokens = min(num_new_tokens, ced_replay_end - num_computed_tokens)
+@@ -2952,3 +2958,40 @@ class Scheduler(SchedulerInterface):
+-            # on a full prompt hit, we need to re-compute the last token
+-            # in order to be able to sample the next token
+-            if request.num_computed_tokens == request.num_tokens:
++            ced_params = request.kv_transfer_params or {}
++            ced_replay = int(ced_params.get("ced_replay_tokens") or 0)
++            if ced_replay:
++                if os.environ.get("V41_CED_ROLE") != "decode":
++                    raise RuntimeError("CED replay metadata requires a dedicated decode role")
++                replay_end = int(ced_params.get("ced_prefix_tokens") or 0)
++                prompt_len = request.num_prompt_tokens
++                if prompt_len == 1:
++                    if replay_end != prompt_len or request.num_computed_tokens != prompt_len:
++                        raise RuntimeError(
++                            "CED single-token prefix boundary mismatch: "
++                            f"prompt={prompt_len} loaded={request.num_computed_tokens} "
++                            f"declared={replay_end}"
++                        )
++                    # Recompute the only prompt token so layer 20 writes its
++                    # normal global source and the sampler receives fresh logits.
++                    request.ced_replay_end = prompt_len
++                    request.ced_replay_start = 0
++                    request.num_computed_tokens = 0
++                    logger.info(
++                        "[CED-D] single-token prompt: recompute position 0 for logits"
++                    )
++                else:
++                    if replay_end != prompt_len - 1 or request.num_computed_tokens != replay_end:
++                        raise RuntimeError(
++                            "CED replay prefix boundary mismatch: "
++                            f"prompt={prompt_len} loaded={request.num_computed_tokens} "
++                            f"declared={replay_end}"
++                        )
++                    request.ced_replay_end = replay_end
++                    request.ced_replay_start = max(0, replay_end - ced_replay)
++                    request.num_computed_tokens = request.ced_replay_start
++                    logger.info(
++                        "[CED-D] replay request=%s positions=%d..%d before uncached last token",
++                        request.request_id,
++                        request.ced_replay_start,
++                        replay_end - 1,
++                    )
++            # On a full prompt hit, re-compute the last token for logits.
++            elif request.num_computed_tokens == request.num_tokens:

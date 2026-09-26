@@ -1,0 +1,63 @@
+--- a/vllm_ascend/worker/model_runner_v1.py
++++ b/vllm_ascend/worker/model_runner_v1.py
+@@ -19,6 +19,7 @@
+ 
+ import logging
+ import math
++import os
+ import sys
+ import time
+ from collections import defaultdict, deque
+@@ -245,6 +246,12 @@
+ # if true, allow tensor initialization and casting with internal format (e.g., NZ)
+ torch.npu.config.allow_internal_format = True
+ 
++# ==== [ENGRAM-ROW-TOKENS] Engram 精确修补用的 host token 表发布（默认关）====
++# 见 a2/docs/ENGRAM-OFFLOAD-EXACT-FIX.md。门控 = V41_ENGRAM_ROW_IDS=1（与
++# VLLM_V41_ENGRAM_TRUE_TOKENS>=1 配对使用）；发布失败只报一次并永久停用。
++_ENGRAM_ROW_TOKENS_ENABLED = os.environ.get("V41_ENGRAM_ROW_IDS", "0") != "0"
++_ENGRAM_ROW_TOKENS_DISABLED = False
++
+ AttnMetadataDict: TypeAlias = dict[str, AttentionMetadata]
+ # list when ubatching is enabled
+ PerLayerAttnMetadata: TypeAlias = list[AttnMetadataDict] | AttnMetadataDict
+@@ -2974,6 +2981,10 @@
+         assert self.model is not None
+         forward_context = get_forward_context()
+         assert forward_context is not None
++        # ★ [arm077 修复] `global` 必须出现在本函数的**任何读取之前**，
++        #   否则是 SyntaxError（"name ... is used prior to global declaration"）
++        #   —— 原交付件把 `global` 写在下面的 `except` 里，`py_compile` 直接失败。
++        global _ENGRAM_ROW_TOKENS_DISABLED
+ 
+         model_inputs: dict[str, Any] = {
+             "input_ids": input_ids,
+@@ -2984,6 +2995,28 @@
+         }
+         # Variable Engram routing must run on every DP before ACLGraph capture
+         # or replay; only its persistent BF16 inputs enter the model graph.
++        # [ENGRAM-ROW-TOKENS] 把本步的 host token 表（零拷贝视图）交给 model 侧，
++        # 供 Engram 精确修补「从 DRAM 卸载池取回的前缀」的 lookback 窗口
++        # （见 a2/docs/ENGRAM-OFFLOAD-EXACT-FIX.md）。门控关闭时**一个字节都不做**；
++        # 门控打开时若发布失败 ⇒ 打印一次 ERROR 并**不再重试**（model 侧会 fallback
++        # 到今天的行为，绝不会因为发布失败而错算）。
++        if _ENGRAM_ROW_TOKENS_ENABLED and not _ENGRAM_ROW_TOKENS_DISABLED:
++            try:
++                from vllm_ascend.models.deepseek_v41 import model as _v41_model
++
++                _v41_model.set_engram_row_tokens(
++                    ids=self.input_batch.token_ids_cpu,
++                    num_tokens=self.input_batch.num_tokens_no_spec,
++                    num_computed=self.input_batch.num_computed_tokens_cpu,
++                    step=int(self.query_lens.sum().item()) if self.query_lens is not None else -1,
++                    reason="model_forward",
++                )
++            except Exception as _exc:  # noqa: BLE001
++                _ENGRAM_ROW_TOKENS_DISABLED = True
++                logger.error(
++                    "[ENGRAM-ROW-TOKENS] 发布 host token 表失败（只报一次，之后不再尝试）：%r",
++                    _exc,
++                )
+         prepare_engram = getattr(self.model, "prepare_engram_inputs", None)
+         if prepare_engram is not None:
+             model_inputs.update(prepare_engram(input_ids, positions, num_tokens_padded))
