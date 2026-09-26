@@ -874,18 +874,33 @@ if [ "$PATCH_MODE" = "mount" ]; then
   fi
 fi
 if [ -n "${V41_CED_ROLE:-}" ]; then
-  [ "$PATCH_MODE" = "mount" ] || die "V41_CED_ROLE 要求 PATCH_MODE=mount，以安装 CED 连接器"
-  _ced_connector="$PKG/experimental/ced/mooncake_hybrid_connector.py"
-  [ -f "$_ced_connector" ] || die "V41_CED_ROLE 缺少 $_ced_connector"
-  MOUNTS+=(-v "$_ced_connector:/vllm-workspace/vllm-ascend/vllm_ascend/distributed/kv_transfer/kv_p2p/mooncake_hybrid_connector.py:ro")
-  if [ "${V41_CED_ROLE:-}" = "decode" ]; then
+  # [PATCH_MODE] 两条路都支持：
+  #   mount —— 官方基础镜像 + `-v` 挂本仓的 CED 文件（默认，开发时用）
+  #   baked —— `local/dsv41-a3-ced-pd:*` 工作镜像，文件已在真实路径（部署时用）
+  # 两者装的是**同一批文件**（清单见 deploy/a3-ced-pd/PAYLOAD.md）。
+  case "$PATCH_MODE" in
+    mount)
+      _ced_connector="$PKG/experimental/ced/mooncake_hybrid_connector.py"
+      [ -f "$_ced_connector" ] || die "V41_CED_ROLE 缺少 $_ced_connector"
+      MOUNTS+=(-v "$_ced_connector:/vllm-workspace/vllm-ascend/vllm_ascend/distributed/kv_transfer/kv_p2p/mooncake_hybrid_connector.py:ro")
+      ;;
+    baked)
+      # baked 不挂载；但要**立刻**证明镜像里那份确实是 CED 版，
+      # 否则会静默跑 stock 连接器（起服成功、行为完全不同）。
+      # 真正的判据放在容器起来之后（见下方 [CED-BAKED-GUARD]）。
+      ;;
+    *)
+      die "V41_CED_ROLE 要求 PATCH_MODE=mount 或 baked，当前 $PATCH_MODE"
+      ;;
+  esac
+  if [ "${PATCH_MODE}" = "mount" ] && [ "${V41_CED_ROLE:-}" = "decode" ]; then
     [ "${PROBE:-0}" != "1" ] || die "CED decode 实验不能与 PROBE=1 同时覆盖 dsa_v41.py"
     _ced_dsa="$PKG/experimental/ced/dsa_v41.py"
     _ced_scheduler="$PKG/experimental/ced/core_scheduler_replay.patch"
     [ -f "$_ced_dsa" ] && [ -f "$_ced_scheduler" ] || die "CED decode 缺少注意力或调度补丁"
     MOUNTS+=(-v "$_ced_dsa:/vllm-workspace/vllm-ascend/vllm_ascend/attention/dsa_v41.py:ro")
     MOUNTS+=(-v "$_ced_scheduler:/opt/dsv41/ced_scheduler_replay.patch:ro")
-  elif [ "${V41_CED_P_HIT_DIAG:-1}" = "1" ]; then
+  elif [ "${PATCH_MODE}" = "mount" ] && [ "${V41_CED_P_HIT_DIAG:-1}" = "1" ]; then
     # [CED-P-HIT] 2026-09-26：P（prefill 角色）开 PREFIX=1 时会在 stock 的
     # `assert num_new_tokens > 0` 上崩。P 不装 decode 的 replay 补丁，所以这里单独
     # 挂一份**只读诊断**补丁，把 num_tokens / num_computed_tokens / local / external
@@ -899,9 +914,11 @@ fi
 if [ "${V41_CED_GRAPH_PROMPT_TAIL_EAGER:-0}" = "1" ]; then
   [ "${V41_CED_ROLE:-}" = "decode" ] || die "CED prompt-tail 图补丁只允许 decode 角色"
   [ "$GRAPH" = "1" ] && [ "$EAGER" = "0" ] || die "CED prompt-tail 图补丁要求 GRAPH=1 EAGER=0"
-  _ced_runner_patch="$PKG/experimental/ced/core_model_runner_prompt_tail.patch"
-  [ -f "$_ced_runner_patch" ] || die "CED prompt-tail 图补丁缺少 $_ced_runner_patch"
-  MOUNTS+=(-v "$_ced_runner_patch:/opt/dsv41/ced_runner_prompt_tail.patch:ro")
+  if [ "$PATCH_MODE" = "mount" ]; then
+    _ced_runner_patch="$PKG/experimental/ced/core_model_runner_prompt_tail.patch"
+    [ -f "$_ced_runner_patch" ] || die "CED prompt-tail 图补丁缺少 $_ced_runner_patch"
+    MOUNTS+=(-v "$_ced_runner_patch:/opt/dsv41/ced_runner_prompt_tail.patch:ro")
+  fi
 fi
 if [ -n "${V41_CED_SNAPSHOT_POS:-}" ] && [ -z "${V41_CED_ROLE:-}" ]; then
   [ "${PROBE:-0}" != "1" ] || die "CED cache snapshot 不能与 PROBE=1 同时覆盖 dsa_v41.py"
@@ -1201,6 +1218,36 @@ if [ "$PATCH_MODE" = "mount" ]; then
   else
     echo "[serve_a2] WARNING: live tree 里找不到 admission gate ⇒ 该补丁未生效" >&2
   fi
+fi
+
+# ---------- [CED-BAKED-GUARD] baked 模式必须**证明**镜像里的 CED 件真的在 ----------
+# 判据落在"实际生效后的可观测痕迹"上，不能落在"我传了 PATCH_MODE=baked"：
+# 烘错一层会**静默跑 stock 连接器**（起服成功、health 200、行为完全不同，
+# 而且往往是长上下文才发作）。
+if [ "${V41_CED_ROLE:-}" != "" ] && [ "${PATCH_MODE:-}" = "baked" ]; then
+  say "[CED-BAKED-GUARD] 校验镜像内 CED 件（baked 模式不挂载）"
+  _cedchk=$($DOCKER exec "$NAME" bash -lc '
+    A=/vllm-workspace/vllm-ascend/vllm_ascend
+    C=$A/distributed/kv_transfer/kv_p2p/mooncake_hybrid_connector.py
+    D=$A/attention/dsa_v41.py
+    [ -f "$C" ] || { echo "MISSING_CONNECTOR"; exit 0; }
+    [ -f "$D" ] || { echo "MISSING_DSA"; exit 0; }
+    c1=$(grep -c "CED-32BIT-GUARD" "$C" || true)
+    c2=$(grep -c "ced_missing_swa_groups" "$C" || true)
+    d1=$(grep -c "CED-SWA-CLIP" "$D" || true)
+    echo "conn=${c1:-0}/${c2:-0} dsa=${d1:-0}"' 2>/dev/null | tail -1)
+  case "${_cedchk:-}" in
+    MISSING_*) die "[CED-BAKED-GUARD] 镜像里缺 CED 件（$_cedchk）——装的不是 dsv41-a3-ced-pd 工作镜像" ;;
+    "")        die "[CED-BAKED-GUARD] 无法校验镜像内 CED 件（docker exec 失败）" ;;
+    *)         say "[CED-BAKED-GUARD] 标记命中 = $_cedchk" ;;
+  esac
+  _ok=$($DOCKER exec "$NAME" bash -lc '
+    A=/vllm-workspace/vllm-ascend/vllm_ascend
+    c=$(grep -c "CED-32BIT-GUARD" $A/distributed/kv_transfer/kv_p2p/mooncake_hybrid_connector.py || true)
+    d=$(grep -c "CED-SWA-CLIP" $A/attention/dsa_v41.py || true)
+    [ "${c:-0}" -ge 1 ] && [ "${d:-0}" -ge 1 ] && echo OK || echo BAD' 2>/dev/null | tail -1)
+  [ "${_ok:-}" = "OK" ] || die "[CED-BAKED-GUARD] CED 件未生效（connector/dsa_v41 里找不到 CED 标记）——结果不可当正确性证据"
+  say "[CED-BAKED-GUARD] CED 连接器 + dsa_v41 均已生效 ✓"
 fi
 
 if [ "${V41_CED_ROLE:-}" = "decode" ]; then

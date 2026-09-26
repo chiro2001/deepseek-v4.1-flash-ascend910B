@@ -56,7 +56,10 @@ esac
 
 stamp=$(date +%Y%m%d_%H%M%S)
 export RUN_ID=${RUN_ID:-ced_${role}_${stamp}}
-export V41_CED_ROLE=$role PATCH_MODE=mount
+# [PATCH_MODE] 默认 mount（官方基础镜像 + `-v` 挂我们的文件）。
+# 装了 `local/dsv41-a3-ced-pd:*` 工作镜像后可以设 PATCH_MODE=baked 完全不用挂载
+# —— 见 deploy/a3-ced-pd/。这里**不再强制 mount**，否则烘好的镜像用不上。
+export V41_CED_ROLE=$role PATCH_MODE=${PATCH_MODE:-mount}
 if [ "$role" = prefill ]; then
   # P 的 SPEC/DRAFT_GRAPH 由上面的硬门保证为 0，这里显式定稿。
   export SPEC=0 DRAFT_GRAPH=0
