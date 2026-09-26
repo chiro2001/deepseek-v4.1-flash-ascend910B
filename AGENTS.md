@@ -286,6 +286,64 @@ python3 tools/check_checksums.py        # 期望：三方一致 ✅
 
 ---
 
+## 5b. 本包的补丁与优化（**开发者/Agent 视角**）
+
+> 用户视角的"相比上游有哪些优化"在 `README.md` §5；这里放**工程细节**。
+
+### 5b.1 14 个补丁件与落位
+
+逐项明细（目标文件 / 包内文件 / md5 / 门控 env / 实测收益）见
+[`patches/PATCHES.md`](patches/PATCHES.md)。要点：
+
+| # | 目标 | 门控 env（默认） | 收益 |
+|---|---|---|---|
+| 1 | `models/deepseek_v41/engram_hbm.py` | 总是开 | Engram host 常驻 + local-owner 快路径 |
+| 2/3/4 | `engram_hash.py` + `engram_jit_kernel.py` + `engram_plan_kernel.py` | `V41_ENGRAM_JIT=1` | hash 0.427→0.076、plan 0.261→0.068 ms |
+| 5 | `engram_gate.py` | `V41_ENGRAM_GATE_CHUNK=0` | 去掉 2048 行 padding，−1.56 ms |
+| 6 | `model.py` | 与 #1 配对 | Engram host-resident + device-index 入图 + CED P/D |
+| 7 | `ascend_forward_context.py` | `V41_MOE_COMM_ALLGATHER=1` | 128K −4.25 ms；KV 3.39M→4.16M |
+| 8 | `attention/dsa_v1.py` | `V41_O_PROJ_2D=1` | −0.31~0.76 ms |
+| 9 | `ops/fused_moe/token_dispatcher.py` | `V41_MOE_MASK_RANGE=1` | −0.51 ms + int32 域比较 −0.096 |
+| 10 | `ops/rope_dsv4.py` | `V41_ROPE_IDXSEL=1` | 6 kernel→2，−0.45~0.62 ms |
+| 11 | `models/deepseek_v41/indexer.py` | `V41_QLI_NO_CANDIDATE=1` | 99.3→50.3 µs，−0.49 ms |
+| 12/13 | `engram_device_index.py` + `engram_graph.py` | `V41_ENGRAM_DEVICE_INDEX=auto` | 同步 host 3.379→0.058 ms |
+| 14 | `patches/admission_gate.patch`（git apply 到 vllm core） | `VLLM_ADMISSION_GATE=1` | prefill 不饿死 decode |
+
+### 5b.2 ★ 与上游的结构差异（移植前必读）
+
+**2026-09-26 核实**：上游 `vllm-project/vllm-ascend` main 的 V4.1 支持（#16544，09-18）
+把 Engram **重构成了包**：`engram/{common,embedding,hash_state,layer,npu,parallel}.py`。
+
+⇒ 我们的 7 个 Engram 补丁面向的是**扁平文件布局**
+（`engram_hbm.py` / `engram_hash.py` / `engram_gate.py`），
+**这些文件在上游已不存在** ⇒ 要往上游提必须按新结构重做。
+
+另 7 个文件（`model.py` / `indexer.py` / `ascend_forward_context.py` / `rope_dsv4.py` /
+`block_table.py` / `token_dispatcher.py` / `dsa_v1.py`）上游**存在但无我们的实现**
+（按 9 个识别标记逐个 grep 过，命中均为 0）。
+
+### 5b.3 累计效果（128K 单流、同口径真权重、8 发中位）
+
+| 阶段 | ms/step | 来源 |
+|---|---:|---|
+| 优化前基线 | 39.10 | `reports/optimization-headroom-estimate.md` |
+| + MoE AllGather | 35.14 | `reports/moe-allgather-breakthrough.md` |
+| + 其余 7 个补丁 | 32.74 | `reports/consolidated-6patch-result.md` |
+| **+ Engram JIT 等（全补丁）** | **31.39** | `reports/milestone-ms-target-met.md` |
+| + Engram device-index 入图 | 28.4（**并发 1、1K prompt 口径**） | `CHANGELOG.md` §0 / §9 |
+
+合计 **−7.71 ms/step（−19.7%）**。⚠️ 最后一行是**不同口径**，
+不要与上面几行直接相减；它的同口径 A/B 是 29.5→28.4（并发 1）、35.3→32.1（并发 4）。
+
+### 5b.4 README 的边界（谁该写在哪）
+
+| 内容 | 放哪 |
+|---|---|
+| 效果、硬件、性能、**与上游的差异**、快速开始、调优旋钮、已知限制 | **`README.md`**（用户视角） |
+| 补丁明细、调试入口、陷阱清单、口径纪律、自检工具 | **`AGENTS.md`**（本文件） |
+| 逐项 md5 / 门控 / 收益 | `patches/PATCHES.md` |
+| 设计与故障史 | `docs/` `reports/` |
+
 ## 6. 已知的"看起来像 bug 但不是"
 
 | 现象 | 真相 |
