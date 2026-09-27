@@ -346,6 +346,11 @@ def test_initialize_and_adjust(mod) -> None:
         ok("query_lens 走懒算（用 self.vllm_config）")
     else:
         bad("query_lens 不是懒算 ⇒ 依赖实例属性，会静默失效")
+    # 判据必须始终可见（INFO 被日志级别过滤过，导致无法从日志证明路径走了）
+    if 'logger.warning(\n        "[dynamic-spec] building decode graphs' in src:
+        ok("建图判据是 warning 级别（始终可见，可作唯一判据）")
+    else:
+        bad("建图判据不是 warning ⇒ 会被日志级别过滤，无法证明路径真的走了")
 
     cc2 = sys.modules["vllm.config.compilation"].CompilationConfig()
     cc2._v41_dynamic_sd = True

@@ -204,7 +204,10 @@ def initialize_cudagraph_keys(
             self, cudagraph_mode, uniform_decode_query_len
         )
 
-    logger.info(
+    # ⚠️ 用 **warning** 级别：这条是"多 query_len 路径真的走了"的**唯一判据**，
+    # 必须始终可见。2026-09-28 第三轮实测 —— 写成 logger.info 时被日志级别过滤，
+    # 于是无法从 serve.log 证明两个 query_len 都建了图，只能靠行为推断。
+    logger.warning(
         "[dynamic-spec] building decode graphs for query_lens=%s "
         "(one graph set per query_len; raw buckets preserved)",
         tuple(extra_lens),
@@ -261,7 +264,7 @@ def adjust_cudagraph_sizes_for_spec_decode(
     只在 `_v41_dynamic_sd` 标记存在时跳过；静态路径逐字节等价。
     """
     if getattr(self, "_v41_dynamic_sd", False):
-        logger.info(
+        logger.warning(
             "[dynamic-spec] keeping raw cudagraph_capture_sizes=%s "
             "(skip rounding to a single query_len=%s); per-query_len buckets are "
             "selected in initialize_cudagraph_keys.",
