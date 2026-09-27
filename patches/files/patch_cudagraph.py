@@ -73,6 +73,25 @@ def _dynamic_decode_query_lens(vllm_config) -> tuple[int, ...] | None:
     return tuple(sorted(lens))
 
 
+def _v41_extra_query_lens(self) -> tuple[int, ...]:
+    """懒算"会出现哪些 decode query_len"，并缓存在实例上。
+
+    **为什么必须懒算**：原先是在 `CudagraphDispatcher.__init__` 里算好存到实例上，
+    但实测（a3-21, 2026-09-28）`patch_cudagraph.py` 这个模块**晚于**
+    `GPUModelRunner.__init__` 里 `CudagraphDispatcher(...)` 的构造才被 import
+    ⇒ 那个实例上根本没有这个属性 ⇒ `getattr(..., None)` 得到 None ⇒
+    整条"多 query_len"路径被静默跳过（起服日志里看不到任何 dynamic-spec INFO，
+    只有 12/20 的降级 WARNING）。
+    懒算把对 import 顺序的依赖彻底去掉：只要用的时候模块已加载即可
+    （而 `initialize_cudagraph_keys` / `dispatch` 都远晚于 import）。
+    """
+    cached = getattr(self, "_v41_qlens_cache", None)
+    if cached is None:
+        cached = _dynamic_decode_query_lens(self.vllm_config) or ()
+        self._v41_qlens_cache = cached
+    return cached
+
+
 def _create_padded_batch_descriptor(
     self,
     num_tokens: int,
@@ -97,8 +116,17 @@ def _create_padded_batch_descriptor(
         and self.cudagraph_mode != CUDAGraphMode.FULL
     ):
         if num_tokens_padded % uniform_decode_query_len != 0:
-            # 该形状没有对应的 uniform 图（dynamic SD 下 K 与 batch 组合未覆盖）。
-            # 退化成非 uniform：下游查不到 FULL 键 → 回落 eager，只慢不错。
+            # [BUILD vs RUNTIME] 两种时机要区别对待：
+            #   * **建图期**（initialize_cudagraph_keys 正在枚举键）：这个桶对
+            #     该 query_len 根本没有合法 uniform 形状 ⇒ 返回 None，让
+            #     add_cudagraph_key 跳过它。**不能**退化成非 uniform ——
+            #     那会往 FULL 键集里塞一个伪键，而且会被 set_draft_graph_params
+            #     当成合法捕获尺寸（实测：raw 桶里的 12/20 就是这么漏进去的，
+            #     与运行期 draft 元数据 rows 不匹配的崩溃高度相关）。
+            #   * **运行期 dispatch**：真出现这种形状说明覆盖不全，退化成非 uniform
+            #     （下游回落 eager），只慢不错、不 raise。
+            if getattr(self, "_v41_building_keys", False):
+                return None
             key = (num_tokens_padded, uniform_decode_query_len)
             if key not in _WARNED_NO_GRAPH:
                 _WARNED_NO_GRAPH.add(key)
@@ -126,6 +154,20 @@ def _create_padded_batch_descriptor(
     )
 
 
+_orig_add_cudagraph_key = CudagraphDispatcher.add_cudagraph_key
+
+
+def add_cudagraph_key(self, runtime_mode, batch_descriptor) -> None:
+    """建图期允许 `_create_padded_batch_descriptor` 返回 None（该桶无合法形状）。
+
+    直接传给原函数会把 None 塞进键集合，运行期 `dispatch` 匹配到它就会
+    拿到一个没有 num_tokens/num_reqs 的描述符 —— 属于静默错配。这里挡掉。
+    """
+    if batch_descriptor is None:
+        return
+    return _orig_add_cudagraph_key(self, runtime_mode, batch_descriptor)
+
+
 _orig_initialize_cudagraph_keys = CudagraphDispatcher.initialize_cudagraph_keys
 
 
@@ -150,17 +192,17 @@ def initialize_cudagraph_keys(
         不筛掉它们会在建图期就撞上整除断言）。
     收尾时恢复原值并**重算 padding 表**（它由桶列表派生，不能停留在子集状态）。
     """
-    _orig_initialize_cudagraph_keys(self, cudagraph_mode, uniform_decode_query_len)
-
-    extra_lens = getattr(self, "_dynamic_decode_query_lens", None)
+    extra_lens = self._v41_extra_query_lens()
     # [OPT-IN] 只对**显式开启**的 dispatcher 做多 query_len 建图。
-    # 不能只看 `_dynamic_decode_query_lens`：draft proposer 用同一个 vllm_config
-    # 建了自己的 dispatcher（vllm/v1/spec_decode/llm_base_proposer.py:164），
-    # 自动生效会给 draft 也捕一套 ql=1 的图 —— 那些图永远不被 dispatch
-    # （K=0 时 `_propose` 提前返回、不走 draft），纯属浪费捕获时间。
+    # 不能只看 query_lens：draft proposer 用同一个 vllm_config 建了自己的
+    # dispatcher（vllm/v1/spec_decode/llm_base_proposer.py:164），自动生效会给
+    # draft 也捕一套 ql=1 的图 —— 那些图永远不被 dispatch（K=0 时 `_propose`
+    # 提前返回、不走 draft），纯属浪费捕获时间。
     # 该标记由 runner 侧补丁在调本函数之前写入主模型的 dispatcher。
     if not extra_lens or not getattr(self, "_v41_dynamic_sd_enabled", False):
-        return
+        return _orig_initialize_cudagraph_keys(
+            self, cudagraph_mode, uniform_decode_query_len
+        )
 
     logger.info(
         "[dynamic-spec] building decode graphs for query_lens=%s "
@@ -171,7 +213,12 @@ def initialize_cudagraph_keys(
     cc = self.compilation_config
     saved_sizes = cc.cudagraph_capture_sizes
     saved_udql = self.uniform_decode_query_len
+    prev_build = getattr(self, "_v41_building_keys", False)
+    self._v41_building_keys = True
     try:
+        # 先按调用方给的 query_len 建一遍（含基础设施：padding 表 / lora cases /
+        # mixed-mode 键）。建图期标记会让非整倍桶被跳过而不是变成伪键。
+        _orig_initialize_cudagraph_keys(self, cudagraph_mode, uniform_decode_query_len)
         for ql in extra_lens:
             if ql == uniform_decode_query_len:
                 continue
@@ -189,6 +236,7 @@ def initialize_cudagraph_keys(
             self.uniform_decode_query_len = ql
             _orig_initialize_cudagraph_keys(self, cudagraph_mode, ql)
     finally:
+        self._v41_building_keys = prev_build
         cc.cudagraph_capture_sizes = saved_sizes
         self.uniform_decode_query_len = saved_udql
         if self.cudagraph_mode != CUDAGraphMode.NONE:
@@ -226,18 +274,13 @@ def adjust_cudagraph_sizes_for_spec_decode(
     )
 
 
-_orig_dispatcher_init = CudagraphDispatcher.__init__
-
-
-def _dispatcher_init(self, vllm_config) -> None:
-    _orig_dispatcher_init(self, vllm_config)
-    self._dynamic_decode_query_lens = _dynamic_decode_query_lens(vllm_config)
-    #: dispatch 前由 runner 写入的"本步 query_len"；None ⇒ 走静态值。
-    self._step_uniform_query_len = None
-
-
-CudagraphDispatcher.__init__ = _dispatcher_init
+# 注意：**不再 patch `CudagraphDispatcher.__init__`**。实测它的 import 时机晚于
+# dispatcher 的构造（见 `_v41_extra_query_lens` 的说明），靠实例属性会静默失效；
+# 改用懒算 + runner 侧显式 opt-in。`_step_uniform_query_len` 则由 runner 在
+# dispatch 前用 `setattr` 写入（缺省用 `getattr(..., None)`，不需要 init）。
+CudagraphDispatcher._v41_extra_query_lens = _v41_extra_query_lens
 CudagraphDispatcher._create_padded_batch_descriptor = _create_padded_batch_descriptor
+CudagraphDispatcher.add_cudagraph_key = add_cudagraph_key
 CudagraphDispatcher.initialize_cudagraph_keys = initialize_cudagraph_keys
 CompilationConfig.adjust_cudagraph_sizes_for_spec_decode = (
     adjust_cudagraph_sizes_for_spec_decode

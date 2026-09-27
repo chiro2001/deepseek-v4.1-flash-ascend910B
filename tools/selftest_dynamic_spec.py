@@ -322,6 +322,31 @@ def test_initialize_and_adjust(mod) -> None:
     else:
         bad("恢复后没有重算 padding 表 ⇒ padding 会停留在子集状态")
 
+    # ★ 回归：建图期**不得**把非整倍桶变成伪键（真机踩到过）
+    v3, _ = _cfg(schedule=[[1, 1, 7], [2, 8, 0]])
+    d3 = sys.modules["vllm.v1.cudagraph_dispatcher"].CudagraphDispatcher(v3)
+    d3.cudagraph_mode = CUDAGraphMode.FULL_DECODE_ONLY
+    d3._v41_dynamic_sd_enabled = True
+    d3._v41_qlens_cache = mod._dynamic_decode_query_lens(v3)   # 懒算缓存的等价写法
+    d3.initialize_cudagraph_keys(CUDAGraphMode.FULL_DECODE_ONLY, 8)
+    bad_keys = [bd for _, bd in d3.keys if getattr(bd, "uniform", False) is False
+                and bd.num_tokens in (12, 20)]
+    if not bad_keys:
+        ok("建图期非整倍桶（12/20）被跳过，未产生 non-uniform 伪键")
+    else:
+        bad(f"建图期产生了伪键：{bad_keys}（会把 set_draft_graph_params 的尺寸算歪）")
+
+    # ★ 回归：不依赖 CudagraphDispatcher.__init__ 被 patch（真机踩到的静默失效）
+    src = (ROOT / "patches" / "files" / "patch_cudagraph.py").read_text()
+    if "CudagraphDispatcher.__init__ = " not in src and "_dispatcher_init" not in src:
+        ok("不再 patch CudagraphDispatcher.__init__（改为懒算，免疫 import 顺序）")
+    else:
+        bad("仍在 patch CudagraphDispatcher.__init__ ⇒ 会因 import 晚于构造而静默失效")
+    if "_v41_extra_query_lens" in src and "self.vllm_config" in src:
+        ok("query_lens 走懒算（用 self.vllm_config）")
+    else:
+        bad("query_lens 不是懒算 ⇒ 依赖实例属性，会静默失效")
+
     cc2 = sys.modules["vllm.config.compilation"].CompilationConfig()
     cc2._v41_dynamic_sd = True
     cc2.adjust_cudagraph_sizes_for_spec_decode(8, 8)

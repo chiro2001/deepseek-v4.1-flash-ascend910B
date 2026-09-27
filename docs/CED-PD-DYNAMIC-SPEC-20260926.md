@@ -420,3 +420,104 @@ worker 后续才 initialize_kv_cache()     worker.py:1031
   走 A 路之后的图捕获计数、K=7 的 A 值、K=0 的 Drafted 计数、144K/1M 正确性、
   性能三元组，**全部仍是未测**。
 * 生产服务已回滚到 `SPEC=0 MAX_SEQS=8` 的高吞吐档（2026-09-27 用户指定口径）。
+
+---
+
+## 10. 真机第二轮（2026-09-28 04:51–05:09）：**起服成功，但 batch 1→2 切换时崩**
+
+### 10.1 这一步的正面结论：gate 补丁打通了
+
+在 a3-21 上**只重启 D**（P 不动，`SPEC=0 MAX_SEQS=8`），命令里带
+`V41_CED_DYNAMIC_SPEC=1 V41_CED_DYNAMIC_SPEC_FULL_GRAPHS=1`。三条判据同时成立：
+
+| 判据 | 结果 |
+|---|---|
+| 三个补丁都应用 | `config gate 补丁已应用 ✓` / `runner 补丁已应用 ✓` / `patch_cudagraph.py 在位（命中 4 处）✓` |
+| 引擎解析出的图模式 | **`FULL_DECODE_ONLY`**（不再是 PIECEWISE） |
+| 上游降级被跳过 | `Skipping the PIECEWISE downgrade` ×3；反向证据 `Overriding cudagraph_mode from` = **0** |
+| 上一轮的致命点 | `validate_cache_runtime` 失败 = **0**；全日志 `ERROR` = 0 |
+
+⇒ §9.4 的 A 路**在起服层面是通的**：`V41_CED_DYNAMIC_SPEC_FULL_GRAPHS=1` +
+gate 补丁确实能把 dynamic SD 从"起不来"变成"起得来"（D 用时 660 s，比静态档
+~300 s 慢，主要是 static kernel 因新形状冷编译 135 个核 + 图数量增加）。
+
+### 10.2 但发现两个实现缺陷，第二个导致**运行期崩溃**
+
+**缺陷 1（静默失效）：`patch_cudagraph.py` 的 `__init__` 补丁晚于 dispatcher 构造。**
+
+容器内实测（`import vllm_ascend` 之后立刻检查）：
+
+```
+CudagraphDispatcher.__init__ = vllm.v1.cudagraph_dispatcher.CudagraphDispatcher.__init__
+是我们的 _dispatcher_init 吗: False
+_create_padded_batch_descriptor 是我们的吗: False
+```
+
+即补丁模块的 import 时机**晚于** `GPUModelRunner.__init__` 里
+`CudagraphDispatcher(self.vllm_config)`（`gpu_model_runner.py:863`）的构造
+⇒ 那个实例上没有 `_dynamic_decode_query_lens` ⇒ runner 侧 `getattr(..., None)`
+判成 False ⇒ **整条"多 query_len"路径被静默跳过**（起服日志里看不到任何
+`[dynamic-spec] building decode graphs` INFO，也没有 `keeping raw
+cudagraph_capture_sizes` 跳过日志）。
+
+连带后果：raw 桶里的非整倍尺寸（12、20）被 `_create_padded_batch_descriptor`
+**降级成 non-uniform 键**塞进 FULL 键集，并被打进
+`set_draft_graph_params(capture_sizes)` —— 等于给草稿侧喂了非法捕获尺寸。
+
+**已修**：① 改为**懒算**（从 `self.vllm_config` 现算并缓存，完全免疫 import 顺序），
+删掉 `__init__` 补丁；② 建图期遇到非整倍桶**直接跳过**（新增
+`_v41_building_keys` 标记 + `add_cudagraph_key` 忽略 None），不再产生伪键；
+③ runner 侧的判定改为**只读 config**（`speculative_config.num_speculative_tokens_per_batch_size`），
+不再依赖 dispatcher 实例属性。三条都补进了离线自检（27 项）。
+
+**缺陷 2（致命，已复现）：batch 1 → 2 切换时 draft 元数据 rows 不匹配。**
+
+探针：先单请求（K=7 路径）跑通，紧接着发 2 并发 ⇒ 502，随后 D 端口拒绝连接。
+
+崩溃点（`patches/files/draft/dsa_v1.py:618`）：
+
+```
+build_dspark_swa_indices → block_ids = torch.gather(block_table, 1, safe_nums)
+RuntimeError: ... AclNN_Parameter_Error(EZ1001):
+  Size does not match at dimension 0, expected index shape 2 smaller than self shape 1
+```
+
+调用链是 `sample_tokens → propose_draft_token_ids → drafter._propose
+→ build_draft_attn_metadata → build_req_metadata_for_drafting → build_dspark_swa`。
+
+机制（读代码定出）：`build_req_metadata_for_drafting` 里
+`num_reqs = common_attn_metadata.num_reqs`，而
+
+```python
+dspark_swa_args = (
+    self.block_table[:num_reqs],   # 行数 = min(block_table 行数, num_reqs)
+    ...
+    seq_lens,                       # 行数 = num_reqs（self.seq_lens[:num_reqs]）
+)
+```
+
+两者都按 `num_reqs` 切片 ⇒ 只有 `self.block_table` **本身不足 `num_reqs` 行**时
+才会出现"seq_lens 2 行、block_table 1 行"。即**草稿侧 block table 的尺寸
+与实际 batch 不一致**。这与缺陷 1 的连带后果（12/20 这种非法尺寸进了
+`set_draft_graph_params`）方向一致，但**尚未定论**——需要在修掉缺陷 1 之后重跑
+同一探针确认（如果仍崩，则要在草稿 block table 的分配点继续定位）。
+
+### 10.3 收敛后的判据顺序（下一轮直接用）
+
+1. 起服后先看**是否出现** `[dynamic-spec] building decode graphs for query_lens=(1, 8)`
+   —— 这是"多 query_len 路径真的走了"的唯一判据（缺它说明又静默跳过了）；
+2. 再看捕获进度条：应为**两组**（ql=8 的 7 个桶 + ql=1 的 5 个桶）；
+3. 然后才是 `draft/gen` 的 K 切换探针（单请求 ≈7、并发 2 ≈0）；
+4. 最后是 144K/1M 正确性与三元组。
+
+### 10.4 生产服务状态
+
+验证期间 D 崩过一次，**已立即回滚**到你指定的高吞吐档并实测可用：
+
+| 项 | P (18990) | D (18991) |
+|---|---|---|
+| `--max-model-len` / `--max-num-seqs` | 1048576 / 8 | 1048576 / 8 |
+| 推测解码 | 关 | **关**（`--speculative-config` 0 次） |
+| 前缀缓存 / 护栏 | ✓ / — | ✓ / loaded ✓ |
+
+经代理单请求 `4*4 → 16`；并发 4 路 4/4 正确（0.53–1.58 s）。
