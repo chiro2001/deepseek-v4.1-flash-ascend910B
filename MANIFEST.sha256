@@ -3,7 +3,7 @@ fb7ae94bd0a7e91f3ed5ffa185d96ba70a3de8b1087437457b01fdb7963ece1f  ./.gitignore
 3d7badbff175863612d253c525197e2fb48647159d685e1936ca8a19a6a73709  ./AGENTS.md
 f6166950cf553834c0615ce60cb8ebc9d98e5c2d791a88c5ab9b3a49d7254268  ./CHANGELOG.md
 541a9b240384407cc1a3268e39e6d423d128648763ded2eb98fa5aa3dfa8f018  ./CORRECTNESS_STATUS.md
-82d37adde7e9435ed623c70d4c8953e6960f2c22eb392f59fe948ea0328c42c6  ./Dockerfile
+8b3f6b98d977d67383e9ae59eaef8ca3fd2af7fb463586c41c9ba7c4c09aab4e  ./Dockerfile
 f0b04e30ad8647b6600ba901aa2659d9cc2f48ebf776c9269d5da96701e2e1d6  ./EXPECTED_PERF.md
 c71d239df91726fc519c6eb72d318ec65820627232b2f796219e87dcf35d0ab4  ./LICENSE
 82d6a76c9f21022d860486d3fefd287e7ded4138fe24fd250a6a4c016825758b  ./NOTICE
@@ -253,12 +253,12 @@ bc0d64717ce8b069a1287adfc8da9df461149d113b6a1f4ef3d7e5bf895fce0f  ./data/hlm_loc
 a7fc413bd6e3926482faddf2af9bfb4426e55d8e421481d60100c14160785578  ./data/hongloumeng.txt
 93430f6c1d336f6a7bff65b88d1d9b4696a4672acc9fd5e9bde4b88e1a51da49  ./data/suffix_quote.txt
 2104592e018e9da323efc802b2d1bf9bb15315a582ba4894c50ed4a05949c511  ./deploy/a3-ced-pd/.gitignore
-5cf03a41f4efd1e197238eeb9ba43e041039acc85f8ec0582ca9bac33dcc3664  ./deploy/a3-ced-pd/Dockerfile
+2fcfdfccd5dbac0e933b8d2ab6214101a8414ebf6e3fbefd4eef63fc2ef4488c  ./deploy/a3-ced-pd/Dockerfile
 0c992bf394e5d033a983aef67ab964cc735d59669556a3cca3fc9ac68f3996d8  ./deploy/a3-ced-pd/KIT-README.md
 91ee7f9a6cf8a2d808af0abd373629358c6f5829ecda1ad96de73953c8dc1a74  ./deploy/a3-ced-pd/PAYLOAD.md
 48c290c5a0f469b96aa7f7708b1e757b95700db1d7371a8fa56fba6c29b74c22  ./deploy/a3-ced-pd/README.md
 748b1e0499b90eba95bd7c3a42d575b16bb221bb2a2f3c816e6cda307e5d830c  ./deploy/a3-ced-pd/build_image.sh
-9c04e1300538679c055d7fc937201cced83ea34506da51cc88931d5d5d2181f5  ./deploy/a3-ced-pd/build_payload.sh
+81906f57c55021c63a02980517ba346969b928a5c11409bb787b3980f74d18c1  ./deploy/a3-ced-pd/build_payload.sh
 bf42576d3429d5a263c0fee7f6cd92a4eaddbefa76a5fe2f3b4dbe6bf2b13339  ./deploy/a3-ced-pd/checks/build_smoke.py
 89408fba33a01e1bb3c91baab3f7782a5a219b6e69b5e8749e3dadbcc1fc26c7  ./deploy/a3-ced-pd/launch/_common.sh
 c6cb8bee9521265d002c78006f45ce373b55a32c06cd4abba72f4b6e38c3931e  ./deploy/a3-ced-pd/launch/serve_d.sh
@@ -266,7 +266,7 @@ c6cb8bee9521265d002c78006f45ce373b55a32c06cd4abba72f4b6e38c3931e  ./deploy/a3-ce
 57f9ccb0b5b3bb3be3c0bbe5bb54c4d7f796dfdca5cc46bd41453e5339819704  ./deploy/a3-ced-pd/launch/serve_proxy.sh
 abc281c8938d36c1ef5568aaff0c6cb97be04dfb32c196dbc9bbf5b829570bfc  ./deploy/a3-ced-pd/launch/smoke.sh
 53ddda6490255d3f0d79840da520bb05767c609ef72a8f3703b15f59daa7c8a9  ./deploy/a3-ced-pd/launch/stop_all.sh
-c7ee3f6b21535de735534ec6b1e78a390c47f7829fd3b7edf8a79a4029eb77dc  ./deploy/a3-ced-pd/verify_consistency.sh
+131846802f8df8af14507c19e6477d2ef1560275ca00ce2c66ae6657fc8115c5  ./deploy/a3-ced-pd/verify_consistency.sh
 a240f0c298571bacfc854e7021e462be3ed6ffecbf97d96963225abf5c31ed62  ./docs/A3-CED-PD-HANDOVER-20260924.md
 1fcab0ab5929cdf1379a44cf43d6cf00df2179e04fcdbd60b9e9c3db86cc2c5d  ./docs/A3-CED-PD-PAUSE-20260924.md
 a111a618883a5348ce5f58b387ff7e25f06ac67a5b04ce08399d082783fce4d9  ./docs/A3-CED-PD-WORKLOG.md
@@ -2074,7 +2074,7 @@ aa32c8125b596459e1209d1ef1eeb650124086a124387e9626be13b6894a470c  ./logs_meta/sa
 68f50f3bf40316763f78db8f823091768e4ad4ecd6166fead74046cead6588be  ./logs_meta/samples/p42_t4_quote_8192_faB_w.jsonl
 3cc76ed02fc59ce18876f8616930919a79c3aed2045192a2cd467e607ccf4a1c  ./optim/pgo/README.md
 06acc84a3104c8f137d150058d4dff3dcc3282777df8b9f2006c0439b815c328  ./optim/pgo/build/README.md
-d72785e27397fae69c0404da10e5ee26050e4e04d949c0f5b9bf17f96d523b15  ./patches/MD5SUMS
+c21f9a35bbf50bad144144d098aa13364d8bee9be896f6610cf6152af7f35b9b  ./patches/MD5SUMS
 3a492c9cb6eba701bb89da38c7b49003347ed6bd8070053b59b59e24c6060a19  ./patches/PATCHES.md
 16d6336c29fb629ba7d572eecb244a23e4550c3984087b898fb4dfe392452009  ./patches/README.md
 cdad8fc64569905b027a3a4e527e0bab2e731f7cbd25daa8beff7ec878321937  ./patches/_tools/make_series_va.sh
@@ -2087,7 +2087,7 @@ f92dea34393f4264999ff94038e68e28c7cf98d577c11c49e45c3609dbc0e286  ./patches/file
 76f628371bea89c92407080d1ea062b5895ba5db2b057086dbef954cfe9ef549  ./patches/files/draft/README-integration.md
 c131c024071fa5277e6fce27a9945f5e13d6c7816c8cfd88a386267f895feaeb  ./patches/files/draft/SELFCHECK.txt
 99ce66d31f1e7cdb9348ac473a06c259c5aac0eca5f3526e5c79ffa901f815eb  ./patches/files/draft/dsa_v1.py
-43547a67e8c51052e3e0ec1340d6c06ea497deac3e66ec6e0ed3b9d2362d42c8  ./patches/files/draft/dspark_proposer.py
+56943080f99da2f2dee516aa3e76605c5150408df9a26691cc6529f327ae29b4  ./patches/files/draft/dspark_proposer.py
 36d7c8870538e10e310863f9b628b90b946b534861563542cf7fba4cd88d7c39  ./patches/files/draft/llm_base_proposer.py
 f2633fd764203b14beff046a8029b48f4585d57df38914895be1cd432f41612c  ./patches/files/dsa_v1.py
 4c9a29e3e37c0170ab8b349dc4996aaf0d488ad375b7dc400589d9cc906ca7f4  ./patches/files/engram_device_index.py
@@ -2121,7 +2121,7 @@ c95daeef70b2a7ea983b6abf89ad3f29aeb6ab57ecd99aaa22e2353cbd01109c  ./patches/vllm
 e6e32ae32376f35a9f5fcee70247df54215961337a982ed51540ab530b2923f7  ./patches/vllm-ascend/0008-perf-engram-numba-JIT-for-hash-and-plan-kernels.patch
 ba334cab101a4e2638e8c94e865c740ee207cb5e8111f25392dc95b913f35856  ./patches/vllm-ascend/0009-feat-engram-device-side-table-lookup-over-host-mappe.patch
 2d7b3e021a2bc4707d8da2dd8ac7430f82f99b0866769653f92b005fb4d6e218  ./patches/vllm-ascend/0010-feat-engram-A3-Engram-A2.patch
-94d9e210fea850227e33438adbf2b4adb392c630e33c2bca112d82976aaf76fe  ./patches/vllm-ascend/MD5SUMS
+a0d0f459a619b15f72e5b8d0d373dde4d43e91a659369879fc09ae1100c3b21e  ./patches/vllm-ascend/MD5SUMS
 b6300ed7ed1889058057adfa98eada45a79922b0cac8a01131f759c514dd5fbc  ./patches/vllm-ascend/base.txt
 84fb32019ac86592d2485ba25c7f51da1ad3c308c4ed6f3d553ccae8e56e1d31  ./patches/vllm/0001-feat-scheduler-admission-gate-to-protect-decode-from.patch
 b6c9b86615f9dd3be4a725d35d6f23384fe327425c72af88f06225a708426a33  ./patches/vllm/MD5SUMS
@@ -2220,13 +2220,13 @@ b96cd5aa69c95f53d6c3e5ae0c13e83c09687adf027d1d99094db204b4b219f2  ./results/benc
 1bda42583847f0ae4aeefa52c0d81e0d07edfdf6985747e84e639063fbcc8d82  ./results/bench/conc_draft_graph.json
 5c6799f5ba30bbde4161b308ea8d41bcaadb95bd8801447fcc939a6d318dac58  ./scripts/build_image.sh
 9e470e45c239fa691ecb7326c0f932610c9f93fe88061266b2a73d620510ec0b  ./scripts/run_test.sh
-978a0074e8a15901ecaaaeae736dea1046b7cf7a4b7a420a1cf713683f3e95a7  ./scripts/serve_a2.sh
+5481da23c93fbe9f9a2bb9fbd8693c46438e5a63dc247f24f20da33571c1e5eb  ./scripts/serve_a2.sh
 45f7e66fd38e94748b9a28340ff6c2155eaa16ad37a14887b34bebb6b8f33470  ./scripts/serve_a3.sh
-8266f040b0204fdcef82b32f816d04ad3b33c2c8c84e4d2066f38eb89404b44b  ./scripts/serve_a3_ced_pd.sh
+05f8e25f3f5b0acdac3f63b86c30f51bd74792ab4bb2503c852823aba44eef0c  ./scripts/serve_a3_ced_pd.sh
 c6b7d331bd993439a362d45d38c1ec93f42222e66f0442753b152c1f185ba147  ./scripts/serve_a3_ced_single.sh
 ec36dea59f370e1f54a8c1292687ca3cec3295ca5df2e2b53d8329217ecea0c3  ./scripts/serve_a3_pd.sh
 b39854a57c5c46bc1caa8c5f5a1862f4b32e82c2b101e3009a2a9fea0d9e3a3a  ./scripts/serve_a3_pd_proxy.sh
-1dcbfd539b839307b2723d0614a94ebb8e857d2729e47f19678b6c20af346d75  ./scripts/serve_v2.sh
+c12c4253e9c82eea0d4937cbb7349c08e4360852dc1c758e626645b2af50f4f3  ./scripts/serve_v2.sh
 9c13cf9829755c8e06260d66a4daa7014dfc8b1bbe6a3be719e27a327701692f  ./tests/acc_eval.py
 1d236a3870f723da4a30fd5ddc9ebc14778c298646e3fdec9fcd741d9113d633  ./tests/agent_trace/accuracy_gate.py
 702dfa4e1b01331d5db00fd65206b34f121e789e6186d028410bae1c19398bef  ./tests/agent_trace/fisher_before_after.py
@@ -2335,7 +2335,7 @@ ad64346fea65f6489417f550303a7d61580d4adfc5ffe4e325ea28228df5df2d  ./tools/probe_
 9f99510fce498a2d55ca15fa9540f189267bbd8d59c3a4c2aa464b072b03fa1f  ./tools/repack_to_modelscope_layout.sh
 3802a34ad8432cf6fc445a99d5ac5f21af077c6a5917c84c656332c6041f0669  ./tools/run_probe_engram_hostreg.sh
 d24261096f377f8e831eb3dd42a35359d30d2041dc1474f5b7e6fa80d1393a94  ./tools/run_probe_hostmap.sh
-1207f218d8cff4ef5f4948e782ae92ba1f714cf5226ed81096def72db3421fb8  ./tools/selfcheck_pkg.sh
+6c4ffcbee2a8d12a09b5dbb94d04c5f20bef8f45984b541fe0abc60b914259eb  ./tools/selfcheck_pkg.sh
 ee077d0879931f92a415bd1cea8727ca7e5d618bc1a5172384a3449c5759e83e  ./tools/selftest_ced_defaults.sh
 797fb94c4e31f29d0fbd2b15be763f1a14d11d0ea269a02aded40e39445c025b  ./tools/selftest_ctx_agent_probe.sh
 249bc2e02adee2fd41eb071a142d928a668b2c4c5ff1e2d2f9ba2e3d71a69b4c  ./tools/selftest_deploy_a3.sh

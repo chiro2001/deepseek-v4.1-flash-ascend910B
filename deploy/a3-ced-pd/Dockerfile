@@ -129,7 +129,8 @@ RUN set -euo pipefail; \
     cp -f /tmp/bake/patches/core_scheduler_replay.patch      /opt/dsv41/ced_scheduler_replay.patch; \
     cp -f /tmp/bake/patches/core_scheduler_prefill_hit.patch /opt/dsv41/ced_scheduler_prefill_hit.patch; \
     cp -f /tmp/bake/patches/core_model_runner_prompt_tail.patch /opt/dsv41/ced_runner_prompt_tail.patch; \
-    for f in /opt/dsv41/ced_scheduler_replay.patch /opt/dsv41/ced_scheduler_prefill_hit.patch /opt/dsv41/ced_runner_prompt_tail.patch; do \
+    cp -f /tmp/bake/patches/core_model_runner_dynamic_spec.patch /opt/dsv41/ced_runner_dynamic_spec.patch; \
+    for f in /opt/dsv41/ced_scheduler_replay.patch /opt/dsv41/ced_scheduler_prefill_hit.patch /opt/dsv41/ced_runner_prompt_tail.patch /opt/dsv41/ced_runner_dynamic_spec.patch; do \
       test -s "$f" || { echo "[build] FATAL: missing $f"; exit 25; }; \
     done; \
     mkdir -p /opt/dsv41/guards; \

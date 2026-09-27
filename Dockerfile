@@ -36,6 +36,10 @@ COPY patches/files/indexer.py               /tmp/bake/indexer.py
 COPY patches/files/token_dispatcher_moemask.py /tmp/bake/token_dispatcher.py
 COPY patches/files/rope_dsv4.py             /tmp/bake/rope_dsv4.py
 COPY patches/files/block_table.py           /tmp/bake/block_table.py
+# [DYNAMIC-SPEC] 按并发切 K 需要的 dispatcher 补丁（覆盖 base 镜像里的同名文件：
+# 那版只改 `_create_padded_batch_descriptor` 的判定条件，没有"每步 query_len"
+# 与"多 query_len 各建一组图"的概念）。
+COPY patches/files/patch_cudagraph.py       /tmp/bake/patch_cudagraph.py
 COPY patches/files/draft/                    /opt/dsv41/patches/draft/
 # codex / OpenAI Responses API 兼容补丁（运行时按需安装，见 tools/enable_codex_responses.sh）
 COPY patches/files/patch_deepseek_v41_frontend/ /opt/dsv41/patches/patch_deepseek_v41_frontend/
@@ -81,6 +85,7 @@ RUN set -euo pipefail; \
     inst token_dispatcher.py          ops/fused_moe/token_dispatcher.py; \
     inst rope_dsv4.py                 ops/rope_dsv4.py; \
     inst block_table.py               worker/block_table.py; \
+    inst patch_cudagraph.py           patch/worker/patch_cudagraph.py; \
     newf engram_jit_kernel.py         models/deepseek_v41/engram_jit_kernel.py; \
     newf engram_plan_kernel.py        models/deepseek_v41/engram_plan_kernel.py; \
     newf engram_device_index.py       models/deepseek_v41/engram_device_index.py; \

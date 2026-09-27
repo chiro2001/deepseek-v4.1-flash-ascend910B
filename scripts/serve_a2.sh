@@ -166,6 +166,12 @@ EAGER=${EAGER:-0}
 STATIC_KERNEL=${STATIC_KERNEL:-1}
 NPUGRAPH_EX=${NPUGRAPH_EX:-1}
 SP_TOKENS=${SP_TOKENS:-5}
+# [DYNAMIC-SPEC] 按"当时并发数"切推测解码的 K。格式 `a,b,K;c,d,K`
+# （分号分隔的 range_start,range_end,K，闭区间，按**请求数**查表）。
+# 例：`1,1,7;2,8,0` = 单请求走 K=7、≥2 并发直接关推测。
+# 空 = 固定 K（历史行为，逐字节相同）。需要 GRAPH=1 EAGER=0 且
+# V41_CED_GRAPH_PROMPT_TAIL_EAGER=1（见下方 DYNAMIC-SPEC 段）。
+SP_SCHEDULE=${SP_SCHEDULE:-}
 SPEC=${SPEC:-1}
 ENGRAM=${ENGRAM:-1}
 VISION=${VISION:-1}
@@ -984,6 +990,27 @@ if [ "${V41_CED_GRAPH_PROMPT_TAIL_EAGER:-0}" = "1" ]; then
     MOUNTS+=(-v "$_ced_runner_patch:/opt/dsv41/ced_runner_prompt_tail.patch:ro")
   fi
 fi
+# [DYNAMIC-SPEC] 按并发切 K 所需要的两处 Ascend 侧改动：
+#   ① patch_cudagraph.py —— 整文件替换 base 镜像的
+#      `vllm_ascend/patch/worker/patch_cudagraph.py`：让 dispatcher 认得"本步
+#      query_len"，并为每个 query_len 各建一组 decode 图；
+#   ② core_model_runner_dynamic_spec.patch —— 运行期补丁，把"本步 query_len"
+#      从 runner 逐帧传给 dispatcher，并修掉两处按静态 query_len 判分支的地方
+#      （其中 `_pad_query_start_loc_for_fia` 会 `assert num_reqs == num_reqs_padded`，
+#      不改就是"K=0 且 batch≠8 时直接打死引擎"）。
+#   两者都只在 SP_SCHEDULE 非空时才有意义；此处**无条件挂载/应用**，
+#   因为 mount 与否必须与"是否开了 dynamic SD"解耦（否则开关一开就缺文件）。
+_dynspec_pc="$PKG/patches/files/patch_cudagraph.py"
+if [ -f "$_dynspec_pc" ]; then
+  MOUNTS+=(-v "$_dynspec_pc:/vllm-workspace/vllm-ascend/vllm_ascend/patch/worker/patch_cudagraph.py:ro")
+else
+  [ -z "${SP_SCHEDULE:-}" ] || die "SP_SCHEDULE 需要 $_dynspec_pc（缺它则 query_len 只有单值 ⇒ K=0 的步会错配/崩溃）"
+fi
+if [ "$PATCH_MODE" = "mount" ] && [ -n "${SP_SCHEDULE:-}" ]; then
+  _dynspec_runner="$PKG/experimental/ced/core_model_runner_dynamic_spec.patch"
+  [ -f "$_dynspec_runner" ] || die "SP_SCHEDULE 需要 $_dynspec_runner"
+  MOUNTS+=(-v "$_dynspec_runner:/opt/dsv41/ced_runner_dynamic_spec.patch:ro")
+fi
 if [ -n "${V41_CED_SNAPSHOT_POS:-}" ] && [ -z "${V41_CED_ROLE:-}" ]; then
   [ "${PROBE:-0}" != "1" ] || die "CED cache snapshot 不能与 PROBE=1 同时覆盖 dsa_v41.py"
   _ced_dsa="$PKG/experimental/ced/dsa_v41.py"
@@ -1245,6 +1272,7 @@ $DOCKER run -d --name "$NAME" --net=host --shm-size=512g --privileged=true \
   -e V41_CED_LAYER_SNAPSHOT_LAYERS="${V41_CED_LAYER_SNAPSHOT_LAYERS:-0,1,2,13,14,15,19,20}" \
   -e V41_CED_CAPTURE_DECODE="${V41_CED_CAPTURE_DECODE:-0}" \
   -e V41_DECODE_API_GUARD="${V41_DECODE_API_GUARD:-1}" \
+  -e SP_SCHEDULE="${SP_SCHEDULE:-}" \
   -e LOAD_FORMAT="$LOAD_FORMAT" \
   -e KV_ARGS_EXTRA="$KV_ARGS_EXTRA" \
   ${HCCL_ENV_ARGS[@]+"${HCCL_ENV_ARGS[@]}"} \
@@ -1353,6 +1381,45 @@ if [ "${V41_CED_GRAPH_PROMPT_TAIL_EAGER:-0}" = "1" ]; then
     python3 -m py_compile vllm_ascend/worker/model_runner_v1.py || exit 1
     echo APPLIED' 2>/dev/null | tail -1)
   [ "${_ced_runner:-}" = "APPLIED" ] || die "CED prompt-tail runner 补丁未应用"
+fi
+
+# ---------- [DYNAMIC-SPEC] 运行期给 runner 打"按并发切 K"的补丁 ----------
+# 顺序要求：必须在 prompt-tail 补丁**之后**打，本补丁的 sha 门对应的是
+# "base 文件 + prompt-tail 补丁"之后的内容（bd250a59…），不是 base 文件本身
+# （base 是 67035d97…）。这与仓库里踩过的 durian 坑同源：拿错基线会让
+# `git apply --check` 失败，或者在容器里 `git checkout` 把 prompt-tail 抹掉。
+if [ -n "${SP_SCHEDULE:-}" ]; then
+  [ "${V41_CED_ROLE:-}" = "decode" ] || die "SP_SCHEDULE（按并发切 K）只对 decode 角色有意义"
+  [ "$PATCH_MODE" = "mount" ] || die "SP_SCHEDULE 目前只支持 PATCH_MODE=mount（baked 镜像不含该补丁）"
+  say "[DYNAMIC-SPEC] 应用 runner 侧 dynamic-spec 补丁（schedule=$SP_SCHEDULE）"
+  _dynspec=$($DOCKER exec "$NAME" bash -lc '
+    cd /vllm-workspace/vllm-ascend || exit 1
+    _base=$(sha256sum vllm_ascend/worker/model_runner_v1.py | cut -d " " -f1)
+    [ "$_base" = bd250a59819dd806d16706177840c057416944c762264f2a291c608d915c2aff ] || exit 1
+    if grep -Fq "[DYNAMIC-SPEC]" vllm_ascend/worker/model_runner_v1.py; then
+      echo ALREADY; exit 0
+    fi
+    git apply --check /opt/dsv41/ced_runner_dynamic_spec.patch || exit 1
+    git apply /opt/dsv41/ced_runner_dynamic_spec.patch || exit 1
+    grep -Fq "_v41_effective_udql" vllm_ascend/worker/model_runner_v1.py || exit 1
+    python3 -m py_compile vllm_ascend/worker/model_runner_v1.py || exit 1
+    echo APPLIED' 2>/dev/null | tail -1)
+  case "${_dynspec:-}" in
+    APPLIED) say "[DYNAMIC-SPEC] runner 补丁已应用 ✓" ;;
+    ALREADY) say "[DYNAMIC-SPEC] runner 补丁已存在 ✓" ;;
+    *) die "DYNAMIC-SPEC runner 补丁未应用（$_dynspec）。两个常见原因：
+      ① 没开图模式 ⇒ 本补丁的前置补丁（prompt-tail）没打，文件仍是 base 的
+         67035d97… 而不是 bd250a59… ⇒ SP_SCHEDULE 需要
+         V41_CED_GRAPH_PROMPT_TAIL_EAGER=1 + GRAPH=1 EAGER=0；
+      ② 镜像换版导致 sha 门不匹配。两种情况都不要带着它起服。" ;;
+  esac
+  # 效果断言：patch_cudagraph.py 也必须在位（否则 runner 传的 query_len 没人消费）
+  _dynspec_pc_hit=$($DOCKER exec "$NAME" bash -lc '
+    grep -c "dynamic_decode_query_lens" \
+      /vllm-workspace/vllm-ascend/vllm_ascend/patch/worker/patch_cudagraph.py 2>/dev/null || true')
+  [ "${_dynspec_pc_hit:-0}" -ge 1 ] \
+    || die "patch_cudagraph.py 不是我们的 dynamic-spec 版（命中 ${_dynspec_pc_hit:-0}）⇒ query_len 只有单值，K=0 的步会错配"
+  say "[DYNAMIC-SPEC] patch_cudagraph.py 在位（命中 $_dynspec_pc_hit 处）✓"
 fi
 
 # ---------- [DECODE-API-GUARD] decode 侧请求边界护栏 ----------
@@ -1468,6 +1535,7 @@ fi
   echo "[serve_a2] PROFILE=$V41_PROFILE（1 => /start_profile 与 /stop_profile 可用，落到 $OUT/prof）"
   echo "[serve_a2] ENGRAM_DEVICE_INDEX=$ENGRAM_DEVICE_INDEX ENGRAM_DEVICE_FALLBACK=$ENGRAM_DEVICE_FALLBACK"
   echo "[serve_a2] KV_ARGS_EXTRA=${KV_ARGS_EXTRA:-<none>}"
+  echo "[serve_a2] SP_SCHEDULE=${SP_SCHEDULE:-<fixed K=$SP_TOKENS>}（按并发切 K；空=固定）"
   echo "[serve_a2] PATCH_MODE=$PATCH_MODE ADMISSION_GATE=${_gate:-n/a}(live_hits=${_gh:-0})"
 } | tee "$OUT/serve_cmd.txt"
 

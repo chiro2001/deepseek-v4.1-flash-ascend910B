@@ -69,7 +69,7 @@ cp -f "$PKG/patches/files/v41_decode_guard.py" "$OUT/guard/"
 for p in admission_gate.patch; do
   need "patches/$p"; cp -f "$PKG/patches/$p" "$OUT/patches/$p"
 done
-for p in core_scheduler_replay.patch core_scheduler_prefill_hit.patch core_model_runner_prompt_tail.patch; do
+for p in core_scheduler_replay.patch core_scheduler_prefill_hit.patch core_model_runner_prompt_tail.patch core_model_runner_dynamic_spec.patch; do
   need "experimental/ced/$p"; cp -f "$PKG/experimental/ced/$p" "$OUT/patches/$p"
 done
 

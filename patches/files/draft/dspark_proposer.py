@@ -144,10 +144,18 @@ class AscendDSparkProposer(AscendDflashProposer):
         hf_config = self.draft_model_config.hf_config
         hf_config = getattr(hf_config, "text_config", hf_config)
         self.sample_from_anchor = getattr(hf_config, "sample_from_anchor", True)
-        if self.sample_from_anchor:
-            self.num_query_per_req = self.num_speculative_tokens
-        else:
-            self.num_query_per_req = 1 + self.num_speculative_tokens
+        # [DYNAMIC-SPEC] `num_query_per_req`（每个请求的 draft query 行数）
+        # **必须随每步的 K 派生**，不能在构造期定死。理由：
+        #   * `llm_base_proposer._propose()` 每步都会 `self.num_speculative_tokens
+        #     = num_speculative_tokens`（dynamic SD 下这个值可以逐批变化）；
+        #   * 而本类原先只在 `__init__` 里由 K 推出 `num_query_per_req` 一次
+        #     ⇒ K 一变两者就脱节，下游 14 处（`query_start_loc` / `max_query_len` /
+        #     `decode_token_per_req` / `num_query_total` / dummy_run 捕获）全部用错。
+        #   * 静态 K 口径下 `_sync_num_query_per_req()` 是恒等操作（K 不变），
+        #     所以对既有路径**逐字节等价**。
+        # 存储仍用私有名，公开名由 property 提供，避免出现"赋值了但没同步"的写法。
+        self._num_query_per_req = 0
+        self._sync_num_query_per_req()
 
         blk = 1 + self.num_speculative_tokens
         self._dspark_draft_buffer = torch.zeros((self.max_batch_size, blk), dtype=torch.int64, device=device)
@@ -252,6 +260,35 @@ class AscendDSparkProposer(AscendDflashProposer):
         self._per_group_query_slot_mapping_buffers: dict[int, torch.Tensor] = {}
         self._per_group_context_slot_mapping_buffers: dict[int, torch.Tensor] = {}
         self._context_slot_mapping_buffers: list[torch.Tensor | None] | None = None
+
+    # ---------------------------------------------------------------- dynamic K
+    def _sync_num_query_per_req(self) -> int:
+        """由**当前步**的 K 重新派生 `num_query_per_req`，并返回新值。
+
+        `_propose()` 每步都会覆盖 `self.num_speculative_tokens`（dynamic SD 下
+        可以逐批变化），所以任何"会用 K 算形状"的入口在动手前都要先调这里：
+
+          * `set_inputs_first_pass`  —— replay 路径
+          * `dummy_run` / `_build_capture_draft_attn_metadata` —— 捕获路径
+
+        缓冲区（`max_query_tokens` 等）在 `__init__` 里按**最大** K 分配，
+        所以派生出一个更小的值只会让尾部行保持惰性，不会越界。
+        """
+        k = self.num_speculative_tokens
+        num_query = k if self.sample_from_anchor else 1 + k
+        self._num_query_per_req = num_query
+        return num_query
+
+    @property
+    def num_query_per_req(self) -> int:
+        """每请求 draft query 行数；恒等于当前步 K 的派生值。"""
+        return self._num_query_per_req
+
+    @num_query_per_req.setter
+    def num_query_per_req(self, value: int) -> None:
+        # 允许外部赋值，但**立刻**按当前 K 归一，避免出现"设了但不一致"的状态。
+        self._num_query_per_req = int(value)
+        self._sync_num_query_per_req()
 
     def _compute_confidence(
         self,
@@ -380,6 +417,10 @@ class AscendDSparkProposer(AscendDflashProposer):
         num_prefill_reqs=0,
         num_decode_reqs=0,
     ) -> tuple[int, torch.Tensor, CommonAttentionMetadata, tuple[Any, Any] | None]:
+        # [DYNAMIC-SPEC] replay 路径：先按本步 K 归一 num_query_per_req，
+        # 再让下游所有形状派生（query_start_loc / max_query_len / num_query_total…）
+        # 用到正确的值。静态 K 下这是恒等操作。
+        self._sync_num_query_per_req()
         # The initial input token of markovHead is the next token
         n = next_token_ids.shape[0]
         self._dspark_seed_buffer[:n].copy_(next_token_ids)
@@ -503,6 +544,8 @@ class AscendDSparkProposer(AscendDflashProposer):
         ``build_draft_attn_metadata`` so capture and replay resolve to the exact
         same device addresses.
         """
+        # [DYNAMIC-SPEC] 捕获路径同样按当前 K 归一（只对**被捕获的那个 K**生效）。
+        self._sync_num_query_per_req()
         batch_size = num_reqs
         num_query_total = batch_size * self.num_query_per_req
         num_actual_tokens = min(num_query_total, num_input_tokens)
@@ -634,6 +677,11 @@ class AscendDSparkProposer(AscendDflashProposer):
         is_profile=False,
         **kwargs,
     ) -> None:
+        # [DYNAMIC-SPEC] 捕获入口：本步 K 决定 num_query_per_req。
+        # 捕获期 `self.num_speculative_tokens` 由捕获循环按"正在捕的那个 K"设置
+        # （见 runner 侧 `_warmup_and_capture` 的覆盖），因此这里是恒等操作；
+        # 保留它可保证即使捕获路径从别处进入也不会算出错形状。
+        self._sync_num_query_per_req()
         num_query_total = num_reqs * self.num_query_per_req
         num_query_tokens = min(num_query_total if num_reqs > 0 else num_tokens, self.max_query_tokens)
 

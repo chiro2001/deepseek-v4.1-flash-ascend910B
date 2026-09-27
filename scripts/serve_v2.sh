@@ -114,7 +114,39 @@ fi
 if [ "$PREFIX" = "1" ]; then ARGS+=(--enable-prefix-caching); else ARGS+=(--no-enable-prefix-caching); fi
 if [ "$SPEC" = "1" ]; then
   if [ "$SPEC_EAGER" = "1" ]; then SE=true; else SE=false; fi
-  ARGS+=(--speculative-config "{\"method\":\"dspark\",\"num_speculative_tokens\":$SP_TOKENS,\"enforce_eager\":$SE}")
+  # [DYNAMIC-SPEC] 按"当时并发数"切换推测解码的 K。
+  #   SP_SCHEDULE 形如 "1,1,7;2,8,0"（分号分隔的 range_start,range_end,K 三元组），
+  #   由 serve_v2.sh 拼成 vLLM 原生的
+  #   `num_speculative_tokens_per_batch_size=[[1,1,7],[2,8,0]]`：
+  #       batch_size ∈ [1,1] ⇒ K=7（单请求走推测）
+  #       batch_size ∈ [2,8] ⇒ K=0（≥2 并发直接关推测，走纯自回归）
+  #   依赖：K=0 时调度器**不再**把 decode 补到 1+K（`dynamic_sd_lookup is not None`
+  #   时跳过 padding），因此那一步的形状是 `batch × 1` 而不是 `batch × 8`。
+  #   Ascend 侧的图捕获必须同时覆盖 query_len ∈ {1, 8}，见
+  #   patches/files/patch_cudagraph.py 与 experimental/ced/core_model_runner_dynamic_spec.patch。
+  #   不设 SP_SCHEDULE ⇒ 与历史行为**逐字节相同**。
+  _spec_cfg="{\"method\":\"dspark\",\"num_speculative_tokens\":$SP_TOKENS,\"enforce_eager\":$SE"
+  if [ -n "${SP_SCHEDULE:-}" ]; then
+    _sched_json=$(printf '%s' "$SP_SCHEDULE" | awk -F';' '
+      BEGIN { out = "" }
+      {
+        for (i = 1; i <= NF; i++) {
+          n = split($i, t, ",")
+          if (n != 3) { printf "BAD_ENTRY:%s", $i; exit 1 }
+          out = out (out ? "," : "") "[" t[1] "," t[2] "," t[3] "]"
+        }
+        print out
+      }')
+    case "$_sched_json" in
+      BAD_ENTRY*|"")
+        echo "[serve-v2] WARNING: SP_SCHEDULE='$SP_SCHEDULE' 解析失败（应为 'a,b,K;c,d,K'）⇒ **忽略**，退回固定 K=$SP_TOKENS" >&2
+        ;;
+      *)
+        _spec_cfg="$_spec_cfg,\"num_speculative_tokens_per_batch_size\":[$_sched_json]" ;;
+    esac
+  fi
+  _spec_cfg="$_spec_cfg}"
+  ARGS+=(--speculative-config "$_spec_cfg")
 fi
 # [LOADER-MT] dummy load 不接受 model-loader-extra-config（vllm 直接 raise ValueError），
 # 且 dummy 模式下本来也没有权重要并发加载，所以此时跳过。
@@ -159,6 +191,7 @@ fi
 
 echo "[serve-v2] model=$(basename "$MODEL") tp=$TP dp=$DP port=$PORT graph=$GRAPH prefix=$PREFIX spec=$SPEC(sp=$SP_TOKENS) kv=$KV_DTYPE vision=$VISION"
 echo "[serve-v2] bind=$HOST mm_limit_images=$MM_LIMIT_IMAGES decode_guard=$([ "${V41_CED_ROLE:-}" = decode ] && echo on || echo off)"
+echo "[serve-v2] spec=$SPEC sp_tokens=$SP_TOKENS sp_schedule=${SP_SCHEDULE:-<none>}"
 echo "[serve-v2] npugraph_ex=$NPUGRAPH_EX static=$STATIC_KERNEL cpu_bind=$CPU_BIND multistream=$MULTISTREAM dsa=$DSA_OVERLAP fused_mc2=$FUSED_MC2 mc2_alg=$MC2_ALG reduce_sample=$REDUCE_SAMPLE loader_mt=$LOADER_MT lazy=$LAZY max_len=$MAX_LEN bat=$BAT_TOKENS seqs=$MAX_SEQS"
 echo "[serve-v2] cmd: vllm ${ARGS[*]}"
 exec vllm "${ARGS[@]}"

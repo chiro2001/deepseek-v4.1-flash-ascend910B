@@ -425,6 +425,58 @@ else
   warn "缺 tools/selftest_ced_defaults.sh（无法自动抓"默认值被覆盖/门失效"这类错误）"
 fi
 
+# ------------------------------------------------- 9k) dynamic speculative decoding
+# 背景：按并发切推测解码的 K（K=7 与 K=0 两档）。它的失效方式几乎全是**静默**的：
+#   * K=0 的步错配到 K=7 的图上 → 不报错、算错；
+#   * 建图期把 ql=1 的键捕成 ql=8 的形状 → 不报错、错配；
+#   * 少了 runner 侧补丁 → `_pad_query_start_loc_for_fia` 的
+#     `assert num_reqs == num_reqs_padded` 会在 batch≠ql 时打死引擎（这条是响亮的）。
+# 所以这里既跑逻辑自测（stub 注入，不需要 vLLM），也查"接线是否真的接上"——
+# 后者防的是"文件在、但没人挂/没人打"这类静默失败（护栏那轮踩过同样的坑）。
+if [ -f tools/selftest_dynamic_spec.py ]; then
+  if out=$(python3 tools/selftest_dynamic_spec.py 2>&1); then
+    n=$(printf '%s' "$out" | grep -c 'PASS' || true)
+    ok "dynamic-spec 逻辑自测：${n:-?} 项全过（query_len 集合 / num_reqs 反推 / 缺图降级 / 多 ql 建图 / schedule 转换 + 负控）"
+  else
+    bad "dynamic-spec 逻辑自测失败 —— 图键/形状算错会**静默算错**，先修再起服："
+    printf '%s' "$out" | grep -E 'FAIL' | sed 's/^/        /' | head -8
+  fi
+else
+  warn "缺 tools/selftest_dynamic_spec.py（无法验证按并发切 K 的图键逻辑）"
+fi
+
+# 接线：五个落点缺一不可（缺哪个都会静默降级或起不来）
+_dyn_missing=""
+grep -q "V41_CED_DYNAMIC_SPEC" scripts/serve_a3_ced_pd.sh || _dyn_missing="$_dyn_missing 角色脚本开关"
+grep -q "SP_SCHEDULE" scripts/serve_v2.sh               || _dyn_missing="$_dyn_missing serve_v2 拼装"
+grep -q "num_speculative_tokens_per_batch_size" scripts/serve_v2.sh || _dyn_missing="$_dyn_missing vLLM 原生字段"
+grep -q "vllm_ascend/patch/worker/patch_cudagraph.py" scripts/serve_a2.sh || _dyn_missing="$_dyn_missing patch_cudagraph 挂载"
+grep -q "ced_runner_dynamic_spec.patch" scripts/serve_a2.sh || _dyn_missing="$_dyn_missing runner 补丁应用"
+grep -q -- "-e SP_SCHEDULE=" scripts/serve_a2.sh         || _dyn_missing="$_dyn_missing env 透传"
+if [ -n "$_dyn_missing" ]; then
+  bad "dynamic-spec 接线不完整：$_dyn_missing"
+else
+  ok "dynamic-spec 接线：开关 + serve_v2 拼装 + 挂载 + 运行期补丁 + env 透传，六处齐"
+fi
+# 运行期补丁的 sha 门必须与"base 文件 + prompt-tail 补丁"之后的内容一致；
+# 写成常量是为了让"换了镜像 base sha 变了"这件事在**离线**就能被发现。
+if grep -q "bd250a59819dd806d16706177840c057416944c762264f2a291c608d915c2aff" scripts/serve_a2.sh; then
+  ok "runner 补丁 sha 门 = bd250a59…（base 67035d97… + prompt-tail 之后）"
+else
+  bad "runner 补丁的 sha 门不是 bd250a59… ⇒ 与 prompt-tail 的叠加基线对不上"
+fi
+# 两个新件必须登记进 deploy 侧的 payload 与逐文件校验（否则镜像里少装也能 PASS）
+_dyn_deploy=""
+grep -q "core_model_runner_dynamic_spec.patch" deploy/a3-ced-pd/build_payload.sh || _dyn_deploy="$_dyn_deploy build_payload"
+grep -q "ced_runner_dynamic_spec.patch" deploy/a3-ced-pd/Dockerfile || _dyn_deploy="$_dyn_deploy deploy-Dockerfile"
+grep -q "patch/worker/patch_cudagraph.py" deploy/a3-ced-pd/verify_consistency.sh || _dyn_deploy="$_dyn_deploy verify_consistency"
+grep -q "patch_cudagraph.py" Dockerfile || _dyn_deploy="$_dyn_deploy 根Dockerfile落位"
+if [ -n "$_dyn_deploy" ]; then
+  bad "dynamic-spec 未登记进打包/校验链：$_dyn_deploy"
+else
+  ok "dynamic-spec 已登记进打包与逐文件校验链（4 处）"
+fi
+
 echo
 if [ "$fail" = "0" ]; then
   echo "[selfcheck] 全部通过 ✅  可以开始：bash scripts/build_image.sh"

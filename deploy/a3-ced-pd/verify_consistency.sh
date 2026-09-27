@@ -66,6 +66,7 @@ $DOCKER run --rm --entrypoint bash "$IMAGE" -lc "
     ascend_forward_context.py \
     ops/rope_dsv4.py \
     worker/block_table.py \
+    patch/worker/patch_cudagraph.py \
     ops/fused_moe/token_dispatcher.py \
     attention/dsa_v41.py \
     distributed/kv_transfer/kv_p2p/mooncake_hybrid_connector.py ; do
@@ -74,7 +75,7 @@ $DOCKER run --rm --entrypoint bash "$IMAGE" -lc "
   for p in dsa_v1.py dspark_proposer.py llm_base_proposer.py ; do
       printf 'IMG  %s  %s\n' \"\$(md5sum /opt/dsv41/patches/draft/\$p | cut -d' ' -f1)\" \"DRAFT/\$p\"
   done
-  for p in admission_gate.patch ced_scheduler_replay.patch ced_scheduler_prefill_hit.patch ced_runner_prompt_tail.patch ; do
+  for p in admission_gate.patch ced_scheduler_replay.patch ced_scheduler_prefill_hit.patch ced_runner_prompt_tail.patch ced_runner_dynamic_spec.patch ; do
       printf 'IMG  %s  %s\n' \"\$(md5sum /opt/dsv41/\$p | cut -d' ' -f1)\" \"PATCH/\$p\"
   done
   for s in serve_a2.sh serve_v2.sh serve_a3.sh serve_a3_pd.sh serve_a3_pd_proxy.sh serve_a3_ced_pd.sh serve_a3_ced_single.sh run_test.sh ; do
@@ -101,6 +102,7 @@ models/deepseek_v41/indexer.py	patches/files/indexer.py	ascend/indexer.py
 ascend_forward_context.py	patches/files/ascend_forward_context.py	ascend/ascend_forward_context.py
 ops/rope_dsv4.py	patches/files/rope_dsv4.py	ascend/rope_dsv4.py
 worker/block_table.py	patches/files/block_table.py	ascend/block_table.py
+patch/worker/patch_cudagraph.py	patches/files/patch_cudagraph.py	ascend/patch_cudagraph.py
 ops/fused_moe/token_dispatcher.py	patches/files/token_dispatcher_moemask.py	ascend/token_dispatcher.py
 attention/dsa_v41.py	experimental/ced/dsa_v41.py	ced/dsa_v41.py
 distributed/kv_transfer/kv_p2p/mooncake_hybrid_connector.py	experimental/ced/mooncake_hybrid_connector.py	ced/mooncake_hybrid_connector.py
@@ -111,6 +113,7 @@ PATCH/admission_gate.patch	patches/admission_gate.patch	patches/admission_gate.p
 PATCH/ced_scheduler_replay.patch	experimental/ced/core_scheduler_replay.patch	patches/core_scheduler_replay.patch
 PATCH/ced_scheduler_prefill_hit.patch	experimental/ced/core_scheduler_prefill_hit.patch	patches/core_scheduler_prefill_hit.patch
 PATCH/ced_runner_prompt_tail.patch	experimental/ced/core_model_runner_prompt_tail.patch	patches/core_model_runner_prompt_tail.patch
+PATCH/ced_runner_dynamic_spec.patch	experimental/ced/core_model_runner_dynamic_spec.patch	patches/core_model_runner_dynamic_spec.patch
 SCRIPT/serve_a2.sh	scripts/serve_a2.sh	scripts/serve_a2.sh
 SCRIPT/serve_v2.sh	scripts/serve_v2.sh	scripts/serve_v2.sh
 SCRIPT/serve_a3.sh	scripts/serve_a3.sh	scripts/serve_a3.sh

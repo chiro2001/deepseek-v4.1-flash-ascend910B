@@ -111,6 +111,38 @@ if [ "$role" = decode ]; then
 else
   export STATIC_KERNEL=${STATIC_KERNEL:-0}
 fi
+# [DYNAMIC-SPEC] 按**当时并发数**切推测解码的 K（路线 A：只开 K=7 与 K=0）。
+#
+#   V41_CED_DYNAMIC_SPEC=1 才启用；默认 0 ⇒ 与历史口径**逐字节相同**。
+#   启用后的默认表 = `1,1,7;2,8,0`：
+#       batch=1  → K=7（低并发走推测，单流吞吐 1.77×）
+#       batch≥2  → K=0（关推测，纯自回归；实测并发 2 时自回归已 1.23× 领先）
+#   ⚠️ 表是按**请求数**查的，不是"用户并发"。想用别的阈值就显式给
+#      `SP_SCHEDULE='1,1,7;2,8,0'`（分号分隔，闭区间）。
+#
+#   ⚠️ 这条路的交叉点是在 **2K prompt** 上测出来的（见
+#      docs/CED-PD-DYNAMIC-SPEC-20260926.md §4）。长上下文负载下每步固定开销
+#      大得多，交叉点可能移动 —— 上线前应在自己的负载上复测。
+#
+#   三个硬前提（都在下面判）：
+#     ① 只剩 D 侧：P 永远 SPEC=0（DSpark 需要目标层 37/38/39，P 在第 20 层 break）；
+#     ② 必须在图模式（K=0 与 K=7 各要一组图）；
+#     ③ 必须 PATCH_MODE=mount（补丁在运行期打，baked 镜像没带）。
+if [ "${V41_CED_DYNAMIC_SPEC:-0}" = "1" ]; then
+  if [ "$role" != "decode" ]; then
+    echo "[a3-ced][FAIL] V41_CED_DYNAMIC_SPEC 只对 decode 角色有意义（P 恒 SPEC=0）" >&2
+    exit 2
+  fi
+  export SP_SCHEDULE=${SP_SCHEDULE:-1,1,7;2,8,0}
+  # ② 图模式：dynamic K 同时需要 ql=1 与 ql=8 两组图，eager 下没有意义。
+  if [ "${CED_DIAGNOSTIC_EAGER:-0}" = "1" ]; then
+    echo "[a3-ced][FAIL] V41_CED_DYNAMIC_SPEC 与 CED_DIAGNOSTIC_EAGER=1 互斥（eager 没有图可切）" >&2
+    exit 2
+  fi
+  export CED_EXPERIMENTAL_GRAPH=${CED_EXPERIMENTAL_GRAPH:-1}
+  export V41_CED_GRAPH_PROMPT_TAIL_EAGER=${V41_CED_GRAPH_PROMPT_TAIL_EAGER:-1}
+  echo "[a3-ced] D 侧 dynamic spec：SP_SCHEDULE='$SP_SCHEDULE'（按请求数切 K）"
+fi
 if [ "$role" = decode ]; then
   # [CED-GRAPH-DEFAULT] 交付口径 = **图模式**（GRAPH=1 EAGER=0）。
   #   原先两个臂都必须显式选（裸跑会 exit 2），理由是"图模式短针 2/2 乱码"。
