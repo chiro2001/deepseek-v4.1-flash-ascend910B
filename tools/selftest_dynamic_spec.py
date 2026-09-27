@@ -380,6 +380,38 @@ def test_initialize_and_adjust(mod) -> None:
         bad(f"无 opt-in 时仍多建了图：{[c[0] for c in d2.init_calls]}（draft 会被白捕一轮）")
 
 
+def test_proposer_sync_wiring() -> None:
+    """要求①的接线判据：`num_query_per_req` 必须**随每步 K 派生**。
+
+    背景（`docs/CED-PD-DYNAMIC-SPEC-20260926.md` §2 缺口 1）：
+    `llm_base_proposer._propose()` 每步都会覆盖 `self.num_speculative_tokens`，
+    而 `AscendDSparkProposer` 原先只在 `__init__` 里由 K 推出 `num_query_per_req`
+    一次 ⇒ K 一变两者就脱节，下游 14 处（query_start_loc / max_query_len /
+    num_query_total …）全部用错。
+
+    这条是**纯文本接线检查**（dspark_proposer 依赖 torch/npu，离线起不来）：
+    钉住"属性存在 + 三个入口都调了同步"。当前 schedule 只有 {7,0}，K≠0 恒等于
+    最大 K ⇒ 同步是恒等操作、真机不会暴露差异；但换成任意阈值表（如中间档 K=3）
+    它就是必需的，所以必须钉住、不能让它再退回去。
+    """
+    print("[dynamic-spec] 要求①：num_query_per_req 随每步 K 派生（接线）")
+    src = (ROOT / "patches" / "files" / "draft" / "dspark_proposer.py").read_text()
+    if "_sync_num_query_per_req" in src and "def num_query_per_req" in src:
+        ok("有 _sync_num_query_per_req + num_query_per_req property")
+    else:
+        bad("缺同步函数或 property ⇒ num_query_per_req 会退回构造期定死")
+    for entry in ("set_inputs_first_pass", "_build_capture_draft_attn_metadata", "dummy_run"):
+        seg = src.split(f"def {entry}(", 1)
+        if len(seg) == 1:
+            bad(f"找不到入口 {entry}")
+            continue
+        body = seg[1][:2000]
+        if "_sync_num_query_per_req()" in body:
+            ok(f"{entry} 调了同步")
+        else:
+            bad(f"{entry} 没调同步 ⇒ 该入口会用过期形状")
+
+
 def test_patch_contains_reassert() -> None:
     """运行期补丁必须带"抵消上游 PIECEWISE 降级"的分支（默认关、env 开）。
 
@@ -512,6 +544,7 @@ def main() -> int:
     test_query_len_derivation(mod)
     test_descriptor(mod)
     test_initialize_and_adjust(mod)
+    test_proposer_sync_wiring()
     test_patch_contains_reassert()
     test_schedule_to_json()
     print("=" * 72)

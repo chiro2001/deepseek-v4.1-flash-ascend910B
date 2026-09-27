@@ -583,3 +583,58 @@ K=0 时一个都不造 ⇒ ≈0）：
 **动态 K 在 A3 CED-PD 上跑通了**：起服要显式承担 `V41_CED_DYNAMIC_SPEC=1` +
 `V41_CED_DYNAMIC_SPEC_FULL_GRAPHS=1`（后者是绕过上游 MRV1 降级门，见 §9.4），
 之后并发 1 走 K=7、≥2 走 K=0，144K/1M/并发正确性全过，全程 0 ERROR。
+
+---
+
+## 12. 第四轮（2026-09-28 05:46–06:05）：**补上"两个桶"的直接证据**
+
+第三轮（§11）的功能结论都对，但 §11.3 的"要求②：两个 query_len 各建一组图"
+当时**只有间接证据**（K=0 不崩 + ms/step 合理），因为我那条判据写成了
+`logger.info`、被日志级别过滤掉了。按本仓纪律"判据要绑可观测痕迹"，
+间接推断不算证据 —— 所以改了判据级别（`5d98aff`：两条改 `logger.warning`），
+并在低流量窗口再跑一轮 D-only 重启。
+
+### 12.1 直接证据（各 8 条 = 8 个 TP rank，全部可见）
+
+```
+WARNING - [dynamic-spec] building decode graphs for query_lens=(1, 8)
+          (one graph set per query_len; raw buckets preserved)
+WARNING - [dynamic-spec] keeping raw cudagraph_capture_sizes=
+          [1, 2, 3, 4, 8, 12, 16, 20, 24, 32, 40, 48, 64]
+          (skip rounding to a single query_len=8)
+```
+
+* 第 1 条 ⇒ **多 query_len 路径真的走了**，且为 **ql=1 与 ql=8 各建一组**图
+  （⇒ 要求②的"两个桶"成立；ql=1 那组正是 K=0 步要用的）。
+* 第 2 条 ⇒ **raw 桶被保留**（没被上取整成单一 ql 的倍数）——这正是小桶
+  1/2/3/4 得以存在、K=0 有图可用的前提；也反向证明
+  `adjust_cudagraph_sizes_for_spec_decode` 的跳过分支生效。
+
+### 12.2 回归确认（同轮）
+
+K 切换探针复跑，与 §11.1 一致：并发 1 → draft/gen **2.62**（K=7）、
+并发 2 → **0.44**（K=0）、再并发 1 → **2.77**（切回 K=7），**PASS**。
+P/D 两端口 health 均 200。
+
+### 12.3 要求①（`num_query_per_req` 随 K 派生）的诚实标注
+
+代码已实现（property + 三个入口同步），并加了**接线判据**
+（`tools/selftest_dynamic_spec.py`：`_sync_num_query_per_req` 存在、且
+`set_inputs_first_pass` / `_build_capture_draft_attn_metadata` / `dummy_run`
+三个入口都调用它 —— 现共 32 项离线自检）。
+
+但要点明一条**局限**：当前 schedule 只有 `{7, 0}`，而 K≠0 时
+`num_query_per_req` 恰好等于最大 K ⇒ **这次修复在本配置下是恒等操作、
+真机不产生可观测差异**。它真正的价值在"任意阈值表"（例如中间档 K=3）——
+那时若少了它，下游 14 处形状会集体用错。所以它由离线判据钉住，而不是靠真机证明。
+
+### 12.4 最终状态
+
+| 项 | 状态 |
+|---|---|
+| ① `num_query_per_req` 随 K 派生 | 已实现 + 接线判据钉住（本配置下为恒等，见 12.3） |
+| ② `{1,8}` 各一组图 + K=0 跳过 draft | **直接证据见 12.1**（图）+ draft/gen=0.44（跳过前向） |
+| ③ 脚本透传 schedule | 引擎 config 实测含 `[[1,1,7],[2,8,0]]` |
+| ④ 离线自检 | **32 项**，含负控；`selfcheck_pkg.sh` 全绿 |
+| ⑤ 真机验证 | K 切换 ✓（含切回）、K=0 正确性 ✓（并发 2 各答对不同针）、144K 6/6 ✓、1M 6/6 ✓、三元组 ✓、两个桶 ✓ |
+| ⑥ 文档 + 推送 main | 见 §9–§12；提交 `0247594`→`0739dcb`→`9138a2d`→`5d98aff` |
