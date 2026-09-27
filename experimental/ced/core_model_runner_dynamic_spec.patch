@@ -1,5 +1,5 @@
 diff --git a/vllm_ascend/worker/model_runner_v1.py b/vllm_ascend/worker/model_runner_v1.py
-index c3f5373..cd1cea1 100644
+index c3f5373..d14f962 100644
 --- a/vllm_ascend/worker/model_runner_v1.py
 +++ b/vllm_ascend/worker/model_runner_v1.py
 @@ -929,6 +929,21 @@ class NPUModelRunner(GPUModelRunner):
@@ -161,7 +161,7 @@ index c3f5373..cd1cea1 100644
          # Set num_scheduled_tokens based on num_tokens and max_num_seqs
          # for dummy run with LoRA so that the num_reqs collectively
          # has num_tokens in total.
-@@ -5566,6 +5643,49 @@ class NPUModelRunner(GPUModelRunner):
+@@ -5566,6 +5643,17 @@ class NPUModelRunner(GPUModelRunner):
                      and all(size % graph_alignment == 0 for size in capture_sizes)
                  ):
                      resolver_tensor_parallel_size = 1
@@ -176,38 +176,6 @@ index c3f5373..cd1cea1 100644
 +            )
 +            self.compilation_config._v41_dynamic_sd = _v41_dyn
 +            self.cudagraph_dispatcher._v41_dynamic_sd_enabled = _v41_dyn
-+            # [DYNAMIC-SPEC] 抵消上游的"可靠性降级"（可选、默认关）。
-+            #
-+            # vllm/config/vllm.py::_maybe_override_dynamic_sd_cudagraph_mode 在
-+            # MRV1 上会把 dynamic SD 的 cudagraph_mode **无条件**改成 PIECEWISE：
-+            #     "Dynamic speculative decoding changes the target verification
-+            #      length at runtime. Overriding cudagraph_mode from X to PIECEWISE
-+            #      for reliability. Use VLLM_USE_V2_MODEL_RUNNER=1 ..."
-+            # 之所以降级，是因为 MRV1 只有**单一** uniform_decode_query_len 的
-+            # 概念 ⇒ K 一变，图键就会错配。本补丁的其余 7 处改动正是把 MRV1 补成
-+            # "按本步 query_len 建键/派发"，等价于 MRV2 的
-+            # vllm/v1/worker/gpu/cudagraph_utils.py 做法，所以这里把它改回来。
-+            #
-+            # ⚠️ V4.1 的 cache 初始化不支持 MRV2（deepseek_v41.py::validate_cache_runtime
-+            # 会直接 raise），所以除了这一步没有别的路。默认**不开**：由 env 显式承担
-+            # 这个风险（起服脚本里有前置检查 + 响亮告警）。
-+            if _v41_dyn and os.environ.get(
-+                "V41_CED_DYNAMIC_SPEC_REASSERT_MODE", "0"
-+            ) == "1":
-+                _cgm = self.compilation_config.cudagraph_mode
-+                if _cgm != CUDAGraphMode.FULL_DECODE_ONLY:
-+                    logger.warning(
-+                        "[dynamic-spec] re-asserting cudagraph_mode="
-+                        "FULL_DECODE_ONLY (upstream had forced %s). Upstream "
-+                        "downgrades on MRV1 because a single "
-+                        "uniform_decode_query_len cannot key the graphs when K "
-+                        "varies; this build keys/dispatches per-step query_len "
-+                        "instead (one graph set per query_len).",
-+                        getattr(_cgm, "name", _cgm),
-+                    )
-+                    self.compilation_config.cudagraph_mode = (
-+                        CUDAGraphMode.FULL_DECODE_ONLY
-+                    )
              cudagraph_mode = self.compilation_config.resolve_cudagraph_mode_and_sizes(
                  min_cg_support=min_cg_support,
                  min_cg_attn_backend=min_cg_attn_backend,

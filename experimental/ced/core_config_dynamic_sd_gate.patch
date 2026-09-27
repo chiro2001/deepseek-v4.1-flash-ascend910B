@@ -1,0 +1,38 @@
+diff --git a/vllm/config/vllm.py b/vllm/config/vllm.py
+index d6e5579..b7fa5a4 100644
+--- a/vllm/config/vllm.py
++++ b/vllm/config/vllm.py
+@@ -862,6 +862,33 @@ class VllmConfig:
+         ):
+             return
+ 
++        # [V41-DYNAMIC-SPEC] `_maybe_override_dynamic_sd_cudagraph_mode` 的降级
++        # 理由是"dynamic SD 会在运行时改变 target 的验证长度 ⇒ 用单一
++        # uniform_decode_query_len 捉的图会错配"。
++        # 那是 **MRV1 限制**（本函数上面那个 `use_v2_model_runner` 分支就是给
++        # MRV2 放行的：MRV2 在 vllm/v1/worker/gpu/cudagraph_utils.py 里按
++        # `decode_query_lens` 为每个 K 各捉一组图，所以不需要降级）。
++        #
++        # 本 build 的 Ascend 补丁把 MRV1 补成了同样的做法：
++        #   * patches/files/patch_cudagraph.py —— 每个 query_len 各一组 decode 图，
++        #     并在 dispatch 时用"本步 query_len"反推 num_reqs；
++        #   * experimental/ced/core_model_runner_dynamic_spec.patch —— runner 侧把
++        #     本步 query_len 传到 dispatch / 捕获，并修掉按静态 ql 判分支的地方。
++        # ⇒ 前提不再成立，显式开启时**不降级**。
++        #
++        # 默认 0 = 与上游行为逐字节一致。开到 1 的代价是"主动放弃一道上游保护"，
++        # 所以起服脚本会前置检查并用 144K/1M 正确性探针验收（见
++        # docs/CED-PD-DYNAMIC-SPEC-20260926.md §9）。
++        if os.environ.get("V41_CED_DYNAMIC_SPEC_FULL_GRAPHS", "0") == "1":
++            logger.info_once(
++                "Dynamic speculative decoding with full CUDA graphs: "
++                "V41_CED_DYNAMIC_SPEC_FULL_GRAPHS=1 and this build keys/dispatches "
++                "graphs per decode query_len (one graph set per K), which is what "
++                "MRV2 does via cudagraph_utils.decode_query_lens. Skipping the "
++                "PIECEWISE downgrade."
++            )
++            return
++
+         logger.warning_once(
+             "Dynamic speculative decoding changes the target verification "
+             "length at runtime. Overriding cudagraph_mode from %s to "

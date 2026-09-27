@@ -75,7 +75,7 @@ $DOCKER run --rm --entrypoint bash "$IMAGE" -lc "
   for p in dsa_v1.py dspark_proposer.py llm_base_proposer.py ; do
       printf 'IMG  %s  %s\n' \"\$(md5sum /opt/dsv41/patches/draft/\$p | cut -d' ' -f1)\" \"DRAFT/\$p\"
   done
-  for p in admission_gate.patch ced_scheduler_replay.patch ced_scheduler_prefill_hit.patch ced_runner_prompt_tail.patch ced_runner_dynamic_spec.patch ; do
+  for p in admission_gate.patch ced_scheduler_replay.patch ced_scheduler_prefill_hit.patch ced_runner_prompt_tail.patch ced_runner_dynamic_spec.patch ced_config_dynamic_sd_gate.patch ; do
       printf 'IMG  %s  %s\n' \"\$(md5sum /opt/dsv41/\$p | cut -d' ' -f1)\" \"PATCH/\$p\"
   done
   for s in serve_a2.sh serve_v2.sh serve_a3.sh serve_a3_pd.sh serve_a3_pd_proxy.sh serve_a3_ced_pd.sh serve_a3_ced_single.sh run_test.sh ; do
@@ -114,6 +114,7 @@ PATCH/ced_scheduler_replay.patch	experimental/ced/core_scheduler_replay.patch	pa
 PATCH/ced_scheduler_prefill_hit.patch	experimental/ced/core_scheduler_prefill_hit.patch	patches/core_scheduler_prefill_hit.patch
 PATCH/ced_runner_prompt_tail.patch	experimental/ced/core_model_runner_prompt_tail.patch	patches/core_model_runner_prompt_tail.patch
 PATCH/ced_runner_dynamic_spec.patch	experimental/ced/core_model_runner_dynamic_spec.patch	patches/core_model_runner_dynamic_spec.patch
+PATCH/ced_config_dynamic_sd_gate.patch	experimental/ced/core_config_dynamic_sd_gate.patch	patches/core_config_dynamic_sd_gate.patch
 SCRIPT/serve_a2.sh	scripts/serve_a2.sh	scripts/serve_a2.sh
 SCRIPT/serve_v2.sh	scripts/serve_v2.sh	scripts/serve_v2.sh
 SCRIPT/serve_a3.sh	scripts/serve_a3.sh	scripts/serve_a3.sh

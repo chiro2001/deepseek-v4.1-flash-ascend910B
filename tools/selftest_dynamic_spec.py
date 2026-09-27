@@ -358,17 +358,26 @@ def test_patch_contains_reassert() -> None:
     —— 删掉的表现是"开了 V41_CED_DYNAMIC_SPEC_REASSERT_MODE=1 也没用"，
     然后又在模型构造期炸，属于浪费一整轮重启的坑。
     """
-    print("[dynamic-spec] 运行期补丁含『抵消上游降级』分支")
-    txt = (ROOT / "experimental" / "ced" / "core_model_runner_dynamic_spec.patch").read_text()
-    if "V41_CED_DYNAMIC_SPEC_REASSERT_MODE" in txt:
-        ok("补丁里含 REASSERT_MODE 分支")
+    print("[dynamic-spec] 上游降级门补丁：存在性 + 默认关")
+    gate = ROOT / "experimental" / "ced" / "core_config_dynamic_sd_gate.patch"
+    if not gate.is_file():
+        bad("缺 core_config_dynamic_sd_gate.patch ⇒ 上游降级无法关闭，dynamic K 起不来")
+        return
+    gtxt = gate.read_text()
+    if "V41_CED_DYNAMIC_SPEC_FULL_GRAPHS" in gtxt:
+        ok("gate 补丁含 FULL_GRAPHS 开关")
     else:
-        bad("补丁里没有 REASSERT_MODE 分支 ⇒ 上游降级无法抵消")
-    if 'os.environ.get(\n                "V41_CED_DYNAMIC_SPEC_REASSERT_MODE", "0"' in txt or \
-       '"V41_CED_DYNAMIC_SPEC_REASSERT_MODE", "0"' in txt:
-        ok("默认值是 0（不显式开就不绕过上游的可靠性降级）")
+        bad("gate 补丁里没有开关 ⇒ 关了没效果")
+    if '"V41_CED_DYNAMIC_SPEC_FULL_GRAPHS", "0"' in gtxt:
+        ok("gate 补丁默认值是 0（不显式开就保持上游行为）")
     else:
-        bad("REASSERT_MODE 的默认值不是 0 ⇒ 会隐式绕过上游保护")
+        bad("gate 补丁默认值不是 0 ⇒ 会隐式绕过上游的可靠性保护")
+    # 这道门在 VllmConfig.__post_init__ 里，必须**早于** runner 的任何代码；
+    # 若有人把它改到 runner 里「事后改回来」，模型构造期就已经失败了。
+    if "_maybe_override_dynamic_sd_cudagraph_mode" in gtxt:
+        ok("gate 补丁确实打在 _maybe_override_dynamic_sd_cudagraph_mode（__post_init__ 路径）")
+    else:
+        bad("gate 补丁没有指向那道降级函数 ⇒ 打错位置了")
 
 
 # ---------------------------------------------------------------------------

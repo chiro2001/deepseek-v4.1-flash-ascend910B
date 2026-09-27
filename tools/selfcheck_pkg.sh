@@ -453,7 +453,8 @@ grep -q "num_speculative_tokens_per_batch_size" scripts/serve_v2.sh || _dyn_miss
 grep -q "vllm_ascend/patch/worker/patch_cudagraph.py" scripts/serve_a2.sh || _dyn_missing="$_dyn_missing patch_cudagraph 挂载"
 grep -q "ced_runner_dynamic_spec.patch" scripts/serve_a2.sh || _dyn_missing="$_dyn_missing runner 补丁应用"
 grep -q -- "-e SP_SCHEDULE=" scripts/serve_a2.sh         || _dyn_missing="$_dyn_missing env 透传"
-grep -q "V41_CED_DYNAMIC_SPEC_REASSERT_MODE" scripts/serve_a2.sh || _dyn_missing="$_dyn_missing 上游降级门的前置检查/env"
+grep -q "V41_CED_DYNAMIC_SPEC_FULL_GRAPHS" scripts/serve_a2.sh || _dyn_missing="$_dyn_missing 上游降级门的开关/env"
+grep -q "ced_config_dynamic_sd_gate.patch" scripts/serve_a2.sh || _dyn_missing="$_dyn_missing gate 补丁挂载/应用"
 if [ -n "$_dyn_missing" ]; then
   bad "dynamic-spec 接线不完整：$_dyn_missing"
 else
@@ -469,8 +470,11 @@ fi
 # 两个新件必须登记进 deploy 侧的 payload 与逐文件校验（否则镜像里少装也能 PASS）
 _dyn_deploy=""
 grep -q "core_model_runner_dynamic_spec.patch" deploy/a3-ced-pd/build_payload.sh || _dyn_deploy="$_dyn_deploy build_payload"
+grep -q "core_config_dynamic_sd_gate.patch" deploy/a3-ced-pd/build_payload.sh || _dyn_deploy="$_dyn_deploy build_payload(gate)"
 grep -q "ced_runner_dynamic_spec.patch" deploy/a3-ced-pd/Dockerfile || _dyn_deploy="$_dyn_deploy deploy-Dockerfile"
+grep -q "ced_config_dynamic_sd_gate.patch" deploy/a3-ced-pd/Dockerfile || _dyn_deploy="$_dyn_deploy deploy-Dockerfile(gate)"
 grep -q "patch/worker/patch_cudagraph.py" deploy/a3-ced-pd/verify_consistency.sh || _dyn_deploy="$_dyn_deploy verify_consistency"
+grep -q "ced_config_dynamic_sd_gate.patch" deploy/a3-ced-pd/verify_consistency.sh || _dyn_deploy="$_dyn_deploy verify_consistency(gate)"
 grep -q "patch_cudagraph.py" Dockerfile || _dyn_deploy="$_dyn_deploy 根Dockerfile落位"
 if [ -n "$_dyn_deploy" ]; then
   bad "dynamic-spec 未登记进打包/校验链：$_dyn_deploy"

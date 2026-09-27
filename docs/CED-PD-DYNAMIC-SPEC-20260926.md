@@ -376,16 +376,41 @@ vllm/config/vllm.py:855   _maybe_override_dynamic_sd_cudagraph_mode
 按 `decode_query_lens` 展开），但 **V4.1 的 cache 初始化不支持 MRV2**
 （`validate_cache_runtime` 在 `use_v2_model_runner` 时直接 raise）。
 
+### 9.35 第一版"事后改回来"的实现是**死代码**（自查发现，未浪费第二轮重启）
+
+第一版把绕过写成：在 runner 的 `_check_and_update_cudagraph_mode` 里
+（`model_runner_v1.py:5603`，由 `initialize_attn_backend` 在 `:5418` 调用）
+"看到 mode 不是 FULL_DECODE_ONLY 就改回来"。
+
+**这是无效的**，因为调用顺序是：
+
+```
+worker.load_model()                     worker.py:741
+  → model_runner.load_model()           model_runner_v1.py:4099
+    → get_model() → 模型构造
+      → validate_cache_runtime()        deepseek_v41.py:325   ← 在这里 raise
+...
+worker 后续才 initialize_kv_cache()     worker.py:1031
+  → initialize_attn_backend()           model_runner_v1.py:5314
+    → _check_and_update_cudagraph_mode()  :5418                 ← 永远到不了
+```
+
+即 `validate_cache_runtime` 读 `compilation_config.cudagraph_mode` 的时刻**早于**
+任何 runner 代码 ⇒ "事后改回来"永远来不及。本轮已把这处死代码**删除**，
+并把绕过改到**它真正的落点**：`vllm/config/vllm.py` 的那道门本身
+（`VllmConfig.__post_init__`，早于一切）。
+
 ### 9.4 因此只有两条路
 
 | | 做法 | 代价 / 风险 |
 |---|---|---|
-| **A. 抵消降级（已实现，默认关）** | `V41_CED_DYNAMIC_SPEC_REASSERT_MODE=1` ⇒ runner 补丁在 `resolve_cudagraph_mode_and_sizes` 之前把 mode 改回 `FULL_DECODE_ONLY`，并打 WARNING | 这是**主动绕过上游的一道可靠性保护**。我们的依据是：其余 7 处改动已把 MRV1 补成"按本步 query_len 建键/派发"（等价 MRV2 做法），且离线自检覆盖了键的唯一性与降级路径。但**必须**用 144K/1M 正确性探针验收——本方案的主要风险是**静默算错**，不是崩溃 |
-| **B. 支持 MRV2** | 让 V4.1 的 cache 初始化支持 MRV2 | 工作量大得多（MRV2 是另一套 runner），不属于本方案范围 |
+| **A. 关掉那道降级（已实现，默认关）** | 新增 `experimental/ced/core_config_dynamic_sd_gate.patch`：在 `_maybe_override_dynamic_sd_cudagraph_mode` 的 early-return 条件里加一条 `V41_CED_DYNAMIC_SPEC_FULL_GRAPHS=1 ⇒ 不降级`。这是降级门的**真正落点**（`VllmConfig.__post_init__`），早于模型构造 | 这是**主动绕过上游的一道可靠性保护**。依据：其余改动已把 MRV1 补成"按本步 query_len 建键/派发"（等价 MRV2 的 `cudagraph_utils.decode_query_lens` 做法），且离线自检覆盖键唯一性与降级路径。但**必须**用 144K/1M 正确性探针验收——主要失效模式是**静默算错**，不是崩溃 |
+| **B. 支持 MRV2** | 让 V4.1 的 cache 初始化支持 MRV2（上游建议的出路） | 被 V4.1 明确拒绝：`validate_cache_runtime` 在 `use_v2_model_runner` 时直接 raise。工作量也大得多（MRV2 是另一套 runner），不属于本方案范围 |
 
-已实现的前置检查：`serve_a2.sh` 会**先探测镜像里是否存在那道降级门**，若存在且
-`V41_CED_DYNAMIC_SPEC_REASSERT_MODE != 1`，就在起容器之前 `die` 并解释原因
-（否则会在 2 分钟后以一条完全指不到这里的报错失败）。
+已实现的前置检查：`serve_a2.sh` 在 `SP_SCHEDULE` 非空时
+**要求** `V41_CED_DYNAMIC_SPEC_FULL_GRAPHS=1`，否则在起容器之前 `die` 并解释原因；
+随后用 sha256 硬门（`66e82e95…`）在容器内 `git apply` 该补丁并做**效果断言**
+（grep 开关名 + `py_compile`）。
 
 ### 9.5 当前状态（【未确认】的部分要明确）
 

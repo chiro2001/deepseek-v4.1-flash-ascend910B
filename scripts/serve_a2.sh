@@ -1010,6 +1010,13 @@ if [ "$PATCH_MODE" = "mount" ] && [ -n "${SP_SCHEDULE:-}" ]; then
   _dynspec_runner="$PKG/experimental/ced/core_model_runner_dynamic_spec.patch"
   [ -f "$_dynspec_runner" ] || die "SP_SCHEDULE 需要 $_dynspec_runner"
   MOUNTS+=(-v "$_dynspec_runner:/opt/dsv41/ced_runner_dynamic_spec.patch:ro")
+  # [DYNAMIC-SPEC] 上游那道"MRV1 + dynamic SD ⇒ 无条件降级 PIECEWISE"的门
+  # 在 `VllmConfig.__post_init__` 里，**早于** runner 的任何代码。
+  # 不在这里关掉它，V4.1 的 cache 初始化会在模型构造期直接 raise（约 2 分钟后），
+  # 而且报错完全指不到这里。
+  _dynspec_gate="$PKG/experimental/ced/core_config_dynamic_sd_gate.patch"
+  [ -f "$_dynspec_gate" ] || die "SP_SCHEDULE 需要 $_dynspec_gate"
+  MOUNTS+=(-v "$_dynspec_gate:/opt/dsv41/ced_config_dynamic_sd_gate.patch:ro")
 fi
 if [ -n "${V41_CED_SNAPSHOT_POS:-}" ] && [ -z "${V41_CED_ROLE:-}" ]; then
   [ "${PROBE:-0}" != "1" ] || die "CED cache snapshot 不能与 PROBE=1 同时覆盖 dsa_v41.py"
@@ -1273,7 +1280,7 @@ $DOCKER run -d --name "$NAME" --net=host --shm-size=512g --privileged=true \
   -e V41_CED_CAPTURE_DECODE="${V41_CED_CAPTURE_DECODE:-0}" \
   -e V41_DECODE_API_GUARD="${V41_DECODE_API_GUARD:-1}" \
   -e SP_SCHEDULE="${SP_SCHEDULE:-}" \
-  -e V41_CED_DYNAMIC_SPEC_REASSERT_MODE="${V41_CED_DYNAMIC_SPEC_REASSERT_MODE:-0}" \
+  -e V41_CED_DYNAMIC_SPEC_FULL_GRAPHS="${V41_CED_DYNAMIC_SPEC_FULL_GRAPHS:-0}" \
   -e LOAD_FORMAT="$LOAD_FORMAT" \
   -e KV_ARGS_EXTRA="$KV_ARGS_EXTRA" \
   ${HCCL_ENV_ARGS[@]+"${HCCL_ENV_ARGS[@]}"} \
@@ -1392,30 +1399,49 @@ fi
 if [ -n "${SP_SCHEDULE:-}" ]; then
   [ "${V41_CED_ROLE:-}" = "decode" ] || die "SP_SCHEDULE（按并发切 K）只对 decode 角色有意义"
   [ "$PATCH_MODE" = "mount" ] || die "SP_SCHEDULE 目前只支持 PATCH_MODE=mount（baked 镜像不含该补丁）"
-  # [UPSTREAM-GUARD] 前置检查：上游在 MRV1 上会**无条件**把 dynamic SD 的
-  # cudagraph_mode 降级成 PIECEWISE（vllm/config/vllm.py:855
-  # `_maybe_override_dynamic_sd_cudagraph_mode`，理由写着"dynamic SD 会在运行时
-  # 改变 target 的验证长度，为可靠性起见降级"）。而 V4.1 的 cache 只支持
-  # eager / FULL_DECODE_ONLY（`core/deepseek_v41.py::validate_cache_runtime`）
-  # ⇒ 若不处理，会在**模型构造期**才炸（约 2 分钟后），错误信息完全指不到这里。
-  # 所以在这里就拦：要么显式承担风险绕过，要么别开。
-  _usg=$($DOCKER exec "$NAME" bash -lc '
-    grep -c "_maybe_override_dynamic_sd_cudagraph_mode" \
-      /vllm-workspace/vllm/vllm/config/vllm.py 2>/dev/null || true' 2>/dev/null | tail -1)
-  if [ "${_usg:-0}" -ge 1 ] && [ "${V41_CED_DYNAMIC_SPEC_REASSERT_MODE:-0}" != "1" ]; then
+  # [UPSTREAM-GUARD] 上游在 MRV1 上会**无条件**把 dynamic SD 的 cudagraph_mode
+  # 降级成 PIECEWISE（vllm/config/vllm.py::_maybe_override_dynamic_sd_cudagraph_mode，
+  # 理由写着"dynamic SD 会在运行时改变 target 的验证长度，为可靠性起见降级"）。
+  # 而 V4.1 的 cache 只支持 eager / FULL_DECODE_ONLY
+  # （core/deepseek_v41.py::validate_cache_runtime）⇒ 不处理就会在**模型构造期**
+  # 炸，且报错指不到这里。
+  #
+  # 降级的理由是 MRV1 只有单一 query_len 的概念；本 build 的 Ascend 补丁已把
+  # MRV1 补成"按本步 query_len 各建一组图"（等价 MRV2 的
+  # cudagraph_utils.decode_query_lens 做法）⇒ 前提不再成立，故显式关掉它。
+  # 代价 = 主动放弃一道上游保护，所以必须显式承担 + 用正确性探针验收。
+  if [ "${V41_CED_DYNAMIC_SPEC_FULL_GRAPHS:-0}" != "1" ]; then
     die "SP_SCHEDULE 在当前镜像上**起不来**：上游 MRV1 会把 dynamic SD 的
-      cudagraph_mode 降级为 PIECEWISE（vllm/config/vllm.py 的
-      _maybe_override_dynamic_sd_cudagraph_mode），而 V4.1 的 cache 初始化只支持
+      cudagraph_mode 降级为 PIECEWISE，而 V4.1 的 cache 初始化只支持
       eager / FULL_DECODE_ONLY ⇒ 约 2 分钟后在模型构造期报
       『V4.1 currently supports only eager or FULL_DECODE_ONLY』。
-      出路只有一条（上游建议的 MRV2 被 V4.1 明确拒绝）：
-        显式承担风险 → V41_CED_DYNAMIC_SPEC_REASSERT_MODE=1
-      本包的 runner 补丁会把它改回 FULL_DECODE_ONLY 并打 WARNING；它等价于
-      MRV2 的『按 query_len 建键』做法，但**必须**用 144K/1M 正确性探针验收
-      （本方案的主要风险是静默算错，不是崩溃）。详见
-      docs/CED-PD-DYNAMIC-SPEC-20260926.md 的『上游降级门』一节。"
+      出路只有一条（上游建议的 MRV2 被 V4.1 明确拒绝，见
+      core/deepseek_v41.py::validate_cache_runtime）：
+        显式承担风险 → V41_CED_DYNAMIC_SPEC_FULL_GRAPHS=1
+      本包会用 core_config_dynamic_sd_gate.patch 关掉那道降级，其依据是
+      我们已把 MRV1 补成按 query_len 建键/派发（等价 MRV2）。主要失效模式是
+      **静默算错**，必须用 144K/1M 正确性探针验收。详见
+      docs/CED-PD-DYNAMIC-SPEC-20260926.md §9。"
   fi
-  [ "${_usg:-0}" -lt 1 ] || say "[DYNAMIC-SPEC] 已显式绕过上游的 PIECEWISE 降级门（V41_CED_DYNAMIC_SPEC_REASSERT_MODE=1）"
+  say "[DYNAMIC-SPEC] 应用 config 侧 gate 补丁（关掉上游的 PIECEWISE 降级）"
+  _dynspec_gate_applied=$($DOCKER exec "$NAME" bash -lc '
+    cd /vllm-workspace/vllm || exit 1
+    _base=$(sha256sum vllm/config/vllm.py | cut -d " " -f1)
+    [ "$_base" = 66e82e95c5cdbb88715e25feb65f4cc2be83cd67bff5b5f703d52dea43a0815e ] || exit 1
+    if grep -Fq "V41_CED_DYNAMIC_SPEC_FULL_GRAPHS" vllm/config/vllm.py; then
+      echo ALREADY; exit 0
+    fi
+    git apply --check /opt/dsv41/ced_config_dynamic_sd_gate.patch || exit 1
+    git apply /opt/dsv41/ced_config_dynamic_sd_gate.patch || exit 1
+    grep -Fq "V41_CED_DYNAMIC_SPEC_FULL_GRAPHS" vllm/config/vllm.py || exit 1
+    python3 -m py_compile vllm/config/vllm.py || exit 1
+    echo APPLIED' 2>/dev/null | tail -1)
+  case "${_dynspec_gate_applied:-}" in
+    APPLIED) say "[DYNAMIC-SPEC] config gate 补丁已应用 ✓" ;;
+    ALREADY) say "[DYNAMIC-SPEC] config gate 补丁已存在 ✓" ;;
+    *) die "DYNAMIC-SPEC config gate 补丁未应用（$_dynspec_gate_applied）——
+      sha 门不匹配或补丁冲突。**不要**带着它起服：那样会在模型构造期失败。" ;;
+  esac
   say "[DYNAMIC-SPEC] 应用 runner 侧 dynamic-spec 补丁（schedule=$SP_SCHEDULE）"
   _dynspec=$($DOCKER exec "$NAME" bash -lc '
     cd /vllm-workspace/vllm-ascend || exit 1
