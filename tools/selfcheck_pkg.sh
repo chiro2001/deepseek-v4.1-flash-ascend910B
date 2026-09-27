@@ -453,6 +453,7 @@ grep -q "num_speculative_tokens_per_batch_size" scripts/serve_v2.sh || _dyn_miss
 grep -q "vllm_ascend/patch/worker/patch_cudagraph.py" scripts/serve_a2.sh || _dyn_missing="$_dyn_missing patch_cudagraph 挂载"
 grep -q "ced_runner_dynamic_spec.patch" scripts/serve_a2.sh || _dyn_missing="$_dyn_missing runner 补丁应用"
 grep -q -- "-e SP_SCHEDULE=" scripts/serve_a2.sh         || _dyn_missing="$_dyn_missing env 透传"
+grep -q "V41_CED_DYNAMIC_SPEC_REASSERT_MODE" scripts/serve_a2.sh || _dyn_missing="$_dyn_missing 上游降级门的前置检查/env"
 if [ -n "$_dyn_missing" ]; then
   bad "dynamic-spec 接线不完整：$_dyn_missing"
 else

@@ -307,3 +307,91 @@ replay  key = ``6x1``（num_tokens=6 = cudagraph_dispatcher 的 bucket）
 `uniform_decode_query_len` 从单值展开成集合。
 而在 `MAX_SEQS=4` 口径下，两条路径的 token 桶**天然不重叠**，
 所以"两张图、两个 K"这条路的风险与工作量都在可控范围内。
+
+---
+
+## 9. 实现与真机验证（2026-09-28）：**被上游一道降级门挡住**
+
+§1–§7 是分析。这一节记录**实现完成后的真机验证结果**：实现本身跑通了启动前的
+所有关口，但第一次真机起服在**模型构造期**失败，根因不在我们的补丁里。
+
+### 9.1 落地清单（已合入 main）
+
+| # | 文件 | 作用 |
+|---|---|---|
+| ① | `patches/files/patch_cudagraph.py` | 整文件替换 base 镜像的 dispatcher 补丁：认"本步 query_len"、为每个 query_len 各建一组 decode 图、dynamic SD 下跳过桶取整；缺图时**降级而非 raise** |
+| ② | `experimental/ced/core_model_runner_dynamic_spec.patch` | 运行期补丁（8 hunk）：`uniform_decode` 改集合判定、`_pad_query_start_loc_for_fia` 用本步 ql（不改会 `assert num_reqs == num_reqs_padded` 打死引擎）、`_dummy_run` 用正在捕的那张图的 ql、dispatch 显式传本步 ql、**显式 opt-in**（防 draft proposer 被连带建图） |
+| ③ | `patches/files/draft/dspark_proposer.py` | `num_query_per_req` 随每步 K 派生（原先只在 `__init__` 定型，与每步被覆盖的 `num_speculative_tokens` 会脱节） |
+| ④ | `scripts/{serve_v2,serve_a2,serve_a3_ced_pd}.sh` | `SP_SCHEDULE` → vLLM 原生 `num_speculative_tokens_per_batch_size`；`V41_CED_DYNAMIC_SPEC=1` 开关；env 透传 |
+| ⑤ | `tools/selftest_dynamic_spec.py` | 23 项离线自检（含负控），已并入 `selfcheck_pkg.sh` 的 9k 节 |
+
+离线自检覆盖的关键不变量：`num_tokens=8` 在 ql=1 与 ql=8 下必须产生**不同**的图键
+（否则静默串图）；缺图时降级不抛异常；多 ql 建图后桶列表与 padding 表必须恢复；
+**没给 opt-in 的 dispatcher（draft）不得多建图**；不设 `SP_SCHEDULE` 时
+`--speculative-config` 与历史**逐字节相同**。
+
+### 9.2 真机第一次起服：补丁全部到位，但引擎在模型构造期失败
+
+2026-09-28 04:25 在 a3-21 用 `V41_CED_DYNAMIC_SPEC=1 MAX_SEQS=8` 起 D
+（`main@0247594`）。启动侧全绿：
+
+```
+[serve_a2] [DYNAMIC-SPEC] 应用 runner 侧 dynamic-spec 补丁（schedule=1,1,7;2,8,0）
+[serve_a2] [DYNAMIC-SPEC] runner 补丁已应用 ✓          ← sha 门 bd250a59… 与真实镜像匹配
+[serve_a2] [DYNAMIC-SPEC] patch_cudagraph.py 在位（命中 4 处）✓
+```
+
+但 8 个 TP worker 在**构造模型**时全部失败（约 2 分钟后）：
+
+```
+vllm_ascend/core/deepseek_v41.py:325, in validate_cache_runtime
+    raise NotImplementedError("V4.1 currently supports only eager or
+                               FULL_DECODE_ONLY graph mode")
+```
+
+### 9.3 根因：上游对 MRV1 上的 dynamic SD **无条件降级图模式**
+
+```
+vllm/config/vllm.py:855   _maybe_override_dynamic_sd_cudagraph_mode
+    if (speculative_config is None
+        or not speculative_config.uses_dynamic_speculative_decoding()
+        or not self.compilation_config.cudagraph_mode.has_full_cudagraphs()
+        or self.use_v2_model_runner):
+        return
+    logger.warning_once(
+        "Dynamic speculative decoding changes the target verification length at "
+        "runtime. Overriding cudagraph_mode from %s to PIECEWISE for reliability. "
+        "Use VLLM_USE_V2_MODEL_RUNNER=1 if you want to use full CUDA graphs.", ...)
+    self.compilation_config.cudagraph_mode = CUDAGraphMode.PIECEWISE
+```
+
+调用点在 `VllmConfig.__post_init__`（`vllm.py:1308`）——**每个进程都会执行**，
+且**没有 env 逃生口**。于是 `compilation_config.cudagraph_mode` 从
+`FULL_DECODE_ONLY` 变成 `PIECEWISE`，而 V4.1 的 cache 明确只支持
+`NONE` / `FULL_DECODE_ONLY` ⇒ 构造期 raise。
+
+上游降级的理由是"dynamic SD 会在运行时改变 target 的验证长度"——**这正是我们
+§1–§7 分析并已修掉的那件事**：MRV1 只有单一 `uniform_decode_query_len`，K 一变
+图键就错配。上游给的出路是 MRV2（`vllm/v1/worker/gpu/cudagraph_utils.py` 里
+按 `decode_query_lens` 展开），但 **V4.1 的 cache 初始化不支持 MRV2**
+（`validate_cache_runtime` 在 `use_v2_model_runner` 时直接 raise）。
+
+### 9.4 因此只有两条路
+
+| | 做法 | 代价 / 风险 |
+|---|---|---|
+| **A. 抵消降级（已实现，默认关）** | `V41_CED_DYNAMIC_SPEC_REASSERT_MODE=1` ⇒ runner 补丁在 `resolve_cudagraph_mode_and_sizes` 之前把 mode 改回 `FULL_DECODE_ONLY`，并打 WARNING | 这是**主动绕过上游的一道可靠性保护**。我们的依据是：其余 7 处改动已把 MRV1 补成"按本步 query_len 建键/派发"（等价 MRV2 做法），且离线自检覆盖了键的唯一性与降级路径。但**必须**用 144K/1M 正确性探针验收——本方案的主要风险是**静默算错**，不是崩溃 |
+| **B. 支持 MRV2** | 让 V4.1 的 cache 初始化支持 MRV2 | 工作量大得多（MRV2 是另一套 runner），不属于本方案范围 |
+
+已实现的前置检查：`serve_a2.sh` 会**先探测镜像里是否存在那道降级门**，若存在且
+`V41_CED_DYNAMIC_SPEC_REASSERT_MODE != 1`，就在起容器之前 `die` 并解释原因
+（否则会在 2 分钟后以一条完全指不到这里的报错失败）。
+
+### 9.5 当前状态（【未确认】的部分要明确）
+
+* 实现链路：**已完成并推送**（`main@0247594`），23 项离线自检 + selfcheck 全绿；
+* 启动侧接线：**真机验证通过**（补丁应用、sha 门匹配、两件在位）；
+* **动态 K 本身未在真机上跑起来过**：两次尝试之中，第一次就是 9.2 的失败；
+  走 A 路之后的图捕获计数、K=7 的 A 值、K=0 的 Drafted 计数、144K/1M 正确性、
+  性能三元组，**全部仍是未测**。
+* 生产服务已回滚到 `SPEC=0 MAX_SEQS=8` 的高吞吐档（2026-09-27 用户指定口径）。

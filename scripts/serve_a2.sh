@@ -1273,6 +1273,7 @@ $DOCKER run -d --name "$NAME" --net=host --shm-size=512g --privileged=true \
   -e V41_CED_CAPTURE_DECODE="${V41_CED_CAPTURE_DECODE:-0}" \
   -e V41_DECODE_API_GUARD="${V41_DECODE_API_GUARD:-1}" \
   -e SP_SCHEDULE="${SP_SCHEDULE:-}" \
+  -e V41_CED_DYNAMIC_SPEC_REASSERT_MODE="${V41_CED_DYNAMIC_SPEC_REASSERT_MODE:-0}" \
   -e LOAD_FORMAT="$LOAD_FORMAT" \
   -e KV_ARGS_EXTRA="$KV_ARGS_EXTRA" \
   ${HCCL_ENV_ARGS[@]+"${HCCL_ENV_ARGS[@]}"} \
@@ -1391,6 +1392,30 @@ fi
 if [ -n "${SP_SCHEDULE:-}" ]; then
   [ "${V41_CED_ROLE:-}" = "decode" ] || die "SP_SCHEDULE（按并发切 K）只对 decode 角色有意义"
   [ "$PATCH_MODE" = "mount" ] || die "SP_SCHEDULE 目前只支持 PATCH_MODE=mount（baked 镜像不含该补丁）"
+  # [UPSTREAM-GUARD] 前置检查：上游在 MRV1 上会**无条件**把 dynamic SD 的
+  # cudagraph_mode 降级成 PIECEWISE（vllm/config/vllm.py:855
+  # `_maybe_override_dynamic_sd_cudagraph_mode`，理由写着"dynamic SD 会在运行时
+  # 改变 target 的验证长度，为可靠性起见降级"）。而 V4.1 的 cache 只支持
+  # eager / FULL_DECODE_ONLY（`core/deepseek_v41.py::validate_cache_runtime`）
+  # ⇒ 若不处理，会在**模型构造期**才炸（约 2 分钟后），错误信息完全指不到这里。
+  # 所以在这里就拦：要么显式承担风险绕过，要么别开。
+  _usg=$($DOCKER exec "$NAME" bash -lc '
+    grep -c "_maybe_override_dynamic_sd_cudagraph_mode" \
+      /vllm-workspace/vllm/vllm/config/vllm.py 2>/dev/null || true' 2>/dev/null | tail -1)
+  if [ "${_usg:-0}" -ge 1 ] && [ "${V41_CED_DYNAMIC_SPEC_REASSERT_MODE:-0}" != "1" ]; then
+    die "SP_SCHEDULE 在当前镜像上**起不来**：上游 MRV1 会把 dynamic SD 的
+      cudagraph_mode 降级为 PIECEWISE（vllm/config/vllm.py 的
+      _maybe_override_dynamic_sd_cudagraph_mode），而 V4.1 的 cache 初始化只支持
+      eager / FULL_DECODE_ONLY ⇒ 约 2 分钟后在模型构造期报
+      『V4.1 currently supports only eager or FULL_DECODE_ONLY』。
+      出路只有一条（上游建议的 MRV2 被 V4.1 明确拒绝）：
+        显式承担风险 → V41_CED_DYNAMIC_SPEC_REASSERT_MODE=1
+      本包的 runner 补丁会把它改回 FULL_DECODE_ONLY 并打 WARNING；它等价于
+      MRV2 的『按 query_len 建键』做法，但**必须**用 144K/1M 正确性探针验收
+      （本方案的主要风险是静默算错，不是崩溃）。详见
+      docs/CED-PD-DYNAMIC-SPEC-20260926.md 的『上游降级门』一节。"
+  fi
+  [ "${_usg:-0}" -lt 1 ] || say "[DYNAMIC-SPEC] 已显式绕过上游的 PIECEWISE 降级门（V41_CED_DYNAMIC_SPEC_REASSERT_MODE=1）"
   say "[DYNAMIC-SPEC] 应用 runner 侧 dynamic-spec 补丁（schedule=$SP_SCHEDULE）"
   _dynspec=$($DOCKER exec "$NAME" bash -lc '
     cd /vllm-workspace/vllm-ascend || exit 1

@@ -350,6 +350,27 @@ def test_initialize_and_adjust(mod) -> None:
         bad(f"无 opt-in 时仍多建了图：{[c[0] for c in d2.init_calls]}（draft 会被白捕一轮）")
 
 
+def test_patch_contains_reassert() -> None:
+    """运行期补丁必须带"抵消上游 PIECEWISE 降级"的分支（默认关、env 开）。
+
+    这条是**纯文本检查**：我们没法在离线环境里跑真 vLLM 的 config 初始化，
+    但可以钉住"补丁里确实有这个分支、且默认值是 0"，防止有人在重构时把它删掉
+    —— 删掉的表现是"开了 V41_CED_DYNAMIC_SPEC_REASSERT_MODE=1 也没用"，
+    然后又在模型构造期炸，属于浪费一整轮重启的坑。
+    """
+    print("[dynamic-spec] 运行期补丁含『抵消上游降级』分支")
+    txt = (ROOT / "experimental" / "ced" / "core_model_runner_dynamic_spec.patch").read_text()
+    if "V41_CED_DYNAMIC_SPEC_REASSERT_MODE" in txt:
+        ok("补丁里含 REASSERT_MODE 分支")
+    else:
+        bad("补丁里没有 REASSERT_MODE 分支 ⇒ 上游降级无法抵消")
+    if 'os.environ.get(\n                "V41_CED_DYNAMIC_SPEC_REASSERT_MODE", "0"' in txt or \
+       '"V41_CED_DYNAMIC_SPEC_REASSERT_MODE", "0"' in txt:
+        ok("默认值是 0（不显式开就不绕过上游的可靠性降级）")
+    else:
+        bad("REASSERT_MODE 的默认值不是 0 ⇒ 会隐式绕过上游保护")
+
+
 # ---------------------------------------------------------------------------
 # ② serve_v2.sh 的 SP_SCHEDULE → --speculative-config
 # ---------------------------------------------------------------------------
@@ -452,6 +473,7 @@ def main() -> int:
     test_query_len_derivation(mod)
     test_descriptor(mod)
     test_initialize_and_adjust(mod)
+    test_patch_contains_reassert()
     test_schedule_to_json()
     print("=" * 72)
     if FAIL == 0:
