@@ -353,21 +353,26 @@ if [ -f tools/selftest_p2_pool_quota.py ]; then
     n=$(printf '%s' "$out" | sed -n 's/^合计 \([0-9]*\) 项.*/\1/p' | tail -1)
     ok "卸载池池满缺陷离线自检：${n:-?} 项全过（过淘汰折算 / 可控失败 / 半批回滚）"
     # 必须带 .py 后缀：spec_from_file_location 对无扩展名文件给不出 loader
-    _p2_orig=$(mktemp --suffix=.py)
-    if git -C . cat-file blob \
-         "$(git -C . rev-parse HEAD):a2/patches/kv8-offload-pool/p2_pool.py" \
-         > "$_p2_orig" 2>/dev/null; then
-      if P2_POOL_UNDER_TEST="$_p2_orig" python3 tools/selftest_p2_pool_quota.py >/dev/null 2>&1; then
-        bad "卸载池自检负控失败：**未修复的原版竟然通过** ⇒ 判据没有判别力"
+    # 负控指向**冻结的回归夹具**（修复前的原文件），而不是 `git HEAD` ——
+    #   ★ 2026-09-28 踩过：一开始用 HEAD，修复一旦提交，HEAD 就是修复后的版本，
+    #     负控立刻"通过"，被脚本正确报成"判据没有判别力"。夹具是冻结字节，
+    #     不随提交漂移（md5 写在下面，漂了就报错）。
+    #   ★ 夹具 `p2_pool_before_20260928.py` = 9d66d2d 的**逐字节副本**
+    #     （md5 0184ff733c78c970a06e5c12e242cc67，含 `assert len(rows) == want`、
+    #      无 `_P2QuotaShort`）；它不参与运行、不是可挂载补丁件，只被本项读取。
+    _p2_fx=tools/fixtures/p2_pool_before_20260928.py
+    if [ -f "$_p2_fx" ]; then
+      _fx_md5=$(md5sum "$_p2_fx" | cut -d' ' -f1)
+      if P2_POOL_UNDER_TEST="$_p2_fx" python3 tools/selftest_p2_pool_quota.py >/dev/null 2>&1; then
+        bad "卸载池自检负控失败：**未修复的夹具竟然通过** ⇒ 判据没有判别力"
       else
-        nf=$(P2_POOL_UNDER_TEST="$_p2_orig" python3 tools/selftest_p2_pool_quota.py 2>&1 \
+        nf=$(P2_POOL_UNDER_TEST="$_p2_fx" python3 tools/selftest_p2_pool_quota.py 2>&1 \
              | sed -n 's/^合计 [0-9]* 项，失败 \([0-9]*\) 项.*/\1/p' | tail -1)
-        ok "卸载池自检负控：未修复原版被抓（${nf:-?} 条 FAIL，含逐字复现的 AssertionError）"
+        ok "卸载池自检负控：修复前夹具被抓（md5 ${_fx_md5:0:8}…，${nf:-?} 条 FAIL）"
       fi
     else
-      warn "卸载池自检负控跳过（拿不到 HEAD 版本的原文件）"
+      bad "缺负控夹具 $_p2_fx（无法自证判据有判别力）"
     fi
-    rm -f "$_p2_orig"
   else
     bad "卸载池池满缺陷离线自检失败："
     printf '%s' "$out" | grep -E '✗|FAIL' | sed 's/^/        /' | head -10
