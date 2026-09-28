@@ -66,6 +66,16 @@ V41_SPEC_MODE_CHECK_ONLY=1 SPEC_MODE=dynamic bash scripts/serve_a3_ced_pd.sh dec
 # SPEC_MODE_RESOLVED mode=dynamic role=decode spec=1 draft=1 dyn=1 full_graphs=1 schedule=1,1,7;2,8,0
 ```
 
+钩子取 `2` 时 launcher 会**继续穿透**到角色脚本，验的是"用户敲的那条命令最终解析出什么"
+（`deploy/a3-ced-pd/launch/serve_d.sh` 与 `scripts/serve_a3_ced_pd.sh` 各有一个默认值，
+最容易在这里分叉）：
+
+```bash
+V41_SPEC_MODE_CHECK_ONLY=2 SPEC_MODE=off MODEL=<模型目录> \
+  bash deploy/a3-ced-pd/launch/serve_d.sh
+# SPEC_MODE_RESOLVED mode=off role=decode spec=0 draft=0 dyn=0 full_graphs= schedule=
+```
+
 **为什么给这个钩子**：三档之间只差几个 env，而"我选了 A、生效的是 B"是本仓
 反复栽的一类事故（默认值两处不一致 / 转发漏一层 / 补丁没挂上）。钩子让档位解析
 可以被**离线**验证，不必起两个实例等 20 分钟。
@@ -117,7 +127,7 @@ V41_SPEC_MODE_CHECK_ONLY=1 SPEC_MODE=dynamic bash scripts/serve_a3_ced_pd.sh dec
 
 | 项 | 结果 |
 |---|---|
-| 离线自检 | `bash tools/selftest_spec_mode.sh` → **37 项**（三档正控 + 13 条矛盾 fail-closed + legacy 兼容 + 交付面一致） |
+| 离线自检 | `bash tools/selftest_spec_mode.sh` → **41 项**：三档正控 + 15 条矛盾 fail-closed + legacy 兼容 4 条 + 交付面 5 条 + P 侧 7 条 + **全链路 4 条**（launcher → 角色脚本两层默认值交互） |
 | 负控 | 判据指向**改动前**的逐字节夹具 `tools/fixtures/serve_a3_ced_pd_before_spec_mode.sh`（md5 `9c7a97ba…`）⇒ **25 条 FAIL**（改动前连 `SPEC_MODE` 都不认） |
 | 接进主流程 | `tools/selfcheck_pkg.sh` 第 **9n** 节（含负控），任何回归都会在起服前拦住 |
 | 旧自检未回归 | `tools/selftest_ced_defaults.sh` **12/12**（这轮改写的第一个版本漏了 `DRAFT_GRAPH` 取值门，正是被它的负控当场抓住） |

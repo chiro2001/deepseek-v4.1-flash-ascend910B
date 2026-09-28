@@ -166,6 +166,43 @@ else
   echo "  ✗ 缺 $LAUNCHER"; n_bad=$((n_bad + 1))
 fi
 
+echo "== 全链路：用户敲的命令 → 最终解析（launcher + 角色脚本两层默认值交互）=="
+# 两层各有一个默认值，最容易在这里分叉（launcher 的 SPEC=1 顶掉 SPEC_MODE=off，
+# 或角色脚本的默认把 launcher 的显式值吃掉）。判据用钩子 =2 穿透到角色脚本。
+if [ -f "$LAUNCHER" ]; then
+  ccase() { # <expect_mode> <expect_spec> <expect_draft> <expect_dyn> <expect_full> <envs> <label>
+    local w_mode=$1 w_spec=$2 w_draft=$3 w_dyn=$4 w_full=$5 envs=${6:-} label=${7:-}
+    local out rc line bad=""
+    # shellcheck disable=SC2086
+    out=$(env V41_SPEC_MODE_CHECK_ONLY=2 MODEL=/nonexistent $envs \
+          bash "$LAUNCHER" 2>&1); rc=$?
+    line=$(printf '%s\n' "$out" | grep -m1 '^SPEC_MODE_RESOLVED' || true)
+    if [ -z "$line" ]; then
+      echo "  ✗ [$label] 全链路没走到角色脚本（rc=$rc）"
+      printf '%s\n' "$out" | grep -E 'FAIL|RESOLVED' | head -3 | sed 's/^/      | /'
+      n_bad=$((n_bad + 1)); return
+    fi
+    _c() { local k=$1 want=$2 got
+           got=$(printf '%s\n' "$line" | sed -n "s/.* $k=\([^ ]*\).*/\1/p")
+           [ "$got" = "$want" ] || bad="$bad ${k}=${got}(期望${want})"; }
+    _c mode "$w_mode"; _c spec "$w_spec"; _c draft "$w_draft"
+    _c dyn "$w_dyn"; _c full_graphs "$w_full"
+    if [ -n "$bad" ]; then
+      echo "  ✗ [$label] $bad"; echo "      | $line"; n_bad=$((n_bad + 1)); return
+    fi
+    echo "  ✓ [$label] $line"; n_ok=$((n_ok + 1))
+  }
+  # ★ 参数是 7 个：mode spec draft dyn full envs label。
+  #   第一版这里多写了一个空参数 ⇒ envs 收到空串 ⇒ `on` 那条**假通过**
+  #   （跑到默认档、恰好与期望一致），而 `off` 那条才把它暴露出来。
+  ccase on      1 1 0 "" "SPEC_MODE=on"      "全链路 on"
+  ccase off     0 0 0 "" "SPEC_MODE=off"     "全链路 off"
+  ccase dynamic 1 1 1 1 "SPEC_MODE=dynamic"  "全链路 dynamic"
+  ccase on      1 1 0 "" ""                  "全链路默认（不给 SPEC_MODE）"
+else
+  echo "  ✗ 缺 $LAUNCHER"; n_bad=$((n_bad + 1))
+fi
+
 echo
 echo "合计 $((n_ok + n_bad)) 项，失败 $n_bad 项"
 if [ "$n_bad" != "0" ]; then

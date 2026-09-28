@@ -46,8 +46,15 @@ say "   spec_mode=${SPEC_MODE:-<未给:按旧开关/SPEC 推断，默认 on>} sp
 #   tools/selftest_spec_mode.sh 验证**交付面与角色脚本一致**（生产不会设这个变量）。
 #   为什么需要：launcher 里一句 `export SPEC=${SPEC:-1}` 就能把 `SPEC_MODE=off`
 #   顶掉，而那种不一致在真机上表现为"我选了 off，跑的是 on"。
-if [ "${V41_SPEC_MODE_CHECK_ONLY:-0}" = "1" ]; then
+if [ "${V41_SPEC_MODE_CHECK_ONLY:-0}" != "0" ] && [ -n "${V41_SPEC_MODE_CHECK_ONLY:-}" ]; then
   echo "SERVE_D_RESOLVED spec_mode=${SPEC_MODE:-} spec=${SPEC:-} draft=${DRAFT_GRAPH:-} allow_dspark=${V41_CED_ALLOW_DSPARK:-}"
+  # =1：只报 launcher 这一层定的 env。
+  # =2：**继续穿透**到角色脚本 ⇒ 验的是"用户敲的命令链最终解析出什么"
+  #     （交付面 + 角色脚本两个默认值的交互，正是最容易两处分叉的地方）。
+  if [ "${V41_SPEC_MODE_CHECK_ONLY}" = "2" ]; then
+    cd "$PKG"
+    exec bash scripts/serve_a3_ced_pd.sh decode
+  fi
   exit 0
 fi
 

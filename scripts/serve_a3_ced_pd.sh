@@ -218,7 +218,9 @@ fi
 
 # [SELFTEST-HOOK] 只解析并打印 SPEC_MODE 的结果后退出 —— 供 selfcheck 的
 #   正控/负控矩阵使用（生产不会设这个变量）。
-if [ "${V41_SPEC_MODE_CHECK_ONLY:-0}" = "1" ]; then
+# 取值：1 = 本层解析后退出；2 = 同上（由 deploy launcher 透传过来时用，语义相同）。
+# 判据统一成"非空且非 0 即生效"，避免"传 2 却发现钩子只认 1"这种自己给自己挖的坑。
+if [ -n "${V41_SPEC_MODE_CHECK_ONLY:-}" ] && [ "${V41_SPEC_MODE_CHECK_ONLY}" != "0" ]; then
   echo "SPEC_MODE_RESOLVED mode=$_mode role=$role spec=${SPEC:-} draft=${DRAFT_GRAPH:-}"\
 " dyn=${V41_CED_DYNAMIC_SPEC:-} full_graphs=${V41_CED_DYNAMIC_SPEC_FULL_GRAPHS:-}"\
 " schedule=${SP_SCHEDULE:-}"
