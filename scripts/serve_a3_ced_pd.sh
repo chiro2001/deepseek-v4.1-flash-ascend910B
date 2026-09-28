@@ -15,54 +15,215 @@ if [ -n "${V41_CED_ROLE:-}" ] && [ "$V41_CED_ROLE" != "$role" ]; then
   echo "[a3-ced][FAIL] V41_CED_ROLE=$V41_CED_ROLE 与角色 $role 不一致" >&2
   exit 2
 fi
-# [CED-DSPARK] SPEC / DRAFT_GRAPH 的硬门按角色拆开。
+# ============================================================================
+# [SPEC_MODE] D 侧推测解码（DSpark）的**三个可选档位** —— 单一开关，互斥可选。
 #
-#   * prefill（P）：**永远**要求 SPEC=0。DSpark 的 aux hidden state 取自目标层
-#     37/38/39，而 P 在第 20 层 break —— 这三层的残差在 P 上物理不存在，
-#     不是配置问题。见 docs/CED-PD-DSPARK-ANALYSIS-20260926.md §1。
-#   * decode（D）：**默认 SPEC=1 + DRAFT_GRAPH=1**（2026-09-27 起为交付口径，
-#     实测见 docs/CED-PD-CACHE-HIT-PLAN-20260925.md §13）。
+#   SPEC_MODE=on       ★ 默认（= 现行交付口径）：全开 SPEC，固定 K=SP_TOKENS
+#                          ⇒ SPEC=1 DRAFT_GRAPH=1
+#   SPEC_MODE=off        全关 SPEC（纯自回归，无草稿）
+#                          ⇒ SPEC=0 DRAFT_GRAPH=0（serve_v2 连 --speculative-config 都不加）
+#   SPEC_MODE=dynamic    动态 K：按**当时并发数**切 1 ↔ K=0
+#                          ⇒ SPEC=1 DRAFT_GRAPH=1 + SP_SCHEDULE + 上游降级门的豁免
 #
-# 显式 `V41_CED_ALLOW_DSPARK=0` ⇒ D 侧退回 SPEC=0/DRAFT_GRAPH=0。
-#   必须保留这个"显式关"：`patches/files/model.py` 用**同一个 env** 做引擎侧
-#   的门（默认已改为 1）。若这里不认它，设了 0 的人会拿到 SPEC=1，然后在模型
-#   构造时被引擎侧的门拒掉 —— 报错点离原因很远。
-if [ "${V41_CED_ALLOW_DSPARK:-1}" = "0" ]; then
-  export SPEC=0 DRAFT_GRAPH=0
+# P 侧**恒为 off**，与 SPEC_MODE 无关：DSpark 的 aux hidden state 取自目标层
+#   37/38/39，而 P 在第 20 层 break —— 这三层的残差在 P 上物理不存在，
+#   不是配置问题。见 docs/CED-PD-DSPARK-ANALYSIS-20260926.md §1。
+#   显式在 P 上要求 on/dynamic ⇒ **fail-closed**（不静默降级，否则人会以为开了）。
+#
+# 向后兼容（三个旧开关仍然认，且**只在 SPEC_MODE 未给时**参与推断）：
+#   `V41_CED_ALLOW_DSPARK=0` ⇒ off      （patches/files/model.py 用同一个 env 做引擎侧门）
+#   `V41_CED_DYNAMIC_SPEC=1` ⇒ dynamic  （旧写法，缺 FULL_GRAPHS 会在 serve_a2 的 die 处失败）
+#   `SPEC=0`                 ⇒ off ；`SPEC=1` ⇒ on
+# 若 SPEC_MODE 与上面任一个**同时给且矛盾** ⇒ fail-closed（不静默择一）。
+# ============================================================================
+_mode=${SPEC_MODE:-}
+_mode_explicit=0
+[ -n "$_mode" ] && _mode_explicit=1
+_legacy_off=0; [ "${V41_CED_ALLOW_DSPARK:-1}" = "0" ] && _legacy_off=1
+_legacy_dyn=0; [ "${V41_CED_DYNAMIC_SPEC:-0}" = "1" ] && _legacy_dyn=1
+_spec_given=0;  [ -n "${SPEC:-}" ] && _spec_given=1
+_draft_given=0; [ -n "${DRAFT_GRAPH:-}" ] && _draft_given=1
+
+# ★ 取值合法性：不论走哪条路径都要判。少了这条，`DRAFT_GRAPH=2` 会被下面的
+#   `export DRAFT_GRAPH=1` **静默覆盖**成合法值 —— 用户以为传进去了。
+#   （2026-09-28 实测：改写成三档后漏了这条，被 tools/selftest_ced_defaults.sh
+#     的负控当场抓住；那条负控是 2026-09-27 加的，正好覆盖这个回归类。）
+if [ "$_spec_given" = "1" ]; then
+  case "${SPEC}" in
+    0|1) ;;
+    *) echo "[a3-ced][FAIL] SPEC=$SPEC 非法（只能是 0 或 1）。" >&2; exit 2 ;;
+  esac
 fi
+if [ "$_draft_given" = "1" ]; then
+  case "${DRAFT_GRAPH}" in
+    0|1) ;;
+    *) echo "[a3-ced][FAIL] DRAFT_GRAPH=$DRAFT_GRAPH 非法（只能是 0 或 1）。" >&2; exit 2 ;;
+  esac
+fi
+
+if [ "$_legacy_off" = "1" ] && [ "$_legacy_dyn" = "1" ]; then
+  echo "[a3-ced][FAIL] V41_CED_ALLOW_DSPARK=0 与 V41_CED_DYNAMIC_SPEC=1 互斥。" >&2
+  echo "  前者要全关 SPEC、后者要开动态 K —— 请只留一个，或改用 SPEC_MODE=off|on|dynamic。" >&2
+  exit 2
+fi
+
+if [ "$_mode_explicit" = "1" ]; then
+  case "$_mode" in
+    off|on|dynamic) ;;
+    *) echo "[a3-ced][FAIL] SPEC_MODE='$_mode' 非法；只能是 off|on|dynamic。" >&2; exit 2 ;;
+  esac
+  # 显式 SPEC_MODE 与旧开关/显式 SPEC 矛盾 ⇒ 拒绝（否则"我传了 A 生效的是 B"）
+  _bad=""
+  [ "$_legacy_off" = "1" ] && [ "$_mode" != "off" ] && _bad="$_bad V41_CED_ALLOW_DSPARK=0"
+  [ "$_legacy_dyn" = "1" ] && [ "$_mode" != "dynamic" ] && _bad="$_bad V41_CED_DYNAMIC_SPEC=1"
+  if [ "$_mode" = "off" ] && [ "$_spec_given" = "1" ] && [ "${SPEC}" != "0" ]; then
+    _bad="$_bad SPEC=$SPEC"
+  fi
+  if [ "$_mode" != "off" ] && [ "$_spec_given" = "1" ] && [ "${SPEC}" != "1" ]; then
+    _bad="$_bad SPEC=$SPEC"
+  fi
+  if [ "$_mode" = "off" ] && [ "$_draft_given" = "1" ] && [ "${DRAFT_GRAPH}" != "0" ]; then
+    _bad="$_bad DRAFT_GRAPH=$DRAFT_GRAPH"
+  fi
+  if [ "$_mode" != "off" ] && [ "$_draft_given" = "1" ] && [ "${DRAFT_GRAPH}" != "1" ]; then
+    _bad="$_bad DRAFT_GRAPH=$DRAFT_GRAPH"
+  fi
+  if [ -n "$_bad" ]; then
+    echo "[a3-ced][FAIL] SPEC_MODE=$_mode 与这些显式设置矛盾：$_bad" >&2
+    echo "  ⇒ 拒绝起服：静默择一会让你以为生效的是另一个档（本仓同族事故已多次）。" >&2
+    echo "     请去掉矛盾项，或只留 SPEC_MODE=off|on|dynamic。" >&2
+    exit 2
+  fi
+else
+  # 未给 SPEC_MODE ⇒ 按旧开关/显式 SPEC 推断；都没有再用角色默认
+  if   [ "$_legacy_off" = "1" ]; then _mode=off
+  elif [ "$_legacy_dyn" = "1" ]; then
+    # ★ legacy 动态档要求 SPEC=1；若同时显式给了 SPEC=0，解析结果会**静默**
+    #   把它改回 1 ⇒ "我传了 0 生效的是 1"。⇒ fail-closed。
+    if [ "$_spec_given" = "1" ] && [ "${SPEC}" != "1" ]; then
+      echo "[a3-ced][FAIL] V41_CED_DYNAMIC_SPEC=1（动态档）要求 SPEC=1，但显式给了 SPEC=$SPEC" >&2
+      echo "  ⇒ 拒绝起服（否则你的 SPEC=$SPEC 会被静默改成 1）。" >&2
+      echo "     要全关 SPEC 请用 SPEC_MODE=off（或 V41_CED_ALLOW_DSPARK=0）。" >&2
+      exit 2
+    fi
+    _mode=dynamic
+  elif [ "$_spec_given" = "1" ]; then
+    case "${SPEC}" in
+      0) _mode=off ;;
+      1) _mode=on ;;
+      *) echo "[a3-ced][FAIL] SPEC=$SPEC 非法（只能是 0/1）；或改用 SPEC_MODE=off|on|dynamic。" >&2
+         exit 2 ;;
+    esac
+  elif [ "$role" = "decode" ]; then _mode=on     # D 的交付口径默认 = 全开
+  else _mode=off                                  # P 恒 off
+  fi
+fi
+
 case "$role" in
   prefill)
-    for setting in "SPEC:${SPEC:-0}" "DRAFT_GRAPH:${DRAFT_GRAPH:-0}"; do
-      key=${setting%%:*}
-      value=${setting#*:}
-      if [ "$value" != 0 ]; then
-        echo "[a3-ced][FAIL] prefill 角色要求 $key=0（当前 $key=$value）" >&2
-        echo "[a3-ced][FAIL] DSpark 需要目标层 37/38/39，P 只跑 0..19，属架构性不可行。" >&2
-        exit 2
-      fi
-    done
-    ;;
-  decode)
-    # ⚠️ 全块统一用 `${VAR:-1}`：默认路径下这两个变量**可能真的未设置**，
-    #    而本脚本是 `set -u`。裸写或混用 `:-0` 会让"不带任何 env 启动 D"
-    #    直接崩（2026-09-27 加默认值时踩过两次：裸 `$SPEC` → unbound；
-    #    内层仍用 `:-0` → 把默认值判成非法）。`bash -n` 两种都查不出来，
-    #    由 tools/selftest_ced_defaults.sh 抓到。
-    spec=${SPEC:-1}
-    draft=${DRAFT_GRAPH:-1}
-    if [ "$spec" != 0 ] || [ "$draft" != 0 ]; then
-      if [ "$spec" != 1 ]; then
-        echo "[a3-ced][FAIL] 当前分支只验证过 SPEC=1（DSpark 单模型草稿）；当前 SPEC=$spec" >&2
-        exit 2
-      fi
-      if [ "$draft" != 0 ] && [ "$draft" != 1 ]; then
-        echo "[a3-ced][FAIL] DRAFT_GRAPH 只能是 0 或 1；当前 DRAFT_GRAPH=$draft" >&2
-        exit 2
-      fi
-      echo "[a3-ced] D 侧 DSpark：SPEC=$spec DRAFT_GRAPH=$draft（交付口径）"
+    # ★ 保留旧的严格性：P 上显式给 SPEC/DRAFT_GRAPH 非零 ⇒ 拒绝，**不静默降级**
+    #   （旧代码的 `for setting in SPEC/DRAFT_GRAPH` 门就是这个行为；静默降级会
+    #    让人以为 P 在跑 DSpark）。
+    if [ "$_spec_given" = "1" ] && [ "${SPEC}" != "0" ]; then
+      echo "[a3-ced][FAIL] prefill 角色要求 SPEC=0（当前 SPEC=$SPEC）。" >&2
+      echo "  DSpark 需要目标层 37/38/39，P 只跑 0..19，属架构性不可行。" >&2
+      exit 2
     fi
+    if [ "$_draft_given" = "1" ] && [ "${DRAFT_GRAPH}" != "0" ]; then
+      echo "[a3-ced][FAIL] prefill 角色要求 DRAFT_GRAPH=0（当前 DRAFT_GRAPH=$DRAFT_GRAPH）。" >&2
+      exit 2
+    fi
+    if [ "$_mode_explicit" = "1" ] && [ "$_mode" != "off" ]; then
+      echo "[a3-ced][FAIL] SPEC_MODE=$_mode 在 prefill 角色上不可用（P 恒 off）。" >&2
+      echo "  DSpark 的 aux hidden state 取自目标层 37/38/39，P 只跑 0..19 —— 架构性不可行。" >&2
+      echo "  ⇒ P 请用 SPEC_MODE=off（或不给 SPEC_MODE）。" >&2
+      exit 2
+    fi
+    _mode=off
     ;;
 esac
+
+case "$_mode" in
+  off)
+    export SPEC=0 DRAFT_GRAPH=0
+    export V41_CED_DYNAMIC_SPEC=0
+    echo "[a3-ced][SPEC_MODE] $role：**全关 SPEC**（SPEC=0 DRAFT_GRAPH=0，无草稿、无 --speculative-config）"
+    ;;
+  on)
+    export SPEC=1 DRAFT_GRAPH=1
+    export V41_CED_DYNAMIC_SPEC=0
+    export SP_TOKENS=${SP_TOKENS:-7}
+    # DSpark 的草稿在 SPEC=1 时必须让引擎知道（`model.py` 用同一个 env 做门）
+    export V41_CED_ALLOW_DSPARK=${V41_CED_ALLOW_DSPARK:-1}
+    echo "[a3-ced][SPEC_MODE] $role：**全开 SPEC**（SPEC=1 DRAFT_GRAPH=1，固定 K=$SP_TOKENS）"
+    ;;
+  dynamic)
+    if [ "$role" != "decode" ]; then
+      echo "[a3-ced][FAIL] SPEC_MODE=dynamic 只对 decode 角色有意义（P 恒 SPEC=0）" >&2
+      exit 2
+    fi
+    export SPEC=1 DRAFT_GRAPH=1
+    export SP_TOKENS=${SP_TOKENS:-7}
+    export V41_CED_ALLOW_DSPARK=${V41_CED_ALLOW_DSPARK:-1}
+    export V41_CED_DYNAMIC_SPEC=1
+    # ★ 上游 MRV1 在 dynamic SD 时会把 cudagraph_mode 降级为 PIECEWISE，而 V4.1 的
+    #   cache 只支持 eager / FULL_DECODE_ONLY ⇒ 不豁免就在模型构造期炸
+    #   （serve_a2.sh 的 die 会拦住"只给 SP_SCHEDULE 不给豁免"的写法）。
+    #   本档**自动**把它设上：单一开关要能直接用，否则人人踩这个坑。
+    #   代价 = 主动放弃一道上游保护 ⇒ 必须用正确性探针验收（见 docs §9）。
+    export V41_CED_DYNAMIC_SPEC_FULL_GRAPHS=${V41_CED_DYNAMIC_SPEC_FULL_GRAPHS:-1}
+    if [ "$V41_CED_DYNAMIC_SPEC_FULL_GRAPHS" != "1" ]; then
+      echo "[a3-ced][FAIL] SPEC_MODE=dynamic 需要 V41_CED_DYNAMIC_SPEC_FULL_GRAPHS=1" >&2
+      echo "  当前=${V41_CED_DYNAMIC_SPEC_FULL_GRAPHS}。它关掉上游的 PIECEWISE 降级；" >&2
+      echo "  设 0 会在模型构造期失败（V4.1 只支持 eager / FULL_DECODE_ONLY）。" >&2
+      echo "  ⇒ 去掉这个显式设置，或显式给 1 并接受"须用正确性探针验收"的代价。" >&2
+      exit 2
+    fi
+    echo "[a3-ced][SPEC_MODE] $role：**动态 K**（SPEC=1 DRAFT_GRAPH=1，按请求数切 K）" >&2
+    echo "[a3-ced][SPEC_MODE]   ★ 高风险档：豁免了上游降级保护 ⇒ 必须用 144K/1M 正确性探针验收" >&2
+    ;;
+esac
+
+# [DYNAMIC-SPEC] 动态档的调度表与图模式前提（只有 dynamic 会走到这里）。
+#
+#   默认表 = `1,1,7;2,8,0`：
+#       batch=1  → K=7（低并发走推测，单流吞吐 1.77×）
+#       batch≥2  → K=0（关推测，纯自回归；实测并发 2 时自回归已 1.23× 领先）
+#   ⚠️ 表是按**请求数**查的，不是"用户并发"。想用别的阈值就显式给
+#      `SP_SCHEDULE='1,1,7;2,8,0'`（分号分隔，闭区间）。
+#   ⚠️ 这条路的交叉点是在 **2K prompt** 上测出来的（docs §4）。长上下文负载下
+#      每步固定开销大得多，交叉点可能移动 —— 上线前应在自己的负载上复测。
+#   ⚠️ **未测过并发 ≥2 的吞吐口径**：docs §11.4 只有 ms/step（并发 2 两流
+#      32.2/32.5），"decode tok/s"那一列是空的。用它做容量规划前先补测。
+if [ "${V41_CED_DYNAMIC_SPEC:-0}" = "1" ]; then
+  export SP_SCHEDULE=${SP_SCHEDULE:-1,1,7;2,8,0}
+  if [ "${CED_DIAGNOSTIC_EAGER:-0}" = "1" ]; then
+    echo "[a3-ced][FAIL] SPEC_MODE=dynamic 与 CED_DIAGNOSTIC_EAGER=1 互斥（eager 没有图可切）" >&2
+    exit 2
+  fi
+  export CED_EXPERIMENTAL_GRAPH=${CED_EXPERIMENTAL_GRAPH:-1}
+  export V41_CED_GRAPH_PROMPT_TAIL_EAGER=${V41_CED_GRAPH_PROMPT_TAIL_EAGER:-1}
+  echo "[a3-ced] D 侧 dynamic spec：SP_SCHEDULE='$SP_SCHEDULE'（按请求数切 K）"
+fi
+
+# ★ 非动态档却带着 SP_SCHEDULE ⇒ serve_a2.sh 的 `if [ -n "$SP_SCHEDULE" ]`
+#   会把动态路径整条拉起来（打补丁、按并发切 K），而你选的是 on/off。
+#   这是"我选的是 A、生效的是 B"的典型 ⇒ fail-closed。
+if [ "$_mode" != "dynamic" ] && [ -n "${SP_SCHEDULE:-}" ]; then
+  echo "[a3-ced][FAIL] SPEC_MODE=$_mode 但设了 SP_SCHEDULE='$SP_SCHEDULE'。" >&2
+  echo "  只要 SP_SCHEDULE 非空，serve_a2.sh 就会拉起动态 K 的整条路径（含打补丁），" >&2
+  echo "  与你选的档位矛盾。⇒ 要动态 K 请用 SPEC_MODE=dynamic；否则清掉 SP_SCHEDULE。" >&2
+  exit 2
+fi
+
+# [SELFTEST-HOOK] 只解析并打印 SPEC_MODE 的结果后退出 —— 供 selfcheck 的
+#   正控/负控矩阵使用（生产不会设这个变量）。
+if [ "${V41_SPEC_MODE_CHECK_ONLY:-0}" = "1" ]; then
+  echo "SPEC_MODE_RESOLVED mode=$_mode role=$role spec=${SPEC:-} draft=${DRAFT_GRAPH:-}"\
+" dyn=${V41_CED_DYNAMIC_SPEC:-} full_graphs=${V41_CED_DYNAMIC_SPEC_FULL_GRAPHS:-}"\
+" schedule=${SP_SCHEDULE:-}"
+  exit 0
+fi
 
 stamp=$(date +%Y%m%d_%H%M%S)
 export RUN_ID=${RUN_ID:-ced_${role}_${stamp}}
@@ -110,38 +271,6 @@ if [ "$role" = decode ]; then
   export STATIC_KERNEL=${STATIC_KERNEL:-1}
 else
   export STATIC_KERNEL=${STATIC_KERNEL:-0}
-fi
-# [DYNAMIC-SPEC] 按**当时并发数**切推测解码的 K（路线 A：只开 K=7 与 K=0）。
-#
-#   V41_CED_DYNAMIC_SPEC=1 才启用；默认 0 ⇒ 与历史口径**逐字节相同**。
-#   启用后的默认表 = `1,1,7;2,8,0`：
-#       batch=1  → K=7（低并发走推测，单流吞吐 1.77×）
-#       batch≥2  → K=0（关推测，纯自回归；实测并发 2 时自回归已 1.23× 领先）
-#   ⚠️ 表是按**请求数**查的，不是"用户并发"。想用别的阈值就显式给
-#      `SP_SCHEDULE='1,1,7;2,8,0'`（分号分隔，闭区间）。
-#
-#   ⚠️ 这条路的交叉点是在 **2K prompt** 上测出来的（见
-#      docs/CED-PD-DYNAMIC-SPEC-20260926.md §4）。长上下文负载下每步固定开销
-#      大得多，交叉点可能移动 —— 上线前应在自己的负载上复测。
-#
-#   三个硬前提（都在下面判）：
-#     ① 只剩 D 侧：P 永远 SPEC=0（DSpark 需要目标层 37/38/39，P 在第 20 层 break）；
-#     ② 必须在图模式（K=0 与 K=7 各要一组图）；
-#     ③ 必须 PATCH_MODE=mount（补丁在运行期打，baked 镜像没带）。
-if [ "${V41_CED_DYNAMIC_SPEC:-0}" = "1" ]; then
-  if [ "$role" != "decode" ]; then
-    echo "[a3-ced][FAIL] V41_CED_DYNAMIC_SPEC 只对 decode 角色有意义（P 恒 SPEC=0）" >&2
-    exit 2
-  fi
-  export SP_SCHEDULE=${SP_SCHEDULE:-1,1,7;2,8,0}
-  # ② 图模式：dynamic K 同时需要 ql=1 与 ql=8 两组图，eager 下没有意义。
-  if [ "${CED_DIAGNOSTIC_EAGER:-0}" = "1" ]; then
-    echo "[a3-ced][FAIL] V41_CED_DYNAMIC_SPEC 与 CED_DIAGNOSTIC_EAGER=1 互斥（eager 没有图可切）" >&2
-    exit 2
-  fi
-  export CED_EXPERIMENTAL_GRAPH=${CED_EXPERIMENTAL_GRAPH:-1}
-  export V41_CED_GRAPH_PROMPT_TAIL_EAGER=${V41_CED_GRAPH_PROMPT_TAIL_EAGER:-1}
-  echo "[a3-ced] D 侧 dynamic spec：SP_SCHEDULE='$SP_SCHEDULE'（按请求数切 K）"
 fi
 if [ "$role" = decode ]; then
   # [CED-GRAPH-DEFAULT] 交付口径 = **图模式**（GRAPH=1 EAGER=0）。

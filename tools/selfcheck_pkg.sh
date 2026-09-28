@@ -415,6 +415,39 @@ else
   bad "缺 scripts/serve_a2.sh（无法检查 GATE 守卫）"
 fi
 
+# ------------------------------------------------- 9n) ★ A3 CED-PD 的 SPEC_MODE 三档选择（2026-09-28）
+# D 侧推测解码的三个可选档：on（全开，★默认）/ off（全关）/ dynamic（按并发切 K）。
+# 为什么必须有离线判据：三档之间**只差几个 env**，而"我选了 A、生效的是 B"
+#   是本仓反复栽的一类事故（默认值两处不一致 / 转发漏一层 / 补丁没挂上）。
+#   这些错 `bash -n` 一个都抓不到，真机验证要起两个实例（~20 分钟）。
+# 判据绑在**脚本自己解析出的三元组**上（靠 `V41_SPEC_MODE_CHECK_ONLY=1` 钩子，
+#   生产路径不会设），并额外验**交付面一致**（deploy launcher 不得顶掉 SPEC_MODE）。
+if [ -f tools/selftest_spec_mode.sh ]; then
+  if out=$(bash tools/selftest_spec_mode.sh 2>&1); then
+    n=$(printf '%s' "$out" | sed -n 's/^合计 \([0-9]*\) 项.*/\1/p' | tail -1)
+    ok "SPEC_MODE 三档：${n:-?} 项全过（on/off/dynamic + 矛盾组合 fail-closed + 交付面一致）"
+    # ★ 负控：对**功能不存在**的夹具（改动前的逐字节副本）必须失败 ⇒ 判据有判别力
+    _sm_fx=tools/fixtures/serve_a3_ced_pd_before_spec_mode.sh
+    if [ -f "$_sm_fx" ]; then
+      _fx_md5=$(md5sum "$_sm_fx" | cut -d' ' -f1)
+      if SERVE_CED_PD_UNDER_TEST="$_sm_fx" bash tools/selftest_spec_mode.sh >/dev/null 2>&1; then
+        bad "SPEC_MODE 自检负控失败：**未实现的夹具竟然通过** ⇒ 判据没有判别力"
+      else
+        nf=$(SERVE_CED_PD_UNDER_TEST="$_sm_fx" bash tools/selftest_spec_mode.sh 2>&1 \
+             | sed -n 's/^合计 [0-9]* 项，失败 \([0-9]*\) 项.*/\1/p' | tail -1)
+        ok "SPEC_MODE 自检负控：改动前夹具被抓（md5 ${_fx_md5:0:8}…，${nf:-?} 条 FAIL）"
+      fi
+    else
+      bad "缺负控夹具 $_sm_fx（无法自证判据有判别力）"
+    fi
+  else
+    bad "SPEC_MODE 三档自检失败："
+    printf '%s' "$out" | grep -E '✗|FAIL' | sed 's/^/        /' | head -10
+  fi
+else
+  bad "缺 tools/selftest_spec_mode.sh（无法自动抓 SPEC 档位选错/被顶掉）"
+fi
+
 # ------------------------------------------------- 9h) ★ 本轮的 issue 跟进修复
 # 每条都对应一个**外部报告过的真实故障**，不是内部重构。判据：正控过 + 负控能抓。
 #   issue #2 ② 代理劫持 127.0.0.1 ⇒ 三个起服脚本必须补 no_proxy（且**不覆盖**用户已设的）

@@ -198,7 +198,8 @@ docker exec <容器> bash /opt/dsv41/tools/enable_codex_responses.sh status  # P
 | **`GPU_UTIL`** | **0.92** | 调到 0.94 能多 ~9% KV（3.09M），但**长 prompt 首 token 从 1.1 s 涨到 8 s**（实测 6~7×）。这是"KV 容量换 prefill 速度"的主动取舍 |
 | **`DRAFT_GRAPH`** | **1**（CED-PD 形态）／0（其它入口） | 投机解码入图。CED-PD 自 2026-09-27 起默认 1；其它入口仍是 0，**低并发推荐显式开**。两种口径都必须同时有 `DSPARK_GRAPH_CAPTURE_METADATA=1`，否则**静默失效**（`A≈1.0` 而 ms/step 反而更好看） |
 | **`PREFIX`** | **1**（CED-PD） | 前缀缓存。**仍然取决于业务是否高度复用前缀** —— 若输入输出比很大且命中率低（实测某负载仅 3.52%），`PREFIX=0` 反而 TTFT −14.6%。CED-PD 自 2026-09-27 起默认开；做无缓存性能对照时必须显式 `PREFIX=0`，且**不要与开缓存的 ms/step、接受长度混比** |
-| **`SPEC`** | 1 | 投机解码总开关。**高并发吞吐场景建议关**：并发 4 时它把 ms/step 从 28.2 抬到 41.1（1.45×），换接受长度 A≈2.4 —— 收益集中在接受长度高的请求上，**成本由全批承担** |
+| **`SPEC_MODE`**（CED-PD 的 D 侧） | **on** | 推测解码三档：`on` 全开（固定 K）/ `off` 全关 / `dynamic` 按并发切 K（并发 1 走 K=7、≥2 走 K=0）。**高并发吞吐建议 `off`**：并发 4 时 DSpark 把 ms/step 从 28.2 抬到 41.1（1.45×），换接受长度 A≈2.4 —— 收益集中在接受长度高的请求上，**成本由全批承担**。`dynamic` 是高风险档（豁免了上游一道保护），必须用 144K/1M 正确性探针验收。详见 `docs/CED-PD-SPEC-MODE-20260928.md` |
+| **`SPEC`** | 1 | 旧写法（等价 `SPEC_MODE=on`/`off`）。非 CED-PD 入口仍用它；CED-PD 的 D 侧请优先用 `SPEC_MODE` |
 | **`CPU_BIND`** / **`DROPCACHE`** | A3: 0 / 0 | **A3 共用机必需**：`CPU_BIND=0` 关掉内部 NUMA 绑核（否则目标节点满时 `migratepages` 内核态空转、服务永不就绪、`docker stop` 都停不下来）；`DROPCACHE=0` 不清整机 page cache（会打到别人） |
 
 **`MAX_SEQS` 不是性能杠杆，是并发容量**：32→64 在并发 ≤32 时只有 ±1%；
@@ -272,7 +273,7 @@ docker exec <容器> bash /opt/dsv41/tools/enable_codex_responses.sh status  # P
 | A2 与 A3 的性能差 | 硬件（两边同为 1600 GB/s/die）只能解释 ~15%，其余在 host 侧 |
 | **codex 直连** | **需先跑使能补丁**：不装的话 Responses API 要么 500、要么**静默丢内容** |
 | `reasoning.encrypted_content` | **不支持**（vLLM 侧直接 `raise`）。当前不触发；**一旦上游开始产出，这条链会 400** |
-| **PD 分离的 DSpark 收益只在低并发** | 并发 4 时 ms/step 1.45×，成本由全批承担 |
+| **PD 分离的 DSpark 收益只在低并发** | 并发 4 时 ms/step 1.45×，成本由全批承担。⇒ 高并发用 `SPEC_MODE=off`，或 `dynamic` 让 K 随并发自动切（后者必须补做正确性验收） |
 
 ---
 

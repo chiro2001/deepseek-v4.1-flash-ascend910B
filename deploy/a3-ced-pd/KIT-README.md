@@ -43,7 +43,7 @@ https://github.com/chiro2001/deepseek-v4.1-flash-ascend910B/releases/tag/a3-ced-
 | 硬件 | **单台 A3，8 块 910C 卡 = 16 个 die**（P 用 die 0–7 = 卡 0–3，D 用 die 8–15 = 卡 4–7） |
 | 拓扑 | P（prefill）/ D（decode）/ proxy 三个容器，**PD 分离** |
 | P 侧 | 只跑 **layer 0–19 + layer-20 全局源投影**（不是全 40 层） |
-| D 侧 | **128-token 有界重放 + 全 40 层** decode，开 **DSpark** 推测解码 |
+| D 侧 | **128-token 有界重放 + 全 40 层** decode；推测解码三档可选 —— `SPEC_MODE=on`（★默认，全开）/ `off`（全关）/ `dynamic`（按并发切 K） |
 | KV 精度 | **BF16** |
 | 上下文 | 1M（`MAX_LEN=1048576`） |
 
@@ -89,6 +89,17 @@ bash deploy/a3-ced-pd/launch/serve_p.sh    &&  bash deploy/a3-ced-pd/launch/serv
 #   D: DEVS="8 9 10 11 12 13 14 15" PORT=18991 KV_PORT=19091 V41_CED_ROLE=decode  bash /opt/dsv41/scripts/serve_a3_ced_pd.sh decode
 # 再起官方 load_balance_proxy（端口 18992）
 ```
+
+**D 侧推测解码三档可选**（不改默认就是 `on`；P 侧不用管，恒关）：
+
+```bash
+SPEC_MODE=on      bash deploy/a3-ced-pd/launch/serve_d.sh   # ★默认：全开 SPEC
+SPEC_MODE=off     bash deploy/a3-ced-pd/launch/serve_d.sh   # 全关（高并发吞吐 / 做对照）
+SPEC_MODE=dynamic bash deploy/a3-ced-pd/launch/serve_d.sh   # 按并发切 K（高风险档，见下）
+```
+
+矛盾组合（如 `SPEC_MODE=off` 配 `SPEC=1`）**起服前 fail-closed**，
+不用等到模型加载完才发现。详见 `docs/CED-PD-SPEC-MODE-20260928.md`。
 
 ## 三、`rebuild.sh` 的验收标准（**不是"能启动就算过"**）
 
@@ -160,7 +171,8 @@ grep -a "CED decode: upper SWA groups" d/serve.log
 **总计 21/21 通过**；四针答案与 `SPEC=0` 交付口径**逐字节相同**。
 
 > 上表是 2026-09-26 用 `PREFIX=0` 跑的 21/21。**2026-09-27 起 `PREFIX` 与
-> D 侧 DSpark 都是默认开**（关掉用 `PREFIX=0` / `V41_CED_ALLOW_DSPARK=0`）；
+> D 侧 DSpark 都是默认开**（关缓存用 `PREFIX=0`；关 DSpark 用 `SPEC_MODE=off`，
+> 旧的 `V41_CED_ALLOW_DSPARK=0` 也仍然认）；
 > 开缓存的复现验证见 `docs/CED-PD-CACHE-HIT-PLAN-20260925.md` §12–§13
 > （144K/1M + 流式 + 并发 + 两图 + 用户链路；**尚未**用 `PREFIX=1` 重跑这份 21 项矩阵）。
 （`ZQ7K-3341` / `VX2M-8890` / `HT4P-5527` / `RB9N-6014`）。
@@ -171,7 +183,13 @@ decode 并发 4 时 **41.07 ms/step**（`STATIC_KERNEL=1`）；
 
 ⚠️ **DSpark 的收益只在低并发成立**：并发 4 时它把 ms/step 从 28.2 抬到 41.1（**1.45×**），
 换来 A≈2.4。收益集中在接受长度高的请求上、成本由全批承担。
-高并发吞吐场景应保持 `SPEC=0`，或按并发自适应切换。
+⇒ 三个档位按负载选（详见 `docs/CED-PD-SPEC-MODE-20260928.md`）：
+
+| 场景 | 用哪档 |
+|---|---|
+| 默认 / 交互式低并发 | `SPEC_MODE=on`（★默认，不动即可） |
+| 高并发吞吐、或做无推测的性能对照 | `SPEC_MODE=off` |
+| 并发数会变、想同时吃低并发收益与高并发吞吐 | `SPEC_MODE=dynamic`（**高风险档**：豁免了上游一道保护，必须用 144K/1M 正确性探针验收） |
 
 ## 六、本包的来源（可复算）
 
