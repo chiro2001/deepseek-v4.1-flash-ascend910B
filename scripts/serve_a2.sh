@@ -245,7 +245,42 @@ PROFILE_DIR=${PROFILE_DIR:-}
 QLI_NOCAND=${QLI_NOCAND:-1}    # QLI no-candidate         −0.49 ms
 LOCAL_OWNER=${LOCAL_OWNER:-fast}
 GATE_CHUNK=${GATE_CHUNK:-0}
-GATE_MAX_TOKENS=${GATE_MAX_TOKENS:-2048}
+# ★★★ 2026-09-28 **修一个配 `GATE_CHUNK` 就必崩的地雷**：
+#   分块 gate（`GATE_CHUNK > 0`）把 token 维**静态 pad 到 `GATE_MAX_TOKENS`**，
+#   而 `_engram_gate_chunked` 末尾是 `padded[:n]` + `torch.where(mask[n], padded[:n])`：
+#       n > MAX  ⇒ 切片只有 MAX 行、与 [n,...] 的 mask 广播不上 ⇒ **直接抛错**
+#                 （实际报错形态见 `upstream/logs/41`：「n=8192 那一行里 MAX≤4096
+#                  的臂全部 RAISES」）。
+#   而本脚本此前默认 **2048**，`BAT_TOKENS` 默认 **8192** ⇒
+#   **只要有人设 GATE_CHUNK=512 而忘了同时给 GATE_MAX_TOKENS，第一次长 prefill 就崩**
+#   （典型 prompt 8K ⇒ n≈8176 > 2048）。这正是本仓反复栽的"默认值两处不一致"。
+#   ⇒ 上界按 **本图最大 token 数**（= `BAT_TOKENS`，prefill chunk 的上限）派生。
+#   ★ 代价（必须知道，见 `upstream/logs/41` 的实测曲线）：分块路径的时间只跟 ceiling
+#     走、不跟 n 走（每 512 行 ≈ +0.7 ms）⇒ ceiling=8192 时**每次调用 ≈ 12.9 ms**，
+#     而 ceiling=2048 时 ≈ 2.8 ms。decode 步的 n 很小（≤ MAX_SEQS×query_len），
+#     但 ceiling 一样要垫满 ⇒ **开 GATE_CHUNK 会按 ceiling 给每一步加固定开销**。
+#     缺 HBM 才开它；不缺就用默认 0（stock，不 pad，无此项开销）。
+#     stock 的代价是峰值激活大方差（BAT=8192 时 ≈2.5–3.2 GiB，实测会撞 207001）。
+_GATE_MAX_DEFAULT=$(( BAT_TOKENS > 512 ? BAT_TOKENS : 512 ))
+GATE_MAX_TOKENS=${GATE_MAX_TOKENS:-$_GATE_MAX_DEFAULT}
+# 一致性守卫：显式给的 GATE_MAX_TOKENS 若小于 BAT_TOKENS，起服前响亮拒绝
+#   （否则错误要等到第一次长 prefill 才以"广播失败"的形式出现，排查成本高得多）
+if [ "$GATE_CHUNK" -gt 0 ] && [ "$GATE_MAX_TOKENS" -lt "$BAT_TOKENS" ]; then
+  echo "⛔ GATE_CHUNK=$GATE_CHUNK 但 GATE_MAX_TOKENS=$GATE_MAX_TOKENS < BAT_TOKENS=$BAT_TOKENS" >&2
+  echo "   分块 gate 把 token 维静态 pad 到 GATE_MAX_TOKENS；n > MAX 会**直接抛错**。" >&2
+  echo "   ⇒ 要么去掉 GATE_MAX_TOKENS 用派生默认（$_GATE_MAX_DEFAULT），" >&2
+  echo "     要么显式给 GATE_MAX_TOKENS=$BAT_TOKENS（时间开销见本行上方注释）。" >&2
+  exit 64
+fi
+# [SELFTEST-HOOK] 只解析并打印 GATE 三元组后退出 —— 供 `tools/selfcheck_pkg.sh` 的
+#   9m 项做**正控/负控**（生产环境不会设这个变量）。
+#   为什么要这个钩子：守卫本身是纯逻辑，但它在脚本第 250~275 行、后面还有几百行起服
+#   动作 ⇒ 想单测它只能"抽片段 eval"（脆弱）或"跑整个脚本"（要 docker/镜像，且会被
+#   无关失败干扰）。有了钩子，判据就能**绑在守卫自身的返回值**上，不绑抽片段的写法。
+if [ "${V41_GATE_GUARD_CHECK_ONLY:-0}" = "1" ]; then
+  echo "GATE_RESOLVED chunk=$GATE_CHUNK max_tokens=$GATE_MAX_TOKENS bat=$BAT_TOKENS"
+  exit 0
+fi
 # [TOOL_CALLING] 默认 1：用官方 deepseek_v41 前端（tokenizer + reasoning/tool parser）。
 #   旧前端 `--tokenizer-mode=deepseek_v4` 的 chat template 不能正确处理 agent 工具调用
 #   （DSML 标签形态不同、默认 thinking 开关不同），A2 首轮实测暴露的问题之一。

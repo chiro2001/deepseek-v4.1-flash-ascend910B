@@ -44,6 +44,29 @@ COMP_KEY = "p2_group_component"
 BASE_KEY = "p2_group_base"
 
 
+class _P2QuotaShort(Exception):
+    """本组配额真正用尽 —— **可控失败**，由 `prepare_store` 转换成"本轮不 store"。
+
+    为什么需要它（2026-09-28 实测）：原先 `_allocate_blocks` 里是 `assert`，
+    而池满时这条路径**可达**（A3 1 GiB 池第一次 store 就触发）⇒
+    `AssertionError` 冒泡到 EngineCore ⇒ `EngineCore encountered a fatal error`
+    ⇒ 整个引擎死、所有在跑的请求 500。上游语义是"`prepare_store` 返回 None，
+    本轮跳过 store"，不是"引擎去死"。
+    """
+
+    def __init__(self, group, want, got, quota, used, allocatable):
+        self.group = int(group)
+        self.want = int(want)
+        self.got = int(got)
+        self.quota = int(quota)
+        self.used = int(used)
+        self.allocatable = int(allocatable)
+        super().__init__(
+            f"[P2] 配额不足：group={self.group} want={self.want} got={self.got} "
+            f"quota={self.quota} used={self.used} allocatable={self.allocatable}"
+        )
+
+
 def encode_unit(group: int, row: int) -> int:
     assert 0 <= row < STRIDE, f"[P2] row={row} 超出 STRIDE={STRIDE}（unit 太多）"
     return (int(group) << STRIDE_BITS) | int(row)
@@ -259,6 +282,52 @@ def make_quota_manager(base_cls):
                 for g in self._p2_quota
             )
 
+        # ==================================================================
+        # [P2_FIX_20260928] 两处**只在池满时才会走到**的缺陷（A3 1 GiB 池实测打到）
+        #
+        #  ① 淘汰量用错了单位 ⇒ **过淘汰**
+        #     `deficit` 是 **unit** 数（need/quota/used 三者都是 unit，见
+        #     `compute_weights` 的"单位是 unit（= bpc_g 个 GPU block）"），
+        #     而 `policy.evict(n, ...)` 的 `n` 是**条目（key/block）数**。
+        #     组 g 的每个条目正好占 `bpc_g` 个 unit ⇒ 传 `deficit` 会淘汰
+        #     `deficit` 个条目、释放 `deficit × bpc_g` 个 unit。
+        #     full 组 bpc=8 ⇒ **8 倍过淘汰**；而 full 组正是长前缀的宿主
+        #     ⇒ 每次 store 都把它多砍 7 倍 ⇒ 前缀链头被挤掉、
+        #     `_maximal_prefix_lookup` 第一刀就 MISS ⇒ 这正是现场
+        #     "prefix cache hit 一路降到 0%" 的形态。
+        #     ⇒ 改成按 unit 折算条目数：`ceil(deficit / bpc_g)`。
+        #
+        #  ② "可用行数"两套账不一致时 **assert 打死 EngineCore**
+        #     `quota - used` 是账本口径；真正决定 `_p2_free_rows_of` 能不能
+        #     拿到行的是 `len(free[g]) + (quota_g - hi_rows[g])`。
+        #     两者只要因任何原因不一致，按 `quota - used` 算出的 deficit 就会
+        #     偏小 ⇒ 淘汰不足 ⇒ 随后 `_allocate_blocks` 里的 assert 直接把
+        #     EngineCore 打死（实测：`AssertionError: [P2] 配额不足：
+        #     group=3 want=1 got=0 quota=51 used=51`，2026-09-28，1 GiB 池）。
+        #     ⇒ (a) deficit 一律按**可分配行数**算（单一事实来源）；
+        #        (b) 分配失败不再 assert，改成回滚 + 抛 `_P2QuotaShort`，
+        #            由 `prepare_store` 吞掉并返回 `None`
+        #            （= 上游语义"本轮不 store"，服务继续活着）。
+        # ==================================================================
+
+        def _p2_bpc_of_group(self, group: int) -> int:
+            """组 g 的每个条目占几个 unit（组内常量；取不到按 1）。"""
+            raw = getattr(self, "_bpc_by_group", None) or {}
+            try:
+                return max(1, int(raw.get(int(group), 1)))
+            except (TypeError, ValueError):
+                return 1
+
+        def _p2_allocatable(self, group: int) -> int:
+            """组 g 当前**真正可分配**的行数（= free 列表 + 尚未用过的行）。
+
+            判据绑在"分配端实际会用的那两个量"上，而不是账本 `used`：
+            `_p2_free_rows_of` 只从这两处取行，所以它们才是单一事实来源。
+            """
+            cap = self._p2_quota.get(group, 0)
+            free = len(self._p2_free_rows.get(group) or ())
+            return free + max(0, cap - self._p2_hi_rows.get(group, 0))
+
         def _used_units(self) -> int:
             return sum(self._p2_rows_used.values())
 
@@ -275,10 +344,20 @@ def make_quota_manager(base_cls):
                 g = key_group(key)
                 want = self.bpc_of(key)
                 rows = self._p2_free_rows_of(g, want)
-                assert len(rows) == want, (
-                    f"[P2] 配额不足：group={g} want={want} got={len(rows)} "
-                    f"quota={self._p2_quota.get(g)} used={self._p2_rows_used.get(g)}"
-                )
+                if len(rows) != want:
+                    # ★ 绝不 assert：池满时这条路径可达，assert 会把整个 EngineCore 打死
+                    #   （2026-09-28 实测）。改成**回滚本次已分配的行** + 抛可控异常，
+                    #   由 `prepare_store` 吞掉 ⇒ 上游语义"本轮不 store"，服务继续活着。
+                    for _blk in blocks:
+                        self._free_block(_blk)
+                    raise _P2QuotaShort(
+                        group=g,
+                        want=want,
+                        got=len(rows),
+                        quota=int(self._p2_quota.get(g, 0)),
+                        used=int(self._p2_rows_used.get(g, 0)),
+                        allocatable=int(self._p2_allocatable(g)),
+                    )
                 units = [encode_unit(g, r) for r in rows]
                 self._p2_rows_used[g] = self._p2_rows_used.get(g, 0) + want
                 self._units_of_block[units[0]] = units
@@ -350,16 +429,19 @@ def make_quota_manager(base_cls):
 
             to_evict: list[OffloadKey] = []
             for g in sorted(need):
-                deficit = need[g] - max(
-                    0, self._p2_quota.get(g, 0) - self._p2_rows_used.get(g, 0)
-                )
+                # ★ [P2_FIX_20260928] deficit 必须按**真正可分配的行数**算，
+                #   而不是账本 `quota - used`（两者不一致时 deficit 会偏小 ⇒
+                #   淘汰不足 ⇒ `_allocate_blocks` 失败）。见上方长注释 ②。
+                deficit = need[g] - self._p2_allocatable(g)
                 if deficit <= 0:
                     continue
                 self._p2_quota_short += 1
                 self._p2_log_short(g, deficit, abandoned=False)
-                evicted = self._policy.evict(
-                    deficit, _GroupEvictFilter(g, set(keys))
-                )
+                # ★ [P2_FIX_20260928] `evict(n)` 的 n 是**条目数**，deficit 是 **unit 数**
+                #   ⇒ 必须按 bpc_g 折算，否则 full 组（bpc=8）被 8 倍过淘汰。
+                _bpc_g = self._p2_bpc_of_group(g)
+                _n_entries = max(1, -(-deficit // _bpc_g))  # ceil(deficit / bpc_g)
+                evicted = self._policy.evict(_n_entries, _GroupEvictFilter(g, set(keys)))
                 if evicted is None:
                     # 本组（配额内）没有足够的可淘汰条目 ⇒ 本轮放弃 store（上游语义）
                     self._p2_quota_short += 1
@@ -380,7 +462,24 @@ def make_quota_manager(base_cls):
                     )
                 )
 
-            blocks = self._allocate_blocks(list(keys_to_store))
+            try:
+                blocks = self._allocate_blocks(list(keys_to_store))
+            except _P2QuotaShort as _exc:
+                # ★ [P2_FIX_20260928] 可控失败：本组配额真用尽 ⇒ 本轮不 store。
+                #   绝不把 AssertionError 抛给 EngineCore（那会让整个引擎死）。
+                #   ★ 已经淘汰的条目要如实上报：否则上层记账会漏掉这批移除事件。
+                self._p2_quota_short += 1
+                self._p2_log_short(_exc.group, _exc.want - _exc.got, abandoned=True)
+                if to_evict and self.events is not None:
+                    self.events.append(
+                        OffloadingEvent(
+                            keys=to_evict,
+                            medium=self.medium,
+                            removed=True,
+                        )
+                    )
+                print("[P2_FIX_20260928] %s" % (_exc,), flush=True)
+                return None
             assert len(blocks) == len(keys_to_store)
             for key, block in zip(keys_to_store, blocks):
                 self._policy.insert(key, block)

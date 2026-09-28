@@ -339,6 +339,77 @@ else
   warn "缺 a2/scripts/selftest_make_shadow_pkg.sh"
 fi
 
+# ------------------------------------------------- 9l) ★★ DRAM 卸载池「池满」两处缺陷（2026-09-28）
+# 这两处**只在池接近满时**才走到，所以起服/短请求/历史验收全过，而 A2 生产
+# （85 GiB 池、长上下文）必踩。两条后果都很贵：
+#   ① 淘汰量单位错配（deficit 是 unit、`evict(n)` 的 n 是**条目**）⇒ full 组
+#      （bpc=8）**8 倍过淘汰** ⇒ 前缀链头被挤掉 ⇒ `prefix cache hit` 降到 0%。
+#   ② 账本口径（quota-used）与可分配口径（free + cap - hi）不一致时 `assert`
+#      ⇒ `AssertionError` 冒泡到 EngineCore ⇒ **整个引擎死、在跑请求全 500**
+#      （上游语义本应是 `prepare_store` 返回 None = 本轮不 store）。
+# 判据 = 离线自检 + **负控**（对未修复原版必须 FAIL），不依赖真机（起服要 6 分钟）。
+if [ -f tools/selftest_p2_pool_quota.py ]; then
+  if out=$(python3 tools/selftest_p2_pool_quota.py 2>&1); then
+    n=$(printf '%s' "$out" | sed -n 's/^合计 \([0-9]*\) 项.*/\1/p' | tail -1)
+    ok "卸载池池满缺陷离线自检：${n:-?} 项全过（过淘汰折算 / 可控失败 / 半批回滚）"
+    # 必须带 .py 后缀：spec_from_file_location 对无扩展名文件给不出 loader
+    _p2_orig=$(mktemp --suffix=.py)
+    if git -C . cat-file blob \
+         "$(git -C . rev-parse HEAD):a2/patches/kv8-offload-pool/p2_pool.py" \
+         > "$_p2_orig" 2>/dev/null; then
+      if P2_POOL_UNDER_TEST="$_p2_orig" python3 tools/selftest_p2_pool_quota.py >/dev/null 2>&1; then
+        bad "卸载池自检负控失败：**未修复的原版竟然通过** ⇒ 判据没有判别力"
+      else
+        nf=$(P2_POOL_UNDER_TEST="$_p2_orig" python3 tools/selftest_p2_pool_quota.py 2>&1 \
+             | sed -n 's/^合计 [0-9]* 项，失败 \([0-9]*\) 项.*/\1/p' | tail -1)
+        ok "卸载池自检负控：未修复原版被抓（${nf:-?} 条 FAIL，含逐字复现的 AssertionError）"
+      fi
+    else
+      warn "卸载池自检负控跳过（拿不到 HEAD 版本的原文件）"
+    fi
+    rm -f "$_p2_orig"
+  else
+    bad "卸载池池满缺陷离线自检失败："
+    printf '%s' "$out" | grep -E '✗|FAIL' | sed 's/^/        /' | head -10
+  fi
+else
+  bad "缺 tools/selftest_p2_pool_quota.py（无法自动抓池满时的过淘汰 / 引擎被打死）"
+fi
+
+# ------------------------------------------------- 9m) ★ `GATE_CHUNK` × `GATE_MAX_TOKENS` 一致性守卫
+# 分块 engram gate 把 token 维**静态 pad 到 GATE_MAX_TOKENS**，而 `padded[:n]` 与
+# `[n,...]` 的 mask 做 `torch.where` 要求 `n <= MAX`；`n > MAX` **直接抛错**
+# （`upstream/logs/41`：「n=8192 那一行里 MAX≤4096 的臂全部 RAISES」）。
+# 而脚本此前默认 MAX=2048 配 BAT_TOKENS=8192 ⇒ 只要设 GATE_CHUNK 而忘给 MAX，
+# 第一次长 prefill 就崩（典型 prompt 8K ⇒ n≈8176）。
+#
+# ★ 判据绑在**守卫自身的返回值 + 它解析出的三元组**上（靠 serve_a2.sh 的
+#   `V41_GATE_GUARD_CHECK_ONLY=1` 钩子）—— 不绑"抽脚本片段 eval"那种脆弱写法，
+#   也不需要 docker/镜像（跑整个起服会被无关失败干扰）。
+#   四项：① 非法对必须 rc=64 ② 派生默认必须 = BAT_TOKENS
+#         ③ 显式合法对必须放行 ④ GATE_CHUNK=0（不差分块）也必须派生
+if [ -f scripts/serve_a2.sh ]; then
+  _G=$(env V41_GATE_GUARD_CHECK_ONLY=1 BAT_TOKENS=8192 GATE_CHUNK=512 \
+        bash scripts/serve_a2.sh 2>&1); _Grc=$?
+  _N=$(env V41_GATE_GUARD_CHECK_ONLY=1 BAT_TOKENS=8192 GATE_CHUNK=512 \
+        GATE_MAX_TOKENS=2048 bash scripts/serve_a2.sh 2>&1); _Nrc=$?
+  _E=$(env V41_GATE_GUARD_CHECK_ONLY=1 BAT_TOKENS=8192 GATE_CHUNK=512 \
+        GATE_MAX_TOKENS=8192 bash scripts/serve_a2.sh 2>&1); _Erc=$?
+  _Z=$(env V41_GATE_GUARD_CHECK_ONLY=1 BAT_TOKENS=8192 GATE_CHUNK=0 \
+        bash scripts/serve_a2.sh 2>&1); _Zrc=$?
+  if [ "$_Nrc" = "64" ] && printf '%s' "$_N" | grep -q '2048 < BAT_TOKENS=8192' \
+     && [ "$_Grc" = "0" ] && printf '%s' "$_G" | grep -q 'chunk=512 max_tokens=8192' \
+     && [ "$_Erc" = "0" ] && printf '%s' "$_E" | grep -q 'chunk=512 max_tokens=8192' \
+     && [ "$_Zrc" = "0" ] && printf '%s' "$_Z" | grep -q 'chunk=0 max_tokens=8192'; then
+    ok "GATE 守卫：非法对 rc=64 / 派生的 MAX=8192 / 显式合法对放行 / GATE_CHUNK=0 也派生"
+  else
+    bad "GATE 守卫失效（非法 rc=$_Nrc 应 64；派生 rc=$_Grc / 显式 rc=$_Erc / 关分块 rc=$_Zrc 应 0）"
+    printf '%s\n' "$_N" "$_G" "$_E" "$_Z" | sed 's/^/        /' | head -12
+  fi
+else
+  bad "缺 scripts/serve_a2.sh（无法检查 GATE 守卫）"
+fi
+
 # ------------------------------------------------- 9h) ★ 本轮的 issue 跟进修复
 # 每条都对应一个**外部报告过的真实故障**，不是内部重构。判据：正控过 + 负控能抓。
 #   issue #2 ② 代理劫持 127.0.0.1 ⇒ 三个起服脚本必须补 no_proxy（且**不覆盖**用户已设的）
