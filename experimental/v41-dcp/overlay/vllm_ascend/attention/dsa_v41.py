@@ -455,7 +455,8 @@ class DeepseekV41EagerAttentionImpl:
         if shared is None:
             raise RuntimeError("V4.1 shared attention state is not initialized")
         if not self.role.is_index_source:
-            return shared.topk_indices[: hidden_states.shape[0]]
+            selected = shared.topk_indices[: hidden_states.shape[0]]
+            return self._remap_selection(selected, positions)
         if attn.indexer is None or metadata.indexer is None:
             raise RuntimeError("V4.1 index source is missing indexer metadata")
 
@@ -475,10 +476,41 @@ class DeepseekV41EagerAttentionImpl:
             candidate_block_size=self.topology.candidate_block_size,
             candidates=shared.candidates[: hidden_states.shape[0]],
         )
+        # [V41-DCP] `indexer.select` 的输出是**全局压缩 token 坐标**（因为 indexer K
+        # cache 是每个 rank 一份全量复制，所以 8 个 rank 选出的集合逐位相同）。
+        # 而本 rank 的 long_kv 只有 1/dcp，所以必须把全局坐标重映射到本 rank 的
+        # 本地压缩坐标，并把不属于本 rank 的项置 -1（算子对负索引直接跳过）。
+        selected = self._remap_selection(selected, positions)
         shared.topk_indices[: selected.shape[0]].copy_(selected)
         if self.role.is_candidate_source:
             shared.candidates[: candidates.shape[0]].copy_(candidates)
         return shared.topk_indices[: selected.shape[0]]
+
+    def _remap_selection(self, selected, positions):
+        """把全局压缩 top-k 索引重映射到本 rank 的本地压缩坐标。"""
+        import os as _os
+
+        from vllm_ascend.patch.platform.patch_v41_dcp import replicate_indexer, v41_dcp_active
+
+        if not v41_dcp_active() or not replicate_indexer():
+            return selected
+        from vllm.distributed import get_dcp_group
+
+        from vllm_ascend.attention.context_parallel.v41_dcp import remap_sparse_indices
+
+        parallel = get_forward_context().vllm_config.parallel_config
+        dcp_size = int(getattr(parallel, "decode_context_parallel_size", 1) or 1)
+        if dcp_size <= 1:
+            return selected
+        interleave = int(getattr(parallel, "cp_kv_cache_interleave_size", 1) or 1)
+        return remap_sparse_indices(
+            selected,
+            block_size=int(get_forward_context().vllm_config.cache_config.block_size),
+            interleave=interleave,
+            ratio=int(self.role.compress_ratio),
+            dcp_size=dcp_size,
+            dcp_rank=int(get_dcp_group().rank_in_group),
+        )
 
     def _attention(self, attn, q, metadata, compressed_indices):
         source_cache = None
@@ -783,6 +815,28 @@ class DeepseekV41MetadataBuilder(AttentionMetadataBuilder[DeepseekV41Metadata]):
         seq_lens = coordinates["seq_lens"]
         positions = coordinates["positions"]
 
+        # =====================================================================
+        # [V41-DCP 2026-09-29] 复制态 indexer 的 `[T, 2]` 槽位映射。
+        #
+        # 与 long_kv 的关键区别：indexer 要覆盖**全量**序列（每个 rank 一份），
+        # 而 long_kv 只覆盖本 rank 的 1/dcp。物理布局：
+        #   同一个物理块内，index 面被放成 `dcp` 个「子块」，
+        #   全局压缩 token `g` → 块列 `g // (dcp*B')`、面内偏移 `((g % (dcp*B'))//B')*B' + g % B'`
+        #   其中 `B' = storage_block_size`（已按 ratio 缩过）。
+        # 块列是**本 rank 的局部列**：所有 rank 的调度器确定性一致 ⇒ 同一列拿到同一
+        # 个物理块 ID ⇒ 8 份 indexer 副本内容逐位相同（这是"全局 top-k 零通信一致"
+        # 的前提）。`g` 用全局位置算，不做 rank 过滤。
+        # =====================================================================
+        dcp_size = int(getattr(self.vllm_config.parallel_config, "decode_context_parallel_size", 1) or 1)
+        from vllm_ascend.patch.platform.patch_v41_dcp import replicate_indexer
+
+        index_is_replicated = (
+            cache_kind == "index_k"
+            and dcp_size > 1
+            and replicate_indexer()
+            and max(1, int(getattr(spec, "dcp_world_size", 1) or 1)) > 1
+        )
+
         # SWA uses original-token coordinates; circular state has no token slots.
         # Long KV and index K are addressed in completed compression groups.
         compressed = cache_kind in {"long_kv", "index_k"}
@@ -795,7 +849,47 @@ class DeepseekV41MetadataBuilder(AttentionMetadataBuilder[DeepseekV41Metadata]):
             # layout then share one persistent [T, 2] mapping, while every SWA
             # group owns a distinct mapping buffer.
             slot_key = f"slot:c{ratio}:b{spec.storage_block_size}"
+            if index_is_replicated:
+                slot_key += f":dcp{dcp_size}"
             prepared_slots = shared.get(slot_key)
+            if prepared_slots is None and index_is_replicated:
+                # ---- 复制态：块列与面内偏移都从**全局压缩位置**算，不做 rank 过滤 ----
+                storage = int(spec.storage_block_size)
+                block_table = getattr(common, "block_table_tensor", None)
+                if block_table is None or positions is None:
+                    raise RuntimeError("[V41-DCP] 复制态 indexer 需要 block_table_tensor 与 positions")
+                pos = positions[:num_input_tokens]
+                global_g = torch.div(pos, ratio, rounding_mode="floor")
+                span = dcp_size * storage
+                column = torch.div(global_g, span, rounding_mode="floor")
+                within = global_g.remainder(span)
+                face_offset = (
+                    torch.div(within, storage, rounding_mode="floor") * storage + within.remainder(storage)
+                )
+                query_lens = (
+                    common.query_start_loc[1 : num_reqs + 1] - common.query_start_loc[:num_reqs]
+                ).to(torch.int64)
+                req_indices = torch.repeat_interleave(
+                    torch.arange(num_reqs, dtype=torch.int64, device=block_table.device),
+                    query_lens,
+                    output_size=pos.shape[0],
+                )[: num_input_tokens]
+                columns = column.clamp(0, block_table.shape[1] - 1)
+                block_numbers = block_table[req_indices, columns]
+                group_complete = (
+                    pos.remainder(ratio) == (ratio - 1)
+                    if ratio > 1
+                    else torch.ones_like(pos, dtype=torch.bool)
+                )
+                repl_valid = group_complete & (block_numbers > 0)
+                self._slot_mapping_2d[:num_input_tokens, 0].copy_(
+                    torch.where(repl_valid, block_numbers, -1)
+                )
+                self._slot_mapping_2d[:num_input_tokens, 1].copy_(
+                    torch.where(repl_valid, face_offset, -1)
+                )
+                prepared_slots = self._slot_mapping_2d[:num_input_tokens]
+                shared[slot_key] = prepared_slots
             if prepared_slots is None:
                 active_slots = common.slot_mapping[:num_input_tokens]
                 if compressed and ratio != 1:

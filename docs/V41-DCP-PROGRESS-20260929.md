@@ -208,6 +208,60 @@ full_blocks(dcp) = 8192 / dcp          # 8 个 full 平面 @1M、block_size=128
 
 ---
 
+## 4.1 ★ 压缩平面（cmp）的正确性前提：未解决，且**不能**靠复制解决
+
+长上下文稀疏注意力分两步：
+
+1. **indexer 选 top-k**（512 个压缩 token）；
+2. **`npu_sparse_flash_mla` 用 `cmp_sparse_indices` 对这些键做稀疏注意力**。
+
+A3 上 `ori_sparse_indices` 是 A5-only（§3.2），所以滑窗只能复制；
+而 **cmp 路径的索引通道是可用的** ⇒ 只要 top-k 集合正确、索引能重映射到本 rank
+的本地坐标，长上下文路径就能精确 LSE 合并。映射推导见
+`attention/context_parallel/v41_dcp.py` 的模块 docstring，三条不变量已离线逐位验证：
+
+| 不变量 | 验证 |
+|---|---|
+| 写侧 `compressed_slot_mapping` 与读侧 `compressed_local` 互为同一映射 | 20000 项 0 mismatch |
+| rank 拥有的压缩 token 的块列 == 超块号 `g // (dcp·B')` | 20000 项 0 mismatch |
+| 每 (rank, 超块) 恰好 `B'`=64 个 token、本地列空间连续无空洞 | N=204800 零违规 |
+
+### 障碍：全局 top-k 需要每个 rank 看到全量 indexer K
+
+top-k 必须在 8 个 rank 上**逐位一致**，否则各 rank 的 partial 覆盖不同键集，
+LSE 合并出的不是全局 softmax。A3 上没有分布式 top-k 通道，SFA 的做法是
+**把 indexer K cache 物理复制 dcp 份**（零通信）。
+
+### 实测：复制路线暂时不可交付（**两个**障碍）
+
+真机 run `dcpcap_0929_132019`（打开 `V41_DCP_REPLICATE_INDEXER=1`）：
+
+```
+[V41-DCP-DIAG] pool_bytes_per_block=660480 (slots=[132096,132096,132096,264192])
+[V41-DCP-DIAG] request_blocks(total)=1205
+ValueError: Aurora circular state must fill its slot with 32 contiguous FP32 rows
+```
+
+| # | 障碍 | 说明 |
+|---|---|---|
+| 1 | **容量 −22%** | pool 540928 → **660480**，容量 7.88× → ~6.45×。机制：index 面 ×8 ⇒ slot 0/1/2 的 `kv+index` 73856→132096（超过 SWA 别名 131072），slot 3 154752→264192 |
+| 2 | **结构性**：state ring 必须等长连续 | `reshape_cache` 断言 state 必须填满槽位，且 `compressor_triton.py:665` 要求 `state_cache.is_contiguous()`；槽位涨到 132096 后 32×1024×4=131072 填不满 ⇒ 直接报错。**要让复制可用，必须先改 ring 内核的 stride 假设或把 state 迁出该槽位** |
+
+### 正确且不涨内存的替代路线：分布式 top-k（下一步）
+
+indexer 保持分片，各 rank 在自己分片上算分数、取**本地 top-k（k = 全局 k = 512）**，
+all-gather `8×[T,512]` 的 (index, score)，本地归并取全局 top-512，再走已实现的 remap。
+
+* **正确性**：全局 top-512 的元素在其本 rank 内排名必 ≤512 ⇒ 本地保留 512 足够（标准结论）。
+* **代价**：每 indexer 层每步 `T×8×512×8B = T×32KB`；8 层 ⇒ `T×256KB`/步。
+  T=128（decode）→ 32 MB/步；T=8192（prefill）→ 2 GB/chunk，prefill 需另想办法
+  （可复用现有的 `candidate_topk_blocks` 两段式筛选先把候选压到 2048 块）。
+
+⇒ **当前可交付口径仍是 7.88× 容量 + 滑窗复制已通**；cmp 路径的正确性尚未接入，
+因此 DCP8 服务的输出**仍不正确**（与 §6「还没做的」一致）。
+
+---
+
 ## 5. 开发基础设施（可复用）
 
 ### 5.1 overlay 挂载：改文件 → 重启服务

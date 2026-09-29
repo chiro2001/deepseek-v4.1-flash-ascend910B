@@ -31,6 +31,23 @@ class DeepseekV41FullSpec(AscendMLAAttentionSpec):
 class DeepseekV41IndexerSpec(AscendMLAAttentionSpec):
     """INT8 index keys followed by FP16 scales inside each shared slot page."""
 
+    # =====================================================================
+    # [V41-DCP 2026-09-29] indexer K cache 的**复制度**。
+    #
+    # 为什么必须复制：全局 top-k 必须每个 rank 完全一致（否则各 rank 的
+    # partial attention 覆盖的键集不同，LSE 合并出来的不是全局 softmax）。
+    # A3 上没有任何"分布式 top-k"通道，唯一可行的做法是让每个 rank 都能看到
+    # **全量** indexer K（与 SFA-DCP 同构）。代价见
+    # `docs/V41-DCP-PROGRESS-20260929.md`：pool 页 +22%，容量 7.88× → ~6.2×。
+    #
+    # 放在 spec 上（而不是进程内全局）是因为：
+    #   · `_cache_plane_sizes` 在 **EngineCore**（调度器）侧被调用来算池子大小；
+    #   · `reshape_cache` 在 **worker** 侧被调用来建 view；
+    #   · 两边是不同进程，spec 会从 worker 序列化过去。
+    #   2026-09-29 实测教训：用进程内全局时 EngineCore 读到 1。
+    # =====================================================================
+    dcp_world_size: int = 1
+
     def is_uniform_with_collection(self, specs):
         return all(
             isinstance(s, (DeepseekV41FullSpec, DeepseekV41IndexerSpec))
@@ -124,7 +141,11 @@ def _cache_plane_sizes(spec):
     rows = spec.storage_block_size * spec.num_kv_heads
     key_bytes = rows * spec.head_size * spec.dtype.itemsize
     if isinstance(spec, DeepseekV41IndexerSpec):
-        return key_bytes, rows * spec.scale_dim * spec.scale_dtype.itemsize
+        # [V41-DCP] 复制态：整条序列每个 rank 各留一份 ⇒ 键与 scale 两个面都 ×dcp。
+        from vllm_ascend.patch.platform.patch_v41_dcp import replicate_indexer
+
+        repl = max(1, int(getattr(spec, "dcp_world_size", 1) or 1)) if replicate_indexer() else 1
+        return key_bytes * repl, rows * repl * spec.scale_dim * spec.scale_dtype.itemsize
     return (key_bytes,)
 
 
@@ -339,21 +360,34 @@ def reshape_cache(raw: torch.Tensor, spec, *, num_blocks, offset, block_stride):
     if isinstance(spec, DeepseekV41CompressorStateSpec) and sum(plane_sizes) != block_stride:
         raise ValueError("Aurora circular state must fill its slot with 32 contiguous FP32 rows")
 
-    def view(dtype, width, byte_offset):
+    # [V41-DCP] 复制态的 indexer 平面在**同一个物理块**里放 `dcp` 份子块，
+    # 所以行数（token 槽位）要乘 dcp。列/行 stride 不变（子块在块内连续）。
+    from vllm_ascend.patch.platform.patch_v41_dcp import replicate_indexer
+
+    index_rows = (
+        spec.storage_block_size * max(1, int(getattr(spec, "dcp_world_size", 1) or 1))
+        if isinstance(spec, DeepseekV41IndexerSpec) and replicate_indexer()
+        else spec.storage_block_size
+    )
+
+    def view(dtype, width, byte_offset, rows=None):
         dtype_size = dtype.itemsize
         storage_offset = raw.storage_offset() + byte_offset
         if storage_offset % dtype_size or block_stride % dtype_size or raw.numel() % dtype_size:
             raise ValueError("V4.1 cache offset/stride is not dtype aligned")
         return torch.as_strided(
             raw.view(dtype),
-            size=(num_blocks, spec.storage_block_size, spec.num_kv_heads, width),
+            size=(num_blocks, rows if rows is not None else spec.storage_block_size, spec.num_kv_heads, width),
             stride=(block_stride // dtype_size, spec.num_kv_heads * width, width, 1),
             storage_offset=storage_offset // dtype_size,
         )
 
     key = view(spec.dtype, spec.head_size, offset)
     if isinstance(spec, DeepseekV41IndexerSpec):
-        return key, view(spec.scale_dtype, spec.scale_dim, offset + plane_sizes[0])
+        return (
+            view(spec.dtype, spec.head_size, offset, rows=index_rows),
+            view(spec.scale_dtype, spec.scale_dim, offset + plane_sizes[0], rows=index_rows),
+        )
     return key
 
 

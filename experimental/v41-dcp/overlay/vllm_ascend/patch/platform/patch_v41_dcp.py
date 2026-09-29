@@ -64,6 +64,40 @@ def v41_dcp_active() -> bool:
     return os.environ.get("V41_DCP") == "1" or os.environ.get("V41_DCP_ALLOW_CAPACITY_PROBE") == "1"
 
 
+def replicate_indexer() -> bool:
+    """indexer K cache 是否按 DCP 复制（正确性所需）。
+
+    · 打开（默认）：每个 rank 留一份全量 indexer K ⇒ 8 个 rank 各自独立算出
+      **同一份全局 top-k**（零通信）⇒ cmp 路径能正确 LSE 合并。
+      代价：index 面 ×dcp ⇒ pool 页 +22% ⇒ 容量 7.88× 降到 ~6.4×。
+    · 关闭（**当前默认**）：indexer 按序列分片（沿用上游 1/dcp），容量 7.88×，
+      但每个 rank 只能看到自己那 1/8 的候选 ⇒ 全局 top-k 不成立 ⇒ cmp 输出**错误**。
+      仅供容量/带宽测量。
+
+    ## ★ 2026-09-29 实测：复制路线有两个障碍，暂不足以交付
+    （1）**容量代价 ~22%**：pool_bytes_per_block 540928 → **660480**（真机，
+        run dcpcap_0929_132019 的 `[V41-DCP-DIAG]`），容量 7.88× → ~6.45×。
+        机制：复制让 index 面 ×dcp，slot 0/1/2 的 `kv+index` 从 73856 涨到
+        132096（> SWA 别名 131072），slot 3 涨到 264192。
+    （2）**结构性阻碍**：slot 0/1/2 里 compressor state ring（FP32 32 行 ×
+        1024 = 131072 B）必须**等长且连续**地填满槽位
+        （`reshape_cache` 的 `"Aurora circular state must fill its slot with 32
+        contiguous FP32 rows"`），而 `compressor_triton.py:665` 要求
+        `state_cache.is_contiguous()`。槽位涨到 132096 后该断言直接否决
+        （真机报错原文见 run dcpcap_0929_132019）。
+        ⇒ 要让复制可用，必须先把 state ring 迁出该槽位或改 ring 内核的 stride 假设。
+
+    ## 正确且不涨内存的替代路线（下一步）
+    分布式 top-k：indexer 保持分片，各 rank 在自己分片上算分数并取 **本地 top-k
+    （k = 全局 k = 512）**，all-gather `8×[T,512]` 的 (index, score)，本地归并取全局
+    top-512，再走本模块的 remap。
+    正确性：全局 top-512 的元素在其本 rank 内排名必 ≤512 ⇒ 本地保留 512 足够（标准结论）。
+    代价：每 indexer 层每步 `T×8×512×8B = T×32KB`，8 层 ⇒ `T×256KB`/步
+    （T=128 → 32 MB/步；T=8192 → 2 GB/chunk，prefill 需另想办法）。
+    """
+    return os.environ.get("V41_DCP_REPLICATE_INDEXER", "0") == "1"
+
+
 def spec_is_dcp_sharded(spec) -> bool:
     """这个 cache 是否按序列在 DCP 下分片。
 

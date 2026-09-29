@@ -88,8 +88,10 @@ def remap_sparse_indices(
     front (the fused kernel stops at the first ``-1`` per row in the compacted
     view, and the compaction keeps the top-k ordering intact).
 
-    ``block_size``/``interleave`` are the **compressed-plane** values, i.e.
-    ``B // ratio`` and ``I // ratio``.
+    ``block_size``/``interleave`` are the **uncompressed** plane values
+    (``B`` and ``I``); ``ratio`` converts them internally.  Callers pass
+    ``vllm_config.cache_config.block_size`` and
+    ``parallel_config.cp_kv_cache_interleave_size`` verbatim.
     """
     if dcp_size <= 1:
         return indices
