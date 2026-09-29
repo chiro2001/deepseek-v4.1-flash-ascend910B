@@ -406,10 +406,27 @@ def _v41_dcp_merge_attention(
     # 最多 1 ulp），引入的误差是 fp32 舍入级；端到端由长上下文多选针回归把关。
     # =====================================================================
     _fold_ori_locally = _ori_active and _use_ori_ref
+    # ★★ [V41-PERF 2026-09-29] **提前切片**：本 rank 的 `o_proj` 只吃自己那 8 个 head
+    #   （TP 连续切分），而归约之后所有 rank 手里都有全部 64 个 head。
+    #   旧实现在**全 64 个 head** 上做 `output.to(fp32) * weights`、`− dcp·_onum`、
+    #   `wsum − const`、`div`、`to(bf16)` 这一整条链，最后才切到 8 个 head。
+    #   但**切片只影响后处理**：all_reduce 是跨 rank 逐元素求和，各 rank 贡献的
+    #   仍是自己的全 head 分片，必须保持 `[T,64,D]` 才能对上位置。
+    #   ⇒ 归约**前**保持全 head，归约**后**立刻切到本 rank 的 8 个 head 再做减法；
+    #     并且 `_onum`/`_ow` 这两个"ori 本地折叠"项从一开始就只在本 rank 的
+    #     8 个 head 上演算（它们本来就不参与归约）。
+    #   2-chip 图级累积式分解实测：后处理 **42.2 µs/层**，是当前最大的非通信项。
+    #   离线核对：先切后减 vs 先减后切 == 逐位相同（elementwise，maxdiff=0）。
+    _slice_early = _fold_ori_locally and head_slice is not None
     if _ori_active:
         if _use_ori_ref:
-            _ow = torch.full_like(weights, _keep)
-            _onum = ori_out.to(torch.float32) * _keep
+            # ★ `_ow` 只在**非折叠**路径（进 pack）用到；折叠路径里 `Σ_r _ow_r`
+            #   是常量 `dcp·_keep`，本地直接算 ⇒ 这里不再白建一个 `[T,H,1]` 张量。
+            _ow = None if _fold_ori_locally else torch.full_like(weights, _keep)
+            _oi = (
+                ori_out[:, head_slice[0] : head_slice[1], :] if _slice_early else ori_out
+            )
+            _onum = _oi.to(torch.float32) * _keep
         else:
             # `skip_2nd=1` 消融臂：仍用跨 rank max 作参考点（那条路径才有 lse_max）。
             _ow = torch.nan_to_num(torch.exp(ori_lse.to(torch.float32) - lse_max)) * _keep
@@ -425,8 +442,15 @@ def _v41_dcp_merge_attention(
         # ★ 扣除量 = `Σ_r _onum_r` / `Σ_r _ow_r`：
         #   `_onum_r = ori_out·_keep` 与 `_ow_r = _keep` **每个 rank 各一份**
         #   ⇒ `Σ_r _onum_r = dcp·_onum`、`Σ_r _ow_r = dcp·_keep = dcp−1`。
-        scaled = _pack[..., :_out_dim] - dcp * _onum
-        wsum = _pack[..., _out_dim:] - dcp * _keep
+        if _slice_early:
+            # 归约后立刻切到本 rank 的 8 个 head ⇒ 减法只在 8 个 head 上做。
+            _h0, _h1 = head_slice
+            scaled = _pack[..., :_out_dim][:, _h0:_h1, :] - dcp * _onum
+            wsum = _pack[..., _out_dim:][:, _h0:_h1, :] - dcp * _keep
+            head_slice = None  # 已应用，别在下面再切一次
+        else:
+            scaled = _pack[..., :_out_dim] - dcp * _onum
+            wsum = _pack[..., _out_dim:] - dcp * _keep
     elif perf_no_pack:
         # 消融臂：回到打包前的实现（4 次独立 all_reduce），用于量化打包收益
         _n_all = _onum.clone(); _w_all = _ow.clone()
@@ -1026,7 +1050,7 @@ class DeepseekV41EagerAttentionImpl:
             dcp_rank=int(get_dcp_group().rank_in_group),
         )
 
-    def _attention(self, attn, q, metadata, compressed_indices):
+    def _attention(self, attn, q, metadata, compressed_indices, q_local_heads=None, q_hpr=0):
         source_cache = None
         if self.role.has_long_context:
             source_cache = get_forward_context().no_compile_layers[self.long_kv_source_prefix].kv_cache[0]
@@ -1036,7 +1060,62 @@ class DeepseekV41EagerAttentionImpl:
             metadata,
             source_cache=source_cache,
             compressed_indices=compressed_indices,
+            q_local_heads=q_local_heads,
+            q_hpr=q_hpr,
         )
+
+    def _prepare_q_for_dcp(self, q):
+        """★ [V41-PERF 2026-09-29] 把 q 的 head 维 all_gather **提前到 indexer 之前**。
+
+        `forward` 的原始顺序是
+            preprocess → [kv source 写] → `_select_sparse_indices`（indexer） → `_attention`
+        而 gather 原本在 `_attention` 内部 ⇒ 它与 indexer **串行**。
+
+        但 indexer（QLI top-k + `prepare_indexer_indices`）只依赖
+        `hidden_states / qr / positions / cos / sin`，**不依赖** gather 后的 q
+        ⇒ 把 gather 提到 indexer 之前，HCCL 的 head all_gather 就有机会与
+        indexer 的计算重叠（Ascend 上 HCCL 走独立通信流，见 vLLM-Ascend
+        `attention_cp.py` 里 "COMM_STREAM: -- all_gather Q --" 的注释）。
+
+        返回值 `(q, local_heads, hpr)`：
+          · `q` 是 gather（并可能被消融截断）后的张量；
+          · `local_heads` 是**gather 前**本 rank 的 head 数（后续切片要用）；
+          · `hpr` 是消融开关 `heads_per_rank` 的值（0 = 正常）。
+
+        `heads_per_rank=K` 消融：把 gather 后的 q 截断到每 rank K 个 head
+        （⇒ 全局 K·dcp 个 head）再进 SMLA。目的：把「DCP8 每 rank 要算全部
+        64 head」这一个因素**单独**拎出来做 A/B（DCP1 基线每 rank 只算 8 个）。
+        ★ 只用于性能测量：结果数值不正确。**不得进生产**。
+        """
+        local_heads = int(q.shape[1])
+        from vllm_ascend.patch.platform.patch_v41_dcp import v41_dcp_active
+
+        if not v41_dcp_active():
+            return q, local_heads, 0
+        # ★★ 必须与 `_native_attention` 里的 `dcp_active` **同条件**：
+        #     `dcp_active = _v41_dcp_on() and has_compressed`，
+        #     而 `has_compressed = self.role.compress_ratio in (1, 2)`。
+        #   ratio=0 的层（纯滑窗、不走压缩平面）**不做跨 rank 归约**，
+        #   算子收到的 q 必须仍是本 rank 的 8 个 head。
+        #   踩过的坑（cap54 起服失败）：无条件 gather ⇒ 这些层的 q 变成 64 head，
+        #   而 `sinks` 仍是 8 ⇒ 算子直接
+        #     `Invalid_Argument_Tensor_Shape(EZ0009): Parameter sinks of
+        #      SparseFlashMla has incorrect shape [8]. Reason: Sinks's
+        #      dimension(8) should be equal to the head num of query(64).`
+        if self.role.compress_ratio not in (1, 2):
+            return q, local_heads, 0
+        _pf = _perf_flags()
+        if _pf.get('skip_gather') != '1':
+            q = _v41_dcp_gather_heads(q)
+        try:
+            _hpr = int(_pf.get('heads_per_rank', '0') or '0')
+        except ValueError:
+            _hpr = 0
+        if _hpr > 0:
+            _h_total_want = _hpr * _v41_dcp_group().world_size
+            if _h_total_want < int(q.shape[1]):
+                q = q[:, :_h_total_want, :].contiguous()
+        return q, local_heads, _hpr
 
     def _native_attention(
         self,
@@ -1046,8 +1125,14 @@ class DeepseekV41EagerAttentionImpl:
         *,
         source_cache,
         compressed_indices,
+        q_local_heads=None,
+        q_hpr=0,
     ):
         """Run SparseFlashMla with the same PA metadata for both operator stages."""
+        # ★ [V41-PERF] q 的 head 维 all_gather 与消融截断已由调用方
+        #   `_prepare_q_for_dcp` 在 **indexer 之前**做完 ⇒ 通信与 indexer 计算重叠。
+        _q_local_heads = q_local_heads if q_local_heads is not None else int(q.shape[1])
+        _q_hpr = int(q_hpr)
         if attn.head_dim != 512:
             raise ValueError(f"SparseFlashMla requires head_dim 512, got {attn.head_dim}")
         if attn.window_size != 128:
@@ -1150,36 +1235,18 @@ class DeepseekV41EagerAttentionImpl:
         # 不同 head 的部分结果相加。合并后本 rank 只保留自己那段 head（o_proj 是
         # TP 分片的），所以末尾要切回去。
         # =====================================================================
-        _local_heads = int(q.shape[1])
         _pf = _perf_flags() if dcp_active else {}
         import time as _time
         _t = _time_mark('t0_init', _time.perf_counter()) if dcp_active else _time.perf_counter()
-        if dcp_active and _pf.get('skip_gather') != '1':
-            q = _v41_dcp_gather_heads(q)
-        # =====================================================================
-        # [V41-PERF 2026-09-29] `heads_per_rank=K`：把 gather 后的 q 截断到
-        # 每 rank 只有 K 个 head（⇒ 全局 K·dcp 个 head）再进 SMLA。
-        #
-        # 目的：把「DCP8 每 rank 要算全部 64 head」这一个因素**单独**拎出来做 A/B。
-        # DCP1 基线每 rank 只算 8 个 head（TP=8），DCP8 因为要在 rank 维做
-        # LSE 归约而必须每个 rank 都算全部 64 个 head —— 这正是「+13.4 ms/step
-        # 来源未知」的头号嫌疑。K=8 是现状；K=1 复现 DCP1 的每 rank head 数。
-        #
-        # ★ 只用于性能测量：结果数值不正确（末端的 head 切片会做平铺以维持
-        #   o_proj 的输入形状）。**不得进生产**。
-        # =====================================================================
-        _hpr = 0
+        # ★ q 的 head all_gather 已在 `forward` 里、**indexer 之前**完成
+        #   （`_prepare_q_for_dcp`），这里只取回本 rank 的 head 数。
         if dcp_active:
-            try:
-                _hpr = int(_pf.get('heads_per_rank', '0') or '0')
-            except ValueError:
-                _hpr = 0
-            if _hpr > 0:
-                _h_total_want = _hpr * _v41_dcp_group().world_size
-                if _h_total_want < int(q.shape[1]):
-                    q = q[:, :_h_total_want, :].contiguous()
-        if dcp_active:
-            _t = _time_mark('gather_q', _t)
+            _local_heads = int(_q_local_heads)
+            _hpr = int(_q_hpr)
+            _t = _time_mark('gather_q(已在forward完成)', _t)
+        else:
+            _local_heads = int(q.shape[1])
+            _hpr = 0
         _owner = _v41_dcp_ori_owner() if dcp_active else "all"
         # ★★ 2026-09-29 修 bug：原写法 `_owner == "seqused0" or rank == 0`
         # 让 **所有** rank 的 `_is_ori_owner` 都为 True ⇒ 下面的 zeros_like 永不执行
@@ -1455,6 +1522,9 @@ class DeepseekV41EagerAttentionImpl:
         v1_impl = attn.dsa_attn.dsa_attn.impl
         preprocess = self.multistream_preprocess if v1_impl.multistream_dsv4_dsa_overlap else self.preprocess
         q, qr = preprocess(attn, hidden_states, cos, sin, metadata.swa)
+        # ★ [V41-PERF] 在 indexer **之前**发起 q 的 head all_gather，让它与
+        #   `_select_sparse_indices` 的计算重叠（见 `_prepare_q_for_dcp`）。
+        q, q_local_heads, q_hpr = self._prepare_q_for_dcp(q)
         if self.role.is_kv_source:
             self._write_compressed_source(
                 attn,
@@ -1465,7 +1535,9 @@ class DeepseekV41EagerAttentionImpl:
                 metadata,
             )
         compressed_indices = self._select_sparse_indices(attn, hidden_states, qr, positions, cos, sin, metadata)
-        attention_output = self._attention(attn, q, metadata, compressed_indices)
+        attention_output = self._attention(
+            attn, q, metadata, compressed_indices, q_local_heads=q_local_heads, q_hpr=q_hpr
+        )
         torch.ops._C_ascend.inplace_partial_rotary_mul(
             attention_output.unsqueeze(1),
             cos,
