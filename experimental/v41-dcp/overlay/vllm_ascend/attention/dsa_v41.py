@@ -610,23 +610,37 @@ def _v41_dcp_merge_attention(
             torch.distributed.all_reduce(_pack, group=group.device_group)
         _out_dim = scaled.shape[-1]
         if _mdiag_here:
-            _mdiag_post_t = _pack[..., _out_dim : _out_dim + 1].to(torch.float32).sum()
-            # ★★ [V41-MDIAG2] 把归约后的权重向量**按 head 分块**报告：
-            #   实测矛盾——全 64 head 的权重和 `w_postreduce_sum ≈ 9975`（每元素均值 9.74，正常），
-            #   但代码只取本 rank 的 8 个 head（`[:, h0:h1, :]`）时和恒为 **0**
-            #   ⇒ 权重在 head 维上分布不均（有整块为 0）。这里分 8 块各求和，一次看清。
-            _wcol = _pack[..., _out_dim : _out_dim + 1].to(torch.float32)
-            _H = int(_wcol.shape[1])
+            # =================================================================
+            # ★★★ [V41-MDIAG2 修正 2026-09-30] **单次主机拷贝 + CPU 侧计算**。
+            #
+            # 为什么必须这样：旧探针对**同一个 device 张量**做了十余次独立读取
+            # （8 次块和 + 总 sum + min/max + zero_head_cnt …），而 `_pack` 在本函数
+            # 返回后其显存会**归还分配器并被下一层复用** ⇒ 后续 kernel 可能读到
+            # **下一层的数据**。实测后果：同一行里出现自相矛盾的读数
+            #   `blk_sums=[0.0 × 8]`（8 块恰好覆盖全部 64 head）而同行的
+            #   `wcol_min=wcol_max=1`、`wcol_sum=1024`（全 1.0 的张量分块和必为 1024）。
+            # 统计：7904 条里有 **2875 条（36%）** 是这种不可信读数。
+            # ⇒ 现在**只做一次 `.cpu()` 快照**，之后全部在 CPU 上算，物理上不可能撕裂。
+            # =================================================================
+            _snap = _pack[..., _out_dim : _out_dim + 1].to(torch.float32).cpu()
+            _mdiag_post_t = float(_snap.sum())
+            _H = int(_snap.shape[1])
+            _h0, _h1 = (head_slice if head_slice is not None else (0, _H))
             _blk = max(1, _H // dcp)
-            _blk_sums = [
-                float(_wcol[:, _b * _blk : (_b + 1) * _blk, :].sum())
-                for _b in range(min(dcp, max(1, _H // _blk)))
-            ]
-            _zero_heads = int((_wcol.sum(dim=(0, 2)).abs() < 1e-9).sum())
+            _blk_sums = [_snap[:, _b * _blk : (_b + 1) * _blk, :].sum().item() for _b in range(dcp)]
+            _sliced = _snap[:, _h0:_h1, :]
+            _wsum_snap = _sliced - dcp * _keep
             print(
-                "[V41-MDIAG2] rank=%d T=%d H=%d blk=%d blk_sums=%s zero_head_cnt=%d"
-                % (_v41_dcp_rank(), int(_wcol.shape[0]), _H, _blk,
-                   [round(v, 3) for v in _blk_sums], _zero_heads),
+                "[V41-MDIAG2] rank=%d T=%d H=%d hs=(%d,%d) blk=%d "
+                "wcol[min=%.6g max=%.6g sum=%.6g] blk_sums=%s | "
+                "sliced[min=%.6g max=%.6g sum=%.6g] wsum[min=%.6g max=%.6g mean=%.6g]"
+                % (
+                    _v41_dcp_rank(), int(_snap.shape[0]), _H, _h0, _h1, _blk,
+                    float(_snap.min()), float(_snap.max()), _mdiag_post_t,
+                    [round(v, 3) for v in _blk_sums],
+                    float(_sliced.min()), float(_sliced.max()), float(_sliced.sum()),
+                    float(_wsum_snap.min()), float(_wsum_snap.max()), float(_wsum_snap.mean()),
+                ),
                 flush=True,
             )
         # ★ 扣除量 = `Σ_r _onum_r` / `Σ_r _ow_r`：
