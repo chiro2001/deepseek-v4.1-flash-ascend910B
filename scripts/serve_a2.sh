@@ -913,6 +913,53 @@ MOUNTS+=(-v "$PKG/scripts:/opt/dsv41/scripts:ro")
 if [ -f "$PKG/patches/files/v41_decode_guard.py" ]; then
   MOUNTS+=(-v "$PKG/patches/files/v41_decode_guard.py:/opt/dsv41/guards/v41_decode_guard.py:ro")
 fi
+# [DCP-DEV] V4.1 DCP 开发用的**整文件覆盖挂载**（2026-09-29）。
+#   §动机：DCP 需要替换 `vllm_ascend/core/deepseek_v41.py`（cache spec 与分配）、
+#   `attention/dsa_v41.py`（attention 执行）、以及新增 `attention/context_parallel/*_dcp.py`。
+#   每改一行就重打镜像不现实；这个开关把一棵**镜像容器路径布局**的目录整棵挂进去，
+#   让「改文件 → 重启服务」闭环，而不用动生产路径（默认不设 = 完全不生效）。
+#
+#   用法：
+#     mkdir -p ~/dcpw/vllm_ascend/core && cp <image>/.../deepseek_v41.py ~/dcpw/vllm_ascend/core/
+#     V41_DCP_MOUNT=$HOME/dcpw bash scripts/serve_a3.sh ...
+#   目录里的相对路径 = 相对 `/vllm-workspace/vllm-ascend/` 的路径。
+#   ★ 判据落在「实际生效」：起服日志会打印每个被挂的文件；挂载了不存在的容器路径
+#     docker 会自己建目录（静默），所以这里**逐个校验**相对路径在镜像里存在。
+if [ -n "${V41_DCP_MOUNT:-}" ]; then
+  [ -d "$V41_DCP_MOUNT" ] || die "V41_DCP_MOUNT=$V41_DCP_MOUNT 不是目录"
+  _dcp_n=0
+  # ★ 先收进**独立数组**，不要直接进 MOUNTS：下面 mount 模式还可能挂同一路径，
+  #   而去重时若不分家，就会把 overlay 自己删掉（2026-09-29 实踩）。
+  DCP_MOUNTS=()
+  while IFS= read -r _rel; do
+    _rel=${_rel#./}
+    case "$_rel" in
+      *.py) ;;
+      *) continue ;;
+    esac
+    _dst="/vllm-workspace/vllm-ascend/$_rel"
+    DCP_MOUNTS+=(-v "$V41_DCP_MOUNT/$_rel:$_dst:rw")
+    _dcp_n=$((_dcp_n + 1))
+    echo "[serve_a2][DCP] mount $_rel → $_dst"
+  done < <(cd "$V41_DCP_MOUNT" && find . -type f -name '*.py' | sort)
+  [ "$_dcp_n" -gt 0 ] || die "V41_DCP_MOUNT=$V41_DCP_MOUNT 下没有 .py 文件"
+  echo "[serve_a2][DCP] 共挂 $_dcp_n 个文件（覆盖镜像内对应模块）"
+  # ★ 挂载本身不构成证据：`-v SRC:DST` 在 DST 是文件、SRC 是文件时才有意义；
+  #   写错路径 docker 会在宿主机建目录，容器里静默变成目录。所以把清单**写进
+  #   serve_cmd.txt**（那个文件不会被 `: > $LOG` 截断），起服后据此核对。
+  DCP_MOUNT_LIST=$(cd "$V41_DCP_MOUNT" && find . -type f -name '*.py' | sed 's|^\./||' | sort | tr '\n' ' ')
+  # 后面 mount 模式还会挂 patches/files/*，二者可能指向同一容器路径
+  # （实测：engram_hbm.py）。docker 对重复的目的地直接报
+  # `Duplicate mount point` 并拒绝起容器，所以这里记下 DCP 的目的地集合，
+  # 在 mount 模式那一段结束后**移除冲突项**，让开发期 overlay 优先。
+  DCP_MOUNT_DSTS=" $(cd "$V41_DCP_MOUNT" && find . -type f -name '*.py' | sed 's|^\./||' | sed 's|^|/vllm-workspace/vllm-ascend/|' | sort | tr '\n' ' ')"
+  echo "[serve_a2][DCP] MOUNT_LIST=$DCP_MOUNT_LIST"
+  # 开发期需要透传给容器的 env（DCP 各阶段开关）：DCP_EXTRA_ENV="A=1 B=2"
+  for _kv in ${DCP_EXTRA_ENV:-}; do
+    MOUNTS+=(-e "$_kv")
+    echo "[serve_a2][DCP] -e $_kv"
+  done
+fi
 if [ "$PATCH_MODE" = "mount" ]; then
   F=$PKG/patches/files
   # [ADMISSION-GATE] vLLM core 的 admission gate 是**补丁**（不是整文件），
@@ -977,6 +1024,38 @@ if [ "$PATCH_MODE" = "mount" ]; then
   if [ "$CAND_MODE" != "0" ]; then
     MOUNTS+=(-v "$F/indexer.py:/vllm-workspace/vllm-ascend/vllm_ascend/models/deepseek_v41/indexer.py:rw")
   fi
+fi
+# [DCP-DEV] 去重：开发期 overlay 与 patches/files 可能覆盖**同一个容器路径**，
+# 而 docker 对重复目的地直接报 `Duplicate mount point` 并拒绝起容器。
+# 语义定为 **overlay 优先**（开发期改的就是它），在这里把冲突的旧挂载项整对剔除。
+if [ -n "${DCP_MOUNT_DSTS:-}" ]; then
+  _new_mounts=()
+  _mi=0
+  _dropped=0
+  while [ "$_mi" -lt "${#MOUNTS[@]}" ]; do
+    if [ "${MOUNTS[$_mi]}" = "-v" ] && [ $((_mi + 1)) -lt "${#MOUNTS[@]}" ]; then
+      _spec="${MOUNTS[$((_mi + 1))]}"
+      _dst="${_spec#*:}"
+      _dst="${_dst%%:*}"
+      case "$DCP_MOUNT_DSTS" in
+        *" $_dst "*)
+          say "[DCP-DEV] 移除与 overlay 冲突的挂载：$_dst"
+          _dropped=$((_dropped + 1))
+          _mi=$((_mi + 2))
+          continue
+          ;;
+      esac
+      _new_mounts+=("${MOUNTS[$_mi]}" "${MOUNTS[$((_mi + 1))]}")
+      _mi=$((_mi + 2))
+      continue
+    fi
+    _new_mounts+=("${MOUNTS[$_mi]}")
+    _mi=$((_mi + 1))
+  done
+  MOUNTS=("${_new_mounts[@]}")
+  [ "$_dropped" = "0" ] || say "[DCP-DEV] 共移除 $_dropped 项冲突挂载（overlay 优先）"
+  MOUNTS+=("${DCP_MOUNTS[@]}")
+  say "[DCP-DEV] overlay 挂载已追加（${#DCP_MOUNTS[@]} 项，最后生效）"
 fi
 if [ -n "${V41_CED_ROLE:-}" ]; then
   # [PATCH_MODE] 两条路都支持：
@@ -1328,6 +1407,27 @@ _CONTAINER_STARTED=1     # [FAIL-CLEANUP] 之后任何 die() 都会删掉这个�
 $DOCKER exec "$NAME" bash -lc "printf '%s' '$LOCAL_OWNER' > /tmp/v41_engram_localowner; printf '%s' 'fast' > /tmp/v41_hash_mode" || true
 
 # ---------- [ADMISSION-GATE] mount 模式下现场打 vLLM core 补丁 ----------
+# ---------- [DCP-MOUNT-GUARD] DCP 覆盖挂载必须**逐个证明**真的换掉了文件 ----------
+# 判据不能落在"我传了 V41_DCP_MOUNT"：`-v SRC:DST` 在 DST 不存在时 docker 会
+# 创建目录；而 DST 写错一层（例如少了 `vllm_ascend/`）时容器里那份代码根本没变，
+# 起服照样成功、行为却完全不同（2026-09-29 容量探针已因此白跑一轮）。
+# 这里比对**容器内 md5 vs 宿主 md5**，不一致就直接 die。
+if [ -n "${V41_DCP_MOUNT:-}" ] && [ "${DCP_MOUNT_SKIP_VERIFY:-0}" != "1" ]; then
+  _dfail=0
+  while IFS= read -r _rel; do
+    _dst="/vllm-workspace/vllm-ascend/$_rel"
+    _want=$(md5sum "$V41_DCP_MOUNT/$_rel" | awk '{print $1}')
+    _got=$($DOCKER exec "$NAME" bash -lc "test -f '$_dst' && md5sum '$_dst' | awk '{print \$1}' || echo NOT_A_FILE" 2>/dev/null | tail -1)
+    if [ "$_got" != "$_want" ]; then
+      echo "[serve_a2][DCP][FAIL] $_rel：容器内=$_got 宿主=$_want（挂载未生效）" >&2
+      _dfail=1
+    else
+      say "[DCP-MOUNT-GUARD] $_rel ✓ md5=${_want:0:8}"
+    fi
+  done < <(cd "$V41_DCP_MOUNT" && find . -type f -name '*.py' | sed 's|^\./||' | sort)
+  [ "$_dfail" = "0" ] || die "DCP 覆盖挂载未生效（见上）；不要在该状态下做任何结论"
+fi
+
 if [ "$PATCH_MODE" = "mount" ]; then
   say "[ADMISSION-GATE] mount 模式：在容器内现场应用 admission_gate.patch"
   _gate=$($DOCKER exec "$NAME" bash -lc '
