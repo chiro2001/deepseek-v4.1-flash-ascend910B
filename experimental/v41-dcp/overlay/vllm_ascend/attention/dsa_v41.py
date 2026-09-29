@@ -297,25 +297,41 @@ def _v41_dcp_merge_attention(
     # （D=512 满足）。
     # =====================================================================
     scaled = output.to(torch.float32) * weights
-    wsum = weights.clone()
     dcp = group.world_size
+    # ★★ [V41-PERF 2026-09-29] 把 `(1 − 1/dcp)` **折进 ori 项**，把
+    #   归约后的 4 个逐元素算子（`−_n_all + _n_all/dcp`、`−_w_all + _w_all/dcp`）
+    #   压成 2 个（`− Σ_onum' `、`− Σ_ow'`）。
+    #
+    # 代数：`all_reduce` 是**线性**的，所以
+    #     Σ_r (_onum_r · k) = k · Σ_r _onum_r = k · _n_all
+    # 把 `k = 1 − 1/dcp`（Python float，dcp 是 Python int）先乘到 **per-rank 的
+    # ori 权重**上，归约出来的就是 `k·_n_all`，后处理只剩一次减法。
+    # `_ow` 只有 `[T,H,1]`，把 k 乘在它上面的代价可忽略；省下的是两次作用在
+    # `[T,64,512]` fp32 上的重算子。
+    #
+    # 为什么值得：2-chip 图级实测 —— DCP2−DCP1 = +286 µs/层，其中
+    # **79% 是合并链的串行关键路径**（不是带宽、不是算力）；每砍掉 1 个串行
+    # 节点 ≈ 13 µs/层 ≈ 0.5 ms/step（40 层）。
+    _keep = 1.0 - 1.0 / dcp
     _ori_active = ori_lse is not None and ori_out is not None
     if _ori_active:
-        _ow = torch.exp((ori_lse.to(torch.float32) - lse_max).clamp(min=-80.0))
+        _ow = torch.exp((ori_lse.to(torch.float32) - lse_max).clamp(min=-80.0)) * _keep
         _onum = ori_out.to(torch.float32) * _ow
     else:
-        _ow = torch.zeros_like(wsum)
+        _ow = torch.zeros_like(weights)
         _onum = torch.zeros_like(scaled)
     if perf_no_pack:
         # 消融臂：回到打包前的实现（4 次独立 all_reduce），用于量化打包收益
         _n_all = _onum.clone(); _w_all = _ow.clone()
         torch.distributed.all_reduce(scaled, group=group.device_group)
+        wsum = weights.clone()
         torch.distributed.all_reduce(wsum, group=group.device_group)
         torch.distributed.all_reduce(_n_all, group=group.device_group)
         torch.distributed.all_reduce(_w_all, group=group.device_group)
     else:
         # 按最后一维拼包：`[T, H, D] + [T, H, D] + [T, H, 1] + [T, H, 1]`
-        _pack = torch.cat([scaled, _onum, wsum, _ow], dim=-1)
+        # ★ `weights` 直接交给 `cat`（cat 本来就会复制）⇒ 省掉一次 `clone`
+        _pack = torch.cat([scaled, _onum, weights, _ow], dim=-1)
         torch.distributed.all_reduce(_pack, group=group.device_group)
         _out_dim = scaled.shape[-1]
         scaled = _pack[..., :_out_dim]
@@ -323,10 +339,12 @@ def _v41_dcp_merge_attention(
         wsum = _pack[..., 2 * _out_dim : 2 * _out_dim + 1]
         _w_all = _pack[..., 2 * _out_dim + 1 :]
     if _ori_active:
-        # 去掉全部 dcp 份、补回 1 份（各 rank 的 A 相同 ⇒ A_all/dcp 就是那一份）
-        scaled = scaled - _n_all + _n_all / dcp
-        wsum = wsum - _w_all + _w_all / dcp
-    denom = torch.where(wsum > 0, wsum, torch.ones_like(wsum))
+        # 去掉全部 dcp 份、补回 1 份 —— `(1 − 1/dcp)` 已折进 `_onum`/`_ow`
+        scaled = scaled - _n_all
+        wsum = wsum - _w_all
+    # ★ `wsum` 数学上恒正（= e^{-c}·(A + ΣZ + ΣS)）；用 `clamp_min` 代替
+    #   `where(wsum > 0, wsum, ones_like)`，省掉 `ones_like` + `gt` 两个节点。
+    denom = wsum.clamp_min(1e-30)
     return (scaled / denom).to(output.dtype)
 
 
@@ -1017,6 +1035,28 @@ class DeepseekV41EagerAttentionImpl:
         _t = _time_mark('t0_init', _time.perf_counter()) if dcp_active else _time.perf_counter()
         if dcp_active and _pf.get('skip_gather') != '1':
             q = _v41_dcp_gather_heads(q)
+        # =====================================================================
+        # [V41-PERF 2026-09-29] `heads_per_rank=K`：把 gather 后的 q 截断到
+        # 每 rank 只有 K 个 head（⇒ 全局 K·dcp 个 head）再进 SMLA。
+        #
+        # 目的：把「DCP8 每 rank 要算全部 64 head」这一个因素**单独**拎出来做 A/B。
+        # DCP1 基线每 rank 只算 8 个 head（TP=8），DCP8 因为要在 rank 维做
+        # LSE 归约而必须每个 rank 都算全部 64 个 head —— 这正是「+13.4 ms/step
+        # 来源未知」的头号嫌疑。K=8 是现状；K=1 复现 DCP1 的每 rank head 数。
+        #
+        # ★ 只用于性能测量：结果数值不正确（末端的 head 切片会做平铺以维持
+        #   o_proj 的输入形状）。**不得进生产**。
+        # =====================================================================
+        _hpr = 0
+        if dcp_active:
+            try:
+                _hpr = int(_pf.get('heads_per_rank', '0') or '0')
+            except ValueError:
+                _hpr = 0
+            if _hpr > 0:
+                _h_total_want = _hpr * _v41_dcp_group().world_size
+                if _h_total_want < int(q.shape[1]):
+                    q = q[:, :_h_total_want, :].contiguous()
         if dcp_active:
             _t = _time_mark('gather_q', _t)
         _owner = _v41_dcp_ori_owner() if dcp_active else "all"
@@ -1031,9 +1071,23 @@ class DeepseekV41EagerAttentionImpl:
         #   LSE 合并会把 `exp(sink)` 计 8 次（离线夹具回归：每 rank 都带
         #   relout 0.63，只计一次 9.5e-16）。所以只有 rank 0 用真值，
         #   其余 rank 填一个在 fp32 里 exp() 下溢到 0 的大负数。
-        sinks = _v41_dcp_gather_1d(attn.attn_sink) if dcp_active else attn.attn_sink
-        if dcp_active and sinks is not None and _v41_dcp_rank() != 0:
-            sinks = torch.full_like(sinks, -1e30)
+        # ★★ [V41-PERF 2026-09-29] `sinks` 是**静态量**（`attn.attn_sink` 是注册参数，
+        # 全程不变），但原实现**每层每步**都重做一次 head 维 all-gather + full_like。
+        # 2-chip 图级实测：每层每多一个 collective ≈ +61~71 µs/step
+        # ⇒ 这一处白送 ~2.4 ms/step。改成按 attn 对象缓存：
+        #   · 第一次调用（含 capture 期）建好并挂到 attn 上；
+        #   · 之后 replay 直接复用**同一块地址** —— 对图捕获反而更安全。
+        if dcp_active and attn.attn_sink is not None:
+            sinks = getattr(attn, "_v41_dcp_sinks_cache", None)
+            if sinks is None or int(sinks.shape[0]) != int(attn.attn_sink.shape[0]) * _v41_dcp_group().world_size:
+                sinks = _v41_dcp_gather_1d(attn.attn_sink)
+                if _v41_dcp_rank() != 0:
+                    sinks = torch.full_like(sinks, -1e30)
+                attn._v41_dcp_sinks_cache = sinks
+        else:
+            sinks = attn.attn_sink if not dcp_active else None
+        if dcp_active and _hpr > 0 and sinks is not None and int(sinks.shape[0]) > int(q.shape[1]):
+            sinks = sinks[: int(q.shape[1])].contiguous()
         # ★★ [V41-DCP 2026-09-29 · 路线 B] 所有 rank 都带**真实的 ori**。
         #
         # 内核不允许把 ori 从某个 rank 上摘掉（四条路全堵，见下），所以改为
@@ -1092,9 +1146,22 @@ class DeepseekV41EagerAttentionImpl:
             #   · cmp（本 rank 的压缩分片）—— `cache_seq_lens` 已是**本 rank 本地**长度
             #     （builder 用 `local_compressed_len` 算的），> 0 才有键。
             # =============================================================
+            # ★★ [V41-PERF 2026-09-29] **路线 B 生效时 `token_mask` 根本不会被用到**。
+            #
+            # `_v41_dcp_merge_attention` 里的消费条件是
+            #     `if token_mask is not None and ori_lse is None:`
+            # 而路线 B（第二次纯 ori 调用）必然给出 `ori_lse is not None`
+            # ⇒ 掩码被丢弃（§2.2 第 3 条：路线 B 下掩码会多扣 `A`，必须屏蔽）。
+            #
+            # 但旧实现**每层每步**都白建一张 `[num_reqs, max_T]` bool 表 + arange +
+            # 两次比较 + and + expand + where + searchsorted + clamp + gather + view +
+            # cast，共 ~12 个算子。按图内实测 13.2 µs/串行节点，这是数量级可观的浪费。
+            #
+            # ⇒ 只在 `skip_2nd=1`（消融臂，`ori_lse is None`、掩码真的会被用）时构造。
+            _needs_mask = _pf.get('skip_2nd') == '1'
             _num_reqs_merge = int(metadata.attention.num_reqs) if metadata.attention is not None else 0
             _has_keys = None
-            if _num_reqs_merge > 0:
+            if _needs_mask and _num_reqs_merge > 0:
                 _seq = seq_lens[:_num_reqs_merge]
                 _cmp_len = (
                     metadata.attention.cache_seq_lens[:_num_reqs_merge]
@@ -1217,7 +1284,20 @@ class DeepseekV41EagerAttentionImpl:
             # 归约后每个 rank 都有全部 head 的全局结果；本 rank 的 o_proj 只吃
             # 自己那 `H_local` 个 head（TP 连续切分）。
             _rank = _v41_dcp_rank()
-            output = output[:, _rank * _local_heads : (_rank + 1) * _local_heads, :].contiguous()
+            if _hpr > 0 and int(output.shape[1]) == _hpr * _v41_dcp_group().world_size:
+                # 消融模式：每 rank 只留自己的 K 个 head，再平铺回 H_local（维持
+                # o_proj 的输入形状；数值错误，仅用于计时）。
+                _owned = output[:, _rank * _hpr : (_rank + 1) * _hpr, :].contiguous()
+                if _hpr < _local_heads:
+                    _owned = (
+                        _owned.unsqueeze(2)
+                        .expand(-1, -1, _local_heads // _hpr, -1)
+                        .reshape(_owned.shape[0], _local_heads, _owned.shape[-1])
+                        .contiguous()
+                    )
+                output = _owned
+            else:
+                output = output[:, _rank * _local_heads : (_rank + 1) * _local_heads, :].contiguous()
         return output
 
     @staticmethod

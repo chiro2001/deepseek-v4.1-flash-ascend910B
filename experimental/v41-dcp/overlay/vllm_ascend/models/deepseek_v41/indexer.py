@@ -250,11 +250,28 @@ class DeepseekV41Indexer(nn.Module):
             candidate_block_size=candidate_block_size,
             **common,
         )
-        selected = prepare_indexer_indices(selected.squeeze(1), positions, self.compress_ratio)
-        selected = self._fix_visibility_for_sharded_k(selected, positions)
+        # ★★ [V41-PERF 2026-09-29] 只跑**一次** `prepare_indexer_indices`。
+        #
+        # 旧写法先把**全局**位置喂进去过滤一次，再用 `_fix_visibility_for_sharded_k`
+        # 把位置换成局部等价编码、**再过滤一次**。而
+        # `prepare_indexer_indices` 不是纯比较——它在 triton 核里对每行做一次
+        # `tl.extra.cann.extension.sort`（`ops/triton/prepare_indexer_indices.py`），
+        # 是这条路径上最贵的算子；跑两遍等于白付一次排序。
+        #
+        # 两次与一次**结果逐位相同**：过滤条件是单调的（全局界 `(p+1)//ratio`
+        # 恒 ≥ 局部可见数 `vlc`），所以「先全局过滤再局部过滤」等价于
+        # 「直接按局部过滤」；而局部过滤正是把 `(p'+1)//ratio == vlc` 代回核内，
+        # 与旧实现的第二次调用逐字等价（同一函数、同一 `ratio`）。
+        #
+        # DCP 关闭或 indexer 复制态时 `_dcp_visibility_positions` **原样返回**
+        # `positions` ⇒ 单次调用的语义与旧实现的第一步完全一致（旧实现的第二步
+        # 本来就会 early-return）。
+        selected = prepare_indexer_indices(
+            selected.squeeze(1), self._dcp_visibility_positions(positions), self.compress_ratio
+        )
         return selected, candidate_out if is_candidate_source else candidates
 
-    def _fix_visibility_for_sharded_k(self, selected, positions):
+    def _dcp_visibility_positions(self, positions):
         """★★ [V41-DCP 2026-09-29] 把 top-k 的**因果可见性过滤**改到局部坐标系。
 
         `prepare_indexer_indices` 内部用 `visible = (positions+1)//ratio` 过滤，
@@ -263,28 +280,27 @@ class DeepseekV41Indexer(nn.Module):
         大量**未来键**判为可见（离线对拍：1803 次错判；rank=5、p=40 时让 query
         看到位置 160+ 的键）。这正是"L≤59 正常、L≥128 开始乱"的根因。
 
-        这里用 `local_visible_positions` 把全局位置换成等价编码，再重跑一遍过滤
-        （`prepare_indexer_indices` 本身是幂等的：它只做过滤+排序）。
+        这里用 `local_visible_positions` 把全局位置换成等价编码，**供唯一那次**
+        `prepare_indexer_indices` 使用（见 `select_projected` 里的说明）。
         """
         from vllm_ascend.patch.platform.patch_v41_dcp import replicate_indexer, v41_dcp_active
 
         if not v41_dcp_active() or replicate_indexer():
-            return selected
+            return positions
         parallel = self.vllm_config.parallel_config
         dcp_size = int(getattr(parallel, "decode_context_parallel_size", 1) or 1)
         if dcp_size <= 1:
-            return selected
+            return positions
         from vllm.distributed import get_dcp_group
 
         from vllm_ascend.attention.context_parallel.v41_dcp import (
             local_visible_positions,
         )
 
-        shifted = local_visible_positions(
+        return local_visible_positions(
             positions,
             interleave=int(getattr(parallel, "cp_kv_cache_interleave_size", 1) or 1),
             ratio=self.compress_ratio,
             dcp_size=dcp_size,
             dcp_rank=int(get_dcp_group().rank_in_group),
         )
-        return prepare_indexer_indices(selected, shifted, self.compress_ratio)
