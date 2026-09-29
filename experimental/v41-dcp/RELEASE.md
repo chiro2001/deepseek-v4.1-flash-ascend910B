@@ -1,5 +1,11 @@
 # V4.1 Flash — TP8 + DCP8 overlay 发布包
 
+> ⛔ **本包未对外发布（2026-09-30）**：DCP8 尚未稳定 ——
+> 512 B 对齐修复消掉了"logits 均匀分布"的硬故障，但服务端 `prompt_tokens=16`
+> 仍会给出**置信但错误**的答案（`8+7` → `numbersaplenty.c`），T=17/18 正常。
+> **仅供内部使用**；恢复对外发布的条件是短问答与 DCP1 对齐
+> （见 `docs/V41-DCP-RCA-20260930.md`）。
+
 > DeepSeek-V4.1 在 **8×910B（单机 8 芯，A2 形态仿真）** 上启用
 > `--decode-context-parallel-size 8` 的一套可挂载实现。
 > 目标：把 KV cache 容量做到 DCP1 的 **~8 倍**，同时保持正确性、decode 性能不出现数量级退化。
