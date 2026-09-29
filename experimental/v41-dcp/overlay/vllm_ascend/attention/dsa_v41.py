@@ -558,7 +558,11 @@ def _v41_dcp_merge_attention(
         #   `Not_Supported(EE1016): stream is captured`，8 个 worker 全挂
         #   （2026-09-29 踩过两次）。所以只做**纯张量**运算，取值留给下面
         #   已经有 `not _is_capturing()` 门的 MDIAG 块。
-        _mdiag_here = _DCP_MDIAG_ON and not _is_capturing()
+        # ★ 用**运行时**判据（文件优先），与下面的打印门保持一致 ——
+        #   踩过：`_DCP_MDIAG_ON` 是模块级 env 常量，而打印门是文件驱动，
+        #   两者不一致时 `w_local_sum`/`w_postreduce_sum` 会一直打印哨兵 `-1`，
+        #   让人以为"没测到"，其实是判据不同步。
+        _mdiag_here = _dcp_diag_on("mdiag", "V41_DCP_MERGE_DIAG") and not _is_capturing()
         if _mdiag_here:
             _mdiag_pre_t = weights.to(torch.float32).sum()
         # =================================================================
@@ -590,7 +594,20 @@ def _v41_dcp_merge_attention(
         _pad_to = (-_pack.shape[-1]) % _ALIGN_ELEMS
         if _pad_to:
             _pack = torch.nn.functional.pad(_pack, (0, _pad_to))
-        torch.distributed.all_reduce(_pack, group=group.device_group)
+        if _DCP_DET_REDUCE:
+            # ★ 定序归约：`all_gather` 拿全部 rank 的包，再按 rank 顺序显式求和。
+            #   数学上 `Σ_r` 与 `all_reduce` 完全等价，但**求和顺序固定**、
+            #   且避开了 all_reduce 在该形状/T 上的行为（实测它在 T=16 上给垃圾）。
+            _g = torch.empty(
+                (dcp, *_pack.shape), dtype=_pack.dtype, device=_pack.device
+            )
+            torch.distributed.all_gather_into_tensor(_g, _pack, group=group.device_group)
+            _acc = _g[0]
+            for _r in range(1, dcp):
+                _acc = _acc + _g[_r]
+            _pack = _acc
+        else:
+            torch.distributed.all_reduce(_pack, group=group.device_group)
         _out_dim = scaled.shape[-1]
         if _mdiag_here:
             _mdiag_post_t = _pack[..., _out_dim : _out_dim + 1].to(torch.float32).sum()
@@ -659,7 +676,9 @@ def _v41_dcp_merge_attention(
     ):
         _MDIAG["n"] += 1
         try:
-            _den = wsum.clamp_min(1e-30)
+            # ★ 这里 MUST 用**与真实代码路径相同**的 denom 语义（`where(wsum>0,...,1)`），
+            #   否则探针会报一个代码里并不存在的"1e-30 分母"（我第一版就报错过）。
+            _den = torch.where(wsum > 0, wsum, torch.ones_like(wsum))
             _o = (scaled / _den)
             _big = bool((_o.abs() > 1e6).any())
             print(
@@ -742,6 +761,14 @@ _DCP_RAWD_ON = __import__("os").environ.get("V41_DCP_RAW_DIAG") == "1"
 #   背景：真机 T∈{12,16} 在 `temperature=0` 下 **4/4 次输出全不同**，而 DCP1 稳定；
 #   T=12/16 又**都在 `capture_sizes` 里** ⇒ 缓存张量与图捕获的交互是头号嫌疑。
 _DCP_NO_ATTN_CACHE = __import__("os").environ.get("V41_DCP_NO_ATTN_CACHE") == "1"
+# ★★★ [V41-DIAG 2026-09-30] `V41_DCP_DET_REDUCE=1` ⇒ 把 pack 上的 `all_reduce`
+#   换成 **`all_gather_into_tensor` + 按 rank 顺序显式求和**（数学恒等）。
+#   动机（真机实测）：T=16 上 `all_reduce` **把权重分量变成垃圾** ——
+#   `w_local_sum=2495`（本地健康）而 `w_postreduce_sum=1024`（= 全 1.0），
+#   另一条甚至 `-1.94e38`/`inf`；而 T=13 上 `8198`（≈8×本地和，正常）。
+#   ⇒ 判据：若换成定序归约后 T=12/16 变**确定且正确** ⇒ 根因就是
+#     HCCL 在这个形状/T 上的 all_reduce，且这就是修复。
+_DCP_DET_REDUCE = __import__("os").environ.get("V41_DCP_DET_REDUCE") == "1"
 _DCP_RAWD = {"n": 0}
 _DCP_RAWD_LIMIT = 4000
 _MDIAG_LIMIT = 4000
