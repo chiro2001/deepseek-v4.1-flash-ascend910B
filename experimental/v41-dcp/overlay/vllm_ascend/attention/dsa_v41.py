@@ -611,6 +611,24 @@ def _v41_dcp_merge_attention(
         _out_dim = scaled.shape[-1]
         if _mdiag_here:
             _mdiag_post_t = _pack[..., _out_dim : _out_dim + 1].to(torch.float32).sum()
+            # ★★ [V41-MDIAG2] 把归约后的权重向量**按 head 分块**报告：
+            #   实测矛盾——全 64 head 的权重和 `w_postreduce_sum ≈ 9975`（每元素均值 9.74，正常），
+            #   但代码只取本 rank 的 8 个 head（`[:, h0:h1, :]`）时和恒为 **0**
+            #   ⇒ 权重在 head 维上分布不均（有整块为 0）。这里分 8 块各求和，一次看清。
+            _wcol = _pack[..., _out_dim : _out_dim + 1].to(torch.float32)
+            _H = int(_wcol.shape[1])
+            _blk = max(1, _H // dcp)
+            _blk_sums = [
+                float(_wcol[:, _b * _blk : (_b + 1) * _blk, :].sum())
+                for _b in range(min(dcp, max(1, _H // _blk)))
+            ]
+            _zero_heads = int((_wcol.sum(dim=(0, 2)).abs() < 1e-9).sum())
+            print(
+                "[V41-MDIAG2] rank=%d T=%d H=%d blk=%d blk_sums=%s zero_head_cnt=%d"
+                % (_v41_dcp_rank(), int(_wcol.shape[0]), _H, _blk,
+                   [round(v, 3) for v in _blk_sums], _zero_heads),
+                flush=True,
+            )
         # ★ 扣除量 = `Σ_r _onum_r` / `Σ_r _ow_r`：
         #   `_onum_r = ori_out·_keep` 与 `_ow_r = _keep` **每个 rank 各一份**
         #   ⇒ `Σ_r _onum_r = dcp·_onum`、`Σ_r _ow_r = dcp·_keep = dcp−1`。
