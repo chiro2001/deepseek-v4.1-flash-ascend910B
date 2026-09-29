@@ -124,7 +124,29 @@ DCP 关闭 / indexer 复制态时 `_dcp_visibility_positions` 原样返回 `posi
 
 ---
 
-## 5. 复现命令
+## 5. 发布包（推荐入口）
+
+整套实现已打包成**可复现、自带校验**的 overlay 包：
+
+* **GitHub Release**：`v41-dcp8-overlay-e5fa11e`
+  （`chiro2001/deepseek-v4.1-flash-ascend910B`）
+* 仓内打包器：`experimental/v41-dcp/package_release.sh`
+  （`build` / `verify` / `selftest`；`selftest` 含**负控**——篡改包必须被抓）
+* 包内自带 `RELEASE.md`（用户视角：结果、用法、实现要点、踩坑、口径）
+
+```bash
+# 取包并自证
+gh release download v41-dcp8-overlay-e5fa11e \
+  --repo chiro2001/deepseek-v4.1-flash-ascend910B
+sha256sum -c v41-dcp-overlay-*.tar.zst.sha256
+tar --zstd -xf v41-dcp-overlay-*.tar.zst -C /some/dir
+cd /some/dir && sha256sum -c MANIFEST.sha256     # 逐文件
+```
+
+★ 包的 overlay 与 a3-21 上**正在跑**的服务逐字节一致（`dsa_v41.py` md5 `dc20a501…`）；
+同 commit 两次构建得到**同一个 sha256**（可复现）。
+
+## 6. 复现命令
 
 ```bash
 # 同步 overlay 到 a3-21（md5 守门）
