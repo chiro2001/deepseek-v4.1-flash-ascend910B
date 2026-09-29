@@ -736,6 +736,12 @@ def _dcp_diag_on(key: str, env_fallback: str = "0") -> bool:
     return _perf_flags().get(key) == "1" or __import__("os").environ.get(env_fallback, "0") == "1"
 _DCP_MDIAG_STATE = {}
 _DCP_RAWD_ON = __import__("os").environ.get("V41_DCP_RAW_DIAG") == "1"
+# ★★ [V41-DIAG 2026-09-30] `V41_DCP_NO_ATTN_CACHE=1` ⇒ **禁用挂在 attn 上的三处持久缓存**
+#   （`_v41_dcp_sinks_cache` / `_v41_dcp_neg_idx` / `_v41_dcp_neg_sinks_cache`），
+#   每次调用新建。用于判别"非确定性是不是这些跨步存活、且按 T 重建的缓存张量引入的"。
+#   背景：真机 T∈{12,16} 在 `temperature=0` 下 **4/4 次输出全不同**，而 DCP1 稳定；
+#   T=12/16 又**都在 `capture_sizes` 里** ⇒ 缓存张量与图捕获的交互是头号嫌疑。
+_DCP_NO_ATTN_CACHE = __import__("os").environ.get("V41_DCP_NO_ATTN_CACHE") == "1"
 _DCP_RAWD = {"n": 0}
 _DCP_RAWD_LIMIT = 4000
 _MDIAG_LIMIT = 4000
@@ -1500,12 +1506,13 @@ class DeepseekV41EagerAttentionImpl:
         #   · 第一次调用（含 capture 期）建好并挂到 attn 上；
         #   · 之后 replay 直接复用**同一块地址** —— 对图捕获反而更安全。
         if dcp_active and attn.attn_sink is not None:
-            sinks = getattr(attn, "_v41_dcp_sinks_cache", None)
+            sinks = None if _DCP_NO_ATTN_CACHE else getattr(attn, "_v41_dcp_sinks_cache", None)
             if sinks is None or int(sinks.shape[0]) != int(attn.attn_sink.shape[0]) * _v41_dcp_group().world_size:
                 sinks = _v41_dcp_gather_1d(attn.attn_sink)
                 if _v41_dcp_rank() != 0:
                     sinks = torch.full_like(sinks, -1e30)
-                attn._v41_dcp_sinks_cache = sinks
+                if not _DCP_NO_ATTN_CACHE:
+                    attn._v41_dcp_sinks_cache = sinks
         else:
             sinks = attn.attn_sink if not dcp_active else None
         if dcp_active and _hpr > 0 and sinks is not None and int(sinks.shape[0]) > int(q.shape[1]):
@@ -1699,23 +1706,30 @@ class DeepseekV41EagerAttentionImpl:
             # ⇒ 约 +20% 的 attention 工作量，需实测端到端影响。
             # =============================================================
             if _pf.get('skip_2nd') != '1':
-                _neg = getattr(attn, "_v41_dcp_neg_idx", None)
+                _neg = None if _DCP_NO_ATTN_CACHE else getattr(attn, "_v41_dcp_neg_idx", None)
                 _rows_n = int(q.shape[0])
                 _topk_n = int(cmp_indices.shape[-1])
-                if _neg is None or _neg.shape[0] < _rows_n or _neg.shape[-1] != _topk_n:
+                if _neg is None or _neg.shape[0] != _rows_n or _neg.shape[-1] != _topk_n:
                     # 懒分配 + 地址稳定 ⇒ 图安全；尺寸变化只发生在 eager 的首步
+                    # ★ 判据改成 **精确相等**（原来是 `_neg.shape[0] < _rows_n`）：
+                    #   旧判据在 `_rows_n` 变小时**复用更大的张量再切片**，
+                    #   切出来的是**非连续视图**；而算子对 -1 索引的读取对
+                    #   stride/连续性敏感，且该张量会**跨步存活**。
+                    #   改成精确相等后，形状一变就重建，消除这一类风险。
                     _neg = torch.full(
                         (_rows_n, 1, _topk_n), -1, dtype=cmp_indices.dtype, device=q.device
                     )
-                    attn._v41_dcp_neg_idx = _neg
+                    if not _DCP_NO_ATTN_CACHE:
+                        attn._v41_dcp_neg_idx = _neg
                 _neg = _neg[:_rows_n]
                 # ★ [V41-PERF] 第二次调用的 sink 是**常量 -1e30**，同样按 attn 缓存，
                 #   省掉每层每步一次 `full_like` 分配 + 填充。
                 if sinks is not None:
-                    _ori_sinks = getattr(attn, "_v41_dcp_neg_sinks_cache", None)
+                    _ori_sinks = None if _DCP_NO_ATTN_CACHE else getattr(attn, "_v41_dcp_neg_sinks_cache", None)
                     if _ori_sinks is None or _ori_sinks.shape != sinks.shape:
                         _ori_sinks = torch.full_like(sinks, -1e30)
-                        attn._v41_dcp_neg_sinks_cache = _ori_sinks
+                        if not _DCP_NO_ATTN_CACHE:
+                            attn._v41_dcp_neg_sinks_cache = _ori_sinks
                 else:
                     _ori_sinks = None
                 _ori_out, _ori_lse = torch.ops._C_ascend.npu_sparse_flash_mla(
