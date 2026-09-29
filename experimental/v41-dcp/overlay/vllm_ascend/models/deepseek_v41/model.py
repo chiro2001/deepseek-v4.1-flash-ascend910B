@@ -117,6 +117,12 @@ def _maybe_snapshot_ced_h20(layer, positions, hidden_states, pre_mix):
         return
     target = int(_CED_H20_SNAPSHOT_POS)
     active = metadata.swa.num_actual_tokens
+    # ★ [SNAP-LAST] `POS=-1` ⇒ 取**本批最后一个位置**（= `max(positions)`）。
+    #   为什么需要：服务端的序列长度受 chat template 影响，我不能从离线 tokenizer
+    #   直接推出最后一个 position；写死一个数字很容易落在中间某个 token 上，
+    #   而"均匀 logits"这个现象恰恰发生在**最后一个位置**。
+    if target < 0:
+        target = int(positions[:active].max())
     found = (positions[:active] == target).nonzero(as_tuple=False).flatten().cpu().tolist()
     if not found:
         return
@@ -162,6 +168,9 @@ def _maybe_snapshot_ced_layer(
         return
     target = int(_CED_LAYER_SNAPSHOT_POS)
     active = metadata.swa.num_actual_tokens
+    # ★ [SNAP-LAST] 同 `_maybe_snapshot_ced_h20`：`POS=-1` ⇒ 本批最后一个位置。
+    if target < 0:
+        target = int(positions[:active].max())
     found = (positions[:active] == target).nonzero(as_tuple=False).flatten().cpu().tolist()
     if not found:
         return
