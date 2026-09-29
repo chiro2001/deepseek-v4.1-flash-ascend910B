@@ -74,6 +74,46 @@ def _is_capturing() -> bool:
         return False
 
 
+PERF_FLAG_PATH = "/tmp/v41_perf_flags"
+_PERF_CACHE = {"t": 0.0, "v": {}}
+
+
+def _perf_flags() -> dict:
+    """性能消融开关（**文件驱动**，便于在**不重启**的情况下逐项 A/B）。
+
+    为什么用文件而不是 env：容器进程的 `os.environ` 起服后无法从外部修改，
+    而每次改开关重启要 12 分钟。读文件只在**每步一次**的 Python 层发生
+    （不是逐 token），开销可忽略；且不触碰 device stream ⇒ 与图捕获兼容
+    （前提：一次测量期间开关保持不变，这与"图在捕获时固化分支"一致）。
+
+    开关（都是**诊断/性能测量用，会让结果不正确**，绝不进生产）：
+      skip_2nd=1    跳过第二次「纯 ori」SMLA 调用
+      skip_merge=1  跳过整个跨 rank 合并（直接返回本 rank 的结果）
+      no_pack=1     合并用 4 次独立 all_reduce（回到打包前的实现）
+      skip_gather=1 跳过 q 的 head 维 all_gather
+    """
+    import os as _o
+    try:
+        st = _o.stat(PERF_FLAG_PATH)
+    except OSError:
+        return {}
+    if st.st_mtime != _PERF_CACHE["t"]:
+        out = {}
+        try:
+            with open(PERF_FLAG_PATH) as fh:
+                for line in fh:
+                    line = line.strip()
+                    if not line or line.startswith("#") or "=" not in line:
+                        continue
+                    k, v = line.split("=", 1)
+                    out[k.strip()] = v.strip()
+        except OSError:
+            pass
+        _PERF_CACHE["t"] = st.st_mtime
+        _PERF_CACHE["v"] = out
+    return _PERF_CACHE["v"]
+
+
 def _v41_dcp_rank() -> int:
     """本进程在 DCP 组内的 rank（DCP 关闭时返回 0）。"""
     if not _v41_dcp_on():
@@ -115,6 +155,7 @@ def _v41_dcp_merge_attention(
     diag_cmp_lens: torch.Tensor | None = None,
     ori_lse: torch.Tensor | None = None,
     ori_out: torch.Tensor | None = None,
+    perf_no_pack: bool = False,
 ) -> torch.Tensor:
     """把各 rank 的局部 partial attention 用 LSE 加权合并成全局结果。
 
@@ -265,14 +306,22 @@ def _v41_dcp_merge_attention(
     else:
         _ow = torch.zeros_like(wsum)
         _onum = torch.zeros_like(scaled)
-    # 按最后一维拼包：`[T, H, D] + [T, H, D] + [T, H, 1] + [T, H, 1]`
-    _pack = torch.cat([scaled, _onum, wsum, _ow], dim=-1)
-    torch.distributed.all_reduce(_pack, group=group.device_group)
-    _out_dim = scaled.shape[-1]
-    scaled = _pack[..., :_out_dim]
-    _n_all = _pack[..., _out_dim : 2 * _out_dim]
-    wsum = _pack[..., 2 * _out_dim : 2 * _out_dim + 1]
-    _w_all = _pack[..., 2 * _out_dim + 1 :]
+    if perf_no_pack:
+        # 消融臂：回到打包前的实现（4 次独立 all_reduce），用于量化打包收益
+        _n_all = _onum.clone(); _w_all = _ow.clone()
+        torch.distributed.all_reduce(scaled, group=group.device_group)
+        torch.distributed.all_reduce(wsum, group=group.device_group)
+        torch.distributed.all_reduce(_n_all, group=group.device_group)
+        torch.distributed.all_reduce(_w_all, group=group.device_group)
+    else:
+        # 按最后一维拼包：`[T, H, D] + [T, H, D] + [T, H, 1] + [T, H, 1]`
+        _pack = torch.cat([scaled, _onum, wsum, _ow], dim=-1)
+        torch.distributed.all_reduce(_pack, group=group.device_group)
+        _out_dim = scaled.shape[-1]
+        scaled = _pack[..., :_out_dim]
+        _n_all = _pack[..., _out_dim : 2 * _out_dim]
+        wsum = _pack[..., 2 * _out_dim : 2 * _out_dim + 1]
+        _w_all = _pack[..., 2 * _out_dim + 1 :]
     if _ori_active:
         # 去掉全部 dcp 份、补回 1 份（各 rank 的 A 相同 ⇒ A_all/dcp 就是那一份）
         scaled = scaled - _n_all + _n_all / dcp
@@ -290,6 +339,38 @@ def _lse_diag_count() -> int:
 
 def _bump_lse_diag() -> None:
     _LSE_DIAG_COUNT["n"] += 1
+
+
+_TIME_ACC = {}
+
+
+def _time_mark(name: str, t0: float) -> float:
+    """累加某一阶段的设备时间（需先 synchronize 才准）。
+
+    只在 `V41_DCP_TIMING=1` 时启用；启用后本身会拖慢（每阶段一次同步），
+    所以它给的是**相对占比**而不是稳态绝对性能。
+    """
+    import time as _t
+    if _perf_flags().get("timing") != "1":
+        return _t.perf_counter()
+    try:
+        torch.npu.synchronize()
+    except Exception:  # noqa: BLE001
+        pass
+    now = _t.perf_counter()
+    _TIME_ACC[name] = _TIME_ACC.get(name, 0.0) + (now - t0)
+    return now
+
+
+def _time_dump(tag: str) -> None:
+    if _perf_flags().get("timing") != "1" or not _TIME_ACC:
+        return
+    total = sum(_TIME_ACC.values())
+    if total <= 0:
+        return
+    parts = " ".join(f"{k}={v*1000:.1f}ms({100*v/total:.0f}%)" for k, v in sorted(_TIME_ACC.items(), key=lambda x: -x[1]))
+    print(f"[V41-TIME] {tag} total={total*1000:.1f}ms {parts}", flush=True)
+    _TIME_ACC.clear()
 
 
 def _v41_dcp_gather_heads(q: torch.Tensor) -> torch.Tensor:
@@ -931,8 +1012,13 @@ class DeepseekV41EagerAttentionImpl:
         # TP 分片的），所以末尾要切回去。
         # =====================================================================
         _local_heads = int(q.shape[1])
-        if dcp_active:
+        _pf = _perf_flags() if dcp_active else {}
+        import time as _time
+        _t = _time_mark('t0_init', _time.perf_counter()) if dcp_active else _time.perf_counter()
+        if dcp_active and _pf.get('skip_gather') != '1':
             q = _v41_dcp_gather_heads(q)
+        if dcp_active:
+            _t = _time_mark('gather_q', _t)
         _owner = _v41_dcp_ori_owner() if dcp_active else "all"
         # ★★ 2026-09-29 修 bug：原写法 `_owner == "seqused0" or rank == 0`
         # 让 **所有** rank 的 `_is_ori_owner` 都为 True ⇒ 下面的 zeros_like 永不执行
@@ -991,6 +1077,7 @@ class DeepseekV41EagerAttentionImpl:
             return_softmax_lse=dcp_active,
         )
         if dcp_active:
+            _t = _time_mark('smla_1st', _t)
             # =============================================================
             # ★★ 按**本 rank 的实际可见键数**构造权重掩码。
             #
@@ -1055,6 +1142,7 @@ class DeepseekV41EagerAttentionImpl:
                 token_mask = _mask_t.view(-1, 1, 1).to(output.dtype)
             else:
                 token_mask = None
+            _t = _time_mark('build_mask', _t)
             # =============================================================
             # ★★ [路线 B] 第二次调用：纯 ori（`cmp_sparse_indices` 全 -1）。
             #
@@ -1069,46 +1157,51 @@ class DeepseekV41EagerAttentionImpl:
             # 代价：多一次 attention，但只走 ori（128 键），cmp（512 键）被跳过
             # ⇒ 约 +20% 的 attention 工作量，需实测端到端影响。
             # =============================================================
-            _neg = getattr(attn, "_v41_dcp_neg_idx", None)
-            _rows_n = int(q.shape[0])
-            _topk_n = int(cmp_indices.shape[-1])
-            if _neg is None or _neg.shape[0] < _rows_n or _neg.shape[-1] != _topk_n:
-                # 懒分配 + 地址稳定 ⇒ 图安全；尺寸变化只发生在 eager 的首步
-                _neg = torch.full(
-                    (_rows_n, 1, _topk_n), -1, dtype=cmp_indices.dtype, device=q.device
+            if _pf.get('skip_2nd') != '1':
+                _neg = getattr(attn, "_v41_dcp_neg_idx", None)
+                _rows_n = int(q.shape[0])
+                _topk_n = int(cmp_indices.shape[-1])
+                if _neg is None or _neg.shape[0] < _rows_n or _neg.shape[-1] != _topk_n:
+                    # 懒分配 + 地址稳定 ⇒ 图安全；尺寸变化只发生在 eager 的首步
+                    _neg = torch.full(
+                        (_rows_n, 1, _topk_n), -1, dtype=cmp_indices.dtype, device=q.device
+                    )
+                    attn._v41_dcp_neg_idx = _neg
+                _neg = _neg[:_rows_n]
+                _ori_sinks = torch.full_like(sinks, -1e30) if sinks is not None else None
+                _ori_out, _ori_lse = torch.ops._C_ascend.npu_sparse_flash_mla(
+                    q,
+                    ori_kv=attn.dsa_attn.swa_cache_layer.kv_cache[0],
+                    cmp_kv=source_cache,
+                    cmp_sparse_indices=_neg,
+                    ori_block_table=_ori_bt,
+                    cmp_block_table=cmp_block_table,
+                    cu_seqlens_q=query_start_loc,
+                    seqused_ori_kv=_ori_seqused,
+                    seqused_cmp_kv=cmp_seq_lens,
+                    cmp_residual_kv=cmp_residual,
+                    sinks=_ori_sinks,
+                    metadata=op_metadata,
+                    softmax_scale=attn.softmax_scale,
+                    cmp_ratio=ratio,
+                    ori_mask_mode=4,
+                    cmp_mask_mode=3 if has_compressed else 0,
+                    ori_win_left=attn.window_size - 1,
+                    ori_win_right=0,
+                    layout_q="TND",
+                    layout_kv="PA_BBND",
+                    topk_value_mode=1,
+                    return_softmax_lse=True,
                 )
-                attn._v41_dcp_neg_idx = _neg
-            _neg = _neg[:_rows_n]
-            _ori_sinks = torch.full_like(sinks, -1e30) if sinks is not None else None
-            _ori_out, _ori_lse = torch.ops._C_ascend.npu_sparse_flash_mla(
-                q,
-                ori_kv=attn.dsa_attn.swa_cache_layer.kv_cache[0],
-                cmp_kv=source_cache,
-                cmp_sparse_indices=_neg,
-                ori_block_table=_ori_bt,
-                cmp_block_table=cmp_block_table,
-                cu_seqlens_q=query_start_loc,
-                seqused_ori_kv=_ori_seqused,
-                seqused_cmp_kv=cmp_seq_lens,
-                cmp_residual_kv=cmp_residual,
-                sinks=_ori_sinks,
-                metadata=op_metadata,
-                softmax_scale=attn.softmax_scale,
-                cmp_ratio=ratio,
-                ori_mask_mode=4,
-                cmp_mask_mode=3 if has_compressed else 0,
-                ori_win_left=attn.window_size - 1,
-                ori_win_right=0,
-                layout_q="TND",
-                layout_kv="PA_BBND",
-                topk_value_mode=1,
-                return_softmax_lse=True,
-            )
-            _ori_lse_f = _ori_lse.to(torch.float32)
-            if _ori_lse_f.ndim == 3 and _ori_lse_f.shape[0] == 1:
-                _ori_lse_f = _ori_lse_f.permute(1, 2, 0).contiguous()
-            elif _ori_lse_f.ndim == 2:
-                _ori_lse_f = _ori_lse_f.unsqueeze(-1).contiguous()
+                _ori_lse_f = _ori_lse.to(torch.float32)
+                if _ori_lse_f.ndim == 3 and _ori_lse_f.shape[0] == 1:
+                    _ori_lse_f = _ori_lse_f.permute(1, 2, 0).contiguous()
+                elif _ori_lse_f.ndim == 2:
+                    _ori_lse_f = _ori_lse_f.unsqueeze(-1).contiguous()
+            else:
+                _ori_lse_f = None
+                _ori_out = None
+            _t = _time_mark('smla_2nd', _t)
             output = _v41_dcp_merge_attention(
                 output,
                 softmax_lse,
@@ -1117,7 +1210,10 @@ class DeepseekV41EagerAttentionImpl:
                 diag_cmp_lens=cmp_seq_lens,
                 ori_lse=_ori_lse_f,
                 ori_out=_ori_out,
+                perf_no_pack=_pf.get('no_pack') == '1',
             )
+            _t = _time_mark('merge_comm', _t)
+            _time_dump('layer-%d' % self.role.layer_idx)
             # 归约后每个 rank 都有全部 head 的全局结果；本 rank 的 o_proj 只吃
             # 自己那 `H_local` 个 head（TP 连续切分）。
             _rank = _v41_dcp_rank()
