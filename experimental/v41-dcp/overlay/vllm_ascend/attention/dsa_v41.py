@@ -405,27 +405,34 @@ def _v41_dcp_merge_attention(
         _WDIAG["n"] += 1
         _lr = _v41_dcp_rank()
         try:
-            _lf = lse.to(torch.float32)
-            _lmin = float(_lf.min())
-            _lmax = float(_lf.max())
-            _lmean = float(_lf.mean())
-            _fin = int(torch.isfinite(_lf).sum())
-            _nzer = int((_lf.abs() < 1e-9).sum())
-            _tot = int(_lf.numel())
+            # ★★★ [V41-SNAP 2026-09-30] **单次 `.cpu()` 快照 + CPU 侧计算**。
+            #
+            # 为什么必须这样：`float(device_tensor)` 在 torch_npu 上走
+            # `LocalScalarDenseNpu` 的**独立 copy stream**
+            # （报错原文：`AclrtSynchronizeStreamWithTimeout(copy_stream)`）⇒
+            # 对同一张量的**多次**标量读取会给**互相矛盾**的结果
+            # （实测 MDIAG2：同一行 `blk_sums` 全 0 而 `wcol_sum=1024`、`min=max=1`，
+            #   7904 条里 2875 条不自洽 ⇒ 36% 是伪影）。
+            # ⇒ 现在只做**一次** `.cpu()`，其余全在 CPU 上算，物理上不可能撕裂。
+            _l_cpu = lse.to(torch.float32).cpu()
+            _lmin = float(_l_cpu.min()); _lmax = float(_l_cpu.max()); _lmean = float(_l_cpu.mean())
+            _fin = int(torch.isfinite(_l_cpu).sum())
+            _nzer = int((_l_cpu.abs() < 1e-9).sum())
+            _tot = int(_l_cpu.numel())
             if ori_lse is not None:
-                _of = ori_lse.to(torch.float32)
+                _o_cpu = ori_lse.to(torch.float32).cpu()
                 _ostat = "ori[min=%.6f max=%.6f mean=%.6f]" % (
-                    float(_of.min()), float(_of.max()), float(_of.mean())
+                    float(_o_cpu.min()), float(_o_cpu.max()), float(_o_cpu.mean())
                 )
             else:
                 _ostat = "ori=<None>"
             # ★ 用 `_use_ori_ref`（在 :251 定义）而不是 `_ori_active`（在 :455 才定义，
             #   本诊断块在它之前）—— 踩过一次 NameError。
             if _use_ori_ref and weights is not None:
-                _wf = weights.to(torch.float32)
+                _w_cpu = weights.to(torch.float32).cpu()      # ★ 同上：单次快照
                 _wstat = "w[min=%.6g max=%.6g sum=%.6g n>0=%d]" % (
-                    float(_wf.min()), float(_wf.max()), float(_wf.sum()),
-                    int((_wf > 0).sum()),
+                    float(_w_cpu.min()), float(_w_cpu.max()), float(_w_cpu.sum()),
+                    int((_w_cpu > 0).sum()),
                 )
             else:
                 _wstat = "w=<n/a>"
@@ -1478,6 +1485,87 @@ class DeepseekV41EagerAttentionImpl:
             if cmp_topk not in (512, 1024):
                 raise ValueError(f"SparseFlashMla only supports TopK 512 or 1024, got {cmp_topk}")
             cmp_indices = pad_sparse_indices(compressed_indices, cmp_topk)
+            # =================================================================
+            # ★★★ [V41-KVFP 2026-09-30] **KV 内容指纹**（文件驱动 + 锁定层）。
+            #
+            # 已排除：indexer 键集（IDXFP 实测逐次完全相同）、head 数、归约、缓存、
+            # 多流、图、engram、第二次调用。⇒ 只剩两种可能：
+            #   (a) SMLA 算子对**相同输入**给出不同输出（算子自身非确定）；
+            #   (b) SMLA 读到的 **KV 内容**逐次不同（写侧非确定）。
+            # 本探针直接对拍 (b)：对**同一 prompt 的连续请求**打印
+            # `ori`（SWA 复制平面）与 `cmp`（压缩分片平面）的**单次快照指纹**。
+            #   · 若两份 KV 指纹逐次相同 ⇒ (a) 算子自身，问题在 kernel；
+            #   · 若任一不同 ⇒ (b) 写侧，问题在 KV 写入路径。
+            # 指纹 = sum(fp32) + 前若干元素的 min/max，全部在**一次 `.cpu()`** 后算。
+            # =================================================================
+            _kvfp_layer = int(__import__("os").environ.get("V41_DCP_KVFP_LAYER", "-1"))
+            if (
+                _perf_flags().get("kvfp") == "1"
+                and (_kvfp_layer < 0 or int(self.role.layer_idx) == _kvfp_layer)
+                and not _is_capturing()
+                and int(cmp_indices.shape[0]) > 1
+            ):
+                try:
+                    def _fp(t):
+                        if t is None:
+                            return "None"
+                        c = t.detach().to(torch.float32).reshape(-1).cpu()
+                        # 取前 4096 与后 4096 个元素做稳定指纹（避免整块拷贝过大）
+                        h = c[:4096]
+                        tl = c[-4096:]
+                        return "n=%d sum64=%.6g f_min=%.6g f_max=%.6g l_min=%.6g l_max=%.6g" % (
+                            int(c.numel()), float(c[:65536].sum()),
+                            float(h.min()), float(h.max()), float(tl.min()), float(tl.max()),
+                        )
+                    _ori_kv = attn.dsa_attn.swa_cache_layer.kv_cache[0]
+                    print(
+                        "[V41-KVFP] rank=%d layer=%d T=%d ori{%s} cmp{%s}"
+                        % (_v41_dcp_rank(), int(self.role.layer_idx),
+                           int(cmp_indices.shape[0]), _fp(_ori_kv), _fp(source_cache)),
+                        flush=True,
+                    )
+                except Exception as _e:  # noqa: BLE001
+                    print("[V41-KVFP] rank=%d 探针自身失败：%r" % (_v41_dcp_rank(), _e), flush=True)
+            # =================================================================
+            # ★★★ [V41-IDXFP 2026-09-30] **indexer 键集指纹**（文件驱动 + 锁定层）。
+            #
+            # 为什么需要：已排除合并/归约/缓存/多流/图/engram/第二次调用之后，
+            # 唯一还没验的是"**第一次 SMLA 的输入本身在 DCP8 下逐次不同**"。
+            # 它的三个输入里只有 `cmp_sparse_indices`（本 rank 的 top-k，
+            # 经 DCP remap）带有**选择性**—— 若 indexer 在并列分数上选得不稳定，
+            # 键集就会逐次变化 ⇒ `lse` 逐次变化 ⇒ 边界 prompt 翻转。
+            #
+            # 判据：**同一 prompt、同一层的连续请求**，指纹若不同 ⇒ 锁定 indexer。
+            # 指纹用**一次 `.cpu()` 快照**后在 CPU 上算（避免多次读撕裂，见 §6o）。
+            # 门：只在**非 capture** + **真实 prefill**（T>1）+ 指定层 时打印。
+            # =================================================================
+            _idxfp_layer = int(__import__("os").environ.get("V41_DCP_IDXFP_LAYER", "-1"))
+            if (
+                _perf_flags().get("idxfp") == "1"
+                and (_idxfp_layer < 0 or int(self.role.layer_idx) == _idxfp_layer)
+                and not _is_capturing()
+                and cmp_indices is not None
+                and int(cmp_indices.shape[0]) > 1
+            ):
+                try:
+                    _ci_cpu = cmp_indices.detach().to(torch.int64).cpu()
+                    _valid = _ci_cpu[_ci_cpu >= 0]
+                    print(
+                        "[V41-IDXFP] rank=%d layer=%d T=%d rows=%d n_valid=%d n_neg1=%d "
+                        "sum=%d max=%d min_valid=%s head4=%s"
+                        % (
+                            _v41_dcp_rank(), int(self.role.layer_idx), int(cmp_indices.shape[0]),
+                            int(_ci_cpu.shape[0]), int(_valid.numel()),
+                            int((_ci_cpu < 0).sum()),
+                            int(_valid.sum()) if _valid.numel() else -1,
+                            int(_valid.max()) if _valid.numel() else -1,
+                            int(_valid.min()) if _valid.numel() else -1,
+                            _ci_cpu[0, 0, :4].tolist() if _ci_cpu.ndim == 3 else _ci_cpu[0, :4].tolist(),
+                        ),
+                        flush=True,
+                    )
+                except Exception as _e:  # noqa: BLE001
+                    print("[V41-IDXFP] rank=%d 探针自身失败：%r" % (_v41_dcp_rank(), _e), flush=True)
             # =================================================================
             # =================================================================
             # [V41-DCP-DIAG] 一次性诊断（capture 安全版）。
