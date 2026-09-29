@@ -559,7 +559,14 @@ def _v41_dcp_merge_attention(
         # 修法：把包 **pad 到 4 的倍数**（fp32 下 4 个元素 = 16 字节），
         # 归约后切掉 padding。padding 位置恒为 0，不影响任何被读取的分量。
         # =================================================================
-        _pad_to = (-_pack.shape[-1]) % 4
+        # ★ 对齐粒度实测：**16 字节（4×fp32）不够** —— pad 到 4 之后
+        #   长度扫描仍有 1/3 的失败样本保持"均匀分布"（`nuts`），
+        #   而 Ascend 的 HCCL 通常要求 **512 字节** 对齐。
+        #   ⇒ pad 到 128 个 fp32（= 512 B）。代价：最后一维 513 → 640（+25%），
+        #   但前面实测"collective 在这个区间是**纯延迟**（16 B 与 1 MB 同价）"
+        #   ⇒ 这点字节量不影响时延。
+        _ALIGN_ELEMS = 128
+        _pad_to = (-_pack.shape[-1]) % _ALIGN_ELEMS
         if _pad_to:
             _pack = torch.nn.functional.pad(_pack, (0, _pad_to))
         torch.distributed.all_reduce(_pack, group=group.device_group)
