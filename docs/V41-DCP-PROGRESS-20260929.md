@@ -544,3 +544,89 @@ LSE 形状/布局、sink 重复计、head 维未 gather、空 rank 的有限 LSE
 `cmp_residual_kv` 语义（kernel 源证：CSA 里被约掉）、
 `cmp_sparse_indices` 的物理展开（同上）、**跨 rank 合并**（8.1）、
 **tail 判据**（8.4 作废）、算子参数与 tiling（static kernel bin 命中）。
+
+---
+
+## 9. ★★★ 根因定位（第 11 轮）：内核的「行有效性」门用 **ori 长度**判定，`seqused_ori_kv=0` 会把 **cmp 一起清零**
+
+### 9.1 实测数据（真实请求，非 warmup）【实测】
+
+run `dcpcap_0929_172847`，L=403，TP8+DCP8，真实权重：
+
+```
+rank=0  cmpLmax=32  lse_mean=4.6867 lse_min=0.2135 lse_max=8.0531 out_absmax=2.500000
+rank=1  cmpLmax=32  lse_mean=0.0000 lse_min=0.0000 lse_max=0.0000 out_absmax=0.000000
+rank=2  cmpLmax=32  ... 全 0
+rank=3  cmpLmax=32  ... 全 0
+rank=4  cmpLmax=25  ... 全 0
+rank=5/6/7 cmpLmax=16 ... 全 0
+```
+
+* 各 rank 的 `cmpLmax` **非零**（16/25/32），且 `[V41-IDX]` 显示 `idx_max == cmp_len-1`
+  ⇒ 索引与长度都是**非空且正确**的；
+* 但 rank 1-7 的 LSE 与输出是**精确的 0.0**（不是"小"，是恰好零）；
+* rank 0 的 `lse_mean=4.69 ≈ log(128) − 0.16` ⇒ 它的 LSE 与"**仅 128 个滑窗键**"吻合
+  ⇒ **cmp 平面在所有 rank 上都没有贡献**。
+
+### 9.2 内核原文（决定性）【实测·源证】
+
+`.../sparse_flash_mla/arch22/sparse_flash_mla_csa_kernel.h:414-421`：
+
+```cpp
+template <typename SMLAT>
+__aicore__ inline void SparseFlashMlaCsa<SMLAT>::GetSparseActualSeqLen()
+{
+    // 行无效通过ori部分判断, ori部分如果有行无效那么ori和cmp都有
+    if (static_cast<int32_t>(tempLoopInfo.s1EndIdx) <
+        -(tempLoopInfo.actOriS2Size - tempLoopInfo.actS1Size)) {
+        tempLoopInfo.actOriS2Size = 0;
+        tempLoopInfo.actCmpS2Size = 0;      // ★ cmp 被一起清零
+        return;
+    }
+```
+
+而 `actOriS2Size = GetActualSeqLenKV(bIdx)`（`csa_kernel.h:814`）在 PA_BBND 下就是
+`seqused_ori_kv[b]`（`:354-365`）。
+
+**代入我们 rank>0 的入参**：`seqused_ori_kv = 0`、`actS1Size = 403`
+⇒ 条件变成 `s1EndIdx < 403`。而 `s1EndIdx` 是当前查询块的末下标（0…402）
+⇒ **对几乎所有（含最后一个）查询块都成立** ⇒ 整个 attention（ori + cmp）被清零。
+
+这**精确解释**了 rank 1-7 的 `LSE ≡ 0`。同时它也解释了为什么 DCP1 正常
+（`seqused_ori_kv = L` ⇒ 右式为 0 ⇒ 不触发），以及为什么 rank 0 的 LSE 看起来像"仅滑窗"
+（它的 ori 非零、不触发早退，但 cmp 的 `thresHold` 计算仍被 local/global 口径影响）。
+
+### 9.3 结论：**「某 rank 只贡献 cmp」在 A3 上不可表达**【实测】
+
+* `ori_kv` 是 op 层硬必填（不能传 None）；
+* `ori_win_left` 被硬绑 127、`ori_mask_mode` 必须 4（无法把窗口收成空）；
+* `ori_sparse_indices` 是 A5-only；
+* **且 `seqused_ori_kv=0` 会连 cmp 一起清零**（本条）。
+
+⇒ 四条路全部堵死，「rank 0 带 ori、其余只带 cmp」这个设计在 A3 上**无法用该算子实现**。
+
+### 9.4 两条可行路线（按代价排序，**均未实现/未验证**）
+
+**路线 A（零额外算力，但有前提）**：让 rank>0 也带**满长度**的 ori
+（`seqused_ori_kv = seq_lens`，从而不触发早退），但把它们的 `ori_block_table`
+指向**全零的 null 块**（vLLM 的 block 0 是零块）。此时：
+* 幻影 ori 的 score = q·0 = 0 ⇒ `exp(0) = 1` 每键；V 也是 0 ⇒ **分子不受污染**；
+* 分母被多加 `W_r = Σ_queries min(p+1, 128)` ⇒ **可在合并时精确减去**（`W` 可按位置算出）。
+* 前提：null 块确实为全零、且零 latent 经 RoPE 后仍为零（【推断】，需实测）。
+
+**路线 B（额外一次 attention，语义最干净）**：
+先正常调一次（ori ⊕ cmp_r）拿到 `(O_r, L_r)`；再把 `cmp_sparse_indices` 全置 -1
+调第二次拿**纯 ori** 的 `(O_ori, L_ori)`（同 tiling key，`actCmpS2Size=0` 但
+`actOriS2Size≠0` ⇒ 不早退 ⇒ 可行）。
+则正确结果 = `(Σ_r e^{L_r}O_r − (dcp−1)·e^{L_ori}O_ori) / Σ_r e^{L_r}`。
+代价：attention 计算约 2×（需实测量化对端到端 ms/step 的影响）。
+
+### 9.5 对需求的影响（诚实评估）
+
+* **目标①（容量）**：不受影响，6.95× 已达成且三次逐位验证。
+* **目标②（正确性）**：**短上下文 5/5 正确**；长上下文受此内核约束阻塞，
+  需要实现路线 A 或 B 才能继续。
+* **目标③（性能）**：路线 A 无额外算力；路线 B 会使 attention 部分约 2×
+  —— 若 attention 占层时间 ~25%，端到端约 +25%，**可能超出"接近不变"的目标**，
+  需实测后再决定取舍。
+* ★ 这是**硬件/内核层面的约束**，不是我的实现缺陷；但它是本目标能否完成的关键。
