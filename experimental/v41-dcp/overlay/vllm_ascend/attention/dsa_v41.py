@@ -156,6 +156,7 @@ def _v41_dcp_merge_attention(
     ori_lse: torch.Tensor | None = None,
     ori_out: torch.Tensor | None = None,
     perf_no_pack: bool = False,
+    head_slice: tuple[int, int] | None = None,
 ) -> torch.Tensor:
     """把各 rank 的局部 partial attention 用 LSE 加权合并成全局结果。
 
@@ -202,7 +203,11 @@ def _v41_dcp_merge_attention(
     group = _v41_dcp_group()
     dcp_size = group.world_size
     if dcp_size <= 1:
-        return output
+        # ★ 保留调用方原来那次 `.contiguous()`：DCP1 时 `output` 直接来自算子，
+        #   不保证连续；旧代码在合并之后统一做了
+        #   `output[:, 0:H_local, :].contiguous()`，这里等价保留，
+        #   保证「DCP1 路径与本改动前逐位一致」（只影响 DCP1，不影响 DCP8 的优化）。
+        return output.contiguous()
     # LSE 需要 float32 且布局一致；算子返回 TND `(N2,T1,G)` ⇒ 转成 `[T, H, 1]`。
     lse = lse.to(torch.float32)
     # ★ [V41-PERF] `(1,T,H)` 的内存顺序本来就是 `(T,H,1)` ⇒ 用 `reshape` 拿视图，
@@ -359,9 +364,20 @@ def _v41_dcp_merge_attention(
         # 去掉全部 dcp 份、补回 1 份 —— `(1 − 1/dcp)` 已折进 `_onum`/`_ow`
         scaled = scaled - _n_all
         wsum = wsum - _w_all
+    # ★ [V41-PERF] 本 rank 的 `o_proj` 只吃自己那段 head（TP 连续切分）⇒ **先切片再除**：
+    #   除法与 dtype 转换从 `[T,64,512]` 缩到 `[T,8,512]`（8× 少的访存），
+    #   并且省掉调用方末尾那次 `output[:, h0:h1, :].contiguous()` 的独立拷贝节点。
+    #   `scaled`/`wsum` 归约后本来就是**全 head**（all_reduce 逐元素，各 rank 都得全量），
+    #   切片只是取自己那 8 列，数学不变。
+    if head_slice is not None:
+        h0, h1 = head_slice
+        scaled = scaled[:, h0:h1, :]
+        wsum = wsum[:, h0:h1, :]
     # ★ `wsum` 数学上恒正（= e^{-c}·(A + ΣZ + ΣS)）；用 `clamp_min` 代替
     #   `where(wsum > 0, wsum, ones_like)`，省掉 `ones_like` + `gt` 两个节点。
     denom = wsum.clamp_min(1e-30)
+    # ★ 用 `torch.div` 直接指定 `out=` 会引入别名风险，保持简单：elementwise 结果
+    #   天然连续，`to(dtype)` 后调用方无需再 `.contiguous()`。
     return (scaled / denom).to(output.dtype)
 
 
@@ -1285,15 +1301,18 @@ class DeepseekV41EagerAttentionImpl:
                     topk_value_mode=1,
                     return_softmax_lse=True,
                 )
+                # ★ [V41-PERF] 同第一次调用：`(1,T,H)` 的内存顺序本来就是 `(T,H,1)`
+                #   ⇒ `reshape` 拿视图，省掉 `permute(...).contiguous()` 的拷贝节点。
                 _ori_lse_f = _ori_lse.to(torch.float32)
                 if _ori_lse_f.ndim == 3 and _ori_lse_f.shape[0] == 1:
-                    _ori_lse_f = _ori_lse_f.permute(1, 2, 0).contiguous()
+                    _ori_lse_f = _ori_lse_f.reshape(_ori_lse_f.shape[1], _ori_lse_f.shape[2], 1)
                 elif _ori_lse_f.ndim == 2:
-                    _ori_lse_f = _ori_lse_f.unsqueeze(-1).contiguous()
+                    _ori_lse_f = _ori_lse_f.unsqueeze(-1)
             else:
                 _ori_lse_f = None
                 _ori_out = None
             _t = _time_mark('smla_2nd', _t)
+            _rank = _v41_dcp_rank()
             output = _v41_dcp_merge_attention(
                 output,
                 softmax_lse,
@@ -1303,12 +1322,16 @@ class DeepseekV41EagerAttentionImpl:
                 ori_lse=_ori_lse_f,
                 ori_out=_ori_out,
                 perf_no_pack=_pf.get('no_pack') == '1',
+                head_slice=None if _hpr > 0 else (_rank * _local_heads, (_rank + 1) * _local_heads),
             )
             _t = _time_mark('merge_comm', _t)
             _time_dump('layer-%d' % self.role.layer_idx)
             # 归约后每个 rank 都有全部 head 的全局结果；本 rank 的 o_proj 只吃
             # 自己那 `H_local` 个 head（TP 连续切分）。
-            _rank = _v41_dcp_rank()
+            # ★ [V41-PERF] 正常路径的切片已折进 `_v41_dcp_merge_attention`
+            #   （`head_slice=`，先切片再除 ⇒ 除法只作用在 8 个 head 上、
+            #   且省掉这里的一次 `.contiguous()` 拷贝）。只有消融模式 `_hpr>0`
+            #   需要在这里处理。
             if _hpr > 0 and int(output.shape[1]) == _hpr * _v41_dcp_group().world_size:
                 # 消融模式：每 rank 只留自己的 K 个 head，再平铺回 H_local（维持
                 # o_proj 的输入形状；数值错误，仅用于计时）。
@@ -1321,8 +1344,6 @@ class DeepseekV41EagerAttentionImpl:
                         .contiguous()
                     )
                 output = _owned
-            else:
-                output = output[:, _rank * _local_heads : (_rank + 1) * _local_heads, :].contiguous()
         return output
 
     @staticmethod
