@@ -205,21 +205,32 @@ def _v41_dcp_merge_attention(
         return output
     # LSE 需要 float32 且布局一致；算子返回 TND `(N2,T1,G)` ⇒ 转成 `[T, H, 1]`。
     lse = lse.to(torch.float32)
+    # ★ [V41-PERF] `(1,T,H)` 的内存顺序本来就是 `(T,H,1)` ⇒ 用 `reshape` 拿视图，
+    #   省掉旧 `permute(1,2,0).contiguous()` 的一次 T×H fp32 拷贝（图内一个节点）。
     if lse.ndim == 3 and lse.shape[0] == 1:
-        lse = lse.permute(1, 2, 0).contiguous()
+        lse = lse.reshape(lse.shape[1], lse.shape[2], 1)
     elif lse.ndim == 2:
-        lse = lse.unsqueeze(-1).contiguous()
+        lse = lse.unsqueeze(-1)
     else:
-        lse = lse.reshape(lse.shape[1], -1, 1).contiguous()
+        lse = lse.reshape(lse.shape[1], -1, 1)
 
     gathered = torch.empty(
         (dcp_size, *lse.shape), dtype=torch.float32, device=lse.device
     )
     torch.distributed.all_gather_into_tensor(gathered, lse, group=group.device_group)
     lse_max = gathered.amax(dim=0)
-    finite = torch.isfinite(lse) & torch.isfinite(lse_max)
-    # 全 rank 都无有效键（例如全 -inf）时退化为 0，避免 NaN 污染后续层。
-    weights = torch.where(finite, torch.exp((lse - lse_max).clamp(min=-80.0)), torch.zeros_like(lse))
+    # ★★ [V41-PERF 2026-09-29] 三步化简（合并链每省一个串行节点 ≈13 µs/层）：
+    #
+    # (1) 去掉 `clamp(min=-80.0)`：`lse_max` 是**跨 rank 的最大值**、且 `lse` 自己也
+    #     在 `gathered` 里 ⇒ `lse − lse_max ≤ 0` **恒成立**，`exp` 不会上溢；
+    #     空 rank（`lse = -inf`）算出 `exp(-inf) = 0`，正是想要的权重。
+    # (2) 去掉 `isfinite(lse) & isfinite(lse_max)` + `where(...)`（5 个节点）：
+    #     唯一会出 NaN 的情形是**该元素上所有 rank 都是 -inf**（`-inf − (-inf)`），
+    #     此时正确语义就是权重 0。`nan_to_num` 一步到位（NaN→0），
+    #     `+inf` 不可能出现（差恒 ≤ 0）。
+    #     ★ 交接文档 §2.2 警告过 `isfinite` **挡不住**「kernel 写死的有限 0.0」——
+    #     那是另一回事（路线 B 之前用 `token_mask` 显式屏蔽），这里只处理 -inf。
+    weights = torch.nan_to_num(torch.exp(lse - lse_max))
     # ★ 路线 B 生效时**不能**再用 token_mask：此时每个 rank 的 LSE 都是
     #   真实的配分函数（`A + Z_r`，A = e^{L_ori}），掩码会把本该参与分母的
     #   `A` 也抹掉，导致下面扣除 `(dcp−1)·A` 时**多扣**。
@@ -315,7 +326,13 @@ def _v41_dcp_merge_attention(
     _keep = 1.0 - 1.0 / dcp
     _ori_active = ori_lse is not None and ori_out is not None
     if _ori_active:
-        _ow = torch.exp((ori_lse.to(torch.float32) - lse_max).clamp(min=-80.0)) * _keep
+        # 同理去掉 `clamp(min=-80.0)`：路线 B 下每个 rank 都带**真实 ori**，
+        # 第一次调用（含 cmp 键 + rank0 的真 sink）的键集 ⊇ 第二次的纯 ori 键集
+        # ⇒ `lse_max ≥ ori_lse` 恒成立，`exp` 不会上溢。
+        # ★ `nan_to_num` 与 `weights` 保持一致：`-inf − (-inf)` 会出 NaN
+        #   （该行所有 rank 都没有键，理论上不该发生，但旧实现的 `isfinite` 只挡了
+        #   `weights` 一侧、`_ow` 仍会变 NaN 并在 `wsum − _w_all` 里污染分母 —— 顺手修掉）。
+        _ow = torch.nan_to_num(torch.exp(ori_lse.to(torch.float32) - lse_max)) * _keep
         _onum = ori_out.to(torch.float32) * _ow
     else:
         _ow = torch.zeros_like(weights)
@@ -1235,7 +1252,15 @@ class DeepseekV41EagerAttentionImpl:
                     )
                     attn._v41_dcp_neg_idx = _neg
                 _neg = _neg[:_rows_n]
-                _ori_sinks = torch.full_like(sinks, -1e30) if sinks is not None else None
+                # ★ [V41-PERF] 第二次调用的 sink 是**常量 -1e30**，同样按 attn 缓存，
+                #   省掉每层每步一次 `full_like` 分配 + 填充。
+                if sinks is not None:
+                    _ori_sinks = getattr(attn, "_v41_dcp_neg_sinks_cache", None)
+                    if _ori_sinks is None or _ori_sinks.shape != sinks.shape:
+                        _ori_sinks = torch.full_like(sinks, -1e30)
+                        attn._v41_dcp_neg_sinks_cache = _ori_sinks
+                else:
+                    _ori_sinks = None
                 _ori_out, _ori_lse = torch.ops._C_ascend.npu_sparse_flash_mla(
                     q,
                     ori_kv=attn.dsa_attn.swa_cache_layer.kv_cache[0],
