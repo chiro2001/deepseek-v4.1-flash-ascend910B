@@ -241,42 +241,39 @@ def _v41_dcp_merge_attention(
                 ),
                 flush=True,
             )
+    # =====================================================================
+    # ★★ 性能：把 **4 次 all_reduce 打包成 1 次**。
+    #
+    # 原实现每层有 5 个集合通信（1 all_gather + 4 all_reduce）：
+    #   scaled / wsum / _n_all / _w_all 各一次。
+    # 实测 DCP8 比 DCP1 慢 13.4 ms/step、40 层 ⇒ **0.33 ms/层**，
+    # 与「5 个集合通信 × ~50-70 µs + 两次 SMLA 调用」的估算吻合
+    # ⇒ 瓶颈是**集合通信的次数（延迟）**，不是带宽（T=1 时单次才 ~128 KB）。
+    #
+    # 打包做法：把 4 个张量按最后一维拼成一个 `[T, H, 2D+2]` fp32，一次 all_reduce。
+    # 数学与逐个 all_reduce **完全等价**（all_reduce 是逐元素的），
+    # 且拼接后最后一维是 `2D+2`（D=512 ⇒ 1026），16 字节对齐要求需保证 D 为偶数
+    # （D=512 满足）。
+    # =====================================================================
     scaled = output.to(torch.float32) * weights
-    torch.distributed.all_reduce(scaled, group=group.device_group)
     wsum = weights.clone()
-    torch.distributed.all_reduce(wsum, group=group.device_group)
-    # =====================================================================
-    # [路线 B] 去掉重复的 ori，再补回**恰好一份**。
-    #
-    # `Σ_r e^{L_r}` 里 ori 被计了 `dcp` 次（ori 是复制态，每个 rank 都算了一遍）；
-    # 而 `Σ_r e^{L_r}·O_r` 可以精确分解 —— 注意 `e^{L_r}·O_r` 就是该 rank 可见集的
-    # **原始加权和**（不是归一化输出）：
-    #     e^{L_r}·O_r = A_r·O_ori + Z_r·O_cmp_r + S_r·O_sink
-    # ⇒ 把 ori 的 `dcp` 份全去掉、再补回 1 份即可。
-    #
-    # ★★ 修正量必须**在所有 rank 上完全相同**！
-    #   第一版写成 `wsum - (all_reduce(ori_e) - ori_e)` —— 这是 **rank 相关**的
-    #   （`ori_e` 是各 rank 自己的值），各 rank 于是拿到**不同的分母**、却共享同一个
-    #   分子 ⇒ 输出整片退化。实测 run `dcpcap_0929_181331`：连 **L=59**
-    #   （修复前完全正确、且只靠滑窗、根本不涉及 cmp）都变成复读机
-    #   ⇒ 反证了"分母必须逐 rank 一致"。
-    #   ⇒ 用两个 `all_reduce` 的结果构造**同一个**数值：`X_all - X_all/dcp`。
-    # =====================================================================
-    if ori_lse is not None and ori_out is not None:
-        # ★★★ 必须用**与 weights 相同的归一化**！
-        #   `weights = exp(L_r − lse_max)` 是**相对**量（逐元素按跨 rank 最大值归一），
-        #   而第二次纯 ori 调用给的是**绝对** LSE。
-        #   第一版直接把 `exp(ori_lse)`（绝对尺度）从 `wsum`（相对尺度）里减掉
-        #   ⇒ 修正量差了 `exp(−lse_max)` 这个逐元素因子 ⇒ 分母完全错 ⇒ 输出成复读机。
-        #   实测 run `dcpcap_0929_182228`：连 **L=59**（修复前完全正确）都坏了。
-        #   已离线复核量纲：`ori_lse ≤ L_r ≤ lse_max` ⇒ `exp(ori_lse − lse_max) ≤ 1`，数值稳定。
-        dcp = group.world_size
+    dcp = group.world_size
+    _ori_active = ori_lse is not None and ori_out is not None
+    if _ori_active:
         _ow = torch.exp((ori_lse.to(torch.float32) - lse_max).clamp(min=-80.0))
         _onum = ori_out.to(torch.float32) * _ow
-        _w_all = _ow.clone()
-        _n_all = _onum.clone()
-        torch.distributed.all_reduce(_w_all, group=group.device_group)
-        torch.distributed.all_reduce(_n_all, group=group.device_group)
+    else:
+        _ow = torch.zeros_like(wsum)
+        _onum = torch.zeros_like(scaled)
+    # 按最后一维拼包：`[T, H, D] + [T, H, D] + [T, H, 1] + [T, H, 1]`
+    _pack = torch.cat([scaled, _onum, wsum, _ow], dim=-1)
+    torch.distributed.all_reduce(_pack, group=group.device_group)
+    _out_dim = scaled.shape[-1]
+    scaled = _pack[..., :_out_dim]
+    _n_all = _pack[..., _out_dim : 2 * _out_dim]
+    wsum = _pack[..., 2 * _out_dim : 2 * _out_dim + 1]
+    _w_all = _pack[..., 2 * _out_dim + 1 :]
+    if _ori_active:
         # 去掉全部 dcp 份、补回 1 份（各 rank 的 A 相同 ⇒ A_all/dcp 就是那一份）
         scaled = scaled - _n_all + _n_all / dcp
         wsum = wsum - _w_all + _w_all / dcp
