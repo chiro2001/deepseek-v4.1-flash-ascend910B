@@ -138,6 +138,27 @@ V4.1 有**四个 cache 平面**，DCP 下语义**不同**，这是整套实现�
 
 ---
 
+## 3b. ★ 2026-09-30 修复：HCCL all_reduce 的 buffer 未对齐（硬故障）
+
+**症状**：短 prompt 上输出退化成**均匀分布**（首 token top-5 是 5 个不同 token、
+logprob 逐位相等，恰好 `−ln(129280)`）⇒ logits 全相同。
+
+**根因**：`cat([scaled(512), weights(1)])` 的最后一维是 **513**
+⇒ `513×4 B = 2052 B` **不是 512 的倍数**，Ascend HCCL 的 `all_reduce`
+把 buffer 弄坏（实测 `w_postreduce_sum = nan`/`0`，而 `w_local_sum` 正常）
+⇒ `wsum` 变负 ⇒ 输出爆到 `1e30` ⇒ LM head 溢出 ⇒ logits 全相同。
+旧的 `2D+2 = 1026` 同样不对齐 ⇒ **所有历史版本都受影响**。
+
+**修法**：pack **pad 到 512 字节**（128 个 fp32），归约后精确切列；
+`denom` 恢复 `where(wsum>0, wsum, 1)`（去掉 `clamp_min(1e-30)` 的 1e30 放大）。
+
+**验证**：长度扫描"均匀分布"样本 **3 → 0**；长针 **6/6**；容量不变；
+性能 **35.95 ms/step**（pad 无可见代价 —— collective 在该区间是纯延迟）。
+
+⚠️ **仍存在**：少数短 prompt 会**答错**（分布正常）；DCP8 vs DCP1 的 hidden 差
+`3e-5~4.6e-5`（≈5–17 bf16 ULP）属 8 rank 合并的舍入累积，与上面的结构性 bug 分开。
+详见 `docs/V41-DCP-RCA-20260930.md`。
+
 ## 4. 性能：+4.5 ms/step 花在哪
 
 DCP8 相对 DCP1 慢 **+4.52 ms/step**。按 38 层（层 0/1 是纯滑窗，不走合并路径）
