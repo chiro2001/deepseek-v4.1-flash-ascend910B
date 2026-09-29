@@ -359,19 +359,18 @@ export NAME=${NAME:-dsv41-ced-${role}-${stamp}}
 # 这里只是**配置侧的预防**；真正的强制校验在
 # experimental/ced/mooncake_hybrid_connector.py 的 [CED-32BIT-GUARD]，
 # 那里拿得到 worker 实际注册的 stride，且 num_blocks 已经定稿。
-if [ "${V41_CED_ALLOW_32BIT_OVERFLOW:-0}" != "1" ]; then
-  CED_MAX_NUM_BLOCKS=${CED_MAX_NUM_BLOCKS:-29076}
-  CED_D_BYTES_PER_BLOCK=${CED_D_BYTES_PER_BLOCK:-540928}
-  ced_pool_cap=$(( CED_MAX_NUM_BLOCKS * CED_D_BYTES_PER_BLOCK ))
-  if [ -n "${KV_CACHE_MEMORY_BYTES:-}" ] && [ "$KV_CACHE_MEMORY_BYTES" -gt "$ced_pool_cap" ]; then
-    echo "[a3-ced][WARN] KV_CACHE_MEMORY_BYTES=$KV_CACHE_MEMORY_BYTES 会让 $role 池超过 4 GiB 寻址上界" >&2
-    echo "[a3-ced][WARN] 钳到 $ced_pool_cap（num_blocks=$CED_MAX_NUM_BLOCKS，最大可用块号 $((CED_MAX_NUM_BLOCKS - 1))）" >&2
-    export KV_CACHE_MEMORY_BYTES=$ced_pool_cap
-  elif [ -z "${KV_CACHE_MEMORY_BYTES:-}" ]; then
-    export KV_CACHE_MEMORY_BYTES=$ced_pool_cap
-    echo "[a3-ced] $role 池按 4 GiB 上界设置：$KV_CACHE_MEMORY_BYTES B（num_blocks=$CED_MAX_NUM_BLOCKS）"
-  fi
-fi
+# ★ 2026-09-29：这里的**第二份守卫已删除，收敛到共享层**（scripts/serve_a2.sh 的
+#   [KV32-POOL-GUARD]）。理由：
+#     1. 两份守卫的公式/常数完全相同，但历史上用的是不同的变量名
+#        （CED_D_BYTES_PER_BLOCK vs CED_BYTES_PER_BLOCK）⇒ 长期必然漂移；
+#     2. 共享层现在按**场景**判断（CED 角色 V41_CED_ROLE 非空 ⇒ 钳位），
+#        所以本脚本 exec 进 serve_a3_pd.sh → serve_a2.sh 之后，行为与原先逐字一致
+#        （未设置 ⇒ pin 到 29076 块；显式超界 ⇒ 钳位）；
+#     3. 共享层仍然认 CED_D_BYTES_PER_BLOCK 这个旧名字（作为 CED_BYTES_PER_BLOCK 的
+#        回退），外部按旧名字调参不会静默失效。
+#   原先放在 role 层的理由是"实验启动器会绕过角色脚本"——共享层在更下游，
+#   那条理由本来就指向共享层，两处并存只是冗余。
+#   连接器侧的强制校验（[CED-32BIT-GUARD]，按实测 stride 抛错）不在这里，保持不变。
 if [ -n "${CED_SNAPSHOT_POS:-}" ]; then
   export V41_CED_SNAPSHOT_POS=$CED_SNAPSHOT_POS
   export V41_CED_SNAPSHOT_DIR="/opt/dsv41/results/$RUN_ID/snapshots"

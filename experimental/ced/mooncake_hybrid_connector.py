@@ -2047,7 +2047,10 @@ class MooncakeConnectorWorker:
                             f"该配置下块号 ≥ {max_safe} 的访问会 32 位回绕并静默读错数据。"
                             f"把 D 侧 KV_CACHE_MEMORY_BYTES 压到 ≤ {max_safe} × {worst} "
                             f"（本卡实测每全局块号 540928 B ⇒ 约 {max_safe} 块）。"
-                            " 确认风险后可设 V41_CED_ALLOW_32BIT_OVERFLOW=1 绕过。"
+                            " 注意：V41_CED_ALLOW_32BIT_OVERFLOW=1 **不能**绕过本门"
+                            "（该变量没有透传进容器，本进程读不到它）；"
+                            "它只作用于宿主侧 scripts/serve_a2.sh 的 [KV32-POOL-GUARD]。"
+                            "要绕过本门需要另加 -e 透传（本仓刻意不提供）。"
                         )
                     print(
                         f"[CED-32BIT-GUARD] role={self.kv_role} num_blocks={self.num_blocks} "

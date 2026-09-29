@@ -409,6 +409,103 @@ else
     || die "镜像 $IMAGE 不存在。先执行：bash scripts/build_image.sh"
 fi
 
+# ---------- [KV32-POOL-GUARD] 4 GiB 页步长上界（只在会撞它的形态下默认使能） ----------
+# 背景（docs/CED-PD-BLOCK-BOUND-20260925.md §5.1.2/§5.1.4）：KV cache 的打包布局
+# 里槽位 3 的页步长是 147712 B（layer-20 C1 KV 131072 + INT8 index K 16384
+# + FP16 scales 256）。一旦 `num_blocks × 页步长` 越过 2³²，算子按 32 位算出的
+# 块地址会回绕到别的块，长上下文请求静默变成"HTTP 200 + 1 token（EOS）"。
+#
+# 这里放在**公共底层**（serve_a2.sh）而不是某个角色脚本里，因为
+# serve_a3_pd.sh / serve_a3_ced_pd.sh / serve_a3_ced_single.sh 最终都汇到这里，
+# 放在上层会被实验用的旁路启动器绕过（已踩过一次）。
+# 判据同样用**页尾**：num_blocks ≤ ⌊2³² / 147712⌋ = 29076。
+# 与它配套的**强制**校验在连接器里（[CED-32BIT-GUARD]，按实测 stride 抛错）。
+#
+# ★ 2026-09-29 作用域修正（docs/KV32-POOL-GUARD-SCOPE-20260929.md）：
+#   本守卫原先在**所有形态**下生效，且"未设置 KV_CACHE_MEMORY_BYTES ⇒ 直接 pin"
+#   ⇒ 非 CED 部署（A2 单实例、OffloadingConnector、验证入口）也被强制 pin 到
+#   29076 块。后果是 vLLM 走
+#     “reserved X GiB for KV Cache as specified by kv_cache_memory_bytes,
+#       skipping memory profiling.”（v1/worker/gpu_worker.py:474）
+#   即**跳过自动显存 profiling**、`GPU_UTIL` 对 KV 池不再生效。
+#   现在：只有真正会撞回绕的形态（CED 角色 / Mooncake PD）默认 pin；
+#   其它形态交回 vLLM 自动 profiling，并在起服后**复核**池大小（见下方
+#   "起服必查 ②"），把"profiling 恰好算出越界值"这条路也堵上。
+#
+# 三态开关 V41_KV32_POOL_GUARD：
+#   auto（默认）：CED 角色（V41_CED_ROLE 非空）或 Mooncake PD
+#                 （KV_ARGS_EXTRA 含连接器名）⇒ pin；其它 ⇒ 不 pin。
+#   on          ：无条件 pin（旧行为，逃生用）。
+#   off         ：完全不干预（不 pin、不 clamp、不起服后复核）。
+_kv32_scope=${V41_KV32_POOL_GUARD:-auto}
+case "$_kv32_scope" in
+  auto|on|off) ;;
+  *)
+    echo "[serve_a2] [KV32] WARNING: V41_KV32_POOL_GUARD='$_kv32_scope' 非法（只能是 auto|on|off）⇒ 按 auto 处理" >&2
+    _kv32_scope=auto
+    ;;
+esac
+_kv32_pin=0
+case "$_kv32_scope" in
+  off) _kv32_pin=0 ;;
+  on)  _kv32_pin=1 ;;
+  auto)
+    [ -n "${V41_CED_ROLE:-}" ] && _kv32_pin=1
+    case "${KV_ARGS_EXTRA:-}" in *MooncakeHybridConnector*) _kv32_pin=1 ;; esac
+    ;;
+esac
+# 兼容旧逃生口（语义是"已确认接受越界风险"，不是场景开关）：
+#   ⇒ 同时关掉 pin / clamp / 起服后复核。仅作用于宿主侧；
+#     连接器里的 [CED-32BIT-GUARD] 硬门**不受它影响**（该变量没有进 `docker run -e`）。
+_kv32_enforce=1
+_kv32_off_reason=""
+if [ "$_kv32_scope" = "off" ]; then
+  _kv32_pin=0
+  _kv32_enforce=0
+  _kv32_off_reason="scope=off"
+fi
+if [ "${V41_CED_ALLOW_32BIT_OVERFLOW:-0}" = "1" ]; then
+  _kv32_pin=0
+  _kv32_enforce=0
+  _kv32_off_reason="V41_CED_ALLOW_32BIT_OVERFLOW=1"
+fi
+# 兼容 CED 角色脚本历史上用的 D 前缀变量名（两处默认值相同，收敛后仍认它，
+#   避免外部按旧名字调参时静默失效）。
+_ced_max_blocks=${CED_MAX_NUM_BLOCKS:-29076}
+_ced_bytes_per_block=${CED_BYTES_PER_BLOCK:-${CED_D_BYTES_PER_BLOCK:-540928}}
+_ced_cap=$(( _ced_max_blocks * _ced_bytes_per_block ))
+_kv32_pinned=0
+# 记录"调用方**显式**给过值" —— 显式给值说明调用方自己管池大小，
+# 起服后就不必再复核（也就避开了非 A2 布局下除数不适用导致的误报）。
+_kv32_user_set=0
+[ -n "${KV_CACHE_MEMORY_BYTES:-}" ] && _kv32_user_set=1
+if [ "$_kv32_enforce" = "1" ]; then
+  if [ -n "${KV_CACHE_MEMORY_BYTES:-}" ] && [ "$KV_CACHE_MEMORY_BYTES" -gt "$_ced_cap" ]; then
+    # clamp 与形态无关：回绕是**模型级**风险，显式给大值不改变物理事实。
+    echo "[serve_a2] [KV32] WARNING: KV_CACHE_MEMORY_BYTES=$KV_CACHE_MEMORY_BYTES 会让池超过 4 GiB 寻址上界（$_ced_max_blocks 块）"
+    echo "[serve_a2] [KV32] WARNING: 钳到 $_ced_cap B。要完全绕过设 V41_KV32_POOL_GUARD=off"
+    KV_CACHE_MEMORY_BYTES=$_ced_cap
+  elif [ "$_kv32_pin" = "1" ] && [ -z "${KV_CACHE_MEMORY_BYTES:-}" ]; then
+    # 这些形态**不能**靠 GPU_UTIL 自动 profiling —— 它会按"显存能装多少"算出
+    # 30080 块（P 侧实测），越界后静默空答。直接给一个安全值。
+    KV_CACHE_MEMORY_BYTES=$_ced_cap
+    _kv32_pinned=1
+    echo "[serve_a2] [KV32] scope=$_kv32_scope pin=1 ⇒ 池按 4 GiB 上界 pin：$KV_CACHE_MEMORY_BYTES B（num_blocks=$_ced_max_blocks）"
+  fi
+else
+  echo "[serve_a2] [KV32] $_kv32_off_reason ⇒ 完全不干预：不 pin / 不 clamp / 起服后不复核"
+fi
+if [ "$_kv32_enforce" = "1" ] && [ "$_kv32_pinned" != "1" ] && [ -z "${KV_CACHE_MEMORY_BYTES:-}" ]; then
+  echo "[serve_a2] [KV32] scope=$_kv32_scope pin=0 ⇒ 不设置 KV_CACHE_MEMORY_BYTES（交回 vLLM 自动 profiling；GPU_UTIL 生效）；起服后将复核池大小"
+fi
+# [SELFTEST-HOOK] 只解析并打印 KV32 作用域三元组后退出 —— 供 tools/selftest_kv32_scope.sh
+#   做正控/负控（生产环境不会设这个变量）。放在守卫尾、任何 docker 动作之前，
+#   所以它不依赖镜像、不占卡、不起容器。
+if [ "${V41_KV32_GUARD_CHECK_ONLY:-0}" = "1" ]; then
+  echo "KV32_RESOLVED scope=$_kv32_scope pin=$_kv32_pin enforce=$_kv32_enforce pinned=$_kv32_pinned cap=$_ced_cap bytes=${KV_CACHE_MEMORY_BYTES:-<unset>}"
+  exit 0
+fi
+
 # [SCRIPT-VER] 让"跑的是哪一份脚本"在日志里可查（用户报障的第一件事）
 _script_self="${BASH_SOURCE[0]}"
 _script_md5=$(md5sum "$_script_self" 2>/dev/null | cut -c1-12 || echo "?")
@@ -1580,32 +1677,6 @@ if [ "$DRAFT_GRAPH" = "1" ]; then
 fi
 
 mkdir -p "$OUT"
-# ---------- [CED-POOL-GUARD] 4 GiB 页步长上界 ----------
-# 背景（docs/CED-PD-BLOCK-BOUND-20260925.md §5.1.2/§5.1.4）：KV cache 的打包布局
-# 里槽位 3 的页步长是 147712 B（layer-20 C1 KV 131072 + INT8 index K 16384
-# + FP16 scales 256）。一旦 `num_blocks × 页步长` 越过 2³²，算子按 32 位算出的
-# 块地址会回绕到别的块，长上下文请求静默变成"HTTP 200 + 1 token（EOS）"。
-#
-# 这里放在**公共底层**（serve_a2.sh）而不是某个角色脚本里，因为
-# serve_a3_pd.sh / serve_a3_ced_pd.sh / serve_a3_ced_single.sh 最终都汇到这里，
-# 放在上层会被实验用的旁路启动器绕过（已踩过一次）。
-# 判据同样用**页尾**：num_blocks ≤ ⌊2³² / 147712⌋ = 29076。
-# 与它配套的**强制**校验在连接器里（[CED-32BIT-GUARD]，按实测 stride 抛错）。
-if [ "${V41_CED_ALLOW_32BIT_OVERFLOW:-0}" != "1" ]; then
-  _ced_max_blocks=${CED_MAX_NUM_BLOCKS:-29076}
-  _ced_bytes_per_block=${CED_BYTES_PER_BLOCK:-540928}
-  _ced_cap=$(( _ced_max_blocks * _ced_bytes_per_block ))
-  if [ -z "${KV_CACHE_MEMORY_BYTES:-}" ]; then
-    # 未指定时不能靠 GPU_UTIL 自动 profiling —— 它会按"显存能装多少"算出
-    # 30080 块（P 侧实测），同样越界。这里直接给一个安全值。
-    KV_CACHE_MEMORY_BYTES=$_ced_cap
-    echo "[serve_a2] 池按 4 GiB 上界设置：$KV_CACHE_MEMORY_BYTES B（num_blocks=$_ced_max_blocks）"
-  elif [ "$KV_CACHE_MEMORY_BYTES" -gt "$_ced_cap" ]; then
-    echo "[serve_a2] WARNING: KV_CACHE_MEMORY_BYTES=$KV_CACHE_MEMORY_BYTES 会让池超过 4 GiB 寻址上界（$_ced_max_blocks 块）"
-    echo "[serve_a2] WARNING: 钳到 $_ced_cap B（num_blocks=$_ced_max_blocks）。要绕过设 V41_CED_ALLOW_32BIT_OVERFLOW=1"
-    KV_CACHE_MEMORY_BYTES=$_ced_cap
-  fi
-fi
 
 {
   echo "[serve_a2] run_id=$RUN_ID image=$IMAGE model=$MODEL"
@@ -1720,6 +1791,50 @@ else
   echo "  ✓ static_kernel 无降级（static_kernel.py:650 命中 0 次）"
 fi
 grep -oE "GPU KV cache size: [0-9,]+ tokens" "$LOG" | tail -1 | sed 's/^/  /' || true
+# ---------- 起服必查 ②：KV32 池上界复核（只在"交回 vLLM 自动 profiling"时） ----------
+# 为什么需要：放开 pin 之后，非 CED 形态的池大小由 vLLM 的显存 profiling 决定。
+# 若它恰好算出 > 29076 块，长上下文会静默变成"HTTP 200 + 1 token（EOS）"
+# （见 docs/CED-PD-BLOCK-BOUND-20260925.md §0/§5.1.2）。这一步把那条路也堵上。
+#
+# 判据来源（**已用仓库内证据校准**）：profiling 路径会打印
+#   v1/worker/gpu_worker.py: "Available KV cache memory: %s GiB"（format_gib = round(b/GiB,2)）
+# 取**所有 rank 的最小值** —— vLLM 的最终 num_blocks 正是各 rank 取 min
+# （v1/core/kv_cache_utils.py: "Change the num_blocks of each rank to the smallest"）。
+# 例：A2 历史 profiling 14.40 GiB ⇒ ⌊14.40×2³⁰/540928⌋ = 28583 块，
+# 与文档记载的 28,577 块相差 7（日志只保留 2 位小数 ⇒ 估算误差 ≤ ±10 块），
+# 离上界 29076 还有 492 块余量，判据可用（越界现场是 30080 vs 29076，差 1004）。
+#
+# ★ 抽成函数：它是**纯文本逻辑**，抽出来才能离线自检
+#   （tools/selftest_kv32_scope.sh 用合成日志正/负控），不必占 8 张卡起服。
+kv32_pool_blocks_from_log() {   # <logfile> <bytes_per_block> → 打印最小 rank 的块数；无数据返回 1
+  local _log=$1 _bpb=$2 _g
+  _g=$(grep -aoE 'Available KV cache memory: [0-9.]+ GiB' "$_log" 2>/dev/null \
+       | awk '{print $(NF-1)}' | sort -g | head -1)
+  [ -n "$_g" ] || return 1
+  awk -v g="$_g" -v bpb="$_bpb" 'BEGIN{printf "%d", (g*1073741824)/bpb}'
+  return 0
+}
+# --- [KV32] 辅助函数结束（selftest 按这两行标记抽取本函数）---
+
+if [ "$_kv32_enforce" = "1" ] && [ "$_kv32_pinned" != "1" ] && [ "$_kv32_user_set" != "1" ]; then
+  _kv32_avail=$(grep -aoE 'Available KV cache memory: [0-9.]+ GiB' "$LOG" 2>/dev/null | awk '{print $(NF-1)}' | sort -g | head -1 || true)
+  if [ -z "$_kv32_avail" ]; then
+    echo "  [KV32] 复核跳过：日志里没有 'Available KV cache memory'（pinned 路径或旧镜像）"
+  else
+    _kv32_blocks=$(kv32_pool_blocks_from_log "$LOG" "$_ced_bytes_per_block" || echo 0)
+    if [ "${_kv32_blocks:-0}" -gt "$_ced_max_blocks" ]; then
+      echo
+      echo "  \033[31m✗ [KV32] KV 池超出 4 GiB 寻址上界：最小 rank 可用 ${_kv32_avail} GiB ⇒ 约 ${_kv32_blocks} 块 > 上界 ${_ced_max_blocks}\033[0m"
+      echo "    该配置下块号 ≥ ${_ced_max_blocks} 的访问会 32 位回绕，长上下文请求会**静默**变成 1 token（EOS）。"
+      echo "    处置（任选其一）："
+      echo "      1) 显式压池：KV_CACHE_MEMORY_BYTES=$(( _ced_max_blocks * _ced_bytes_per_block ))"
+      echo "      2) 降低显存利用率：GPU_UTIL 调小后重跑"
+      echo "      3) 确知风险仍要跑：V41_KV32_POOL_GUARD=off（会同时关掉 pin/clamp/本复核）"
+      die "[KV32] 拒绝以越界池起服（避免长上下文静默空答）"
+    fi
+    echo "  ✓ [KV32] 池上界复核：最小 rank 可用 ${_kv32_avail} GiB ⇒ 约 ${_kv32_blocks} 块 ≤ 上界 ${_ced_max_blocks}（用到 $(( _kv32_blocks * 100 / _ced_max_blocks ))%）"
+  fi
+fi
 # 镜像指纹落到结果目录（make_report.sh 会读它）
 $DOCKER exec "$NAME" bash -lc 'cat /opt/dsv41/BUILD_INFO.txt 2>/dev/null' > "$OUT/BUILD_INFO.txt" 2>/dev/null || true
 $DOCKER exec "$NAME" bash -lc 'cat /opt/dsv41/BUILD_INFO.txt 2>/dev/null' | sed 's/^/  /' || true

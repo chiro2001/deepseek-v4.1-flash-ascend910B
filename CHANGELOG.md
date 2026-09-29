@@ -1,5 +1,70 @@
 # CHANGELOG.md —— v3 → v4 → v5 → v6 → v7 → v8 逐项 diff
 
+# ★★ KV32 池守卫**只在 CED/PD 形态默认使能**（2026-09-29）—— 修复"非 CED 被强制 pin"
+
+> ## 为什么
+>
+> 防 32 位页偏移回绕的池守卫（`[CED-POOL-GUARD]`，2026-09-25 为 CED/PD 加的）挂在
+> **所有形态共用**的 `scripts/serve_a2.sh` 上，且 `9706454` 起"**未设置**
+> `KV_CACHE_MEMORY_BYTES` ⇒ 直接 pin 到 `29076 × 540928 = 15,728,022,528 B`"。
+> ⇒ 非 CED 部署（A2 单实例、`a2/scripts/serve_a2_offload.sh`、`run_test.sh`、
+> 验证入口）也被强制 pin，vLLM 因此走
+> `v1/worker/gpu_worker.py:474` 的 **"…skipping memory profiling. This does not
+> respect the gpu_memory_utilization config."**
+> ⇒ 三个可观测后果：① 跳过自动显存 profiling；② A2 上 pin 值 14.65 GiB vs 历史
+> profiling 14.40 GiB，多占 0.25 GiB/rank 且不再自适应；③ **`GPU_UTIL` 对 KV 池
+> 不再生效**（排障时极易误判）。
+>
+> ## 改了什么
+>
+> | 文件 | 改动 |
+> |---|---|
+> | `scripts/serve_a2.sh` | `[CED-POOL-GUARD]` → `[KV32-POOL-GUARD]`，新增三态 `V41_KV32_POOL_GUARD=auto\|on\|off`（默认 `auto`）：CED 角色（`V41_CED_ROLE` 非空）或 `KV_ARGS_EXTRA` 含 `MooncakeHybridConnector` ⇒ pin；其它 ⇒ **不 pin**（交回自动 profiling）。显式超界值**一律 clamp + WARNING**（回绕是模型级风险，与形态无关）。块整体**前移**到 `DRY_RUN` 分支之后，使钩子/自检可达。新增 `[SELFTEST-HOOK]`（`V41_KV32_GUARD_CHECK_ONLY=1` 打印 `KV32_RESOLVED …`）与 **`起服必查 ②`：起服后池上界复核** |
+> | `scripts/serve_a3_ced_pd.sh` | **删掉第二份守卫**（公式与共享层逐字相同，只是变量名不同 ⇒ 长期必然漂移）。共享层仍认旧的 `CED_D_BYTES_PER_BLOCK`（作为回退），外部按旧名字调参不会静默失效 |
+> | `tools/selftest_kv32_scope.sh` | **新增**：作用域 10 例 + 起服后复核 5 例 + **内置负控**（把 `auto` 默认改回 `on`，case1 必须失败）。不占卡、不起容器、不需要镜像 |
+> | `tools/selfcheck_pkg.sh` | 注册上面这条自检 |
+> | `experimental/ced/mooncake_hybrid_connector.py` | 报错文案纠正：`V41_CED_ALLOW_32BIT_OVERFLOW` **不能**绕过连接器硬门（它没进 `docker run -e`） |
+> | `docs/KV32-POOL-GUARD-SCOPE-20260929.md` | **新增**：作用域、起服后复核的判据校准、口径纠正 |
+> | `docs/CED-PD-BLOCK-BOUND-20260925.md` · `docs/CED-PD-ACCURACY-MEASURES-20260926.md` | 口径改为"仅 CED/PD 默认钳位" + 位置/名字更正 |
+>
+> ## 新增的"起服后复核"是什么
+>
+> 放开 pin 之后，非 CED 的池大小由自动 profiling 决定；**若它恰好算出 > 29076 块，
+> 长上下文会静默变成"HTTP 200 + 1 token（EOS）"**（A2 历史值 28,577 块距上界只差
+> 499 块，这不是理论风险）。所以 `serve_a2.sh` 在就绪后解析 profiling 路径打印的
+> `Available KV cache memory: X GiB`，**取各 rank 最小值**（vLLM 最终 `num_blocks`
+> 正是各 rank 取 min）换算块数，越界即**拒绝起服**并给出三条处置。
+> 判据用仓库内证据回代校准：A2 历史 14.40 GiB → 28,583 块（文档记载 28,577，
+> 差 7 是 2 位小数舍入）✅；CED P 侧越界现场 15.16 GiB → 30,092 块 ⛔。
+>
+> ## 判据（真机可观测痕迹）
+>
+> ```bash
+> # 非 CED：不再 pin，且能看到 profiling 的池大小
+> grep -a '\[KV32\]' <run>/driver.log          # 期望 …pin=0 ⇒ 不设置 KV_CACHE_MEMORY_BYTES
+> grep -a 'KV_CACHE_MEMORY_BYTES=' <run>/inner.sh  # 期望 export … KV_CACHE_MEMORY_BYTES= SEED=
+> grep -a 'Available KV cache memory' <run>/serve.log
+> # CED：仍是 pin
+> grep -a '\[KV32\]' <run>/driver.log          # 期望 …pin=1 ⇒ 池按 4 GiB 上界 pin：15728022528 B
+> ```
+>
+> ## 负控 / 回归
+>
+> * `tools/selftest_kv32_scope.sh`：16/16 通过，含内置负控。
+> * `bash tools/negative_control.sh`：改动前后同为 **PASS=23 FAIL=2**（那 2 项是既有的、与本改动无关）。
+> * `bash tools/selftest_spec_mode.sh`：41/41 通过（role 层守卫删除不影响 SPEC_MODE）。
+>
+> ## 代价与残留（诚实标注）
+>
+> * 起服后复核的精度受日志 2 位小数限制 ⇒ **估算误差 ≤ ±10 块**；上界两侧余量分别
+>   492 / 1004 块，够用但**不是**精确校验。真正的精确校验仍只在 CED 的连接器里
+>   （它拿得到 worker 实测 stride）。
+> * 非 CED 的**精确** stride 校验仍未下沉到模型 KV 初始化处（`plan_cache_slots` 一线）。
+>   本次用"launcher 起服后复核"作为折中，代价是它只覆盖"显式未给值的自动 profiling 路径"。
+> * `V41_CED_ALLOW_32BIT_OVERFLOW` 仍然绕不过连接器硬门（本次按"文档向"纠正文案，
+>   未加 `-e` 透传 —— 一个变量同时关两层门会让实验起服静默跑错数据）。
+
+
 # ★★ v9（2026-09-22 21:4x）—— **`ENGRAM=1` × DRAM 卸载 的 P0 修复**（A2 上线的硬前提）
 
 > ## 为什么必须升到 v9
