@@ -90,6 +90,7 @@ def _v41_dcp_ori_owner() -> str:
 def _v41_dcp_merge_attention(
     output: torch.Tensor,
     lse: torch.Tensor,
+    token_mask: torch.Tensor | None = None,
 ) -> torch.Tensor:
     """把各 rank 的局部 partial attention 用 LSE 加权合并成全局结果。
 
@@ -103,6 +104,35 @@ def _v41_dcp_merge_attention(
     all_gather / all_to_all**：因为 TP 已经按 head 切分，每个 rank 的 q 就是自己
     那 8 个 head，各 rank 合并的是**同一批 head 的不同 KV 分片** ⇒ 只需在 rank 维
     做归约，不需要重排 head。这比 SFA 的 all-to-all 方案少一次大通信。
+
+    ★★★ 前提：调用方必须先把 `q` 沿 **head 维** all-gather 到**全部** head，
+    否则本函数是错的。理由见 `_v41_dcp_gather_heads`：
+
+    TP 与 DCP 复用同一组 rank 时，TP 把 **head** 切开 —— rank r 只持有
+    head `[r·H/d, (r+1)·H/d)`。而 `all_reduce` 是**逐元素**求和，位置 `[t, j]`
+    在 rank r 上是「head r·H/d + j」，在 rank r' 上是「head r'·H/d + j」
+    —— **完全不同的 head**！若各 rank 只算自己的 head 就做逐元素归约，
+    等于把不同 head 的部分结果加在一起，从第一层起就全错。
+    （这正是 SFA 的 DCP 实现里那个 `_start_dcp_query_gather` 存在的原因，
+    也是我早期判断"不需要 gather q"的错误所在。）
+
+    正确做法：每个 rank 都拿到全部 head 的 q，对自己那份 KV 分片算出
+    `[T, H_total, D]` 的 partial，此时 `[t, h]` 在所有 rank 上才指同一个 head
+    ⇒ 逐元素归约才成立。
+    顺带一个好消息：每 rank 的注意力计算量 = `H_total × L/dcp` 与 DCP=1 的
+    `H_local × L` 相同 ⇒ **总算力不变**，只是换了分布。
+
+    ★★ `token_mask`（`[T,1,1]` bool）也是**必须**的，不能靠 LSE 自己表达"我没有键"。
+    实测（子代理 `dcp_op_unknowns` Q3/Q4）：
+
+    * `seqused_ori_kv=0` 时算子返回 `out=0`、`LSE=0.0` —— 是 **kernel 写死的有限值**，
+      不是 `-inf`（用 −1e4/−1e30 sink、毒化显存池、重复跑都验证过）
+      ⇒ `isfinite` 之类的过滤**兜不住**；
+    * 这个 `LSE=0.0` 在合并式里拿到的权重是 `exp(0 − L_max)`：
+      长上下文 `L≈5` 时每个空 rank 贡献 +0.7%，短序列 `L≈0` 时可达 1
+      （8 个 rank 里 7 个空 ⇒ 分母虚增约 8 倍）。
+
+    所以必须由调用方**按本 rank 的实际可见键数**显式给掩码。
     """
     group = _v41_dcp_group()
     dcp_size = group.world_size
@@ -125,12 +155,63 @@ def _v41_dcp_merge_attention(
     finite = torch.isfinite(lse) & torch.isfinite(lse_max)
     # 全 rank 都无有效键（例如全 -inf）时退化为 0，避免 NaN 污染后续层。
     weights = torch.where(finite, torch.exp((lse - lse_max).clamp(min=-80.0)), torch.zeros_like(lse))
+    if token_mask is not None:
+        weights = weights * token_mask.to(torch.float32)
     scaled = output.to(torch.float32) * weights
     torch.distributed.all_reduce(scaled, group=group.device_group)
     wsum = weights.clone()
     torch.distributed.all_reduce(wsum, group=group.device_group)
     denom = torch.where(wsum > 0, wsum, torch.ones_like(wsum))
     return (scaled / denom).to(output.dtype)
+
+
+def _v41_dcp_gather_heads(q: torch.Tensor) -> torch.Tensor:
+    """把本 rank 的 q 沿 head 维 all-gather 成全部 head。
+
+    `q` 形状 `[T, H_local, D]` → 返回 `[T, H_total, D]`。
+    `all_gather_into_tensor` 只沿 dim 0 拼接，所以先把 head 维换到最前。
+    （与 SFA 的做法同构；SFA 是把 ql_nope/q_pe 拼起来一次 gather 以减少
+    连续两次 collective 在 Ascend 上的流依赖问题。）
+    """
+    group = _v41_dcp_group()
+    dcp_size = group.world_size
+    if dcp_size <= 1:
+        return q
+    local_heads = int(q.shape[1])
+    # ★ 先把 head 维换到最前，再按**转置后**的形状建输出缓冲。
+    #   踩过的坑：写成 `torch.empty((dcp*H_local, *q.shape[1:]))` —— 而
+    #   `q.shape[1:]` 是 `(H_local, D)`，不是 `(T, D)`，于是输出缓冲是
+    #   `(dcp*H_local, H_local, D)`，真机直接
+    #   `RuntimeError: output tensor size must be equal to world_size times input tensor size`。
+    q_t = q.transpose(0, 1).contiguous()
+    gathered = torch.empty(
+        (dcp_size * local_heads, *q_t.shape[1:]),
+        dtype=q.dtype,
+        device=q.device,
+    )
+    torch.distributed.all_gather_into_tensor(
+        gathered, q_t, group=group.device_group
+    )
+    return gathered.transpose(0, 1).contiguous()
+
+
+def _v41_dcp_gather_1d(x: torch.Tensor | None) -> torch.Tensor | None:
+    """沿第 0 维 all-gather 一个 per-head 向量（sink 就是这种）。
+
+    gather q 到全部 head 之后，算子收到的 `n_heads_q` 是全量，
+    所以 `sinks` 也必须是全量 `[H_total]`，否则算子参数校验/语义不匹配。
+    """
+    if x is None:
+        return None
+    group = _v41_dcp_group()
+    dcp_size = group.world_size
+    if dcp_size <= 1:
+        return x
+    out = torch.empty(
+        (dcp_size * int(x.shape[0]), *x.shape[1:]), dtype=x.dtype, device=x.device
+    )
+    torch.distributed.all_gather_into_tensor(out, x.contiguous(), group=group.device_group)
+    return out
 
 
 @eager_break_during_capture
@@ -673,14 +754,35 @@ class DeepseekV41EagerAttentionImpl:
         # 时 relout 0.63，只计一次时 9.5e-16）。
         # =====================================================================
         dcp_active = _v41_dcp_on() and has_compressed
+        # =====================================================================
+        # [V41-DCP 2026-09-29] ★★ 必须先沿 head 维 gather q，再做逐元素归约。
+        # 原因见 `_v41_dcp_gather_heads`：TP 切的是 head，不 gather 就等于把
+        # 不同 head 的部分结果相加。合并后本 rank 只保留自己那段 head（o_proj 是
+        # TP 分片的），所以末尾要切回去。
+        # =====================================================================
+        _local_heads = int(q.shape[1])
+        if dcp_active:
+            q = _v41_dcp_gather_heads(q)
         _owner = _v41_dcp_ori_owner() if dcp_active else "all"
-        _is_ori_owner = (not dcp_active) or _owner == "seqused0" or _v41_dcp_rank() == 0
-        sinks = attn.attn_sink
+        # ★★ 2026-09-29 修 bug：原写法 `_owner == "seqused0" or rank == 0`
+        # 让 **所有** rank 的 `_is_ori_owner` 都为 True ⇒ 下面的 zeros_like 永不执行
+        # ⇒ 8 个 rank 各自都算了整份 ori 窗口 ⇒ ori 被重复计 8 次。
+        # 由子代理 `dcp_op_unknowns` 逐行审计发现（overlay 675-684 行）。
+        # 正确语义：ori 只由 rank 0 携带。
+        _is_ori_owner = (not dcp_active) or (_v41_dcp_rank() == 0)
+        # sink 也要随 head 一起 gather（算子按全量 head 收参数）。
+        # ★ 并且**只能计一次**：gather 后若 8 个 rank 都带真值 sink，
+        #   LSE 合并会把 `exp(sink)` 计 8 次（离线夹具回归：每 rank 都带
+        #   relout 0.63，只计一次 9.5e-16）。所以只有 rank 0 用真值，
+        #   其余 rank 填一个在 fp32 里 exp() 下溢到 0 的大负数。
+        sinks = _v41_dcp_gather_1d(attn.attn_sink) if dcp_active else attn.attn_sink
         if dcp_active and sinks is not None and _v41_dcp_rank() != 0:
             sinks = torch.full_like(sinks, -1e30)
         _ori_seqused = seq_lens
         if dcp_active and not _is_ori_owner:
-            # 退路：不摘掉 ori_kv，但把可见长度设 0 ⇒ ori 贡献为空。
+            # 不摘掉 ori_kv（op 层硬必填），但把可见长度设 0。
+            # 注意：这只让 `out=0/LSE=0`，**不**等于权重为 0 ⇒ 还需要下面的
+            # `token_mask` 来真正把该 rank 的贡献清零。
             _ori_seqused = torch.zeros_like(seq_lens)
         output, softmax_lse = torch.ops._C_ascend.npu_sparse_flash_mla(
             q,
@@ -709,7 +811,75 @@ class DeepseekV41EagerAttentionImpl:
             return_softmax_lse=dcp_active,
         )
         if dcp_active:
-            output = _v41_dcp_merge_attention(output, softmax_lse)
+            # =============================================================
+            # ★★ 按**本 rank 的实际可见键数**构造权重掩码。
+            #
+            # 为什么必须自己算（实测，子代理 `dcp_op_unknowns` Q3/Q4）：
+            # 空 rank 的算子返回 `LSE=0.0`（kernel 写死的**有限**值，不是 -inf），
+            # 在 `Σ e^{L_r}·O_r / Σ e^{L_r}` 里会拿到 `exp(0 − L_max)` 的正权重：
+            # 长上下文 L≈5 时每空 rank +0.7%，短序列 L≈0 时可达 1
+            # （8 rank 里 7 空 ⇒ 分母虚增约 8 倍）。`isfinite` 过滤兜不住。
+            #
+            # 本 rank 有可见键的两种来源：
+            #   · ori（滑窗，每 rank 全量复制）—— 只有 ori owner（rank 0）用；
+            #   · cmp（本 rank 的压缩分片）—— `cache_seq_lens` 已是**本 rank 本地**长度
+            #     （builder 用 `local_compressed_len` 算的），> 0 才有键。
+            # =============================================================
+            _num_reqs_merge = int(metadata.attention.num_reqs) if metadata.attention is not None else 0
+            _has_keys = None
+            if _num_reqs_merge > 0:
+                _seq = seq_lens[:_num_reqs_merge]
+                _cmp_len = (
+                    metadata.attention.cache_seq_lens[:_num_reqs_merge]
+                    if metadata.attention is not None
+                    else torch.zeros_like(_seq)
+                )
+                _ori_ok = (
+                    torch.ones_like(_seq, dtype=torch.bool)
+                    if _is_ori_owner
+                    else torch.zeros_like(_seq, dtype=torch.bool)
+                )
+                _has_keys = (_ori_ok & (_seq > 0)) | (_cmp_len > 0)
+                _rows = int(output.shape[0])
+                # ★★ 纯 device 侧构造 token→request 的映射，**绝不能**对 device 张量
+                # 做 `int(...)` / `.item()` / `repeat_interleave(output_size=...)`：
+                # 这些都会同步流，在 ACL graph capture 区内直接
+                # `AclrtSynchronizeStreamWithTimeout` + `Not_Supported(EE1016):
+                # stream is captured`（子代理 `dcp2_diff_line` 实测，原写法
+                # `output_size=int(_qlens.sum())` 起服 40 s 即崩）。
+                #
+                # 零同步做法：把 `_has_keys` 按 request 写进一张 [num_reqs, max_T] 表，
+                # 再用 `query_start_loc` 生成行内偏移，一次 `gather` 得到每行的可见性。
+                # 表在每一步都重建（`torch.zeros` 在 capture 里是允许的）。
+                _max_t = max(1, int(output.shape[0]))
+                _tbl = torch.zeros(
+                    (_num_reqs_merge, _max_t), dtype=torch.bool, device=output.device
+                )
+                _rows_idx = torch.arange(_max_t, dtype=torch.int64, device=output.device)
+                _start = query_start_loc[:_num_reqs_merge].to(torch.int64)
+                _len = (query_start_loc[1 : _num_reqs_merge + 1] - _start).to(torch.int64)
+                _in_req = (_rows_idx.unsqueeze(0) >= _start.unsqueeze(1)) & (
+                    _rows_idx.unsqueeze(0) < (_start + _len).unsqueeze(1)
+                )
+                _tbl = torch.where(
+                    _in_req,
+                    _has_keys.unsqueeze(1).expand(-1, _max_t),
+                    torch.zeros((), dtype=torch.bool, device=output.device),
+                )
+                # 每行的 request 下标：queries 是按 request 连续排布的
+                # ⇒ `searchsorted_right(start) - 1` 即所属 request。
+                _req_of_row = (
+                    torch.searchsorted(_start.contiguous(), _rows_idx, right=True) - 1
+                ).clamp_(0, _num_reqs_merge - 1)
+                _mask_t = _tbl[_req_of_row, _rows_idx]
+                token_mask = _mask_t.view(-1, 1, 1).to(output.dtype)
+            else:
+                token_mask = None
+            output = _v41_dcp_merge_attention(output, softmax_lse, token_mask)
+            # 归约后每个 rank 都有全部 head 的全局结果；本 rank 的 o_proj 只吃
+            # 自己那 `H_local` 个 head（TP 连续切分）。
+            _rank = _v41_dcp_rank()
+            output = output[:, _rank * _local_heads : (_rank + 1) * _local_heads, :].contiguous()
         return output
 
     @staticmethod
@@ -1115,18 +1285,28 @@ class DeepseekV41MetadataBuilder(AttentionMetadataBuilder[DeepseekV41Metadata]):
             cos, sin = rope
         text_config = self.vllm_config.model_config.hf_text_config
         window_size = int(_config_value(text_config, "sliding_window", 0))
+        # `operator_ratio` / `has_compressed` 必须在下面用之前就定义好
+        # （我上一版把它们留在 `if self._supports_device_ops` 块里，
+        #  而新加的 head 数分支在块外引用 ⇒ 真机
+        #  `UnboundLocalError: cannot access local variable 'has_compressed'`，
+        #  graph capture 阶段 8 个 worker 全挂）。
+        operator_ratio = 0 if cache_kind == "swa" else ratio
+        has_compressed = operator_ratio in (1, 2)
         n_local_heads = (
             int(_config_value(text_config, "num_attention_heads"))
             // self.vllm_config.parallel_config.tensor_parallel_size
         )
+        # [V41-DCP 2026-09-29] 走跨 rank 合并的层：q 会被 all-gather 成**全部** head，
+        # 所以算子 metadata 的 `num_heads_q` 必须用全量 head 数，而不是 TP 分片后的。
+        # 不这么做的话算子会按 8 个 head 建 metadata、却收到 64 个 head 的 q。
+        if cache_kind == "long_kv" and _v41_dcp_on() and has_compressed:
+            n_local_heads = int(_config_value(text_config, "num_attention_heads"))
         head_dim = int(_config_value(text_config, "head_dim"))
         index_topk = int(_config_value(text_config, "index_topk"))
-        operator_ratio = 0 if cache_kind == "swa" else ratio
         smla_metadata = None
         qli_metadata = None
 
         if self._supports_device_ops and cache_kind in {"swa", "long_kv"}:
-            has_compressed = operator_ratio in (1, 2)
             cmp_seq_lens = coordinates["cache_seq_lens"] if has_compressed else None
             cmp_residual = cmp_residual_buffer
 

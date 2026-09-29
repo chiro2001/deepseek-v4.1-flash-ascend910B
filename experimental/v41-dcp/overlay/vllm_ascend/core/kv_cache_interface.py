@@ -228,6 +228,29 @@ class AscendSlidingWindowMLASpec(SlidingWindowMLASpec):
         )
         return max_blocks * self.page_size_bytes
 
+    def max_num_blocks_per_req(self, vllm_config: VllmConfig, max_len: int) -> int:
+        """★★ [V41-DCP 2026-09-29] 复制态的 block table **行宽不能被 DCP 缩小**。
+
+        上游 `AttentionSpec.max_num_blocks_per_req`（vllm/v1/kv_cache_interface.py:228）
+        返回 `cdiv(max_len, block_size * dcp)` —— 那是给**按序列分片**的平面用的。
+        而滑窗在 A3 上是**复制态**（见本类 `max_memory_usage_bytes` 的长注释），
+        每个 rank 要寻址**整条序列**，所以行宽必须是 `cdiv(max_len, block_size)`。
+
+        ## 这个 bug 的实测特征（子代理 `dcp2_diff_line` 的逐层判据）
+
+        行宽被缩到 1/dcp（tiny: 512→64）后，`logical_block_idx` 一旦超过 64 就越过
+        本行、读进**下一个 request 的行** ⇒ 拿到别人的物理块号 ⇒ 读到错数据。
+        position 越大 `logical_block_idx` 越大 ⇒ 越靠前的 token 越错。实测：
+
+        * **层 0/1（ratio=0，纯复制态 SWA，根本不进合并路径）相对差 19%**；
+        * 层 0 的**最后一个** token 逐位相同，越往前差越多
+          （正好是"行宽越界"的特征：末尾 token 的 idx 最小）。
+
+        ⇒ 这是"与 LSE 合并无关"的那一份差异，必须先修掉它，
+          逐层判据才能用来回归合并路径。
+        """
+        return cdiv(max_len, self.block_size)
+
     def __post_init__(self):
         pass
 
