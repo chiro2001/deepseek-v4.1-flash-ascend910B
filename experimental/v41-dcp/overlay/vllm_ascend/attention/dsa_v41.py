@@ -312,7 +312,15 @@ def _v41_dcp_merge_attention(
     # =====================================================================
     import os as _os_m
 
-    if _os_m.environ.get("V41_DCP_MERGE_RANK0_ONLY") == "1" and _v41_dcp_rank() != 0:
+    # ★ [V41-PERF] 同时接受**文件驱动**开关 `rank0_only=1`（`/tmp/v41_perf_flags`）：
+    #   env 只能在起服时设，而这条实验要反复切换。文件开关对 **prefill** 有效
+    #   （prefill 是 eager、Python 会执行），而首 token 正是由 prefill 的注意力决定的
+    #   ⇒ 无需重启就能做 A/B。decode 阶段是整图捕获，文件开关在那里无效（已知）。
+    _rank0_only = (
+        _os_m.environ.get("V41_DCP_MERGE_RANK0_ONLY") == "1"
+        or _perf_flags().get("rank0_only") == "1"
+    )
+    if _rank0_only and _v41_dcp_rank() != 0:
         weights = torch.zeros_like(weights)
     # ★ 必须排除 warmup：warmup 用的是 dummy 输入（seq_lens 全 1），
     #   它的 LSE/输出本来就接近 0，会给出严重误导的读数
@@ -355,6 +363,85 @@ def _v41_dcp_merge_attention(
                 ),
                 flush=True,
             )
+    # =====================================================================
+    # [V41-DCP-WDIAG] 权重级诊断：只在 `V41_DCP_WEIGHT_DIAG=1` 时打印，非 capture。
+    #
+    # 为什么要它：DCP8 与 DCP1 的输出在 **分布层面** 差 0.4~0.7 nats
+    # （`lp_probe.py`：首 token |Δlogprob| 0.375/0.386/0.675/0.409，
+    #  短 prompt 甚至首 token 变成 `<｜begin▁of▁sentence｜>`、Δ=11.77）。
+    # 这远超 bf16 舍入（应为 1e-3 量级）⇒ 是**真实缺陷**，必须定位到 rank。
+    #
+    # 本诊断打印每个 rank 的：
+    #   · `lse`（第一次调用的配分函数）min/max —— 若某 rank 返回 kernel 写死的
+    #     `0.0`（无键时的有限值，见 §2.2 的警告），就会在这里露出来；
+    #   · `ori_lse`（第二次纯 ori 调用的 LSE）—— 它是**零通信参考点**，前提是
+    #     8 个 rank **逐位相同**；不等就说明复制的滑窗在各 rank 上内容不一致；
+    #   · `w = exp(lse − ori_lse)` 的 min/max/和、以及有限权重的个数
+    #     —— 正确时 rank r 的权重应 ≈ `D_r/A ≥ 1`；若出现 ≈0 或 NaN 就错了。
+    # =====================================================================
+    if (
+        _os_m.environ.get("V41_DCP_WEIGHT_DIAG") == "1"
+        and not _is_capturing()
+        and _WDIAG["n"] < _WDIAG_LIMIT
+        # ★ **必须排除 warmup**：`profile_run` 的 dummy 输入 `seq_lens` 全是 1，
+        #   40 层 × 若干 warmup 步就会把配额吃光，真实 prefill 一行都打不出来
+        #   （第一次跑就踩了：1600 行全是 `seq=[1, 1, 1, 1]`）。
+        and diag_seq_lens is not None
+        and int(diag_seq_lens.max()) > 1
+    ):
+        _WDIAG["n"] += 1
+        _lr = _v41_dcp_rank()
+        try:
+            _lf = lse.to(torch.float32)
+            _lmin = float(_lf.min())
+            _lmax = float(_lf.max())
+            _lmean = float(_lf.mean())
+            _fin = int(torch.isfinite(_lf).sum())
+            _nzer = int((_lf.abs() < 1e-9).sum())
+            _tot = int(_lf.numel())
+            if ori_lse is not None:
+                _of = ori_lse.to(torch.float32)
+                _ostat = "ori[min=%.6f max=%.6f mean=%.6f]" % (
+                    float(_of.min()), float(_of.max()), float(_of.mean())
+                )
+            else:
+                _ostat = "ori=<None>"
+            # ★ 用 `_use_ori_ref`（在 :251 定义）而不是 `_ori_active`（在 :455 才定义，
+            #   本诊断块在它之前）—— 踩过一次 NameError。
+            if _use_ori_ref and weights is not None:
+                _wf = weights.to(torch.float32)
+                _wstat = "w[min=%.6g max=%.6g sum=%.6g n>0=%d]" % (
+                    float(_wf.min()), float(_wf.max()), float(_wf.sum()),
+                    int((_wf > 0).sum()),
+                )
+            else:
+                _wstat = "w=<n/a>"
+            # ★ `seq_lens` / `cmp_seq_lens` **不在本函数作用域** —— 它们是通过
+            #   `diag_seq_lens` / `diag_cmp_lens` 传进来的（踩过：直接写 `seq_lens`
+            #   会 NameError，被宽 except 吞掉就变成"诊断静默不打印"）。
+            _sl = (
+                diag_seq_lens.detach().to(torch.int64)[: min(4, int(diag_seq_lens.numel()))].cpu().tolist()
+                if diag_seq_lens is not None else []
+            )
+            _cl = (
+                diag_cmp_lens.detach().to(torch.int64)[: min(4, int(diag_cmp_lens.numel()))].cpu().tolist()
+                if diag_cmp_lens is not None else []
+            )
+            print(
+                "[V41-WDIAG] rank=%d T=%d lse[min=%.6f max=%.6f mean=%.6f finite=%d/%d zero=%d] "
+                "%s %s seq=%s cmp=%s tmask=%s"
+                % (
+                    _lr, int(_lf.shape[0]), _lmin, _lmax, _lmean, _fin, _tot, _nzer,
+                    _ostat, _wstat, _sl, _cl,
+                    "None" if token_mask is None else "on",
+                ),
+                flush=True,
+            )
+        except Exception as _e:  # noqa: BLE001
+            # 诊断自己不许用宽 except 吞掉失败（踩过）—— 但要标出是哪一步失败
+            print("[V41-WDIAG] rank=%d 诊断失败（这是诊断自身的问题，不是引擎）：%r"
+                  % (_v41_dcp_rank(), _e), flush=True)
+
     # =====================================================================
     # ★★ 性能：把 **4 次 all_reduce 打包成 1 次**。
     #
@@ -505,6 +592,8 @@ def _bump_lse_diag() -> None:
 
 _TIME_ACC = {}
 _ORI_REF_DIAG = {"n": 0}
+_WDIAG = {"n": 0}
+_WDIAG_LIMIT = 4000
 
 
 def _time_mark(name: str, t0: float) -> float:
