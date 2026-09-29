@@ -54,6 +54,26 @@ def _v41_dcp_on() -> bool:
     return v41_dcp_active()
 
 
+def _is_capturing() -> bool:
+    """ACL graph capture 中？capture 区内**绝不能**做 host 同步。
+
+    实测代价：诊断里的 `int(device_tensor)` / 布尔索引（→ `aclnnNonzeroV2`）
+    会让 8 个 worker 在内核 warmup 阶段全部报 inner error 并退出
+    （run `dcpcap_0929_163809`）。
+    """
+    try:
+        from vllm.forward_context import get_forward_context
+
+        if getattr(get_forward_context(), "capturing", False):
+            return True
+    except Exception:  # noqa: BLE001 - 不在 forward context 里
+        pass
+    try:
+        return bool(torch.npu.is_current_stream_capturing())
+    except Exception:  # noqa: BLE001 - 旧版 torch_npu 没有该 API
+        return False
+
+
 def _v41_dcp_rank() -> int:
     """本进程在 DCP 组内的 rank（DCP 关闭时返回 0）。"""
     if not _v41_dcp_on():
@@ -731,7 +751,50 @@ class DeepseekV41EagerAttentionImpl:
             if cmp_topk not in (512, 1024):
                 raise ValueError(f"SparseFlashMla only supports TopK 512 or 1024, got {cmp_topk}")
             cmp_indices = pad_sparse_indices(compressed_indices, cmp_topk)
+            # =================================================================
+            # =================================================================
+            # [V41-DCP-DIAG] 一次性诊断（capture 安全版）。
+            #
+            # ★ 必须满足三个前提，否则会**起服就崩**：
+            #   1. 不能在 ACL graph capture 区内做任何 host 同步
+            #      （`int()`/`.item()`/`.cpu()`/布尔索引都会同步或降级成
+            #       `aclnnNonzeroV2` —— 实测该算子在内核 warmup 阶段直接报
+            #       inner error 让 8 个 worker 全挂）。
+            #   2. 不能对 device 张量做布尔索引（`x[x>=0]` → nonzero）。
+            #   3. 要避开 warmup（warmup 的 seq_lens 全是 1，没有信息量）。
+            # 默认关闭；`V41_DCP_IDX_DIAG=1` 打开。
+            # =================================================================
+            import os as _os
 
+            if (
+                _os.environ.get("V41_DCP_IDX_DIAG") == "1"
+                and self.role.layer_idx == 2
+                and not _is_capturing()
+            ):
+                try:
+                    _lmax = int(seq_lens.max())
+                except Exception:  # noqa: BLE001
+                    _lmax = -1
+                if _lmax > 129:
+                    _ci = cmp_indices
+                    print(
+                        "[V41-IDX] rank=%d L=%s cmp_len=%s G=%s "
+                        "idx_shape=%s idx_max=%s cmp_len_max=%s resid=%s "
+                        "op_ratio=%s cmp_mask=%s"
+                        % (
+                            _v41_dcp_rank(),
+                            seq_lens.detach().cpu().tolist()[:3],
+                            cmp_seq_lens.detach().cpu().tolist()[:3],
+                            (seq_lens // ratio).detach().cpu().tolist()[:3],
+                            tuple(_ci.shape),
+                            int(_ci.max()) if _ci is not None and _ci.numel() else -1,
+                            int(cmp_seq_lens.max()) if cmp_seq_lens.numel() else -1,
+                            int(cmp_residual.max()) if cmp_residual is not None and cmp_residual.numel() else -1,
+                            ratio,
+                            3 if has_compressed else 0,
+                        ),
+                        flush=True,
+                    )
         operator_metadata = metadata.attention if has_compressed else metadata.swa
         op_metadata = operator_metadata.smla_metadata
         if op_metadata is None:
@@ -1260,7 +1323,14 @@ class DeepseekV41MetadataBuilder(AttentionMetadataBuilder[DeepseekV41Metadata]):
         coordinates["cache_seq_lens"] = seq_lens
         cmp_residual_buffer = None
         if compressed and ratio == 2:
-            compressed_lengths = batch_shared.get("lengths:c2")
+            # ★ [V41-DCP 2026-09-29] 缓存 key 必须区分"局部长度"与"全局长度"。
+            # 原来只用 `"lengths:c2"`：`long_kv` 与 `indexer` 两个平面若分别处于
+            # 分片态（局部长度）与复制态（全局长度），会共用同一个 batch 级缓存，
+            # **先写者获胜** ⇒ 后用的平面拿到错口径的长度。
+            # 默认 `V41_DCP_REPLICATE_INDEXER=0` 时两平面都是局部，暂未触发；
+            # 但这是潜伏 bug（子代理 `cmp_semantics` 代码审计发现），先按平面+口径分开。
+            _len_key = f"lengths:c2:{cache_kind}:{'local' if local_lengths is not None else 'global'}"
+            compressed_lengths = batch_shared.get(_len_key)
             if compressed_lengths is None:
                 if local_lengths is not None:
                     self._cache_seq_lens[:num_reqs].copy_(local_lengths[:num_reqs])
@@ -1268,7 +1338,7 @@ class DeepseekV41MetadataBuilder(AttentionMetadataBuilder[DeepseekV41Metadata]):
                     torch.div(seq_lens, ratio, rounding_mode="floor", out=self._cache_seq_lens[:num_reqs])
                 torch.remainder(seq_lens, ratio, out=self._cmp_residual[:num_reqs])
                 compressed_lengths = (self._cache_seq_lens[:num_reqs], self._cmp_residual[:num_reqs])
-                batch_shared["lengths:c2"] = compressed_lengths
+                batch_shared[_len_key] = compressed_lengths
             coordinates["cache_seq_lens"], cmp_residual_buffer = compressed_lengths
         elif local_lengths is not None:
             self._cache_seq_lens[:num_reqs].copy_(local_lengths[:num_reqs])
