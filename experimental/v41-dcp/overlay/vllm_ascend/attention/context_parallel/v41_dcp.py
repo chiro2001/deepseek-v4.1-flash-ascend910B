@@ -135,3 +135,54 @@ def build_replicated_local_index(
     return (pos // super_block) * (super_block) + (
         (pos % super_block) // (dcp_size * interleave)
     ) * interleave + (pos % interleave)
+
+
+def local_compressed_len(
+    seq_lens: torch.Tensor,
+    *,
+    interleave: int,
+    ratio: int,
+    dcp_size: int,
+    dcp_rank: int,
+) -> torch.Tensor:
+    """本 rank 实际拥有的**压缩行数**（与写侧 `compressed_slot_mapping` 完全同源）。
+
+    写侧：未压缩位置 `pos` 只有在 `(pos+1) % ratio == 0` 且 `owner(pos) == rank`
+    时才写出一行压缩槽。因此本 rank 拥有的压缩 token 就是
+    `{ g : owner(g·ratio + ratio - 1) == rank }`，而
+    `owner(pos) = (pos // I) % dcp` ⇒ 以 `Is = I/ratio` 为块、块号模 dcp 即归属。
+
+    所以：把 `G = L // ratio` 个压缩 token 按 `Is` 切块，块号 `% dcp == rank` 的归本 rank。
+
+    ## 为什么必须算这个（而不是直接用全局长度）
+
+    本 rank 的 long_kv / index_k 物理块只装 **1/dcp** 的序列。若把**全局**压缩长度
+    当 `seqused_cmp_kv` / `seqused_k` 传给算子，算子会去读本 rank 的块表里
+    **不存在的行** ⇒ 读到 null/邻块数据 ⇒ 返回一个**有限的** LSE ⇒
+    在 `Σ e^{L_r}·O_r / Σ e^{L_r}` 合并里按错误权重污染结果。
+
+    ★ 极端情形（实测复现的输出错误）：prompt 只有 17 个 token 时
+    `owner(pos) = (pos//32) % 8` ⇒ 只有 rank 0 拥有 KV，rank 1-7 的本地长度是 **0**。
+    全局长度会告诉 rank 1-7 "你有 8 行"，它们就会去读空块。
+    """
+    if dcp_size <= 1:
+        return torch.div(seq_lens, ratio, rounding_mode="floor")
+    isize = interleave // ratio
+    if isize <= 0:
+        raise ValueError(
+            f"interleave({interleave}) 必须能被 compress_ratio({ratio}) 整除；"
+            "否则压缩组会跨 rank（见本模块 docstring 的推导）"
+        )
+    g_total = torch.div(seq_lens, ratio, rounding_mode="floor")
+    cycle = isize * dcp_size
+    cycles = torch.div(g_total, cycle, rounding_mode="floor")
+    rem = g_total - cycles * cycle
+    full_blocks = torch.div(rem, isize, rounding_mode="floor")
+    partial = rem - full_blocks * isize
+    zero = torch.zeros_like(rem)
+    own = cycles * isize + torch.where(
+        full_blocks > dcp_rank,
+        torch.full_like(rem, isize),
+        torch.where(full_blocks == dcp_rank, partial, zero),
+    )
+    return own

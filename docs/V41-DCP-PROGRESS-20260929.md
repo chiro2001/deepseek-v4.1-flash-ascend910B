@@ -20,6 +20,9 @@ DCP8 不是"设个参数"就能开的，实测撞了三道 fail-fast 门，每�
 | ② | Engram 共享表 | `models/deepseek_v41/engram_hbm.py::EngramQueryGroup.from_vllm` | `ValueError: Engram HBM sharing requires EP and PP=PCP=DCP=1` | DCP **不新增 rank**（复用 TP rank），Engram 组仍按 hostname 分组 ⇒ 同一节点内语义不变，允许 |
 | ③ | 滑窗 DCP | `vllm/v1/kv_cache_interface.py::SlidingWindowSpec.max_memory_usage_bytes` | `AssertionError: DCP not support sliding window.` | 去掉这条保守断言（公式不动），见 §3 |
 | ④ | interleave 上界 | `vllm/config/vllm.py::validate_block_size` | `AssertionError: Block_size(32) should be greater than or equal to and divisible by cp_kv_cache_interleave_size (128).` | interleave 取 `gcd(block_size, STATE_RING_ROWS) = 32`，见 §4.1 |
+| ⑤ | 我自己的补丁静默失效 | `vllm_ascend/platform.py` 里的宽 `except` | 日志只有一条 `WARNING [V41-DCP] interleave/cap patch setup skipped: ImportError("cannot import name 'set_dcp_size' ...")`，**服务照起、health 200，容量腰斩**（子代理实测 DCP2 从 1.977× 掉到 1.165×） | 去掉宽 except，改 fail-fast + 显式断言 |
+| ⑥ | **请求时**才炸：滑窗 DCP 断言（在 vllm-ascend 自己的补丁里） | `vllm_ascend/patch/platform/patch_kv_cache_coordinator.py:472` | `AssertionError: DCP not support sliding window attn now.`（起服完全正常、health 200，**第一条请求**才死，EngineCore 直接退出） | 该补丁把 `dcp_world_size=self.dcp_world_size` 传给了**所有** group；上游 `kv_cache_coordinator.py:774` 本来就写成 `if isinstance(spec, FullAttentionSpec) else 1`，这个 vllm-ascend 补丁漏了。overlay 该文件并补上同一规则 |
+| ⑦ | `ori_kv` 是 op 层硬必填 | `sparse_flash_mla_tiling.cpp:270` | `RuntimeError: call aclnnSparseFlashMla failed ... Parameter ori_kv of SparseFlashMla is invalid. Reason: The tensor of ori_kv is nullptr.` | 见 §5.2：改用 `seqused_ori_kv=0` 表达"本 rank 不贡献 ori" |
 
 三道门都在**容量核算之前**，所以不存在"KV 缩了 8 倍但 attention 读全序列"的
 静默算错组合 —— 它在第一道门就死了。【实测】
@@ -290,6 +293,81 @@ docker exec <container> python /root/v41_pool_sim.py --sweep [--dcp-aware-cap]
 - `a2sim-ref/dcp_stage_capacity.sh`：自动挑 8 张空闲设备 + 起 DCP8 + 抓容量行。
 - `a2sim-ref/dcp_sync.sh`：本地 overlay → `a3-21:~/dcpw`，**镜像式**同步
   （远端多余文件会删掉，避免旧补丁残留叠加）。
+
+---
+
+## 5.2 输出合并：数学已验证，落地受内核表达能力限制（【实测】）
+
+### 5.2.0 ★ 关键实现 bug：压缩平面的可见长度必须是**本 rank 的本地长度**
+
+**症状**（8-chip 真权重，DCP8，算子零报错但输出乱）：
+```
+"计算 17*23 的值，只输出数字。" → '根据您提供的文本内容，我无法确定您。如果您想了解关于"的英文表达…'
+"请原样重复这句话：山高路远坑深。" → '很抱歉，libcurl 的英文怎么说？"山高"这个词在中文里是什么意思？…'
+"1+1等于几？只回答数字。" → '1+1'
+```
+
+**根因**：builder 把 `coordinates["cache_seq_lens"] = seq_lens`（**全局**长度）
+传给了算子。而本 rank 的 `long_kv` / `index_k` 物理块只装 **1/dcp** 的序列 ⇒
+算子会去读本 rank 块表里**不存在的行** ⇒ 读到 null/邻块 ⇒ 返回一个**有限的**
+LSE ⇒ 在 `Σ e^{L_r}·O_r / Σ e^{L_r}` 里按错误权重参与合并。
+
+**极端且已复现的情形**：prompt 只有 **17 个 token**（`I=32, dcp=8`）时
+`owner(pos) = (pos//32) % 8` ⇒ **只有 rank 0 拥有 KV**，rank 1-7 的本地长度是 **0**。
+全局长度会告诉 rank 1-7「你有 8 行」，于是它们读空块、报有限 LSE、把结果搞乱。
+
+**修复**：新增 `v41_dcp.local_compressed_len()`，与写侧 `compressed_slot_mapping`
+**完全同源**的推导：
+
+```
+本 rank 拥有的压缩 token = { g : owner(g·ratio + ratio - 1) == rank }
+owner(pos) = (pos // I) % dcp  ⇒  以 Is = I/ratio 为块、块号 % dcp 即归属
+```
+
+已用 **600+ 个长度 × 8 个 rank** 与「逐 g 模拟写侧」对拍，**零 mismatch**。
+
+| L | 每 rank 本地压缩行数 |
+|---:|---|
+| 17 | `[8, 0, 0, 0, 0, 0, 0, 0]` ← 只有 rank 0 |
+| 4096 | `[256, 256, 256, 256, 256, 256, 256, 256]` |
+
+**推论**：对**短 prompt**（`L < I·dcp = 256`）只有 rank 0 有 KV ⇒ 全局 top-k
+退化为 rank 0 的本地 top-k ⇒ 这一版应当就能给出正确输出。这是检验该修复的
+最灵敏用例。
+
+合并式 `O = Σ_r w_r·O_r / Σ_r w_r, w_r = exp(L_r)`：只要各 rank 的可见键集
+**互不重叠地覆盖全局集**，结果就精确等于全局 softmax。子代理用**真算子**做了
+离线验证（`/home/chiro/tmp/dcp_merge_probe/`、`/home/chiro/tmp/ori_rank0_probe/`）：
+
+| 验证 | 结果 |
+|---|---|
+| 8 rank 分段合并 vs 全局 fp64 参考 | `Δlse=1.8e-7`、`relout=2.94e-3`（= bf16 输出舍入地板 2.93e-3，**合并没有引入额外误差**） |
+| 负控：8 rank **都**携带共享窗口 | `relout=1.192`、`Δlse=1.085`（差 3 个数量级，判据有效） |
+| sink 只计一次（只 rank0 传真值，其余 -1e4） | `Δlse=2.8e-7` |
+| 负控：所有 rank 都传真 sink | `relout=0.056`、`Δlse=0.055` |
+
+### ★ 落地阻碍：A3 无法表达"某 rank 只带 cmp、不带 ori"
+
+真机实测（run `dcpcap_0929_133659`）：
+```
+RuntimeError: call aclnnSparseFlashMla failed, detail:[PID: 2142] ... Invalid_Argument(EZ0037):
+Parameter ori_kv of SparseFlashMla is invalid. Reason: The tensor of ori_kv is nullptr.
+```
+
+子代理进一步定位（设备 9 单卡短跑）：
+
+1. `has_ori_kv=False` 只在 **metadata 层**可用；**op 层 `ori_kv` 是硬必填**
+   （`sparse_flash_mla_tiling.cpp:270`）。
+2. 更硬的约束：**镜像内核只编了 SWA / CSA 两个模板**。
+   「ori + cmp 但无 cmp_sparse_indices」= **HCA 模板，A3 没有内核**
+   （`Cannot find tilingKey[578] in kernel json file`）。
+
+⇒ 已把默认方案从 `rank0`（摘掉 ori_kv）改成 **`seqused0`**：
+所有 rank 都挂 `ori_kv`/`ori_block_table`（保持与生产路径**同一个 tiling key**，
+即已验证可用的 CSA 模板），只把 rank>0 的 `seqused_ori_kv` 设 0，
+同时 metadata 仍声明 `has_ori_kv=True`。
+
+`V41_DCP_ORI_OWNER` 可在 `seqused0`（默认）/ `rank0` 之间切换以便真机二分。
 
 ---
 

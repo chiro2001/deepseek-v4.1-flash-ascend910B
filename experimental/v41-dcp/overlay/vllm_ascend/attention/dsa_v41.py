@@ -47,6 +47,92 @@ from vllm_ascend.worker.device_metadata import (
 V41_METADATA_BUFFER_SIZE = 1024
 
 
+def _v41_dcp_on() -> bool:
+    """DCP 是否开启（开发期门控，生产环境一律 False）。"""
+    from vllm_ascend.patch.platform.patch_v41_dcp import v41_dcp_active
+
+    return v41_dcp_active()
+
+
+def _v41_dcp_rank() -> int:
+    """本进程在 DCP 组内的 rank（DCP 关闭时返回 0）。"""
+    if not _v41_dcp_on():
+        return 0
+    from vllm.distributed import get_dcp_group
+
+    return int(get_dcp_group().rank_in_group)
+
+
+def _v41_dcp_group():
+    from vllm.distributed import get_dcp_group
+
+    return get_dcp_group()
+
+
+def _v41_dcp_ori_owner() -> str:
+    """ori（滑窗）平面由谁携带。
+
+    合并式 `O = Σ_r w_r·O_r / Σ_r w_r` 要求共享的 ori 窗口只被计一次，
+    实现方式有两类，本函数选择用哪一种（可用 env 切换以便真机二分）：
+
+    * `seqused0`（**默认**）：所有 rank 都挂 `ori_kv`/`ori_block_table`（因为算子在
+      op 层把 `ori_kv` 当**硬必填**，传 None 直接
+      `tensor of oriKv is nullptr[CheckRequiredInOutExistence]`），
+      但 rank>0 把 `seqused_ori_kv` 设 0 ⇒ 该 rank 的 ori 贡献为空。
+    * `rank0`：只有 rank 0 传 `ori_kv`，其余传 `None`。**实测在 A3 上不可用**
+      （见上），保留仅为在别的硬件上复现。
+    """
+    import os as _os
+
+    return _os.environ.get("V41_DCP_ORI_OWNER", "seqused0")
+
+
+def _v41_dcp_merge_attention(
+    output: torch.Tensor,
+    lse: torch.Tensor,
+) -> torch.Tensor:
+    """把各 rank 的局部 partial attention 用 LSE 加权合并成全局结果。
+
+    数学：全局 `softmax(A ∪ B_0 ∪ … ∪ B_{d-1})`，其中 `A` 只由 rank 0 携带、
+    `B_r` 是 rank r 的私有分片。各 rank 上报 `(O_r, L_r)`，
+    则 `O = Σ_r e^{L_r}·O_r / Σ_r e^{L_r}` **精确**等于全局结果
+    （`Σ_r e^{L_r}` 里 A 恰好出现一次）。分段互不重叠地覆盖全局集时该式恒等，
+    已被离线夹具用真算子验证（`relout=0.0`）。
+
+    实现用 `all_gather(LSE)` + 两次 `all_reduce`（输出与权重），**不做 head 维
+    all_gather / all_to_all**：因为 TP 已经按 head 切分，每个 rank 的 q 就是自己
+    那 8 个 head，各 rank 合并的是**同一批 head 的不同 KV 分片** ⇒ 只需在 rank 维
+    做归约，不需要重排 head。这比 SFA 的 all-to-all 方案少一次大通信。
+    """
+    group = _v41_dcp_group()
+    dcp_size = group.world_size
+    if dcp_size <= 1:
+        return output
+    # LSE 需要 float32 且布局一致；算子返回 TND `(N2,T1,G)` ⇒ 转成 `[T, H, 1]`。
+    lse = lse.to(torch.float32)
+    if lse.ndim == 3 and lse.shape[0] == 1:
+        lse = lse.permute(1, 2, 0).contiguous()
+    elif lse.ndim == 2:
+        lse = lse.unsqueeze(-1).contiguous()
+    else:
+        lse = lse.reshape(lse.shape[1], -1, 1).contiguous()
+
+    gathered = torch.empty(
+        (dcp_size, *lse.shape), dtype=torch.float32, device=lse.device
+    )
+    torch.distributed.all_gather_into_tensor(gathered, lse, group=group.device_group)
+    lse_max = gathered.amax(dim=0)
+    finite = torch.isfinite(lse) & torch.isfinite(lse_max)
+    # 全 rank 都无有效键（例如全 -inf）时退化为 0，避免 NaN 污染后续层。
+    weights = torch.where(finite, torch.exp((lse - lse_max).clamp(min=-80.0)), torch.zeros_like(lse))
+    scaled = output.to(torch.float32) * weights
+    torch.distributed.all_reduce(scaled, group=group.device_group)
+    wsum = weights.clone()
+    torch.distributed.all_reduce(wsum, group=group.device_group)
+    denom = torch.where(wsum > 0, wsum, torch.ones_like(wsum))
+    return (scaled / denom).to(output.dtype)
+
+
 @eager_break_during_capture
 def dsa_v41_forward(
     hidden_states: torch.Tensor,
@@ -573,18 +659,43 @@ class DeepseekV41EagerAttentionImpl:
             DeviceMetadataStage.ATTENTION,
             id(op_metadata),
         )
-        output, _ = torch.ops._C_ascend.npu_sparse_flash_mla(
+        # =====================================================================
+        # [V41-DCP 2026-09-29] 合并路径的开关与参数。
+        #
+        # 只在「有压缩（ratio∈{1,2}）」的层上走跨 rank 合并：
+        #   · ratio=0 的层只有 ori，滑窗平面每 rank 全量复制 ⇒ 本地算出的就是
+        #     完整正确的滑窗注意力，**不能**再去合并（否则滑窗被计 dcp 次）。
+        #   · ratio>0 的层：ori 由 rank 0 独占（见 metadata 的 `has_ori_kv`），
+        #     各 rank 只带自己的 cmp 分片，合并后 A 恰好计一次。
+        #
+        # sink 同理必须**只计一次**：只在 rank 0 传真值，其余 rank 传一个
+        # 在 fp32 里 exp() 下溢到 0 的大负数（离线夹具回归：每 rank 都传真值
+        # 时 relout 0.63，只计一次时 9.5e-16）。
+        # =====================================================================
+        dcp_active = _v41_dcp_on() and has_compressed
+        _owner = _v41_dcp_ori_owner() if dcp_active else "all"
+        _is_ori_owner = (not dcp_active) or _owner == "seqused0" or _v41_dcp_rank() == 0
+        sinks = attn.attn_sink
+        if dcp_active and sinks is not None and _v41_dcp_rank() != 0:
+            sinks = torch.full_like(sinks, -1e30)
+        _ori_seqused = seq_lens
+        if dcp_active and not _is_ori_owner:
+            # 退路：不摘掉 ori_kv，但把可见长度设 0 ⇒ ori 贡献为空。
+            _ori_seqused = torch.zeros_like(seq_lens)
+        output, softmax_lse = torch.ops._C_ascend.npu_sparse_flash_mla(
             q,
-            ori_kv=attn.dsa_attn.swa_cache_layer.kv_cache[0],
+            ori_kv=(
+                attn.dsa_attn.swa_cache_layer.kv_cache[0] if _is_ori_owner or _owner == "seqused0" else None
+            ),
             cmp_kv=source_cache,
             cmp_sparse_indices=cmp_indices,
-            ori_block_table=ori_block_table,
+            ori_block_table=(ori_block_table if _is_ori_owner or _owner == "seqused0" else None),
             cmp_block_table=cmp_block_table,
             cu_seqlens_q=query_start_loc,
-            seqused_ori_kv=seq_lens,
+            seqused_ori_kv=_ori_seqused if (_is_ori_owner or _owner == "seqused0") else None,
             seqused_cmp_kv=cmp_seq_lens,
             cmp_residual_kv=cmp_residual,
-            sinks=attn.attn_sink,
+            sinks=sinks,
             metadata=op_metadata,
             softmax_scale=attn.softmax_scale,
             cmp_ratio=ratio,
@@ -595,8 +706,10 @@ class DeepseekV41EagerAttentionImpl:
             layout_q="TND",
             layout_kv="PA_BBND",
             topk_value_mode=1,
-            return_softmax_lse=False,
+            return_softmax_lse=dcp_active,
         )
+        if dcp_active:
+            output = _v41_dcp_merge_attention(output, softmax_lse)
         return output
 
     @staticmethod
@@ -928,17 +1041,71 @@ class DeepseekV41MetadataBuilder(AttentionMetadataBuilder[DeepseekV41Metadata]):
                 shared[slot_key] = prepared_slots
             slots = prepared_slots
         plane_ratio = ratio if compressed else 1
+        # =====================================================================
+        # [V41-DCP 2026-09-29] ★ 压缩平面的可见长度必须是**本 rank 的本地长度**，
+        # 不是全局长度。
+        #
+        # 原因：本 rank 的 long_kv / index_k 物理块只装 1/dcp 的序列。若把全局
+        # 压缩长度当 `seqused_cmp_kv` / `seqused_k` 传下去，算子会去读本 rank
+        # 块表里不存在的行 ⇒ 读到 null/邻块数据 ⇒ 返回一个**有限的** LSE ⇒
+        # 在 `Σ e^{L_r}·O_r / Σ e^{L_r}` 里按错误权重污染结果。
+        #
+        # ★ 极端且已复现：prompt 只有 17 个 token（I=32, dcp=8）时
+        # `owner(pos)=(pos//32)%8` ⇒ **只有 rank 0 有 KV**，rank 1-7 本地长度为 0。
+        # 全局长度会告诉它们"你有 8 行"，于是它们读空块、报有限 LSE、把结果搞乱。
+        # 这与实测的输出错误形态吻合。
+        #
+        # `local_compressed_len` 与写侧 `compressed_slot_mapping` 完全同源，
+        # 已用 600+ 个长度 × 8 个 rank 与"逐 g 模拟"对拍，零 mismatch。
+        # =====================================================================
+        _dcp = int(getattr(self.vllm_config.parallel_config, "decode_context_parallel_size", 1) or 1)
+        _local_len_ratio = 1
+        from vllm_ascend.patch.platform.patch_v41_dcp import v41_dcp_active as _dcp_active
+
+        if _dcp > 1 and compressed and _dcp_active() and not index_is_replicated:
+            from vllm.distributed import get_dcp_group
+
+            from vllm_ascend.attention.context_parallel.v41_dcp import local_compressed_len
+
+            _interleave = int(getattr(self.vllm_config.parallel_config, "cp_kv_cache_interleave_size", 1) or 1)
+            _rank = int(get_dcp_group().rank_in_group)
+            local_lengths = local_compressed_len(
+                seq_lens,
+                interleave=_interleave,
+                ratio=ratio,
+                dcp_size=_dcp,
+                dcp_rank=_rank,
+            )
+            local_lengths = local_lengths.to(self._cache_seq_lens.dtype)
+            local_max = local_compressed_len(
+                torch.tensor([coordinates["max_cache_seq_len"]], dtype=seq_lens.dtype, device=seq_lens.device),
+                interleave=_interleave,
+                ratio=ratio,
+                dcp_size=_dcp,
+                dcp_rank=_rank,
+            ).item()
+            _local_len_ratio = max(1, int(local_max)) if local_max > 0 else 1
+        else:
+            local_lengths = None
         coordinates["cache_seq_lens"] = seq_lens
         cmp_residual_buffer = None
         if compressed and ratio == 2:
             compressed_lengths = batch_shared.get("lengths:c2")
             if compressed_lengths is None:
-                torch.div(seq_lens, ratio, rounding_mode="floor", out=self._cache_seq_lens[:num_reqs])
+                if local_lengths is not None:
+                    self._cache_seq_lens[:num_reqs].copy_(local_lengths[:num_reqs])
+                else:
+                    torch.div(seq_lens, ratio, rounding_mode="floor", out=self._cache_seq_lens[:num_reqs])
                 torch.remainder(seq_lens, ratio, out=self._cmp_residual[:num_reqs])
                 compressed_lengths = (self._cache_seq_lens[:num_reqs], self._cmp_residual[:num_reqs])
                 batch_shared["lengths:c2"] = compressed_lengths
             coordinates["cache_seq_lens"], cmp_residual_buffer = compressed_lengths
-        coordinates["max_cache_seq_len"] //= plane_ratio
+        elif local_lengths is not None:
+            self._cache_seq_lens[:num_reqs].copy_(local_lengths[:num_reqs])
+            coordinates["cache_seq_lens"] = self._cache_seq_lens[:num_reqs]
+        coordinates["max_cache_seq_len"] = (
+            _local_len_ratio if local_lengths is not None else coordinates["max_cache_seq_len"] // plane_ratio
+        )
         cos = sin = None
         if cache_kind == "swa" and positions is not None:
             rope = batch_shared.get("rope")
@@ -985,7 +1152,31 @@ class DeepseekV41MetadataBuilder(AttentionMetadataBuilder[DeepseekV41Metadata]):
                     ori_win_right=0,
                     layout_q="TND",
                     layout_kv="PA_BBND",
-                    has_ori_kv=True,
+                    # ==========================================================
+                    # [V41-DCP 2026-09-29] ori（滑窗）平面**只由一个 rank 携带**。
+                    #
+                    # 为什么：DCP 切 KV，滑窗是**每 rank 全量复制**的。合并式
+                    #     O = Σ_r w_r·O_r / Σ_r w_r,  w_r = exp(L_r)
+                    # 里若 8 个 rank 都算进了同一份 ori 窗口 A，则分子分母都把 A
+                    # 计了 8 次（其它 7 次是与不同 B_r 混在一起的，无法事后剥离）。
+                    # 让 **rank 0 独占 A**、其余 rank 只带自己的 cmp 分片 B_r：
+                    #     L_0      = logsumexp(A ∪ B_0)
+                    #     L_{r>0}  = logsumexp(B_r)
+                    # ⇒ 合并后的分子/分母里 A 恰好各出现一次
+                    #   ⇒ 与全局 `A ∪ B_0 ∪ … ∪ B_7` 精确一致。
+                    #
+                    # 这条等价性是纯组合性质的（各 rank 的可见集互不重叠地覆盖
+                    # 全局集），已被离线夹具用真算子验证（分段覆盖 relout=0.0）。
+                    #
+                    # 注意只对 **有压缩（ratio∈{1,2}）** 的层生效：ratio=0 的层
+                    # 只有 ori、且每 rank 本地就能算出完整正确的滑窗注意力，
+                    # 不需要、也不应该走合并。
+                    # ==========================================================
+                    has_ori_kv=(
+                        True
+                        if not _v41_dcp_on()
+                        else (_v41_dcp_ori_owner() != "rank0" or _v41_dcp_rank() == 0)
+                    ),
                     has_cmp_kv=has_compressed,
                 )
                 self._smla_metadata.copy_(value)
