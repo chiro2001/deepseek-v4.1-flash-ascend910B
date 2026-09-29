@@ -801,6 +801,13 @@ _DCP_NO_ATTN_CACHE = __import__("os").environ.get("V41_DCP_NO_ATTN_CACHE") == "1
 #   ⇒ 判据：若换成定序归约后 T=12/16 变**确定且正确** ⇒ 根因就是
 #     HCCL 在这个形状/T 上的 all_reduce，且这就是修复。
 _DCP_DET_REDUCE = __import__("os").environ.get("V41_DCP_DET_REDUCE") == "1"
+# ★★★ [V41-DIAG 2026-09-30] `ori_zero_cmp=1`：第二次「纯 ori」调用改传
+#   **`seqused_cmp_kv = 0`**（而不是"`cmp_sparse_indices` 全 -1"）。
+#   动机（真机实测）：`skip_2nd=1` 让 T=12/16 **从非确定变确定且正确** ⇒ 非确定
+#   来自第二次调用。它当前靠"全 -1 索引"表达"没有 cmp 键"，而按内核语义
+#   `actCmpS2Size = min(bound, CountValid(-1)) = 0` 才是正确路径；
+#   直接把 `seqused_cmp_kv` 置零更干净，也避开全 -1 索引张量的退化路径。
+_DCP_ORI_ZERO_CMP = None  # 运行时由 `_perf_flags()` 决定（见调用处）
 _DCP_RAWD = {"n": 0}
 _DCP_RAWD_LIMIT = 4000
 _MDIAG_LIMIT = 4000
@@ -1791,6 +1798,10 @@ class DeepseekV41EagerAttentionImpl:
                             attn._v41_dcp_neg_sinks_cache = _ori_sinks
                 else:
                     _ori_sinks = None
+                # ★ `ori_zero_cmp=1` ⇒ 第二次调用把 `seqused_cmp_kv` 置零
+                _ori_cmp_lens = cmp_seq_lens
+                if _perf_flags().get("ori_zero_cmp") == "1" and cmp_seq_lens is not None:
+                    _ori_cmp_lens = torch.zeros_like(cmp_seq_lens)
                 _ori_out, _ori_lse = torch.ops._C_ascend.npu_sparse_flash_mla(
                     q,
                     ori_kv=attn.dsa_attn.swa_cache_layer.kv_cache[0],
@@ -1800,7 +1811,7 @@ class DeepseekV41EagerAttentionImpl:
                     cmp_block_table=cmp_block_table,
                     cu_seqlens_q=query_start_loc,
                     seqused_ori_kv=_ori_seqused,
-                    seqused_cmp_kv=cmp_seq_lens,
+                    seqused_cmp_kv=_ori_cmp_lens,
                     cmp_residual_kv=cmp_residual,
                     sinks=_ori_sinks,
                     metadata=op_metadata,
