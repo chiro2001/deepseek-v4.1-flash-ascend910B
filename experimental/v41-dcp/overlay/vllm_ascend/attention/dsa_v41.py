@@ -387,12 +387,27 @@ def _v41_dcp_merge_attention(
     # 节点 ≈ 13 µs/层 ≈ 0.5 ms/step（40 层）。
     _keep = 1.0 - 1.0 / dcp
     _ori_active = ori_lse is not None and ori_out is not None
+    # =====================================================================
+    # ★★★ [V41-PERF 2026-09-29] ori 参考点路径下，**`_onum`/`_ow` 不需要参与归约**。
+    #
+    # 第二次调用是「纯 ori」：全部 rank 用同一份复制态 SWA cache、同一窗口、
+    # 同一参数 ⇒ `ori_out` / `ori_lse` 在各 rank 上相同（诊断行已实测：
+    # 8 个 rank 的 `ori_lse_mean/max/min` 全部 `0.000000`）。
+    # 而 `_ow ≡ _keep` 本来就是 Python 常量。于是
+    #     Σ_r _onum_r = dcp · ori_out · _keep = (dcp − 1) · ori_out
+    #     Σ_r _ow_r   = dcp · _keep          = dcp − 1
+    # **本地就能算出精确值，不必花一次 all_reduce 运 `[T,H,D]` 的整份 `_onum`。**
+    #
+    # 效果：pack 从 `[T,H,2D+2]` fp32（T=128 时 33.6 MB）**降到 `[T,H,D+1]`
+    # （16.8 MB，通信量减半）**，同时少一个 `cat` 输入与两次减法。
+    # 打包 all_reduce 是当前最大单项（图内边际 57.4 µs/层）。
+    #
+    # 前提失效时的保护：若某次 `ori_out` 在 rank 间不同（kernel 归约顺序差异
+    # 最多 1 ulp），引入的误差是 fp32 舍入级；端到端由长上下文多选针回归把关。
+    # =====================================================================
+    _fold_ori_locally = _ori_active and _use_ori_ref
     if _ori_active:
         if _use_ori_ref:
-            # ★ 共享参考点就是 `ori_lse` 本身 ⇒ `_ow ≡ exp(0)·_keep = _keep`（**常量**），
-            #   不再需要 exp/减法/nan_to_num 那一串；`_onum = ori_out·_keep`。
-            #   （归约后 `_w_all = _keep·dcp` 也是常量，但保留在 pack 里更省心：
-            #     它只占 `[T,H,1]`，对 33.6 MB 的 pack 可忽略。）
             _ow = torch.full_like(weights, _keep)
             _onum = ori_out.to(torch.float32) * _keep
         else:
@@ -402,7 +417,17 @@ def _v41_dcp_merge_attention(
     else:
         _ow = torch.zeros_like(weights)
         _onum = torch.zeros_like(scaled)
-    if perf_no_pack:
+    if _fold_ori_locally:
+        # 本地折叠：只把「加权分子」与「权重和」打包归约（16.8 MB，旧的一半）。
+        _pack = torch.cat([scaled, weights], dim=-1)
+        torch.distributed.all_reduce(_pack, group=group.device_group)
+        _out_dim = scaled.shape[-1]
+        # ★ 扣除量 = `Σ_r _onum_r` / `Σ_r _ow_r`：
+        #   `_onum_r = ori_out·_keep` 与 `_ow_r = _keep` **每个 rank 各一份**
+        #   ⇒ `Σ_r _onum_r = dcp·_onum`、`Σ_r _ow_r = dcp·_keep = dcp−1`。
+        scaled = _pack[..., :_out_dim] - dcp * _onum
+        wsum = _pack[..., _out_dim:] - dcp * _keep
+    elif perf_no_pack:
         # 消融臂：回到打包前的实现（4 次独立 all_reduce），用于量化打包收益
         _n_all = _onum.clone(); _w_all = _ow.clone()
         torch.distributed.all_reduce(scaled, group=group.device_group)
@@ -410,6 +435,9 @@ def _v41_dcp_merge_attention(
         torch.distributed.all_reduce(wsum, group=group.device_group)
         torch.distributed.all_reduce(_n_all, group=group.device_group)
         torch.distributed.all_reduce(_w_all, group=group.device_group)
+        if _ori_active:
+            scaled = scaled - _n_all
+            wsum = wsum - _w_all
     else:
         # 按最后一维拼包：`[T, H, D] + [T, H, D] + [T, H, 1] + [T, H, 1]`
         # ★ `weights` 直接交给 `cat`（cat 本来就会复制）⇒ 省掉一次 `clone`
@@ -420,10 +448,9 @@ def _v41_dcp_merge_attention(
         _n_all = _pack[..., _out_dim : 2 * _out_dim]
         wsum = _pack[..., 2 * _out_dim : 2 * _out_dim + 1]
         _w_all = _pack[..., 2 * _out_dim + 1 :]
-    if _ori_active:
-        # 去掉全部 dcp 份、补回 1 份 —— `(1 − 1/dcp)` 已折进 `_onum`/`_ow`
-        scaled = scaled - _n_all
-        wsum = wsum - _w_all
+        if _ori_active:
+            scaled = scaled - _n_all
+            wsum = wsum - _w_all
     # ★ [V41-PERF] 本 rank 的 `o_proj` 只吃自己那段 head（TP 连续切分）⇒ **先切片再除**：
     #   除法与 dtype 转换从 `[T,64,512]` 缩到 `[T,8,512]`（8× 少的访存），
     #   并且省掉调用方末尾那次 `output[:, h0:h1, :].contiguous()` 的独立拷贝节点。
