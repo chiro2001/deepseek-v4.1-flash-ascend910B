@@ -113,6 +113,7 @@ def _v41_dcp_merge_attention(
     token_mask: torch.Tensor | None = None,
     diag_seq_lens: torch.Tensor | None = None,
     diag_cmp_lens: torch.Tensor | None = None,
+    phantom_denom: torch.Tensor | None = None,
 ) -> torch.Tensor:
     """把各 rank 的局部 partial attention 用 LSE 加权合并成全局结果。
 
@@ -177,7 +178,10 @@ def _v41_dcp_merge_attention(
     finite = torch.isfinite(lse) & torch.isfinite(lse_max)
     # 全 rank 都无有效键（例如全 -inf）时退化为 0，避免 NaN 污染后续层。
     weights = torch.where(finite, torch.exp((lse - lse_max).clamp(min=-80.0)), torch.zeros_like(lse))
-    if token_mask is not None:
+    # ★ 幻影 ori 生效时**不能**再用 token_mask：此时每个 rank 的 LSE 都是
+    #   真实的配分函数（`W + Z_r`，rank 0 是 `Z_ori + Z_r`），掩码会把
+    #   本该参与分母的 `W` 也抹掉，导致下面扣除时**多扣**。
+    if token_mask is not None and phantom_denom is None:
         weights = weights * token_mask.to(torch.float32)
     # =====================================================================
     # [V41-DCP-DIAG] 两个判别性开关（默认关闭，**仅诊断用**，不得进生产）。
@@ -240,6 +244,12 @@ def _v41_dcp_merge_attention(
     torch.distributed.all_reduce(scaled, group=group.device_group)
     wsum = weights.clone()
     torch.distributed.all_reduce(wsum, group=group.device_group)
+    # [V41-DCP] 精确扣除幻影 ori 的分母贡献：每个非 owner rank 多算了
+    # `W = Σ_queries min(p+1, window)`，共 `dcp-1` 份。
+    # 因为幻影键的 score 恒为 0（latent 全零）⇒ `exp(0)=1`、value 也是 0
+    # ⇒ 分子不受影响、分母恰好多出这些，所以是**精确**修正而非近似。
+    if phantom_denom is not None:
+        wsum = wsum - phantom_denom.to(wsum.dtype)
     denom = torch.where(wsum > 0, wsum, torch.ones_like(wsum))
     return (scaled / denom).to(output.dtype)
 
@@ -391,6 +401,9 @@ class DeepseekV41Metadata(AttentionMetadata):
     c2_source_cos: torch.Tensor | None = None
     c2_source_sin: torch.Tensor | None = None
     c2_metadata_group_id: int | None = None
+    # [V41-DCP] 全零 block table（所有行都指向**块 0 = vLLM 的 null block**）。
+    # 只在 DCP 开启且是 SWA 平面时填充，见 `_native_attention` 里"幻影 ori"的用法。
+    zero_block_table: torch.Tensor | None = None
 
 
 @dataclass(frozen=True)
@@ -911,12 +924,33 @@ class DeepseekV41EagerAttentionImpl:
         sinks = _v41_dcp_gather_1d(attn.attn_sink) if dcp_active else attn.attn_sink
         if dcp_active and sinks is not None and _v41_dcp_rank() != 0:
             sinks = torch.full_like(sinks, -1e30)
+        # ★★ [V41-DCP 2026-09-29] 不再用 `seqused_ori_kv=0` 抑制 ori！
+        # 内核 `GetSparseActualSeqLen()` 用 ori 长度判定**整行是否有效**，把
+        # `actOriS2Size` 设 0 会连 `actCmpS2Size` 一起清零（见 build() 里的长注释）。
+        # 改为「幻影 ori」：所有 rank 都传 **满长度**，rank>0 的 block table 指向
+        # null block（全零）。幻影键分子贡献为 0，分母多出的 `W` 在合并时精确扣除。
         _ori_seqused = seq_lens
-        if dcp_active and not _is_ori_owner:
-            # 不摘掉 ori_kv（op 层硬必填），但把可见长度设 0。
-            # 注意：这只让 `out=0/LSE=0`，**不**等于权重为 0 ⇒ 还需要下面的
-            # `token_mask` 来真正把该 rank 的贡献清零。
-            _ori_seqused = torch.zeros_like(seq_lens)
+        _ori_bt = ori_block_table
+        _phantom_ori = dcp_active and not _is_ori_owner
+        if _phantom_ori:
+            _zbt = getattr(metadata.swa, "zero_block_table", None)
+            if _zbt is None:
+                raise RuntimeError(
+                    "[V41-DCP] 幻影 ori 需要 metadata.swa.zero_block_table —— "
+                    "检查 SWA builder 是否在 DCP 开启时填充了它"
+                )
+            _ori_bt = _zbt
+        # 幻影 ori 的分母修正量：`(dcp-1) × Σ_queries min(p+1, window)`。
+        # `W` 只依赖查询位置（与 head 无关），所以广播成 `[T,1,1]`。
+        _phantom_denom = None
+        if _phantom_ori:
+            _pos = getattr(metadata.swa, "positions", None)
+            if _pos is None:
+                raise RuntimeError("[V41-DCP] 幻影 ori 需要 metadata.swa.positions")
+            _rows = int(q.shape[0])
+            _win = int(attn.window_size)
+            _wrow = torch.clamp(_pos[:_rows].to(torch.int64) + 1, max=_win).to(torch.float32)
+            _phantom_denom = (_wrow.view(-1, 1, 1)) * float(_v41_dcp_group().world_size - 1)
         output, softmax_lse = torch.ops._C_ascend.npu_sparse_flash_mla(
             q,
             ori_kv=(
@@ -924,7 +958,7 @@ class DeepseekV41EagerAttentionImpl:
             ),
             cmp_kv=source_cache,
             cmp_sparse_indices=cmp_indices,
-            ori_block_table=(ori_block_table if _is_ori_owner or _owner == "seqused0" else None),
+            ori_block_table=_ori_bt,
             cmp_block_table=cmp_block_table,
             cu_seqlens_q=query_start_loc,
             seqused_ori_kv=_ori_seqused if (_is_ori_owner or _owner == "seqused0") else None,
@@ -1014,6 +1048,7 @@ class DeepseekV41EagerAttentionImpl:
                 token_mask,
                 diag_seq_lens=seq_lens,
                 diag_cmp_lens=cmp_seq_lens,
+                phantom_denom=_phantom_denom,
             )
             # 归约后每个 rank 都有全部 head 的全局结果；本 rank 的 o_proj 只吃
             # 自己那 `H_local` 个 head（TP 连续切分）。
@@ -1105,6 +1140,8 @@ class DeepseekV41MetadataBuilder(AttentionMetadataBuilder[DeepseekV41Metadata]):
         self._c2_full_source_rope: tuple[torch.Tensor, torch.Tensor] | None = None
         self._device_metadata_enabled = False
         self._device_metadata_tasks: tuple[DeviceMetadataTask, ...] = ()
+        # [V41-DCP] SWA 平面的全零 block table（懒分配、地址稳定、图安全）
+        self._zero_block_table: torch.Tensor | None = None
 
     @classmethod
     def get_cudagraph_support(
@@ -1629,6 +1666,31 @@ class DeepseekV41MetadataBuilder(AttentionMetadataBuilder[DeepseekV41Metadata]):
                 c2_source_cos = self._c2_source_cos[:num_input_tokens]
                 c2_source_sin = self._c2_source_sin[:num_input_tokens]
             c2_metadata_group_id = id(self._c2_complete_mask)
+        # =====================================================================
+        # [V41-DCP 2026-09-29] ★★ 「幻影 ori」：让**每个** rank 都带上
+        # `seqused_ori_kv = seq_lens`（从而不触发内核的早退），但 rank>0 的
+        # `ori_block_table` 全部指向**块 0 = vLLM 的 null block**（`torch.zeros` 分配，
+        # 见 `model_runner_v1.py::_allocate_kv_cache_tensors`，且块 0 从不分配给请求）。
+        #
+        # 为什么必须这样做（内核源证，`sparse_flash_mla_csa_kernel.h:414-421`）：
+        #     // 行无效通过ori部分判断, ori部分如果有行无效那么ori和cmp都有
+        #     if (s1EndIdx < -(actOriS2Size - actS1Size)) { actOriS2Size=0; actCmpS2Size=0; return; }
+        # `actOriS2Size = seqused_ori_kv`。若 rank>0 传 0，则右式为 actS1Size(=L)，
+        # 几乎每个查询块都满足 ⇒ **ori 与 cmp 被一起清零**（实测：rank 1-7 的
+        # LSE 与输出为精确 0.0，run dcpcap_0929_172847）。
+        #
+        # 幻影 ori 的代价与修正（**精确**，非近似）：
+        #   · 幻影键的 latent 全 0 ⇒ score = scale·(q·0) = 0 ⇒ exp(0) = 1；
+        #     value 也是 0 ⇒ **分子贡献恰好为 0**（不污染）。
+        #   · 分母多出 W = Σ_queries min(p+1, window)，每个 rank 各一份
+        #     ⇒ 合并时减去 (dcp-1)·W 即可**精确**还原。
+        # =====================================================================
+        zero_block_table = None
+        if cache_kind == "swa" and _v41_dcp_on():
+            if self._zero_block_table is None:
+                # 懒分配（首次 build 在 warmup 期，不在 capture 区）
+                self._zero_block_table = torch.zeros_like(common.block_table_tensor)
+            zero_block_table = self._zero_block_table[:num_reqs]
         return DeepseekV41Metadata(
             block_table=common.block_table_tensor[:num_reqs],
             slot_mapping=slots,
@@ -1659,6 +1721,7 @@ class DeepseekV41MetadataBuilder(AttentionMetadataBuilder[DeepseekV41Metadata]):
             c2_source_cos=c2_source_cos,
             c2_source_sin=c2_source_sin,
             c2_metadata_group_id=c2_metadata_group_id,
+            zero_block_table=zero_block_table,
             **coordinates,
         )
 

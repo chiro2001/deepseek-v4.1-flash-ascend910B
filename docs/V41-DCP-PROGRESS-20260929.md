@@ -630,3 +630,47 @@ __aicore__ inline void SparseFlashMlaCsa<SMLAT>::GetSparseActualSeqLen()
   —— 若 attention 占层时间 ~25%，端到端约 +25%，**可能超出"接近不变"的目标**，
   需实测后再决定取舍。
 * ★ 这是**硬件/内核层面的约束**，不是我的实现缺陷；但它是本目标能否完成的关键。
+
+---
+
+## 10. 路线 A 实现：「幻影 ori」（零额外算力，精确修正）【已实现，待实测】
+
+### 10.1 前提已验证【实测】
+
+* `ori_kv` 是 op 层硬必填 ⇒ 不能摘掉；`ori_win_left` 硬绑 127 ⇒ 不能收空窗口；
+* 但 **null block 确实是全零**：`model_runner_v1.py::_allocate_kv_cache_tensors`
+  用 `torch.zeros(..., dtype=torch.uint8)` 分配 KV 反存，而块 0 是 vLLM 的
+  `null_block`（`block_pool.py:190`，从不分配给请求）⇒ 内容保持全零。
+
+### 10.2 做法
+
+所有 rank 都传 **满长度** 的 `seqused_ori_kv`（= `seq_lens`），从而**不触发**
+内核的早退门；但 rank>0 的 `ori_block_table` 全部指向**块 0**（即 null block）。
+
+幻影 ori 的数学代价（**精确**，非近似）：
+* 幻影键的 latent 全零 ⇒ `score = scale·(q·0) = 0` ⇒ `exp(0) = 1`；
+  value 也是 0 ⇒ **分子贡献恰好为 0**，不污染；
+* 分母多出 `W = Σ_queries min(p+1, window)`，每个非 owner rank 各一份
+  ⇒ 合并时减去 `(dcp−1)·W` 即可精确还原。
+
+代码落点：
+* `DeepseekV41Metadata.zero_block_table`（builder 在 DCP 开启且是 SWA 平面时懒分配，
+  地址稳定 ⇒ 图安全）；
+* `_native_attention`：`_phantom_ori` 判定 + 用零表替换 `ori_block_table`；
+* `_v41_dcp_merge_attention(..., phantom_denom=...)`：`wsum -= (dcp−1)·W`。
+
+### 10.3 与 `token_mask` 的关系（必须一致，否则**多扣**）
+
+幻影 ori 生效后，**每个** rank 的 LSE 都是真实的配分函数（`W + Z_r`；rank 0 是
+`Z_ori + Z_r`），所以早先为"空 rank 报有限 0"加的 `token_mask` **不再需要**；
+若仍启用，它会把本该参与分母的 `W` 抹掉，随后再扣 `(dcp−1)·W` 就**多扣**。
+⇒ 代码里显式规定：`phantom_denom is not None` 时忽略 `token_mask`。
+
+### 10.4 代价对比
+
+| | 额外算力 | 语义 | 前提 |
+|---|---|---|---|
+| **路线 A（已实现）** | **零** | 精确（分子不受污染，分母精确扣除） | null block 全零（已验证） |
+| 路线 B | attention ~2×（或 +20% 若第二次只算 128 键窗口） | 精确 | 第二次调用能拿到纯 ori |
+
+⇒ 若路线 A 实测通过，目标②与目标③**同时满足**（无额外算力）。
