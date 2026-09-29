@@ -484,3 +484,63 @@ cmp 平面已排除的嫌疑（都有实测结论）：
 | `docs/DSA-DCP-FEASIBILITY-20260929.md` | 可行性调研：V3.2(SFA) 与 V4.1(DSA) 的代码级分界线是 `compress_ratios` |
 | `docs/DCP-OPERATOR-INVENTORY-20260929.md` | 算子级清单：SFA 的全局 top-k 靠 **indexer cache 物理复制**，不是分布式 top-k |
 | `docs/SFA-DCP-PORTING-MANUAL-20260929.md` | 照抄手册：双视图 metadata、地址公式、LSE 合并、与 V4.1 的差距清单 |
+
+---
+
+## 8. ★★ 第十轮定位：合并已被排除，问题在**单个 rank 自己的 cmp 读取**（【实测】）
+
+### 8.1 判别实验：`V41_DCP_MERGE_RANK0_ONLY=1`
+
+新增一个诊断开关：把 rank≠0 的合并权重强制清零 ⇒ 输出退化成
+**「仅 rank 0 的 partial（ori ∪ 它自己的 cmp 分片）」**。
+同一 prompt（head 位置真实文本长针）：
+
+| 配置 | L=126 | L=200 | L=400 |
+|---|---|---|---|
+| 完整合并（8 rank） | ❌ `PLUM-BLOSS。` | ❌ | ❌ `PLUM)` |
+| **仅 rank 0** | ❌ `PLUM-BLOSS-**…` | ❌ | ❌ `PLUM)` |
+
+**两边都错、且输出不同（开关确实生效）** ⇒ **问题不在跨 rank 合并**，
+而在 **rank 0 自己那份 partial 的读取**。这一条把嫌疑从"合并"整体移走了。
+
+### 8.2 关键观察：LSE 诊断显示 rank 1-7 全部报 `LSE=0.0, out=0`
+
+第一次 LSE 诊断（`V41_DCP_LSE_DIAG=1`）打印出：
+```
+rank=0 lse_mean=0.7848 lse_min=0.6782 lse_max=1.1361 wsum_pre=1024.0
+rank=1..7 lse_mean=0.0000 lse_min=0.0000 lse_max=0.0000 wsum_pre=0.0000
+```
+⇒ 当时**只有 rank 0 在贡献**，rank 1-7 的 cmp partial 是**完全空的**。
+
+⚠️ 但这一条**必须打折看**：那次诊断落在 **T=16 的 warmup** 上
+（warmup 用 dummy 输入、seq_lens 全 1，LSE 天然接近 0）。
+已把门控改成 `seq_lens.max() > 129` 且**排除 capture**，重跑核实。
+
+若真实请求上 rank 1-7 仍报 `LSE=0`，则根因是
+**rank 1-7 的 cmp 分片虽然 `cmp_len>0`、`idx_max=cmp_len-1`（索引非空），
+但算子算出来是空的** ⇒ 嫌疑落在「写侧」或「`seqused_cmp_kv` 的传递」。
+
+### 8.3 顺手修掉一个**我自己的**诊断 bug（同一个反模式第二次出现）
+
+`_v41_dcp_merge_attention` 里我直接引用了 `seq_lens`，但**它不在该函数作用域内**
+⇒ `NameError` 被我自己写的宽 `try/except Exception: _n = -1` 吞掉
+⇒ 诊断静默 0 行输出，白等一轮 12 分钟起服。
+修法：把 `seq_lens`/`cmp_seq_lens` **显式作为参数**传进去，并删掉那层兜底 except。
+> 教训（与第 ⑤ 道门同源）：**诊断代码自己也不能用兜底 except 掩盖失败**，
+> 否则得到的是"看起来没触发"而不是"报了错"。
+
+### 8.4 tail 位置数据作废（【实测】，主动作废自己的数据）
+
+`--position tail`（针在 prompt 末尾附近）在 DCP8 上 **L=59 就失败**，
+而 L=59 是**纯滑窗、完全不涉及 cmp** 的区间。输出是把红楼梦原文续写下去，
+而不是回答问题 ⇒ 这是**我的 tail 提示词构造本身让模型困惑**，
+不是 DCP 现象。**该组数据作废**，不再作为证据。
+（head 位置同一构造在 L≤120 通过，说明构造对 head 是有效的。）
+
+### 8.5 已排除清单（累计 13 项，全部有实测依据）
+LSE 形状/布局、sink 重复计、head 维未 gather、空 rank 的有限 LSE、
+可见性坐标系错配、压缩平面可见长度用全局值、全局 top-k 不足（定量证否）、
+`cmp_sparse_indices` 解释空间（kernel 源证：压缩序列位置）、
+`cmp_residual_kv` 语义（kernel 源证：CSA 里被约掉）、
+`cmp_sparse_indices` 的物理展开（同上）、**跨 rank 合并**（8.1）、
+**tail 判据**（8.4 作废）、算子参数与 tiling（static kernel bin 命中）。

@@ -111,6 +111,8 @@ def _v41_dcp_merge_attention(
     output: torch.Tensor,
     lse: torch.Tensor,
     token_mask: torch.Tensor | None = None,
+    diag_seq_lens: torch.Tensor | None = None,
+    diag_cmp_lens: torch.Tensor | None = None,
 ) -> torch.Tensor:
     """把各 rank 的局部 partial attention 用 LSE 加权合并成全局结果。
 
@@ -177,12 +179,80 @@ def _v41_dcp_merge_attention(
     weights = torch.where(finite, torch.exp((lse - lse_max).clamp(min=-80.0)), torch.zeros_like(lse))
     if token_mask is not None:
         weights = weights * token_mask.to(torch.float32)
+    # =====================================================================
+    # [V41-DCP-DIAG] 两个判别性开关（默认关闭，**仅诊断用**，不得进生产）。
+    #
+    # `V41_DCP_MERGE_RANK0_ONLY=1`：把 rank≠0 的权重强制清零
+    #   ⇒ 输出退化成"仅 rank 0 的 partial（ori ∪ cmp_0）"。
+    #   判别：若此时长上下文**变对** ⇒ 问题在 rank 1-7 的贡献（合并/cmp 分片）；
+    #         若仍错 ⇒ 问题在 rank 0 自己的注意力读取。
+    #
+    # `V41_DCP_LSE_DIAG=1`：每个 rank 打印自己上报的 LSE 统计与输出幅度。
+    #   判别：rank>0 的 LSE 若显著大于 rank 0，就会按错误权重压掉正确贡献。
+    #   `.item()` 会同步流，所以只在**非 capture** 时执行，且只打一次。
+    # =====================================================================
+    import os as _os_m
+
+    if _os_m.environ.get("V41_DCP_MERGE_RANK0_ONLY") == "1" and _v41_dcp_rank() != 0:
+        weights = torch.zeros_like(weights)
+    # ★ 必须排除 warmup：warmup 用的是 dummy 输入（seq_lens 全 1），
+    #   它的 LSE/输出本来就接近 0，会给出严重误导的读数
+    #   （实测：第一次 LSE 诊断落在 T=16 的 warmup 上，8 个 rank 里 7 个报 0）。
+    #   只对**真实长请求**打印，且每 rank 最多 4 次（覆盖 prefill + decode 前几步）。
+    if (
+        _os_m.environ.get("V41_DCP_LSE_DIAG") == "1"
+        and not _is_capturing()
+        and _lse_diag_count() < 4
+    ):
+        # ★ 用**显式传入**的张量：早先版本直接引用 `seq_lens`，
+        #   而它在 `_v41_dcp_merge_attention` 里并不在作用域内 ⇒ NameError
+        #   被下面的宽 `try/except` 吞掉 ⇒ 诊断静默不打印（0 行），
+        #   我因此白跑了一轮起服。**诊断自己不能用兜底 except 掩盖失败。**
+        _n = -1
+        if diag_seq_lens is not None and diag_seq_lens.numel():
+            _n = int(diag_seq_lens.max())
+        if _n > 129:
+            _bump_lse_diag()
+            _tm = 0 if token_mask is None else int(token_mask.sum())
+            _cl = -1
+            if diag_cmp_lens is not None and diag_cmp_lens.numel():
+                _cl = int(diag_cmp_lens.max())
+            print(
+                "[V41-LSE] rank=%d T=%d H=%d Lmax=%d cmpLmax=%d "
+                "lse_mean=%.4f lse_min=%.4f lse_max=%.4f "
+                "out_absmax=%.6f wsum=%.4f tmask_n=%d"
+                % (
+                    _v41_dcp_rank(),
+                    int(lse.shape[0]),
+                    int(lse.shape[1]),
+                    _n,
+                    _cl,
+                    float(lse.mean()),
+                    float(lse.min()),
+                    float(lse.max()),
+                    float(output.abs().max()),
+                    float(weights.sum()),
+                    _tm,
+                ),
+                flush=True,
+            )
     scaled = output.to(torch.float32) * weights
     torch.distributed.all_reduce(scaled, group=group.device_group)
     wsum = weights.clone()
     torch.distributed.all_reduce(wsum, group=group.device_group)
     denom = torch.where(wsum > 0, wsum, torch.ones_like(wsum))
     return (scaled / denom).to(output.dtype)
+
+
+_LSE_DIAG_COUNT = {"n": 0}
+
+
+def _lse_diag_count() -> int:
+    return _LSE_DIAG_COUNT["n"]
+
+
+def _bump_lse_diag() -> None:
+    _LSE_DIAG_COUNT["n"] += 1
 
 
 def _v41_dcp_gather_heads(q: torch.Tensor) -> torch.Tensor:
@@ -938,7 +1008,13 @@ class DeepseekV41EagerAttentionImpl:
                 token_mask = _mask_t.view(-1, 1, 1).to(output.dtype)
             else:
                 token_mask = None
-            output = _v41_dcp_merge_attention(output, softmax_lse, token_mask)
+            output = _v41_dcp_merge_attention(
+                output,
+                softmax_lse,
+                token_mask,
+                diag_seq_lens=seq_lens,
+                diag_cmp_lens=cmp_seq_lens,
+            )
             # 归约后每个 rank 都有全部 head 的全局结果；本 rank 的 o_proj 只吃
             # 自己那 `H_local` 个 head（TP 连续切分）。
             _rank = _v41_dcp_rank()
