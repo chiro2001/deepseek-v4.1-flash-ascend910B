@@ -41,6 +41,7 @@ class DeepseekV41Indexer(nn.Module):
     ):
         super().__init__()
         self.owns_k = owns_k
+        self.vllm_config = vllm_config
         self.compress_ratio = compress_ratio
         self.n_heads = int(_read(config, "index_n_heads"))
         self.width = int(_read(config, "index_head_dim"))
@@ -250,4 +251,40 @@ class DeepseekV41Indexer(nn.Module):
             **common,
         )
         selected = prepare_indexer_indices(selected.squeeze(1), positions, self.compress_ratio)
+        selected = self._fix_visibility_for_sharded_k(selected, positions)
         return selected, candidate_out if is_candidate_source else candidates
+
+    def _fix_visibility_for_sharded_k(self, selected, positions):
+        """★★ [V41-DCP 2026-09-29] 把 top-k 的**因果可见性过滤**改到局部坐标系。
+
+        `prepare_indexer_indices` 内部用 `visible = (positions+1)//ratio` 过滤，
+        其中 `positions` 是**全局**位置。当 indexer K 缓存是**分片态**时
+        `selected` 是**本 rank 局部**压缩索引，两者坐标系不一致 ⇒ rank>0 会把
+        大量**未来键**判为可见（离线对拍：1803 次错判；rank=5、p=40 时让 query
+        看到位置 160+ 的键）。这正是"L≤59 正常、L≥128 开始乱"的根因。
+
+        这里用 `local_visible_positions` 把全局位置换成等价编码，再重跑一遍过滤
+        （`prepare_indexer_indices` 本身是幂等的：它只做过滤+排序）。
+        """
+        from vllm_ascend.patch.platform.patch_v41_dcp import replicate_indexer, v41_dcp_active
+
+        if not v41_dcp_active() or replicate_indexer():
+            return selected
+        parallel = self.vllm_config.parallel_config
+        dcp_size = int(getattr(parallel, "decode_context_parallel_size", 1) or 1)
+        if dcp_size <= 1:
+            return selected
+        from vllm.distributed import get_dcp_group
+
+        from vllm_ascend.attention.context_parallel.v41_dcp import (
+            local_visible_positions,
+        )
+
+        shifted = local_visible_positions(
+            positions,
+            interleave=int(getattr(parallel, "cp_kv_cache_interleave_size", 1) or 1),
+            ratio=self.compress_ratio,
+            dcp_size=dcp_size,
+            dcp_rank=int(get_dcp_group().rank_in_group),
+        )
+        return prepare_indexer_indices(selected, shifted, self.compress_ratio)

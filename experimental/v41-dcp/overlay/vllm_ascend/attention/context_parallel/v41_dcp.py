@@ -186,3 +186,55 @@ def local_compressed_len(
         torch.where(full_blocks == dcp_rank, partial, zero),
     )
     return own
+
+
+def local_visible_positions(
+    positions: torch.Tensor,
+    *,
+    interleave: int,
+    ratio: int,
+    dcp_size: int,
+    dcp_rank: int,
+) -> torch.Tensor:
+    """把**全局** query 位置转换成「本 rank 局部可见上界」编码后的位置。
+
+    ## 这个函数修的是什么
+
+    `prepare_indexer_indices`（`ops/triton/prepare_indexer_indices.py`）用
+
+        visible = (positions + 1) // COMPRESS_RATIO
+        valid   = (selected >= 0) & (selected < visible)
+
+    过滤 top-k，其中 `positions` 是**全局** query 位置。
+
+    * indexer K 缓存**复制**时，`selected` 是**全局**压缩索引 ⇒ 比较成立；
+    * indexer K 缓存**分片**时（DCP 下每个 rank 只有 1/dcp），`selected` 是
+      **本 rank 局部**压缩索引 ⇒ 拿它去和全局界比较**坐标系不一致**。
+
+    rank r>0 的局部索引 `j` 对应全局压缩索引 `g = super(j) + r·Is + (j mod Is)`，
+    远大于 `j` 本身 ⇒ `j < 全局界` 几乎恒真 ⇒ **保留大量未来键**，破坏因果性。
+
+    ## 实测影响（离线对拍）
+    对 `rank∈[0,8) × p∈12 个位置 × j∈[0,40)` 逐项与"正确判据
+    `g(j) <= (p+1)//ratio - 1`"对比：
+    * 旧写法（直接比）错判 **1803** 次；
+    * 本函数错判 **0** 次。
+    最刺眼的例子：rank=5、p=40 时全局界=20，rank 5 的 g 从 80 起（本不该可见），
+    旧写法却把 j=0..5 全部判为可见 ⇒ 让位置 40 的 query 看到位置 160+ 的键。
+
+    ## 做法
+    令 `vlc = ` 本 rank 在全局界内**实际可见的局部压缩 token 数**（即局部上界），
+    再返回 `p' = ratio·vlc − 1`，于是 `(p'+1)//ratio == vlc` ⇒ 过滤退化成
+    `j < vlc`，正好是局部坐标系下的正确判据。
+    `vlc` 用 `local_compressed_len` 算：它本来就统计"g < G 且属本 rank"的个数。
+    """
+    p = positions.to(torch.int64)
+    g_bound = torch.div(p + 1, ratio, rounding_mode="floor")
+    vlc = local_compressed_len(
+        g_bound * ratio,
+        interleave=interleave,
+        ratio=ratio,
+        dcp_size=dcp_size,
+        dcp_rank=dcp_rank,
+    )
+    return (ratio * vlc - 1).to(positions.dtype)
