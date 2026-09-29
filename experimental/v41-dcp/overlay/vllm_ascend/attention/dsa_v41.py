@@ -219,23 +219,80 @@ def _v41_dcp_merge_attention(
     else:
         lse = lse.reshape(lse.shape[1], -1, 1)
 
-    gathered = torch.empty(
-        (dcp_size, *lse.shape), dtype=torch.float32, device=lse.device
-    )
-    torch.distributed.all_gather_into_tensor(gathered, lse, group=group.device_group)
-    lse_max = gathered.amax(dim=0)
-    # ★★ [V41-PERF 2026-09-29] 三步化简（合并链每省一个串行节点 ≈13 µs/层）：
+    # =====================================================================
+    # ★★★ [V41-PERF 2026-09-29 · 关键] 归一化参考点：**零通信**
     #
-    # (1) 去掉 `clamp(min=-80.0)`：`lse_max` 是**跨 rank 的最大值**、且 `lse` 自己也
-    #     在 `gathered` 里 ⇒ `lse − lse_max ≤ 0` **恒成立**，`exp` 不会上溢；
-    #     空 rank（`lse = -inf`）算出 `exp(-inf) = 0`，正是想要的权重。
-    # (2) 去掉 `isfinite(lse) & isfinite(lse_max)` + `where(...)`（5 个节点）：
-    #     唯一会出 NaN 的情形是**该元素上所有 rank 都是 -inf**（`-inf − (-inf)`），
-    #     此时正确语义就是权重 0。`nan_to_num` 一步到位（NaN→0），
-    #     `+inf` 不可能出现（差恒 ≤ 0）。
-    #     ★ 交接文档 §2.2 警告过 `isfinite` **挡不住**「kernel 写死的有限 0.0」——
-    #     那是另一回事（路线 B 之前用 `token_mask` 显式屏蔽），这里只处理 -inf。
-    weights = torch.nan_to_num(torch.exp(lse - lse_max))
+    # 旧实现先 `all_gather(lse)` 再取跨 rank 最大值当参考点。2-chip 图级 knockout
+    # 实测这次 all_gather + amax 占 **46.1 µs/层（24%）**，是三个 collective 之一。
+    #
+    # 但它**根本没有必要**：合并式
+    #     O = Σ_r exp(L_r − c)·O_r / Σ_r exp(L_r − c)
+    # 对**任意共享常数 c** 恒等（分子分母同乘 exp(−c) 约掉）。旧实现取跨 rank max
+    # 只是为了数值稳定（保证指数 ≤ 0 不上溢），不是数学需要。
+    #
+    # 路线 B 下有一个**天然共享、零通信**的参考点：**纯 ori 的 LSE**。
+    #   · 各 rank 完全相同 —— 第二次调用用的是复制态 SWA cache 的同一窗口、
+    #     同一 `sinks`、同一 `cmp_sparse_indices=-1`；
+    #   · 且 `L_r = log(A + Z_r + S_r) ≥ log A = L_ori` 恒成立
+    #     （A、Z、S 都是非负的加权和）。
+    #
+    # 于是 `w_r = exp(L_r − L_ori) = (A + Z_r + S_r)/A ≥ 1`，`_ow ≡ 1`。
+    # 代入 `_keep = 1 − 1/dcp` 后：
+    #   Σ_r w_r·O_r = dcp·O_ori + (Σ_r Z_r·O_cmp + S_0·O_sink)/A
+    #   scaled = Σ_r w_r·O_r − _keep·dcp·O_ori = O_ori + (Σ Z·O_cmp + S_0·O_sink)/A
+    #   wsum   = Σ_r w_r − _keep·dcp          = 1 + (Σ Z + S_0)/A
+    #   ⇒ 比值 = (A·O_ori + Σ Z·O_cmp + S_0·O_sink)/(A + Σ Z + S_0)  ∎ 与全局精确一致
+    #
+    # 代价与防护：`w_r ≥ 1` 不再有「≤ 1」的结构保证，理论上若 `Z_r/A > 3.4e38`
+    # 会溢出（fp32 上界）。物理上 attention score 量级有界、ori 窗口恒有键，
+    # 实际 `w_r` 是 O(1)~O(10)；仍加 `clamp(max=60)`（e^60≈1.1e26）作硬保护，
+    # 并在**非 capture** 时打印触发诊断（见下），保证"实际生效"可观测。
+    # =====================================================================
+    _use_ori_ref = ori_lse is not None and ori_out is not None
+    if _use_ori_ref:
+        _ori_lse_f32 = ori_lse.to(torch.float32)
+        _delta = lse - _ori_lse_f32
+        # 空 rank（lse=-inf）⇒ exp(-inf)=0；`-inf − (-inf)` 出 NaN ⇒ nan_to_num 归 0。
+        weights = torch.nan_to_num(torch.exp(_delta.clamp(max=60.0)))
+        # ★ 诊断（非 capture 才跑，每 rank 最多 2 次）：验证「ori_lse 各 rank 逐位相同」
+        #   这个零通信参考点的**唯一前提**。判据：8 个 rank 打印的 mean/max 应一致。
+        if not _is_capturing() and _ORI_REF_DIAG["n"] < 2 and _delta.numel():
+            _ORI_REF_DIAG["n"] += 1
+            print(
+                "[V41-DCP-PERF] rank=%d ori_ref diag: T=%d H=%d "
+                "ori_lse_mean=%.6f ori_lse_max=%.6f ori_lse_min=%.6f "
+                "delta_max=%.3f delta_min=%.3f wsum_local=%.4f"
+                % (
+                    _v41_dcp_rank(),
+                    int(ori_lse.shape[0]),
+                    int(ori_lse.shape[1]),
+                    float(ori_lse.mean()),
+                    float(ori_lse.max()),
+                    float(ori_lse.min()),
+                    float(_delta.max()),
+                    float(_delta.min()),
+                    float(weights.sum()),
+                ),
+                flush=True,
+            )
+        if not _is_capturing():
+            _d = float(_delta.max()) if _delta.numel() else 0.0
+            if _d > 60.0:
+                print(
+                    "[V41-DCP-PERF][WARN] ori 参考点饱和：max(L_r - L_ori)=%.2f > 60 "
+                    "⇒ 该 (t,h) 的权重被截断（结果仍有限，但不再精确）" % _d,
+                    flush=True,
+                )
+    else:
+        # 无 ori 参考（`skip_2nd=1` 消融臂 / 非 DCP 路径）：保留旧的跨 rank max。
+        gathered = torch.empty(
+            (dcp_size, *lse.shape), dtype=torch.float32, device=lse.device
+        )
+        torch.distributed.all_gather_into_tensor(gathered, lse, group=group.device_group)
+        lse_max = gathered.amax(dim=0)
+        # 去掉 `clamp(min=-80.0)`：`lse ≤ lse_max` 恒成立、`exp` 不上溢；
+        # 全 -inf 行出 NaN ⇒ `nan_to_num` 归 0（正确语义 = 权重 0）。
+        weights = torch.nan_to_num(torch.exp(lse - lse_max))
     # ★ 路线 B 生效时**不能**再用 token_mask：此时每个 rank 的 LSE 都是
     #   真实的配分函数（`A + Z_r`，A = e^{L_ori}），掩码会把本该参与分母的
     #   `A` 也抹掉，导致下面扣除 `(dcp−1)·A` 时**多扣**。
@@ -331,14 +388,17 @@ def _v41_dcp_merge_attention(
     _keep = 1.0 - 1.0 / dcp
     _ori_active = ori_lse is not None and ori_out is not None
     if _ori_active:
-        # 同理去掉 `clamp(min=-80.0)`：路线 B 下每个 rank 都带**真实 ori**，
-        # 第一次调用（含 cmp 键 + rank0 的真 sink）的键集 ⊇ 第二次的纯 ori 键集
-        # ⇒ `lse_max ≥ ori_lse` 恒成立，`exp` 不会上溢。
-        # ★ `nan_to_num` 与 `weights` 保持一致：`-inf − (-inf)` 会出 NaN
-        #   （该行所有 rank 都没有键，理论上不该发生，但旧实现的 `isfinite` 只挡了
-        #   `weights` 一侧、`_ow` 仍会变 NaN 并在 `wsum − _w_all` 里污染分母 —— 顺手修掉）。
-        _ow = torch.nan_to_num(torch.exp(ori_lse.to(torch.float32) - lse_max)) * _keep
-        _onum = ori_out.to(torch.float32) * _ow
+        if _use_ori_ref:
+            # ★ 共享参考点就是 `ori_lse` 本身 ⇒ `_ow ≡ exp(0)·_keep = _keep`（**常量**），
+            #   不再需要 exp/减法/nan_to_num 那一串；`_onum = ori_out·_keep`。
+            #   （归约后 `_w_all = _keep·dcp` 也是常量，但保留在 pack 里更省心：
+            #     它只占 `[T,H,1]`，对 33.6 MB 的 pack 可忽略。）
+            _ow = torch.full_like(weights, _keep)
+            _onum = ori_out.to(torch.float32) * _keep
+        else:
+            # `skip_2nd=1` 消融臂：仍用跨 rank max 作参考点（那条路径才有 lse_max）。
+            _ow = torch.nan_to_num(torch.exp(ori_lse.to(torch.float32) - lse_max)) * _keep
+            _onum = ori_out.to(torch.float32) * _ow
     else:
         _ow = torch.zeros_like(weights)
         _onum = torch.zeros_like(scaled)
@@ -393,6 +453,7 @@ def _bump_lse_diag() -> None:
 
 
 _TIME_ACC = {}
+_ORI_REF_DIAG = {"n": 0}
 
 
 def _time_mark(name: str, t0: float) -> float:
