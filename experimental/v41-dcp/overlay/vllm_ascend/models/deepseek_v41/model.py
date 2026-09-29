@@ -877,6 +877,28 @@ class DeepseekV41DecoderLayer(DeepseekV2DecoderLayer):
         x = self.input_layernorm(x)
         x = self.self_attn(positions, x, llama_4_scaling)
         hidden_states = self.hc_post(x, residual, attn_post, attn_comb)
+        # =====================================================================
+        # [V41-SUB] 层内分工探针（T 定向，默认关）。
+        # 为什么：`V41-LAYER` 显示真机 T=16 的幅度在 **layer15** 涨 12×、
+        # **layer20** 涨 2.6e5×（T=17 同层只涨到 6e4），但那只给了"层"的粒度。
+        # 这一支把层内拆成 **attention 后** 与 **MLP 后** 两段，
+        # 直接回答"是注意力在读压缩 KV 时错，还是 MoE 那一段"。
+        # =====================================================================
+        if (
+            _V41_LAYERDIAG
+            and not getattr(get_forward_context(), "capturing", False)
+            and not getattr(get_forward_context(), "in_profile_run", False)
+            and (not _V41_LAYERDIAG_T or int(positions.shape[0]) in _V41_LAYERDIAG_T)
+        ):
+            try:
+                print(
+                    "[V41-SUB] T=%d layer=%02d post_attn=%.6g"
+                    % (int(positions.shape[0]), int(self.layer_idx),
+                       float(hidden_states.detach().float().abs().max())),
+                    flush=True,
+                )
+            except Exception as _e:  # noqa: BLE001
+                print("[V41-SUB] 探针自身失败：%r" % (_e,), flush=True)
 
         residual = hidden_states
         x, ffn_post, ffn_comb, ffn_pre = self.hc_pre(
@@ -889,6 +911,22 @@ class DeepseekV41DecoderLayer(DeepseekV2DecoderLayer):
         x, x_fp32 = self.rms_norm_cast(x)
         x = self.mlp(x, input_ids=input_ids, hidden_states_fp32=x_fp32)
         hidden_states = self.hc_post(x, residual, ffn_post, ffn_comb)
+        if (
+            _V41_LAYERDIAG
+            and not getattr(get_forward_context(), "capturing", False)
+            and not getattr(get_forward_context(), "in_profile_run", False)
+            and (not _V41_LAYERDIAG_T or int(positions.shape[0]) in _V41_LAYERDIAG_T)
+        ):
+            try:
+                print(
+                    "[V41-SUB] T=%d layer=%02d post_mlp=%.6g x_pre_mlp=%.6g"
+                    % (int(positions.shape[0]), int(self.layer_idx),
+                       float(hidden_states.detach().float().abs().max()),
+                       float(x.detach().float().abs().max())),
+                    flush=True,
+                )
+            except Exception as _e:  # noqa: BLE001
+                print("[V41-SUB] 探针自身失败：%r" % (_e,), flush=True)
         return hidden_states, ffn_pre
 
 
