@@ -521,11 +521,51 @@ def _v41_dcp_merge_attention(
     else:
         _ow = torch.zeros_like(weights)
         _onum = torch.zeros_like(scaled)
+    _mdiag_pre_t = None
+    _mdiag_post_t = None
     if _fold_ori_locally:
         # 本地折叠：只把「加权分子」与「权重和」打包归约（16.8 MB，旧的一半）。
         _pack = torch.cat([scaled, weights], dim=-1)
+        # ★ [V41-MDIAG] 记录**归约前**的本地 weights 和（用于判断"其它 rank 的
+        #   贡献到底有没有进 all_reduce"）。实测现象：合并后 `wsum = Σw − dcp·keep`
+        #   是**负数**（约 −4），而 WDIAG 显示 7 个 rank 的 `w ≡ 1`、rank0 的
+        #   `w` 均值 2.86 ⇒ 若归约正常应得 `Σw ≈ 9.86`、`wsum ≈ +2.86`。
+        #   两种可能：(a) 其它 rank 没进归约（Σw ≈ w_0）；(b) 减多了。
+        #   这两条诊断能一次分开。
+        # ★ 绝不能在这里做 host 同步：本函数位于 **ACL graph capture 区**内，
+        #   `float(device_tensor)` / `.sum()` 会触发
+        #   `Not_Supported(EE1016): stream is captured`，8 个 worker 全挂
+        #   （2026-09-29 踩过两次）。所以只做**纯张量**运算，取值留给下面
+        #   已经有 `not _is_capturing()` 门的 MDIAG 块。
+        _mdiag_here = _DCP_MDIAG_ON and not _is_capturing()
+        if _mdiag_here:
+            _mdiag_pre_t = weights.to(torch.float32).sum()
+        # =================================================================
+        # ★★★ [V41-FIX 2026-09-30] **HCCL 的 all_reduce 要求 16 字节对齐**
+        #
+        # `cat([scaled(D=512), weights(1)], dim=-1)` 的最后一维是 **513**
+        # ⇒ `513 × 4 B = 2052 B`，**不是 16 的倍数**（2052 = 16×128 + 4）。
+        # 实测后果（MDIAG，真机 T=16）：
+        #     `w_local_sum = 2924.75`（归约前，正常）
+        #     `w_postreduce_sum = nan`（归约后；另一条是 `0`）
+        # ⇒ all_reduce 把 buffer 弄坏了 ⇒ `wsum` 出现**负数**（实测 min≈−5.7）
+        # ⇒ `denom = wsum.clamp_min(1e-30)` 把负数压成 `1e-30`
+        # ⇒ `out = scaled/1e-30 ≈ 6.6e+30` ⇒ LM head 溢出 ⇒ **logits 全相同**
+        # ⇒ softmax 恰好均匀 ⇒ logprob 恰好 `-ln(129280)`（= 短 prompt 硬故障）。
+        #
+        # 这也解释了"为什么所有历史版本都失败"：旧的 `2D+2 = 1026` 同样不是
+        # 4 的倍数（1026×4 = 4104 = 16×256 + 8），只是坏法不同。
+        #
+        # 修法：把包 **pad 到 4 的倍数**（fp32 下 4 个元素 = 16 字节），
+        # 归约后切掉 padding。padding 位置恒为 0，不影响任何被读取的分量。
+        # =================================================================
+        _pad_to = (-_pack.shape[-1]) % 4
+        if _pad_to:
+            _pack = torch.nn.functional.pad(_pack, (0, _pad_to))
         torch.distributed.all_reduce(_pack, group=group.device_group)
         _out_dim = scaled.shape[-1]
+        if _mdiag_here:
+            _mdiag_post_t = _pack[..., _out_dim : _out_dim + 1].to(torch.float32).sum()
         # ★ 扣除量 = `Σ_r _onum_r` / `Σ_r _ow_r`：
         #   `_onum_r = ori_out·_keep` 与 `_ow_r = _keep` **每个 rank 各一份**
         #   ⇒ `Σ_r _onum_r = dcp·_onum`、`Σ_r _ow_r = dcp·_keep = dcp−1`。
@@ -533,11 +573,12 @@ def _v41_dcp_merge_attention(
             # 归约后立刻切到本 rank 的 8 个 head ⇒ 减法只在 8 个 head 上做。
             _h0, _h1 = head_slice
             scaled = _pack[..., :_out_dim][:, _h0:_h1, :] - dcp * _onum
-            wsum = _pack[..., _out_dim:][:, _h0:_h1, :] - dcp * _keep
+            # ★ pad 之后必须**精确切 1 列**：`[..., _out_dim:]` 会带上 padding。
+            wsum = _pack[..., _out_dim : _out_dim + 1][:, _h0:_h1, :] - dcp * _keep
             head_slice = None  # 已应用，别在下面再切一次
         else:
             scaled = _pack[..., :_out_dim] - dcp * _onum
-            wsum = _pack[..., _out_dim:] - dcp * _keep
+            wsum = _pack[..., _out_dim : _out_dim + 1] - dcp * _keep
     elif perf_no_pack:
         # 消融臂：回到打包前的实现（4 次独立 all_reduce），用于量化打包收益
         _n_all = _onum.clone(); _w_all = _ow.clone()
@@ -571,9 +612,57 @@ def _v41_dcp_merge_attention(
         h0, h1 = head_slice
         scaled = scaled[:, h0:h1, :]
         wsum = wsum[:, h0:h1, :]
-    # ★ `wsum` 数学上恒正（= e^{-c}·(A + ΣZ + ΣS)）；用 `clamp_min` 代替
-    #   `where(wsum > 0, wsum, ones_like)`，省掉 `ones_like` + `gt` 两个节点。
-    denom = wsum.clamp_min(1e-30)
+    # =====================================================================
+    # [V41-MDIAG] 合并**前后幅度**诊断（`V41_DCP_MERGE_DIAG=1`，非 capture）。
+    # 用来定位"某个层的 attention 输出爆炸到 1e30"的中间步骤：
+    # 实测（`V41_CED_LAYER_SNAPSHOT_*`，真机 T=16 失败用例）hidden 在
+    # **layer02_post** 从 0.66 跳到 **1.37e30**，而通过用例（T=11）同层是 0.51。
+    # layer 2 是**第一个走 DCP 合并的层**（ratio=2）⇒ 逐段量化：
+    #   scaled 归约后幅度 / wsum / denom / 最终 out。
+    # 判据：若 `scaled_after_sub` 已 ~1e30 而 `denom` O(1) ⇒ 爆炸在分子；
+    #       若 `denom` ~0 而分子正常 ⇒ 爆炸在分母（wsum 抵消）。
+    # =====================================================================
+    if (
+        _os_m.environ.get("V41_DCP_MERGE_DIAG") == "1"
+        and not _is_capturing()
+        and _MDIAG["n"] < _MDIAG_LIMIT
+        and diag_seq_lens is not None
+        and int(diag_seq_lens.max()) > 1
+    ):
+        _MDIAG["n"] += 1
+        try:
+            _den = wsum.clamp_min(1e-30)
+            _o = (scaled / _den)
+            _big = bool((_o.abs() > 1e6).any())
+            print(
+                "[V41-MDIAG] rank=%d T=%d scaled[absmax=%.6g] wsum[min=%.6g max=%.6g mean=%.6g] "
+                "denom[min=%.6g] out[absmax=%.6g] BIG=%s dcp=%d keep=%.6g subtrahend=%.6g "
+                "w_local_sum=%.6g w_postreduce_sum=%.6g fold=%s"
+                % (
+                    _v41_dcp_rank(), int(scaled.shape[0]),
+                    float(scaled.abs().max()), float(wsum.min()), float(wsum.max()),
+                    float(wsum.mean()),
+                    float(_den.min()), float(_o.abs().max()), _big,
+                    int(dcp), float(_keep), float(dcp * _keep),
+                    float(_mdiag_pre_t) if _mdiag_pre_t is not None else -1.0,
+                    float(_mdiag_post_t) if _mdiag_post_t is not None else -1.0,
+                    str(_fold_ori_locally),
+                ),
+                flush=True,
+            )
+        except Exception as _e:  # noqa: BLE001
+            print("[V41-MDIAG] rank=%d 诊断自身失败：%r" % (_v41_dcp_rank(), _e), flush=True)
+    # ★★★ [V41-FIX 2026-09-30] **不要**用 `clamp_min(1e-30)` 当分母保护。
+    #   数学上 `wsum = e^{-c}·(A + ΣZ + ΣS) > 0` 恒成立；一旦它 **≤ 0**，
+    #   说明上游（all_reduce / 权重）已经坏了，此时：
+    #     · 原实现 `where(wsum > 0, wsum, ones_like)` ⇒ 分母取 1 ⇒ 结果错但**有限**；
+    #     · `clamp_min(1e-30)` ⇒ `scaled/1e-30 ≈ 1e+30` ⇒ LM head 溢出 ⇒
+    #       logits 全相同 ⇒ **静默变成均匀分布**（比"结果错"更难查，也更危险）。
+    #   踩过的现场：HCCL 把 `[T,H,513]` 的包弄坏（未对齐）⇒ `wsum≈−5.7` ⇒
+    #   用 clamp_min 时输出 6.6e+30，全模型爆掉。
+    #   ⇒ 恢复原语义：坏值走 `1`，让错误"可见但不放大"。
+    #   （`wsum` 恒正时两者逐位等价。）
+    denom = torch.where(wsum > 0, wsum, torch.ones_like(wsum))
     # ★ 用 `torch.div` 直接指定 `out=` 会引入别名风险，保持简单：elementwise 结果
     #   天然连续，`to(dtype)` 后调用方无需再 `.contiguous()`。
     return (scaled / denom).to(output.dtype)
@@ -594,6 +683,10 @@ _TIME_ACC = {}
 _ORI_REF_DIAG = {"n": 0}
 _WDIAG = {"n": 0}
 _WDIAG_LIMIT = 4000
+_MDIAG = {"n": 0}
+_DCP_MDIAG_ON = __import__("os").environ.get("V41_DCP_MERGE_DIAG") == "1"
+_DCP_MDIAG_STATE = {}
+_MDIAG_LIMIT = 4000
 
 
 def _time_mark(name: str, t0: float) -> float:
