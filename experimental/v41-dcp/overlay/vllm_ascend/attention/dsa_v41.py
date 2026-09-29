@@ -320,7 +320,11 @@ def _v41_dcp_merge_attention(
         _os_m.environ.get("V41_DCP_MERGE_RANK0_ONLY") == "1"
         or _perf_flags().get("rank0_only") == "1"
     )
-    if _rank0_only and _v41_dcp_rank() != 0:
+    # ★★ [V41-DIAG] `rank0_pure=1`：见下面 `_keep` 处的推导。作用是让
+    #   `scaled/wsum` 精确退化成 `O_0`（只在"所有键都在 rank 0"时是正确的），
+    #   用来区分"合并算错"与"rank0 的 partial 本身错"。
+    _rank0_pure = _perf_flags().get("rank0_pure") == "1"
+    if (_rank0_only or _rank0_pure) and _v41_dcp_rank() != 0:
         weights = torch.zeros_like(weights)
     # ★ 必须排除 warmup：warmup 用的是 dummy 输入（seq_lens 全 1），
     #   它的 LSE/输出本来就接近 0，会给出严重误导的读数
@@ -380,7 +384,7 @@ def _v41_dcp_merge_attention(
     #     —— 正确时 rank r 的权重应 ≈ `D_r/A ≥ 1`；若出现 ≈0 或 NaN 就错了。
     # =====================================================================
     if (
-        _os_m.environ.get("V41_DCP_WEIGHT_DIAG") == "1"
+        _dcp_diag_on("wdiag", "V41_DCP_WEIGHT_DIAG")
         and not _is_capturing()
         and _WDIAG["n"] < _WDIAG_LIMIT
         # ★ **必须排除 warmup**：`profile_run` 的 dummy 输入 `seq_lens` 全是 1，
@@ -388,6 +392,7 @@ def _v41_dcp_merge_attention(
         #   （第一次跑就踩了：1600 行全是 `seq=[1, 1, 1, 1]`）。
         and diag_seq_lens is not None
         and int(diag_seq_lens.max()) > 1
+        and _dcp_diag_t_ok(int(diag_seq_lens.max()))
     ):
         _WDIAG["n"] += 1
         _lr = _v41_dcp_rank()
@@ -473,6 +478,22 @@ def _v41_dcp_merge_attention(
     # **79% 是合并链的串行关键路径**（不是带宽、不是算力）；每砍掉 1 个串行
     # 节点 ≈ 13 µs/层 ≈ 0.5 ms/step（40 层）。
     _keep = 1.0 - 1.0 / dcp
+    # =====================================================================
+    # ★★ [V41-DIAG 2026-09-30] `rank0_pure=1`（文件驱动，prefill 是 eager ⇒ 生效）
+    # 判别"合并算错"还是"rank0 的 partial 本身错"。
+    #
+    # 原理：当**所有键都在 rank 0** 时（`interleave=32` 且 T≤32 ⇒ owner 恒为 0），
+    # 正确的全局注意力恰好等于 rank 0 的 partial `O_0`。此时
+    #     scaled = Σ_r w_r·O_r ，wsum = Σ_r w_r − dcp·keep
+    # 若令 `w_r = 0 (r>0)` 且 `keep = 0`，则
+    #     scaled = w_0·O_0，wsum = w_0 ⇒ 结果 = **O_0**（精确，无跨 rank 算术）
+    # ⇒ 若这样能得到正确答案 ⇒ `O_0` 没问题、错在合并算术；
+    #   若仍然错 ⇒ `O_0`（rank 0 自己的 SMLA 输出）就是错的。
+    # ★ 只在 T ≤ 32 时才是"正确"的（更长时键会落到别的 rank）⇒ 仅用于定位。
+    # =====================================================================
+    # ★ `_rank0_pure` 已在上面（与 `_rank0_only` 同处）解析；这里只改 `keep`。
+    if _rank0_pure:
+        _keep = 0.0
     _ori_active = ori_lse is not None and ori_out is not None
     # =====================================================================
     # ★★★ [V41-PERF 2026-09-29] ori 参考点路径下，**`_onum`/`_ow` 不需要参与归约**。
@@ -630,7 +651,7 @@ def _v41_dcp_merge_attention(
     #       若 `denom` ~0 而分子正常 ⇒ 爆炸在分母（wsum 抵消）。
     # =====================================================================
     if (
-        _os_m.environ.get("V41_DCP_MERGE_DIAG") == "1"
+        _dcp_diag_on("mdiag", "V41_DCP_MERGE_DIAG")
         and not _is_capturing()
         and _MDIAG["n"] < _MDIAG_LIMIT
         and diag_seq_lens is not None
@@ -692,7 +713,31 @@ _WDIAG = {"n": 0}
 _WDIAG_LIMIT = 4000
 _MDIAG = {"n": 0}
 _DCP_MDIAG_ON = __import__("os").environ.get("V41_DCP_MERGE_DIAG") == "1"
+# ★ [V41-DIAG] T 定向门：诊断只在**指定长度**上打印。理由：padding 搜索会打几百次
+#   请求，把 `_WDIAG`/`_MDIAG` 的计数上限吃光 ⇒ 真正想看的那次一条都打不出来
+#   （2026-09-30 踩过）。`V41_DCP_DIAG_T="16,17"` 就只看这两个长度。
+_DCP_DIAG_T = {
+    int(v) for v in __import__("os").environ.get("V41_DCP_DIAG_T", "").replace(" ", "").split(",")
+    if v.strip().isdigit()
+}
+
+
+def _dcp_diag_t_ok(t) -> bool:
+    """T 定向门：优先文件 `diag_t=`，其次 env；都空则恒真（保持旧行为）。"""
+    raw = _perf_flags().get("diag_t")
+    if raw:
+        s = {int(v) for v in raw.replace(" ", "").split(",") if v.strip().isdigit()}
+        return (not s) or (int(t) in s)
+    return (not _DCP_DIAG_T) or (int(t) in _DCP_DIAG_T)
+
+
+def _dcp_diag_on(key: str, env_fallback: str = "0") -> bool:
+    """运行时诊断开关（文件优先，其次 env）—— 免得为一个探针重启 20 分钟。"""
+    return _perf_flags().get(key) == "1" or __import__("os").environ.get(env_fallback, "0") == "1"
 _DCP_MDIAG_STATE = {}
+_DCP_RAWD_ON = __import__("os").environ.get("V41_DCP_RAW_DIAG") == "1"
+_DCP_RAWD = {"n": 0}
+_DCP_RAWD_LIMIT = 4000
 _MDIAG_LIMIT = 4000
 
 
@@ -1507,6 +1552,58 @@ class DeepseekV41EagerAttentionImpl:
             topk_value_mode=1,
             return_softmax_lse=dcp_active,
         )
+        # =====================================================================
+        # [V41-RAW] 第一次 SMLA 的**原始输出**诊断（T 定向）。
+        # 为什么需要：`rank0_pure` 判别实验（数学上应精确等于 rank0 的 partial）
+        # 在 T=16 上**仍然是均匀分布**（= 最终 hidden 为 0）⇒ 说明问题在
+        # **rank0 自己的注意力输出**，而不是跨 rank 合并。这里直接量它：
+        #   · `output.abs().max()` —— 若 ≈0 就是"注意力没算出来"
+        #   · `softmax_lse` 的 finite/-inf 计数
+        #   · `cmp_indices` 的 -1 个数（= 没有 cmp 键被选中）
+        #   · `cmp_seq_lens`（本 rank 的压缩行数）
+        # =====================================================================
+        if (
+            dcp_active
+            and _DCP_RAWD_ON
+            and not _is_capturing()
+            and _DCP_RAWD["n"] < _DCP_RAWD_LIMIT
+            and metadata.swa is not None
+            # ★ 用 **真实序列长度** 而不是 `num_actual_tokens`：后者是静态容量
+            #   （实测 warmup 时恒为 16）⇒ 会把 warmup 当成真实请求记进日志。
+            and seq_lens.numel() > 0
+            and int(seq_lens.max()) > 1
+            and _dcp_diag_t_ok(int(seq_lens.max()))
+        ):
+            _DCP_RAWD["n"] += 1
+            try:
+                _ol = softmax_lse.to(torch.float32) if softmax_lse is not None else None
+                _neg = -1
+                _tot = -1
+                if cmp_indices is not None:
+                    _ci = cmp_indices
+                    _neg = int((_ci < 0).sum())
+                    _tot = int(_ci.numel())
+                print(
+                    "[V41-RAW] rank=%d T=%d out[absmax=%.6g mean=%.6g] "
+                    "lse[finite=%d/%d inf=%d min=%.4f max=%.4f] cmp_idx[-1=%d/%d max=%s] "
+                    "cmp_seq=%s seq=%s"
+                    % (
+                        _v41_dcp_rank(), int(seq_lens.max()),
+                        float(output.abs().max()), float(output.abs().mean()),
+                        int(torch.isfinite(_ol).sum()) if _ol is not None else -1,
+                        int(_ol.numel()) if _ol is not None else -1,
+                        int((~torch.isfinite(_ol)).sum()) if _ol is not None else -1,
+                        float(_ol.min()) if _ol is not None else float("nan"),
+                        float(_ol.max()) if _ol is not None else float("nan"),
+                        _neg, _tot,
+                        int(cmp_indices.max()) if (cmp_indices is not None and cmp_indices.numel()) else -1,
+                        cmp_seq_lens[:4].detach().to(torch.int64).cpu().tolist() if cmp_seq_lens is not None else [],
+                        seq_lens[:4].detach().to(torch.int64).cpu().tolist(),
+                    ),
+                    flush=True,
+                )
+            except Exception as _e:  # noqa: BLE001
+                print("[V41-RAW] rank=%d 诊断自身失败：%r" % (_v41_dcp_rank(), _e), flush=True)
         if dcp_active:
             _t = _time_mark('smla_1st', _t)
             # =============================================================

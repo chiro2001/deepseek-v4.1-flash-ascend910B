@@ -21,9 +21,14 @@
 **性能拆解与优化已做完**，过程与结论见
 **`docs/V41-DCP-PERF-20260929-EVENING.md`**（本文 §5 的消融表**已作废**，原因见该文 §1）。
 
-**交付物**：整套实现已打包成可复现、自带正/负控校验的 overlay 包 ——
-GitHub Release **`v41-dcp8-overlay-e5fa11e`**，仓内打包器
-`experimental/v41-dcp/package_release.sh`；包内自带 `RELEASE.md`（用户视角）。
+**交付物**：仓内打包器 `experimental/v41-dcp/package_release.sh`（可复现构建 + 正/负控自检）
+与包内 `RELEASE.md`；⚠️ **对外发布已撤回**（见下）。
+
+> ⛔ **2026-09-30 撤回**：本页提到的 GitHub Release **已删除**（tag 也已清理，URL 404）。
+> 原因：DCP8 尚未稳定 —— 512 B 对齐修复消掉了"logits 均匀分布"的硬故障，
+> 但**服务端 `prompt_tokens=16` 仍会给出置信但错误的答案**（`8+7` → `numbersaplenty.c`），
+> 而 T=17/18 正常 ⇒ 长度相关问题仍在。
+> **恢复发布条件**：短问答与 DCP1 对齐。详见 **`docs/V41-DCP-RCA-20260930.md`**。
 
 ---
 

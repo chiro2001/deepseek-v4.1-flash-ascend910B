@@ -66,6 +66,23 @@ _CED_LAYER_SNAPSHOT_LAYERS = {
     if value.strip()
 }
 _CED_CAPTURE_DECODE = _os_ids.environ.get("V41_CED_CAPTURE_DECODE", "0") == "1"
+# ===== [V41-DIAG-CFG] 诊断开关（**必须**是模块级常量）=====================
+# ★★ 血泪：这里**不能**用文件驱动（`/tmp/v41_perf_flags`）——
+#   `DeepseekV41Model.forward` 是 **torch.compile/dynamo 的编译区**，
+#   在里面调用 `open()` / `os.stat()` 会让 dynamo 报
+#       "Attempted to call function marked as skipped"
+#   整个引擎起不来（2026-09-30 实测，白等一轮 20 分钟）。
+#   ⇒ 本文件的探针一律用 **env 常量**（模块导入时求值，dynamo 可常量折叠）；
+#     要换诊断目标就得重启。为了少重启，用 `V41_DIAG_LIMIT` 控制打印条数。
+_V41_FOLD_DIAG = _os_ids.environ.get("V41_FOLD_DIAG", "0") == "1"
+_V41_LAYERDIAG = _os_ids.environ.get("V41_LAYER_DIAG", "0") == "1"
+_V41_DIAG_T = {
+    int(v) for v in _os_ids.environ.get("V41_DCP_DIAG_T", "").replace(" ", "").split(",")
+    if v.strip().isdigit()
+}
+_V41_LAYERDIAG_T = _V41_DIAG_T
+# ==========================================================================
+
 from safetensors import safe_open
 from transformers import AutoTokenizer
 from vllm.distributed import get_pp_group, get_tensor_model_parallel_rank
@@ -1519,6 +1536,36 @@ class DeepseekV41Model(DeepseekV4Model):
                         self._ced_source_compare_remaining -= 1
                         self._ced_source_compare_count += 1
             hidden_states, pre_mix = layer(positions, hidden_states, pre_mix, None, input_ids=moe_input_ids)
+            # =================================================================
+            # [V41-LAYER] 逐层幅度探针（T 定向，默认关）。
+            # 为什么要它：真机 T=16 上 `V41-RAW` 显示 **rank0 的注意力输出正常**
+            # （absmax 1.77、lse 有限、cmp_seq=[8]），但最终 `hc_collapse` 前
+            # hidden 已经 **1.15e12**（T=17 只有 6.1e4）
+            # ⇒ 爆炸**不在注意力/合并**，必须逐层找首个发散点。
+            # 同时打印 mHC 的 `pre_mix` 行和（正常应 ≈1）与 engram 是否参与。
+            # =================================================================
+            if (
+                _V41_LAYERDIAG
+                and not getattr(get_forward_context(), "capturing", False)
+                and not getattr(get_forward_context(), "in_profile_run", False)
+                and (not _V41_LAYERDIAG_T or positions.shape[0] in _V41_LAYERDIAG_T)
+            ):
+                try:
+                    _hs = hidden_states.detach().float()
+                    _pm = pre_mix.detach().float().sum(-1)
+                    print(
+                        "[V41-LAYER] T=%d layer=%02d hs_absmax=%.6g hs_max=%.6g pm_sum[min=%.4g max=%.4g] "
+                        "engram=%s"
+                        % (
+                            int(positions.shape[0]), int(layer.layer_idx),
+                            float(_hs.abs().max()), float(_hs.max()),
+                            float(_pm.min()), float(_pm.max()),
+                            "yes" if layer.engram is not None else "no",
+                        ),
+                        flush=True,
+                    )
+                except Exception as _e:  # noqa: BLE001
+                    print("[V41-LAYER] 探针自身失败：%r" % (_e,), flush=True)
             _maybe_snapshot_ced_layer(
                 layer, positions, input_ids, hidden_states, pre_mix, "post"
             )
@@ -1539,6 +1586,45 @@ class DeepseekV41Model(DeepseekV4Model):
                     flush=True,
                 )
         assert last_layer is not None
+        # =====================================================================
+        # [V41-FOLD] 最终 `hc_collapse` 探针（T 定向）。
+        # `hidden_states` 是 `[T, hc_mult, H]`，`hc_collapse = (pre_mix[...,None]*x).sum(-2)`。
+        # 若 `pre_mix` 某行全 0 ⇒ 该行 hidden 精确为 0 ⇒ norm(0)=0 ⇒
+        # **logits 全相同** ⇒ softmax 恰好均匀 ⇒ logprob 恰好 `-ln(129280)`
+        # （这就是"均匀分布"硬故障的唯一可能位置）。
+        # 本探针打印折叠前 hidden 的逐行 absmax、pre_mix 的逐行和与**精确 0 行数**、
+        # 以及折叠后的 absmax —— 真机 T=16 上到底哪一步变 0，一次看清。
+        # =====================================================================
+        if (
+            _V41_FOLD_DIAG
+            and not getattr(get_forward_context(), "capturing", False)
+            and not getattr(get_forward_context(), "in_profile_run", False)
+            and hidden_states.shape[0] > 1
+            and (not _V41_DIAG_T or hidden_states.shape[0] in _V41_DIAG_T)
+        ):
+            try:
+                _rows = hidden_states.shape[0]
+                _pm_sum = pre_mix.detach().float().sum(-1).cpu().numpy()
+                _pm_zero = [int(i) for i, v in enumerate(_pm_sum) if abs(float(v)) < 1e-12]
+                _hs_rows = hidden_states.detach().float().abs().amax(dim=(1, 2)).cpu().numpy()
+                _hs_zero = [int(i) for i, v in enumerate(_hs_rows) if float(v) == 0.0]
+                _col = last_layer.hc_collapse(hidden_states, pre_mix)
+                _col_rows = _col.detach().float().abs().amax(-1).cpu().numpy()
+                _col_zero = [int(i) for i, v in enumerate(_col_rows) if float(v) == 0.0]
+                print(
+                    "[V41-FOLD] T=%d pre_mix_rowsum[min=%.4g max=%.4g] pre_mix_zero_rows=%s "
+                    "hs_row_absmax[min=%.4g max=%.4g] hs_zero_rows=%s "
+                    "collapsed_row_absmax[min=%.4g max=%.4g] collapsed_zero_rows=%s"
+                    % (
+                        _rows,
+                        float(_pm_sum.min()), float(_pm_sum.max()), _pm_zero[:8],
+                        float(_hs_rows.min()), float(_hs_rows.max()), _hs_zero[:8],
+                        float(_col_rows.min()), float(_col_rows.max()), _col_zero[:8],
+                    ),
+                    flush=True,
+                )
+            except Exception as _e:  # noqa: BLE001
+                print("[V41-FOLD] 探针自身失败：%r" % (_e,), flush=True)
         hidden_states = last_layer.hc_collapse(hidden_states, pre_mix)
         hidden_states = self.norm(hidden_states)
         if aux_hidden_states:

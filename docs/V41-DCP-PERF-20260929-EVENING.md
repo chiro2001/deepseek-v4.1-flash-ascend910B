@@ -124,6 +124,15 @@ DCP 关闭 / indexer 复制态时 `_dcp_visibility_positions` 原样返回 `posi
 
 ---
 
+> ⛔ **发布已撤回（2026-09-30）**：本节提到的 GitHub Release 已**删除**
+> （`v41-dcp8-overlay-e5fa11e`、`v41-dcp8-overlay-8ccbbd42`，tag 也已清理，URL 返回 404）。
+> **原因**：DCP8 尚未稳定 —— 512 B 对齐修复消掉了"logits 均匀分布"的硬故障，
+> 但服务端长度 `prompt_tokens=16` 仍会给出**置信但错误**的答案
+> （如 `8+7` 答成 `numbersaplenty.c`），T=17 与 T=18 正常 ⇒ 长度相关问题仍在。
+> **恢复发布的条件**：短问答与 DCP1 对齐（见 `docs/V41-DCP-RCA-20260930.md` §6b）。
+> 打包链路本身是好的，`experimental/v41-dcp/package_release.sh` 仍可用于本地构建与自检，
+> 只是**产物不再对外发布**。
+
 ## 5. 发布包（推荐入口）
 
 整套实现已打包成**可复现、自带校验**的 overlay 包：
