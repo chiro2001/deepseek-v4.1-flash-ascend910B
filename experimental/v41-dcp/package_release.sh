@@ -136,7 +136,11 @@ do_build() {
         tar --sort=name --owner=0 --group=0 --numeric-owner --mtime="@$mtime" \
             -C "$stage" -cf - . | gzip -9n > "$tarball"
     fi
-    sha256sum "$tarball" | awk '{print $1}' > "$tarball.sha256"
+    # ★ 写**完整行**（`<hash>  <basename>`）而不是只写哈希：
+    #   只有哈希的那种文件 `sha256sum -c` 直接用不了
+    #   （`no properly formatted checksum lines found`，2026-09-29 实测被绊）。
+    #   标准格式才能让使用者一条命令自证，而不必手抄哈希比对。
+    ( cd "$(dirname "$tarball")" && sha256sum "$(basename "$tarball")" ) > "$tarball.sha256"
 
     say "产物：$tarball  ($(du -h "$tarball" | cut -f1))"
     say "sha256：$(cat "$tarball.sha256")"
@@ -171,7 +175,8 @@ verify_impl() {   # <tarball>；0=通过，1=失败（已打印原因）
 
     if [ -f "$tb.sha256" ]; then
         local expect got
-        expect="$(cat "$tb.sha256")"
+        # 兼容两种写法：完整行（`<hash>  <name>`）或只有哈希
+        expect="$(awk 'NR==1{print $1}' "$tb.sha256")"
         got="$(sha256sum "$tb" | awk '{print $1}')"
         if [ "$got" != "$expect" ]; then
             echo "[pkg][FAIL] 归档自身 sha256 不符：期望 $expect 实得 $got" >&2
@@ -184,6 +189,13 @@ verify_impl() {   # <tarball>；0=通过，1=失败（已打印原因）
     if ! ( cd "$dest" && sha256sum -c --quiet MANIFEST.sha256 ); then
         echo "[pkg][FAIL] MANIFEST 校验失败（文件被篡改或缺失）" >&2
         return 1
+    fi
+
+    # 顺带证明"使用者拿到包后能一条命令自证归档完整性"（.sha256 是标准格式）
+    if [ -f "$tb.sha256" ] && command -v sha256sum >/dev/null 2>&1; then
+        ( cd "$(dirname "$tb")" && sha256sum -c --quiet "$(basename "$tb").sha256" ) \
+            || { echo "[pkg][FAIL] \`sha256sum -c\` 自证失败（.sha256 格式或内容不对）" >&2; return 1; }
+        say "使用者侧自证通过：sha256sum -c <包>.sha256"
     fi
 
     local n; n="$(grep -c . "$dest/MANIFEST.sha256" 2>/dev/null || true)"
