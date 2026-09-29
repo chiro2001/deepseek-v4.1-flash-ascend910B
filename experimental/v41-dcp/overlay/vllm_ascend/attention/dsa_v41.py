@@ -157,6 +157,7 @@ def _v41_dcp_merge_attention(
     ori_out: torch.Tensor | None = None,
     perf_no_pack: bool = False,
     head_slice: tuple[int, int] | None = None,
+    layer_idx: int = -1,
 ) -> torch.Tensor:
     """把各 rank 的局部 partial attention 用 LSE 加权合并成全局结果。
 
@@ -354,6 +355,7 @@ def _v41_dcp_merge_attention(
                 "out_absmax=%.6f wsum=%.4f tmask_n=%d"
                 % (
                     _v41_dcp_rank(),
+                    int(layer_idx),
                     int(lse.shape[0]),
                     int(lse.shape[1]),
                     _n,
@@ -383,8 +385,14 @@ def _v41_dcp_merge_attention(
     #   · `w = exp(lse − ori_lse)` 的 min/max/和、以及有限权重的个数
     #     —— 正确时 rank r 的权重应 ≈ `D_r/A ≥ 1`；若出现 ≈0 或 NaN 就错了。
     # =====================================================================
+    # ★ [V41-DIAG] `V41_DCP_WDIAG_LAYER=<n>` ⇒ **只打这一层**。
+    #   为什么需要：WDIAG 没层号时，连续行来自**不同层**（每请求 40 行），
+    #   无法区分"不同层天然不同"与"同层逐次不同"。锁定一层后，
+    #   连续行就是**连续请求**，可直接比对 `lse` 与 `ori` 是否稳定。
+    _wdiag_layer = int(__import__("os").environ.get("V41_DCP_WDIAG_LAYER", "-1"))
     if (
         _dcp_diag_on("wdiag", "V41_DCP_WEIGHT_DIAG")
+        and (_wdiag_layer < 0 or int(layer_idx) == _wdiag_layer)
         and not _is_capturing()
         and _WDIAG["n"] < _WDIAG_LIMIT
         # ★ **必须排除 warmup**：`profile_run` 的 dummy 输入 `seq_lens` 全是 1，
@@ -433,10 +441,11 @@ def _v41_dcp_merge_attention(
                 if diag_cmp_lens is not None else []
             )
             print(
-                "[V41-WDIAG] rank=%d T=%d lse[min=%.6f max=%.6f mean=%.6f finite=%d/%d zero=%d] "
+                "[V41-WDIAG] rank=%d layer=%d T=%d lse[min=%.6f max=%.6f mean=%.6f finite=%d/%d zero=%d] "
                 "%s %s seq=%s cmp=%s tmask=%s"
                 % (
-                    _lr, int(_lf.shape[0]), _lmin, _lmax, _lmean, _fin, _tot, _nzer,
+                    _lr, int(layer_idx), int(_lf.shape[0]), _lmin, _lmax, _lmean,
+                    _fin, _tot, _nzer,
                     _ostat, _wstat, _sl, _cl,
                     "None" if token_mask is None else "on",
                 ),
@@ -1848,6 +1857,7 @@ class DeepseekV41EagerAttentionImpl:
                 ori_out=_ori_out,
                 perf_no_pack=_pf.get('no_pack') == '1',
                 head_slice=None if _hpr > 0 else (_rank * _local_heads, (_rank + 1) * _local_heads),
+                layer_idx=int(self.role.layer_idx),
             )
             _t = _time_mark('merge_comm', _t)
             _time_dump('layer-%d' % self.role.layer_idx)
