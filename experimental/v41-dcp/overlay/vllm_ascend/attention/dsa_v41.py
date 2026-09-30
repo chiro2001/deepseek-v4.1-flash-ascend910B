@@ -389,7 +389,11 @@ def _v41_dcp_merge_attention(
     #   为什么需要：WDIAG 没层号时，连续行来自**不同层**（每请求 40 行），
     #   无法区分"不同层天然不同"与"同层逐次不同"。锁定一层后，
     #   连续行就是**连续请求**，可直接比对 `lse` 与 `ori` 是否稳定。
-    _wdiag_layer = int(__import__("os").environ.get("V41_DCP_WDIAG_LAYER", "-1"))
+    # ★ 层过滤**文件优先**（`/tmp/v41_perf_flags` 里写 `wdiag_layer=0`）⇒ 免重启扫层。
+    _wdiag_layer = int(
+        _perf_flags().get("wdiag_layer")
+        or __import__("os").environ.get("V41_DCP_WDIAG_LAYER", "-1")
+    )
     if (
         _dcp_diag_on("wdiag", "V41_DCP_WEIGHT_DIAG")
         and (_wdiag_layer < 0 or int(layer_idx) == _wdiag_layer)
@@ -451,7 +455,7 @@ def _v41_dcp_merge_attention(
                 "[V41-WDIAG] rank=%d layer=%d T=%d lse[min=%.6f max=%.6f mean=%.6f finite=%d/%d zero=%d] "
                 "%s %s seq=%s cmp=%s tmask=%s"
                 % (
-                    _lr, int(layer_idx), int(_lf.shape[0]), _lmin, _lmax, _lmean,
+                    _lr, int(layer_idx), int(_l_cpu.shape[0]), _lmin, _lmax, _lmean,
                     _fin, _tot, _nzer,
                     _ostat, _wstat, _sl, _cl,
                     "None" if token_mask is None else "on",
@@ -1474,6 +1478,8 @@ class DeepseekV41EagerAttentionImpl:
         cmp_seq_lens = None
         cmp_residual = None
         cmp_indices = None
+        _kd_lse2 = None      # ★ [V41-KDET] 必须在分支外先初始化（踩过 UnboundLocalError）
+        _kd_out2 = None
         cmp_topk = 0
         if has_compressed:
             if source_cache is None or metadata.attention is None or compressed_indices is None:
@@ -1485,6 +1491,7 @@ class DeepseekV41EagerAttentionImpl:
             if cmp_topk not in (512, 1024):
                 raise ValueError(f"SparseFlashMla only supports TopK 512 or 1024, got {cmp_topk}")
             cmp_indices = pad_sparse_indices(compressed_indices, cmp_topk)
+        # [V41-KERNDET] 已移到「第一次 SMLA 调用之后」——那里 `sinks` 已在作用域内。
             # =================================================================
             # ★★★ [V41-KVFP 2026-09-30] **KV 内容指纹**（文件驱动 + 锁定层）。
             #
@@ -1507,16 +1514,15 @@ class DeepseekV41EagerAttentionImpl:
             ):
                 try:
                     def _fp(t):
+                        # ★ 每个张量**只读一次**（单次 device 求和 + 单次标量回传）——
+                        #   这是唯一安全的模式。旧版采样 `[:4096]/[-4096:]` 恰好落在
+                        #   零区，指纹恒为 0，**无信息量**（踩过）。
                         if t is None:
                             return "None"
-                        c = t.detach().to(torch.float32).reshape(-1).cpu()
-                        # 取前 4096 与后 4096 个元素做稳定指纹（避免整块拷贝过大）
-                        h = c[:4096]
-                        tl = c[-4096:]
-                        return "n=%d sum64=%.6g f_min=%.6g f_max=%.6g l_min=%.6g l_max=%.6g" % (
-                            int(c.numel()), float(c[:65536].sum()),
-                            float(h.min()), float(h.max()), float(tl.min()), float(tl.max()),
-                        )
+                        n = int(t.numel())
+                        ssum = float(t.detach().to(torch.float32).sum())      # 单读
+                        nz = int((t.detach() != 0).sum())                    # 单读（另一个量）
+                        return "n=%d sum=%.8g nz=%d" % (n, ssum, nz)
                     _ori_kv = attn.dsa_attn.swa_cache_layer.kv_cache[0]
                     print(
                         "[V41-KVFP] rank=%d layer=%d T=%d ori{%s} cmp{%s}"
@@ -1774,6 +1780,71 @@ class DeepseekV41EagerAttentionImpl:
                 )
             except Exception as _e:  # noqa: BLE001
                 print("[V41-RAW] rank=%d 诊断自身失败：%r" % (_v41_dcp_rank(), _e), flush=True)
+        # =====================================================================
+        # ★★★★ [V41-KERNDET 2026-09-30] **算子自身确定性**判别。
+        # 在同一层内、用**完全相同的输入**再调一次 SMLA，逐位比 `lse`/`output`。
+        #   · 两次不同 ⇒ **算子自身非确定**（读未初始化 workspace / 原子累加 /
+        #     split-K 归约顺序），与 KV 内容无关（同一次 forward 内 KV 不可能变）；
+        #   · 两次相同 ⇒ 算子确定 ⇒ 只能怪**跨请求的 KV 内容**（写侧）。
+        # 已排除到这一步：indexer 键集（IDXFP 逐次相同）、head 数、归约顺序、
+        # 三处 attn 缓存、多流、图捕获、engram、第二次纯 ori 调用。
+        # 位置：必须在**第一次调用之后**（此刻 `sinks`/`cmp_indices` 都在作用域内；
+        # 放早了会 `UnboundLocalError: sinks` —— 踩过两次）。
+        # =====================================================================
+        _kd_layer = int(__import__("os").environ.get("V41_DCP_KDET_LAYER", "-1"))
+        if (
+            _perf_flags().get("kdet") == "1"
+            and (_kd_layer < 0 or int(self.role.layer_idx) == _kd_layer)
+            and not _is_capturing()
+            and int(query_start_loc.shape[0]) > 1
+            and cmp_indices is not None
+        ):
+            try:
+                _kd_out2, _kd_lse2 = torch.ops._C_ascend.npu_sparse_flash_mla(
+                    q,
+                    ori_kv=attn.dsa_attn.swa_cache_layer.kv_cache[0],
+                    cmp_kv=source_cache,
+                    cmp_sparse_indices=cmp_indices,
+                    ori_block_table=ori_block_table,
+                    cmp_block_table=cmp_block_table,
+                    cu_seqlens_q=query_start_loc,
+                    seqused_ori_kv=seq_lens,
+                    seqused_cmp_kv=cmp_seq_lens,
+                    cmp_residual_kv=cmp_residual,
+                    sinks=sinks,
+                    metadata=op_metadata,
+                    softmax_scale=attn.softmax_scale,
+                    cmp_ratio=ratio,
+                    ori_mask_mode=4,
+                    cmp_mask_mode=3 if has_compressed else 0,
+                    ori_win_left=attn.window_size - 1,
+                    ori_win_right=0,
+                    layout_q="TND",
+                    layout_kv="PA_BBND",
+                    topk_value_mode=1,
+                    return_softmax_lse=True,
+                )
+            except Exception as _e:  # noqa: BLE001
+                _kd_lse2 = None
+                print("[V41-KDET] rank=%d 第二次调用失败：%r" % (_v41_dcp_rank(), _e), flush=True)
+        if _kd_lse2 is not None:
+            # ★ 单次 .cpu() 快照后比（避免多次标量读撕裂，见 §6o）
+            _a = softmax_lse.to(torch.float32).cpu()
+            _b = _kd_lse2.to(torch.float32).cpu()
+            _same = bool(torch.equal(_a, _b))
+            _d = float((_a - _b).abs().max())
+            print(
+                "[V41-KDET] rank=%d layer=%d T=%d lse_bit_identical=%s max_abs_diff=%.6g "
+                "a_mean=%.8f b_mean=%.8f a_max=%.8f b_max=%.8f out_bit_identical=%s"
+                % (
+                    _v41_dcp_rank(), int(self.role.layer_idx), int(cmp_indices.shape[0]),
+                    _same, _d, float(_a.mean()), float(_b.mean()),
+                    float(_a.max()), float(_b.max()),
+                    bool(torch.equal(output.to(torch.float32).cpu().reshape(-1),
+                                     _kd_out2.to(torch.float32).cpu().reshape(-1))),
+                ),
+                flush=True,
+            )
         if dcp_active:
             _t = _time_mark('smla_1st', _t)
             # =============================================================
