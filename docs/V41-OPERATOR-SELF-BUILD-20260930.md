@@ -127,3 +127,66 @@ s1GCache.actCmpS2Size = isSparseCmpKv_ ?
   所有实验都在临时目录 / 挂载覆盖下进行。
 * 备份：`/tmp/arch22_bak.tar.gz`（仓库源码）、`/tmp/kbak`（vendor 内核）、
   `/tmp/kfix/base_op_kernel`（基线源码树）。
+
+---
+
+# 附录 B：四个单变量变体的实测结果（2026-09-30 21:30–21:45）
+
+## B1. 重编链路已可稳定产出（4 个变体，全部 md5 变化）
+
+| 变体 | 改动 | kernel `.o` md5 | 单卡重放结果 |
+|---|---|---|---|
+| 基线 | — | `034360db79e65ead1ba16f380b81818d` | NaN **4806** |
+| **A** | 只去掉 `thresHold` 截断（`bound = min(actCmpS2Size, 512)`） | `9f0e6906cb84fe1970a029d400757253` | 不崩，NaN **40704**（更差） |
+| **B** | 只去掉 `GetKeyGmOffset` 的 `s2IdLimit` 过滤（上限放到 `sparseBlockCount=512`） | `e913816e1457dd7a6fb9c33579fc4680` | **崩溃**（aicore exception） |
+| **C** | 只把 `CountValidCmpSparseLen` 改成与 gather 同判据 | `7d5c4d97837b8e0bd0b625b49e08a688` | **与基线完全相同**（NaN 4806/5252） |
+| **E** | `bound = 本 rank 缓存长度` + `cmpS2IdLimit = 本 rank 缓存长度`（即**完全不丢键**） | `d29b76aa9d281e4ebc0e9b6cc3ff8163` | 不崩，NaN **40704** |
+
+补丁留在 `docs/patches/dcp8-variant{A,B,C,E}.patch`。
+
+## B2. ★ 决定性否定结果：NaN **不是**丢键造成的
+
+变体 E 已经把 `cmpS2IdLimit` 设成本 rank 缓存长度（128），而我们的索引值域是 `[0,127]`
+⇒ **一个键都不会被丢弃**（这可以直接从改动推出）。但 NaN 仍是 **40704**，
+与变体 A（仍会丢键）**逐次完全相同**。
+
+⇒ **"丢键 → 未写洞 → 读残留"这条因果链被实测否定。** 我们在
+`V41-CSA-KERNEL-SOURCE-ANALYSIS-20260930.md` 里给出的 `[780,892]` vs `[800,903]`
+区间重叠只是**相关性**，不是机理。
+
+## B3. NaN 数量与「内核声明的 `actCmpS2Size`」强相关
+
+| 内核声明的 `actCmpS2Size` | NaN |
+|---|---|
+| 被 `thresHold` 压小（基线） | **4806** |
+| 放宽到本 rank 缓存长度（A / E） | **40704** |
+
+NaN **只随声明条数变化**，与是否丢键无关 ⇒ 真正的不匹配在
+**内核声明的 `actCmpS2Size`** 与 **AICPU 元数据算子按自己的公式算出的调度范围**
+之间：内核声明得越多，越是读到元数据没分配的区域 ⇒ NaN 越多。
+
+## B4. 另一个关键细节（解释了变体 C 为何"无变化"）
+
+`CountValidCmpSparseLen` 用 `base = (actualSeqQPrefixSum + s1StartIdx) * …`
+—— 只扫**该 s1 块的起始行**；而 gather 是**逐行**扫。
+所以"按行丢键"根本不会反映到这个计数里 ⇒ 变体 C 改了等于没改（实测 NaN 逐次相同）。
+
+## B5. 下轮要做的（唯一剩下的方向）
+
+**内核 + AICPU 元数据成对修改**，让两者对 `actCmpS2Size` 的含义一致。
+
+* 内核侧：变体 E 已经是对的（`localCmpLen` 作为 bound 与 limit）。
+* 元数据侧：`sparse_flash_mla_metadata/op_kernel_aicpu/sparse_flash_mla_metadata_aicpu.cpp:959`
+  目前用 `cmpS2LastToken − cmpS2FirstToken + 1`（由 s1 窗口与全局坐标推导）；
+  分片场景下必须改为**按调用方给出的本 rank 有效个数**（`seqused_cmp_kv` 语义）。
+* 注意：元数据是 **AICPU 算子**，产物是 `libcust_aicpu_kernels.so`（`build.sh` 第 21 步），
+  与主算子内核是两条不同的构建/安装路径。
+* 风险提示：变体 B 证明"把上限放大到 `sparseBlockCount`"会**越界崩溃**
+  （本 rank 缓存只有 128 行）⇒ 任何放宽都必须以"本 rank 真实长度"为上界。
+
+## B6. 现场状态（安全）
+
+* 仓库源码、构建副本、构建产物 `.o` **全部已恢复基线**（`034360db…`，与 vendor 逐字节相同）。
+* vendor 生产内核**始终未被改动**；服务 `health=200`。
+* 4 个变体的 `.o` 保留在 a3-21 的 `/tmp/kfixk_{va,vb,vc,ve}/`（用于复核）。
+* 备份：`/tmp/arch22_bak.tar.gz`、`/tmp/kbak`、`/tmp/kfix/base_op_kernel`。

@@ -1,0 +1,16 @@
+diff -u /home/chiro/tmp/kfix/base_op_kernel/arch22/sparse_flash_mla_csa_block_vector.h /home/chiro/tmp/kfix/vb/sparse_flash_mla_csa_block_vector.h
+--- /home/chiro/tmp/kfix/base_op_kernel/arch22/sparse_flash_mla_csa_block_vector.h	2026-09-11 09:19:46.000000000 +0800
++++ /home/chiro/tmp/kfix/vb/sparse_flash_mla_csa_block_vector.h	2026-09-30 21:34:02.766376539 +0800
+@@ -538,9 +538,11 @@
+ __aicore__ inline int64_t SMLAVectorBlock<SMLAT>::GetKeyGmOffset(int64_t realS2Idx, const RunInfo &runInfo,
+                                                                  int64_t s2IdLimit)
+ {
+-    if (realS2Idx < 0 || realS2Idx >= s2IdLimit) {
++    // [DCP8-FIX B] stop dropping indices via the global-coordinate s2IdLimit
++    if (realS2Idx < 0 || realS2Idx >= constInfo.sparseBlockCount * constInfo.sparseBlockSize) {
+         return -1;
+     }
++    (void)s2IdLimit;
+     int64_t realKeyGmOffset = 0;
+     if constexpr (KV_LAYOUT_T == SMLA_LAYOUT::PA_BBND) {
+         int64_t blkTableIdx = realS2Idx / constInfo.paCmpBlockSize;
