@@ -40,6 +40,33 @@ from __future__ import annotations
 
 import torch
 
+_V41_DCP_FLAG_CACHE = {"t": None, "v": {}}
+
+
+def _perf_flags_v41_dcp() -> dict:
+    """文件驱动开关（与 `dsa_v41.py` 同款机制），供 remap 的 A/B 探针使用。"""
+    import os as _o
+
+    try:
+        st = _o.stat("/tmp/v41_perf_flags")
+    except OSError:
+        return {}
+    if st.st_mtime != _V41_DCP_FLAG_CACHE["t"]:
+        out = {}
+        try:
+            with open("/tmp/v41_perf_flags") as fh:
+                for line in fh:
+                    line = line.strip()
+                    if not line or line.startswith("#") or "=" not in line:
+                        continue
+                    k, v = line.split("=", 1)
+                    out[k.strip()] = v.strip()
+        except OSError:
+            pass
+        _V41_DCP_FLAG_CACHE["t"] = st.st_mtime
+        _V41_DCP_FLAG_CACHE["v"] = out
+    return _V41_DCP_FLAG_CACHE["v"]
+
 
 def uncompressed_owner(pos: torch.Tensor, interleave: int, dcp_size: int) -> torch.Tensor:
     """Rank owning the uncompressed token at ``pos`` (0-based, global)."""
@@ -119,14 +146,47 @@ def remap_sparse_indices(
     # 复制态下所有权归**所有** rank（每个 rank 都有全量副本）⇒ 不再做 owner 过滤。
     # =====================================================================
     if replicated:
-        _storage = max(1, int(block_size) // max(1, int(ratio)))
-        _span = _storage * int(dcp_size)
-        _idx = indices.to(torch.int64)
-        _valid = _idx >= 0
-        _local = _idx.remainder(_span)
-        _remapped = torch.where(
-            _valid, _local, torch.full_like(_local, -1)
-        )
+        # ---------------------------------------------------------------------
+        # ★★★★★★ [V41-REPLMAP-AB 2026-09-30 14:40] **两套坐标系的 A/B 开关**。
+        #
+        # SMLA 的 `cmp_kv` 读的是 **long_kv 面**（`_native_attention` 里
+        # `source_cache = no_compile_layers[long_kv_source_prefix].kv_cache[0]`，
+        # 而 long_kv 面是**按序列分片**的，每 rank 只有 1/dcp）。
+        # 复制只发生在 **index_k 面**（`_cache_plane_sizes`/`reshape_cache` 只对
+        # `DeepseekV41IndexerSpec` 乘 dcp）。两个面的页内行号**不是同一套**：
+        #   · index_k（复制面）行号 = g % (dcp·B')        ← 写侧 `face_offset`
+        #   · long_kv（分片面）行号 = `compressed_local(g)` ← 写侧 `compressed_slot_mapping`
+        # ⇒ 送给 SMLA 的 `cmp_sparse_indices` **必须**是后者。
+        #
+        # 实测（run dcpcap_0930_140418，T=564 层2）：用复制面行号时
+        # `n_valid=79524 / sum=7435541 / max=281` 与 DCP1 **逐一相同**
+        # —— 因为 `dcp·B' = 512` 大于当时的最大压缩索引 281，`g % 512 == g`
+        # ⇒ 该映射是**恒等**，等于完全没重映射 ⇒ SMLA 拿全局索引去读分片
+        # long_kv ⇒ 读到别人的行。
+        #
+        # 文件开关 `replmap`：`0` = long_kv 局部坐标（**默认，应当是正解**）；
+        #                       `1` = index_k 复制面行号（旧行为，用于 A/B）。
+        # ---------------------------------------------------------------------
+        _replmap_mode = _perf_flags_v41_dcp().get("replmap", "0")
+        if _replmap_mode != "1":
+            # 正解：把全局压缩索引转到**本 rank long_kv 的局部行号**，
+            # 并只保留本 rank 真正拥有的那些（owner 过滤）。
+            _idx = indices.to(torch.int64)
+            _owner = compressed_owner(_idx, interleave, ratio, dcp_size)
+            _local = compressed_local(_idx, block_size, interleave, ratio, dcp_size)
+            _valid = (_idx >= 0) & (_owner == dcp_rank)
+            _remapped = torch.where(
+                _valid, _local, torch.full_like(_local, -1)
+            )
+        else:
+            _storage = max(1, int(block_size) // max(1, int(ratio)))
+            _span = _storage * int(dcp_size)
+            _idx = indices.to(torch.int64)
+            _valid = _idx >= 0
+            _local = _idx.remainder(_span)
+            _remapped = torch.where(
+                _valid, _local, torch.full_like(_local, -1)
+            )
         _width = indices.shape[-1]
         _order = torch.arange(_width, device=indices.device).expand_as(_remapped)
         _keys = _order + (~_valid).to(torch.int64) * _width

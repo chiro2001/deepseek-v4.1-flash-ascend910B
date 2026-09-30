@@ -1760,11 +1760,36 @@ class DeepseekV41EagerAttentionImpl:
         # cache 是每个 rank 一份全量复制，所以 8 个 rank 选出的集合逐位相同）。
         # 而本 rank 的 long_kv 只有 1/dcp，所以必须把全局坐标重映射到本 rank 的
         # 本地压缩坐标，并把不属于本 rank 的项置 -1（算子对负索引直接跳过）。
-        selected = self._remap_selection(selected, positions)
+        #
+        # ★★★★★★ [V41-DOUBLEMAP-FIX 2026-09-30 15:20] **`shared.topk_indices` 必须
+        # 存「全局坐标」，各层各自 remap 一次。**
+        #
+        # 原实现先在 index source 层 remap、再把**已经变成局部坐标**的结果写进
+        # `shared.topk_indices`；而非 index source 层（`if not self.role.is_index_source`
+        # 分支）读到它之后**又调了一次 `_remap_selection`** ⇒ **双重 remap**。
+        #
+        # 真机证据（run dcpcap_0930_150035，T=904，`idxfp=1`）：layer 2（index source）
+        # 8 个 rank 的 `n_valid` 都正常（32256/26112/24208/22656/21192/19584…），
+        # 而 **layer 7 的 rank 1–7 全部 `n_valid=0`**，只剩 rank0 有 14208 个。
+        # 机制：局部坐标的值域只有 `[0, B'·? )`（很小），把它再当成全局坐标做
+        # owner 判定 `((idx·ratio+ratio−1)//I) % dcp` ⇒ 绝大多数落回 rank0 ⇒ 只有
+        # rank0 保留。**这正是长上下文乱码（T≳900）的直接原因**：layer 3–19 的
+        # 压缩注意力全部丢失了 7/8 的键。
+        #
+        # 分片态（`V41_DCP_REPLICATE_INDEXER=0`）下 `_remap_selection` 是 no-op，
+        # 所以这个缺陷只在复制态暴露 —— 也是为什么之前一直没被发现。
+        #
+        # 修法：写入共享缓冲的是**全局坐标**；返回值才做 remap。
+        # ★ 先写**全局**坐标进共享缓冲（供非 index-source 层各自 remap），
+        #   再对本层的返回值做一次 remap。传 `shared.topk_indices` 而不是
+        #   `selected`：非复制态下 `_remap_selection` 是 no-op ⇒ 返回共享缓冲的
+        #   视图（保持改动前的零分配行为）；复制态下它返回新张量。
         shared.topk_indices[: selected.shape[0]].copy_(selected)
+        _selected_global = shared.topk_indices[: selected.shape[0]]
+        selected = self._remap_selection(_selected_global, positions)
         if self.role.is_candidate_source:
             shared.candidates[: candidates.shape[0]].copy_(candidates)
-        return shared.topk_indices[: selected.shape[0]]
+        return selected
 
     def _remap_selection(self, selected, positions):
         """把全局压缩 top-k 索引重映射到本 rank 的本地压缩坐标。"""
@@ -2100,6 +2125,25 @@ class DeepseekV41EagerAttentionImpl:
                     sinks = torch.full_like(sinks, -1e30)
                 if not _DCP_NO_ATTN_CACHE:
                     attn._v41_dcp_sinks_cache = sinks
+            # =============================================================
+            # ★★★★★★ [V41-SINKAB 2026-09-30 15:05] **sink 假设的 A/B 开关**。
+            #
+            # 现场（run dcpcap_0930_144713，T=904）：**只有 rank0 的 `lse` 出现
+            # NaN**（finite=52360/57856），另外 7 个 rank 全部正常
+            # （`lse max=10.34`、`w max≈9~44`）；rank0 的 `w` 撞上
+            # `clamp(max=60)`（`max=1.14e26`）。而 rank0 与其余 rank 的**唯一差别**
+            # 就是 sink 用真值（见上：`_v41_dcp_rank() != 0` 时才填 -1e30）。
+            # DCP1 在同样长度 900/1024/1500/2000 上 **8/8 全对**，所以这是 DCP8 特有。
+            #
+            #   · `sinkoff=1` ⇒ 所有 rank 一律 -1e30（sink 完全不参与）
+            #   · `sinkzero=1` ⇒ 所有 rank 一律 0.0
+            # 若 `sinkoff` 让 NaN 消失 ⇒ 是 sink 数值在长上下文下把 lse 顶爆。
+            # =============================================================
+            _sinkmode = _perf_flags().get("sinkmode", "")
+            if _sinkmode == "off":
+                sinks = torch.full_like(sinks, -1e30)
+            elif _sinkmode == "zero":
+                sinks = torch.zeros_like(sinks)
         else:
             sinks = attn.attn_sink if not dcp_active else None
         if dcp_active and _hpr > 0 and sinks is not None and int(sinks.shape[0]) > int(q.shape[1]):
@@ -2122,6 +2166,32 @@ class DeepseekV41EagerAttentionImpl:
         #      实测 run `dcpcap_0929_172847`：rank 1-7 的 LSE 与输出为**精确 0.0**。
         _ori_seqused = seq_lens
         _ori_bt = ori_block_table
+        # ★ [V41-NANPROBE 2026-09-30] 直接量 rank0 的 cmp 索引是否越界：
+        #   SMLA 用 `blkIdx = idx // paCmpBlockSize` 去查 `cmp_block_table`，
+        #   若 `idx` 超过本 rank 的 long_kv 行数就会读到别的块 ⇒ 分数 NaN。
+        if _perf_flags().get("nanprobe") == "1" and not _is_capturing() and dcp_active:
+            try:
+                _ci = cmp_indices
+                _p = torch.stack([
+                    _ci.max().to(torch.float32).reshape(1),
+                    (cmp_seq_lens.max() if cmp_seq_lens is not None and cmp_seq_lens.numel()
+                     else torch.tensor(-1, device=_ci.device)).to(torch.float32).reshape(1),
+                    torch.tensor(float(_ci.shape[-1]), device=_ci.device).reshape(1),
+                    torch.tensor(float(int(cmp_block_table.shape[1])), device=_ci.device).reshape(1),
+                    torch.tensor(float(int(cmp_block_table.shape[0])), device=_ci.device).reshape(1),
+                    torch.tensor(float(int(ori_block_table.shape[1])), device=_ci.device).reshape(1),
+                ]).cpu()
+                print(
+                    "[V41-NANPROBE] rank=%d layer=%d T=%d idx_max=%.0f cmp_seq_max=%.0f K=%.0f "
+                    "cmp_bt=[%.0f rows x %.0f cols] ori_bt_cols=%.0f"
+                    % (_v41_dcp_rank(), int(self.role.layer_idx),
+                       int(seq_lens.max()) if seq_lens is not None and seq_lens.numel() else -1,
+                       float(_p[0]), float(_p[1]), float(_p[2]),
+                       float(_p[4]), float(_p[3]), float(_p[5])),
+                    flush=True,
+                )
+            except Exception as _e:  # noqa: BLE001
+                print("[V41-NANPROBE] rank=%d 失败：%r" % (_v41_dcp_rank(), _e), flush=True)
         output, softmax_lse = torch.ops._C_ascend.npu_sparse_flash_mla(
             q,
             ori_kv=attn.dsa_attn.swa_cache_layer.kv_cache[0],
