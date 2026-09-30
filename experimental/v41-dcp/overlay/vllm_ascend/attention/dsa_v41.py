@@ -2489,12 +2489,21 @@ class DeepseekV41EagerAttentionImpl:
                 _Wsd = min(int(attn.window_size), _Td)
                 _pd = torch.arange(max(0, _Td - _Wsd), _Td, dtype=torch.int64)
                 _obt = ori_block_table[0].detach().to(torch.int64).cpu()
-                _ori_cols = sorted({int(_obt[int(qq) // int(_swad.shape[1])]) for qq in _pd.tolist()})
-                _ori_cols = [c for c in _ori_cols if c >= 0]
                 _cbt = cmp_block_table[0].detach().to(torch.int64).cpu()
                 _cmax = int(cmp_seq_lens[0].to(torch.int64).cpu()) if cmp_seq_lens is not None and cmp_seq_lens.numel() else 0
-                _ncmp = max(1, (max(_cmax, 1) + int(source_cache.shape[1]) - 1) // int(source_cache.shape[1]))
-                _cmp_cols = [int(_cbt[c]) for c in range(min(_ncmp, int(_cbt.numel()))) ]
+                # ★★★ [V41-DUMP-FIX 2026-09-30 19:20] **必须覆盖全部 query 行用到的页**。
+                #   原实现只取了"最后一个滑窗"（`_pd` = 末尾 window 个位置）用到的页，
+                #   但 `seqused_ori_kv = T` ⇒ query 0..T-1 各自需要 `[t-127, t]` 的窗口
+                #   ⇒ 需要 **0..ceil(T/128)-1 共 8 页**。只存 2 页会让前 776 行的
+                #   ori 块表列落到 null 页 ⇒ 单卡重放**必然出 NaN**（伪影）。
+                #   实测症状：NaN 只出现在最后 ~104 个 token（800..903），因为只有
+                #   它们的窗口完全落在已保存的两页里。
+                _bs_o = int(_swad.shape[1])
+                _bs_c = int(source_cache.shape[1])
+                _ncol_o = min((int(_Td) + _bs_o - 1) // _bs_o + 1, int(_obt.numel()))
+                _ori_cols = sorted({int(_obt[c]) for c in range(_ncol_o) if int(_obt[c]) > 0})
+                _ncmp = min((max(_cmax, 1) + _bs_c - 1) // _bs_c, int(_cbt.numel()))
+                _cmp_cols = sorted({int(_cbt[c]) for c in range(max(1, _ncmp)) if int(_cbt[c]) > 0})
                 _ori_pages = _swad[torch.tensor(_ori_cols, dtype=torch.int64)].detach().cpu() if _ori_cols else torch.zeros(0)
                 _cmp_pages = source_cache[torch.tensor(_cmp_cols, dtype=torch.int64)].detach().cpu() if _cmp_cols else torch.zeros(0)
                 _remap_o = {c: i + 1 for i, c in enumerate(_ori_cols)}
@@ -2510,6 +2519,9 @@ class DeepseekV41EagerAttentionImpl:
                     return None if x is None else x.detach().cpu()
 
                 _payload = {
+                    # ★ 原始块表前 16 列（**未重映射**）——用于事后判断 dump 是否忠实
+                    "ori_bt_raw16": _obt[:16].to(torch.int32).clone(),
+                    "cmp_bt_raw16": _cbt[:16].to(torch.int32).clone(),
                     "q": _c(q),
                     "cmp_indices": _c(cmp_indices),
                     "ori_block_table": _obt_new,
@@ -2548,10 +2560,11 @@ class DeepseekV41EagerAttentionImpl:
                 torch.save(_payload, _fn)
                 _DCP_DUMPED["done"] = True
                 print(
-                    "[V41-DUMPREPLAY] 已落盘 %s | q=%s idx=%s ori_pages=%d cmp_pages=%d "
-                    "ori_cols=%s cmp_cols=%s"
+                    "[V41-DUMPREPLAY] 已落盘 %s | q=%s idx=%s ori_pages=%d cmp_pages=%d | "
+                    "RAW ori_bt[:12]=%s cmp_bt[:12]=%s | 收集的原始页 ori=%s cmp=%s"
                     % (_fn, tuple(q.shape), tuple(cmp_indices.shape), len(_ori_cols), len(_cmp_cols),
-                       _ori_cols[:6], _cmp_cols[:6]),
+                       _obt[:12].tolist(), _cbt[:12].tolist(),
+                       _ori_cols[:8], _cmp_cols[:8]),
                     flush=True,
                 )
             except Exception as _e:  # noqa: BLE001
