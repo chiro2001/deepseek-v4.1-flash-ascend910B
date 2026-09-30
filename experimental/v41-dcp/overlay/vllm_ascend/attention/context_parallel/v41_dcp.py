@@ -44,28 +44,15 @@ _V41_DCP_FLAG_CACHE = {"t": None, "v": {}}
 
 
 def _perf_flags_v41_dcp() -> dict:
-    """文件驱动开关（与 `dsa_v41.py` 同款机制），供 remap 的 A/B 探针使用。"""
-    import os as _o
+    """复用 `dsa_v41._perf_flags` 的**缓存**（每步刷新一次）。
 
-    try:
-        st = _o.stat("/tmp/v41_perf_flags")
-    except OSError:
-        return {}
-    if st.st_mtime != _V41_DCP_FLAG_CACHE["t"]:
-        out = {}
-        try:
-            with open("/tmp/v41_perf_flags") as fh:
-                for line in fh:
-                    line = line.strip()
-                    if not line or line.startswith("#") or "=" not in line:
-                        continue
-                    k, v = line.split("=", 1)
-                    out[k.strip()] = v.strip()
-        except OSError:
-            pass
-        _V41_DCP_FLAG_CACHE["t"] = st.st_mtime
-        _V41_DCP_FLAG_CACHE["v"] = out
-    return _V41_DCP_FLAG_CACHE["v"]
+    ★ 性能：本函数在 `remap_sparse_indices` 里每层调用一次；原实现自带
+    `os.stat` ⇒ EAGER 解码下每步多出 38 次系统调用。惰性导入避免模块级
+    循环依赖（`dsa_v41` 在函数内才导入本模块）。
+    """
+    from vllm_ascend.attention.dsa_v41 import _perf_flags
+
+    return _perf_flags()
 
 
 def uncompressed_owner(pos: torch.Tensor, interleave: int, dcp_size: int) -> torch.Tensor:

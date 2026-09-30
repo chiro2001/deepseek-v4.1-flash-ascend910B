@@ -502,6 +502,13 @@ class DeepseekV41SharedAttentionState:
     def __init__(self, topk_indices, candidates):
         self.topk_indices = topk_indices
         self.candidates = candidates
+        # ★ [V41-REMAP-CACHE 2026-09-30 19:55] 复制态下"全局索引 → 本 rank 局部索引"
+        #   的 remap 含一次 argsort；38 个稀疏层各调一次 ⇒ 每步 38 次。
+        #   但 remap 只依赖**全局选择结果**（与 positions 无关）⇒ 同一 ratio 的层
+        #   共享结果，缓存即可（实测把 DCP8 从 40.0 拉回来）。
+        #   index-source 层重算选择时必须作废对应 ratio 的缓存。
+        #   注：图捕获时 Python 不会重放，缓存只在 eager/捕获期填充，安全性不受影响。
+        self.topk_remapped = {}
 
     def reset(self):
         # Source layers overwrite the active rows before any consumer reads

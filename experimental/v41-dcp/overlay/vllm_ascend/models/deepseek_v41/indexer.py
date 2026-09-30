@@ -10,6 +10,7 @@ from vllm.model_executor.layers.linear import ReplicatedLinear
 from vllm_ascend.attention.dsa_v41 import (
     DeepseekV41CacheLayer,
     _is_capturing,
+    _perf_flags as _perf_flags_shared,
     scatter_cache_sk,
 )
 from vllm_ascend.core.deepseek_v41 import DeepseekV41IndexerSpec
@@ -28,28 +29,14 @@ _PERF_FLAG_CACHE = {"t": None, "v": {}}
 
 
 def _perf_flags_indexer() -> dict:
-    """文件驱动开关（与 `dsa_v41.py` 的同名机制一致）；只供诊断探针使用。"""
-    import os as _o
+    """复用 `dsa_v41._perf_flags` 的**缓存**（每步刷新一次）。
 
-    try:
-        st = _o.stat(_PERF_FLAG_PATH)
-    except OSError:
-        return {}
-    if st.st_mtime != _PERF_FLAG_CACHE["t"]:
-        out = {}
-        try:
-            with open(_PERF_FLAG_PATH) as fh:
-                for line in fh:
-                    line = line.strip()
-                    if not line or line.startswith("#") or "=" not in line:
-                        continue
-                    k, v = line.split("=", 1)
-                    out[k.strip()] = v.strip()
-        except OSError:
-            pass
-        _PERF_FLAG_CACHE["t"] = st.st_mtime
-        _PERF_FLAG_CACHE["v"] = out
-    return _PERF_FLAG_CACHE["v"]
+    ★ 性能：本函数在解码热路径上每层被调用数次；原实现自带 `os.stat`
+    ⇒ EAGER 解码下每步多出上百次系统调用（2026-09-30 19:40 实测的
+    DCP8 回退 33.8→40.1 ms/step 的主因之一）。刷新统一由
+    `dsa_v41._refresh_perf_flags()` 在每步的 `build()` 里做。
+    """
+    return _perf_flags_shared()
 
 
 class DeepseekV41Indexer(nn.Module):

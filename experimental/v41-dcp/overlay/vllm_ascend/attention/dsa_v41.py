@@ -78,25 +78,23 @@ PERF_FLAG_PATH = "/tmp/v41_perf_flags"
 _PERF_CACHE = {"t": 0.0, "v": {}}
 
 
-def _perf_flags() -> dict:
-    """性能消融开关（**文件驱动**，便于在**不重启**的情况下逐项 A/B）。
+def _refresh_perf_flags() -> dict:
+    """**每步刷新一次**文件开关（`os.stat` 是系统调用，不能每层每调用都做）。
 
-    为什么用文件而不是 env：容器进程的 `os.environ` 起服后无法从外部修改，
-    而每次改开关重启要 12 分钟。读文件只在**每步一次**的 Python 层发生
-    （不是逐 token），开销可忽略；且不触碰 device stream ⇒ 与图捕获兼容
-    （前提：一次测量期间开关保持不变，这与"图在捕获时固化分支"一致）。
-
-    开关（都是**诊断/性能测量用，会让结果不正确**，绝不进生产）：
-      skip_2nd=1    跳过第二次「纯 ori」SMLA 调用
-      skip_merge=1  跳过整个跨 rank 合并（直接返回本 rank 的结果）
-      no_pack=1     合并用 4 次独立 all_reduce（回到打包前的实现）
-      skip_gather=1 跳过 q 的 head 维 all_gather
+    ★ 性能背景（2026-09-30 19:40）：排查发现 DCP8 的 decode 比 13:00 那版慢约 19%
+    （33.8 → 40.1 ms/step，DCP1 同期只差 1.5%）。原因是本轮为查算子缺陷加了
+    **11 处 `_perf_flags()` 调用**，而它每次都做一次 `os.stat`；EAGER 解码下
+    38 层 × 11 ≈ 420 次系统调用/步。
+    ⇒ 改成：**每个 step 的 `build()` 里刷新一次**，其余调用只读缓存。
+    免重启 A/B 的能力保留（开关变更在**下一步**生效，与图捕获的语义一致）。
     """
     import os as _o
     try:
         st = _o.stat(PERF_FLAG_PATH)
     except OSError:
-        return {}
+        _PERF_CACHE["t"] = 0.0
+        _PERF_CACHE["v"] = {}
+        return _PERF_CACHE["v"]
     if st.st_mtime != _PERF_CACHE["t"]:
         out = {}
         try:
@@ -111,6 +109,15 @@ def _perf_flags() -> dict:
             pass
         _PERF_CACHE["t"] = st.st_mtime
         _PERF_CACHE["v"] = out
+    return _PERF_CACHE["v"]
+
+
+def _perf_flags() -> dict:
+    """只读缓存版本（**不在热路径上做系统调用**）。刷新见 `_refresh_perf_flags`。
+
+    性能消融开关是**文件驱动**的（便于不重启逐项 A/B），但读文件由一个
+    `os.stat` 系统调用兜底 ⇒ 必须每步只做一次。
+    """
     return _PERF_CACHE["v"]
 
 
@@ -1776,7 +1783,28 @@ class DeepseekV41EagerAttentionImpl:
             raise RuntimeError("V4.1 shared attention state is not initialized")
         if not self.role.is_index_source:
             selected = shared.topk_indices[: hidden_states.shape[0]]
-            return self._remap_selection(selected, positions)
+            # =============================================================
+            # ★★★★★★ [V41-REMAP-CACHE 2026-09-30 19:55] **每步只 remap 一次**。
+            #
+            # `remap_sparse_indices`（复制态）含一次 **argsort**（稳定压缩有效项到行首）。
+            # 38 个稀疏层各调一次 ⇒ 每步 38 次 argsort + 若干小算子；
+            # 实测代价：非复制态 33.8 ms/step → 复制态 40.0 ms/step（+18%）。
+            #
+            # 但 remap 的**输入只有全局选择结果**（不依赖 positions）：同一 ratio
+            # 的层共享 `shared.topk_indices` ⇒ 结果完全一样，缓存即可。
+            # 一旦某个 index-source 层重算并覆盖了 `topk_indices`，必须失效缓存
+            # ⇒ 键里带 ratio，且写入侧主动剔除。
+            # =============================================================
+            _ck = int(self.role.compress_ratio)
+            _cache = getattr(shared, "topk_remapped", None)
+            if _cache is not None:
+                _cached = _cache.get(_ck)
+                if _cached is not None and int(_cached.shape[0]) >= int(selected.shape[0]):
+                    return _cached[: selected.shape[0]]
+            _remapped = self._remap_selection(selected, positions)
+            if _cache is not None:
+                _cache[_ck] = _remapped
+            return _remapped[: selected.shape[0]]
         if attn.indexer is None or metadata.indexer is None:
             raise RuntimeError("V4.1 index source is missing indexer metadata")
 
@@ -1827,6 +1855,10 @@ class DeepseekV41EagerAttentionImpl:
         shared.topk_indices[: selected.shape[0]].copy_(selected)
         _selected_global = shared.topk_indices[: selected.shape[0]]
         selected = self._remap_selection(_selected_global, positions)
+        # ★ 本次选择已变 ⇒ 写入同 ratio 的 remap 缓存（见上）
+        _cache2 = getattr(shared, "topk_remapped", None)
+        if _cache2 is not None:
+            _cache2[int(self.role.compress_ratio)] = selected
         if self.role.is_candidate_source:
             shared.candidates[: candidates.shape[0]].copy_(candidates)
         # =====================================================================
@@ -3171,6 +3203,10 @@ class DeepseekV41MetadataBuilder(AttentionMetadataBuilder[DeepseekV41Metadata]):
         if common_prefix_len:
             raise NotImplementedError("V4.1 prefix caching is not implemented")
         self._device_metadata_tasks = ()
+        # ★ [V41-FLAGREFRESH 2026-09-30 19:45] 每步刷新一次文件开关（见
+        #   `_refresh_perf_flags` 的性能说明）。放在 build() 里 ⇒ 每步
+        #   （每个 cache group 一次）做 ≤5 次 `os.stat`，而不是每层 11 次。
+        _refresh_perf_flags()
         spec = self.kv_cache_spec
         common = common_attn_metadata
         is_compressor_state = isinstance(spec, DeepseekV41CompressorStateSpec)
