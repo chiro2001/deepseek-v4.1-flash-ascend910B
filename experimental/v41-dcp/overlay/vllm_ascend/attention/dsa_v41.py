@@ -271,6 +271,45 @@ def _v41_dcp_merge_attention(
     _use_ori_ref = ori_lse is not None and ori_out is not None
     if _use_ori_ref:
         _ori_lse_f32 = ori_lse.to(torch.float32)
+        # =============================================================
+        # ★★★★★★ [V41-NANPOS 2026-09-30 16:00] **NaN 出现在哪些 token/head**。
+        #
+        # 已排除（全部实测）：块表错、索引越界、KV 内容坏
+        # （`[V41-KVDATA]` 在 850/880 上 `nonfinite=0 / zero_rows=0`）。
+        # 但 T≥880 时 `lse` 有 11.6% 元素非有限、`scaled` 为 NaN。
+        # 本探针给出**按 token 的分布**：若 NaN 集中在靠后的 token（或被某个
+        # 固定 token 区间覆盖），说明与 query 位置有关；若随机散布，说明是
+        # 算子内部累加/规约问题。同时打印 `ori_lse` / `ori_out` 的有限性，
+        # 把"NaN 从 ori 侧进来"这条也一起判掉。
+        # =============================================================
+        if (
+            _dcp_diag_on("nanpos", "V41_DCP_NANPOS")
+            and not _is_capturing()
+            and diag_seq_lens is not None
+            and int(diag_seq_lens.max()) > 1
+        ):
+            try:
+                _l = lse.to(torch.float32).cpu()
+                _ol = _ori_lse_f32.to(torch.float32).cpu()
+                _oc = ori_out.to(torch.float32).cpu()
+                _fin = torch.isfinite(_l)
+                _bad_rows = (~_fin).any(dim=tuple(range(1, _fin.ndim)))
+                _nbad = int(_bad_rows.sum())
+                _first = int(_bad_rows.to(torch.int64).argmax()) if _nbad else -1
+                _last = int(_fin.shape[0] - 1 - _bad_rows.to(torch.int64).flip(0).argmax()) if _nbad else -1
+                print(
+                    "[V41-NANPOS] rank=%d layer=%d T=%d lse_bad_rows=%d/%d first=%d last=%d "
+                    "per_row_uniq=%s | ori_lse_nonfinite=%d ori_out_nonfinite=%d ori_out_absmax=%.6g"
+                    % (_v41_dcp_rank(), int(layer_idx), int(_l.shape[0]),
+                       _nbad, int(_l.shape[0]), _first, _last,
+                       sorted(set((~_fin).sum(dim=tuple(range(1, _fin.ndim))).tolist()))[:6],
+                       int((~torch.isfinite(_ol)).sum()),
+                       int((~torch.isfinite(_oc)).sum()),
+                       float(_oc.abs().max()) if _oc.numel() else -1.0),
+                    flush=True,
+                )
+            except Exception as _e:  # noqa: BLE001
+                print("[V41-NANPOS] rank=%d 失败：%r" % (_v41_dcp_rank(), _e), flush=True)
         _delta = lse - _ori_lse_f32
         # 空 rank（lse=-inf）⇒ exp(-inf)=0；`-inf − (-inf)` 出 NaN ⇒ nan_to_num 归 0。
         weights = torch.nan_to_num(torch.exp(_delta.clamp(max=60.0)))
@@ -1934,6 +1973,105 @@ class DeepseekV41EagerAttentionImpl:
             if cmp_topk not in (512, 1024):
                 raise ValueError(f"SparseFlashMla only supports TopK 512 or 1024, got {cmp_topk}")
             cmp_indices = pad_sparse_indices(compressed_indices, cmp_topk)
+            # =============================================================
+            # ★★★★★★ [V41-BTPROBE 2026-09-30 15:45] **块表 / 索引块分解对拍**。
+            #
+            # 现场：T≤850 正确、T≥880 乱码，且 T≥880 时**多个 rank 的 `lse` 出现
+            # NaN**（`ori` 在 8 个 rank 上逐位一致且无 NaN）。NaN 只能来自 cmp
+            # ⇒ 算子按 `cmp_sparse_indices` 去读 long_kv 时读到了**非 KV 数据**。
+            # 已排除"索引超出本 rank 可见长度"（`idx_max < cmp_seq_max` 全部成立）。
+            # 剩下最可能的一条：**索引的块分解落在没有写入的块列上**。
+            #
+            # 本探针打印：
+            #   · `cmp_bt` 的形状/步长与前 4 列（看块号是否连续、有无 0/-1）
+            #   · 本 batch 的非零块数（`(bt>0).sum()`）与最大块号
+            #   · `idx_max`，以及它落到的块列 `idx_max // B'`
+            #   · `cmp_bt[0, idx_max // B']` —— 算子实际会读的那个物理块
+            # 判据：若该块号为 0 或越界 ⇒ 读空块 ⇒ 得到 NaN/垃圾。
+            # =============================================================
+            if (
+                _perf_flags().get("btprobe") == "1"
+                and not _is_capturing()
+                and cmp_indices is not None
+                and int(cmp_indices.shape[0]) > 1
+            ):
+                try:
+                    _bt = cmp_block_table
+                    _ncol = int(_bt.shape[1])
+                    _row0 = _bt[0, : min(4, _ncol)].to(torch.int64).cpu()
+                    _nz = int((_bt > 0).sum())
+                    _mx = int(_bt.max())
+                    _neg = int((_bt < 0).sum())
+                    _zero = int((_bt == 0).sum())
+                    _ci = cmp_indices.detach().to(torch.int64)
+                    _imax = int(_ci.max())
+                    # B' = storage_block_size（压缩域每块的**有效行数**）
+                    _bs = 128 // max(1, int(self.role.compress_ratio))
+                    _blkcol = _imax // _bs
+                    _phys = (
+                        int(_bt[0, min(_blkcol, _ncol - 1)].to(torch.int64).cpu())
+                        if _ncol > 0 else -1
+                    )
+                    print(
+                        "[V41-BTPROBE] rank=%d layer=%d ratio=%d T=%d idx_max=%d B'=%d "
+                        "blkcol=%d phys=%d | bt=[%d x %d] row0=%s nz=%d max=%d neg=%d zero=%d "
+                        "cmp_seq=%s"
+                        % (_v41_dcp_rank(), int(self.role.layer_idx),
+                           int(self.role.compress_ratio),
+                           int(cmp_indices.shape[0]), _imax, _bs, _blkcol, _phys,
+                           int(_bt.shape[0]), _ncol, _row0.tolist(),
+                           _nz, _mx, _neg, _zero,
+                           cmp_seq_lens[:2].detach().to(torch.int64).cpu().tolist()
+                           if cmp_seq_lens is not None else []),
+                        flush=True,
+                    )
+                except Exception as _e:  # noqa: BLE001
+                    print("[V41-BTPROBE] rank=%d 失败：%r" % (_v41_dcp_rank(), _e), flush=True)
+            # =============================================================
+            # ★★★★★★ [V41-KVDATA 2026-09-30 15:50] **直接读压缩 KV 的**内容**。
+            #
+            # BTPROBE 已证明 850/880 两个长度下块表与索引分解**完全同构**
+            # （都是单块、`idx_max = cmp_seq_max − 1 < B'`）。
+            # 那么 NaN 只可能来自**块内未被正确写入的行**。
+            # `source_cache` 就是 `reshape_cache` 建好的
+            # `[num_blocks, storage_block_size, heads, width]` 视图 ⇒ 可以直接
+            # 按 `(物理块, 压缩行)` 索引。
+            #
+            # 打印：本 rank 物理块的前 `cmp_seq_max` 行里
+            #   · non-finite 元素数（NaN/Inf）—— 未写入的显存常见是 NaN 或垃圾
+            #   · 绝对值最大值、以及"全 0 行"的个数（全 0 = 没写过）
+            # 判据：若 T≥880 时出现非有限值或大量全 0 行 ⇒ **写侧少写了行**；
+            #       若两种 T 下都干净 ⇒ 问题在算子内部的寻址/规约，不在数据。
+            # =============================================================
+            if (
+                _perf_flags().get("kvdata") == "1"
+                and not _is_capturing()
+                and cmp_seq_lens is not None
+                and cmp_block_table is not None
+                and source_cache is not None
+                and int(cmp_seq_lens.numel()) > 0
+            ):
+                try:
+                    _phys = int(cmp_block_table[0, 0].to(torch.int64).cpu())
+                    _nrow = int(cmp_seq_lens[0].to(torch.int64).cpu())
+                    _cap = int(source_cache.shape[1])
+                    _nrow = max(1, min(_nrow, _cap))
+                    _sl = source_cache[_phys, :_nrow]
+                    _f = _sl.to(torch.float32)
+                    _bad = int((~torch.isfinite(_f)).sum())
+                    _absmax = float(_f.abs().max())
+                    _zero_rows = int((_f.abs().sum(dim=tuple(range(1, _f.ndim))) == 0).sum())
+                    print(
+                        "[V41-KVDATA] rank=%d layer=%d ratio=%d T=%d phys=%d rows=%d/%d "
+                        "nonfinite=%d absmax=%.6g zero_rows=%d"
+                        % (_v41_dcp_rank(), int(self.role.layer_idx),
+                           int(self.role.compress_ratio),
+                           int(cmp_indices.shape[0]) if cmp_indices is not None else -1,
+                           _phys, _nrow, _cap, _bad, _absmax, _zero_rows),
+                        flush=True,
+                    )
+                except Exception as _e:  # noqa: BLE001
+                    print("[V41-KVDATA] rank=%d 失败：%r" % (_v41_dcp_rank(), _e), flush=True)
         # [V41-KERNDET] 已移到「第一次 SMLA 调用之后」——那里 `sinks` 已在作用域内。
             # =================================================================
             # ★★★ [V41-KVFP 2026-09-30] **KV 内容指纹**（文件驱动 + 锁定层）。
