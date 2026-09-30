@@ -1,0 +1,25 @@
+--- /home/chiro/tmp/kfix/base_op_kernel/arch22/sparse_flash_mla_csa_kernel.h	2026-09-11 09:19:46.000000000 +0800
++++ /home/chiro/tmp/kfix/v1/arch22/sparse_flash_mla_csa_kernel.h	2026-09-30 21:22:08.218697882 +0800
+@@ -423,9 +423,20 @@
+     // 对于cmp部分还有top k, tempLoopInfo.actS2Size只针对cmp。
+     // 因果可见长度是 q_idx+1，连续 indices（0..q_idx,-1）时有效条数等于该长度；
+     // 出现 sparse gap（如 0..70,88,89,90,-1）时有效条数更少，gather 与计算都按真实有效条数走。
+-    int32_t thresHold = (tempLoopInfo.cmpMaskRight + tempLoopInfo.s1EndIdx + 1) / constInfo.cmpRatio;
++    // ===== [DCP8-FIX v1] trust caller-provided sparse indices =====
++    // Original code clamps the valid count with a threshold derived from GLOBAL coordinates:
++    //     cmpMaskRight = cmpMaskS2Size - actS1Size
++    //     thresHold(t) = (cmpMaskRight + s1EndIdx + 1) / cmpRatio
++    // Its premise is that cmpMaskS2Size (= compressed len * ratio) and actS1Size (query len)
++    // live in the same coordinate system. Under KV sharding (DCP) actS1Size is still the
++    // global query length while actCmpS2Size is only THIS rank's shard length, so the premise
++    // breaks and thresHold is shifted as a whole, silently dropping legitimate keys.
++    // The caller (vLLM remap/pad) has already filtered indices for causality and shard
++    // ownership, so here we simply honour the caller's valid count.
++    // This also keeps the count consistent with the gather below, so the number of rows
++    // written equals the number of rows read (no more reading unwritten memory -> NaN).
+     int32_t bound = Min(tempLoopInfo.actCmpS2Size,
+-                        Min(constInfo.sparseBlockCount * constInfo.sparseBlockSize, Max(thresHold, 0)));
++                        constInfo.sparseBlockCount * constInfo.sparseBlockSize);
+     tempLoopInfo.actCmpS2Size = Min(bound, CountValidCmpSparseLen(bound));
+ }
+ 
