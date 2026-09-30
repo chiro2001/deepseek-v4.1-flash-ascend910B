@@ -2119,6 +2119,23 @@ class DeepseekV41EagerAttentionImpl:
                 metadata,
             )
         compressed_indices = self._select_sparse_indices(attn, hidden_states, qr, positions, cos, sin, metadata)
+        # =====================================================================
+        # ★★★★★★ [V41-SYNCATTN 2026-09-30] **SWA 写-读竞态判别开关**
+        # （文件驱动 `sync_attn=1`，只在 EAGER 下用；capture 区内 host 同步会崩）。
+        #
+        # 已实证（BLKFP 层扫描 + DCP1 对照）：
+        #   · layer 0 的 KV 值**两臂完全相同**（`sum=-57.663551`）；
+        #   · **DCP1 复用同一物理块**（blk=111 ×4），值逐请求逐位相同、文本确定；
+        #   · **DCP8 每次分配全新块**（blk=75→87→99→111），值逐请求变化、文本非确定。
+        # ⇒ 发散发生在「注意力**读** SWA 缓存」与「本层给该缓存**写** K/V」之间
+        #   （同一 forward 内）。DCP1 因块被复用、旧内容恰好等于新内容而看不出来。
+        #
+        # 判别：在注意力之前插入一次设备同步，把写与读**强行串行化**。
+        #   · 非确定消失 ⇒ 确认是该竞态，同时这也是**修复方向**；
+        #   · 仍在 ⇒ 另有原因。
+        # =====================================================================
+        if _perf_flags().get("sync_attn") == "1":
+            torch.npu.synchronize()
         attention_output = self._attention(
             attn, q, metadata, compressed_indices, q_local_heads=q_local_heads, q_hpr=q_hpr
         )
