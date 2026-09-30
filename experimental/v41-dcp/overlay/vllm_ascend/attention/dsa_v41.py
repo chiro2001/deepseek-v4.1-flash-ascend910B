@@ -2040,146 +2040,77 @@ class DeepseekV41EagerAttentionImpl:
                 raise ValueError(f"SparseFlashMla only supports TopK 512 or 1024, got {cmp_topk}")
             cmp_indices = pad_sparse_indices(compressed_indices, cmp_topk)
             # =============================================================
-            # ★★★★★★ [V41-SORTIDX 2026-09-30 17:25] **索引排序候选修复**。
+            # ★★★★★★ [V41-UNIQPAD 2026-09-30 18:50] **规避 SMLA 非确定的"均匀重复"填充**。
             #
-            # 决定性实测（run dcpcap_0930_171157，`kdet=1`，layer 20，ratio=1）：
-            #     [V41-KDET] lse_bit_identical=False max_abs_diff=0.19136
-            #     out_bit_identical=False
-            # ⇒ **SMLA 算子在同一层、用逐位相同的输入连续调用两次，结果不同**。
-            # 而同一实例的 layer 2（ratio=2）是 `lse_bit_identical=True`。
-            # 这就解释了 §12 的"输入相同、输出不同"，也解释了首请求侥幸通过、
-            # 后续请求在长 prompt 上乱码（NaN 出现在靠后的 query 行）。
+            # 单卡 + 真实 dump 的输入变异实验（`probes/replay_mutate.py`）结论：
+            #     asis            → lse_bit_identical=False, NaN≈4800
+            #     idx_full        → True, NaN=0     （重复填满 512）
+            #     idx_uni_1024    → True, NaN=0     （topk=1024 均匀重复）
+            #     idx_padonly     → False, max|Δ|=3.3e35（只加 -1 padding）
+            # ⇒ **算子在"索引槽里有 -1（稀疏）"时会读未初始化内存**；把每行的
+            #   已有键**均匀重复**填满槽位后即变确定。
             #
-            # 最可疑的结构性差异：`cmp_sparse_indices` 是**按分数排序**的
-            # （QLI 的 top-k 输出顺序），**不是按位置升序**；而分片后每个 rank 的
-            # 有效索引经过我们 remap+压缩后是一堆**稀疏、非单调**的局部行号。
-            # 若算子内部按"索引单调"做预取/分块或复用了某个中间缓冲，
-            # 非单调输入就可能引入读-写竞态。
+            # 为什么语义精确：每行的**所有**键都被重复同样次数 `k`（`k = floor(K/n)`）
+            # ⇒ softmax 的分子分母同乘 `k` ⇒ 输出**数学上不变**。
+            # 剩余 `K − k·n < n` 个槽位填 -1（实测有效项 ≥384 时算子确定，见
+            # `probes/probe_smla_determinism.py` 的 KEEP 阈值扫描：≥256 确定）。
             #
-            # 本开关把每行的有效索引**按升序排列**（`-1` 仍在尾部）。
-            # 语义上完全等价（softmax 对键的集合对称，顺序无关），
-            # 只是把输入变成单调序列。判据：
-            #   · 排序后 `kdet` 变成 bit-identical ⇒ 找到竞态触发条件；
-            #   · 且第 2 个请求变正确 ⇒ 这就是修复。
+            # 成本：每行有效项从 `n` 涨到 `k·n ≤ K`（DCP8 下 n≈57~128 ⇒ k=4~8），
+            # cmp 的 gather 计算量按比例增加。
+            #
+            # ★★ 2026-09-30 19:10 实测结论：**本变换不能消除非确定性**。
+            #   生产 T=904：`floor` 模式 max|dlse|=0.0116、`ceil` 模式 0.0146
+            #   （原样 0.245）—— 显著变小但非零；长上下文 2000/8000 仍失败。
+            #   单卡 replay 上 `idx_full`（填满 512）曾显示 bit-identical，但在
+            #   生产路径上不可复现 ⇒ 说明触发条件不止"索引里有 -1"这一项。
+            #   ⇒ **默认关闭**（`uniqpad=0`），避免白付性能代价。
             # =============================================================
-            if _perf_flags().get("sortidx") == "1" and cmp_indices.numel():
-                _ci64 = cmp_indices.to(torch.int64)
-                _sent = torch.full_like(_ci64, 1 << 30)
-                _key = torch.where(_ci64 >= 0, _ci64, _sent)
-                _srt, _ = torch.sort(_key, dim=-1, stable=True)
-                cmp_indices = torch.where(
-                    _srt >= (1 << 30), torch.full_like(_srt, -1), _srt
-                ).to(cmp_indices.dtype)
-            # =============================================================
-            # ★★★★★★ [V41-BTPROBE 2026-09-30 15:45] **块表 / 索引块分解对拍**。
-            #
-            # 现场：T≤850 正确、T≥880 乱码，且 T≥880 时**多个 rank 的 `lse` 出现
-            # NaN**（`ori` 在 8 个 rank 上逐位一致且无 NaN）。NaN 只能来自 cmp
-            # ⇒ 算子按 `cmp_sparse_indices` 去读 long_kv 时读到了**非 KV 数据**。
-            # 已排除"索引超出本 rank 可见长度"（`idx_max < cmp_seq_max` 全部成立）。
-            # 剩下最可能的一条：**索引的块分解落在没有写入的块列上**。
-            #
-            # 本探针打印：
-            #   · `cmp_bt` 的形状/步长与前 4 列（看块号是否连续、有无 0/-1）
-            #   · 本 batch 的非零块数（`(bt>0).sum()`）与最大块号
-            #   · `idx_max`，以及它落到的块列 `idx_max // B'`
-            #   · `cmp_bt[0, idx_max // B']` —— 算子实际会读的那个物理块
-            # 判据：若该块号为 0 或越界 ⇒ 读空块 ⇒ 得到 NaN/垃圾。
-            # =============================================================
+            # ★ 默认 **关闭**：实测 `ceil`/`floor` 都无法消除算子的非确定
+            #   （生产 T=900 上 max|dlse| 从 0.245 降到 0.0146 但仍非零，
+            #   且长上下文仍然失败）⇒ 不值得付 gather 放大的代价。
+            #   保留代码与开关，供算子修复后复核或将来复用。
+            _up_mode = _perf_flags().get("uniqpad", "0")
             if (
-                _perf_flags().get("btprobe") == "1"
-                and not _is_capturing()
+                _up_mode not in ("0", "")
                 and cmp_indices is not None
-                and int(cmp_indices.shape[0]) > 1
+                and int(cmp_indices.shape[-1]) >= 2
             ):
-                try:
-                    _bt = cmp_block_table
-                    _ncol = int(_bt.shape[1])
-                    _row0 = _bt[0, : min(4, _ncol)].to(torch.int64).cpu()
-                    _nz = int((_bt > 0).sum())
-                    _mx = int(_bt.max())
-                    _neg = int((_bt < 0).sum())
-                    _zero = int((_bt == 0).sum())
-                    _ci = cmp_indices.detach().to(torch.int64)
-                    _imax = int(_ci.max())
-                    # B' = storage_block_size（压缩域每块的**有效行数**）
-                    _bs = 128 // max(1, int(self.role.compress_ratio))
-                    _blkcol = _imax // _bs
-                    _phys = (
-                        int(_bt[0, min(_blkcol, _ncol - 1)].to(torch.int64).cpu())
-                        if _ncol > 0 else -1
-                    )
-                    print(
-                        "[V41-BTPROBE] rank=%d layer=%d ratio=%d T=%d idx_max=%d B'=%d "
-                        "blkcol=%d phys=%d | bt=[%d x %d] row0=%s nz=%d max=%d neg=%d zero=%d "
-                        "cmp_seq=%s"
-                        % (_v41_dcp_rank(), int(self.role.layer_idx),
-                           int(self.role.compress_ratio),
-                           int(cmp_indices.shape[0]), _imax, _bs, _blkcol, _phys,
-                           int(_bt.shape[0]), _ncol, _row0.tolist(),
-                           _nz, _mx, _neg, _zero,
-                           cmp_seq_lens[:2].detach().to(torch.int64).cpu().tolist()
-                           if cmp_seq_lens is not None else []),
-                        flush=True,
-                    )
-                except Exception as _e:  # noqa: BLE001
-                    print("[V41-BTPROBE] rank=%d 失败：%r" % (_v41_dcp_rank(), _e), flush=True)
-            # =============================================================
-            # ★★★★★★ [V41-KVDATA 2026-09-30 15:50] **直接读压缩 KV 的**内容**。
-            #
-            # BTPROBE 已证明 850/880 两个长度下块表与索引分解**完全同构**
-            # （都是单块、`idx_max = cmp_seq_max − 1 < B'`）。
-            # 那么 NaN 只可能来自**块内未被正确写入的行**。
-            # `source_cache` 就是 `reshape_cache` 建好的
-            # `[num_blocks, storage_block_size, heads, width]` 视图 ⇒ 可以直接
-            # 按 `(物理块, 压缩行)` 索引。
-            #
-            # 打印：本 rank 物理块的前 `cmp_seq_max` 行里
-            #   · non-finite 元素数（NaN/Inf）—— 未写入的显存常见是 NaN 或垃圾
-            #   · 绝对值最大值、以及"全 0 行"的个数（全 0 = 没写过）
-            # 判据：若 T≥880 时出现非有限值或大量全 0 行 ⇒ **写侧少写了行**；
-            #       若两种 T 下都干净 ⇒ 问题在算子内部的寻址/规约，不在数据。
-            # =============================================================
-            if (
-                _perf_flags().get("kvdata") == "1"
-                and not _is_capturing()
-                and cmp_seq_lens is not None
-                and cmp_block_table is not None
-                and source_cache is not None
-                and int(cmp_seq_lens.numel()) > 0
-            ):
-                try:
-                    _phys = int(cmp_block_table[0, 0].to(torch.int64).cpu())
-                    _nrow = int(cmp_seq_lens[0].to(torch.int64).cpu())
-                    _cap = int(source_cache.shape[1])
-                    _nrow = max(1, min(_nrow, _cap))
-                    # ★ [V41-KVDATA-2 16:10] **分别统计"本请求已写行"与"尾部未写行"**。
-                    # 判据：若尾部 `nonfinite > 0` 或 `zero_rows < 尾部行数`
-                    # （即有非零残留），且 T=900 第 2 次请求失败而第 1 次成功
-                    # ⇒ **回收块的尾部残留数据**就是 NaN 来源（首块是全零内存）。
-                    def _stat(lo, hi):
-                        if hi <= lo:
-                            return (0, 0.0, 0)
-                        _f = source_cache[_phys, lo:hi].to(torch.float32)
-                        _n = int((~torch.isfinite(_f)).sum())
-                        _a = float(_f.abs().max())
-                        _z = int((_f.abs().sum(dim=tuple(range(1, _f.ndim))) == 0).sum())
-                        return (_n, _a, _z)
-                    _in = _stat(0, _nrow)
-                    _out = _stat(_nrow, _cap)
-                    print(
-                        "[V41-KVDATA] rank=%d layer=%d ratio=%d T=%d phys=%d rows=%d/%d "
-                        "IN[nf=%d absmax=%.6g zero=%d] TAIL[nf=%d absmax=%.6g zero=%d rows=%d]"
-                        % (_v41_dcp_rank(), int(self.role.layer_idx),
-                           int(self.role.compress_ratio),
-                           int(cmp_indices.shape[0]) if cmp_indices is not None else -1,
-                           _phys, _nrow, _cap,
-                           _in[0], _in[1], _in[2],
-                           _out[0], _out[1], _out[2], max(0, _cap - _nrow)),
-                        flush=True,
-                    )
-                except Exception as _e:  # noqa: BLE001
-                    print("[V41-KVDATA] rank=%d 失败：%r" % (_v41_dcp_rank(), _e), flush=True)
+                # ★ 三种模式（文件开关 `uniqpad`）：
+                #   `1`/`floor` = 每个键重复 floor(K/n) 次，剩余填 -1（语义精确，
+                #                 但仍有 -1 ⇒ 实测仍可能非确定）
+                #   `ceil`      = 重复到**填满 K 个槽位**（0 个 -1）—— 实测这条能把
+                #                 确定性问题压掉，代价是最后可能有 1 个键多出现一次
+                #   `0`         = 关闭
+                _ci2 = cmp_indices.squeeze(1).to(torch.int64)          # [T, K]
+                _ok2 = _ci2 >= 0
+                _n2 = _ok2.sum(dim=1, keepdim=True).clamp_min(1)        # [T, 1]
+                if _up_mode == "ceil":
+                    _k2 = torch.div(
+                        int(cmp_topk) + _n2 - 1, _n2, rounding_mode="floor"
+                    ).clamp_min(1)
+                else:
+                    _k2 = torch.div(
+                        int(cmp_topk), _n2, rounding_mode="floor"
+                    ).clamp_min(1)
+                _j2 = torch.arange(int(cmp_topk), device=_ci2.device).view(1, -1)
+                _pos2 = torch.div(_j2, _k2, rounding_mode="floor")      # [T, K]
+                _in2 = _pos2 < _n2
+                _gi2 = torch.gather(_ci2, 1, _pos2.clamp(max=int(cmp_topk) - 1))
+                cmp_indices = torch.where(
+                    _in2, _gi2, torch.full_like(_gi2, -1)
+                ).unsqueeze(1).to(cmp_indices.dtype)
+                if _perf_flags().get("uniqpad_diag") == "1" and not _is_capturing():
+                    try:
+                        _neg = int((cmp_indices < 0).sum())
+                        print(
+                            "[V41-UNIQPAD] mode=%s K=%d rows=%d -1 总数=%d k=[%d,%d] n=[%d,%d]"
+                            % (_up_mode, int(cmp_topk), int(_ci2.shape[0]), _neg,
+                               int(_k2.min()), int(_k2.max()),
+                               int(_n2.min()), int(_n2.max())),
+                            flush=True,
+                        )
+                    except Exception:  # noqa: BLE001
+                        pass
         # [V41-KERNDET] 已移到「第一次 SMLA 调用之后」——那里 `sinks` 已在作用域内。
             # =================================================================
             # ★★★ [V41-KVFP 2026-09-30] **KV 内容指纹**（文件驱动 + 锁定层）。
