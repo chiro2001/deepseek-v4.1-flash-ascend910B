@@ -165,3 +165,81 @@ E  Invalid_Argument(EZ0026): Parameter cmp_topk of aclnnSparseFlashMlaMetadata h
 2. **索引值域跨页数** ≥3 页必现（与 `-1` 无关）。
 3. **块表填充方式**（同页 vs 异页）也能翻转结论 ⇒ 说明算子内部对**块表/索引的越界访问**
    会读到未初始化内存；`NaN 个数在两次调用间变化`是典型特征。
+
+---
+
+## 7. ★ 修正版复现包 v2（2026-09-30 20:20，**推荐使用**）
+
+```
+cos://uploads-new/share/dsv41-dcp8-smla-nondeterminism-repro-v2-20260930.tar.zst
+（88.91 MB，public-read；本地 md5 = c4ac20dc9e78c26fa0b6db832e6bc89d）
+```
+
+> ⚠️ v1 包里的 dump **不忠实**：SWA（ori）是 128 行环形窗口，块表**只有第 0 列非零**，
+> 而 v1 的落盘代码取的是第 6/7 列（=0）⇒ 存进去的是 **null 页（全 0）**。
+> v2 已修正（`bt_inspect.py` 可核对 `ori_bt[0:12]`）。
+
+v2 新增的关键证据：
+
+### 7.1 输入**全部有限** ⇒ 从有限输入产出 NaN
+
+```
+q        (904,64,512)   nonfinite=0  absmax=17.25
+sinks    (64,)          nonfinite=0  absmax=1.13
+ori_pages(1,128,1,512)  nonfinite=0  absmax=4.91
+cmp_pages(1,128,1,512)  nonfinite=0  absmax=4.13
+```
+（`dump_finite.py`）—— 这条排除了"NaN 是输入带进来的"。
+
+### 7.2 非确定是**结构性**的，与索引数值无关
+
+在真实 dump 上只改索引数值（保留每行有效个数与 `-1` 位置）：
+
+| 变体 | `bit_identical` | NaN |
+|---|---|---|
+| asis | False | 4806 |
+| shuffle（打乱） | False | 5388 |
+| prefix（连续 0..n-1） | False | 5376 |
+| rand（随机不重复） | False | 5376 |
+
+⇒ 触发取决于**形状/块表/位置**，不是具体索引值。
+
+### 7.3 NaN 的精确分布（10 次调用）
+
+```
+总是 NaN 的元素 = 4805（78 行顽固）
+间歇 NaN        = 583
+从不 NaN        = 53051
+有限值处 第2次 vs 第3次 max|Δ| = 1.4e+37
+```
+⇒ **读未初始化/越界内存**（NaN 个数在调用间变化 + 有限值量级失控）。
+
+### 7.4 又排除的 4 条路
+
+| 假设 | 判据 |
+|---|---|
+| **dense 替代稀疏** | **算子未编译 dense**：`Aurora SparseFlashMla only compiles SWA and CSA templates` |
+| 换 `cmp_mask_mode` / `topk_value_mode` | 只有 `(ori_mask_mode=4, cmp_mask_mode=3)` 合法；`topk_value_mode` 0/1 都非确定 |
+| 分块调用（语义等价） | C = 128 / 256 / 452 **全部仍非确定** |
+| 索引填充模式 | `block`（连续重复）与 `cyclic`（轮转）**都仍非确定** |
+
+### 7.5 合成侧可复现的触发条件（`probe_smla_determinism.py`）
+
+* 每行有效项 **< 256** 必现；≥256 时确定（值域 128、cseq=128、块表每列不同页）
+* 索引值域跨 **≥3 页** 必现
+* 块表**所有列指向同一页**必现
+
+⚠️ 但这三条**不能完全解释生产**（生产是单页、且填满后仍非确定）
+⇒ 说明存在多条触发路径，**必须以 v2 包里的真实 dump 为准**。
+
+---
+
+## 8. 结论：规避空间已穷尽（13 类尝试全部负结果）
+
+降 topk（被算子拒）· dense（未编译）· 索引填充（block/cyclic）· 均匀重复填槽 ·
+索引升序重排 · 索引数值替换 · 分块调用 · 块表多列/单列 · 块表补列 ·
+sinks 三档 · SMLA 前强制同步 · 新 metadata 副本 · mask_mode/tvm 扫描
+
+⇒ **② 只能由算子侧修复**。修复后请用 v2 包的 `replay_dump.py` 回归
+（判据：`ALL_bit_identical=True` 且 `max|dlse|=0`），再用
+`tools/dcp_correctness.py` 跑 `--lengths 2000,8000,16000` 确认端到端。
