@@ -26,9 +26,32 @@ def main():
     reps = int(sys.argv[2]) if len(sys.argv) > 2 else 8
     d = torch.load(path, map_location="cpu", weights_only=False)
     s = d["scalars"]
+    # ===== [V41-DUMP-FAITHFUL-2] 核对 stride(0)：内核的 KvStride0 由它决定，
+    # 不一致会让地址整体偏移。若保存/加载没能保持 stride，就按记录重建。
+    def _fix_stride(t, want):
+        if t is None or t.numel() == 0 or not want:
+            return t
+        if int(t.stride(0)) == int(want):
+            return t
+        flat = t.reshape(-1)
+        shape = (t.shape[0],) + tuple(t.shape[1:])
+        stride = (int(want),) + tuple(t.stride()[1:])
+        need = (shape[0] - 1) * stride[0] + 1
+        if need > flat.numel():
+            buf = torch.zeros((shape[0] - 1) * stride[0] + 1, dtype=flat.dtype)
+            for i in range(shape[0]):
+                buf[i * stride[0] : i * stride[0] + max(1, t[0].numel())] = t[i].reshape(-1)
+            return torch.as_strided(buf, shape, stride)
+        return torch.as_strided(flat, shape, stride)
+
     q = d["q"].to(DEV)
-    ori = d["ori_pages"].to(DEV)
-    cmp_kv = d["cmp_pages"].to(DEV)
+    ori = _fix_stride(d["ori_pages"], d.get("ori_stride0"))
+    cmp_kv = _fix_stride(d["cmp_pages"], d.get("cmp_stride0"))
+    ori = ori.to(DEV) if ori is not None else ori
+    cmp_kv = cmp_kv.to(DEV) if cmp_kv is not None else cmp_kv
+    print("  stride0 ori=%s(want %s) cmp=%s(want %s)"
+          % (ori.stride(0) if ori.numel() else "-", d.get("ori_stride0"),
+             cmp_kv.stride(0) if cmp_kv.numel() else "-", d.get("cmp_stride0")), flush=True)
     idx = d["cmp_indices"].to(DEV).to(torch.int32)
     obt = d["ori_block_table"].to(DEV).to(torch.int32)
     cbt = d["cmp_block_table"].to(DEV).to(torch.int32)

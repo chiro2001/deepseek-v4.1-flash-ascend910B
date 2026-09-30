@@ -2530,22 +2530,46 @@ class DeepseekV41EagerAttentionImpl:
                 #   ori 块表列落到 null 页 ⇒ 单卡重放**必然出 NaN**（伪影）。
                 #   实测症状：NaN 只出现在最后 ~104 个 token（800..903），因为只有
                 #   它们的窗口完全落在已保存的两页里。
-                _bs_o = int(_swad.shape[1])
-                _bs_c = int(source_cache.shape[1])
-                _ncol_o = min((int(_Td) + _bs_o - 1) // _bs_o + 1, int(_obt.numel()))
-                _ori_cols = sorted({int(_obt[c]) for c in range(_ncol_o) if int(_obt[c]) > 0})
-                _ncmp = min((max(_cmax, 1) + _bs_c - 1) // _bs_c, int(_cbt.numel()))
-                _cmp_cols = sorted({int(_cbt[c]) for c in range(max(1, _ncmp)) if int(_cbt[c]) > 0})
-                _ori_pages = _swad[torch.tensor(_ori_cols, dtype=torch.int64)].detach().cpu() if _ori_cols else torch.zeros(0)
-                _cmp_pages = source_cache[torch.tensor(_cmp_cols, dtype=torch.int64)].detach().cpu() if _cmp_cols else torch.zeros(0)
-                _remap_o = {c: i + 1 for i, c in enumerate(_ori_cols)}
-                _remap_c = {c: i + 1 for i, c in enumerate(_cmp_cols)}
-                _obt_new = torch.tensor(
-                    [_remap_o.get(int(v), 0) for v in _obt.tolist()], dtype=torch.int32
-                ).view(1, -1)
-                _cbt_new = torch.tensor(
-                    [_remap_c.get(int(v), 0) for v in _cbt.tolist()], dtype=torch.int32
-                ).view(1, -1)
+                # =========================================================
+                # ★★★ [V41-DUMP-FAITHFUL-2 2026-09-30 21:50] **忠实 dump**。
+                #
+                # 上一版 dump 有三处会让单卡重放与生产**不等价**（实测 DCP1 生产正确、
+                # 重放却出 NaN）：
+                #   ① 页号被**重映射**成 1..N  —— 内核读到的任何列都变成"我以为的页"，
+                #      列号假设一旦不符就读错页；
+                #   ② 用 `_swad[cols]` 取页 ⇒ **丢掉原始 stride(0)**：生产 cache 的
+                #      stride(0) 是**槽位 stride**（可远大于页大小），而重建张量是紧凑的
+                #      ⇒ host tiling 算出的 KvStride0 不同 ⇒ 地址整体偏移；
+                #   ③ 只按我算的列数取页 ⇒ 内核可能读更靠后的列。
+                # 现在改为：**块表原值不动**；页池大小 = max(用到的页号)+1；
+                # **保持各平面的原始 stride(0)**，把用到的页按**原始下标**填进去。
+                # =========================================================
+                _orow = int(_swad.shape[1]); _crow = int(source_cache.shape[1])
+                _ostr0 = int(_swad.stride(0)); _cstr0 = int(source_cache.stride(0))
+                _obt_list = [int(v) for v in _obt.tolist()]
+                _cbt_list = [int(v) for v in _cbt.tolist()]
+                _used_o = sorted({v for v in _obt_list if v > 0})
+                _used_c = sorted({v for v in _cbt_list if v > 0})
+                _max_o = _used_o[-1] if _used_o else 0
+                _max_c = _used_c[-1] if _used_c else 0
+
+                def _strided_pool(src, used, maxpg, rows, str0):
+                    """按**原始 stride(0)** 建页池，并把用到的页填到**原始下标**上。"""
+                    if maxpg <= 0 or not used:
+                        return torch.zeros(0)
+                    stride = (str0,) + tuple(src.stride()[1:])
+                    shape = (maxpg + 1, rows) + tuple(src.shape[2:])
+                    buf = torch.zeros((maxpg + 1) * str0, dtype=src.dtype)
+                    pool = torch.as_strided(buf, shape, stride)
+                    for pg in used:
+                        pool[pg].copy_(src[pg].detach().cpu().reshape(pool[pg].shape))
+                    return pool
+
+                _ori_pages = _strided_pool(_swad, _used_o, _max_o, _orow, _ostr0)
+                _cmp_pages = _strided_pool(source_cache, _used_c, _max_c, _crow, _cstr0)
+                # 块表**原值**（不再重映射）
+                _obt_new = _obt.to(torch.int32).clone().view(1, -1)
+                _cbt_new = _cbt.to(torch.int32).clone().view(1, -1)
                 def _c(x):
                     """None 安全 + 统一转 CPU（运维包要能在单卡离线重放）。"""
                     return None if x is None else x.detach().cpu()
@@ -2568,6 +2592,12 @@ class DeepseekV41EagerAttentionImpl:
                     "cmp_pages": _cmp_pages,
                     "ori_page_rows": int(_swad.shape[1]),
                     "cmp_page_rows": int(source_cache.shape[1]),
+                    # ★ [V41-DUMP-FAITHFUL-2] 原始 stride/形状 —— 重放侧必须核对，
+                    #   否则 KvStride0 不同会让地址整体偏移（见上）。
+                    "ori_stride0": int(_swad.stride(0)),
+                    "cmp_stride0": int(source_cache.stride(0)),
+                    "ori_shape": tuple(int(x) for x in _swad.shape),
+                    "cmp_shape": tuple(int(x) for x in source_cache.shape),
                     "scalars": {
                         "num_heads_q": int(q.shape[1]), "head_dim": int(q.shape[-1]),
                         "softmax_scale": float(attn.softmax_scale),
@@ -2592,11 +2622,13 @@ class DeepseekV41EagerAttentionImpl:
                 torch.save(_payload, _fn)
                 _DCP_DUMPED["done"] = True
                 print(
-                    "[V41-DUMPREPLAY] 已落盘 %s | q=%s idx=%s ori_pages=%d cmp_pages=%d | "
-                    "RAW ori_bt[:12]=%s cmp_bt[:12]=%s | 收集的原始页 ori=%s cmp=%s"
-                    % (_fn, tuple(q.shape), tuple(cmp_indices.shape), len(_ori_cols), len(_cmp_cols),
-                       _obt[:12].tolist(), _cbt[:12].tolist(),
-                       _ori_cols[:8], _cmp_cols[:8]),
+                    "[V41-DUMPREPLAY] 已落盘 %s | q=%s idx=%s | 页池 ori=%d(至max %d) cmp=%d(至max %d) | "
+                    "stride0 ori=%d cmp=%d | 原始 ori_bt[:12]=%s cmp_bt[:12]=%s"
+                    % (_fn, tuple(q.shape), tuple(cmp_indices.shape),
+                       int(_ori_pages.shape[0]) if _ori_pages.numel() else 0, _max_o,
+                       int(_cmp_pages.shape[0]) if _cmp_pages.numel() else 0, _max_c,
+                       _ostr0, _cstr0,
+                       _obt_list[:12], _cbt_list[:12]),
                     flush=True,
                 )
             except Exception as _e:  # noqa: BLE001
