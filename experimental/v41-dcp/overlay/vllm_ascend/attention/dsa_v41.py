@@ -1225,6 +1225,7 @@ def _dcp_sf(x):
             pass
     return float(x)
 _DCP_MDIAG_STATE = {}
+_DCP_DUMPED = {"done": False}
 # ★★★★★★ [V41-CFG-CACHE 2026-09-30 13:50] **并行配置的进程内缓存**。
 #
 # 动机：`_remap_selection`（indexer 复制态下才走）原来用
@@ -2521,6 +2522,118 @@ class DeepseekV41EagerAttentionImpl:
                 )
             except Exception as _e:  # noqa: BLE001
                 print("[V41-NANPROBE] rank=%d 失败：%r" % (_v41_dcp_rank(), _e), flush=True)
+        # =====================================================================
+        # ★★★★★★ [V41-DUMPREPLAY 2026-09-30 18:35] **生产输入 dump（供单卡重放）**。
+        #
+        # 目的：把**生产上真正踩到非确定的那一组张量**原样落盘，交给算子团队在
+        # 单卡上离线重放 —— 这比"同类但不同源"的最小复现（§13/§15）有用得多：
+        # 单卡的触发条件（cmp 值域跨 ≥3 页）与生产（T≥560）**不一致**，说明算子
+        # 在多条路径上读未初始化内存，需要一个真实用例来对齐。
+        #
+        # 落盘内容（只落**本请求实际会读到的页**，并把块表重映射到 1..N，
+        # 避免搬运 3.5 GB 的整池）：
+        #   q / cmp_indices / ori_bt / cmp_bt / cu_seqlens_q / seqused_*
+        #   / sinks / op_metadata / 标量参数 / 用到的 ori 与 long_kv 页
+        # 触发条件：`dumpdir=<容器内目录>` 文件开关 + 非 capture + 首个合格调用。
+        # =====================================================================
+        _dumpdir = _perf_flags().get("dumpdir")
+        if (
+            _dumpdir
+            and not _is_capturing()
+            and not _DCP_DUMPED["done"]
+            # ★ 必须门在 **有压缩（ratio=1）** 的层上：ratio=0 的滑窗层没有
+            #   `cmp_*` 张量（实测第一次落盘就撞上 layer 1，全是 None）。
+            and has_compressed
+            and int(ratio) == 1
+            and seq_lens is not None
+            and int(seq_lens.max()) > 800
+        ):
+            try:
+                import os as _osd
+
+                _osd.makedirs(_dumpdir, exist_ok=True)
+                _Td = int(seq_lens.max())
+                _swad = attn.dsa_attn.swa_cache_layer.kv_cache[0]
+                # 用到的 ori 页（滑窗覆盖的最后 WIN 个位置）与 cmp 页
+                _Wsd = min(int(attn.window_size), _Td)
+                _pd = torch.arange(max(0, _Td - _Wsd), _Td, dtype=torch.int64)
+                _obt = ori_block_table[0].detach().to(torch.int64).cpu()
+                _ori_cols = sorted({int(_obt[int(qq) // int(_swad.shape[1])]) for qq in _pd.tolist()})
+                _ori_cols = [c for c in _ori_cols if c >= 0]
+                _cbt = cmp_block_table[0].detach().to(torch.int64).cpu()
+                _cmax = int(cmp_seq_lens[0].to(torch.int64).cpu()) if cmp_seq_lens is not None and cmp_seq_lens.numel() else 0
+                _ncmp = max(1, (max(_cmax, 1) + int(source_cache.shape[1]) - 1) // int(source_cache.shape[1]))
+                _cmp_cols = [int(_cbt[c]) for c in range(min(_ncmp, int(_cbt.numel()))) ]
+                _ori_pages = _swad[torch.tensor(_ori_cols, dtype=torch.int64)].detach().cpu() if _ori_cols else torch.zeros(0)
+                _cmp_pages = source_cache[torch.tensor(_cmp_cols, dtype=torch.int64)].detach().cpu() if _cmp_cols else torch.zeros(0)
+                _remap_o = {c: i + 1 for i, c in enumerate(_ori_cols)}
+                _remap_c = {c: i + 1 for i, c in enumerate(_cmp_cols)}
+                _obt_new = torch.tensor(
+                    [_remap_o.get(int(v), 0) for v in _obt.tolist()], dtype=torch.int32
+                ).view(1, -1)
+                _cbt_new = torch.tensor(
+                    [_remap_c.get(int(v), 0) for v in _cbt.tolist()], dtype=torch.int32
+                ).view(1, -1)
+                def _c(x):
+                    """None 安全 + 统一转 CPU（运维包要能在单卡离线重放）。"""
+                    return None if x is None else x.detach().cpu()
+
+                _payload = {
+                    "q": _c(q),
+                    "cmp_indices": _c(cmp_indices),
+                    "ori_block_table": _obt_new,
+                    "cmp_block_table": _cbt_new,
+                    "cu_seqlens_q": _c(query_start_loc),
+                    "seqused_ori_kv": _c(seq_lens),
+                    "seqused_cmp_kv": _c(cmp_seq_lens),
+                    "cmp_residual_kv": _c(cmp_residual),
+                    "sinks": _c(sinks),
+                    "metadata": _c(op_metadata),
+                    "ori_pages": _ori_pages,
+                    "cmp_pages": _cmp_pages,
+                    "ori_page_rows": int(_swad.shape[1]),
+                    "cmp_page_rows": int(source_cache.shape[1]),
+                    "scalars": {
+                        "num_heads_q": int(q.shape[1]), "head_dim": int(q.shape[-1]),
+                        "softmax_scale": float(attn.softmax_scale),
+                        "cmp_ratio": int(ratio),
+                        "ori_mask_mode": 4,
+                        "cmp_mask_mode": 3 if has_compressed else 0,
+                        "ori_win_left": int(attn.window_size) - 1,
+                        "ori_win_right": 0,
+                        "topk_value_mode": 1,
+                        "layer_idx": int(self.role.layer_idx),
+                        "dcp_rank": int(_v41_dcp_rank()),
+                        "has_cmp_kv": bool(has_compressed),
+                        # ★ `common` 不在 `_native_attention` 作用域（踩过一次 NameError）
+                        #   ⇒ 从 `query_start_loc` / `seq_lens` 推导。
+                        "max_seqlen_q": int(
+                            (query_start_loc[1:] - query_start_loc[:-1]).max()
+                        ) if query_start_loc.numel() > 1 else _Td,
+                        "max_seqlen_ori_kv": int(seq_lens.max()),
+                    },
+                }
+                _fn = _osd.path.join(_dumpdir, "l%d_T%d_rank%d.pt" % (int(self.role.layer_idx), _Td, int(_v41_dcp_rank())))
+                torch.save(_payload, _fn)
+                _DCP_DUMPED["done"] = True
+                print(
+                    "[V41-DUMPREPLAY] 已落盘 %s | q=%s idx=%s ori_pages=%d cmp_pages=%d "
+                    "ori_cols=%s cmp_cols=%s"
+                    % (_fn, tuple(q.shape), tuple(cmp_indices.shape), len(_ori_cols), len(_cmp_cols),
+                       _ori_cols[:6], _cmp_cols[:6]),
+                    flush=True,
+                )
+            except Exception as _e:  # noqa: BLE001
+                _DCP_DUMPED["done"] = True
+                print(
+                    "[V41-DUMPREPLAY] 失败：%r | q=%s idx=%s obt=%s cbt=%s qsl=%s sl=%s "
+                    "csl=%s resid=%s sinks=%s meta=%s"
+                    % (_e, q is not None, cmp_indices is not None, ori_block_table is not None,
+                       cmp_block_table is not None, query_start_loc is not None,
+                       seq_lens is not None, cmp_seq_lens is not None, cmp_residual is not None,
+                       sinks is not None, op_metadata is not None),
+                    flush=True,
+                )
         output, softmax_lse = torch.ops._C_ascend.npu_sparse_flash_mla(
             q,
             ori_kv=attn.dsa_attn.swa_cache_layer.kv_cache[0],

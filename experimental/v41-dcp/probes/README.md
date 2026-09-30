@@ -64,3 +64,41 @@ docker run --rm --net=host --privileged --shm-size=8g \
 3. **未来可选路径**：若把 DCP 分片改为**连续**（非交错），则 dense cmp 可行，
    可同时绕开非确定并减少索引读写——但平台把 `cp_kv_cache_interleave_size`
    固定为 32，需要先解决该约束。
+
+---
+
+## 5. ★ 生产输入重放包（100% 同源，单卡可复现）
+
+**下载**（88.89 MB，public-read）：
+```
+cos://uploads-new/share/dsv41-dcp8-smla-nondeterminism-repro-20260930.tar.zst
+md5(本地打包) = 12c159038c8917d047c61cf19e1e5ec2
+```
+
+内容：`l20_T904_rank0.pt` / `l20_T904_rank4.pt`（**从生产 8-chip DCP8 实例原样落盘**的
+SMLA 输入，含 q、`cmp_sparse_indices`、两类块表、`seqused_*`、`sinks`、
+`metadata(1024,)`、标量参数，以及本请求实际读到的 ori/cmp 页；块表已重映射到
+1..N，数据与生产逐位相同）+ `replay_dump.py`。
+
+**复现**（单卡，约 20 秒）：
+```bash
+docker run --rm --net=host --privileged --shm-size=8g \
+  --device=/dev/davinciN --device=/dev/davinci_manager --device=/dev/devmm_svm --device=/dev/hisi_hdc \
+  -v /usr/local/dcmi:/usr/local/dcmi -v /usr/local/Ascend/driver:/usr/local/Ascend/driver \
+  -v /usr/local/bin/npu-smi:/usr/local/bin/npu-smi -v /etc/ascend_install.info:/etc/ascend_install.info \
+  -v $(pwd):/d -e ASCEND_RT_VISIBLE_DEVICES=<chip> \
+  quay.nju.edu.cn/ascend/vllm-ascend:deepseek-v4.1-flash-a3 \
+  bash -lc "cd /d && python3 -u replay_dump.py /d/l20_T904_rank0.pt 12"
+```
+
+**实测结果**（a3-21 chip4）：
+
+| 用例 | reps | ALL bit-identical | STEADY(2..N) bit-identical | `max｜Δlse｜` | `lse` NaN 个数/次 |
+|---|---|---|---|---|---|
+| rank0（ori owner，cseq=128） | 12 | **False** | **False** | **nan** | `[4754, 5255, 5255, …, 5255]` |
+| rank4（非 owner，cseq=104） | 8 | **False** | — | **nan** | `[3538, 3653, …, 3653]` |
+
+⇒ **持续非确定**（不只是首次调用），且 NaN 个数在不同次调用之间变化。
+
+**生产侧如何重新产生 dump**：文件开关 `dumpdir=<容器内目录>`，见
+`dsa_v41.py` 的 `[V41-DUMPREPLAY]`。
