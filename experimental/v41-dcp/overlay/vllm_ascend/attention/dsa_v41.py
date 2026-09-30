@@ -1828,6 +1828,63 @@ class DeepseekV41EagerAttentionImpl:
         selected = self._remap_selection(_selected_global, positions)
         if self.role.is_candidate_source:
             shared.candidates[: candidates.shape[0]].copy_(candidates)
+        # =====================================================================
+        # ★★★★★★ [V41-IDXKVFP 2026-09-30 16:40] **index K 缓存的内容指纹**。
+        #
+        # 已确认：req#1（对）与 req#2（错）的 **long_kv 内容逐位相同**
+        # （`[V41-KVDATA]` 两次都 `absmax=4.125`、`nonfinite=0`），
+        # 但 **QLI 选出的索引集合不同**
+        # （`n_valid 51254→51260`、`sum 2035126→2027486`、`max=127` 相同）。
+        #
+        # QLI 的输入只有 q（同一条 prompt ⇒ 相同）、index K 缓存、metadata。
+        # ⇒ 只要 index K 的指纹在两次请求间不同，就锁定**复制态 index K 的写路径**；
+        #    若相同，则只能怪 metadata / 算子内部状态。
+        #
+        # 指纹用**一次求和 + 一次非零计数**（单次回传，避免多次标量读撕裂）。
+        # =====================================================================
+        if (
+            _perf_flags().get("idxkvfp") == "1"
+            and not _is_capturing()
+            and int(selected.shape[0]) > 1
+        ):
+            try:
+                # `kv_cache[0]` 是 `(int8 key, fp16 scale)` 二元组（`indexer.select`
+                # 里 `key, key_scale = source_cache`）——踩过一次 AttributeError。
+                _ik_tuple = source_layer.kv_cache[0]
+                _ik = _ik_tuple[0]
+                _sc = _ik_tuple[1]
+                # ★ 只取**本请求写入的那几页**（整库累计会被别的请求污染 —— 踩过：
+                #   `scale.nz 452→904` 其实是"两个请求各写 452 行、落在不同页"）。
+                _md = getattr(metadata.indexer, "cache", None)
+                _bt = getattr(_md, "block_table", None)
+                _cols = None
+                if _bt is not None and _bt.numel():
+                    _row0 = _bt[0].detach().to(torch.int64).cpu()
+                    _cols = [int(v) for v in _row0.tolist() if int(v) > 0]
+                if _cols:
+                    _pk = _ik[_cols].detach()
+                    _ps = _sc[_cols].detach()
+                    _ksum = float(_pk.to(torch.float32).sum())
+                    _knz = int((_pk != 0).sum())
+                    _ssum = float(_ps.to(torch.float32).sum())
+                    _snz = int((_ps != 0).sum())
+                else:
+                    _ksum = _knz = _ssum = _snz = -1
+                _this = int(self.role.compress_ratio)
+                _p0 = positions[: min(8, int(positions.numel()))].detach().to(torch.int64).cpu().tolist()
+                _done = int((positions.detach().remainder(_this) == (_this - 1)).sum())
+                print(
+                    "[V41-IDXKVFP] layer=%d rows=%d ratio=%d pages=%s "
+                    "THIS_PAGES key{sum=%.8g nz=%d} scale{sum=%.8g nz=%d} | "
+                    "pos[:8]=%s complete_groups=%d/%d stride0=%d"
+                    % (int(self.role.layer_idx), int(selected.shape[0]), _this,
+                       ([int(v) for v in _cols[:4]] if _cols else []),
+                       _ksum, _knz, _ssum, _snz,
+                       _p0, _done, int(positions.numel()), int(_ik.stride(0))),
+                    flush=True,
+                )
+            except Exception as _e:  # noqa: BLE001
+                print("[V41-IDXKVFP] 失败：%r" % (_e,), flush=True)
         return selected
 
     def _remap_selection(self, selected, positions):
@@ -2056,18 +2113,29 @@ class DeepseekV41EagerAttentionImpl:
                     _nrow = int(cmp_seq_lens[0].to(torch.int64).cpu())
                     _cap = int(source_cache.shape[1])
                     _nrow = max(1, min(_nrow, _cap))
-                    _sl = source_cache[_phys, :_nrow]
-                    _f = _sl.to(torch.float32)
-                    _bad = int((~torch.isfinite(_f)).sum())
-                    _absmax = float(_f.abs().max())
-                    _zero_rows = int((_f.abs().sum(dim=tuple(range(1, _f.ndim))) == 0).sum())
+                    # ★ [V41-KVDATA-2 16:10] **分别统计"本请求已写行"与"尾部未写行"**。
+                    # 判据：若尾部 `nonfinite > 0` 或 `zero_rows < 尾部行数`
+                    # （即有非零残留），且 T=900 第 2 次请求失败而第 1 次成功
+                    # ⇒ **回收块的尾部残留数据**就是 NaN 来源（首块是全零内存）。
+                    def _stat(lo, hi):
+                        if hi <= lo:
+                            return (0, 0.0, 0)
+                        _f = source_cache[_phys, lo:hi].to(torch.float32)
+                        _n = int((~torch.isfinite(_f)).sum())
+                        _a = float(_f.abs().max())
+                        _z = int((_f.abs().sum(dim=tuple(range(1, _f.ndim))) == 0).sum())
+                        return (_n, _a, _z)
+                    _in = _stat(0, _nrow)
+                    _out = _stat(_nrow, _cap)
                     print(
                         "[V41-KVDATA] rank=%d layer=%d ratio=%d T=%d phys=%d rows=%d/%d "
-                        "nonfinite=%d absmax=%.6g zero_rows=%d"
+                        "IN[nf=%d absmax=%.6g zero=%d] TAIL[nf=%d absmax=%.6g zero=%d rows=%d]"
                         % (_v41_dcp_rank(), int(self.role.layer_idx),
                            int(self.role.compress_ratio),
                            int(cmp_indices.shape[0]) if cmp_indices is not None else -1,
-                           _phys, _nrow, _cap, _bad, _absmax, _zero_rows),
+                           _phys, _nrow, _cap,
+                           _in[0], _in[1], _in[2],
+                           _out[0], _out[1], _out[2], max(0, _cap - _nrow)),
                         flush=True,
                     )
                 except Exception as _e:  # noqa: BLE001
@@ -2997,6 +3065,46 @@ class DeepseekV41MetadataBuilder(AttentionMetadataBuilder[DeepseekV41Metadata]):
             if index_is_replicated:
                 slot_key += f":dcp{dcp_size}"
             prepared_slots = shared.get(slot_key)
+            # =============================================================
+            # ★★★★★★ [V41-SLOTSTALE 2026-09-30 16:30] **复制态 slot 缓存的跨请求
+            # 复用判据**。
+            #
+            # 复制态 indexer 的 `[T,2]` 槽位映射**编码了物理块号**
+            # （`block_numbers = block_table[req, column]`），而物理块号**每个请求
+            # 都不同**（实测：第 1 个请求 phys=1、第 2 个 phys=11）。
+            # 若 `shared` 字典跨请求存活，第 2 个请求就会命中第 1 个请求的槽位
+            # ⇒ **index_k 写到上一个请求的物理块**、本请求的块里是旧数据
+            # ⇒ QLI 分数错 ⇒ top-k 集合变（实测 `n_valid 51254→51260`、
+            # `sum 2035126→2027486`）⇒ cmp 读到不该读的行 ⇒ `lse` 出现 NaN
+            # （实测 `0/904 → 95/904`）⇒ 乱码。
+            #
+            # 本探针打印 **MISS/HIT** 与**它命中的那个块号**，用来判定这条假设。
+            # 开关 `no_slotcache=1` 强制**每次重算**（绕过缓存），
+            # 若开启后"第 2 个请求"也正确 ⇒ 假设成立，这就是第 5 个根因的修复。
+            # =============================================================
+            _no_slotcache = _perf_flags().get("no_slotcache") == "1"
+            if (
+                index_is_replicated
+                and _perf_flags().get("slotprobe") == "1"
+                and not _is_capturing()
+                and prepared_slots is not None
+            ):
+                try:
+                    _bt0 = int(common.block_table_tensor[0, 0].to(torch.int64).cpu())
+                    _cached0 = int(prepared_slots[0, 0].to(torch.int64).cpu())
+                    print(
+                        "[V41-SLOTPROBE] layer=%d ratio=%d T=%d shared_id=%d HIT cached_blk=%d "
+                        "cur_blk=%d %s"
+                        % (int(self.role.layer_idx), int(ratio),
+                           int(prepared_slots.shape[0]), id(batch_shared),
+                           _cached0, _bt0,
+                           "★STALE" if (_cached0 != _bt0 and _cached0 >= 0 and _bt0 >= 0) else "ok"),
+                        flush=True,
+                    )
+                except Exception as _e:  # noqa: BLE001
+                    print("[V41-SLOTPROBE] 失败：%r" % (_e,), flush=True)
+            if _no_slotcache:
+                prepared_slots = None
             if prepared_slots is None and index_is_replicated:
                 # ---- 复制态：块列与面内偏移都从**全局压缩位置**算，不做 rank 过滤 ----
                 storage = int(spec.storage_block_size)
