@@ -22,6 +22,34 @@ from vllm_ascend.worker.device_metadata import (
 
 from .compressor import DeepseekV41RMSNorm, _read
 
+_PERF_FLAG_PATH = "/tmp/v41_perf_flags"
+_PERF_FLAG_CACHE = {"t": None, "v": {}}
+
+
+def _perf_flags_indexer() -> dict:
+    """文件驱动开关（与 `dsa_v41.py` 的同名机制一致）；只供诊断探针使用。"""
+    import os as _o
+
+    try:
+        st = _o.stat(_PERF_FLAG_PATH)
+    except OSError:
+        return {}
+    if st.st_mtime != _PERF_FLAG_CACHE["t"]:
+        out = {}
+        try:
+            with open(_PERF_FLAG_PATH) as fh:
+                for line in fh:
+                    line = line.strip()
+                    if not line or line.startswith("#") or "=" not in line:
+                        continue
+                    k, v = line.split("=", 1)
+                    out[k.strip()] = v.strip()
+        except OSError:
+            pass
+        _PERF_FLAG_CACHE["t"] = st.st_mtime
+        _PERF_FLAG_CACHE["v"] = out
+    return _PERF_FLAG_CACHE["v"]
+
 
 class DeepseekV41Indexer(nn.Module):
     """Small side attention that selects compressed KV positions.
@@ -266,9 +294,49 @@ class DeepseekV41Indexer(nn.Module):
         # DCP 关闭或 indexer 复制态时 `_dcp_visibility_positions` **原样返回**
         # `positions` ⇒ 单次调用的语义与旧实现的第一步完全一致（旧实现的第二步
         # 本来就会 early-return）。
-        selected = prepare_indexer_indices(
-            selected.squeeze(1), self._dcp_visibility_positions(positions), self.compress_ratio
-        )
+        _vis = self._dcp_visibility_positions(positions)
+        # =====================================================================
+        # ★★★★★★ [V41-IDXVIS 2026-09-30 13:35] **可见性过滤的现场对拍**。
+        #
+        # 动机（实测）：层2/T=407 上 DCP1 的有效索引总数 = 41412（= Σ_t (t+1)//2，
+        # 即全部可见压缩键），而 DCP8 八个 rank 合计只有 **5796 = 14%**。
+        # ⇒ 分片态下 86% 的可见键被丢掉，与"top-k 集合语义"无关，是**真实缺陷**。
+        #
+        # 本探针打印前几行的 `positions`（全局位置）、`_vis`（重映射后的等价位置，
+        # `(vis+1)//ratio == vlc`）、以及过滤后每行的有效索引数。
+        #   · 若 `nvalid[t] == vlc[t]` ⇒ 过滤没问题，丢键发生在算子侧（QLI 的 mask）；
+        #   · 若 `nvalid[t] << vlc[t]` ⇒ QLI 返回的有效索引本身就少。
+        # 文件开关 `idxvis=1`（prefill 是 eager ⇒ 免重启）。
+        # =====================================================================
+        if (
+            __import__("os").environ.get("V41_IDXVIS") == "1"
+            or _perf_flags_indexer().get("idxvis") == "1"
+        ) and int(selected.shape[0]) > 300:
+            try:
+                _p_cpu = positions.detach().to(torch.int64).cpu()
+                _v_cpu = _vis.detach().to(torch.int64).cpu()
+                _pre = selected.squeeze(1).detach().to(torch.int64).cpu()
+                _post = prepare_indexer_indices(
+                    selected.squeeze(1), _vis, self.compress_ratio
+                ).detach().to(torch.int64).cpu()
+                _n_pre = (_pre >= 0).sum(dim=1)
+                _n_post = (_post >= 0).sum(dim=1)
+                _r = min(6, int(_p_cpu.numel()))
+                print(
+                    "[V41-IDXVIS] ratio=%d rows=%d cols=%d "
+                    "pos=%s vis=%s vlc=%s npre=%s npost=%s | tot_pre=%d tot_post=%d"
+                    % (
+                        self.compress_ratio, int(_p_cpu.numel()), int(_pre.shape[1]),
+                        _p_cpu[:_r].tolist(), _v_cpu[:_r].tolist(),
+                        [int((v + 1) // self.compress_ratio) for v in _v_cpu[:_r].tolist()],
+                        _n_pre[:_r].tolist(), _n_post[:_r].tolist(),
+                        int(_n_pre.sum()), int(_n_post.sum()),
+                    ),
+                    flush=True,
+                )
+            except Exception as _e:  # noqa: BLE001
+                print("[V41-IDXVIS] 探针失败：%r" % (_e,), flush=True)
+        selected = prepare_indexer_indices(selected.squeeze(1), _vis, self.compress_ratio)
         return selected, candidate_out if is_candidate_source else candidates
 
     def _dcp_visibility_positions(self, positions):

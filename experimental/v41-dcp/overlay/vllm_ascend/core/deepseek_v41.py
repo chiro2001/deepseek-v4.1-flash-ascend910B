@@ -181,6 +181,7 @@ def plan_cache_slots(specs):
         raise ValueError("V4.1 requires exactly 40 ordered SWA resources")
 
     slots = []
+    _state_aliased = set()
     for slot_idx, kv_name in enumerate(full):
         prefix, suffix = kv_name.rsplit(".", 1)
         index_name = prefix + ".indexer.k_cache"
@@ -195,10 +196,43 @@ def plan_cache_slots(specs):
             or kv_spec.block_size != index_spec.block_size
         ):
             raise ValueError(f"V4.1 source {prefix} has incompatible KV/index specs")
-        aliases = ([state[slot_idx]] if slot_idx < len(state) else []) + swa[slot_idx :: len(full)]
+        # =====================================================================
+        # ★★★★★★ [V41-DCP-STATE-SLOT 2026-09-30 13:45] **state ring 何时可以别名**。
+        #
+        # 原实现无条件把 `state[slot_idx]` 别名进 slot `slot_idx`，并依赖
+        # `capacity = max(kv+idx, state, swa)`。这在**不复制**时成立：
+        #     kv+idx = 65536+8320 = 73856 ≤ state 131072 = swa 131072
+        # ⇒ slot = 131072，`reshape_cache` 的
+        #   `sum(plane_sizes) == block_stride`（state 必须**填满**槽位）成立。
+        #
+        # 但 indexer 复制态（`V41_DCP_REPLICATE_INDEXER=1`）下
+        #     kv+idx = 65536 + 8×8320 = 132096 > 131072
+        # ⇒ slot 被顶到 132096，state（131072）**不再填满** ⇒ 真机报错
+        #   `RuntimeError: Aurora circular state must fill its slot with 32
+        #    contiguous FP32 rows`（2026-09-30 12:50 实测）。
+        #
+        # 该断言不能放宽：state 由 CANN `Compressor` 消费，代码里按
+        #     `state_cache[block_table[b], pos % cache_size, :head_dim]` 与
+        #     `state_cache[..., head_dim:]` 切片（最后维**必须**恰好 2·head_dim）
+        # ⇒ 既不能拉长最后一维做 padding，也不能整块非连续。
+        #
+        # 因此：**state 放得下就继续别名（不复制时零成本）；放不下就给它一个
+        # 独立槽**（容量恰为 state 平面大小，填满 ⇒ 断言仍成立）。
+        # 代价：复制态下 pool 从 660480 → 791552 B/块（容量约 −18%），这是
+        # "indexer 必须全局可见"的结构性成本，已记录在 RCA 文档。
+        # =====================================================================
         kv_bytes = sum(_cache_plane_sizes(kv_spec))
         index_bytes = sum(_cache_plane_sizes(index_spec))
-        capacity = max(kv_bytes + index_bytes, *(sum(_cache_plane_sizes(specs[n])) for n in aliases))
+        _kv_idx_bytes = kv_bytes + index_bytes
+        _state_here = state[slot_idx] if slot_idx < len(state) else None
+        _state_bytes_here = (
+            sum(_cache_plane_sizes(specs[_state_here])) if _state_here is not None else 0
+        )
+        _state_fits = _state_bytes_here > 0 and _kv_idx_bytes <= _state_bytes_here
+        aliases = ([_state_here] if _state_fits else []) + swa[slot_idx :: len(full)]
+        if _state_fits and _state_here is not None:
+            _state_aliased.add(_state_here)
+        capacity = max(_kv_idx_bytes, *(sum(_cache_plane_sizes(specs[n])) for n in aliases))
         if slot_idx < len(draft):
             draft_name = draft[slot_idx]
             draft_spec = specs[draft_name]
@@ -217,6 +251,18 @@ def plan_cache_slots(specs):
             *(CachePlacement(name, 0, capacity) for name in aliases),
         ]
         slots.append(CacheSlot(capacity, tuple(placements)))
+    # ★ [V41-DCP-STATE-SLOT] 没被别名进 KV 槽的 state ring ⇒ 独立槽（恰为其平面大小）
+    _orphan_state = [n for n in state if n not in _state_aliased]
+    if _orphan_state:
+        _state_slot_capacity = max(sum(_cache_plane_sizes(specs[n])) for n in _orphan_state)
+        if any(sum(_cache_plane_sizes(specs[n])) != _state_slot_capacity for n in _orphan_state):
+            raise ValueError("V4.1 state ring slots must be uniform when split out")
+        slots.append(
+            CacheSlot(
+                _state_slot_capacity,
+                tuple(CachePlacement(n, 0, _state_slot_capacity) for n in _orphan_state),
+            )
+        )
     names = [p.name for slot in slots for p in slot.placements]
     if len(names) != len(set(names)) or set(names) != set(specs):
         raise ValueError("V4.1 slot placement must cover each resource exactly once")

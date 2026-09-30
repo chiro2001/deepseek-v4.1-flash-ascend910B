@@ -79,6 +79,7 @@ def remap_sparse_indices(
     ratio: int,
     dcp_size: int,
     dcp_rank: int,
+    replicated: bool = False,
 ) -> torch.Tensor:
     """Remap global compressed top-k indices to this rank's local coordinates.
 
@@ -97,6 +98,40 @@ def remap_sparse_indices(
         return indices
     if indices.numel() == 0:
         return indices
+
+    # =====================================================================
+    # ★★★★★★ [V41-REPL-LAYOUT 2026-09-30 14:05] **复制态的行号必须与写侧同源**。
+    #
+    # 复制态（`V41_DCP_REPLICATE_INDEXER=1`）下**每个 rank 都存全量 indexer K**，
+    # 页内布局由 metadata builder 的写侧决定
+    # （`dsa_v41.py` 的 `index_is_replicated` 分支，2026-09-30 实测）：
+    #     块列    = g // (dcp·B')          （`B' = storage_block_size = block_size/ratio`）
+    #     页内偏移 = (g % (dcp·B') // B')·B' + g % B'  ≡  g % (dcp·B')
+    # ⇒ 读侧行号必须就是 **`g % (dcp·B')`**。
+    #
+    # 而原来的读侧用 `compressed_local()`（按 `block_size`/`interleave` 推导的
+    # **非复制**长 KV 布局）：
+    #     B=128, I=32, dcp=8, ratio=2 ⇒ g=16 → 行 0，g=128 → 行 16
+    # 与写侧（g=16 → 行 16，g=128 → 行 128）**不一致** ⇒ 读到的行不是写进去的内容。
+    # 实测后果：L=2000/8000/16000 长针答案退化成乱码（'#/issues Minim'），
+    # 且同 prompt 两次结果不同（run1 1/6、run2 2/6）。
+    #
+    # 复制态下所有权归**所有** rank（每个 rank 都有全量副本）⇒ 不再做 owner 过滤。
+    # =====================================================================
+    if replicated:
+        _storage = max(1, int(block_size) // max(1, int(ratio)))
+        _span = _storage * int(dcp_size)
+        _idx = indices.to(torch.int64)
+        _valid = _idx >= 0
+        _local = _idx.remainder(_span)
+        _remapped = torch.where(
+            _valid, _local, torch.full_like(_local, -1)
+        )
+        _width = indices.shape[-1]
+        _order = torch.arange(_width, device=indices.device).expand_as(_remapped)
+        _keys = _order + (~_valid).to(torch.int64) * _width
+        _pack = torch.argsort(_keys, dim=-1, stable=True)
+        return torch.gather(_remapped, -1, _pack).to(indices.dtype)
 
     idx = indices.to(torch.int64)
     owner = compressed_owner(idx, interleave, ratio, dcp_size)

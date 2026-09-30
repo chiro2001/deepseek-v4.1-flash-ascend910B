@@ -1186,6 +1186,39 @@ def _dcp_sf(x):
             pass
     return float(x)
 _DCP_MDIAG_STATE = {}
+# ★★★★★★ [V41-CFG-CACHE 2026-09-30 13:50] **并行配置的进程内缓存**。
+#
+# 动机：`_remap_selection`（indexer 复制态下才走）原来用
+#   `get_forward_context().vllm_config.parallel_config`
+# 取 interleave/block_size，但真机实测该 `ForwardContext` **没有 `vllm_config`
+# 属性** ⇒ 复制态起服直接崩：
+#   `RuntimeError: NPUModelRunner failed, error is 'ForwardContext' object has
+#    no attribute 'vllm_config'`（run dcpcap_0930_133900）。
+#
+# 现在由 `DeepseekV41MetadataBuilder.__init__`（那里一定拿得到 vllm_config）
+# 把三个常量写进这里；`_remap_selection` 优先读 `get_forward_context()`，
+# 失败则回退到本缓存。
+_V41_DCP_CFG = {"interleave": None, "block_size": None, "dcp_size": None}
+
+
+def _v41_dcp_cfg():
+    try:
+        _ctx = get_forward_context()
+        _vc = _ctx.vllm_config
+        _par = _vc.parallel_config
+        return (
+            int(getattr(_par, "cp_kv_cache_interleave_size", 1) or 1),
+            int(_vc.cache_config.block_size),
+            int(getattr(_par, "decode_context_parallel_size", 1) or 1),
+        )
+    except Exception:  # noqa: BLE001
+        return (
+            _V41_DCP_CFG["interleave"],
+            _V41_DCP_CFG["block_size"],
+            _V41_DCP_CFG["dcp_size"],
+        )
+
+
 _DCP_RAWD_ON = __import__("os").environ.get("V41_DCP_RAW_DIAG") == "1"
 # ★★ [V41-DIAG 2026-09-30] `V41_DCP_NO_ATTN_CACHE=1` ⇒ **禁用挂在 attn 上的三处持久缓存**
 #   （`_v41_dcp_sinks_cache` / `_v41_dcp_neg_idx` / `_v41_dcp_neg_sinks_cache`），
@@ -1745,18 +1778,20 @@ class DeepseekV41EagerAttentionImpl:
 
         from vllm_ascend.attention.context_parallel.v41_dcp import remap_sparse_indices
 
-        parallel = get_forward_context().vllm_config.parallel_config
-        dcp_size = int(getattr(parallel, "decode_context_parallel_size", 1) or 1)
-        if dcp_size <= 1:
+        # ★ [V41-CFG-CACHE] 不再直接摸 `get_forward_context().vllm_config`（该属性
+        #   在真机上不存在 ⇒ 复制态起服崩）；改为带进程内缓存的取法。
+        interleave, block_size, dcp_size = _v41_dcp_cfg()
+        if not dcp_size or dcp_size <= 1:
             return selected
-        interleave = int(getattr(parallel, "cp_kv_cache_interleave_size", 1) or 1)
         return remap_sparse_indices(
             selected,
-            block_size=int(get_forward_context().vllm_config.cache_config.block_size),
+            block_size=int(block_size),
             interleave=interleave,
             ratio=int(self.role.compress_ratio),
             dcp_size=dcp_size,
             dcp_rank=int(get_dcp_group().rank_in_group),
+            # ★ [V41-REPL-LAYOUT] 本分支只在复制态进入 ⇒ 行号必须按复制态布局取。
+            replicated=True,
         )
 
     def _attention(self, attn, q, metadata, compressed_indices, q_local_heads=None, q_hpr=0):
@@ -2536,6 +2571,17 @@ class DeepseekV41EagerAttentionImpl:
 class DeepseekV41MetadataBuilder(AttentionMetadataBuilder[DeepseekV41Metadata]):
     def __init__(self, kv_cache_spec, layer_names, vllm_config, device):
         super().__init__(kv_cache_spec, layer_names, vllm_config, device)
+        # ★ [V41-CFG-CACHE] 把并行配置写进进程内缓存（`_remap_selection` 用）。
+        try:
+            _V41_DCP_CFG["interleave"] = int(
+                getattr(vllm_config.parallel_config, "cp_kv_cache_interleave_size", 1) or 1
+            )
+            _V41_DCP_CFG["block_size"] = int(vllm_config.cache_config.block_size)
+            _V41_DCP_CFG["dcp_size"] = int(
+                getattr(vllm_config.parallel_config, "decode_context_parallel_size", 1) or 1
+            )
+        except Exception:  # noqa: BLE001
+            pass
         max_tokens = getattr(vllm_config.scheduler_config, "max_num_batched_tokens", 4096)
         max_reqs = getattr(vllm_config.scheduler_config, "max_num_seqs", 256)
         self._supports_device_ops = getattr(device, "type", "cpu") != "cpu"
