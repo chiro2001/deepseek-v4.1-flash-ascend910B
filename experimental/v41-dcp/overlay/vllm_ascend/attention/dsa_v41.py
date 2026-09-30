@@ -2024,12 +2024,51 @@ class DeepseekV41EagerAttentionImpl:
             if source_cache is None or metadata.attention is None or compressed_indices is None:
                 raise RuntimeError("V4.1 compressed attention is missing KV or TopK metadata")
             cmp_block_table = metadata.attention.block_table[:num_reqs]
+            # ★ [V41-BTPAD2 2026-09-30 17:12] 把块表**补一列**（第 2 列 = 第 1 列）。
+            #   判据：若算子把 `idx` 分解成 (blkIdx>0, row) 而越界读到第 2 列（当前
+            #   恒为 0 = null 块）⇒ 补列后会读到**正确页** ⇒ 第 2 次请求变正确。
+            #   只读诊断，不改 KV。
+            if _perf_flags().get("btpad2") == "1" and cmp_block_table.shape[1] >= 1:
+                cmp_block_table = torch.cat(
+                    [cmp_block_table, cmp_block_table[:, :1]], dim=1
+                )
             cmp_seq_lens = metadata.attention.cache_seq_lens[:num_reqs]
             cmp_residual = metadata.attention.cmp_residual
             cmp_topk = self.topology.index_topk
             if cmp_topk not in (512, 1024):
                 raise ValueError(f"SparseFlashMla only supports TopK 512 or 1024, got {cmp_topk}")
             cmp_indices = pad_sparse_indices(compressed_indices, cmp_topk)
+            # =============================================================
+            # ★★★★★★ [V41-SORTIDX 2026-09-30 17:25] **索引排序候选修复**。
+            #
+            # 决定性实测（run dcpcap_0930_171157，`kdet=1`，layer 20，ratio=1）：
+            #     [V41-KDET] lse_bit_identical=False max_abs_diff=0.19136
+            #     out_bit_identical=False
+            # ⇒ **SMLA 算子在同一层、用逐位相同的输入连续调用两次，结果不同**。
+            # 而同一实例的 layer 2（ratio=2）是 `lse_bit_identical=True`。
+            # 这就解释了 §12 的"输入相同、输出不同"，也解释了首请求侥幸通过、
+            # 后续请求在长 prompt 上乱码（NaN 出现在靠后的 query 行）。
+            #
+            # 最可疑的结构性差异：`cmp_sparse_indices` 是**按分数排序**的
+            # （QLI 的 top-k 输出顺序），**不是按位置升序**；而分片后每个 rank 的
+            # 有效索引经过我们 remap+压缩后是一堆**稀疏、非单调**的局部行号。
+            # 若算子内部按"索引单调"做预取/分块或复用了某个中间缓冲，
+            # 非单调输入就可能引入读-写竞态。
+            #
+            # 本开关把每行的有效索引**按升序排列**（`-1` 仍在尾部）。
+            # 语义上完全等价（softmax 对键的集合对称，顺序无关），
+            # 只是把输入变成单调序列。判据：
+            #   · 排序后 `kdet` 变成 bit-identical ⇒ 找到竞态触发条件；
+            #   · 且第 2 个请求变正确 ⇒ 这就是修复。
+            # =============================================================
+            if _perf_flags().get("sortidx") == "1" and cmp_indices.numel():
+                _ci64 = cmp_indices.to(torch.int64)
+                _sent = torch.full_like(_ci64, 1 << 30)
+                _key = torch.where(_ci64 >= 0, _ci64, _sent)
+                _srt, _ = torch.sort(_key, dim=-1, stable=True)
+                cmp_indices = torch.where(
+                    _srt >= (1 << 30), torch.full_like(_srt, -1), _srt
+                ).to(cmp_indices.dtype)
             # =============================================================
             # ★★★★★★ [V41-BTPROBE 2026-09-30 15:45] **块表 / 索引块分解对拍**。
             #
@@ -2372,6 +2411,49 @@ class DeepseekV41EagerAttentionImpl:
         #      实测 run `dcpcap_0929_172847`：rank 1-7 的 LSE 与输出为**精确 0.0**。
         _ori_seqused = seq_lens
         _ori_bt = ori_block_table
+        # =====================================================================
+        # ★★★★★★ [V41-ORIDATA 2026-09-30 17:22] **ori（SWA 复制面）本请求行的指纹**。
+        #
+        # 这是最后一个还没按"本请求实际读写的行"测过的输入。
+        # `[V41-KVFP]` 的整平面 `sum=nan` 只能说明**未写区域**有 NaN（整面 4.4 亿元素
+        # 里绝大多数从未被写过），不能证明本请求读到的行有问题。
+        #
+        # 本探针按 `pos → (block_table[0, pos//B], pos%B)` 精确取本请求
+        # **滑窗覆盖的那一段**（最后 `window` 个位置），一次 `.cpu()` 快照后统计
+        # nonfinite / absmax / 全 0 行数 / sum。
+        # 判据：若 req#1（对）与 req#2（错）这两段指纹不同 ⇒ **SWA 写路径**是根因；
+        #       若相同 ⇒ ori 也干净，SMLA 的四个输入（q / ori / cmp / 索引）全部一致。
+        # =====================================================================
+        if (
+            _perf_flags().get("oridata") == "1"
+            and not _is_capturing()
+            and seq_lens is not None and seq_lens.numel() > 0
+            and int(seq_lens.max()) > 1
+        ):
+            try:
+                _swa_c = attn.dsa_attn.swa_cache_layer.kv_cache[0]
+                _Tc = int(seq_lens[0].to(torch.int64).cpu())
+                _Wc = min(int(attn.window_size), _Tc)
+                _bsc = int(_swa_c.shape[1])
+                _posc = torch.arange(
+                    max(0, _Tc - _Wc), _Tc, dtype=torch.int64, device=_swa_c.device
+                )
+                _blkc = ori_block_table[0, _posc // _bsc].to(torch.int64)
+                _rowc = _posc % _bsc
+                _selc = _swa_c[_blkc, _rowc].to(torch.float32).cpu()
+                print(
+                    "[V41-ORIDATA] rank=%d layer=%d ratio=%d T=%d window=%d rows=%d "
+                    "nonfinite=%d absmax=%.6g zero_rows=%d sum=%.8g blk[:4]=%s"
+                    % (_v41_dcp_rank(), int(self.role.layer_idx),
+                       int(self.role.compress_ratio), _Tc, _Wc, int(_blkc.numel()),
+                       int((~torch.isfinite(_selc)).sum()),
+                       float(_selc.abs().max()),
+                       int((_selc.abs().sum(dim=tuple(range(1, _selc.ndim))) == 0).sum()),
+                       float(_selc.sum()), _blkc[:4].tolist()),
+                    flush=True,
+                )
+            except Exception as _e:  # noqa: BLE001
+                print("[V41-ORIDATA] rank=%d 失败：%r" % (_v41_dcp_rank(), _e), flush=True)
         # ★ [V41-NANPROBE 2026-09-30] 直接量 rank0 的 cmp 索引是否越界：
         #   SMLA 用 `blkIdx = idx // paCmpBlockSize` 去查 `cmp_block_table`，
         #   若 `idx` 超过本 rank 的 long_kv 行数就会读到别的块 ⇒ 分数 NaN。

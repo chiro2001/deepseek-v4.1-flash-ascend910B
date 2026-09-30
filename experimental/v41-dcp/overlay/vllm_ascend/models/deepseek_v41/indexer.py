@@ -9,6 +9,7 @@ from vllm.model_executor.layers.linear import ReplicatedLinear
 
 from vllm_ascend.attention.dsa_v41 import (
     DeepseekV41CacheLayer,
+    _is_capturing,
     scatter_cache_sk,
 )
 from vllm_ascend.core.deepseek_v41 import DeepseekV41IndexerSpec
@@ -261,6 +262,21 @@ class DeepseekV41Indexer(nn.Module):
         if op_metadata is None:
             raise RuntimeError("V4.1 QLI metadata was not built")
         wait_for_device_metadata(DeviceMetadataStage.INDEXER, id(op_metadata))
+        # =====================================================================
+        # ★★★★★★ [V41-QLISYNC 2026-09-30 17:05] **metadata 异步竞态的直接判据**。
+        #
+        # 现场（§12）：同一条 prompt，第 1 次请求正确、第 2 次起错；而
+        # index K 本页指纹 / long_kv 内容 / positions / complete_groups / 块表结构
+        # **全部逐位相同**，只有 `cmp_indices` 差 6 个元素、`lse` 出现 NaN。
+        # ⇒ 剩下三选一：算子非确定 / metadata 竞态 / 越界列读。
+        # 本开关在 QLI **之前**插一次设备同步：若第 2 次请求变正确 ⇒ metadata 竞态。
+        # 只在非 capture 下用（capture 区 host 同步会崩）。
+        # =====================================================================
+        if not _is_capturing() and _perf_flags_indexer().get("qlisync") == "1":
+            try:
+                torch.npu.synchronize()
+            except Exception:  # noqa: BLE001
+                pass
         mode = 1 if is_candidate_source else 2 if uses_candidate_filter else 3
         selected, _, candidate_out = torch.ops._C_ascend.npu_quant_lightning_indexer_v2(
             quantized_query,
@@ -278,6 +294,54 @@ class DeepseekV41Indexer(nn.Module):
             candidate_block_size=candidate_block_size,
             **common,
         )
+        # =====================================================================
+        # ★★★★★★ [V41-IDXDET 2026-09-30 17:10] **QLI 算子自身的确定性判据**。
+        #
+        # 本轮最关键的一刀：**用逐位相同的输入、在同一个 forward 里再调一次 QLI**，
+        # 然后逐位比对 `selected`。
+        #   · 两次不同 ⇒ **算子自身非确定**（未初始化 workspace / 并列分数的
+        #     tie-break 不稳定）⇒ 与本 DCP 的槽位、块表、合并全部无关；
+        #   · 两次相同 ⇒ 单次 forward 内确定 ⇒ 差异来自**跨请求**状态。
+        # 只读调用（QLI 不写 KV），且只在非 capture 下跑。
+        # =====================================================================
+        if (
+            not _is_capturing()
+            and _perf_flags_indexer().get("idxdet") == "1"
+            and int(selected.shape[0]) > 300
+        ):
+            try:
+                _sel2, _, _ = torch.ops._C_ascend.npu_quant_lightning_indexer_v2(
+                    quantized_query,
+                    key,
+                    weights,
+                    query_scale,
+                    key_scale,
+                    topk,
+                    2,
+                    block_table=source_metadata.block_table,
+                    metadata=op_metadata,
+                    candidate_topk_index=candidates if uses_candidate_filter else None,
+                    candidate_mode=mode,
+                    candidate_topk_blocks=candidate_topk_blocks,
+                    candidate_block_size=candidate_block_size,
+                    **common,
+                )
+                _a = selected.detach().to(torch.int64).cpu()
+                _b = _sel2.detach().to(torch.int64).cpu()
+                _diff = int((_a != _b).sum())
+                print(
+                    "[V41-IDXDET] ratio=%d topk=%d rows=%d cols=%d | 两次调用逐位相同=%s 差异元素=%d "
+                    "n_valid=%d/%d sum=%d/%d max=%d/%d"
+                    % (int(self.compress_ratio), int(topk),
+                       int(_a.shape[0]), int(_a.shape[1]), str(_diff == 0), _diff,
+                       int((_a >= 0).sum()), int((_b >= 0).sum()),
+                       int(_a[_a >= 0].sum()) if int((_a >= 0).sum()) else -1,
+                       int(_b[_b >= 0].sum()) if int((_b >= 0).sum()) else -1,
+                       int(_a.max()), int(_b.max())),
+                    flush=True,
+                )
+            except Exception as _e:  # noqa: BLE001
+                print("[V41-IDXDET] 探针失败：%r" % (_e,), flush=True)
         # ★★ [V41-PERF 2026-09-29] 只跑**一次** `prepare_indexer_indices`。
         #
         # 旧写法先把**全局**位置喂进去过滤一次，再用 `_fix_visibility_for_sharded_k`
@@ -295,6 +359,19 @@ class DeepseekV41Indexer(nn.Module):
         # `positions` ⇒ 单次调用的语义与旧实现的第一步完全一致（旧实现的第二步
         # 本来就会 early-return）。
         _vis = self._dcp_visibility_positions(positions)
+        # =====================================================================
+        # ★★★★★★ [V41-IDXDET 2026-09-30 17:08] **QLI 算子自身的确定性判据**。
+        #
+        # 这是本轮最重要的一次判别：**用完全相同的输入、在同一个 forward 里
+        # 连续调用两次 QLI**，逐位比对 `selected`。
+        #   · 两次不同 ⇒ **算子自身非确定**（读未初始化 workspace / tie-break 不稳定）
+        #     ⇒ 与 DCP 的合并、槽位、块表全部无关，必须改算子或 tie-break；
+        #   · 两次相同 ⇒ 算子在单次 forward 内确定 ⇒ 差异来自**跨请求**的
+        #     某些我们还没测到的状态。
+        #
+        # 背景（§12）：输入指纹逐位相同、输出差 6 个元素，所以这一刀必须切。
+        # 只读调用（QLI 不写 KV），且只在非 capture 下跑。
+        # =====================================================================
         # =====================================================================
         # ★★★★★★ [V41-IDXVIS 2026-09-30 13:35] **可见性过滤的现场对拍**。
         #
