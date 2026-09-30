@@ -109,3 +109,39 @@ opc --soc_version=Ascend910_9391 \
 * 判据：单卡 dump 重放（20 秒）+ 端到端长针，都已就绪。
 
 ⇒ 下一步直接进入**改代码 → 重编 → 单卡/端到端验证**的循环。
+
+---
+
+## 6. 重编产物与现行二进制的差异（已定位范围）
+
+| 项 | 现行（Sep 11 镜像内） | 我重编 |
+|---|---|---|
+| `.o` | 190 KB，**25 个 section** | **2.1 MB，157 个 section** |
+| `.json` | 7.3 KB，20 字段 | 26.6 KB，19 字段 |
+| `kernelName` / `binFileName` / `coreType` / `magic` | `SparseFlashMla_3c28573c…` / `.o` / `MIX` / `RT_DEV_BINARY_MAGIC_ELF` | **完全一致 ✅** |
+
+**已排除**：`BUILD_KERNEL_SRC` 环境变量（设与不设结果字节相同）。
+
+**当前最可能的原因**【推断】：现行二进制是 **Sep 11 镜像构建时**编的，而容器的
+`csrc/` 源码树此后被更新过（证据：树里多了官方仓库**没有**的
+`docs/design.md`、`docs/ratio2_a2a3.md`、`sparse_flash_mla_torch_adpt.h`）。
+⇒ 两者源码本就不同版本，段数差异是**预期**的。
+
+**这对我们不是障碍**：改完代码后重编，直接安装并做 **A/B 验证**
+（同一 dump 重放 + 端到端长针），只要行为符合预期即可；无需与旧二进制逐字节相同。
+
+**参数文件结构**【实测】：`param.json` 只有 `{op_type, op_list[1]}`，
+模板变体列表在源码内（`op_kernel/sparse_flash_mla.cpp` 与 `*_template_tiling_key.h`）。
+
+---
+
+## 7. 下一步（明确的执行顺序）
+
+1. **改 (2) 号问题**（最小、最安全）：在 `CopyOutMrgeResult` → cube 之间加"实际条数"握手，
+   或在丢键处显式填充。改 `csrc/attention/sparse_flash_mla/op_kernel/arch22/sparse_flash_mla_csa_block_vector.h`。
+2. 同步到 `csrc/build/binary/ascend910_93/src/sparse_flash_mla/`，用第 3.2 节的 `opc` 命令重编。
+3. 备份后覆盖 `.../tbe/kernel/ascend910_93/sparse_flash_mla/`，重启服务。
+4. **判据一（单卡，20 秒）**：`probes/replay_dump.py` 应显示
+   `ALL_bit_identical=True` 且 `max|dlse|=0`。
+5. **判据二（端到端）**：`tools/dcp_correctness.py --lengths 2000,8000,16000` 应全过。
+6. 若 (2) 不够，再叠加 (1)/(3)；每步都保留可回退的二进制备份。
