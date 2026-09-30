@@ -209,6 +209,25 @@ def _v41_dcp_merge_attention(
         #   `output[:, 0:H_local, :].contiguous()`，这里等价保留，
         #   保证「DCP1 路径与本改动前逐位一致」（只影响 DCP1，不影响 DCP8 的优化）。
         return output.contiguous()
+    # =====================================================================
+    # ★★★★★★ [V41-SKIPMERGE 2026-09-30 12:10] **等价 DCP1 的控制臂**。
+    #
+    # `skip_merge=1`（文件驱动）⇒ 直接返回本 rank 自己的 partial 输出，**完全跳过
+    # 跨 rank 合并**。这正是 DCP1 的语义（DCP1 分支就是 `return output.contiguous()`）。
+    # 目的：把"合并算错"和"本 rank 的注意力/缓存本身就错"一刀切开。
+    #   · 若 skip_merge 在 T=12/16 上给出**正确答案** ⇒ 注意力链路没问题，错在合并；
+    #   · 若仍然错 ⇒ rank0 自己的 SMLA 输出（`O_0`）就是错的，合并是背锅的。
+    # 与 `rank0_pure` 的区别：后者仍要经过 merge 的乘除（依赖 `wsum`），
+    # 本开关连 `wsum`/`scaled` 都不碰 ⇒ 不受任何归约/读数问题影响。
+    # `skip_gather=1` 同时打开时，`output` 只有本 rank 的 head ⇒ 整份返回。
+    # =====================================================================
+    if _perf_flags().get("skip_merge") == "1":
+        if head_slice is None:
+            return output.contiguous()
+        _sh0, _sh1 = head_slice
+        if int(output.shape[1]) <= int(_sh1):
+            return output.contiguous()
+        return output[:, int(_sh0) : int(_sh1), :].contiguous()
     # LSE 需要 float32 且布局一致；算子返回 TND `(N2,T1,G)` ⇒ 转成 `[T, H, 1]`。
     lse = lse.to(torch.float32)
     # ★ [V41-PERF] `(1,T,H)` 的内存顺序本来就是 `(T,H,1)` ⇒ 用 `reshape` 拿视图，
@@ -546,6 +565,7 @@ def _v41_dcp_merge_attention(
     #   2-chip 图级累积式分解实测：后处理 **42.2 µs/层**，是当前最大的非通信项。
     #   离线核对：先切后减 vs 先减后切 == 逐位相同（elementwise，maxdiff=0）。
     _slice_early = _fold_ori_locally and head_slice is not None
+    _hs_applied = None          # ★ [V41-DENCHK] 记录实际用过的 head 区间
     if _ori_active:
         if _use_ori_ref:
             # ★ `_ow` 只在**非折叠**路径（进 pack）用到；折叠路径里 `Σ_r _ow_r`
@@ -564,8 +584,84 @@ def _v41_dcp_merge_attention(
         _onum = torch.zeros_like(scaled)
     _mdiag_pre_t = None
     _mdiag_post_t = None
+    # =====================================================================
+    # ★★★★★★ [V41-PREW 2026-09-30] **打包之前的 `weights` 统计**。
+    #
+    # 为什么要"之前"：`_pack` 在归约后不再被本函数引用 ⇒ 显存可能已归还分配器
+    # ⇒ 之后任何读它的探针都会拿到**别人的数据**（§6ad 实测：同一快照里
+    # `rmin=8.05`（≥ 数学下界）而 `sliced_wcol=nan`，自相矛盾）。
+    # ⇒ 唯一可靠的探针位置是**张量仍被强引用时**，即这里（`weights` 刚算完、还没 cat）。
+    #
+    # 用途：把"`Σ_r w_r` 为什么在 T=12/16 塌成 ~0"的两种可能分开：
+    #   (a) 归约把权重列清零  ⇒ 这里的 `w` 正常（≥1）、归约后异常；
+    #   (b) 打包前 `w` 就是 0 ⇒ 这里就能看到 0/NaN。
+    # `w = exp(lse − ori_lse)` 被 `clamp(max=60)` 限住 ⇒ 正常时 `w ∈ [1, 1.1e26]`。
+    # =====================================================================
+    if (
+        _dcp_diag_on("prew", "V41_DCP_PREW")
+        and not _is_capturing()
+        and diag_seq_lens is not None
+        and int(diag_seq_lens.max()) > 1
+    ):
+        try:
+            # 一次 stack + 一次 cpu ⇒ 尽可能少的标量读；且 weights 此时被强引用
+            _w3 = torch.stack([
+                weights.to(torch.float32).min().reshape(1),
+                weights.to(torch.float32).max().reshape(1),
+                weights.to(torch.float32).sum().reshape(1),
+            ]).cpu()
+            print(
+                "[V41-PREW] rank=%d layer=%d T=%d w_min=%.6g w_max=%.6g w_sum=%.6g"
+                % (_v41_dcp_rank(), int(layer_idx), int(diag_seq_lens.max()),
+                   float(_w3[0]), float(_w3[1]), float(_w3[2])),
+                flush=True,
+            )
+        except Exception as _e:  # noqa: BLE001
+            print("[V41-PREW] rank=%d 探针失败：%r" % (_v41_dcp_rank(), _e), flush=True)
     if _fold_ori_locally:
-        # 本地折叠：只把「加权分子」与「权重和」打包归约（16.8 MB，旧的一半）。
+        # =====================================================================
+        # ★★★★★★ [V41-SANITIZE 2026-09-30] **打包前的 Inf/NaN 清理**。
+        #
+        # 假设（由实测反推）：`scaled = output × w`，而 `w = exp(lse − ori_lse)`
+        # 在坏长度上可达 `1e11` ⇒ `scaled` 可能溢出成 Inf/NaN。
+        # 而 **HCCL 的 all_reduce / all_gather 在 buffer 含 Inf/NaN 时行为异常**
+        # —— 这解释了"归约后权重列被清零"（`wsum ≈ −7`）：
+        # 实测 `reduced_sum − local_sum = 7168 = 7×1024`（确实加了 rank1-7 的 1.0），
+        # 但切片那 128 个元素 ≈ 0。
+        #
+        # 判别开关 `sanitize=1`：cat 之前把 `scaled` 的 Inf/NaN 换成**有限大数/0**，
+        # 使 buffer 里不再有非有限值。
+        #   · 若 `wsum ≥ 1` 恢复、答案变对 ⇒ 假设成立，这就是修复（至少是第一层修复）；
+        #   · 若仍为 −7 ⇒ HCCL 的问题与 Inf/NaN 无关。
+        # 同时用**单次 stack + cpu** 统计 Inf/NaN 个数（只读一次，避免 §6o 撕裂）。
+        # =====================================================================
+        if _dcp_diag_on("sanstat", "V41_DCP_SANSTAT") and not _is_capturing():
+            try:
+                _sf = scaled.to(torch.float32)
+                _st = torch.stack([
+                    torch.isinf(_sf).sum().reshape(1),
+                    torch.isnan(_sf).sum().reshape(1),
+                    _sf.abs().max().reshape(1),
+                    weights.to(torch.float32).max().reshape(1),
+                ]).cpu()
+                print(
+                    "[V41-SANSTAT] rank=%d layer=%d T=%d scaled_inf=%d scaled_nan=%d "
+                    "scaled_absmax=%.6g w_max=%.6g"
+                    % (_v41_dcp_rank(), int(layer_idx),
+                       int(diag_seq_lens.max()) if diag_seq_lens is not None else -1,
+                       int(_st[0]), int(_st[1]), float(_st[2]), float(_st[3])),
+                    flush=True,
+                )
+            except Exception as _e:  # noqa: BLE001
+                print("[V41-SANSTAT] rank=%d 失败：%r" % (_v41_dcp_rank(), _e), flush=True)
+        if _perf_flags().get("sanitize") == "1":
+            _scaled_f = scaled.to(torch.float32)
+            # Inf → 有限大数（保留量级信息但不溢出），NaN → 0
+            _finfo = torch.finfo(torch.float32)
+            _scaled_f = torch.nan_to_num(
+                _scaled_f, nan=0.0, posinf=_finfo.max / 4, neginf=-_finfo.max / 4
+            )
+            scaled = _scaled_f.to(scaled.dtype)
         _pack = torch.cat([scaled, weights], dim=-1)
         # ★ [V41-MDIAG] 记录**归约前**的本地 weights 和（用于判断"其它 rank 的
         #   贡献到底有没有进 all_reduce"）。实测现象：合并后 `wsum = Σw − dcp·keep`
@@ -642,7 +738,50 @@ def _v41_dcp_merge_attention(
             _pack = _acc
         else:
             torch.distributed.all_reduce(_pack, group=group.device_group)
+        # ★★★★★★ [V41-POSTRSYNC 2026-09-30] **归约后竞态**的直接判据。
+        #   INV 探针（归约后另一次 `.cpu()`）读到权重列全列和 154349
+        #   （= 本地 147181 + 7×1024，说明 all_reduce 本身是对的），而紧随其后的
+        #   减法 kernel 产出的 `wsum` 却读到 0 —— 两者读的是**同一块 buffer**。
+        #   若存在"减法抢在 HCCL 写回之前"的竞态，这里插一次主机同步就会恢复。
+        #   只在非 capture 下用（capture 区 host 同步会崩，见 §6x）。
+        if _perf_flags().get("postr_sync") == "1" and not _is_capturing():
+            try:
+                torch.npu.synchronize()
+            except Exception as _e:  # noqa: BLE001
+                print("[V41-POSTRSYNC] rank=%d 失败：%r" % (_v41_dcp_rank(), _e), flush=True)
         _out_dim = scaled.shape[-1]
+        # =====================================================================
+        # ★★★★★★ [V41-HARD 2026-09-30] **只打整数**的硬探针。
+        #
+        # 为什么需要：`float(device_tensor)` 与"多统计量一次快照"在本环境里都
+        # 出现过自相矛盾的读数（§6o / §6ad）。而 `_pack.shape` / `_out_dim` /
+        # `head_slice` 都是**Python int**，打印它们**物理上不可能撕裂**。
+        # 这一支回答最后一个未验证的环节：**切片位置是否与布局匹配**。
+        #   `wsum = _pack[..., _out_dim:_out_dim+1][:, h0:h1, :] - dcp*_keep`
+        #   若 `_out_dim` 与实际布局不符（例如权重列不在第 512 列），
+        #   切片取到的就是**别的数据** —— 完全解释 `wsum ≈ -7`（切到一片 1.0）。
+        # =====================================================================
+        if (
+            _dcp_diag_on("hard", "V41_DCP_HARD")
+            and not _is_capturing()
+            and diag_seq_lens is not None
+            and int(diag_seq_lens.max()) > 1
+        ):
+            _hs = head_slice if head_slice is not None else ("已切", "已切")
+            print(
+                "[V41-HARD] rank=%d layer=%d T=%d pack_shape=%s out_dim=%d "
+                "out_shape=%s wt_shape=%s scaled_shape=%s hs=%s "
+                "wcol_lo=%d wcol_hi=%d no_cache=%s det=%s"
+                % (
+                    _v41_dcp_rank(), int(layer_idx), int(diag_seq_lens.max()),
+                    tuple(_pack.shape), int(_out_dim),
+                    tuple(output.shape), tuple(weights.shape), tuple(scaled.shape),
+                    tuple(_hs),
+                    int(_out_dim), int(_out_dim + 1),   # 权重列的精确列区间
+                    str(_DCP_NO_ATTN_CACHE), str(_DCP_DET_REDUCE),
+                ),
+                flush=True,
+            )
         if _mdiag_here:
             # =================================================================
             # ★★★ [V41-MDIAG2 修正 2026-09-30] **单次主机拷贝 + CPU 侧计算**。
@@ -685,7 +824,37 @@ def _v41_dcp_merge_attention(
             _h0, _h1 = head_slice
             scaled = _pack[..., :_out_dim][:, _h0:_h1, :] - dcp * _onum
             # ★ pad 之后必须**精确切 1 列**：`[..., _out_dim:]` 会带上 padding。
-            wsum = _pack[..., _out_dim : _out_dim + 1][:, _h0:_h1, :] - dcp * _keep
+            # =============================================================
+            # ★★★★★★ [V41-DENFIX 2026-09-30 12:25] 分母取值的**修复候选**。
+            #
+            # 症状（同一层同一次调用内，两个探针互相矛盾）：
+            #   · MDIAG2（一次 `.cpu()` 快照后在 CPU 上算，**自洽**）：
+            #       `wcol.sum=7588.87`、8 个块和相加 == 7588.87、各 rank 切片
+            #       == 对应块和、`wsum ∈ [1.08, 46.1]` ⇒ 源数据**正确**；
+            #   · MDIAG（设备侧）：`wsum[min=-7 max=-7] denom[min=1]`，且
+            #       `out[absmax] == scaled[absmax]`（到 6 位有效数字完全相同）
+            #       ⇒ 设备上的 `denom ≡ 1` ⇒ **`wsum ≤ 0`**。
+            #   两者不可能同时对 ⇒ **设备侧那次「[T,H,1] 视图 + 标量减法」
+            #   没有读到真实数据**（读到的等价于 padding 的 0，减 7 得 −7）。
+            #   `postr_sync=1` 无效 ⇒ 不是流竞态，是取值路径本身。
+            #
+            # 两个候选修法（文件开关，可热 A/B，prefill 是 eager ⇒ 生效）：
+            #   `contigw=1`：先把权重列 `.contiguous()`（一次 4 KB 的 strided
+            #     拷贝，已验证 D2H 拷贝这条路径读出来是对的）再切片/减法；
+            #   `sepw=1`   ：彻底不读 pack，改用 `weights` 的**独立 all_reduce**
+            #     当分母 —— WCHK 实测这条路径完全正确
+            #     （rank0 218618 + 7×1024 = 225786）。代价是多一次 4 KB 集合通信。
+            # =============================================================
+            # ★★★ 默认走 `sepw`（独立 all_reduce 出分母）；`contigw=1` 走更便宜的
+            #     拷贝路径。实测两者都能把 T=16 的答对率从 0/25 拉到 16/25。
+            if _perf_flags().get("contigw") == "1":
+                _wcol_raw = _pack[..., _out_dim : _out_dim + 1].contiguous()
+                wsum = _wcol_raw[:, _h0:_h1, :] - dcp * _keep
+            else:
+                _ws = weights.to(torch.float32).contiguous().clone()
+                torch.distributed.all_reduce(_ws, group=group.device_group)
+                wsum = _ws[:, _h0:_h1, :] - dcp * _keep
+            _hs_applied = (_h0, _h1)
             head_slice = None  # 已应用，别在下面再切一次
         else:
             scaled = _pack[..., :_out_dim] - dcp * _onum
@@ -723,6 +892,41 @@ def _v41_dcp_merge_attention(
         h0, h1 = head_slice
         scaled = scaled[:, h0:h1, :]
         wsum = wsum[:, h0:h1, :]
+        _hs_applied = (h0, h1)
+    # =====================================================================
+    # ★★★★★★ [V41-DENCHK 2026-09-30 12:25] **同一次调用内的设备 vs CPU 对拍**。
+    #
+    # 这是给"MDIAG2 说 wsum ≥ 1.08、MDIAG 说 wsum ≤ 0"这个矛盾下的最终判据：
+    #   · `src`     = 归约后权重列（`.cpu()` 快照）的 min/max —— 源数据；
+    #   · `ref_wsum`= 在 CPU 上对同一份快照做 `− dcp·keep` 的结果；
+    #   · `dev_wsum`= **设备张量 `wsum` 本身的取值**（`dsync=1` 时同步后取）。
+    # 若 `ref_wsum ≥ 1` 而 `dev_wsum ≤ 0` ⇒ 设备侧那条取值路径确实坏了（候选修法
+    # `contigw` / `sepw` 应当把它修回来）；若两者一致 ⇒ 之前的矛盾来自读数伪影。
+    # =====================================================================
+    if (
+        _dcp_diag_on("denchk", "V41_DCP_DENCHK")
+        and not _is_capturing()
+        and diag_seq_lens is not None
+        and int(diag_seq_lens.max()) > 1
+    ):
+        try:
+            _col_cpu = _pack[..., _out_dim : _out_dim + 1].to(torch.float32).cpu()
+            _hs2 = _hs_applied if _hs_applied is not None else (0, int(_col_cpu.shape[1]))
+            _ref = _col_cpu[:, _hs2[0] : _hs2[1], :] - float(dcp * _keep)
+            print(
+                "[V41-DENCHK] rank=%d layer=%d T=%d hs=(%d,%d) "
+                "src[min=%.6g max=%.6g ncol=%d] ref_wsum[min=%.6g max=%.6g] | "
+                "dev_wsum[min=%.6g max=%.6g shape=%s] sepw=%s contigw=%s"
+                % (_v41_dcp_rank(), int(layer_idx), int(diag_seq_lens.max()),
+                   int(_hs2[0]), int(_hs2[1]),
+                   float(_col_cpu.min()), float(_col_cpu.max()), int(_col_cpu.shape[1]),
+                   float(_ref.min()), float(_ref.max()),
+                   _dcp_sf(wsum.min()), _dcp_sf(wsum.max()), tuple(wsum.shape),
+                   str(_perf_flags().get("sepw")), str(_perf_flags().get("contigw"))),
+                flush=True,
+            )
+        except Exception as _e:  # noqa: BLE001
+            print("[V41-DENCHK] rank=%d 失败：%r" % (_v41_dcp_rank(), _e), flush=True)
     # =====================================================================
     # [V41-MDIAG] 合并**前后幅度**诊断（`V41_DCP_MERGE_DIAG=1`，非 capture）。
     # 用来定位"某个层的 attention 输出爆炸到 1e30"的中间步骤：
@@ -746,19 +950,21 @@ def _v41_dcp_merge_attention(
             #   否则探针会报一个代码里并不存在的"1e-30 分母"（我第一版就报错过）。
             _den = torch.where(wsum > 0, wsum, torch.ones_like(wsum))
             _o = (scaled / _den)
-            _big = bool((_o.abs() > 1e6).any())
+            # ★ [V41-DSYNC] 全部走 `_sf`（`dsync=1` 时同步后再取值），
+            #   否则这批标量读可能撕裂成自相矛盾的读数（见 `_sf` 的说明）。
+            _big = _dcp_sf((_o.abs() > 1e6).any()) > 0.5
             print(
                 "[V41-MDIAG] rank=%d T=%d scaled[absmax=%.6g] wsum[min=%.6g max=%.6g mean=%.6g] "
                 "denom[min=%.6g] out[absmax=%.6g] BIG=%s dcp=%d keep=%.6g subtrahend=%.6g "
                 "w_local_sum=%.6g w_postreduce_sum=%.6g fold=%s"
                 % (
                     _v41_dcp_rank(), int(scaled.shape[0]),
-                    float(scaled.abs().max()), float(wsum.min()), float(wsum.max()),
-                    float(wsum.mean()),
-                    float(_den.min()), float(_o.abs().max()), _big,
+                    _dcp_sf(scaled.abs().max()), _dcp_sf(wsum.min()), _dcp_sf(wsum.max()),
+                    _dcp_sf(wsum.mean()),
+                    _dcp_sf(_den.min()), _dcp_sf(_o.abs().max()), _big,
                     int(dcp), float(_keep), float(dcp * _keep),
-                    float(_mdiag_pre_t) if _mdiag_pre_t is not None else -1.0,
-                    float(_mdiag_post_t) if _mdiag_post_t is not None else -1.0,
+                    _dcp_sf(_mdiag_pre_t) if _mdiag_pre_t is not None else -1.0,
+                    _dcp_sf(_mdiag_post_t) if _mdiag_post_t is not None else -1.0,
                     str(_fold_ori_locally),
                 ),
                 flush=True,
@@ -821,6 +1027,99 @@ def _v41_dcp_merge_attention(
                 )
         except Exception as _e:  # noqa: BLE001
             print("[V41-INV] rank=%d 检查自身失败：%r" % (_v41_dcp_rank(), _e), flush=True)
+    # =====================================================================
+    # ★★★★★★ [V41-WSUM 2026-09-30] **直接读 `wsum` 自身**。
+    #
+    # 为什么这是唯一可靠的探针：`wsum` 是**代码正在使用**的活张量
+    # （紧接着就参与 `denom`），不可能被回收 ⇒ 不存在 §6o/§6ad 那类撕裂。
+    # 之前所有读 `_pack` 的探针都出现过自相矛盾的读数（`sliced_wcol=0`
+    # 而 `rmin=8`），因为 `_pack` 在归约后已不再被引用。
+    #
+    # 用途：确认 `wsum < 1`（违反数学不变量）是**真实现象**而非探针伪影，
+    # 并给出它的**逐 head 分布**（哪些 head 为 0）。
+    # =====================================================================
+    if (
+        _dcp_diag_on("wsum", "V41_DCP_WSUM")
+        and not _is_capturing()
+        and diag_seq_lens is not None
+        and int(diag_seq_lens.max()) > 1
+    ):
+        try:
+            # wsum 是活的 ⇒ 一次 stack+cpu 可靠
+            _ws = torch.stack([
+                wsum.min().reshape(1), wsum.max().reshape(1), wsum.mean().reshape(1),
+                (wsum <= 0).sum().reshape(1),   # ≤0 的元素数
+                (wsum > 0.5).sum().reshape(1),  # 合法的元素数（应 ≥1，故 >0.5 即合法）
+                torch.tensor(float(wsum.shape[0] * wsum.shape[1]), dtype=wsum.dtype,
+                             device=wsum.device).reshape(1),
+            ]).cpu()
+            # 逐 head 的"合法元素数"（哪几个 head 全 0）
+            _byh = (wsum > 0.5).sum(dim=(0, 2)).cpu().tolist()
+            print(
+                "[V41-WSUM] rank=%d layer=%d T=%d min=%.6g max=%.6g mean=%.6g "
+                "n_le0=%d n_gt05=%d n_tot=%d by_head=%s"
+                % (_v41_dcp_rank(), int(layer_idx), int(diag_seq_lens.max()),
+                   float(_ws[0]), float(_ws[1]), float(_ws[2]),
+                   int(_ws[3]), int(_ws[4]), int(_ws[5]),
+                   [int(v) for v in _byh[:16]]),   # 只打前 16 个 head 便于看
+                flush=True,
+            )
+        except Exception as _e:  # noqa: BLE001
+            print("[V41-WSUM] rank=%d 失败：%r" % (_v41_dcp_rank(), _e), flush=True)
+    # =====================================================================
+    # ★★★★★★ [V41-WCHK 2026-09-30] **最小复现**：单独 all_reduce 一份 `weights`。
+    #
+    # 已知铁证（WSUM 探针，读活张量）：T=16 上 `wsum` 的 128 个元素**全为 −7**
+    # ⇒ 归约后权重列在 rank0 的 head 区间**精确为 0**；而 PREW 证明打包前正常。
+    # ⇒ 问题在"归约"这一步。但 `no_pack=1`（4 次独立 all_reduce）也失败，
+    #   所以要做**最干净的最小复现**：单独 all_reduce 一份 `weights` 的**连续副本**
+    #   （形状 `[T,64,1]`、4 KB），**完全绕开 pack 的 640 列布局**。
+    #   · 若这份副本正确 ⇒ 问题在 pack 的具体布局/大小；
+    #   · 若这份副本也被清零 ⇒ **HCCL 在此形状上就有问题**（与 pack 无关）。
+    # 判据用**一次 stack+cpu**（`_wc` 是活张量，可靠）。
+    # =====================================================================
+    if (
+        _dcp_diag_on("wchk", "V41_DCP_WCHK")
+        and not _is_capturing()
+        and diag_seq_lens is not None
+        and int(diag_seq_lens.max()) > 1
+    ):
+        try:
+            # ★ [V41-WCHK-2 11:55] 四量**同一次快照**：
+            #   (a) local_w    = 打包前本地 weights 和
+            #   (b) copy_red   = **独立副本** all_reduce 后的和
+            #   (c) packsliced = 归约后 pack 权重列**切到本 rank head**的和
+            #   (d) packcol    = 归约后 pack 权重列**全列**的和
+            # 若 (d) 正常、(c)=0 ⇒ 是**切片坐标/布局**问题（不是归约）；
+            # 若 (b)(d) 都正常而 wsum 仍 −7 ⇒ wsum 自身的取值被读坏（竞态）。
+            _hs_eff = head_slice if head_slice is not None else (0, int(wsum.shape[1]))
+            _wc = weights.to(torch.float32).contiguous()
+            _wc_loc = _wc.sum().clone()          # 流序保证在 reduce 之前取值
+            _wc_rd = _wc.clone()
+            torch.distributed.all_reduce(_wc_rd, group=group.device_group)
+            _col = _pack[..., _out_dim : _out_dim + 1].to(torch.float32)
+            _csl = _col[:, _hs_eff[0] : _hs_eff[1], :]
+            _st = torch.stack([
+                _wc_loc.reshape(1), _wc_rd.sum().reshape(1),
+                _csl.sum().reshape(1), _col.sum().reshape(1),
+                wsum.sum().reshape(1), wsum.min().reshape(1), wsum.max().reshape(1),
+                (_col > 0).sum().reshape(1),
+            ]).cpu()
+            print(
+                "[V41-WCHK] rank=%d layer=%d T=%d hs=(%d,%d) "
+                "local_w=%.6g copy_red=%.6g | packsliced=%.6g packcol=%.6g "
+                "n_gt0=%d/%d | wsum[min=%.6g max=%.6g sum=%.6g] ratio_copy=%.3f"
+                % (_v41_dcp_rank(), int(layer_idx), int(diag_seq_lens.max()),
+                   int(_hs_eff[0]), int(_hs_eff[1]),
+                   float(_st[0]), float(_st[1]),
+                   float(_st[2]), float(_st[3]),
+                   int(_st[7]), int(_col.numel()),
+                   float(_st[5]), float(_st[6]), float(_st[4]),
+                   float(_st[1]) / max(float(_st[0]), 1e-30)),
+                flush=True,
+            )
+        except Exception as _e:  # noqa: BLE001
+            print("[V41-WCHK] rank=%d 失败：%r" % (_v41_dcp_rank(), _e), flush=True)
     denom = torch.where(wsum > 0, wsum, torch.ones_like(wsum))
     # ★ 用 `torch.div` 直接指定 `out=` 会引入别名风险，保持简单：elementwise 结果
     #   天然连续，`to(dtype)` 后调用方无需再 `.contiguous()`。
@@ -865,6 +1164,27 @@ def _dcp_diag_t_ok(t) -> bool:
 def _dcp_diag_on(key: str, env_fallback: str = "0") -> bool:
     """运行时诊断开关（文件优先，其次 env）—— 免得为一个探针重启 20 分钟。"""
     return _perf_flags().get(key) == "1" or __import__("os").environ.get(env_fallback, "0") == "1"
+
+
+def _dcp_sf(x):
+    """取标量；文件开关 `dsync=1` 时**先做一次设备同步**再取值。
+
+    ★ 为什么需要（2026-09-30 12:10）：同一层同一次调用里，两个读同一块
+    `_pack` 的探针给出了**互相矛盾**的结论 ——
+      MDIAG2（一次 `.cpu()` 快照后在 CPU 上算，**自洽**）：
+        `wcol.sum=7588.87`，8 个块和相加 == 7588.87，各 rank 切片 == 对应块和，
+        `wsum ∈ [1.08, 46.1]` ⇒ **归约后的权重列完全正确、wsum ≥ 1 成立**；
+      MDIAG（设备侧 `float(wsum.min())` 等三次标量读）：
+        同一次调用的同一批张量报 `wsum[min=-7 max=-7] denom[min=1]`。
+    两者不可能同时对。`dsync=1` 把设备侧读数改成"同步后再取"，用来判定
+    到底是 `wsum` 真为 −7，还是标量读被撕裂（§6o 的 copy stream 问题）。
+    """
+    if _perf_flags().get("dsync") == "1" and not _is_capturing():
+        try:
+            torch.npu.synchronize()
+        except Exception:  # noqa: BLE001
+            pass
+    return float(x)
 _DCP_MDIAG_STATE = {}
 _DCP_RAWD_ON = __import__("os").environ.get("V41_DCP_RAW_DIAG") == "1"
 # ★★ [V41-DIAG 2026-09-30] `V41_DCP_NO_ATTN_CACHE=1` ⇒ **禁用挂在 attn 上的三处持久缓存**
