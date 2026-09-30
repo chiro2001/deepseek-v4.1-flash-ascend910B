@@ -614,6 +614,20 @@ def _v41_dcp_merge_attention(
         _pad_to = (-_pack.shape[-1]) % _ALIGN_ELEMS
         if _pad_to:
             _pack = torch.nn.functional.pad(_pack, (0, _pad_to))
+        # ★ [V41-CSEQ] 打序号（非 capture + 真实 prefill）
+        if (
+            _dcp_diag_on("cseq", "V41_DCP_CSEQ")
+            and not _is_capturing()
+            and diag_seq_lens is not None
+            and int(diag_seq_lens.max()) > 1
+        ):
+            _DCP_MERGE_SEQ["n"] += 1
+            print(
+                "[V41-CSEQ] rank=%d layer=%d seq=%d T=%d mode=%s"
+                % (_v41_dcp_rank(), int(layer_idx), _DCP_MERGE_SEQ["n"],
+                   int(diag_seq_lens.max()), "gather" if _DCP_DET_REDUCE else "reduce"),
+                flush=True,
+            )
         if _DCP_DET_REDUCE:
             # ★ 定序归约：`all_gather` 拿全部 rank 的包，再按 rank 顺序显式求和。
             #   数学上 `Σ_r` 与 `all_reduce` 完全等价，但**求和顺序固定**、
@@ -761,6 +775,52 @@ def _v41_dcp_merge_attention(
     #   用 clamp_min 时输出 6.6e+30，全模型爆掉。
     #   ⇒ 恢复原语义：坏值走 `1`，让错误"可见但不放大"。
     #   （`wsum` 恒正时两者逐位等价。）
+    # =====================================================================
+    # ★ [V41-INV] 数学不变量：`wsum = Σ_r w_r − (dcp−1)`，而
+    #   `Σ_r w_r = dcp + (ΣZ + ΣS)/A ≥ dcp`  ⇒ **`wsum ≥ 1` 恒成立**。
+    #   违反即"归约少算了 rank"或"权重算错"，是**结构性**错误而非数值噪声。
+    #   违反时打印本地量以定位（单次 .sum() 读取，符合 §6o 的安全模式）。
+    # =====================================================================
+    if (
+        _dcp_diag_on("inv", "V41_DCP_INV")
+        and not _is_capturing()
+        and diag_seq_lens is not None
+        and int(diag_seq_lens.max()) > 1
+    ):
+        try:
+            # ★★ 用**一次 stack + 一次 .cpu()** 同时取三个量，物理上不可能撕裂：
+            #   (1) 本 rank 的本地 `weights` 和；(2) 归约后权重列的和；
+            #   (3) 归约后**切片到本 rank head 区间**的和。
+            #   `wsum = (3) − dcp*_keep`，若 (2) 正常而 (3) 为 0 ⇒ 切片/布局问题；
+            #   若 (2) 本身就 ≈ 1 ⇒ 归约没把 8 个 rank 加起来。
+            _wcol_full = _pack[..., _out_dim : _out_dim + 1].to(torch.float32)
+            _snap = torch.stack([
+                weights.to(torch.float32).sum().reshape(1),
+                _wcol_full.sum().reshape(1),
+                _wcol_full[:, _h0:_h1, :].sum().reshape(1),
+                _wcol_full.min().reshape(1),
+                _wcol_full.max().reshape(1),
+            ]).cpu()
+            _lsum, _rsum, _sliced_sum, _rmin, _rmax = (float(_snap[i]) for i in range(5))
+            print(
+                "[V41-INV] rank=%d layer=%d T=%d local_w=%.6g reduced_wcol=%.6g sliced_wcol=%.6g "
+                "rmin=%.6g rmax=%.6g | wsum_min=%.6g (期望>=1) ratio=%.3f"
+                % (_v41_dcp_rank(), int(layer_idx), int(diag_seq_lens.max()),
+                   _lsum, _rsum, _sliced_sum, _rmin, _rmax,
+                   float(wsum.min()), _rsum / max(_lsum, 1e-30)),
+                flush=True,
+            )
+            _wmin = float(wsum.min())
+            if False:
+                print(
+                    "[V41-INV] ★违反 wsum>=1: rank=%d layer=%d T=%d wsum_min=%.6g "
+                    "wsum_max=%.6g wsum_mean=%.6g"
+                    % (_v41_dcp_rank(), int(layer_idx), int(diag_seq_lens.max()),
+                       _wmin, float(wsum.max()), float(wsum.mean())),
+                    flush=True,
+                )
+        except Exception as _e:  # noqa: BLE001
+            print("[V41-INV] rank=%d 检查自身失败：%r" % (_v41_dcp_rank(), _e), flush=True)
     denom = torch.where(wsum > 0, wsum, torch.ones_like(wsum))
     # ★ 用 `torch.div` 直接指定 `out=` 会引入别名风险，保持简单：elementwise 结果
     #   天然连续，`to(dtype)` 后调用方无需再 `.contiguous()`。
@@ -829,6 +889,9 @@ _DCP_DET_REDUCE = __import__("os").environ.get("V41_DCP_DET_REDUCE") == "1"
 #   直接把 `seqused_cmp_kv` 置零更干净，也避开全 -1 索引张量的退化路径。
 _DCP_ORI_ZERO_CMP = None  # 运行时由 `_perf_flags()` 决定（见调用处）
 _DCP_RAWD = {"n": 0}
+# ★ [V41-CSEQ] DCP 合并里集合通信的**全局序号**：若各 rank 的序号序列不一致，
+#   后续 collective 会**逐层错位配对**（HCCL 最典型的静默串位故障）。
+_DCP_MERGE_SEQ = {"n": 0}
 _DCP_RAWD_LIMIT = 4000
 _MDIAG_LIMIT = 4000
 
