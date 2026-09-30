@@ -83,15 +83,29 @@ SMLA 前强制同步、分块调用、块表补列、换新 metadata 副本。
 
 ## 3. 包内结构
 
+**tarball 内容**（33 个条目）：
+
 | 路径 | 说明 |
 |---|---|
 | `overlay/vllm_ascend/` | 18 个 `.py`：`attention/dsa_v41.py`（DCP impl/builder/LSE 合并/top-k remap）、`core/deepseek_v41.py`（槽位规划/state ring/复制面）、`worker/block_table.py`、`patch/platform/*` 等 |
 | `launch/dcp_stage_capacity.sh` | 起服脚本（含设备安全检查、md5 守门、结果归档） |
+| `README.md` / `BUILD_INFO.txt` / `MANIFEST.sha256` | 说明、构建身份、逐文件哈希 |
+
+**同目录但不在 tarball 内**（在仓库 `experimental/v41-dcp/` 下）：
+
+| 路径 | 说明 |
+|---|---|
 | `tools/dcp_correctness.py` | 正确性回归（短问答 + 长文多选针） |
 | `tools/dcp_ab.py` | 性能 A/B（三元组口径） |
 | `tools/dcp_sync.sh` | overlay 同步（md5 守门） |
-| `probes/` | 算子缺陷复现包：单卡最小复现、生产 dump 重放、输入变异、触发条件刻画 |
+| `probes/` | 算子缺陷复现包（见下） |
 | `package_release.sh` | 本包的构建/校验/自检器（`build` / `verify` / `selftest`） |
+
+**算子缺陷复现包**（独立上传，public-read）：
+
+```
+cos://uploads-new/share/dsv41-dcp8-smla-nondeterminism-repro-v2-20260930.tar.zst
+（88.91 MB；含生产 dump、单卡重放、输入有限性检查、NaN 分布、13 类规避尝试的脚本）
 
 ## 4. 校验本包
 
