@@ -2412,6 +2412,47 @@ class DeepseekV41EagerAttentionImpl:
         _ori_seqused = seq_lens
         _ori_bt = ori_block_table
         # =====================================================================
+        # ★★★★★★ [V41-PRESMLA-SYNC 2026-09-30 17:55] **SMLA 调用前的流同步**。
+        #
+        # 为什么这一刀最关键：`kdet` 实测（run dcpcap_0930_171157）证明
+        # **同层、同输入、同一次 forward 内连调两次 SMLA，结果不同**
+        # （`lse_bit_identical=False max_abs_diff≈0.19`）—— 这是本轮唯一
+        # 无法用"输入不同"解释的观察。
+        #
+        # 但必须排除一个重要的自证陷阱：我加的所有 KV 内容探针
+        # （`kvdata` / `idxkvfp` / `oridata`）都在 SMLA **之前**读张量
+        # （`.cpu()`）⇒ 它们**会强制同步**，从而可能**掩盖**真实的写-读竞态。
+        # 也就是说"探针说输入干净"并不等于"SMLA 看到的是干净的"。
+        #
+        # 本开关在第一次 SMLA 调用**之前**插一次设备同步：
+        #   · 若第 2 个请求变正确 ⇒ **KV 写入流与 SMLA 读之间存在竞态**
+        #     （slot mapping/scatter 是异步的，SMLA 抢跑读到旧块/半写块）
+        #     ⇒ 修复方向明确：在 SMLA 前对写入流加 event 依赖；
+        #   · 若无变化 ⇒ 算子内部状态问题（按 §13 的单卡结论处理）。
+        # 只在非 capture 下用（capture 区 host 同步会崩）。
+        # =====================================================================
+        if _perf_flags().get("presmla_sync") == "1" and not _is_capturing():
+            try:
+                torch.npu.synchronize()
+            except Exception:  # noqa: BLE001
+                pass
+        # =====================================================================
+        # ★★★★★★ [V41-DENSECMP 2026-09-30 18:00] **ratio=1 层改 dense 的尝试：已证伪**。
+        #
+        # 设想：对 ratio=1 层，本 rank 的 `long_kv` 只有 `seqused_cmp_kv=128` 行，
+        # 若"本地候选去重后就是这 128 行"，则 dense（不传 `cmp_sparse_indices`）
+        # 应与稀疏等价，且能绕开非确定的稀疏 gather 路径。
+        #
+        # **实测证伪**（run dcpcap_0930_174046，`dense_cmp=1`）：T=900 连发 4 次
+        # **全部错误**（连第一个请求也错，而稀疏路径下第一个请求是对的）。
+        #
+        # 原因（纯组合性质）：`interleave=32` 的交错分片下，rank r 的第 k 行对应
+        # 全局位置 `super(k)`，而算子的 `cmp_mask_mode=3`（因果）用的是**行号**
+        # `k ≤ t` ⇒ 与 `super(k) ≤ q_pos` 不等价 ⇒ query 会看到**未来的键**。
+        # 只有当分片改为**连续**（rank r 拥有 [r·L/8, (r+1)·L/8)）时 dense 才正确，
+        # 而平台把 `cp_kv_cache_interleave_size` 固定为 32（`platform.py` 的 sparse
+        # 强制）⇒ 此路不通。保留本节作为负结果。
+        # =====================================================================
         # ★★★★★★ [V41-ORIDATA 2026-09-30 17:22] **ori（SWA 复制面）本请求行的指纹**。
         #
         # 这是最后一个还没按"本请求实际读写的行"测过的输入。
