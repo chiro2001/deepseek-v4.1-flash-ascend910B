@@ -1,207 +1,100 @@
-# V4.1 Flash — TP8 + DCP8 overlay 发布包
+# V4.1 Flash — TP8 + DCP8 overlay（a3-21 / 8×910B 单机）
 
-> ⛔ **本包未对外发布（2026-09-30）**：DCP8 尚未稳定 ——
-> 512 B 对齐修复消掉了"logits 均匀分布"的硬故障，但服务端 `prompt_tokens=16`
-> 仍会给出**置信但错误**的答案（`8+7` → `numbersaplenty.c`），T=17/18 正常。
-> **仅供内部使用**；恢复对外发布的条件是短问答与 DCP1 对齐
-> （见 `docs/V41-DCP-RCA-20260930.md`）。
+> **状态（2026-09-30 19:30）：仅供内部使用，未对外发布。**
+> ① 容量与 ③ 性能达标；**② 正确性受 `npu_sparse_flash_mla` 算子缺陷阻塞**
+> （`T ≥ 560` 的 prompt 存在概率性乱码）。算子侧已拿到 20 秒可复现的同源用例。
+> 详见 §2 与 `../../docs/V41-DCP-RCA-20260930.md`。
 
-> DeepSeek-V4.1 在 **8×910B（单机 8 芯，A2 形态仿真）** 上启用
-> `--decode-context-parallel-size 8` 的一套可挂载实现。
-> 目标：把 KV cache 容量做到 DCP1 的 **~8 倍**，同时保持正确性、decode 性能不出现数量级退化。
+本包通过 `V41_DCP_MOUNT=<dir>` 把 18 个 `.py` 整树挂进官方镜像
+（`scripts/serve_a2.sh` 带 md5 守门），**不改镜像**。
 
 ---
 
 ## 0. 一句话结果
 
-| | DCP1 基线 | **DCP8（本包）** | 比值 |
+| | DCP1 基线 | **DCP8（本包，正确配置）** | 比值 |
 |---|---|---|---|
-| **KV 容量**（5 GiB 池，1M 上下文） | 1,242,687 token | **8,634,871 token** | **6.95×** |
-| **ms/step**（单流，BAT=2048，SPEC=0） | 30.83 | **35.00 / 35.18 / 35.35**（三次独立会话，中位 **35.18**） | 1.141× |
-| **tok/s**（单流，API 口径） | 31.1 – 31.4 | **28.57 / 28.43 / 28.29** | 0.90× |
-| **A**（平均接受长度） | 1.0 | 1.0 | — |
-| **长上下文多选针** 2K/8K/16K × 2 种 | — | **6/6** | — |
-| **短问答** | 4/6 | 4/6（逐项一致） | — |
+| **KV 容量**（5 GiB 池，1M 上下文） | 1,242,687 token | **6,082,458 token** | **4.90×** |
+| **ms/step**（同会话配对，BAT=2048，SPEC=0） | 26.12 | **33.77** | **1.29×** |
+| **tok/s**（单流 API 口径） | 38.28 | **29.61** | 0.77× |
+| **A**（平均接受长度；SPEC 关闭） | 1.0 | 1.0 | — |
+| **短问答 / 同 prompt 逐字对拍** | 112/112 | **112/112 逐字相同** | — |
+| **长上下文多选针** | 6/6 | **T ≤ 450 通过；T ≥ 560 失败（算子缺陷）** | — |
 
-容量换来了 **1M 上下文下 1 路 → 8 路**并发（或 128K 下 9 路 → 65 路）。
+口径：TP8/DP1、`--decode-context-parallel-size 8`、`BAT_TOKENS=2048`、
+`--no-async-scheduling`、`PREFIX=0`、`MAX_LEN=1M`、5 GiB 池、设备 8–15；
+性能取流式相邻 token 间隔**中位数**（丢弃前 8 个，5 次取中位）。
 
-口径：TP8/DP1、`BAT_TOKENS=2048`、`--no-async-scheduling`、`PREFIX=0`、`MAX_LEN=1M`、
-5 GiB 池、设备 8-15；性能取流式相邻 token 间隔**中位数**（丢弃前 8 个）。
-
----
-
-## 1. 这个包是什么
-
-**不是**镜像，是 **12 个 `.py` 的整树挂载（overlay）**。`scripts/serve_a2.sh` 支持
-`V41_DCP_MOUNT=<dir>`：起服时把它们 `-v` 挂进容器的
-`/vllm-workspace/vllm-ascend/vllm_ascend/...`，并有**三重保险**：
-
-1. 起服前打印挂载清单；
-2. 起服后**逐文件 md5 比对**容器内 vs 宿主，不一致直接 die；
-3. 与 `patches/files/*` 的重复目的地自动去重（overlay 优先）。
-
-⇒ 所以这个包**不需要重打镜像**，也不需要 `docker commit`。
-
-```
-overlay/vllm_ascend/                        # ← V41_DCP_MOUNT 指向这里
-├── attention/dsa_v41.py                    # 主体：SMLA 调用 + 跨 rank LSE 合并
-├── attention/context_parallel/v41_dcp.py   # 纯函数：坐标映射 / top-k remap / 本地长度
-├── worker/block_table.py                   # DCP 槽位映射（写侧）
-├── core/kv_cache_interface.py              # 四个 cache 平面的 DCP 语义
-├── core/deepseek_v41.py                    # 容量规划（分片 vs 复制）
-├── models/deepseek_v41/{model,indexer,engram_hbm}.py
-├── patch/platform/{patch_v41_dcp,patch_kv_cache_coordinator,__init__}.py
-└── platform.py
-launch/dcp_stage_capacity.sh                # 一键起服（选卡 + 重试 + 抓容量行）
-tools/dcp_sync.sh                           # 本地 overlay → 远端，镜像式同步 + md5 守门
-tools/dcp_correctness.py                    # 正确性回归（短问答 + 长上下文多选针）
-tools/dcp_ab.py                             # 性能 A/B（(ms/step, A, tok/s) 三元组）
-tools/v41_capacity_sweep.py                 # 纯解析容量模型（秒级，无需设备）
-```
+> 未开 indexer 复制时容量是 **8,634,871 token（6.95×）**，但那条路径
+> `top-k` 不成立（分片 indexer 上 QLI 的因果掩码无法表达）⇒ **不可用于正确性**。
+> 本包的 4.90× 是**正确配置下的容量**。
 
 ---
 
-## 2. 怎么用
+## 1. 启动
 
 ```bash
-# ① 解包
-tar -xf v41-dcp-overlay-<commit>-<指纹>.tar.zst -C /some/dir
-cd /some/dir && sha256sum -c MANIFEST.sha256      # 逐文件校验
+# ① 同步 overlay 到宿主目录（本包解包后即为该目录）
+tar -I zstd -xf v41-dcp-overlay-<commit>-<md5>.tar.zst -C ~/dcpw
 
-# ② 起服（8 芯，DCP8）
-cd <你的 dsv41 发布包>            # 需要 scripts/serve_a2.sh / serve_a3.sh / serve_v2.sh
-setsid env \
-  DCPMOUNT=/some/dir/overlay \
-  AUTO_CHIPS=0 CHIPS="8 9 10 11 12 13 14 15" \
-  PREFIX=0 BAT_TOKENS=2048 \
+# ② 起服（chip 8-15、端口 19210）
+cd ~ && setsid env DCPMOUNT=$HOME/dcpw AUTO_CHIPS=0 \
+  CHIPS="8 9 10 11 12 13 14 15" PREFIX=0 BAT_TOKENS=2048 EAGER=1 ENGRAM=0 \
   EXTRA_KV_ARGS="--no-async-scheduling" \
-  DCP_EXTRA_ENV="V41_DCP_ALLOW_CAPACITY_PROBE=1" \
-  nohup bash launch/dcp_stage_capacity.sh > ~/dcp.nohup.log 2>&1 < /dev/null &
-# 冷启动 12–20 分钟（8 rank 加载 490 GB + 编译 150~176 个 static kernel）
+  DCP_EXTRA_ENV="V41_DCP_ALLOW_CAPACITY_PROBE=1 V41_DCP_REPLICATE_INDEXER=1" \
+  nohup bash launch/dcp_stage_capacity.sh > ~/dcp_x.nohup.log 2>&1 < /dev/null & disown
 
-# ③ 等就绪
-curl -s --noproxy '*' http://127.0.0.1:19210/health     # 期望 200
-
-# ④ 正确性 + 性能
-python3 tools/dcp_correctness.py     # 期望：长上下文多选针 6/6
-python3 tools/dcp_ab.py ab --reps 5 --arm base:          # 期望：~35 ms/step，A=1
+# ③ 就绪判据（冷启动 5–20 分钟）
+curl -s -o /dev/null -w '%{http_code}\n' --noproxy '*' http://127.0.0.1:19210/health
 ```
 
-**关键开关**（都有默认值，通常不用改）：
-
-| 变量 | 默认 | 说明 |
-|---|---|---|
-| `V41_DCP_MOUNT` | — | **必给**，指向 `overlay/` |
-| `V41_DCP_ALLOW_CAPACITY_PROBE` | — | **必给 `1`**，否则 DCP 路径不激活 |
-| `EXTRA_KV_ARGS` | — | 建议 `--no-async-scheduling`（容量第一杠杆） |
-| `BAT_TOKENS` | 8192 | 2048 可把容量从 4.08× 提到 6.95× |
-| `CED_MAX_NUM_BLOCKS` / `CED_BYTES_PER_BLOCK` | 29076 / 540928 | 防 32 位页偏移回绕的上界 |
+**两个环境变量是必需的**：
+* `V41_DCP_ALLOW_CAPACITY_PROBE=1` —— 放开 V4.1 的 `PP=DCP=PCP=1` 门；
+* `V41_DCP_REPLICATE_INDEXER=1` —— **indexer K 每 rank 一份全量副本**，
+  这是全局 top-k 成立、长上下文正确的前提（代价是容量 6.95× → 4.90×）。
 
 ---
 
-## 3. 实现要点（改了什么）
+## 2. 已知限制：② 正确性（外部算子缺陷）
 
-V4.1 有**四个 cache 平面**，DCP 下语义**不同**，这是整套实现的核心：
+`npu_sparse_flash_mla`（SMLA）在 **`compress_ratio=1` 的稀疏索引路径**上**非确定**：
+同一次 forward 内、**逐位相同**的输入连调两次，`lse`/`out` 不同，并出现 NaN。
 
-| 平面 | DCP 语义 | 为什么 |
-|---|---|---|
-| `long_kv`（压缩态 MLA） | **分片** 1/dcp | 每 rank 只存 1/8 序列 |
-| `indexer.k_cache` | **分片**（配 remap） | 同上 |
-| `swa`（滑窗 128） | **复制**（每 rank 全量） | A3 上 `ori` 路径被硬绑：`ori_win_left` 必须 127、`ori_mask_mode` 必须 4、`ori_sparse_indices` 是 A5-only ⇒ **滑窗只能表达成"以本地 KV 末端为右沿的连续带"**；而且它**不贵**（滚动窗口，与序列长度无关） |
-| `compressor.state_cache` | 复制 | 环状缓冲，非 full |
+* 【实测】生产 8-chip DCP8：`T ≤ 450` 完全确定（`lse_bit_identical=True`）；
+  `T ≥ 560` 起非确定，且 **NaN 在两次调用间随机出现** ⇒ 读未初始化内存。
+* 【实测】单卡隔离复现（无 DCP、无服务栈）：值域跨 ≥3 页必现；生产同源 dump
+  在单卡上 100% 复现（`ALL`/`STEADY` 均 `bit_identical=False`）。
 
-**跨 rank 合并（`_v41_dcp_merge_attention`）** —— 这是最容易做错的地方：
-
+**复现包（公开可读）**：
 ```
-每个 rank 上报 (O_r, L_r)，全局 = Σ_r e^{L_r}·O_r / Σ_r e^{L_r}
+cos://uploads-new/share/dsv41-dcp8-smla-nondeterminism-repro-20260930.tar.zst
 ```
+内含生产 dump（2 个 rank）、单卡重放脚本、README（复现命令 + 实测表 + 已排除假设）。
 
-三个必须遵守的细节（都踩过）：
-
-1. **必须沿 head 维 all-gather q**。TP 切的是 head，rank r 只持 `[8r, 8r+8)`；
-   `all_reduce` 是**逐元素**求和 —— 不 gather 就等于把不同 head 相加。
-2. **归一化参考点必须各 rank 共享**。取"跨 rank 最大值"需要一次 all_gather
-   （实测 46 µs/层）；改用**第二次纯 ori 调用的 LSE** 作参考点 ⇒ **零通信**
-   （各 rank 逐位相同，且 `L_r ≥ L_ori` 恒成立，指数不上溢）。
-3. **`(1 − 1/dcp)` 要折进 ori 项**：`all_reduce` 线性 ⇒
-   `Σ_r(_onum_r·k) = k·_n_all`，把 k 先乘到 `[T,H,1]` 上，
-   归约后的重算子从 2 个降到 1 个。
-
-**已知的坑（写在这里省你一轮起服）**：
-
-* `_prepare_q_for_dcp` 必须与 `_native_attention` 里的
-  `dcp_active = _v41_dcp_on() and compress_ratio in (1,2)` **同条件**。
-  ratio=0 的层（纯滑窗）不做跨 rank 归约，q 必须保持本地 8 head；
-  无条件 gather 会让算子报
-  `Invalid_Argument_Tensor_Shape(EZ0009): ... Sinks's dimension(8) should be equal to
-  the head num of query(64)`。
-* **capture 区内绝不能做 host 同步**：`int(device_tensor)` / `.item()` / 布尔索引
-  会让 8 个 worker 全部报 `Not_Supported(EE1016): stream is captured`。
-  凡是要读 device 标量的地方，一律走纯 device 侧构造。
-* 改文件驱动的消融开关（`/tmp/v41_perf_flags`）**对 decode 阶段无效** ——
-  decode 走 `FULL_DECODE_ONLY` 整图捕获，Python 分支只在捕获那一刻求值。
-  要测 decode 增量只能用**设备侧 profile** 或**离线图级夹具**。
+**本轮已穷尽的规避尝试（全部失败）**：降 topk（算子拒绝非 512/1024）、
+匀均重复填索引槽（`floor`/`ceil`）、索引升序重排、dense 替换稀疏、
+SMLA 前强制同步、分块调用、块表补列、换新 metadata 副本。
 
 ---
 
-## 3b. ★ 2026-09-30 修复：HCCL all_reduce 的 buffer 未对齐（硬故障）
+## 3. 包内结构
 
-**症状**：短 prompt 上输出退化成**均匀分布**（首 token top-5 是 5 个不同 token、
-logprob 逐位相等，恰好 `−ln(129280)`）⇒ logits 全相同。
+| 路径 | 说明 |
+|---|---|
+| `overlay/vllm_ascend/` | 18 个 `.py`：`attention/dsa_v41.py`（DCP impl/builder/LSE 合并/top-k remap）、`core/deepseek_v41.py`（槽位规划/state ring/复制面）、`worker/block_table.py`、`patch/platform/*` 等 |
+| `launch/dcp_stage_capacity.sh` | 起服脚本（含设备安全检查、md5 守门、结果归档） |
+| `tools/dcp_correctness.py` | 正确性回归（短问答 + 长文多选针） |
+| `tools/dcp_ab.py` | 性能 A/B（三元组口径） |
+| `tools/dcp_sync.sh` | overlay 同步（md5 守门） |
+| `probes/` | 算子缺陷复现包：单卡最小复现、生产 dump 重放、输入变异、触发条件刻画 |
+| `package_release.sh` | 本包的构建/校验/自检器（`build` / `verify` / `selftest`） |
 
-**根因**：`cat([scaled(512), weights(1)])` 的最后一维是 **513**
-⇒ `513×4 B = 2052 B` **不是 512 的倍数**，Ascend HCCL 的 `all_reduce`
-把 buffer 弄坏（实测 `w_postreduce_sum = nan`/`0`，而 `w_local_sum` 正常）
-⇒ `wsum` 变负 ⇒ 输出爆到 `1e30` ⇒ LM head 溢出 ⇒ logits 全相同。
-旧的 `2D+2 = 1026` 同样不对齐 ⇒ **所有历史版本都受影响**。
+## 4. 校验本包
 
-**修法**：pack **pad 到 512 字节**（128 个 fp32），归约后精确切列；
-`denom` 恢复 `where(wsum>0, wsum, 1)`（去掉 `clamp_min(1e-30)` 的 1e30 放大）。
+```bash
+sha256sum -c v41-dcp-overlay-<commit>-<md5>.tar.zst.sha256   # 归档完整性
+bash package_release.sh verify v41-dcp-overlay-<commit>-<md5>.tar.zst  # 逐文件 + 篡改负控
+```
 
-**验证**：长度扫描"均匀分布"样本 **3 → 0**；长针 **6/6**；容量不变；
-性能 **35.95 ms/step**（pad 无可见代价 —— collective 在该区间是纯延迟）。
-
-⚠️ **仍存在**：少数短 prompt 会**答错**（分布正常）；DCP8 vs DCP1 的 hidden 差
-`3e-5~4.6e-5`（≈5–17 bf16 ULP）属 8 rank 合并的舍入累积，与上面的结构性 bug 分开。
-详见 `docs/V41-DCP-RCA-20260930.md`。
-
-## 4. 性能：+4.5 ms/step 花在哪
-
-DCP8 相对 DCP1 慢 **+4.52 ms/step**。按 38 层（层 0/1 是纯滑窗，不走合并路径）
-折算是 **+119 µs/层**。2-chip 图级**累积式**分解（可加，自证 122.1 + 14.2 = 136.3）：
-
-| 组件 | µs/层 | 通信? |
-|---|---|---|
-| 后处理（`sub`/`slice`/`clamp_min`/`div`/`cast`） | 42.2 | 否 |
-| 第一次 SMLA（ori⊕cmp，64 head） | 27.4 | 否 |
-| q 的 head all_gather | 20.6 | ★ |
-| 打包 all_reduce | 18.0 | ★ |
-| 第二次纯 ori SMLA | 14.8 | 否 |
-| 残差 / 布局 | 16.4 | — |
-| **合计** | **136.3** | |
-
-⇒ **集合通信只占约 1/3（两个 collective 一起去掉只省 36.5 µs/层）**。
-优化前是 79%（q gather 48.3 + LSE gather 46.1 + all_reduce 57.4 = 151.8），
-本轮把 LSE gather **完全消掉**、q gather 提到 indexer 之前与计算重叠。
-
-**两项"别再优化"的硬结论**（实测）：
-
-* q 的 head all_gather **已在地板上**：空 collective（16 B）46 µs vs 真实形状（8 KB）
-  46 µs ⇒ **纯每-call 延迟，0% 是数据量**；要到 8 MB 才爬到 74。
-* **all-to-all 替代不可行**：合并需要"固定 head 切片、对全部 KV 分片求和"，
-  只能整行（要 gather q）或整列（要读全部 8 份 KV）；"只算 1/8 head"
-  等于只算 8×8 块矩阵的对角块。
-
-**聚合吞吐不会下降**【推断】：collective 是**纯延迟**（与 batch 无关），
-并发越高摊得越薄；而容量 6.95× 直接把 1M 上下文的并发上限从 **1 路提到 8 路**。
-⚠️ 这条是推断 —— 没有 C>1 的 DCP8 实测数据。
-
----
-
-## 5. 结论标注
-
-* 【实测】容量 8,634,871 token（三次逐位验证）、长针 6/6、短问答 4/6、
-  35.00/35.18/35.35 ms/step、28.57/28.43/28.29 tok/s、A=1、collective 地板值、
-  组件表全部来自真机或 2-chip 图级夹具。
-* 【推断】聚合吞吐不会下降（依据：collective 纯延迟 + 容量比）。
-* 【未确认】C>1 的 DCP8 实测；8-chip 上 collective 的真实边际（2-chip 夹具低估）。
+打包参数固定（`owner/group=0`、`--mtime` 取提交时间、`--sort=name`）
+⇒ **同一份输入必然得到同一个 sha256**，可当"这就是我跑的那版"的身份。
