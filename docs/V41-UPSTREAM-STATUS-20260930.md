@@ -181,3 +181,163 @@ tilingKey = GET_TPL_TILING_KEY(..., static_cast<uint32_t>(tilingInfo->batchConsi
 cos://uploads-new/share/dsv41-dcp8-smla-nondeterminism-repro-v2-20260930.tar.zst
 88.91 MB，md5 = c4ac20dc9e78c26fa0b6db832e6bc89d
 ```
+
+---
+
+# 附：`gitcode.com/cann/cann-recipes-infer` 调研（2026-09-30 21:10）
+
+## A0. 结论
+
+**这是 CANN 官方的推理优化样例库，里面有 DSv4.1 的完整实现（含 8 卡 8CP 配置），
+但它仅支持 Ascend 950，且 CP 只用于 Prefill、Decode 走 DP+EP —— 没有 DCP。**
+它用的稀疏注意力算子是与我们**不同的一版**（CANNBot-DSL 的
+`mixed_quant_sparse_flash_mla`），**A3 上不可用**。
+
+## A1. 仓库与版本
+
+| 项 | 值 |
+|---|---|
+| 仓库 | https://gitcode.com/cann/cann-recipes-infer |
+| 调研 commit | `2225cae19d7612c1242d0815271e86e13eea2c95`（2026-09-30） |
+| 该 commit 标题 | `feat(dsv4.1): 打开 type-2 grouplist 开关 + swiglu 归一自定义算子` |
+| DSv4.1 目录 | `models/deepseek_v4_1/`（含 `models/`、`config/`、`utils/`、README） |
+| 技术文档 | `docs/models/deepseek_v4_1/` 下 **5 份**（CANN 优化实践 / 算子指南 / 通信 / 低时延 / 单卡） |
+| 代码注册表 | `models/modules/registry.py`：`SUPPORT_PLATFORM = ["A3", "950"]`（**全仓库**级别）【实测】 |
+
+## A2. ★ DSv4.1 只支持 950
+
+* 5 个配置**全部** `platform_version: "950"`【实测】：
+  ```bash
+  $ grep -h platform_version models/deepseek_v4_1/config/*.yaml | sort | uniq -c
+        5   platform_version: "950"
+  ```
+* README《硬件要求》：**产品型号：Ascend 950 系列**；镜像为
+  `cann9.2.0.pt2.13.0_dsv4.1_aarch_a5_image_custom_20260930`（CANN **9.2.0**、A5）。
+* 配置里还有 950 专属项：`engram_tp_size`、`enable_superkernel`、TileLang 后端等。
+
+> ⚠️ 注意别被 `SUPPORT_PLATFORM = ["A3","950"]` 误导：那是**整个仓库**的注册表
+> （其他模型如 Qwen/Llama 支持 A3），DSv4.1 这一支的配置与文档都是 950。
+
+## A3. ★ 有 8CP 配置，但 **CP 只用于 Prefill，Decode 用 DP+EP**
+
+配置 `config/deepseek_v4_1_flash_rank_8_8ep_8cp.yaml`：
+
+```yaml
+parallel_config:
+  world_size: 8
+  attn_tp_size: 1
+  ...
+  cp_size: 8              # ← 8 卡 CP
+scheduler_config:
+  block_size: 128
+  max_prefill_tokens: 131072
+  batch_size: 8
+  cp_mini_batch: 1
+```
+
+但技术报告（`docs/models/deepseek_v4_1/deepseek_v4.1_flash_cann_tech_report.md`）
+把边界说得很明确【实测·原文】：
+
+> ### Prefill Context Parallel
+> V4.1-Flash 在 **Prefill 阶段**采用 Context Parallel（CP）把单条请求的序列切分到
+> 各卡并行计算，**Decode 仍按 DP 执行**，两阶段的并行方式相互独立。
+
+> ### Decode 并行（DP+EP）
+> Decode 阶段沿用 DeepSeek 系列的并行方案：
+> - **Attention 采用 Data Parallel（DP）并行**；
+> - MoE 采用 Expert Parallel（EP）并行；
+> - LM Head 采用 Tensor Parallel（TP）并行。
+
+⇒ **官方 recipe 在 Decode 阶段不做 token 级 KV 分片**。这与我们在
+`vllm-project/vllm-ascend` 看到的 `supports_dcp = False`（§1.2）完全一致。
+
+## A4. 他们的 Prefill CP 是"复制 + 跨卡收集"，没有容量收益
+
+技术报告 §序列切分与段长 / 数据流【实测·原文】：
+
+* **Zigzag 切分**：序列切成 `2*cp_size` 段，第 r 张卡持第 r 段与第 `2*cp_size-1-r` 段；
+  每层**按段各执行一次注意力**，窗口索引/压缩长度/算子 metadata **均按段构建**。
+* **跨段依赖**：
+  * 滑窗：每段段首需前序 `sliding_window=128` 的 KV ⇒ 每层把本卡两段尾部各 128 行
+    合并做 **1 次 AllGather**，各卡从全局结果取自己需要的尾窗写入**临时窗口 Cache**；
+  * 压缩 KV 与 index KV：**"需要收齐到全域"**。
+* 另有 `cp_tmp_cache`（`get_cp_tmp_cache`：**Full-length temporary cache**）与
+  `gather_cp_segments`（`all_gather_into_tensor` + `reverse_index` 还原顺序）
+  【实测·源码 `models/modules/common_modules.py:77-125`】。
+
+⇒ 每个 rank 最终都要拿到全域数据 ⇒ **KV 是复制/收集的，不是分片**，
+**没有 KV 容量收益**。这与我们 DCP8 追求的 4.90× 是**两条不同的路**。
+
+## A5. ★ 他们的稀疏注意力算子与我们**不是同一版**
+
+```python
+# models/deepseek_v4_1/models/modeling_deepseek.py:1041
+import custom_ops  # Registers the repository's KV quantization writer.
+self.sparse_attn_ops = torch.ops.cann_ops_transformer.ds41.mixed_quant_sparse_flash_mla
+```
+
+| | 我们（A3 / arch22） | 官方 recipe（950） |
+|---|---|---|
+| 算子 | `_C_ascend::npu_sparse_flash_mla` | `cann_ops_transformer::ds41::mixed_quant_sparse_flash_mla` |
+| 来源 | `vllm-ascend` 的 `custom_transformer` vendor（AscendC, arch22） | CANN 内置 `cann_ops_transformer.ops.ds41`（CANNBot-DSL） |
+| KV 精度 | **BF16** | **FP8 E4M3（原始）+ FP4 E2M1（压缩）** |
+| 额外参数 | — | `quant_mode`、`rope_head_dim`、`key_dtype`、`value_dtype` |
+
+### A5.1 为什么不能用它替换
+
+在**我们的容器**（CANN 9.1.0 / A3）里核查【实测】：
+
+| 检查项 | 结果 |
+|---|---|
+| `cann_ops_transformer/ops/ds41/` 子模块 | **不存在** |
+| `aclnn_mixed_quant_sparse_flash_mla.h` 头文件 | **不存在** |
+| `opp/.../kernel/.../*mixed_quant*` 算子实现 | **不存在**（`find` 零命中） |
+| 仅有的东西 | 一个 224 行的 Python/C++ 包装层 `ops/csrc/mixed_quant_sparse_flash_mla.cpp`，它调用的 `aclnnMixedQuantSparseFlashMla` **在本版本不存在** |
+
+⇒ 那份 Python 包装即使被 import，也只会 JIT 编出一个**链接不到 aclnn 实现**的壳子。
+**A3 + CANN 9.1.0 上没有这个算子。**
+
+### A5.2 ★ 但它的设计正好指出了我们 bug 的修法
+
+算子指南（`deepseek_v4.1_cannbotdsl_operator_guide.md`）§"Mixed Quant Sparse Flash MLA"
+描述的新版实现【实测·原文】：
+
+> 以 128 个 KV 位置为一个处理 tile，**按照 Query 行与两侧有效稀疏 KV 长度划分任务**；
+> 一行先处理原始 KV tile，再处理压缩 KV tile。……**尾块按实际有效长度屏蔽多余位置**。
+>
+> 调度阶段**根据每行有效长度生成任务范围**。……各核将局部输出、最大值与指数和写入
+> Workspace，Vector 核再按在线 Softmax 合并公式归约。
+
+对照我们在 arch22 版本里定位到的问题（`V41-CSA-KERNEL-SOURCE-ANALYSIS-20260930.md`）：
+
+| | arch22（我们） | CANNBot-DSL 新版（950） |
+|---|---|---|
+| 有效长度来源 | `actCmpS2Size` 由**全局**公式推出（`cmpMaskRight = cmpMaskS2Size − actS1Size`） | **按每行实际有效稀疏 KV 长度**生成任务范围 |
+| 丢键后的处理 | `CopyInSingleKv` 静默返回 ⇒ `kvMergeGm_` 留洞；矩阵阶段按**期望长度**读 | **尾块按实际有效长度屏蔽** |
+| 两阶段一致性 | 缺"实际条数"握手 | 任务范围本身即由有效长度决定 |
+
+⇒ **新版算子从设计上就避免了我们的缺陷类别**，但它是 950/FP8-FP4 路径。
+
+## A6. 对目标 ② 的影响（更新）
+
+| 路径 | 是否提供 Decode 侧 KV 分片 | 容量收益 | A3 可用 |
+|---|---|---|---|
+| `cann-recipes-infer` DSv4.1（官方） | ❌ Decode 用 DP+EP | 无（CP 只省 TTFT） | ❌ 950 专属 |
+| `vllm-project/vllm-ascend` PCP（#17171） | ❌ KV 全量复制 | 无 | 部分（但非 v4.1） |
+| 我们的 DCP8 | ✅ 每 rank 1/8 KV | **4.90×** | ✅（我们实现） |
+
+⇒ **三条独立证据（CANN 官方 recipe / vllm-ascend 上游 / RFC #16375）
+一致表明：Decode 侧 token 级 KV 分片 + 稀疏注意力这条组合，目前没有任何官方实现。**
+我们撞到的 `T≥560` 缺陷正处在这条"无官方支持"的路径上。
+
+**可选路径（修订版）**：
+
+1. **推动算子侧按新版设计修 arch22**：把"按每行有效稀疏长度划分任务"与
+   "尾块按实际有效长度屏蔽"这两条搬到 arch22 的 CSA 模板（新版已有正确做法，
+   属于**移植**而非从零设计）。这是我们现有工作的最短闭环。
+2. **退回官方架构**（Prefill CP + Decode DP+EP）：正确性有保障，但**放弃 4.90× 容量**。
+3. **等 950 平台**：可直接用官方 `mixed_quant_sparse_flash_mla`（FP8/FP4 KV）。
+
+**给算子团队的补充材料**：可以直接引用其**自家** CANNBot-DSL 算子指南里
+"按每行有效长度划分任务 + 尾块按实际长度屏蔽"的设计，说明 arch22 版本的
+`cmpS2IdLimit` 全局公式 + 静默丢键是**落后于自家新版设计**的。
