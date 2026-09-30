@@ -1827,6 +1827,51 @@ class DeepseekV41EagerAttentionImpl:
             except Exception as _e:  # noqa: BLE001
                 _kd_lse2 = None
                 print("[V41-KDET] rank=%d 第二次调用失败：%r" % (_v41_dcp_rank(), _e), flush=True)
+        # =====================================================================
+        # ★★★★★ [V41-BLKFP 2026-09-30] **当前请求引用的 KV 块内容指纹**。
+        #
+        # 已证实（KDET）：同层内相同输入两次调用**逐位相同** ⇒ 算子确定；
+        # 跨请求 `lse` 却变 ⇒ **KV 内容跨请求不同**。本探针直接对拍那部分内容：
+        # 用**块表**取出本请求实际引用的物理块，打印其**单次**求和指纹。
+        #   · 若同一 prompt 的连续请求指纹相同 ⇒ 块内容一致 ⇒ 仍有别的输入在变；
+        #   · 若不同 ⇒ **KV 写入路径**跨请求产生了不同内容（本轮要锁的正是它）。
+        # 每个张量只读一次（单次求和 + 单次标量回传），符合 §6o 的安全模式。
+        # =====================================================================
+        _blk_layer = int(_perf_flags().get("blkfp_layer") or -1)
+        if (
+            _perf_flags().get("blkfp") == "1"
+            and (_blk_layer < 0 or int(self.role.layer_idx) == _blk_layer)
+            and not _is_capturing()
+            # ★ 不能用 `cmp_indices` 当 T 门：ratio=0 的层（layer 0/1）没有压缩面
+            #   ⇒ `cmp_indices is None` ⇒ 探针在**最需要看的层**上不触发（踩过）。
+            #   改用 `query_start_loc` 的行数判断"是不是真实 prefill"。
+            and int(query_start_loc.shape[0]) > 1
+        ):
+            try:
+                _info = []
+                for _nm, _cache, _bt in (
+                    ("ori", attn.dsa_attn.swa_cache_layer.kv_cache[0], ori_block_table),
+                    ("cmp", source_cache, cmp_block_table),
+                ):
+                    if _cache is None or _bt is None or _bt.numel() == 0:
+                        _info.append("%s=<none>" % _nm)
+                        continue
+                    # 取本请求第 0 个块（块表第 0 行第 0 列）
+                    _blk = int(_bt[0, 0].item())
+                    _slice = _cache[_blk].detach().to(torch.float32)
+                    _ssum = float(_slice.sum())                       # 单读
+                    _nnz = int((_slice != 0).sum())                   # 单读
+                    _info.append("%s[blk=%d sum=%.8g nnz=%d shape=%s]"
+                                 % (_nm, _blk, _ssum, _nnz, tuple(_slice.shape)))
+                print(
+                    "[V41-BLKFP] rank=%d layer=%d T=%d ratio=%d %s"
+                    % (_v41_dcp_rank(), int(self.role.layer_idx),
+                       int(query_start_loc.shape[0]) - 1,
+                       int(getattr(self.role, "compress_ratio", -1)), " ".join(_info)),
+                    flush=True,
+                )
+            except Exception as _e:  # noqa: BLE001
+                print("[V41-BLKFP] rank=%d 探针自身失败：%r" % (_v41_dcp_rank(), _e), flush=True)
         if _kd_lse2 is not None:
             # ★ 单次 .cpu() 快照后比（避免多次标量读撕裂，见 §6o）
             _a = softmax_lse.to(torch.float32).cpu()
