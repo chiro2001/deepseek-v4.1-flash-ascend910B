@@ -811,7 +811,30 @@ if [ -z "${CAPTURE_SIZES:-}" ]; then
   for _c in 6 8 12 16 20 24 32 40 48; do
     if [ "$_c" -ge "$_step_tokens" ] && [ "$_c" -le "$_cap_max" ]; then CAPTURE_SIZES="$CAPTURE_SIZES,$_c"; fi
   done
-  # 48 以上按 2 倍增长（桶越少捕获越快；padding 只浪费算力，不影响正确性）。
+  # [CAPTURE-DENSE] ★ 2026-10-02：在 48→96 这个**最大缺口**里按"每步 token 数"补桶。
+  #
+  #   实测（TP8+DCP8 + DSpark K=7，run dcpcap_1002_*，同脚本同配置 A/B）：
+  #   每步 token 数 = 并发 × (1+SP_TOKENS) = 并发 × 8。N=8 ⇒ 真 batch **64 行**，
+  #   而桶列里只有 48 / 96 ⇒ 被 padding 到 **96**：
+  #     · 白算 50% 的行（96 vs 64）——`HcPre` 的 Input Shapes 实测就是 `96,4,5120`；
+  #     · merge 包的 allreduce 从 10.5 MiB 涨到 **15.75 MiB**，跨过 HCCL 的
+  #       8 MiB 门限（`AIV_ALL_REDUCE_A3_GRAPH_ENTRY_SIZE`，见 `dsa_v41.py` 的
+  #       `[V41-ARCHUNK]` 注释与 `docs/V41-DSPARK-HIGHCONC-AICPU-20261002.md`）。
+  #   补齐 56/64 后：profiler 口径 N=8 ms/step **136.4 → 127.6**（同配置三次中位）。
+  #
+  #   代价：每个桶多花 ~30–60 s 捕获 ⇒ 只在**第一个几何缺口**（48→96）补，
+  #   且最多 5 个，避免 MAX_SEQS=32 时桶数爆炸（那是另一个待测的取舍）。
+  _b=$(( 48 / _step_tokens * _step_tokens + _step_tokens ))
+  _dense=0
+  while [ "$_b" -lt 96 ] && [ "$_b" -le "$_cap_max" ] && [ "$_dense" -lt 5 ]; do
+    case ",$CAPTURE_SIZES," in
+      *",$_b,"*) : ;;
+      *) CAPTURE_SIZES="$CAPTURE_SIZES,$_b" ;;
+    esac
+    _b=$(( _b + _step_tokens ))
+    _dense=$(( _dense + 1 ))
+  done
+  # 96 以上仍按 2 倍增长（桶越少捕获越快；padding 只浪费算力，不影响正确性）。
   _b=96
   while [ "$_b" -le "$_cap_max" ]; do CAPTURE_SIZES="$CAPTURE_SIZES,$_b"; _b=$(( _b * 2 )); done
   case ",$CAPTURE_SIZES," in
