@@ -92,3 +92,75 @@ print('available() =', mk.available())"     # 必须 True
 
 ⇒ 任何"开关 + 可选路径"的设计，都必须有一个**运行时判据**（如 `available()`）
 把"真的生效了"暴露出来，而不是靠"文件存在"推断。
+
+---
+
+## 7. 修复后的实测（tiny，TP2+DCP2）
+
+### 7.1 修复共两处
+
+| # | 缺陷 | 修法 | md5 变化 |
+|---|---|---|---|
+| **1** | `.so` 与 `.py` 同名 ⇒ 导入命中 `.so` ⇒ ImportError ⇒ 被吞 ⇒ 静默 False | `.so` → `libv41merge_ops.so` + 同步 `_LIB_NAME` | `_LIB_NAME` 改 |
+| **2** | `_merge_kd` 下 `weights=None`，但多处诊断仍用 `weights.*`，而守卫只有 `not _is_capturing()` | 4 处诊断加 `weights is not None` | `f2958736` → `c21d4afa` |
+
+### 7.2 缺陷 2 的精确证据（tiny 与 TP8 同源复现）
+
+```
+File ".../dsa_v41.py", line 3728, in _native_attention
+File ".../dsa_v41.py", line 609, in _v41_dcp_merge_attention
+AttributeError: 'NoneType' object has no attribute 'sum'
+RuntimeError: NPUModelRunner failed, error is 'NoneType' object has no attribute 'sum'
+```
+
+`weights` 在 `_merge_kd` 下被置 `None`（改由 kernel 内部算）：
+```python
+weights = (None if _merge_kd else torch.nan_to_num(torch.exp(_delta.clamp(max=60.0))))
+```
+而诊断守卫是 `not _is_capturing()` —— 崩溃发生在
+`_warmup_and_capture → _dummy_run` 的**预热阶段**（此时**还没进 capture**）
+⇒ 守卫失效 ⇒ 诊断跑 ⇒ 崩。
+
+**⇒ `not _is_capturing()` 不能作为 `_merge_kd` 的保护。**
+
+### 7.3 修复效果（`available()` 判据 + 性能）
+
+```
+$ docker exec dsv41-tinyspark bash -lc "V41_DCP_MERGE_KERNEL=1 python3 -c \
+    'from vllm_ascend.attention import v41_merge_kernel as mk; print(mk.available())'"
+available() = True                      ← 首次为 True（此前恒 False）
+lib = .../vllm_ascend/attention/libv41merge_ops.so
+```
+
+| 臂（tiny，5 轮中位） | ms/step | A | vs 基线 |
+|---|---:|---:|---:|
+| `V41_DCP_MERGE_KERNEL=0`（基线） | **36.24** | 2.00 | — |
+| 修复前 `=1` | **起服失败** | — | — |
+| **修复后 `=1`** | **34.12** | 2.00 | **−5.9%（−2.12 ms/step）** |
+
+* 5 轮：35.05 / 34.12 / 34.08 / 33.95 / 34.24（离散仅 ±1.6%）
+* `A = 2.00` 与基线**完全一致** ⇒ 正确性未变
+
+**⇒ AscendC 融合算子首次真正生效，且显著。**
+
+### 7.4 为什么 tiny（DCP=2）也会有 5.9%
+
+融合算子砍的是 **merge 的逐元素后处理**（每层 ~15 个小算子 ⇒ 2 个 kernel），
+这部分与 DCP 度无关 —— **每层都要做**。所以 DCP=2 上就能看到收益。
+
+⇒ **DCP=8 上预期收益更大**（merge 的通信部分也更贵）。
+
+## 8. 教训（更新）
+
+**"开关已设置" ≠ "功能已生效"** —— 本项目已因这类静默退回踩坑**三次**：
+
+1. `serve_a2.sh` 只挂 `*.py` ⇒ `.so` 不在容器里
+2. 文件驱动开关在 ACL graph 捕获后失效
+3. **`.so`/`.py` 同名遮蔽** ⇒ ImportError 被 `except: False` 吞掉
+
+而且这次修复暴露出**第 4 类**：
+4. **"新路径下的 None 值撞上旧诊断的守卫"** —— 新路径（`_merge_kd`）引入
+   `weights=None`，而老诊断的守卫（`not _is_capturing()`）对它无效。
+
+⇒ 任何"开关 + 可选路径"的设计都必须有**运行时判据**（如 `available()`），
+且新路径引入的 None/sentinel 值必须与所有既有消费者的守卫对齐。
