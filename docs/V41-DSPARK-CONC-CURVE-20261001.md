@@ -132,6 +132,38 @@ block_numbers = self.block_table.gpu.flatten()[block_table_indices].to(torch.int
 
 ---
 
+## 3.5 ★★ 判别实验：DCP=1 也崩 ⇒ **与 DCP 无关**【实测】
+
+run `dcpcap_1001_1335_dcp1`：`SPEC=1 SP_TOKENS=7 DRAFT_GRAPH=1 DCP=1`
+（TP8 单实例，**不是** CED-PD），容量 1,240,021 tokens。
+
+| 并发 | ms/step | A | 聚合 tok/s | 结果 |
+|---:|---:|---:|---:|---|
+| 1 | 30.77 | 3.01 | 84.1 | ✅（两次 30.59/30.95，稳） |
+| 2 | **13.33** | 2.93 | 237.2 | ⚠️ **能跑但极不稳**：两次 **7.20 / 19.47 ms/step（差 2.7×）** |
+| 4 | — | — | — | ❌ **崩** |
+
+**并发 4 的崩溃签名与 DCP8 逐字相同**：
+
+```
+worker.py:720 → model_runner_v1.py:2644 → _bookkeeping_sync:2867
+→ vllm/v1/sample/rejection_sampler.py:271  parse_output
+→ RuntimeError: ACL stream synchronize failed, error code:507011
+```
+
+### 结论（三条）
+
+| # | 结论 | 依据 |
+|---|---|---|
+| 1 | **崩溃不是 DCP 特有的** | DCP=1（无 DCP 交织、无 merge）也崩在同一行、同一错误码 |
+| 2 | **DCP 只是放大它**：阈值从 batch 4 降到 batch 2 | DCP1 在并发 4 崩，DCP8 在并发 2 崩 |
+| 3 | 即使用 DSpark 也只是"能跑"，**并发 2 就已经极不稳定**（ms/step 抖动 2.7×） | DCP1 并发 2 实测 |
+
+**⇒ 这是 DSpark 自身在 batch>1 时的缺陷**，落在 verify / rejection sampling 路径上，
+与我们的 DCP overlay（slot mapping / merge）**无关**。
+
+---
+
 ## 4. 答案：用户的观察需要修正
 
 | 说法 | 实测 |
@@ -141,7 +173,17 @@ block_numbers = self.block_table.gpu.flatten()[block_table_indices].to(torch.int
 
 **DCP8 现状**：
 * 单流：DSpark 健康且 2.30× 收益
-* 多流：**DSpark 不可用**（并发 2 崩）；SPEC=0 可用（并发 8 达 215 tok/s）
+* 多流：**DSpark 不可用**（DCP8 并发 2 崩；DCP1 并发 4 崩）；SPEC=0 可用（并发 8 达 215 tok/s）
+
+### 4.1 汇总表（全部【实测】）
+
+| 配置 | 并发 1 | 并发 2 | 并发 4 | 并发 8 |
+|---|---|---|---|---|
+| `SPEC=0 × DCP8` | ✅ 30.1 | ✅ 60.0 | ✅ 115.3 | ✅ **215.2** |
+| `SPEC=1 × DCP8` | ✅ 69.3 | ❌ **崩** | — | — |
+| `SPEC=1 × DCP1` | ✅ 84.1 | ⚠️ 237.2（**抖动 2.7×**） | ❌ **崩** | — |
+
+（数字 = 聚合 tok/s）
 
 ---
 
