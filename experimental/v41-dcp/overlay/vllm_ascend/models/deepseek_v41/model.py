@@ -83,6 +83,128 @@ _V41_DIAG_T = {
 _V41_LAYERDIAG_T = _V41_DIAG_T
 # ==========================================================================
 
+# ==========================================================================
+# ★★★★★★ [V41-HIDDUMP 2026-09-30 23:05] **逐层 hidden_states 全量落盘**（env 门 + 文件开关）。
+#
+# 用途：把「层间二分」从"只看 q"推进到"看整条残差流"。已有实测：
+#   · layer 2 的 SMLA 输入（q/索引/长度/metadata/页内容）在 A/B 两臂逐位相同；
+#   · layer 2 的**合并输入**（8 rank 的 lse/ori_lse/partial out/ori_out）逐位相同；
+#   · layer 3 的 q 已经分叉（462/904 行、max|d|=0.6875）。
+# 于是分叉点被夹在「layer 2 的合并输出」与「layer 3 的 q」之间，本探针落
+# layer N 的**输入/输出** hidden_states 与 pre_mix，直接判定分叉发生在
+# attention 输出、o_proj、MoE、还是残差归一化。
+#
+# ★ 编译安全（2026-09-30 23:10 实测踩坑，白等一轮）：本文件的 forward 会被
+#   vLLM `aot_compile` **完整 trace**（即使 `EAGER=1`，启动期 `profile_run`/
+#   `_dummy_run` 也会走一遍编译）。因此**绝不能在 forward 里做无条件 IO** ——
+#   我第一版把 `os.stat` 直接写在循环里，启动直接报
+#   `RuntimeError: Worker failed with error 'Attempted to call function marked as skipped'`。
+#   ⇒ 现在与 `_maybe_snapshot_ced_layer` 完全同构：
+#     ① 第一道门是**模块级 env 常量** `_V41_HIDDUMP`（dynamo 可常量折叠）；
+#     ② 第二道门是 `get_forward_context()` 的 `in_profile_run` / `capturing`
+#        （trace 期恒为 True ⇒ 整个函数体在 trace 时不展开）；
+#     ③ 只有真实 prefill（eager）才会读到第三道门：`/tmp/v41_perf_flags`
+#        里的 `hiddump/dumplayer/dumprank/dumpsuffix/dumpdir`。
+# ==========================================================================
+_V41_HIDDUMP = _os_ids.environ.get("V41_HIDDUMP", "0") == "1"
+_V41_HID_FLAGS = {"t": -1.0, "v": {}}
+_V41_HID_STASH = {}
+
+
+def _v41_hid_flags() -> dict:
+    path = "/tmp/v41_perf_flags"
+    try:
+        st = _os_ids.stat(path)
+    except OSError:
+        return {}
+    if st.st_mtime != _V41_HID_FLAGS["t"]:
+        out = {}
+        try:
+            with open(path) as fh:
+                for line in fh:
+                    line = line.strip()
+                    if not line or line.startswith("#") or "=" not in line:
+                        continue
+                    k, v = line.split("=", 1)
+                    out[k.strip()] = v.strip()
+        except OSError:
+            pass
+        _V41_HID_FLAGS["t"] = st.st_mtime
+        _V41_HID_FLAGS["v"] = out
+    return _V41_HID_FLAGS["v"]
+
+
+def _v41_hid_layer_set(raw: str) -> set:
+    return {
+        int(v)
+        for v in (raw or "").replace(" ", "").split(",")
+        if v.strip().lstrip("-").isdigit()
+    }
+
+
+def _maybe_dump_hidden_pre(layer, hidden_states, pre_mix):
+    """在 `layer(...)` **之前**留一份输入引用（不 clone，靠引用阻止显存回收）。"""
+    if not _V41_HIDDUMP:
+        return
+    context = get_forward_context()
+    if getattr(context, "capturing", False) or getattr(context, "in_profile_run", False):
+        return
+    flags = _v41_hid_flags()
+    if flags.get("hiddump") != "1":
+        return
+    layers = _v41_hid_layer_set(flags.get("dumplayer", ""))
+    if layers and int(layer.layer_idx) not in layers:
+        return
+    _V41_HID_STASH[int(layer.layer_idx)] = (hidden_states, pre_mix)
+
+
+def _maybe_dump_hidden_post(layer, hidden_states, pre_mix):
+    """在 `layer(...)` **之后**把 (输入, 输出) 成对落盘。"""
+    if not _V41_HIDDUMP:
+        return
+    context = get_forward_context()
+    if getattr(context, "capturing", False) or getattr(context, "in_profile_run", False):
+        return
+    flags = _v41_hid_flags()
+    if flags.get("hiddump") != "1":
+        return
+    layers = _v41_hid_layer_set(flags.get("dumplayer", ""))
+    if layers and int(layer.layer_idx) not in layers:
+        return
+    raw = _V41_HID_STASH.pop(int(layer.layer_idx), None)
+    if raw is None:
+        return
+    directory = flags.get("dumpdir")
+    rank = int(get_tensor_model_parallel_rank())
+    ranks = {
+        int(v)
+        for v in (flags.get("dumprank", "") or "").replace(" ", "").split(",")
+        if v.strip().isdigit()
+    }
+    if not directory or (ranks and rank not in ranks):
+        return
+    suffix = flags.get("dumpsuffix", "")
+    Path(directory).mkdir(parents=True, exist_ok=True)
+    h_in, pm_in = raw
+    torch.save(
+        {
+            # 保持原生 dtype（bf16）⇒ 落盘即逐位，不引入任何转换差异；
+            # T=904/hc_mult=4/H=5120 时约 37 MB/份。
+            "h_in": h_in.detach().cpu(),
+            "pm_in": pm_in.detach().to(torch.float32).cpu(),
+            "h_out": hidden_states.detach().cpu(),
+            "pm_out": pre_mix.detach().to(torch.float32).cpu(),
+            "dtype_h": str(hidden_states.dtype),
+            "layer": int(layer.layer_idx),
+            "tp_rank": rank,
+        },
+        Path(directory) / ("hid_l%02d_r%d%s.pt" % (
+            int(layer.layer_idx), rank, ("_" + suffix) if suffix else "")),
+    )
+
+
+# ==========================================================================
+
 from safetensors import safe_open
 from transformers import AutoTokenizer
 from vllm.distributed import get_pp_group, get_tensor_model_parallel_rank
@@ -1580,6 +1702,7 @@ class DeepseekV41Model(DeepseekV4Model):
                         ced_source_snapshot = (rows, planes, before, pos_edges)
                         self._ced_source_compare_remaining -= 1
                         self._ced_source_compare_count += 1
+            _maybe_dump_hidden_pre(layer, hidden_states, pre_mix)
             hidden_states, pre_mix = layer(positions, hidden_states, pre_mix, None, input_ids=moe_input_ids)
             # =================================================================
             # [V41-LAYER] 逐层幅度探针（T 定向，默认关）。
@@ -1611,6 +1734,8 @@ class DeepseekV41Model(DeepseekV4Model):
                     )
                 except Exception as _e:  # noqa: BLE001
                     print("[V41-LAYER] 探针自身失败：%r" % (_e,), flush=True)
+            # [V41-HIDDUMP] 本层输出落盘（与本层 SMLA 的 mergedout 联合判读）。
+            _maybe_dump_hidden_post(layer, hidden_states, pre_mix)
             _maybe_snapshot_ced_layer(
                 layer, positions, input_ids, hidden_states, pre_mix, "post"
             )

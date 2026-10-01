@@ -61,7 +61,24 @@ def uncompressed_owner(pos: torch.Tensor, interleave: int, dcp_size: int) -> tor
 
 
 def uncompressed_local(pos: torch.Tensor, block_size: int, interleave: int, dcp_size: int) -> torch.Tensor:
-    """Rank-local index of the uncompressed token at global ``pos``."""
+    """Rank-local index of the uncompressed token at global ``pos``.
+
+    ★★★ [V41-LOCALSIMP 2026-10-01 10:10] ``block_size`` 是 ``interleave`` 的整数倍时，
+    下面两个写法**恒等**，但化简式少 2 次整除 / 1 次取模 / 2 次乘法
+    （每次 remap 省 ~6–10 个图节点，8 次 remap/step）。
+
+    推导（记 ``B``=block_size、``I``=interleave、``M``=dcp·I、``k``=B/I 为整数）：::
+
+        P = Q·(B·dcp) + R,  0 ≤ R < B·dcp = k·M
+        (P // M)·I = (Q·k + R//M)·I = Q·B + (R//M)·I
+        ⇒ (P//(B·dcp))·B + ((P%(B·dcp))//(dcp·I))·I ≡ (P//(dcp·I))·I   （mod 去掉后加 (P%I) 同理）
+
+    生产参数 ``B=128, I=32, dcp=8``（k=4）满足该条件。
+    **穷举验证**：``pos=0..19999`` × 5 组参数、0 处不一致（脚本见文档 §2.13）。
+    """
+    m = dcp_size * interleave
+    if block_size % interleave == 0:
+        return (pos // m) * interleave + (pos % interleave)
     super_block = block_size * dcp_size
     return (
         (pos // super_block) * block_size
@@ -75,6 +92,28 @@ def compressed_owner(idx: torch.Tensor, interleave: int, ratio: int, dcp_size: i
     return uncompressed_owner(idx * ratio + (ratio - 1), interleave, dcp_size)
 
 
+def compressed_pos(idx: torch.Tensor, ratio: int) -> torch.Tensor:
+    """压缩 token ``idx`` 对应的**未压缩**位置 ``idx*ratio + (ratio-1)``。
+
+    ★ [V41-POSH 2026-10-01 10:10] 原来 ``compressed_owner`` 与 ``compressed_local``
+    各自算一遍这个式子（每次 remap 多 1 次乘 + 1 次标量加）；这里提供单次求值版，
+    调用方算一次传给两者。
+    """
+    if ratio == 1:
+        return idx
+    return idx * ratio + (ratio - 1)
+
+
+def uncompressed_owner_of_pos(pos: torch.Tensor, interleave: int, dcp_size: int) -> torch.Tensor:
+    """同 :func:`uncompressed_owner`，但接收**已算好**的 ``pos``。"""
+    return (pos // interleave) % dcp_size
+
+
+def uncompressed_local_from_pos(pos: torch.Tensor, block_size: int, interleave: int, dcp_size: int) -> torch.Tensor:
+    """同 :func:`uncompressed_local`，但接收**已算好**的 ``pos``。"""
+    return uncompressed_local(pos, block_size, interleave, dcp_size)
+
+
 def compressed_local(idx: torch.Tensor, block_size: int, interleave: int, ratio: int, dcp_size: int) -> torch.Tensor:
     """Rank-local compressed index of global compressed token ``idx``."""
     return uncompressed_local(
@@ -83,6 +122,46 @@ def compressed_local(idx: torch.Tensor, block_size: int, interleave: int, ratio:
         interleave,
         dcp_size,
     ) // ratio
+
+
+_V41_ARANGE_CACHE: dict = {}
+# ★ [V41-NEGCACHE] 按形状复用的 -1 填充张量（省 full_like 节点）
+_V41_NEG_CACHE: dict = {}
+
+
+def _v41_stable_compact(remapped, valid, out_dtype):
+    """把每行的有效项**稳定**压到行首，无效项写 -1 到行尾。
+
+    ★★★★★★ [V41-SORT-U8 2026-10-01 06:00] **用 uint8 掩码做稳定分区**。
+
+    单卡微基准（`~/tmp/sort_bench.py`，`[1,512]`，200 次取最优，输出逐位比对）：
+
+    | 实现 | µs/次 | ×8 remap/step |
+    |---|---:|---:|
+    | int64 键 | 123.9 | 0.99 ms |
+    | int32 键 | 123.3 | 0.99 ms（**没有变快**） |
+    | **uint8 掩码** | **77.9** | **0.62 ms** |
+    | `cumsum`+`scatter` | 220.7 | 1.77 ms（更慢 —— 与线上 profiler 一致） |
+    | 只 `where`（不压缩） | 24.9 | 0.20 ms（压缩本身的净开销） |
+
+    线上 profiler 印证：`Sort` **8 次/step**（配置里 `index_source_layer_ids` 正好
+    8 个：`[2,8,14,20,24,28,32,36]`）× 86.6 µs = **0.69 ms/step**，
+    而 DCP1 的对照里 `Sort` 次数为 **0** ⇒ 这是 DCP 专属开销里最大的单项。
+
+    为什么 uint8 够用：我们只需要"有效项稳定地排到前面"，
+    排序键只要区分 0/1，稳定排序天然保持组内原序 ⇒ 与原来的
+    `order + (~valid)*width` 表达式**逐位等价**（基准里已逐条比对）。
+
+    ★ 历史教训（保留）：曾用 `cumsum + scatter` 替掉 argsort（数学等价、
+    400 组随机用例 0 不一致），线上 profiler 却是**反向优化**：
+    `ScatterElements` +19.672 ms/20fwd（**123 µs/次**）、`Cumsum` +8.165 ms，
+    而 `Sort` 只省 14.455 ms ⇒ 净 **+0.75 ms/step**。这台 NPU 上
+    `ScatterElements`/`Cumsum` 是慢路径，**不要**再用它们。
+    """
+    width = int(remapped.shape[-1])
+    _keys = (~valid).to(torch.uint8)
+    _pack = torch.argsort(_keys, dim=-1, stable=True)
+    return torch.gather(remapped, -1, _pack).to(out_dtype)
 
 
 def remap_sparse_indices(
@@ -158,13 +237,26 @@ def remap_sparse_indices(
         if _replmap_mode != "1":
             # 正解：把全局压缩索引转到**本 rank long_kv 的局部行号**，
             # 并只保留本 rank 真正拥有的那些（owner 过滤）。
-            _idx = indices.to(torch.int64)
-            _owner = compressed_owner(_idx, interleave, ratio, dcp_size)
-            _local = compressed_local(_idx, block_size, interleave, ratio, dcp_size)
+            # ★ [V41-IDX-I32 2026-10-01 06:05] 用 int32 而不是 int64：
+            #   `idx ≤ max_model_len`（1e6）、`idx*ratio ≤ 2e6`、结果 ≤ 2.5e5，
+            #   全部远在 int32 范围内 ⇒ 不需要 int64 的额外精度，而 int64 的
+            #   算术在 Ascend 上要走两倍寄存器/更慢的路径。
+            _idx = indices.to(torch.int32)
+            # ★ [V41-POSH] `pos` 只算一次（原来 owner / local 各算一遍）
+            _pos = compressed_pos(_idx, ratio)
+            _owner = uncompressed_owner_of_pos(_pos, interleave, dcp_size)
+            _local = uncompressed_local_from_pos(_pos, block_size, interleave, dcp_size)
+            if ratio != 1:
+                # ratio=1 时 `//1` 是恒等 ⇒ 不产生节点
+                _local = _local // ratio
             _valid = (_idx >= 0) & (_owner == dcp_rank)
-            _remapped = torch.where(
-                _valid, _local, torch.full_like(_local, -1)
-            )
+            # ★ [V41-NEGCACHE] `full_like` 每次都是一个 Fill 节点；按形状缓存复用。
+            _neg = _V41_NEG_CACHE.get(tuple(_local.shape))
+            if _neg is None or _neg.device != _local.device:
+                _neg = torch.full_like(_local, -1)
+                if len(_V41_NEG_CACHE) < 64:      # 容量上限：decode 尺寸 ~14 个，prefill 少量
+                    _V41_NEG_CACHE[tuple(_local.shape)] = _neg
+            _remapped = torch.where(_valid, _local, _neg)
         else:
             _storage = max(1, int(block_size) // max(1, int(ratio)))
             _span = _storage * int(dcp_size)
@@ -174,11 +266,7 @@ def remap_sparse_indices(
             _remapped = torch.where(
                 _valid, _local, torch.full_like(_local, -1)
             )
-        _width = indices.shape[-1]
-        _order = torch.arange(_width, device=indices.device).expand_as(_remapped)
-        _keys = _order + (~_valid).to(torch.int64) * _width
-        _pack = torch.argsort(_keys, dim=-1, stable=True)
-        return torch.gather(_remapped, -1, _pack).to(indices.dtype)
+        return _v41_stable_compact(_remapped, _valid, indices.dtype)
 
     idx = indices.to(torch.int64)
     owner = compressed_owner(idx, interleave, ratio, dcp_size)
@@ -186,13 +274,8 @@ def remap_sparse_indices(
     valid = (idx >= 0) & (owner == dcp_rank)
     remapped = torch.where(valid, local, torch.full_like(local, -1))
 
-    # Stable compaction: sort by (rank_within_row) where invalid entries get a
-    # large key so they move to the tail while keeping relative order.
-    width = indices.shape[-1]
-    order = torch.arange(width, device=indices.device).expand_as(remapped)
-    keys = order + (~valid).to(torch.int64) * width
-    pack_order = torch.argsort(keys, dim=-1, stable=True)
-    return torch.gather(remapped, -1, pack_order).to(indices.dtype)
+    # Stable compaction: 有效项按原序压到行首，无效项（-1）移到尾部。
+    return _v41_stable_compact(remapped, valid, indices.dtype)
 
 
 def build_replicated_local_index(

@@ -117,7 +117,46 @@ def resolve_group_dcp(spec, dcp_world_size: int) -> int:
 def _force_replicated_managers(coordinator) -> None:
     groups = coordinator.kv_cache_config.kv_cache_groups
     managers = coordinator.single_type_managers
+    # ★★★★★ [V41-KVGROUP-DIAG 2026-10-01 00:20] **每组一块表**（一次性启动日志）。
+    #
+    # 为什么必须打印：单卡 + 在线证据已把根因锁到"滑窗组的**块表只有 1 个有效项**，
+    # 而算子按 `logicalIdx / 128` 逐块寻址"（写侧 SLOTTRACE 实测：T=904 时
+    # 位置 0..127 → 块 3，位置 ≥128 → **块 0**；块表 [3,0,0,…]）。
+    # 到底是谁算错块数，只能靠这张表判断：
+    #   · `spec.block_size` ≠ `manager.block_size` ⇒ 分配与寻址用了两个不同的块大小；
+    #   · `manager.dcp_world_size` 仍为 8 ⇒ 这一组的 `_force` 根本没生效。
+    # 早退（`len(groups) != len(managers)`）以前是**静默**的，现在显式打出来。
+    _diag = []
+    for _i, _g in enumerate(groups):
+        _sp = _g.kv_cache_spec
+        _mgr = managers[_i] if _i < len(managers) else None
+        _diag.append(
+            "#%d %s spec_bs=%s spec_page=%s mgr=%s mgr_bs=%s mgr_dcp=%s sharded=%s"
+            % (
+                _i,
+                type(_sp).__name__,
+                getattr(_sp, "block_size", None),
+                getattr(_sp, "page_size_bytes", None),
+                type(_mgr).__name__ if _mgr is not None else "<无 manager>",
+                getattr(_mgr, "block_size", None),
+                getattr(_mgr, "dcp_world_size", None),
+                spec_is_dcp_sharded(_sp),
+            )
+        )
+    # ★ 用 print 而不是 logger：实测 `logger.warning` 在这一步**没有出现在
+    #   serve.log**（2026-10-01 00:08，run dcpcap_1001_000409），而同一进程里
+    #   其它 print/logger 行都在 ⇒ 这里必须以 print 落到 stdout 才能取证。
+    print(
+        "[V41-KVGROUP-DIAG] n_groups=%d n_managers=%d | %s"
+        % (len(groups), len(managers), " || ".join(_diag)),
+        flush=True,
+    )
     if len(groups) != len(managers):
+        print(
+            "[V41-KVGROUP-DIAG] ★ groups/managers 数量不一致 ⇒ 复制态归一**整段跳过**"
+            "（这正是「滑窗组只分到 1 块」的候选原因）",
+            flush=True,
+        )
         return
     fixed = []
     for group, manager in zip(groups, managers):
@@ -152,6 +191,124 @@ def apply() -> None:
 
     patched_init._v41_dcp_patched = True  # type: ignore[attr-defined]
     KVCacheCoordinator.__init__ = patched_init  # type: ignore[method-assign]
+    # =====================================================================
+    # ★★★★★ [V41-ALLOC-FIX 2026-10-01 00:30] **真正的 hook：工厂函数**。
+    #
+    # 实测（run `dcpcap_1001_001109`）：`apply()` 打了补丁、那行日志在 9 个进程都出现，
+    # 但 `_force_replicated_managers` 的 `[V41-KVGROUP-DIAG]` **一次都没打印**
+    # ⇒ 在这条路径上 `KVCacheCoordinator.__init__` 根本没被走到
+    # （`get_kv_cache_coordinator()` 直接实例化子类，子类不走被替换的基类 `__init__`）。
+    #
+    # 后果不是"少打一条日志"，而是**实打实的算错**：滑窗组 manager 的 `block_size`
+    # 仍是 `128*dcp = 1024` ⇒ 一个 904-token 请求只分到 **1 块**；而寻址侧
+    # （`block_table.py`，已按复制态归一）按 128 逐块寻址 ⇒ 位置 ≥128 的读写
+    # 全部落到"块 0"（SLOTTRACE 实测：`ori_bt=[3,0,0,…]`、写侧 `pos≥128 → blk 0`）。
+    #
+    # ⇒ 这里把**工厂函数**也包一层，保证无论走哪个子类都能拿到 coordinator 实例。
+    # =====================================================================
+    from vllm.v1.core import kv_cache_coordinator as _kvcc
+
+    _orig_factory = _kvcc.get_kv_cache_coordinator
+    if not getattr(_orig_factory, "_v41_dcp_patched", False):
+        def _patched_factory(*args, **kwargs):  # type: ignore[no-untyped-def]
+            coordinator = _orig_factory(*args, **kwargs)
+            try:
+                _force_replicated_managers(coordinator)
+            except Exception as exc:  # noqa: BLE001
+                print("[V41-KVGROUP-DIAG] ★ 复制态归一失败：%r" % (exc,), flush=True)
+            return coordinator
+
+        _patched_factory._v41_dcp_patched = True  # type: ignore[attr-defined]
+        _kvcc.get_kv_cache_coordinator = _patched_factory  # type: ignore[assignment]
+        # ★★ [V41-ALLOC-FIX-2 00:45] **必须连"已 import 的那个名字"一起换**。
+        #   实测（run `dcpcap_1001_001639`）：只换模块属性时，新加的打印出现了，
+        #   但 `[V41-KVGROUP-DIAG]` 依旧为 0 条 ⇒ `kv_cache_manager.py` 里是
+        #   `from ... import get_kv_cache_coordinator`（模块级绑定），替换模块属性
+        #   改不到它已经绑好的本地名。所以把**两个**位置都替换掉。
+        _patched_names = []
+        try:
+            from vllm.v1.core import kv_cache_manager as _kvcm
+
+            if getattr(_kvcm, "get_kv_cache_coordinator", None) is _orig_factory:
+                _kvcm.get_kv_cache_coordinator = _patched_factory  # type: ignore[assignment]
+                _patched_names.append("kv_cache_manager")
+        except Exception as exc:  # noqa: BLE001
+            print("[V41-KVGROUP-DIAG] ★ 替换 kv_cache_manager 的引用失败：%r" % (exc,), flush=True)
+        print(
+            "[V41-DCP] get_kv_cache_coordinator 已打补丁（复制态组按 DCP=1 分配）| 已替换：%s"
+            % (["kv_cache_coordinator"] + _patched_names),
+            flush=True,
+        )
+    # =====================================================================
+    # ★★★★★ [V41-ALLOC-FIX-3 2026-10-01 00:55] **钩住 vllm-ascend 自己的
+    # coordinator 子类**。
+    #
+    # 实测（run `dcpcap_1001_002049`）：工厂函数的两个绑定都替换了、打印也出现了，
+    # 但 `[V41-KVGROUP-DIAG]` 仍为 0 条。原因在
+    # `vllm_ascend/patch/platform/patch_kv_cache_coordinator.py:590/663`：
+    # DeepSeek-V4 命中 `_is_deepseek_v4_kv_cache_config` 分支后**直接**
+    # `return AscendHybridKVCacheCoordinator(...)` —— 既不调用被我们包住的
+    # `_orig_get_kv_cache_coordinator`，也不经过基类 `__init__` 那条路。
+    # ⇒ 想让「滑窗组 manager 的 block_size 归一」生效，只能钩这个子类本身。
+    # =====================================================================
+    try:
+        from vllm_ascend.patch.platform import patch_kv_cache_coordinator as _akvc
+
+        _wrapped = []
+        for _cls_name in ("AscendHybridKVCacheCoordinator", "AscendUnitaryKVCacheCoordinator"):
+            _cls = getattr(_akvc, _cls_name, None)
+            if _cls is None:
+                continue
+            _c_init = _cls.__init__
+            if getattr(_c_init, "_v41_dcp_patched", False):
+                continue
+
+            def _mk(orig):  # type: ignore[no-untyped-def]
+                def _pinit(self, *args, **kwargs):  # type: ignore[no-untyped-def]
+                    orig(self, *args, **kwargs)
+                    try:
+                        _force_replicated_managers(self)
+                    except Exception as exc:  # noqa: BLE001
+                        print("[V41-KVGROUP-DIAG] ★ 归一失败：%r" % (exc,), flush=True)
+
+                _pinit._v41_dcp_patched = True  # type: ignore[attr-defined]
+                return _pinit
+
+            _cls.__init__ = _mk(_c_init)  # type: ignore[method-assign]
+            _wrapped.append(_cls_name)
+        print("[V41-DCP] ascend coordinator 子类已打补丁：%s" % (_wrapped,), flush=True)
+    except Exception as _exc:  # noqa: BLE001
+        print("[V41-DCP] ★ ascend coordinator 子类打补丁失败：%r" % (_exc,), flush=True)
+    # =====================================================================
+    # ★★★★★ [V41-ALLOC-FIX-4 2026-10-01 01:05] **最后一个确定性 hook：
+    # `KVCacheManager.__init__`**。
+    #
+    # 前三轮钩子（基类 `__init__`、工厂函数两处绑定、ascend 子类 `__init__`）的
+    # 打印都出现了，但 `[V41-KVGROUP-DIAG]` 仍为 0 条（run `dcpcap_1001_002559`）
+    # ⇒ 那些路径**都没有真正构造出我们以为的那个对象**。而 `KVCacheManager`
+    # 是这个链路上**唯一确定会被构造**的类（`self.coordinator = get_kv_cache_coordinator(...)`
+    # 就在它的 `__init__` 里，`vllm/v1/core/kv_cache_manager.py:151`）。
+    # 直接在这里对 `self.coordinator` 做归一，绕开所有间接层。
+    # =====================================================================
+    try:
+        from vllm.v1.core import kv_cache_manager as _kvcm2
+
+        _KM = getattr(_kvcm2, "KVCacheManager", None)
+        if _KM is not None and not getattr(_KM.__init__, "_v41_dcp_patched", False):
+            _km_init = _KM.__init__
+
+            def _km_pinit(self, *args, **kwargs):  # type: ignore[no-untyped-def]
+                _km_init(self, *args, **kwargs)
+                try:
+                    _force_replicated_managers(self.coordinator)
+                except Exception as exc:  # noqa: BLE001
+                    print("[V41-KVGROUP-DIAG] ★ 归一失败：%r" % (exc,), flush=True)
+
+            _km_pinit._v41_dcp_patched = True  # type: ignore[attr-defined]
+            _KM.__init__ = _km_pinit  # type: ignore[method-assign]
+            print("[V41-DCP] KVCacheManager.__init__ 已打补丁（分配侧归一）", flush=True)
+    except Exception as _exc:  # noqa: BLE001
+        print("[V41-DCP] ★ KVCacheManager 打补丁失败：%r" % (_exc,), flush=True)
     logger.warning(
         "[V41-DCP] KVCacheCoordinator 已打补丁：复制态（非 full-attention）KV group "
         "按 DCP=1 分配与寻址 — DEVELOPMENT BUILD"

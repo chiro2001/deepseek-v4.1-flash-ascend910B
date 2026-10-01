@@ -50,6 +50,13 @@ logger = init_logger(__name__)
 _V41_SLOT_MAP_FUSED_ENV = "V41_SLOT_MAP_FUSED"
 
 
+import os as _os_allocdiag  # noqa: E402  [V41-ALLOCDIAG]
+_V41_ALLOCDIAG = _os_allocdiag.environ.get("V41_SLOTTRACE") == "1"
+_V41_ALLOCDIAG_SEEN: dict = {}
+_V41_SWA_ALLOC_FIX = _os_allocdiag.environ.get("V41_SWA_ALLOC_FIX", "1") != "0"
+_V41_SWA_ALLOC_FIX_LOGGED: list = []
+
+
 def _v41_slot_map_fused_mode() -> str:
     raw = os.environ.get(_V41_SLOT_MAP_FUSED_ENV, "0").strip().lower()
     if raw in ("", "0", "off", "false", "no"):
@@ -195,6 +202,46 @@ class BlockTable:
             self.logical_block_size = block_size
             self.blocks_per_phys_block = 1
             self.use_hybrid_blocks = False
+            # =============================================================
+            # ★★★★★★ [V41-SWA-ALLOC-FIX 2026-10-01 01:15] **复制态组的
+            # "分配块大小（1024）"与"寻址页大小（128）"不一致** —— 这是本轮
+            # 实测锁定的 host 侧硬缺陷，修复方式就是**打开 hybrid block 展开**。
+            #
+            # 证据链（全部实测）：
+            #   · 引擎按 `block_size * dcp = 128*8 = 1024` 给滑窗组分配物理块
+            #     （一个 904-token 请求只拿到 **1 块**）；
+            #   · worker/算子按 **128 行/页** 寻址：
+            #     `sparse_flash_mla_swa_block_vector.h:265` = `logicalIdx / paOriBlockSize`
+            #     （`paOriBlockSize` 取自 KV 张量的 Bs 轴 = 128）；
+            #   · 两者错配 ⇒ 块表第 1 列起恒为 0，位置 ≥128 的**读与写**
+            #     全部落到"块 0"（SLOTTRACE 实测：`ori_bt=[3,0,0,…]`，
+            #     写侧 `pos 0..127 → 块 3`、`pos ≥128 → 块 0`）。
+            #     ⇒ 这是**跨请求内存破坏级**的问题：块 0 不属于本请求。
+            #
+            # 修法：把一个引擎物理块展开成 `dcp` 个逻辑页
+            # （`logical = phys*dcp + j`），块表就有 `cdiv(T,128)` 个有效项，
+            # 与算子的逐页寻址一致；**引擎侧分配不变** ⇒ 容量不变、无需改引擎。
+            # 仅对"复制态且非 mamba/circular"的组启用（滑窗正是这一类）。
+            # =============================================================
+            if (
+                _V41_SWA_ALLOC_FIX
+                and not self.is_mamba_group
+                and not self.is_circular_group
+                and self.dcp_world_size > 1
+                and self.effective_dcp_world_size == 1
+            ):
+                self.blocks_per_phys_block = int(self.dcp_world_size)
+                self.logical_block_size = block_size
+                self.use_hybrid_blocks = True
+                if not _V41_SWA_ALLOC_FIX_LOGGED:
+                    _V41_SWA_ALLOC_FIX_LOGGED.append(1)
+                    print(
+                        "[V41-SWA-ALLOC-FIX] 复制态组启用 hybrid block 展开："
+                        "logical_page=%d phys_block=%d pages_per_block=%d"
+                        % (block_size, block_size * int(self.dcp_world_size),
+                           int(self.blocks_per_phys_block)),
+                        flush=True,
+                    )
         else:
             # Find the first kernel size that divides physical_block_size evenly
             selected_kernel_size = None
@@ -245,6 +292,29 @@ class BlockTable:
     ) -> None:
         if not block_ids:
             return
+        # ★★★★★ [V41-ALLOCDIAG 2026-10-01 00:25] **每次分配一行时打印一次**
+        # （每组只打第一次；env 门避免进热路径）。
+        # 为什么必须打：SLOTTRACE 已证明滑窗组的块表**只有 1 个有效项**
+        # （`[3,0,0,…]`），而算子按 `logicalIdx/128` 逐块寻址 ⇒ 位置 ≥128 的
+        # 读/写全部落到"块 0"。到底是**分配**只给了 1 块、还是**写入行**只写了 1 列，
+        # 这张表能一句话判定：`num_blocks` 就是答案。
+        if _V41_ALLOCDIAG and id(self) not in _V41_ALLOCDIAG_SEEN:
+            _V41_ALLOCDIAG_SEEN[id(self)] = 1
+            print(
+                "[V41-ALLOCDIAG] row=%d num_blocks=%d | block_size=%d phys_bs=%d "
+                "blocks_per_phys=%d hybrid=%s mamba=%s circular=%s eff_dcp=%d "
+                "max_blocks_per_req=%d | head_ids=%s"
+                % (
+                    int(row_idx), len(block_ids),
+                    int(self.block_size), int(self.physical_block_size),
+                    int(self.blocks_per_phys_block), self.use_hybrid_blocks,
+                    self.is_mamba_group, self.is_circular_group,
+                    int(self.effective_dcp_world_size),
+                    int(self.max_num_blocks_per_req),
+                    [int(v) for v in list(block_ids)[:10]],
+                ),
+                flush=True,
+            )
         block_ids = np.array(block_ids)
         if self.use_hybrid_blocks:
             block_ids = self._convert_physical_to_logical_blocks(block_ids)
@@ -344,9 +414,17 @@ class BlockTable:
                 positions = torch.from_numpy(positions)
             self._compute_dcp_slot_mapping(req_indices, positions)
         else:
+            # [V41-DCP-DSPARK] 复制态组（effective_dcp_world_size == 1）的
+            # device 侧输入：原先直接 raise。触发场景是 DCP 的推测解码 device 侧
+            # 重建（dcp_utils.rebuild_async_spec_decode_inputs）——它为 MTP slot
+            # 主动传 device 张量，而 SWA / draft 组正是复制态。
+            _device_input = (
+                isinstance(req_indices, torch.Tensor) and req_indices.device.type != "cpu"
+            ) or (isinstance(positions, torch.Tensor) and positions.device.type != "cpu")
+            if _device_input:
+                self._compute_replicated_slot_mapping(req_indices, positions)
+                return
             if isinstance(req_indices, torch.Tensor):
-                if req_indices.device.type != "cpu":
-                    raise ValueError("Device tensor inputs are only supported for CP draft slot mapping.")
                 req_indices = req_indices.numpy()
             if isinstance(positions, torch.Tensor):
                 if positions.device.type != "cpu":
@@ -374,6 +452,42 @@ class BlockTable:
                 out=self.slot_mapping.np[: req_indices.shape[0]],
             )
             self.slot_mapping.copy_to_gpu(req_indices.shape[0])
+
+    def _compute_replicated_slot_mapping(
+        self,
+        req_indices: np.ndarray | torch.Tensor,
+        positions: np.ndarray | torch.Tensor,
+    ) -> None:
+        """[V41-DCP-DSPARK] 复制态组的纯 device slot-mapping。
+
+        与 compute_slot_mapping_draft 的 numpy 路径逐字等价：
+            logical_block_idx = positions // block_size
+            block_table_idx   = req_idx * (max_num_blocks_per_req
+                                           * blocks_per_phys_block)
+                                + logical_block_idx
+            slot              = block_number * block_size
+                                + positions % block_size
+        复制态组不做 DCP 交织切分（每 rank 存整份）⇒ 不需要 mask，
+        与 _compute_dcp_slot_mapping 的唯一区别是没有 interleave 折算。
+        """
+        if not isinstance(req_indices, torch.Tensor):
+            req_indices = torch.from_numpy(req_indices)
+        if not isinstance(positions, torch.Tensor):
+            positions = torch.from_numpy(positions)
+        if positions.device != req_indices.device:
+            positions = positions.to(req_indices.device)
+        assert self.kernel_sizes is not None
+        assert self.block_size == self.kernel_sizes[0]
+        logical_block_idx = (positions // self.block_size).to(torch.int64)
+        block_table_indices = (
+            req_indices.to(torch.int64) * self.max_num_blocks_per_req * self.blocks_per_phys_block
+            + logical_block_idx
+        )
+        block_offsets = (positions % self.block_size).to(torch.int64)
+        block_numbers = self.block_table.gpu.flatten()[block_table_indices].to(torch.int64)
+        num_tokens = req_indices.shape[0]
+        slots = block_numbers * self.block_size + block_offsets
+        self.slot_mapping.gpu[:num_tokens] = slots.to(self.slot_mapping.gpu.dtype)
 
     def _compute_dcp_slot_mapping(
         self,

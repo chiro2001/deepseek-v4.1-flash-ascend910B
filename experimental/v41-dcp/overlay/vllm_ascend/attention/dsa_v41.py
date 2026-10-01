@@ -76,6 +76,24 @@ def _is_capturing() -> bool:
 
 PERF_FLAG_PATH = "/tmp/v41_perf_flags"
 _PERF_CACHE = {"t": 0.0, "v": {}}
+# ★ [V41-STEPGEN] 步序号（见 `_refresh_perf_flags`）
+_STEP_GEN = [0]
+# ★ [V41-CMPLENSCACHE] 每步只算一次的全局压缩长度缓存
+_CMPLENS_CACHE = {"gen": -1, "id": 0, "ratio": 0, "val": None}
+# ★ [V41-CMPLENS-VERIFY] 置 1 时每层重算并与缓存比对（会拖慢，仅验证用）
+_CMPLENS_VERIFY = {"n": 0}
+# ★★★★★ [V41-SLOTTRACE 2026-09-30 23:58] **SWA 写侧槽位追踪**（env 门 + 文件开关）。
+#
+# 为什么要它：算子源码证实 ori 读侧寻址是
+#     `blockTableIdx = logicalIdx / paOriBlockSize`（见 SWAVectorBlock::GetOriSparseKeyGmOffset），
+# 而**块表里的 0 是"块 0"而不是"跳过"**。生产 DCP8 的 ori 块表只有第 0 列非零
+# ⇒ 位置 ≥128 的读取（以及**全部写入**）都落到池页 0。
+# 读侧已在单卡用"页 0 毒化"证实；写侧必须用本探针直接看 `slot_mapping`：
+#   `slot // block_size` = 实际写入的物理块号。
+# 判据：若位置 ≥128 的槽位块号全为 0 ⇒ 写侧同样落到页 0（host 侧块表 bug）。
+# 编译安全：第一道门是模块级常量（dynamo 可折叠），第二道是 `_is_capturing()`。
+_SLOTTRACE = __import__("os").environ.get("V41_SLOTTRACE") == "1"
+_SLOTTRACE_DONE = {}
 
 
 def _refresh_perf_flags() -> dict:
@@ -88,6 +106,12 @@ def _refresh_perf_flags() -> dict:
     ⇒ 改成：**每个 step 的 `build()` 里刷新一次**，其余调用只读缓存。
     免重启 A/B 的能力保留（开关变更在**下一步**生效，与图捕获的语义一致）。
     """
+    # ★★★★★ [V41-STEPGEN 2026-10-01 05:30] **步序号**。
+    #
+    # `_refresh_perf_flags()` 由 `build()` 调用，而 `build()` 每个 step 每个
+    # kv_cache_group 各调一次（≠ 每层）⇒ 这个计数在**一次模型前向内是常量**，
+    # 可以用来给"每步只算一次"的缓存做失效键（见 `_v41_global_cmp_lens`）。
+    _STEP_GEN[0] += 1
     import os as _o
     try:
         st = _o.stat(PERF_FLAG_PATH)
@@ -130,6 +154,164 @@ def _v41_dcp_rank() -> int:
     return int(get_dcp_group().rank_in_group)
 
 
+_V41_SCALAR_CACHE: dict = {}
+
+
+def _v41_scalar_t(v: float, ref: "torch.Tensor") -> "torch.Tensor":
+    """缓存一个 **1 元素 1 维** fp32 张量，用来**强制类型提升**。
+
+    ★ [V41-PROMO 2026-10-01 09:40] 为什么需要它：PyTorch 把 **0 维**张量当标量，
+    `bf16_tensor * 0dim_fp32` 的结果仍是 **bf16**（不提升）。而
+    `bf16_tensor * 1dim_fp32[1]` 会提升到 **fp32** ⇒ 可以**一次算子**同时完成
+    「转 fp32 + 乘系数」，省掉一次 `Cast`。
+    缓存保证张量地址固定（图捕获安全），也避免每层一次 H2D。
+    """
+    key = (float(v), str(ref.device))
+    t = _V41_SCALAR_CACHE.get(key)
+    if t is None:
+        t = torch.tensor([float(v)], dtype=torch.float32, device=ref.device)
+        _V41_SCALAR_CACHE[key] = t
+    return t
+
+
+_MERGE_KD_CACHE = None
+
+
+def _v41_merge_kernel_on() -> bool:
+    """是否走 AscendC 融合的 merge 路径（env 门，**默认关**）。
+
+    `V41_DCP_MERGE_KERNEL=1` 打开。默认关的理由：它替换了 merge 的核心数值路径，
+    必须先在 8 卡上过完整回归（T=904 / 短问答 / 长针）才敢转正。
+    `.so` 不存在时自动退回 Python 路径（不会让引擎起不来）。
+    """
+    global _MERGE_KD_CACHE
+    if _MERGE_KD_CACHE is not None:
+        return _MERGE_KD_CACHE
+    _MERGE_KD_CACHE = False
+    import os as _o
+
+    if _o.environ.get("V41_DCP_MERGE_KERNEL", "0") != "1":
+        return False
+    try:
+        from vllm_ascend.attention import v41_merge_kernel as _mk
+
+        _MERGE_KD_CACHE = bool(_mk.available())
+    except Exception:  # noqa: BLE001
+        _MERGE_KD_CACHE = False
+    return _MERGE_KD_CACHE
+
+
+_MERGE_PACK_CACHE: dict = {}
+_RS_OUT_CACHE: dict = {}
+
+
+def _v41_rs_merge_on() -> bool:
+    """merge 的归约是否用 `reduce_scatter`（env 门，默认关）。
+
+    `V41_DCP_RS_MERGE=1` 打开。默认关的原因是它尚未在真机上通过 A/B 验收；
+    验证通过后再改默认值。
+    """
+    return __import__("os").environ.get("V41_DCP_RS_MERGE", "0") == "1"
+
+
+def _v41_pack_for_reduce(scaled, weights, align: int = 128, in_a=None):
+    """把 `scaled[T,H,D]` 与 `weights[T,H,1]` 写进一个**常驻的零初始化缓冲**。
+
+    为什么要它（真实 8 卡 profiler，run dcpcap_1001_015103，20 forwards）：
+      · `F.pad` 触发的 `aclnnConstantPadNd_PadV3AiCore_MemSet` 为 38 次/step、
+        **0.603 ms/step**（每次 15.9 µs，只为写 128 列的零）；
+      · `PadV3` 本身 **0.234 ms/step**、`ConcatD` **0.246 ms/step**。
+    三者合计 1.08 ms/step，而真正有意义的输入只有 131 KB。
+
+    语义：allreduce 之后只读 `[..., :D+1]`；padding 恒为 0 ⇒ 对求和无影响。
+    图安全：缓冲按 `(T,H,D,dtype,device)` 缓存，地址跨 replay 不变。
+    """
+    _T, _H, _D = (int(v) for v in scaled.shape)
+    _width = ((_D + 1 + align - 1) // align) * align
+    _key = (_T, _H, _D, weights.dtype, str(weights.device))
+    _buf = _MERGE_PACK_CACHE.get(_key)
+    # ★ 只缓存**小 T**（decode：T=1..96）。prefill 的 T 可达 1.6 万，
+    #   `[T,64,640]` fp32 会到 GB 级；那种情况退回 `cat+F.pad`，
+    #   不把大缓冲长期留在显存里。
+    _bytes = _T * _H * _width * weights.element_size()
+    _cacheable = _key in _MERGE_PACK_CACHE or _bytes <= (8 << 20)
+    if _buf is None or tuple(_buf.shape) != (_T, _H, _width):
+        if not _cacheable:
+            _pack = torch.cat([scaled, weights], dim=-1)
+            _pad_to = (-_pack.shape[-1]) % align
+            return torch.nn.functional.pad(_pack, (0, _pad_to)) if _pad_to else _pack
+        _buf = torch.zeros((_T, _H, _width), dtype=weights.dtype, device=weights.device)
+        _MERGE_PACK_CACHE[_key] = _buf
+    # ★ [V41-PACKDIRECT 2026-10-01 04:35] `in_a*w` **直接写进常驻缓冲**。
+    #   原来三步：`output.to(fp32)`(Cast) → `* weights`(Mul) → `copy_`(ViewCopy)；
+    #   现在一步：`torch.mul(output, weights, out=buf[..., :D])`
+    #   （bf16 × fp32 ⇒ fp32，与缓冲 dtype 一致）
+    #   ⇒ 每层省 2 次下发（38 层 = 76 次/step）。
+    _buf[..., :_D].copy_(scaled)
+    _buf[..., _D : _D + 1].copy_(weights)
+    return _buf
+
+
+def _v41_global_cmp_lens(seq_lens, ratio: int):
+    """DCP 分片下，把 cmp 序列长度换算成**全局压缩坐标**再交给算子。
+
+    为什么必须这样（2026-10-01 单卡 + torch 参考实现实测）：
+      内核的稀疏因果界是
+          cmpMaskRight  = cmpMaskS2Size - actS1Size        （actS1Size = 全局 query 数）
+          cmpS2IdLimit  = (cmpMaskRight + s1EndIdx + 1) / cmpRatio
+          GetKeyGmOffset: realS2Idx >= s2IdLimit ⇒ 丢弃该键
+      它隐含假设 `cmpMaskS2Size = actualCmpS2Size*cmpRatio ≈ actS1Size`，
+      即"压缩序列与原始序列同长"。但 DCP8 下 `seqused_cmp_kv` 是**本 rank 分片**
+      的压缩行数（≈T/8）⇒ 整条界被平移 `-(T - T/8)` ≈ -0.875T：
+        · `t < 0.875T` 的 query 行 **一个 cmp 键都拿不到**（实测 row0 单键最优
+          = ori pos0，误差 1e-7 ⇒ 确实没有 cmp 键）；
+        · 其余行的键再按**索引值**被截断 ⇒ 向量阶段少搬若干行，而矩阵阶段仍按
+          原长度读同一块 `kvMergeGm_` ⇒ **读到残留内存** ⇒ 同一输入跨调用结果
+          不同（实测 lse 差异 2.6e-1，且取决于此前跑过什么）。
+      取全局长度后 `cmpMaskRight ≈ 0`、`cmpS2IdLimit ≈ (s1EndIdx+1)/cmpRatio`
+      （压缩坐标下的因果界），与"索引是本地行号、只受索引值上界过滤"一致。
+    """
+    if ratio <= 0:
+        return seq_lens
+    # ★★★★★ [V41-CMPLENSCACHE-2 2026-10-01 05:30] **每步只算一次**。
+    #
+    # 这个函数在**每层**都被调用，但 `seq_lens` 与 `ratio` 在同一步内对所有层
+    # 都一样（`seq_lens` 还是同一个 metadata 对象）⇒ 38 层里只需要算 ≤2 次
+    # （ratio=2 一组、ratio=1 一组）。
+    # profiler 依据：`FloorDiv` 104 次/step（DCP1 对照只有 53），而这里 38 次是白算。
+    #
+    # 安全性：缓存键包含 **步序号**（`build()` 每步递增）+ `id(seq_lens)` + `ratio`。
+    # 只要 `build()` 在每次前向之前被调用（这是 vLLM 的既有行为），
+    # 跨步就不会命中旧值 ⇒ 不存在"值变了但缓存没失效"的静默错误。
+    _g = _STEP_GEN[0]
+    # 键用 **storage 指针**而不是 `id()`：`metadata.swa.seq_lens[:num_reqs]`
+    # 每次调用都会建一个新的 view 对象（`id()` 会变），但底层 buffer 是同一个
+    # ⇒ `data_ptr()` 才是在"同一份 metadata"意义上的稳定标识。
+    _ck = (_g, int(seq_lens.data_ptr()), int(seq_lens.shape[0]), int(ratio))
+    _cc = _CMPLENS_CACHE
+    if (_cc["gen"], _cc["id"], _cc["ratio"]) == _ck and _cc["val"] is not None:
+        return _cc["val"]
+    # ★★★ [V41-CMPGLOB-3-FIX 2026-10-01 03:55] **必须返回新张量，不能直接返回 `seq_lens`。**
+    #
+    # 我曾为省一次 `FloorDiv` 在 ratio==1 时直接 `return seq_lens`。后果是
+    # `seqused_ori_kv` 与 `seqused_cmp_kv` **指向同一块显存**（别名），
+    # 而实测短问答出现稳定回归：`17 × 23 等于多少？只回答数字。` 连续 6 次
+    # 全部给出乱码（此前同一构建为 `391`）。
+    # ⇒ 恢复"物化新张量"的写法（ratio=1 时数值相同，只是多一次小内核）。
+    _val = torch.div(seq_lens.to(torch.int32), int(ratio), rounding_mode="floor")
+    if _perf_flags().get("cmplens_verify") == "1" and not _is_capturing():
+        if _cc["val"] is not None and _CMPLENS_VERIFY["n"] < 40:
+            _CMPLENS_VERIFY["n"] += 1
+            _same = bool(torch.equal(_cc["val"], _val)) if (
+                _cc["val"].shape == _val.shape
+            ) else False
+            print("[V41-CMPLENS-VERIFY] gen=%d ratio=%d same=%s cached=%s fresh=%s"
+                  % (_g, int(ratio), _same, _cc["val"][:3].tolist(), _val[:3].tolist()),
+                  flush=True)
+    _cc.update(gen=_ck[0], id=_ck[1], ratio=_ck[2], val=_val)
+    return _val
+
+
 def _v41_dcp_group():
     from vllm.distributed import get_dcp_group
 
@@ -152,6 +334,30 @@ def _v41_dcp_ori_owner() -> str:
     import os as _os
 
     return _os.environ.get("V41_DCP_ORI_OWNER", "seqused0")
+
+
+def _v41_ordered_allreduce(t: torch.Tensor, group) -> torch.Tensor:
+    """**定序求和**：`all_gather_into_tensor` + 按 rank 顺序显式相加。
+
+    ★ [V41-DETREDUCE-2 2026-09-30 22:45] 为什么需要独立于 `det_reduce`：
+    默认路径（`sepw`）在算**分母**时会单独做一次 `all_reduce(weights)`，
+    而 `det_reduce` 只覆盖了主 pack 的那一次。实测（层间二分 + 合并前 LSE 对拍）：
+      · layer 2 的输入在"好/坏"两次请求之间**逐位相同**；
+      · **8 个 rank 的合并前 `lse` 也逐位相同**；
+      · 但 layer 3 的 q 开始分叉（0.6875）
+    ⇒ 分叉只能来自**归约的求和顺序**（HCCL all_reduce 在该形状/T 上顺序可变）。
+    本函数把任意 all_reduce 换成"定序求和"，数学等价、顺序固定。
+    """
+    dcp = group.world_size
+    if dcp <= 1:
+        return t
+    tc = t.contiguous()
+    g = torch.empty((dcp, *tc.shape), dtype=tc.dtype, device=tc.device)
+    torch.distributed.all_gather_into_tensor(g, tc, group=group.device_group)
+    acc = g[0]
+    for r in range(1, dcp):
+        acc = acc + g[r]
+    return acc
 
 
 def _v41_dcp_merge_attention(
@@ -208,6 +414,54 @@ def _v41_dcp_merge_attention(
 
     所以必须由调用方**按本 rank 的实际可见键数**显式给掩码。
     """
+    # =====================================================================
+    # ★★★ [V41-MERGEDUMP 2026-09-30 22:30] **合并前的 LSE 轻量 dump**。
+    #
+    # 层间二分已证明：layer 2 的输入在"好/坏"两次请求之间**逐位相同**，
+    # 而 layer 3 的 q 开始分叉（rank0 差 0.6875）⇒ 分叉发生在 **layer 2 的输出**。
+    # 本 dump 只落每 rank 的 `lse`（[T,H,1] fp32，每层仅 ~230 KB）与 `ori_lse`，
+    # 用来判定分叉是在 (a) lse/算子本身，还是 (b) 跨 rank 合并（all_reduce）。
+    # 开关：`mergedump=1`；层/rank/后缀复用 dumplayer / dumprank / dumpsuffix。
+    # =====================================================================
+    if _perf_flags().get("mergedump") == "1" and not _is_capturing():
+        try:
+            _mdir = _perf_flags().get("dumpdir")
+            _ml = {int(v) for v in _perf_flags().get("dumplayer", "").replace(" ", "").split(",")
+                   if v.strip().lstrip("-").isdigit()}
+            _mr = {int(v) for v in _perf_flags().get("dumprank", "").replace(" ", "").split(",")
+                   if v.strip().isdigit()}
+            _msfx = _perf_flags().get("dumpsuffix", "")
+            if _mdir and (not _ml or int(layer_idx) in _ml) and (not _mr or int(_v41_dcp_rank()) in _mr):
+                import os as _osmd
+                _osmd.makedirs(_mdir, exist_ok=True)
+                # ★ [V41-MERGEDUMP-2] 除 lse/ori_lse 外，再落 **partial 输出与 ori_out 的指纹**。
+                #   为什么：`_fold_ori_locally` 会做 `scaled -= dcp*_onum`，其中
+                #   `_onum = ori_out * _keep`。若 `ori_out` 在两次请求间不同（而 lse 相同），
+                #   合并结果就会不同 —— 这条此前**没有被对拍过**。
+                def _fp(t):
+                    if t is None:
+                        return None
+                    tf = t.detach().to(torch.float32)
+                    return {
+                        "sum": float(tf.sum()),
+                        "absmax": float(tf.abs().max()),
+                        "sample": tf.reshape(-1)[::max(1, tf.numel() // 64)][:64].clone(),
+                    }
+                torch.save(
+                    {
+                        "lse": lse.detach().to(torch.float32).cpu(),
+                        "ori_lse": (ori_lse.detach().to(torch.float32).cpu()
+                                    if ori_lse is not None else None),
+                        "head_slice": head_slice,
+                        "out_fp": _fp(output),
+                        "ori_out_fp": _fp(ori_out),
+                    },
+                    _osmd.path.join(_mdir, "merge_l%d_r%d%s.pt" % (
+                        int(layer_idx), int(_v41_dcp_rank()), ("_" + _msfx) if _msfx else "")),
+                )
+        except Exception as _e:  # noqa: BLE001
+            print("[V41-MERGEDUMP] 失败：%r" % (_e,), flush=True)
+
     group = _v41_dcp_group()
     dcp_size = group.world_size
     if dcp_size <= 1:
@@ -276,6 +530,8 @@ def _v41_dcp_merge_attention(
     # 并在**非 capture** 时打印触发诊断（见下），保证"实际生效"可观测。
     # =====================================================================
     _use_ori_ref = ori_lse is not None and ori_out is not None
+    # ★ [V41-MERGE-KERNEL] 必须在 `if _use_ori_ref:` 之前初始化（该分支不执行时会未定义）
+    _merge_kd = False
     if _use_ori_ref:
         _ori_lse_f32 = ori_lse.to(torch.float32)
         # =============================================================
@@ -318,8 +574,21 @@ def _v41_dcp_merge_attention(
             except Exception as _e:  # noqa: BLE001
                 print("[V41-NANPOS] rank=%d 失败：%r" % (_v41_dcp_rank(), _e), flush=True)
         _delta = lse - _ori_lse_f32
+        # ★★★★★★ [V41-MERGE-KERNEL 2026-10-01 14:20] **AscendC 融合路径的早退判据**。
+        #   满足时：`weights` / `scaled` / `_onum` 全部不必算（kernel 内部算），
+        #   由函数末尾的 `if _merge_kd:` 直接跑 2 个 kernel 并返回。
+        #   条件与下面的 `_fold_ori_locally` 完全一致（fold + 有 head_slice）。
+        _merge_kd = (
+            _v41_merge_kernel_on()
+            and ori_lse is not None
+            and ori_out is not None
+            and head_slice is not None
+        )
         # 空 rank（lse=-inf）⇒ exp(-inf)=0；`-inf − (-inf)` 出 NaN ⇒ nan_to_num 归 0。
-        weights = torch.nan_to_num(torch.exp(_delta.clamp(max=60.0)))
+        weights = (
+            None if _merge_kd
+            else torch.nan_to_num(torch.exp(_delta.clamp(max=60.0)))
+        )
         # ★ 诊断（非 capture 才跑，每 rank 最多 2 次）：验证「ori_lse 各 rank 逐位相同」
         #   这个零通信参考点的**唯一前提**。判据：8 个 rank 打印的 mean/max 应一致。
         if not _is_capturing() and _ORI_REF_DIAG["n"] < 2 and _delta.numel():
@@ -546,7 +815,19 @@ def _v41_dcp_merge_attention(
     # 且拼接后最后一维是 `2D+2`（D=512 ⇒ 1026），16 字节对齐要求需保证 D 为偶数
     # （D=512 满足）。
     # =====================================================================
-    scaled = output.to(torch.float32) * weights
+    # ★★★ [V41-PACKDIRECT-ABORT 2026-10-01 05:00] **回退**"把 `output*w` 直写
+    #   常驻缓冲"的优化（省 Cast+Mul+ViewCopy）。
+    #   实测后果：`T=904` 针**立刻回归**（输出变成 `'特'`/`'7'`，正确值是 `Q7`，
+    #   连续 2 次均错），而同一 overlay 的上一版（opt3）是 6/6。
+    #   怀疑点（未逐一证实）：`torch.mul(bf16, fp32, out=<非连续 fp32 视图>)`
+    #   的类型提升/写回在该 NPU 上不等价，或 `scaled` 与 `output` 的别名在
+    #   后续被 `_slice_early` 路径改动。**没有再深挖**：这条只值 ~0.2 ms/step，
+    #   而正确性是硬门槛 ⇒ 直接恢复原三步写法。
+    # ★ [V41-PROMO] `bf16 * fp32` 会**自动提升到 fp32**，与 `output.to(fp32)*weights`
+    #   **逐位一致**（单卡验证：`torch.equal=True, max|d|=0`），但少一个 `Cast` 节点。
+    #   单卡微基准：2 节点 27.31 µs → 1 节点 10.70 µs（×38 = **−0.63 ms/step**）。
+    # ★ [V41-MERGE-KERNEL] 融合路径下 `scaled` 由 kernel 直接写进 pack ⇒ 不必算
+    scaled = None if _merge_kd else output * weights
     dcp = group.world_size
     # ★★ [V41-PERF 2026-09-29] 把 `(1 − 1/dcp)` **折进 ori 项**，把
     #   归约后的 4 个逐元素算子（`−_n_all + _n_all/dcp`、`−_w_all + _w_all/dcp`）
@@ -620,7 +901,27 @@ def _v41_dcp_merge_attention(
             _oi = (
                 ori_out[:, head_slice[0] : head_slice[1], :] if _slice_early else ori_out
             )
-            _onum = _oi.to(torch.float32) * _keep
+            # ★ [V41-ONUMFOLD 2026-10-01 04:25] 把 `dcp * _onum` 的乘法折进来：
+            #   下游是 `scaled - _onum`，而 `_keep` 是 Python 常量
+            #   ⇒ `_onum = _oi*(_keep*dcp)` 省掉每层一次 `Muls`（38 次/step）。
+            #
+            # ★★★★★★ [V41-SUBALPHA-ABORT 2026-10-01 07:40] **已回退 `torch.sub(...,
+            #   alpha=)` 融合**。离线微基准（`~/tmp/subalpha.py`）里它与三步写法
+            #   **逐位一致**且快 3.1×，但在真实路径上**立刻破坏正确性**：
+            #   `17 × 23 等于多少？只回答数字。` 连续 **6/6** 输出乱码
+            #   （`# 标题：老婆背叛后…`），而同 overlay 上一版稳定输出 `391`。
+            #   真实路径与微基准的差别：两个输入都是**strided 切片**
+            #   （`_pack[..., :D][:, h0:h1]` 与 `ori_out[:, h0:h1]`）。
+            #   这是同一类坑的**第三次**（另两次：`PACKDIRECT` 的 `torch.mul(out=)`
+            #   与非连续视图、`Sanitize` 的原地改写）——
+            #   ⇒ **本平台上"把多个逐元素算子融合/改写"的写法一律不可信，
+            #     无论离线微基准是否逐位一致。** 性能收益再大也不接受。
+            # ★ [V41-PROMO] 同上：1 维 fp32 标量张量把 `_oi` 提升到 fp32，
+            #   一次算子完成「转 fp32 + 乘 `_keep*dcp`」，与
+            #   `_oi.to(fp32) * (_keep*dcp)` **逐位一致**（单卡验证）。
+            #   微基准：30.72 µs → 11.35 µs（×38 = **−0.74 ms/step**）。
+            # ★ [V41-MERGE-KERNEL] 融合路径下 `_onum` 也由 kernel 内部算
+            _onum = None if _merge_kd else _oi * _v41_scalar_t(_keep * dcp, _oi)
         else:
             # `skip_2nd=1` 消融臂：仍用跨 rank max 作参考点（那条路径才有 lse_max）。
             _ow = torch.nan_to_num(torch.exp(ori_lse.to(torch.float32) - lse_max)) * _keep
@@ -628,6 +929,43 @@ def _v41_dcp_merge_attention(
     else:
         _ow = torch.zeros_like(weights)
         _onum = torch.zeros_like(scaled)
+    # =====================================================================
+    # ★★★★★★ [V41-MERGE-KERNEL 2026-10-01] **AscendC 融合路径**。
+    #
+    # 为什么：真实 8 卡 profiler 显示 DCP8 比 DCP1 多 1213 图节点/step，其中
+    # **573 个**来自本函数的逐元素前/后处理（每层 ~15 个小算子 × 38 层）。
+    # 实测每个图节点值 ~3 µs 墙钟 ⇒ 这 573 个节点约值 1.72 ms/step。
+    # 本路径把它压成 **2 个 AscendC kernel**（all_reduce 夹在中间，不能合成一个）。
+    #
+    # 单卡实测（`ascendc/merge/bench_merge.py`，chip6）：
+    #   T=1（生产 decode）pre 7.08 µs + post 6.61 µs = 13.68 µs/层 ⇒ 38 层 **0.520 ms/step**
+    #   与 Python 参考在 T=1–16 **逐位一致**；T=20+ 差 1 个 bf16 ULP
+    #   （本 CANN 的 fp32 无可用除法指令，只能用 `Muls(num, 1/den)`）。
+    #
+    # 图捕获安全：ctypes 调用发生在**捕获期**，replay 由图回放 ⇒ 无 host 开销；
+    # 所有张量（tiling / pack / out）都是**常驻缓存**，地址跨 replay 不变。
+    # =====================================================================
+    if _merge_kd:
+        from vllm_ascend.attention import v41_merge_kernel as _mk
+
+        _T = int(output.shape[0])
+        _H = int(output.shape[1])
+        _h0, _h1 = int(head_slice[0]), int(head_slice[1])
+        _Hout = _h1 - _h0
+        _pk = _mk.pack_buffer(_T, _H, output.device)
+        _mk.merge_pre(output, lse, _ori_lse_f32, _pk)
+        if _perf_flags().get("det_reduce") == "1" or _DCP_DET_REDUCE:
+            _g = torch.empty((dcp, *_pk.shape), dtype=_pk.dtype, device=_pk.device)
+            torch.distributed.all_gather_into_tensor(_g, _pk, group=group.device_group)
+            _acc = _g[0]
+            for _r in range(1, dcp):
+                _acc = _acc + _g[_r]
+            _pk.copy_(_acc)          # 写回常驻缓冲，保持地址不变
+        else:
+            torch.distributed.all_reduce(_pk, group=group.device_group)
+        _outk = _mk.out_buffer(_T, _Hout, output.device)
+        _mk.merge_post(_pk, _oi, _outk, _h0, float(_keep * dcp), float(dcp * _keep))
+        return _outk
     _mdiag_pre_t = None
     _mdiag_post_t = None
     # =====================================================================
@@ -683,7 +1021,7 @@ def _v41_dcp_merge_attention(
         # =====================================================================
         if _dcp_diag_on("sanstat", "V41_DCP_SANSTAT") and not _is_capturing():
             try:
-                _sf = scaled.to(torch.float32)
+                _sf = scaled.to(torch.float32)  # bf16 时这里会补一次 Cast（仅诊断路径）
                 _st = torch.stack([
                     torch.isinf(_sf).sum().reshape(1),
                     torch.isnan(_sf).sum().reshape(1),
@@ -708,7 +1046,15 @@ def _v41_dcp_merge_attention(
                 _scaled_f, nan=0.0, posinf=_finfo.max / 4, neginf=-_finfo.max / 4
             )
             scaled = _scaled_f.to(scaled.dtype)
-        _pack = torch.cat([scaled, weights], dim=-1)
+        # ★★★★★★ [V41-DEADCAT 2026-10-01 07:05] **删掉一次死代码 `torch.cat`**。
+        #
+        # 原来这里有 `_pack = torch.cat([scaled, weights], dim=-1)`，但紧接着的
+        # padding 逻辑已被 `_v41_pack_for_reduce`（常驻缓冲）取代，而**下面第 988 行
+        # 又无条件重写了 `_pack`** ⇒ 这次 `cat` 的结果**从未被使用**，可它的
+        # `ConcatD` 内核**照样每层下发一次**。
+        # 线上证据（DCP1 vs DCP8 干净对比）：`ConcatD` **0 → 38 次/step**、
+        # **0.241 ms/step**，而 DCP1 里该算子为 0 —— 正是这一行。
+        # ⇒ 删除是纯粹的白赚。
         # ★ [V41-MDIAG] 记录**归约前**的本地 weights 和（用于判断"其它 rank 的
         #   贡献到底有没有进 all_reduce"）。实测现象：合并后 `wsum = Σw − dcp·keep`
         #   是**负数**（约 −4），而 WDIAG 显示 7 个 rank 的 `w ≡ 1`、rank0 的
@@ -752,10 +1098,22 @@ def _v41_dcp_merge_attention(
         #   ⇒ pad 到 128 个 fp32（= 512 B）。代价：最后一维 513 → 640（+25%），
         #   但前面实测"collective 在这个区间是**纯延迟**（16 B 与 1 MB 同价）"
         #   ⇒ 这点字节量不影响时延。
-        _ALIGN_ELEMS = 128
-        _pad_to = (-_pack.shape[-1]) % _ALIGN_ELEMS
-        if _pad_to:
-            _pack = torch.nn.functional.pad(_pack, (0, _pad_to))
+        # ★★★★★★ [V41-PACKBUF 2026-10-01 02:40] **不用 `F.pad`，改用常驻缓冲**。
+        #
+        # 真实 8 卡 profiler（run dcpcap_1001_015103，20 forwards）实测：
+        #     `aclnnConstantPadNd_PadV3AiCore_MemSet`  760 次 / 20 fwd = 38/step
+        #                                              12.053 ms → **0.603 ms/step**
+        #     `PadV3`                                  760 次 → **0.234 ms/step**
+        #     `ConcatD`                                760 次 → **0.246 ms/step**
+        #   ⇒ 仅"打包"这一步就 **1.08 ms/step**，而输入只有 `[1,64,513]` fp32（131 KB）。
+        #   pad 的 15.9 µs/次 是纯粹的固定开销（只为写 128 列的零）。
+        #
+        # 做法：按 `(T,H,D,dtype,device)` 缓存一个**已经零初始化**的 `[T,H,640]` 缓冲，
+        # 每次只写 `[..., :D]` 与 `[..., D:D+1]` 两段；padding 永远保持 0，
+        # 既不需要 `F.pad`，也不需要 `cat` 分配。
+        #   图安全：缓冲地址跨 replay 不变（这正是指标要求的）；捕获期只分配一次。
+        #   语义不变：allreduce 之后只读 `[..., :D+1]`，padding 参与求和但恒为 0。
+        _pack = _v41_pack_for_reduce(scaled, weights)
         # ★ [V41-CSEQ] 打序号（非 capture + 真实 prefill）
         if (
             _dcp_diag_on("cseq", "V41_DCP_CSEQ")
@@ -770,7 +1128,13 @@ def _v41_dcp_merge_attention(
                    int(diag_seq_lens.max()), "gather" if _DCP_DET_REDUCE else "reduce"),
                 flush=True,
             )
-        if _DCP_DET_REDUCE:
+        # ★★★ [V41-DETREDUCE-FLAG 2026-09-30 22:40] 改为**文件开关优先**（`det_reduce=1`），
+        #   免重启即可 A/B。动机：层间二分 + 合并前 LSE 对拍证明
+        #   "8 个 rank 的 lse 逐位相同、layer 2 输入逐位相同"，而 layer 3 的 q 开始分叉
+        #   ⇒ 分叉来自**跨 rank 的 all_reduce**（HCCL 在该形状/T 上求和顺序可变）。
+        #   本分支用 `all_gather` + 按 rank 顺序显式求和（数学等价、顺序固定）。
+        _rs_applied = False
+        if _perf_flags().get("det_reduce") == "1" or _DCP_DET_REDUCE:
             # ★ 定序归约：`all_gather` 拿全部 rank 的包，再按 rank 顺序显式求和。
             #   数学上 `Σ_r` 与 `all_reduce` 完全等价，但**求和顺序固定**、
             #   且避开了 all_reduce 在该形状/T 上的行为（实测它在 T=16 上给垃圾）。
@@ -782,6 +1146,42 @@ def _v41_dcp_merge_attention(
             for _r in range(1, dcp):
                 _acc = _acc + _g[_r]
             _pack = _acc
+        elif _v41_rs_merge_on() and _fold_ori_locally and head_slice is not None:
+            # =============================================================
+            # ★★★★★★ [V41-RSMERGE 2026-10-01 03:20] **reduce_scatter 代替 all_reduce**。
+            #
+            # 事实：归约之后**每个 rank 只需要自己那 8 个 head**（`o_proj` 是 TP 切分的），
+            # 而 `all_reduce` 让每个 rank 都收到全部 64 个 head 的和
+            # ⇒ 88.9% 的接收量是白拿的。
+            #
+            # `reduce_scatter_tensor` 的语义正是"各 rank 贡献完整的输入、只收到自己
+            # 那一段的和" ⇒ 数学恒等（逐元素求和后切片），但
+            #   · 每 rank 接收量：164 KB → **20.5 KB**（1/8）；
+            #   · ring 算法的搬运量：`2(N−1)/N·S` → `(N−1)/N·S`（减半）。
+            #
+            # 布局：把包转成 **head-major** `[H, T*W]`，这样 reduce_scatter 的
+            # 第 r 段恰好是 head `[8r, 8r+8)` —— 与 `head_slice` 完全对齐，
+            # 归约后**不需要任何切片/拷贝**。
+            #
+            # 开关：env `V41_DCP_RS_MERGE=1`（默认 **0**，先测量再决定是否转正）。
+            # =============================================================
+            _H = int(_pack.shape[1])
+            _W = int(_pack.shape[-1])
+            _hm = _pack.permute(1, 0, 2).reshape(_H, -1)
+            if not _hm.is_contiguous():
+                _hm = _hm.contiguous()
+            _rows = _H // int(dcp)
+            _rs_key = (int(dcp), int(_H), _W, int(_pack.shape[0]), _pack.dtype, str(_pack.device))
+            _rs_out = _RS_OUT_CACHE.get(_rs_key)
+            if _rs_out is None or tuple(_rs_out.shape) != (_rows, _hm.shape[1]):
+                _rs_out = torch.empty((_rows, _hm.shape[1]), dtype=_pack.dtype, device=_pack.device)
+                _RS_OUT_CACHE[_rs_key] = _rs_out
+            torch.distributed.reduce_scatter_tensor(_rs_out, _hm, group=group.device_group)
+            # 归约后的那段就是**本 rank 的 8 个 head** ⇒ 转回 [T, 8, W] 并清掉 head_slice，
+            # 让下面的后处理不再二次切片。
+            _pack = _rs_out.view(_rows, int(_pack.shape[0]), _W).permute(1, 0, 2)
+            head_slice = None
+            _rs_applied = True
         else:
             torch.distributed.all_reduce(_pack, group=group.device_group)
         # ★★★★★★ [V41-POSTRSYNC 2026-09-30] **归约后竞态**的直接判据。
@@ -865,10 +1265,19 @@ def _v41_dcp_merge_attention(
         # ★ 扣除量 = `Σ_r _onum_r` / `Σ_r _ow_r`：
         #   `_onum_r = ori_out·_keep` 与 `_ow_r = _keep` **每个 rank 各一份**
         #   ⇒ `Σ_r _onum_r = dcp·_onum`、`Σ_r _ow_r = dcp·_keep = dcp−1`。
-        if _slice_early:
+        if _rs_applied:
+            # ★ [V41-RSMERGE] reduce_scatter 已经只把**本 rank 的 8 个 head** 收回来了
+            #   ⇒ 直接相减，不再切片（`head_slice` 也已置 None）。
+            # ★ [V41-ONUMFIX 2026-10-01 07:25] **不要再乘 dcp**：`_onum` 自
+            #   `V41-ONUMFOLD` 起已经内含 `_keep*dcp`，这里再乘一次会变成 dcp²
+            #   （这条分支只在 `V41_DCP_RS_MERGE=1` 时走到，属潜在 bug，不是当前默认路径）。
+            scaled = _pack[..., :_out_dim] - _onum
+            wsum = _pack[..., _out_dim : _out_dim + 1] - dcp * _keep
+            _hs_applied = (0, int(_pack.shape[1]))
+        elif _slice_early:
             # 归约后立刻切到本 rank 的 8 个 head ⇒ 减法只在 8 个 head 上做。
             _h0, _h1 = head_slice
-            scaled = _pack[..., :_out_dim][:, _h0:_h1, :] - dcp * _onum
+            scaled = _pack[..., :_out_dim][:, _h0:_h1, :] - _onum
             # ★ pad 之后必须**精确切 1 列**：`[..., _out_dim:]` 会带上 padding。
             # =============================================================
             # ★★★★★★ [V41-DENFIX 2026-09-30 12:25] 分母取值的**修复候选**。
@@ -891,28 +1300,126 @@ def _v41_dcp_merge_attention(
             #     当分母 —— WCHK 实测这条路径完全正确
             #     （rank0 218618 + 7×1024 = 225786）。代价是多一次 4 KB 集合通信。
             # =============================================================
-            # ★★★ 默认走 `sepw`（独立 all_reduce 出分母）；`contigw=1` 走更便宜的
-            #     拷贝路径。实测两者都能把 T=16 的答对率从 0/25 拉到 16/25。
-            if _perf_flags().get("contigw") == "1":
+            # =============================================================
+            # ★★★★★★ [V41-CONTIGW-DEFAULT 2026-10-01 06:40] **默认改为 `contigw`，
+            #   去掉每层第二次集合通信。**
+            #
+            # 真实 8 卡 profiler 给出了**精确**的账（run dcpcap_1001_015103）：
+            #
+            # | 通信 | DCP8 | DCP1 | 归属 |
+            # |---|---|---|---|
+            # | allReduce group=097 | **76.0/step（=2×38）**, 0.976 ms/step | 无 | merge |
+            # | allGather group=374 | 36.1/step, 0.670 ms/step | 无 | q gather |
+            # | allReduce group=503 | 82.0/step | **82.0/step（逐字相同）** | TP/EP |
+            #
+            # `76 = 2×38` 说明 merge **每层做了两次 all_reduce**：一次是 164 KB 的
+            # 打包包，另一次是这个**只有 256 字节**的分母。而集合通信在本平台是
+            # **纯延迟 bound**（16 B 与 1 MB 同价，已多次实测）⇒ 这 256 字节
+            # 的分母和 164 KB 的包**一样贵**。
+            #
+            # 分母本来就在打包包里（`pack[..., _out_dim]` 就是 `Σ_r w_r`），
+            # 之所以还单独归约一次，是因为历史上"直接读 `[T,H,1]` 视图"在这台
+            # NPU 上读到过垃圾值；当年用 `.contiguous()`（4 KB 拷贝）修复，
+            # 并**实测两条路径都能把 T=16 的答对率从 0/25 拉到 16/25**。
+            # ⇒ 现在默认走 `contigw`：省掉 38 次/step 的集合通信，代价是 38 次
+            #    4 KB `ViewCopy`。预期 **−0.4~0.5 ms/step**。
+            #
+            # ★★★★★★ [V41-CONTIGW-ABORT 2026-10-01 07:50] **默认已回退为 `sepw`。**
+            #
+            # 将默认切到 `contigw` 后：T=904 针 **4/4 通过**、长针 6/6 通过，
+            # 但**短问答回归**：`17 × 23 等于多少？只回答数字。` 连续 **6/6** 输出
+            # 乱码（`# 标题：老婆背叛后…`），而上一版（sepw）稳定输出 `391`。
+            # 回退到 `sepw` 后立刻恢复。
+            #
+            # ⇒ 与历史记录一致：**这台 NPU 上"读 pack 里的权重列"这条路径不可靠**
+            #   （当年 `.contiguous()` 只修好了 T=16 那一组用例）。
+            #   性能上 `contigw` 省掉 38 次/step 集合通信（设备时间 −0.55 ms/step），
+            #   但 **wall clock 没有可测量的改善**（33.15 vs 33.23，在噪声内）
+            #   ⇒ 不为它冒正确性风险。
+            #
+            # 如需复测：`sepw=0` 且 `V41_DCP_CONTIGW=1`（env，因为文件开关在
+            # decode 图捕获后不生效）。
+            # =============================================================
+            # ★★★★★★ [V41-CONTIGW-SANITIZE 2026-10-01 08:30] **重试 contigw，
+            #   这次与 `sanitize` 一起打开。**
+            #
+            # 上一次（唯一变量 = contigw）的失败模式：T=904 针 4/4 通过、长针 6/6
+            # 通过，但短问答 `17 × 23 等于多少？只回答数字。` 连续 6/6 乱码
+            # （`# 标题：老婆背叛后…`）。
+            #
+            # 现在有了**具体假设**：`scaled` 与 `weights` 被放进**同一个** all_reduce
+            # 缓冲；本文件的历史实测已记录 **HCCL 在 buffer 含 Inf/NaN 时行为异常**
+            # （正是当年加 `sanitize` 开关的原因）。分母列在这个"脏"缓冲里，
+            # 所以读出来的 `Σ_r w_r` 可能是垃圾 ⇒ 短输入（`scaled` 更容易溢出/
+            # 出现非有限值）先崩，而长上下文反而侥幸通过。
+            #
+            # ⇒ 如果假设成立，`sanitize=1`（把 `scaled` 的 Inf/NaN 清成有限值）
+            #    就能同时拿到：**去掉 38 次/step 的集合通信** 且 **正确性保持**。
+            #
+            # ★★★★★★ [V41-CONTIGW-LOCATED 2026-10-01 10:45] **根因定位：坏在 decode（图内），
+            # 不坏在 prefill（eager）。** 这解释了此前所有互相矛盾的观测：
+            #
+            # | 生效范围 | 短问答 `17×23` | T=904 针 |
+            # |---|---|---|
+            # | **文件开关** `sepw=0`（只影响 eager ⇒ **仅 prefill**） | **6/6 `391`** ✅ | `Q7` ✅ |
+            # | **env** `V41_DCP_CONTIGW=1`（prefill **+ decode**） | **6/6 乱码**（`# 标题：老婆背叛后…`） | 通过 |
+            # | 代码默认 = contigw（两者都是） | 乱码 | 通过 |
+            # | 代码默认 = contigw **+ sanitize** | 乱码 | 通过 |
+            #
+            # ⇒ ① `contigw`（从 `pack` 的 strided 视图里读分母列）在**图捕获的 decode**
+            #     里读到垃圾值；② 与 `sanitize`（Inf/NaN）**无关** —— 两者同时打开
+            #     仍然坏，单独打开也坏；③ prefill 全对，所以只跑长针/T=904 会漏判。
+            #
+            # 这是"strided 视图读取在本平台不可靠"的**第三次**独立复现
+            # （另两次：`PACKDIRECT` 的 `out=<strided>`、`SUBALPHA` 的混合 dtype）。
+            # ⇒ `contigw` **永久默认关**。真正要拿这 38 次/step 的通信，
+            #   必须在**编译出来的 kernel 里**读这块内存（见 `docs/` 的 AscendC 计划）。
+            # 复现：`V41_DCP_CONTIGW=1`（env，必须重启）。
+            #
+            # 回退：`sepw=1`（默认即为该路径）。
+            _want_contigw = _perf_flags().get("sepw") == "0" or (
+                __import__("os").environ.get("V41_DCP_CONTIGW", "0") == "1"
+            )
+            if not _want_contigw:
+                # ★ [V41-NOCLONE 2026-10-01 10:20] **就地 all_reduce，省掉 `clone()` 节点**。
+                #   该分支（`_fold_ori_locally` + `sepw`）之后 `weights` 不再被任何地方引用
+                #   （`_pack` 已经用 `copy_` 存了它自己的副本；`scaled` 也已算完），
+                #   所以可以直接在 `weights` 上做 in-place all_reduce。
+                #   `.to(fp32)`/`.contiguous()` 本来就都是 no-op（`weights` 出自
+                #   `nan_to_num(exp(...))`，已是连续 fp32）。
+                #   ⇒ 每层少 1 个 `ViewCopy` 节点（×38 = −38 节点/step ≈ 0.11 ms）。
+                _ws = weights
+                # ★ 定序求和（det_reduce=1）——否则分母的 all_reduce 顺序可变
+                if _perf_flags().get("det_reduce") == "1":
+                    _ws = _v41_ordered_allreduce(_ws, group)
+                else:
+                    torch.distributed.all_reduce(_ws, group=group.device_group)
+                wsum = _ws[:, _h0:_h1, :] - dcp * _keep
+            else:
+                # ★ 必须 `.contiguous()`：直接读 strided 视图在这台 NPU 上会取到
+                #   垃圾值（见上面的历史说明），而 `pack` 的权重列不在连续位置。
                 _wcol_raw = _pack[..., _out_dim : _out_dim + 1].contiguous()
                 wsum = _wcol_raw[:, _h0:_h1, :] - dcp * _keep
-            else:
-                _ws = weights.to(torch.float32).contiguous().clone()
-                torch.distributed.all_reduce(_ws, group=group.device_group)
-                wsum = _ws[:, _h0:_h1, :] - dcp * _keep
             _hs_applied = (_h0, _h1)
             head_slice = None  # 已应用，别在下面再切一次
         else:
-            scaled = _pack[..., :_out_dim] - dcp * _onum
+            # ★ [V41-ONUMFIX] 同上：`_onum` 已内含 `_keep*dcp`，不再乘 dcp。
+            scaled = _pack[..., :_out_dim] - _onum
             wsum = _pack[..., _out_dim : _out_dim + 1] - dcp * _keep
     elif perf_no_pack:
         # 消融臂：回到打包前的实现（4 次独立 all_reduce），用于量化打包收益
         _n_all = _onum.clone(); _w_all = _ow.clone()
-        torch.distributed.all_reduce(scaled, group=group.device_group)
-        wsum = weights.clone()
-        torch.distributed.all_reduce(wsum, group=group.device_group)
-        torch.distributed.all_reduce(_n_all, group=group.device_group)
-        torch.distributed.all_reduce(_w_all, group=group.device_group)
+        if _perf_flags().get("det_reduce") == "1":
+            scaled = _v41_ordered_allreduce(scaled, group)
+            wsum = _v41_ordered_allreduce(weights.contiguous(), group)
+            _n_all = _v41_ordered_allreduce(_n_all, group)
+            _w_all = _v41_ordered_allreduce(_w_all, group)
+        else:
+            torch.distributed.all_reduce(scaled, group=group.device_group)
+            wsum = weights.clone()
+            torch.distributed.all_reduce(wsum, group=group.device_group)
+            torch.distributed.all_reduce(_n_all, group=group.device_group)
+            torch.distributed.all_reduce(_w_all, group=group.device_group)
         if _ori_active:
             scaled = scaled - _n_all
             wsum = wsum - _w_all
@@ -920,7 +1427,10 @@ def _v41_dcp_merge_attention(
         # 按最后一维拼包：`[T, H, D] + [T, H, D] + [T, H, 1] + [T, H, 1]`
         # ★ `weights` 直接交给 `cat`（cat 本来就会复制）⇒ 省掉一次 `clone`
         _pack = torch.cat([scaled, _onum, weights, _ow], dim=-1)
-        torch.distributed.all_reduce(_pack, group=group.device_group)
+        if _perf_flags().get("det_reduce") == "1":
+            _pack = _v41_ordered_allreduce(_pack, group)
+        else:
+            torch.distributed.all_reduce(_pack, group=group.device_group)
         _out_dim = scaled.shape[-1]
         scaled = _pack[..., :_out_dim]
         _n_all = _pack[..., _out_dim : 2 * _out_dim]
@@ -1166,10 +1676,67 @@ def _v41_dcp_merge_attention(
             )
         except Exception as _e:  # noqa: BLE001
             print("[V41-WCHK] rank=%d 失败：%r" % (_v41_dcp_rank(), _e), flush=True)
-    denom = torch.where(wsum > 0, wsum, torch.ones_like(wsum))
+    if _perf_flags().get("denclamp", "1") != "0":
+        # ★ [V41-DENCLAMP 2026-10-01 04:25] 用 `clamp_min` 替掉 `where(>0)+ones_like`：
+        #   省掉 `Greater`(44/step) + `SelectV2`(55/step) + `Fill`(部分) ≈ 110 次下发。
+        #   数学依据：`wsum = Σ_r w_r − (dcp−1) ≥ 1` 恒成立（已由 INV 探针实测
+        #   `wsum_min ∈ [1.004, 1.041]` 验证）。`clamp_min(1e-30)` 在 wsum ≤ 0 时
+        #   会放大误差（历史上踩过）⇒ 保留 `denclamp=0` 回退开关，**默认开**
+        #   （2026-10-01 05:30；依据：INV 探针实测 `wsum_min ∈ [1.004, 1.041] ≥ 1`）。
+        denom = wsum.clamp_min(1e-30)
+    else:
+        denom = torch.where(wsum > 0, wsum, torch.ones_like(wsum))
     # ★ 用 `torch.div` 直接指定 `out=` 会引入别名风险，保持简单：elementwise 结果
     #   天然连续，`to(dtype)` 后调用方无需再 `.contiguous()`。
-    return (scaled / denom).to(output.dtype)
+    _merged = (scaled / denom).to(output.dtype)
+    # =====================================================================
+    # ★★★★★★ [V41-MERGEDOUT 2026-09-30 23:05] **合并输出（含 scaled/wsum/denom）落盘**。
+    #
+    # 判据链条（前两步已实测）：
+    #   (1) 同一实例内 A/B 两次请求（A 输出 `Q7` 正确、B 输出 `#` 错），layer 2 的
+    #       **全部**合并输入逐位相同：q/cmp_indices/seqused_*/sinks/metadata/页内容，
+    #       且 8 个 rank 的 `lse`、`ori_lse`、partial `out`、`ori_out` 指纹一致；
+    #   (2) layer 3 的 `q` 出现差异（462/904 行、max|d|=0.6875，bf16 几十 ULP）。
+    # ⇒ 分叉只可能在 **(a) 本次合并自身** 或 **(b) 合并之后的 o_proj / MoE / 残差**。
+    #    本探针给出 (a) 的直接判据：合并输出逐位相同 ⇒ 分叉在 (b)。
+    #
+    # 开关：`mergedout=1`；层/rank/后缀复用 `dumplayer`/`dumprank`/`dumpsuffix`，
+    # 目录复用 `dumpdir`。落盘内容 `merged/scaled/wsum/denom`（fp32，prefill T=904
+    # 时约 30 MB/rank/次），便于在 CPU 侧做逐位比较与差异定位。
+    # =====================================================================
+    if _perf_flags().get("mergedout") == "1" and not _is_capturing():
+        try:
+            import os as _osmo
+
+            _modir = _perf_flags().get("dumpdir")
+            _mol = {int(v) for v in _perf_flags().get("dumplayer", "").replace(" ", "").split(",")
+                    if v.strip().lstrip("-").isdigit()}
+            _mor = {int(v) for v in _perf_flags().get("dumprank", "").replace(" ", "").split(",")
+                    if v.strip().isdigit()}
+            _mosfx = _perf_flags().get("dumpsuffix", "")
+            if _modir and (not _mol or int(layer_idx) in _mol) and (
+                not _mor or int(_v41_dcp_rank()) in _mor
+            ):
+                _osmo.makedirs(_modir, exist_ok=True)
+                torch.save(
+                    {
+                        "merged": _merged.detach().to(torch.float32).cpu(),
+                        "scaled": scaled.detach().to(torch.float32).cpu(),
+                        "wsum": wsum.detach().to(torch.float32).cpu(),
+                        "denom": denom.detach().to(torch.float32).cpu(),
+                        "shape": tuple(_merged.shape),
+                        "dtype": str(_merged.dtype),
+                    },
+                    _osmo.path.join(
+                        _modir,
+                        "merged_l%d_r%d%s.pt" % (
+                            int(layer_idx), int(_v41_dcp_rank()),
+                            ("_" + _mosfx) if _mosfx else ""),
+                    ),
+                )
+        except Exception as _e:  # noqa: BLE001
+            print("[V41-MERGEDOUT] 失败：%r" % (_e,), flush=True)
+    return _merged
 
 
 _LSE_DIAG_COUNT = {"n": 0}
@@ -1232,7 +1799,7 @@ def _dcp_sf(x):
             pass
     return float(x)
 _DCP_MDIAG_STATE = {}
-_DCP_DUMPED = {"done": False}
+_DCP_DUMPED = {}   # [V41-DUMP-LAYER] done 用 (layer,suffix) 作键，支持多次落盘
 # ★★★★★★ [V41-CFG-CACHE 2026-09-30 13:50] **并行配置的进程内缓存**。
 #
 # 动机：`_remap_selection`（indexer 复制态下才走）原来用
@@ -2046,6 +2613,62 @@ class DeepseekV41EagerAttentionImpl:
         query_start_loc = metadata.swa.query_start_loc[: num_reqs + 1]
         seq_lens = metadata.swa.seq_lens[:num_reqs]
         ori_block_table = metadata.swa.block_table[:num_reqs]
+        # =====================================================================
+        # [V41-SLOTTRACE] SWA 写侧槽位：哪些物理页真的被写。
+        # =====================================================================
+        if _SLOTTRACE and not _is_capturing():
+            try:
+                _st_flags = _perf_flags()
+                _st_layers = {
+                    int(v)
+                    for v in _st_flags.get("dumplayer", "").replace(" ", "").split(",")
+                    if v.strip().lstrip("-").isdigit()
+                }
+                _st_key = (int(self.role.layer_idx), _st_flags.get("dumpsuffix", ""))
+                if (
+                    _st_flags.get("slottrace") == "1"
+                    and (not _st_layers or int(self.role.layer_idx) in _st_layers)
+                    and _st_key not in _SLOTTRACE_DONE
+                ):
+                    _SLOTTRACE_DONE[_st_key] = 1
+                    # ★ [V41-SLOTTRACE-2 2026-10-01 00:05] **纠正坐标语义**。
+                    #   读了 builder（本文件 3656-3695）后确认：`_slot_mapping_2d`
+                    #   的两列是 **(block, row) 坐标**，不是"两个 cache group"：
+                    #       [:, 0] = physical // storage_block_size   （块号）
+                    #       [:, 1] = physical %  storage_block_size   （块内行号）
+                    #   因此"写侧落到哪些块/行"可以直接读出来。
+                    _sm_raw = metadata.swa.slot_mapping
+                    if _sm_raw.ndim != 2 or _sm_raw.shape[1] != 2:
+                        print("[V41-SLOTTRACE] 形状意外：%s" % (tuple(_sm_raw.shape),), flush=True)
+                    else:
+                        _blk = _sm_raw[:, 0].to(torch.int64)
+                        _row = _sm_raw[:, 1].to(torch.int64)
+                        _pos = metadata.swa.positions
+                        _ub = sorted({int(v) for v in _blk.tolist()})
+                        _ur = sorted({int(v) for v in _row.tolist()})
+                        _pairs = [
+                            (int(_blk[i]), int(_row[i]))
+                            for i in (0, 1, 127, 128, 129, 255, 256, 257, 903)
+                            if i < _blk.numel()
+                        ]
+                        _bt = metadata.swa.block_table[0, :10].to(torch.int64).cpu().tolist()
+                        print(
+                            "[V41-SLOTTRACE] TP=%d layer=%d T=%d | block uniq n=%d=%s | "
+                            "row uniq n=%d min=%d max=%d | 采样(pos→blk,row)=%s | "
+                            "ori_bt[:10]=%s | n_neg_blk=%d n_neg_row=%d | positions=%s"
+                            % (
+                                int(_v41_dcp_rank()), int(self.role.layer_idx),
+                                int(_blk.numel()), len(_ub), _ub[:10],
+                                len(_ur), int(_row.min()), int(_row.max()),
+                                _pairs, _bt,
+                                int((_blk < 0).sum()), int((_row < 0).sum()),
+                                "-" if _pos is None else "%d..%d"
+                                % (int(_pos.min()), int(_pos.max())),
+                            ),
+                            flush=True,
+                        )
+            except Exception as _e:  # noqa: BLE001
+                print("[V41-SLOTTRACE] 失败：%r" % (_e,), flush=True)
         cmp_block_table = None
         cmp_seq_lens = None
         cmp_residual = None
@@ -2057,6 +2680,44 @@ class DeepseekV41EagerAttentionImpl:
             if source_cache is None or metadata.attention is None or compressed_indices is None:
                 raise RuntimeError("V4.1 compressed attention is missing KV or TopK metadata")
             cmp_block_table = metadata.attention.block_table[:num_reqs]
+            # =============================================================
+            # ★★★★★★ [V41-NULLBLK 2026-09-30 23:30] **空块表项 = 页 0 = 别的层的环形页**。
+            #
+            # 单卡实测（`~/tmp/toggle.py`，设备侧建池保住 stride0）：
+            #   · 生产的 `ori_block_table` **只有一个非零项**（列 0 = 环形页 17，其余 8191 列恒 0）；
+            #     `cmp_block_table` 同理（列 0 = 11，其余 1023 列恒 0）。
+            #   · **开关式毒化判据**（A/B 反复切某页内容，看输出跟不跟着走）：
+            #       ori 页 0 有毒 → `max|dout|=9986.7`，还原 → 逐位回到基准 ⇒ **页 0 被真读**；
+            #       ori 页 1..16、cmp 页 0..10 有毒 → 输出**完全不变**（0/0）⇒ 那些页没被读。
+            #   · 把 `ori_block_table` 的**所有列都填成列 0 的值**后，输出也变
+            #     （`max|dout|=3.69`）⇒ **列号确实参与寻址**，空列 0 会落到"页 0"。
+            #
+            # ⇒ 机理：块表 0 表示"页 0"，而页 0 是**本请求没写过**的共享池页（很可能属于
+            #   别的层的环形窗口）。生产上它装着别的请求/别的层的 KV ⇒ 污染注意力。
+            #   这解释了稳定的"**新起容器第一个请求正确、之后全错**"（`Q7` → `#`，三次复现）。
+            #
+            # 下面两个开关是**候选修复**（都是纯 host 侧、不改算子二进制）：
+            #   `oribtpad=1`：`ori_block_table` 的每一列都指向**本请求的环形页**
+            #                 （环形语义下"position p → 行 p%128"，列只是页号，等价且不会落到页 0）；
+            #   `cbtpad=1`  ：`cmp_block_table` 同理。
+            # 注意：**只读诊断开关**，改的是本地副本，不污染 metadata 的共享 buffer。
+            # =============================================================
+            if _perf_flags().get("oribtpad") == "1" and ori_block_table.shape[1] > 1:
+                ori_block_table = ori_block_table[:, :1].expand(
+                    -1, ori_block_table.shape[1]
+                ).contiguous()
+            if _perf_flags().get("cbtpad") == "1" and cmp_block_table.shape[1] > 1:
+                cmp_block_table = cmp_block_table[:, :1].expand(
+                    -1, cmp_block_table.shape[1]
+                ).contiguous()
+            if _perf_flags().get("wipepage0") == "1" and not _is_capturing():
+                # 诊断用：把两个平面的**页 0**清零，看输出是否回到未污染状态。
+                # （页 0 是别的层的环形页 ⇒ 这只是诊断，不是修复。）
+                try:
+                    attn.dsa_attn.swa_cache_layer.kv_cache[0][0].zero_()
+                    source_cache[0].zero_()
+                except Exception as _e:  # noqa: BLE001
+                    print("[V41-NULLBLK] wipepage0 失败：%r" % (_e,), flush=True)
             # ★ [V41-BTPAD2 2026-09-30 17:12] 把块表**补一列**（第 2 列 = 第 1 列）。
             #   判据：若算子把 `idx` 分解成 (blkIdx>0, row) 而越界读到第 2 列（当前
             #   恒为 0 = null 块）⇒ 补列后会读到**正确页** ⇒ 第 2 次请求变正确。
@@ -2066,6 +2727,23 @@ class DeepseekV41EagerAttentionImpl:
                     [cmp_block_table, cmp_block_table[:, :1]], dim=1
                 )
             cmp_seq_lens = metadata.attention.cache_seq_lens[:num_reqs]
+            # ★★★★★ [V41-CMPGLOB 2026-10-01] **把 cmp 长度按全局压缩坐标传给算子**。
+            #   见 `_v41_global_cmp_lens` 的说明；单卡已验证：传入全局长度后
+            #   同一输入 4/4 逐位一致，且 5 行全部与 torch 参考吻合到 ≤2e-6。
+            #   开关 `cmpglob=0` 可回退（用于 A/B）。
+            if (
+                _perf_flags().get("cmpglob", "1") != "0"
+                # ★ [V41-CMPGLOB-DCPONLY] **只在 DCP 生效时改**：DCP=1 时
+                #   `cache_seq_lens` 与 `floor(seq/ratio)` 本就是同一坐标系，
+                #   这条改动必须是 no-op，否则 DCP1 基线会被污染。
+                and _v41_dcp_on()
+                and seq_lens is not None
+                and cmp_seq_lens is not None
+                and cmp_seq_lens.numel()
+                and seq_lens.numel() == cmp_seq_lens.numel()
+                and int(ratio) in (1, 2)
+            ):
+                cmp_seq_lens = _v41_global_cmp_lens(seq_lens, int(ratio))
             cmp_residual = metadata.attention.cmp_residual
             cmp_topk = self.topology.index_topk
             if cmp_topk not in (512, 1024):
@@ -2500,14 +3178,29 @@ class DeepseekV41EagerAttentionImpl:
         # 触发条件：`dumpdir=<容器内目录>` 文件开关 + 非 capture + 首个合格调用。
         # =====================================================================
         _dumpdir = _perf_flags().get("dumpdir")
+        # ★★★ [V41-DUMP-LAYER 2026-09-30 22:05] 支持**指定层**与**多次落盘**：
+        #   `dumplayer=<n>`  只在该层落盘（多个用逗号分隔）
+        #   `dumpsuffix=<s>` 文件名后缀，便于同一次会话里分次落盘（例如 good/bad）
+        #   done 键改为 (layer, suffix) ⇒ 同一会话可抓多个层/多次请求。
+        _dl_raw = _perf_flags().get("dumplayer", "")
+        _dump_layers = {int(v) for v in _dl_raw.replace(" ", "").split(",") if v.strip().lstrip("-").isdigit()}
+        _dsfx = _perf_flags().get("dumpsuffix", "")
+        # ★ [V41-DUMP-RANK] 只 dump 指定 rank（8 个 rank 各 ~60MB ⇒ 限一个省 8×）
+        _dr_raw = _perf_flags().get("dumprank", "")
+        _dump_ranks = {int(v) for v in _dr_raw.replace(" ", "").split(",") if v.strip().isdigit()}
+        _dkey = (int(self.role.layer_idx), _dsfx)
         if (
             _dumpdir
             and not _is_capturing()
-            and not _DCP_DUMPED["done"]
-            # ★ 必须门在 **有压缩（ratio=1）** 的层上：ratio=0 的滑窗层没有
-            #   `cmp_*` 张量（实测第一次落盘就撞上 layer 1，全是 None）。
+            and _dkey not in _DCP_DUMPED
+            and (not _dump_layers or int(self.role.layer_idx) in _dump_layers)
+            and (not _dump_ranks or int(_v41_dcp_rank()) in _dump_ranks)
+            # ★ 必须门在 **有压缩** 的层上：ratio=0 的滑窗层没有 `cmp_*` 张量
+            #   （实测第一次落盘就撞上 layer 1，全是 None）。
+            # ★★ [V41-DUMP-LAYER-2] 放开到 ratio∈{1,2}：**第一个压缩层是 layer 2
+            #   （ratio=2）**，要抓"最早的分叉点"就必须能在这里落盘。
             and has_compressed
-            and int(ratio) == 1
+            and int(ratio) >= 1
             and seq_lens is not None
             and int(seq_lens.max()) > 800
         ):
@@ -2550,6 +3243,22 @@ class DeepseekV41EagerAttentionImpl:
                 _cbt_list = [int(v) for v in _cbt.tolist()]
                 _used_o = sorted({v for v in _obt_list if v > 0})
                 _used_c = sorted({v for v in _cbt_list if v > 0})
+                # ★★★★★ [V41-DUMP-NULL 2026-09-30 23:55] **必须把"页 0"也搬进 dump**。
+                #
+                # 算子源码（`arch22/sparse_flash_mla_swa_block_vector.h:265-271`）的 ori 寻址是
+                #     blockTableIdx = logicalIdx / paOriBlockSize
+                #     idInBlockTable = oriBlockTable[bIdx*oriMaxBlockNumPerBatch + blockTableIdx]
+                #     offset = idInBlockTable*oriKvStride0 + n2IdxReal*headDim*paOriBlockSize
+                #              + (logicalIdx % paOriBlockSize)*headDim
+                # ⇒ **块表里的 0 不是"跳过"，而是"块 0"**，直接落到池的页 0。
+                # 生产 DCP8 的 ori 块表**只有第 0 列非零** ⇒ 位置 ≥128 的逻辑键
+                # （即除了前 128 个 token 以外的所有窗口读取，以及**所有写入**）
+                # 全部落到页 0。页 0 此前**没有**被 dump ⇒ 单卡重放读到的是一块
+                # 全 0 的人造内存（所以重放"干净"），与生产不等价。
+                # `dumpnull=1` 把页 0 一并落盘，供"页 0 是否承载本请求数据"的判据。
+                if _perf_flags().get("dumpnull") == "1":
+                    _used_o = sorted(set(_used_o) | {0})
+                    _used_c = sorted(set(_used_c) | {0})
                 _max_o = _used_o[-1] if _used_o else 0
                 _max_c = _used_c[-1] if _used_c else 0
 
@@ -2618,8 +3327,11 @@ class DeepseekV41EagerAttentionImpl:
                         "max_seqlen_ori_kv": int(seq_lens.max()),
                     },
                 }
-                _fn = _osd.path.join(_dumpdir, "l%d_T%d_rank%d.pt" % (int(self.role.layer_idx), _Td, int(_v41_dcp_rank())))
+                _fn = _osd.path.join(_dumpdir, "l%d_T%d_rank%d%s.pt" % (
+                    int(self.role.layer_idx), _Td, int(_v41_dcp_rank()),
+                    ("_" + _dsfx) if _dsfx else ""))
                 torch.save(_payload, _fn)
+                _DCP_DUMPED[_dkey] = True
                 _DCP_DUMPED["done"] = True
                 print(
                     "[V41-DUMPREPLAY] 已落盘 %s | q=%s idx=%s | 页池 ori=%d(至max %d) cmp=%d(至max %d) | "
@@ -2632,6 +3344,7 @@ class DeepseekV41EagerAttentionImpl:
                     flush=True,
                 )
             except Exception as _e:  # noqa: BLE001
+                _DCP_DUMPED[_dkey] = True
                 _DCP_DUMPED["done"] = True
                 print(
                     "[V41-DUMPREPLAY] 失败：%r | q=%s idx=%s obt=%s cbt=%s qsl=%s sl=%s "
@@ -3533,6 +4246,15 @@ class DeepseekV41MetadataBuilder(AttentionMetadataBuilder[DeepseekV41Metadata]):
 
         if self._supports_device_ops and cache_kind in {"swa", "long_kv"}:
             cmp_seq_lens = coordinates["cache_seq_lens"] if has_compressed else None
+            # ★★★★★ [V41-CMPGLOB-2 2026-10-01 01:10] **metadata 用本地长度，
+            # 只有传给 SMLA 算子的 `seqused_cmp_kv` 换成全局长度**。
+            #
+            # 为什么不能改 metadata：把全局长度喂给 `SparseFlashMlaMetadata`
+            # 会直接让它在 AICPU 上崩（实测 run `dcpcap_1001_010130`：
+            #   `AI CPU kernel execution failed … kernelName=SparseFlashMlaMetadata`）。
+            # 语义上也说得通：metadata 只做**核间切分**（bN2Start/gS1Start/s2Start…），
+            # 真正决定键集合的是内核直接读的 `seqused_cmp_kv` 张量（见
+            # `_v41_global_cmp_lens`）。单卡实验里 metadata 也仍是本地长度算出来的。
             cmp_residual = cmp_residual_buffer
 
             def build_smla_metadata() -> None:
