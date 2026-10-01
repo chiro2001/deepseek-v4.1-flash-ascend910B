@@ -176,6 +176,30 @@ DCP=1 能过是因为 merge 在 `dcp_size <= 1` 第 8 行就 early-return，mask
 * 聚合吞吐**单调上升**：67.3 → 89.7 → 161.5 → 187.0（正扩展性）
 * 并发压测后复核：`17×23→391`、`T=2000→Q7`、`T=16000→Q7` 仍全 PASS
 
+### 6.1b ⚠️ 并发 16 仍崩 —— 但**签名不同**，属另一个问题（未修）
+
+同一次验收里把档位加到 16（`MAX_SEQS=16` 的上限）：
+
+| 并发 | 1 | 2 | 4 | 8 | 16 |
+|---|---|---|---|---|---|
+| 结果 | ✅ | ✅ | ✅ | ✅ | ❌ **崩** |
+
+**签名与本文根因完全不同**：
+
+| | 本文根因（并发 2/4） | 并发 16 |
+|---|---|---|
+| 错误码 | `507011` (AI Core Error) | **`507035`** |
+| fault kernel | `SparseFlashMla_..._mix_aic` | **无 SMLA**；`aivec error` / vector core exception |
+| 失败算子 | SparseFlashMla | **`copy_between_host_and_device_opapi`**（H2D 拷贝） |
+| 崩点 | attention | `model_runner_v1.py:1462` `_prepare_inputs` |
+| 具体错误 | `scalar instruction accesses an invalid GM address` | `The address for the MTE instruction to read on-chip buffer is out of bounds`（UB 越界，不是 GM） |
+
+**触发路径**与首次崩溃相同（`admission_gate` 连做 16 步 prefill-only、
+攒下 120 个 deferred decode、然后一次性释放），但那是**两条不同 bug 的共同前置条件**。
+
+**⇒ 边界**：本次修复覆盖 **并发 1/2/4/8**（= 目标口径）。
+并发 16 是独立问题，建议单独开线，不要在本文的修复上叠加猜测。
+
 ### 6.2 精度回归
 
 | 用例 | 结果 |
