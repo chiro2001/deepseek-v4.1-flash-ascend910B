@@ -3664,7 +3664,19 @@ class DeepseekV41EagerAttentionImpl:
                     _ori_sinks = None
                 # ★ `ori_zero_cmp=1` ⇒ 第二次调用把 `seqused_cmp_kv` 置零
                 _ori_cmp_lens = cmp_seq_lens
-                if _perf_flags().get("ori_zero_cmp") == "1" and cmp_seq_lens is not None:
+                # [V41-DCP-ORI-ZEROCMP 2026-10-01] ★★ 默认把 cmp 长度**确定性置零**。
+                # 第二次调用只要纯 ori；旧写法依赖"全 -1 索引 ⇒ actCmpS2Size=0"
+                # 这个**隐含前提**，而实测 batch≥2 时该前提不成立
+                # （`SparseFlashMla` 报 invalid GM address；跳过整段调用即消失）。
+                # 置零后算子没有任何机会去读 cmp 键 —— 语义更严格、行为更确定。
+                # 退回旧行为：V41_DCP_ORI_RAW_CMP=1
+                _raw_cmp = __import__("os").environ.get("V41_DCP_ORI_RAW_CMP", "0") == "1"
+                if (
+                    not _raw_cmp
+                    and cmp_seq_lens is not None
+                ) or (
+                    _perf_flags().get("ori_zero_cmp") == "1" and cmp_seq_lens is not None
+                ):
                     _ori_cmp_lens = torch.zeros_like(cmp_seq_lens)
                 _ori_out, _ori_lse = torch.ops._C_ascend.npu_sparse_flash_mla(
                     q,
@@ -4237,7 +4249,21 @@ class DeepseekV41MetadataBuilder(AttentionMetadataBuilder[DeepseekV41Metadata]):
         # [V41-DCP 2026-09-29] 走跨 rank 合并的层：q 会被 all-gather 成**全部** head，
         # 所以算子 metadata 的 `num_heads_q` 必须用全量 head 数，而不是 TP 分片后的。
         # 不这么做的话算子会按 8 个 head 建 metadata、却收到 64 个 head 的 q。
-        if cache_kind == "long_kv" and _v41_dcp_on() and has_compressed:
+        # [V41-DCP-HEADS-FIX 2026-10-01] ★★ 必须与 `_v41_dcp_gather_heads`
+        # 的**实际行为**对齐：那个函数是 `if dcp_size <= 1: return q`（no-op）。
+        # 原条件只看 `_v41_dcp_on()`（= env 开关），而 DCP=1 时它仍为 True
+        # （`V41_DCP_ALLOW_CAPACITY_PROBE=1` 也会让它为真）
+        # ⇒ q 仍是 TP 分片（32 head）而 metadata 按全量（64 head）建
+        # ⇒ 2× 错配 ⇒ FD 归约 workspace 越界
+        #   （fault kernel `SparseFlashMla_..._mix_aic` + invalid GM address）。
+        # 实测：batch=1 静默、batch≥2 崩。
+        # 对 DCP>1 无影响（world_size>1 时条件本就成立）。
+        if (
+            cache_kind == "long_kv"
+            and _v41_dcp_on()
+            and has_compressed
+            and _v41_dcp_group().world_size > 1
+        ):
             n_local_heads = int(_config_value(text_config, "num_attention_heads"))
         head_dim = int(_config_value(text_config, "head_dim"))
         index_topk = int(_config_value(text_config, "index_topk"))
