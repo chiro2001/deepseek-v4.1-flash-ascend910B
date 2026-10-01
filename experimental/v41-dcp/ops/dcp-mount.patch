@@ -38,18 +38,18 @@
 +    DCP_MOUNTS+=(-v "$V41_DCP_MOUNT/$_rel:$_dst:rw")
 +    _dcp_n=$((_dcp_n + 1))
 +    echo "[serve_a2][DCP] mount $_rel → $_dst"
-+  done < <(cd "$V41_DCP_MOUNT" && find . -type f -name '*.py' | sort)
-+  [ "$_dcp_n" -gt 0 ] || die "V41_DCP_MOUNT=$V41_DCP_MOUNT 下没有 .py 文件"
++  done < <(cd "$V41_DCP_MOUNT" && find . -type f \( -name '*.py' -o -name '*.so' \) | sort)
++  [ "$_dcp_n" -gt 0 ] || die "V41_DCP_MOUNT=$V41_DCP_MOUNT 下没有 .py/.so 文件"
 +  echo "[serve_a2][DCP] 共挂 $_dcp_n 个文件（覆盖镜像内对应模块）"
 +  # ★ 挂载本身不构成证据：`-v SRC:DST` 在 DST 是文件、SRC 是文件时才有意义；
 +  #   写错路径 docker 会在宿主机建目录，容器里静默变成目录。所以把清单**写进
 +  #   serve_cmd.txt**（那个文件不会被 `: > $LOG` 截断），起服后据此核对。
-+  DCP_MOUNT_LIST=$(cd "$V41_DCP_MOUNT" && find . -type f -name '*.py' | sed 's|^\./||' | sort | tr '\n' ' ')
++  DCP_MOUNT_LIST=$(cd "$V41_DCP_MOUNT" && find . -type f \( -name '*.py' -o -name '*.so' \) | sed 's|^\./||' | sort | tr '\n' ' ')
 +  # 后面 mount 模式还会挂 patches/files/*，二者可能指向同一容器路径
 +  # （实测：engram_hbm.py）。docker 对重复的目的地直接报
 +  # `Duplicate mount point` 并拒绝起容器，所以这里记下 DCP 的目的地集合，
 +  # 在 mount 模式那一段结束后**移除冲突项**，让开发期 overlay 优先。
-+  DCP_MOUNT_DSTS=" $(cd "$V41_DCP_MOUNT" && find . -type f -name '*.py' | sed 's|^\./||' | sed 's|^|/vllm-workspace/vllm-ascend/|' | sort | tr '\n' ' ')"
++  DCP_MOUNT_DSTS=" $(cd "$V41_DCP_MOUNT" && find . -type f \( -name '*.py' -o -name '*.so' \) | sed 's|^\./||' | sed 's|^|/vllm-workspace/vllm-ascend/|' | sort | tr '\n' ' ')"
 +  echo "[serve_a2][DCP] MOUNT_LIST=$DCP_MOUNT_LIST"
 +  # 开发期需要透传给容器的 env（DCP 各阶段开关）：DCP_EXTRA_ENV="A=1 B=2"
 +  for _kv in ${DCP_EXTRA_ENV:-}; do
@@ -120,7 +120,7 @@
 +    else
 +      say "[DCP-MOUNT-GUARD] $_rel ✓ md5=${_want:0:8}"
 +    fi
-+  done < <(cd "$V41_DCP_MOUNT" && find . -type f -name '*.py' | sed 's|^\./||' | sort)
++  done < <(cd "$V41_DCP_MOUNT" && find . -type f \( -name '*.py' -o -name '*.so' \) | sed 's|^\./||' | sort)
 +  [ "$_dfail" = "0" ] || die "DCP 覆盖挂载未生效（见上）；不要在该状态下做任何结论"
 +fi
 +
