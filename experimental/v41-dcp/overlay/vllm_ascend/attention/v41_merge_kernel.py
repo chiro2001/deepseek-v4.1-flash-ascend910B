@@ -59,7 +59,7 @@ _MODE = 0                # 0 = den = max(w, eps)；与当前 Python 默认一致
 _EPS = 1e-30
 _MAXD = 60.0
 
-_LIB_NAME = "v41_merge_kernel.so"
+_LIB_NAME = "libv41merge_ops.so"
 
 
 class _Tiling(ctypes.Structure):
@@ -84,7 +84,14 @@ def _lib_path() -> str:
 
 
 def available() -> bool:
-    """`.so` 是否存在且能加载。"""
+    """`.so` 是否存在且能加载。
+
+★ 文件名故意与 .py 不同（`libv41merge_ops.so`）：
+  Python 导入优先级是 扩展模块(.so) > 源文件(.py)，
+  同名会让 `import v41_merge_kernel` 命中 .so 并报
+  ImportError: dynamic module does not define module export function
+  ⇒ 而调用方吞掉异常 ⇒ 融合算子静默失效（实测踩过）。
+"""
     return _get_lib() is not None
 
 
@@ -133,6 +140,25 @@ def _buf(key, shape, dtype, device):
     return b
 
 
+def _as_contig(t: torch.Tensor, tag: str) -> torch.Tensor:
+    """kernel 只认连续布局（走 data_ptr 裸指针）⇒ 非连续输入必须先拷成连续。
+
+    ★ [V41-MKC-CONTIG 2026-10-01] 为什么必须：
+      调用方传进来的 `ori_out` 常常是**切片**：
+          _oi = ori_out[:, head_slice[0]:head_slice[1], :]   # [T,8,512]
+      其 stride 是 `(H*D, D, 1)` 而非连续的 `(Hout*D, D, 1)`。
+      kernel 按 `[T,Hout,D]` 连续读 ⇒ 从第 1 行起错位 ⇒ 输出乱码。
+      实测：TP8+DCP8 真权重下 `17x23` 输出 `'6. false;  fight; 0;'`（5/5 全错）。
+    连续输入时 `.contiguous()` 是 no-op（零开销）。
+    """
+    if t is None:
+        return t
+    if not t.is_contiguous():
+        return t.contiguous()
+    return t
+
+
+
 def merge_pre(output, lse, ori_lse, pack):
     """`pack[T,H,W]` ← (output, lse, ori_lse)。
 
@@ -147,6 +173,11 @@ def merge_pre(output, lse, ori_lse, pack):
     # alpha/subw 在 pre 里不用，但 tiling 是共用的 ⇒ 传 0 即可（kernel 不读）
     tt = _tiling(T, H, int(ori_lse.shape[1]) if ori_lse.dim() == 3 else H,
                  0, 0.0, 0.0, output.device)
+    # ★ [V41-MKC-CONTIG] 同 merge_post：裸指针 ⇒ 必须先保证连续
+    output = _as_contig(output, "output")
+    lse = _as_contig(lse, "lse")
+    ori_lse = _as_contig(ori_lse, "ori_lse")
+    pack = _as_contig(pack, "pack")
     s = torch.npu.current_stream().npu_stream
     rc = lib.v41_merge_pre_launch(
         _GRID, ctypes.c_void_p(s),
@@ -167,6 +198,10 @@ def merge_post(pack, ori_out, out, h0, alpha, subw):
     T, H, _Ww = (int(v) for v in pack.shape)
     Hout = int(ori_out.shape[1])
     tt = _tiling(T, H, Hout, int(h0), float(alpha), float(subw), pack.device)
+    # ★ [V41-MKC-CONTIG] kernel 走裸指针 ⇒ 必须先保证连续
+    pack = _as_contig(pack, "pack")
+    ori_out = _as_contig(ori_out, "ori_out")
+    out = _as_contig(out, "out")
     s = torch.npu.current_stream().npu_stream
     rc = lib.v41_merge_post_launch(
         _GRID, ctypes.c_void_p(s),

@@ -591,7 +591,15 @@ def _v41_dcp_merge_attention(
         )
         # ★ 诊断（非 capture 才跑，每 rank 最多 2 次）：验证「ori_lse 各 rank 逐位相同」
         #   这个零通信参考点的**唯一前提**。判据：8 个 rank 打印的 mean/max 应一致。
-        if not _is_capturing() and _ORI_REF_DIAG["n"] < 2 and _delta.numel():
+        # ★ [V41-MKD-NONE 2026-10-01] 必须加 `weights is not None`：
+        #   `_merge_kd`（AscendC 融合路径）下 `weights` 被置为 None（改由 kernel 内部算），
+        #   而本诊断的守卫只有 `not _is_capturing()` —— 崩溃发生在
+        #   `_warmup_and_capture → _dummy_run` 的**预热阶段**（此时还没进 capture，
+        #   `_is_capturing()` 为 False）⇒ 诊断跑 ⇒ `weights.sum()` 抛
+        #   `AttributeError: 'NoneType' object has no attribute 'sum'`
+        #   ⇒ 8 worker 全挂、**起服失败**（实测 tiny 与 TP8 都复现，同一行 609）。
+        if (not _is_capturing() and weights is not None
+                and _ORI_REF_DIAG["n"] < 2 and _delta.numel()):
             _ORI_REF_DIAG["n"] += 1
             print(
                 "[V41-DCP-PERF] rank=%d ori_ref diag: T=%d H=%d "
@@ -677,7 +685,7 @@ def _v41_dcp_merge_attention(
         _n = -1
         if diag_seq_lens is not None and diag_seq_lens.numel():
             _n = int(diag_seq_lens.max())
-        if _n > 129:
+        if _n > 129 and weights is not None:   # [V41-MKD-NONE] 同因：融合路径下 weights=None
             _bump_lse_diag()
             _tm = 0 if token_mask is None else int(token_mask.sum())
             _cl = -1
@@ -984,6 +992,7 @@ def _v41_dcp_merge_attention(
     if (
         _dcp_diag_on("prew", "V41_DCP_PREW")
         and not _is_capturing()
+        and weights is not None        # [V41-MKD-NONE] 融合路径下 weights=None
         and diag_seq_lens is not None
         and int(diag_seq_lens.max()) > 1
     ):
@@ -1070,7 +1079,11 @@ def _v41_dcp_merge_attention(
         #   踩过：`_DCP_MDIAG_ON` 是模块级 env 常量，而打印门是文件驱动，
         #   两者不一致时 `w_local_sum`/`w_postreduce_sum` 会一直打印哨兵 `-1`，
         #   让人以为"没测到"，其实是判据不同步。
-        _mdiag_here = _dcp_diag_on("mdiag", "V41_DCP_MERGE_DIAG") and not _is_capturing()
+        _mdiag_here = (
+            _dcp_diag_on("mdiag", "V41_DCP_MERGE_DIAG")
+            and not _is_capturing()
+            and weights is not None     # [V41-MKD-NONE] 融合路径下 weights=None
+        )
         if _mdiag_here:
             _mdiag_pre_t = weights.to(torch.float32).sum()
         # =================================================================
@@ -1179,7 +1192,18 @@ def _v41_dcp_merge_attention(
             torch.distributed.reduce_scatter_tensor(_rs_out, _hm, group=group.device_group)
             # 归约后的那段就是**本 rank 的 8 个 head** ⇒ 转回 [T, 8, W] 并清掉 head_slice，
             # 让下面的后处理不再二次切片。
-            _pack = _rs_out.view(_rows, int(_pack.shape[0]), _W).permute(1, 0, 2)
+            # ★★★★★★ [V41-RSCONTIG 2026-10-01] **必须 .contiguous()**。
+            #   症状：不加时 `V41_DCP_RS_MERGE=1` 的 A 从 2.5-3.0 掉到 **1.00**
+            #   （所有草稿被 verify 拒绝）⇒ merge 结果算错。
+            #   根因：`permute` 产生**非连续视图**，而下游立刻做逐元素减法/除法
+            #   （`scaled = _pack[..., :D] - _onum`、`wsum = _pack[...] - dcp*_keep`）。
+            #   本文件 `V41-DENFIX` 的注释精确记录过同一失败模式：
+            #     「设备侧那次「[T,H,1] 视图 + 标量减法」**没有读到真实数据**」。
+            #   代码库另有三次同类记录（PACKDIRECT-ABORT / SUBALPHA-ABORT / contigw）
+            #   ⇒ 「非连续视图 + 逐元素算子」在本平台一律不可信。
+            #   代价：一次 [T,8,640] fp32 拷贝（164 KB），远小于 reduce_scatter
+            #   省下的搬运（2.29 MB → 1.15 MB）。
+            _pack = _rs_out.view(_rows, int(_pack.shape[0]), _W).permute(1, 0, 2).contiguous()
             head_slice = None
             _rs_applied = True
         else:
