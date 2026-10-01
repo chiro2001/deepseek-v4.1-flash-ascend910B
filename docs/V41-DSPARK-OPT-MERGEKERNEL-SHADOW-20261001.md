@@ -164,3 +164,95 @@ lib = .../vllm_ascend/attention/libv41merge_ops.so
 
 ⇒ 任何"开关 + 可选路径"的设计都必须有**运行时判据**（如 `available()`），
 且新路径引入的 None/sentinel 值必须与所有既有消费者的守卫对齐。
+
+---
+
+## 9. ★★★ 第二个根因：kernel 走裸指针，收到**非连续输入** ⇒ 输出乱码
+
+### 9.1 症状（TP8+DCP8 真权重）
+
+修复 §7 的两个缺陷后，kernel 终于能启动，但**精度全崩**：
+
+| 用例 | 输出 | 判定 |
+|---|---|---|
+| `17×23 → 391` | `'6. false;  fight; 0;'` | ❌ |
+| 长针 T=904 → `Q7` | `'([ potentially (可能需要关于'` | ❌ |
+| T=2000 | `'Upper ( .mod., (or (or'` | ❌ |
+| T=8000 | `"derive 'HMTconcerning_"` | ❌ |
+| T=16000 | `'iac megaf`&#&)&amp&#&#'` | ❌ |
+
+**5/5 全错**。而 tiny（DCP=2）只错 1/6 —— 因为 tiny 是 dummy 权重、
+logits 量级仅 ~1e-4，看不出系统性错误。
+
+### 9.2 根因
+
+`v41_merge_kernel.py` 把张量**裸指针**交给 kernel，**不检查 strides**：
+
+```python
+rc = lib.v41_merge_post_launch(
+    _GRID, ctypes.c_void_p(s),
+    ctypes.c_void_p(pack.data_ptr()),
+    ctypes.c_void_p(ori_out.data_ptr()),      # ← 非连续！
+    ctypes.c_void_p(out.data_ptr()),
+    ctypes.c_void_p(tt.data_ptr()),
+)
+```
+
+而调用方传进来的是**切片**：
+
+```python
+_oi = ori_out[:, head_slice[0]:head_slice[1], :]      # [T,8,512]
+# stride = (64*512, 512, 1) 而非连续的 (8*512, 512, 1)
+```
+
+kernel 按**连续布局** `[T, Hout, D]` 读 ⇒ 行 stride 用 `Hout*D`（实际 `H*D`）
+⇒ 从第 1 行起全部错位。
+
+**同一文件的 `V41-SUBALPHA-ABORT` 注释精确写过这个失败模式**：
+> 真实路径与微基准的差别：两个输入都是 **strided 切片**
+> （`_pack[..., :D][:, h0:h1]` 与 `ori_out[:, h0:h1]`）…
+> ⇒ **本平台上"把多个逐元素算子融合/改写"的写法一律不可信，无论离线微基准是否逐位一致。**
+
+差别在于：注释里那三次是 **torch 逐元素算子**（至少还看 strides）；
+这次是 **ctypes 直调 kernel**，错得更彻底。
+
+### 9.3 修法
+
+在 wrapper 里对**所有**交给 kernel 的输入做连续性防御：
+
+```python
+def _as_contig(t, tag):
+    """kernel 只认连续布局（走 data_ptr 裸指针）⇒ 非连续输入必须先拷成连续。"""
+    if t is None:
+        return t
+    return t if t.is_contiguous() else t.contiguous()
+```
+
+`merge_pre`（output / lse / ori_lse / pack）与
+`merge_post`（pack / ori_out / out）**两处都加**。
+连续时 `.contiguous()` 是 no-op ⇒ 零开销。
+
+### 9.4 tiny 验证（修复前后对比，同一 prompt 集）
+
+| 臂 | ms/step | A | 与 MK=0 逐字对比 |
+|---|---:|---:|---|
+| MK=0（基线） | 36.24 | 2.00 | — |
+| MK=1（**仅修 §7 两缺陷**） | 34.12 | 2.00 | **5/6**（`列出三种颜色。` DIFF） |
+| MK=1（**+ 连续性修复**） | **34.05** | 2.00 | **6/6 PASS** ✅ |
+
+* 修复前那条 DIFF 是**确定性**的（MK=0 下同 prompt 连打 5 次完全一致）
+  ⇒ 不是 flaky，是真实的数值差异。
+* 加连续性修复后 **6/6 逐字一致**。
+
+⇒ **连续性假设被 tiny 验证成立。** 真正的判据仍是 TP8 真权重（见 §10）。
+
+## 10. 三个修复的汇总
+
+| # | 缺陷 | 症状 | 修法 |
+|---|---|---|---|
+| 1 | `.so`/`.py` 同名遮蔽 | `available()` 恒 False（静默） | `.so` → `libv41merge_ops.so` |
+| 2 | `_merge_kd` 下 `weights=None` 撞老诊断守卫 | **起服失败** | 4 处诊断加 `weights is not None` |
+| 3 | kernel 收到非连续输入 | **真权重下 5/5 乱码** | wrapper 加 `_as_contig()` 防御 |
+
+**三个都必须修**，缺任一个这条路径都不可用（且前两个是"静默/崩溃"，
+第三个才是"算错"—— 最危险的那类）。
