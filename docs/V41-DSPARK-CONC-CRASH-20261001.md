@@ -1,158 +1,114 @@
-# ★★ DSpark × DCP8 并发打崩引擎（2026-10-01）—— 第 6 个缺陷，并发专属
+# ★★★ DSpark × DCP8：并发 2 就崩引擎（2026-10-01 实测）
 
-> 用户问「DSpark 多流请求时性能掉得很快，测一下」。
-> **实测结果比"性能掉"严重得多：并发 16 直接把引擎打崩（AI Core Error）。**
-> 本文记录触发条件、根因链、以及一个被忽略的配置变量。
-
----
-
-## 1. 实测：并发测试打崩引擎【实测】
-
-run `dcpcap_1001_1145_s1prof`（SPEC=1 SP_TOKENS=7 DRAFT_GRAPH=1 DCP=8 ENGRAM=0 MAX_SEQS=16）
-
-| 时刻 | 现象 |
-|---|---|
-| 04:24:24 | `Running: 13 reqs` |
-| 04:24:34 | `Running: 16 reqs` |
-| 04:24:44 | `Avg generation throughput: 0.0 tokens/s` ← **卡住** |
-| 04:24:59 | `WorkerProc hit an exception.` 8 个 worker 全挂 |
-| 之后 | health 000、容器不退出、`/metrics` 无响应 |
-
-worker 报错（8 rank 一致）：
-
-```
-File ".../vllm_ascend/worker/dcp_utils.py", line 331, in rebuild_async_spec_decode_inputs
-File ".../torch_npu/npu/streams.py", line 192, in synchronize
-RuntimeError: synchronize:.../NPUEvent.cpp:215 NPU function error:
-              aclrtSynchronizeEvent(event_), error code is 507011
-[Error]: Model execution failed.
-For details, see ... Search for the keyword "AI Core Error".
-rtMemcpy execution failed, reason=driver error:internal error
-```
-
-**`AI Core Error` = 设备侧算子崩了**，不是 host 侧 Python 异常。
-
-### 1.1 ★ 第 331 行不是凶手，是**报丧点**
-
-`dcp_utils.py:331` = `valid_sampled_token_count_event.synchronize()` ——
-它是 `can_rebuild_on_device = False` 分支里的**同步点**。Ascend 的 kernel 异步执行，
-**错误在下一个同步点才暴露** ⇒ 真正的越界发生在**之前入队的某个 kernel**。
+> 用户要求「DSpark 多流请求时性能掉得很快，测一下」。
+> **实测结论：在 DCP8 上不是"性能掉"，而是并发 ≥2 直接把引擎打崩。**
+> 单流完全正常（A=3.29、69.3 tok/s），只要第二个流进来，`sample_tokens` 就设备侧崩。
 
 ---
 
-## 2. 触发条件：admission gate 一次性释放 120 个 deferred decode
+## 1. 并发曲线实测（run `dcpcap_1001_1250_s1curve`）
 
-```
-[admission_gate] enabled: each step is either one prefill request or decode requests
-[admission_gate] WARNING max_concurrent_batches=2 (async scheduling/PP):
-                 scheduler outputs are pure, but batches may still overlap on workers.
-[admission_gate] prefill-only step #10 (step=23): prefill_reqs=1 decode_reqs=0
-                 total_tokens=1429 deferred_decode_reqs=8 (cumulative=36)
-[admission_gate] prefill-only episode ended: steps=16 deferred_decode_reqs=120
-                 (cumulative_deferred=120, cumulative_prefill_steps=17)
-```
+配置：`SPEC=1 SP_TOKENS=7 DRAFT_GRAPH=1 DCP=8 ENGRAM=0 MAX_SEQS=16
+BAT_TOKENS=2048 --no-async-scheduling`（**已对齐线 A 的 32.58 基线口径**）
 
-16 并发下，gate 连做 **16 步 prefill-only**、期间**攒了 120 个 deferred decode**，
-然后一次性放出来。崩溃就发生在释放之后的那一步。
+方法：差减法隔离 prefill（同一 prompt 跑 mt=64 与 mt=448 两次，差值 = 纯 decode 时间），
+步数用 `/metrics` 的 `spec_decode_num_draft_tokens_total` 增量 / 7 得出。
+
+| 并发 | ms/step | A | ms/token | 聚合 tok/s | 每流 tok/s |
+|---:|---:|---:|---:|---:|---:|
+| **1** | **40.44** | **3.29** | **14.43** | **69.3** | 69.3 |
+| 2 | — | — | — | — | **崩** |
+| 4 | — | — | — | — | 未测（服务已崩） |
+| 8 / 16 | — | — | — | — | 未测 |
+
+并发 1 两次测量：40.55 / 40.33 ms/step（离散 0.2 ms，很稳）。
 
 ---
 
-## 3. 根因链（候选，算式已从代码读出）
+## 2. 崩溃现场
 
-`vllm_ascend/worker/dcp_utils.py::rebuild_async_spec_decode_inputs`：
-
-```python
-self.decode_threshold = 1 + num_speculative_tokens   # = 1 + 7 = 8
-extra_tokens = self.decode_threshold - 2             # = 6
-
-mtp_lens = query_lens + extra_tokens
-num_tokens_mtp = self.async_rebuild_num_tokens + num_reqs * extra_tokens   # ★
-req_indices_mtp = torch.repeat_interleave(
-    self.req_offsets[:num_reqs], mtp_lens, output_size=num_tokens_mtp,
-)
+```
+[APIServer] POST /v1/chat/completions  →  HTTP 500
+Worker_TP0..7 (8 rank 一致):
+  File ".../vllm_ascend/worker/worker.py", line 720, in sample_tokens
+  File ".../vllm_ascend/worker/model_runner_v1.py", line 2644, in sample_tokens
+  File ".../vllm_ascend/worker/model_runner_v1.py", line 2867, in _bookkeeping_sync
+  File ".../vllm/v1/sample/rejection_sampler.py", line 271, in parse_output
+  RuntimeError: ACL stream synchronize failed, error code:507011
 ```
 
-**★ 这个算式把两个不同 step 的量混用了**：
+`rejection_sampler.py:271` = `output_token_ids.cpu().numpy()` —— **一次 D2H 拷贝**。
 
-| 量 | 来源 | 时序 |
+### 2.1 ★ 又一次是"报丧点"而不是凶手
+
+Ascend kernel 是异步执行的，**错误在下一个同步点才暴露**。三次崩在三个不同的地方：
+
+| # | run | 报丧点 | 性质 |
+|---|---|---|---|
+| 1 | `dcpcap_1001_1145_s1prof` | `dcp_utils.py:331` `valid_sampled_token_count_event.synchronize()` | 同步点 |
+| 2 | `dcpcap_1001_1240_s1noasync`（**并发 16 热身**） | `rejection_sampler.py:271` `cpu().numpy()` | D2H 同步 |
+| 3 | `dcpcap_1001_1250_s1curve`（**并发 2**） | 同上 | D2H 同步 |
+
+**三次的共同点**：都在 `sample_tokens` 路径、都是 `error code 507011`（AI Core Error）。
+⇒ 真正越界的 kernel 在**更早**的 decode 步骤里，只是错误延迟暴露。
+
+### 2.2 `--no-async-scheduling` 没能救
+
+| run | async scheduling | 并发 | 结果 |
+|---|---|---|---|
+| `..._1145_s1prof` | 开（默认） | 16 | ❌ 崩 |
+| `..._1240_s1noasync` | **关** | 16 | ❌ 崩 |
+| `..._1250_s1curve` | **关** | **2** | ❌ 崩 |
+
+⇒ 根因**不是** async scheduling，也不是"高并发才有"。**只要 batch_size ≥ 2 就崩。**
+
+---
+
+## 3. 已知事实与未知
+
+| 组合 | 结果 | 出处 |
 |---|---|---|
-| `self.async_rebuild_num_tokens` | `generate_dcp_mtp_input` 里 `int(cumulative[-1])` | **上一步**写入 |
-| `num_reqs` | 函数入参 | **本步** |
+| DSpark × **DCP1** × 并发 4 | ✅ 跑过 | `docs/CED-PD-DYNAMIC-SPEC-20260926.md`（MAX_SEQS=4） |
+| DSpark × **DCP8** × 并发 1 | ✅ A=3.29，69.3 tok/s | 本文 |
+| **DSpark × DCP8 × 并发 ≥2** | ❌ **崩** | 本文 |
 
-只有 `sum(query_lens) == async_rebuild_num_tokens` 时 `sum(mtp_lens) == num_tokens_mtp`
-才成立。一旦不成立：
+**⇒ 待回答（本轮正在做）**：`SPEC=0 × DCP8 × 并发 ≥2` 是否也崩？
 
-* `sum(mtp_lens) < num_tokens_mtp` ⇒ `repeat_interleave` 末尾**留未初始化垃圾**
-  ⇒ `num_computed_tokens[req_indices_mtp]` / `mtp_start_loc[req_indices_mtp]`
-  **越界读** ⇒ AI Core Error（device 越界是静默的，这正是它会崩成设备错误的原因）
-* `sum(mtp_lens) > num_tokens_mtp` ⇒ 直接抛 RuntimeError
+* 若**也崩** ⇒ 是 DCP8 自身在 batch>1 的问题，与 DSpark 无关；
+* 若**不崩** ⇒ 是 DSpark × DCP8 的组合问题（batch>1 时 draft 的 slot/verify 路径）。
 
-**为什么 16 并发 + admission gate 会打破这个等式**：`async_rebuild_num_tokens`
-是 gate 攒的那 16 步里**最后一步**留下的（那时是 prefill-only），而放行后
-`num_reqs` 变成 16 个 decode 请求 ⇒ 两者来自完全不同的调度形态。
-**标记【推断】**：算式与时序都对得上，但**尚未**在崩溃现场打出实际数值
-（诊断已注入，见 §5，默认 env 关闭以免 `.item()` 污染性能）。
+这个对照是本轮最有价值的一步：它决定后面所有排查往哪边走。
 
 ---
 
-## 4. ★ 被忽略的配置变量：`--no-async-scheduling`
+## 4. 嫌疑清单（按"batch>1 才触发"这个约束筛选）
 
-对比两个 run 的 `serve_cmd.txt`：
-
-| run | `KV_ARGS_EXTRA` |
-|---|---|
-| `dcpcap_1001_102816`（线 A 的 32.58 基线） | `--decode-context-parallel-size 8 --no-async-scheduling` |
-| `dcpcap_1001_1145_s1prof`（本轮，**崩了**） | `--decode-context-parallel-size 8` |
-
-`dcp_stage_capacity.sh:178` 是
-`export KV_ARGS_EXTRA="--decode-context-parallel-size $DCP${EXTRA_KV_ARGS:+ $EXTRA_KV_ARGS}"`
-⇒ **不传 `EXTRA_KV_ARGS` 就没有 `--no-async-scheduling`**。
-
-**后果**：`use_async_spec_decode = True` ⇒ 走 `rebuild_async_spec_decode_inputs`
-的 device 重建路径。而我们此前对 DSpark×DCP 的 **5 个修复验证全部在
-tiny（TP2/DCP2）上做的**，那次夹具恰好也没传 `--no-async-scheduling`
-但**只有单流**，没触发这条路径。
-
-⇒ **结论**：`DSpark × DCP × async-scheduling` 是一个**从未被验证过的组合**。
-本轮之前"打通"的结论只在 `--no-async-scheduling` 下成立。
+1. **`compute_slot_mapping_draft` 在 batch>1 时的分片映射**
+   （我加的 `_compute_replicated_slot_mapping` 只在 `effective_dcp_world_size == 1` 命中；
+   batch>1 时 `req_indices_mtp` 会跨多个请求，`block_table_indices` 的步长是
+   `max_num_blocks_per_req * blocks_per_phys_block` —— 若某个请求的
+   `logical_block_idx` 超过 `max_num_blocks_per_req` 就**越界读** device 内存。
+   device 越界**不会**像 numpy 那样抛 IndexError，而是静默读到非法地址 ⇒ AI Core Error。
+   **这是当前最高嫌疑**，因为 numpy 路径有隐式边界检查、device 路径没有。）
+2. `verify` 阶段 `sampled_token_ids` 的 batch 维度（`[batch, max_spec_len+1]`）
+3. draft 的 per-group buffer 在 batch>1 时的切片
 
 ---
 
-## 5. 已做的诊断注入（默认关闭，不影响性能）
+## 5. 下一步（顺序固定）
 
-`~/dcpw/vllm_ascend/worker/dcp_utils.py`（新加入 overlay）：
-
-```python
-import os as _os
-if _os.environ.get("V41_DSPARK_DCP_DIAG", "0") == "1":
-    _mtp_lens_sum = int(mtp_lens.sum().item())
-    _ql_sum = int(query_lens.sum().item())
-    if _mtp_lens_sum != num_tokens_mtp or _ql_sum != self.async_rebuild_num_tokens:
-        logger.warning("[V41-DSPARK-DCP-DIAG] MISMATCH num_reqs=%s num_tokens_mtp=%s "
-                       "sum(mtp_lens)=%s sum(query_lens)=%s async_rebuild_num_tokens=%s ...")
-        num_tokens_mtp = _mtp_lens_sum   # 用真实和，避免 output_size 说谎
-```
-
-* 默认 `V41_DSPARK_DCP_DIAG=0` ⇒ **零开销**（`.item()` 会插 device 同步，热路径上必须关）。
-* 排查时开 `=1`，能同时验证"是否 mismatch"与"用真实和是否能避开崩溃"。
-* **注意诊断里那句 `num_tokens_mtp = _mtp_lens_sum`** —— 它不只是打日志，
-  也是**候选修复**（用真实和覆盖错误算式）。如果开启后并发不再崩且精度正常，
-  根因即确认。
+1. **`SPEC=0 × DCP8 × 并发 1/2/4/8/16`** —— 决定性对照，判断是否 DSpark 专属。
+2. 若证明是 DSpark 专属 ⇒ 给 `_compute_replicated_slot_mapping` 加 device 侧边界校验
+   （env 门控），用 `V41_DSPARK_DCP_DIAG=1` 复现，打出越界索引的实际数值。
+3. 若 SPEC=0 也崩 ⇒ 转向 DCP8 的 batch>1 路径（与 DSpark 无关）。
 
 ---
 
-## 6. 状态与下一步
+## 6. 对用户问题的直接回答
 
-| 项 | 状态 |
-|---|---|
-| `DSpark × DCP8`（单流，`--no-async-scheduling`） | ✅ 通，A=2.25，ms/step 37.61 |
-| `DSpark × DCP8`（并发 16，**无** `--no-async-scheduling`） | ❌ **崩**（本文） |
-| 并发曲线（用户诉求） | 待测，必须先固定 `--no-async-scheduling` |
-| `DSpark × DCP × async-scheduling` | ❌ 未验证组合，已知崩溃 |
+问：「DSpark 多流请求时性能掉得很快」。
 
-**下一步**：
-1. 用 `--no-async-scheduling` 跑并发曲线（对齐线 A 的 32.58 基线口径），
-   回答用户"DSpark 多流性能掉多快"。
-2. 单独开一轮：开 `V41_DSPARK_DCP_DIAG=1` 复现崩溃，打出实际数值，确认根因。
-3. 若确认，修法是把 `num_tokens_mtp` 改成 `sum(mtp_lens)`（device 侧算，不 sync），
-   或把 `async_rebuild_num_tokens` 与本步 `num_reqs` 一起刷新。
+答：**在 DCP8 这个拓扑上，它撑不到"性能掉"那一步 —— 第二个流一进来引擎就崩（HTTP 500，8 worker 全挂）。
+单流是健康的（40.44 ms/step、A=3.29、69.3 tok/s），所以这不是性能问题，是可用性问题。**
+历史文档里"并发 4 时 DSpark 几乎没收益"那组数据是在 **DCP1（CED-PD）** 上测的，
+DCP8 从未跑过多并发 —— 这是本轮的空白，正在补。
