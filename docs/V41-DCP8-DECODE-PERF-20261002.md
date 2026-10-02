@@ -312,3 +312,62 @@ TASK_QUEUE_ENABLE=2 → CAPTURE_FAIL:
 （`experimental/ced/core_config_dynamic_sd_gate.patch` +
 `core_model_runner_dynamic_spec.patch` + `patch_cudagraph.py`）**已经存在**，
 把 draft 循环纳入它的图是关键路径。
+
+---
+
+# 第四部分：一个被实测否证的归因（2026-10-02 晚）
+
+## 15. 假设：`dsa_v41.build()` 的"每组各算一遍"
+
+**发现**：`dsa_v41.py::build()` 里读两个 kwarg 当"按步缓存"用 ——
+`kwargs["common_v41_metadata"]` / `kwargs["common_v41_batch_metadata"]`，
+而**全仓没有任何地方传它们**（`grep` 只在本文件命中）⇒ 每次都拿到新建的空 dict ⇒
+`_build_batch_metadata`、`get_cos_and_sin_dsa`(rope)、compressed lengths、
+`_publish_task` 的常驻缓冲、`slot_key` 槽位映射 **全部每组各算一遍**（约 11 组/步）。
+
+**旁证**：一步的**前 8 ms** 里 stream 47 上有 **381 条**微型算子
+（设备合计仅 0.729 ms、覆盖 9%），且 381 ≈ 35 × 11 组 —— 与"每组各算一遍"吻合。
+
+**实现**：把这两个 dict 挂在 `common_attn_metadata`（runner 每步新建）上，
+键含 `id(common)` ⇒ 天然按步作用域、跨请求必然失效。开关 `V41_DCP_STEP_CACHE`。
+
+## 16. ★ 实测结果：**证伪**
+
+| 指标 | 修复前 | 修复后 |
+|---|---:|---:|
+| 缓存命中（`[V41-STEPCACHE]` 日志） | — | ✅ 8/8 worker 各命中一次 |
+| 前 8 ms 窗口算子数 | 381 | **395（没减少）** |
+| 该窗口设备时间 | 0.729 ms | 0.755 ms |
+| idle 中位 | 12.78 ms | **12.83 ms** |
+| span 中位 | 42.92 ms | 43.14 ms |
+| N=1 / N=8 / N=16 ms/step | 42.37 / 93.06 / 130.72 | 42.70 / 93.70 / 135.67 |
+
+⇒ **缓存命中是真的，但那 381 条算子不是来自这里。归因错误。**
+
+**处置：已回退。**
+
+## 17. 这个负结果告诉我们什么（对下一步很重要）
+
+1. 那 381 条（前 8 ms、stream 47、纯 elementwise）**来自 `dsa_v41.py` 之外的代码**
+   —— 最大候选是 **`vllm_ascend/worker/model_runner_v1.py::_prepare_inputs`**
+   （该文件**不在我们的 overlay 里**，我们没有它的挂载）。
+2. **"减少算子数 ⇒ 变快"这个因果链在本实例上未经证实**：
+   前 8 ms 的 381 条算子设备只占 0.729 ms，把它们全部删掉最多省 0.7 ms ——
+   9% 的覆盖率意味着**设备在等，但等的不一定是这些算子的下发**。
+   下一步必须先证明"谁在让设备等"（例如用 `aclrtSynchronizeEvent` 的
+   调用栈/profiler 的 host 时间轴），再动手。
+3. 仍然成立的事实：`common_v41_metadata` 缺失是**上游语义未生效**的真缺陷
+   （4 处缓存全部失效），只是它的代价被别的东西掩盖了。若将来这些缓存成为
+   热点，修法是现成的（本节的 diff）。
+
+## 18. 工具清单（本次新建，已放在 a3-21 `~/tmp/`）
+
+| 脚本 | 用途 |
+|---|---|
+| `tinyops.py` | 微型算子（≤N 元素）条数与设备时间 |
+| `timeline.py` / `cover.py` | 一步按桶/按 ms 的设备覆盖率（找洞） |
+| `eagerphase.py` / `headops.py` | 某 stream / 某窗口的算子构成 |
+| `idledist.py` | 逐步 idle 分布（均值 vs 中位） |
+| `waitattr.py` / `streambd.py` / `streamgap.py` | 前等待归因 / 按 stream 拆解 |
+| `opcount.py` / `stepgaps.py` / `seqstep.py` | 算子计数 / 单步 gap / 单步序列 |
+| `tq_smoke.py` | `TASK_QUEUE_ENABLE` 与图捕获的兼容性冒烟 |
