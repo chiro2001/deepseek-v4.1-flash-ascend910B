@@ -252,7 +252,7 @@ implementation issues as they are agreed"）写好的 3 份草稿：
 |---|---|
 | **A2 生产的 `MULTISTREAM=1 DSA_OVERLAP=1`** | 我们在 A3 单变量定位到的乱码成因正是这组开关，A2 生产**正在用**，但**没在 A2 上隔离过** |
 | 草稿 SWA 路径是否也需 `[CED-SWA-CLIP]` | CED+DSpark 四针全过，但那是"没复现"不是"不存在" |
-| `SP_TOKENS=5 vs 7` | 历史两份报告差 ~30%，自相矛盾 |
+| ~~`SP_TOKENS=5 vs 7`~~ | ✅ **2026-10-03 已结案**：K=5 在**每一档**都不劣于 K=7，且 8 并发 286.2→308.3、16 并发 361.7→398.6。机理：逐位接受率 pos6/pos7 只有 0.013/0.003，K=7 多烧 33% 的行数只换 +0.6% 产出。**且 K<5 被 `dspark_block_size=5` 的配置校验拒绝**（起服直接失败）⇒ 见 [`V41-TP8-DSPARK-MULTISTREAM-PERF-20261003.md`](V41-TP8-DSPARK-MULTISTREAM-PERF-20261003.md) §2 |
 | `BAT=16384 @ 520K` | 见 §3 待办 2 |
 
 ---
