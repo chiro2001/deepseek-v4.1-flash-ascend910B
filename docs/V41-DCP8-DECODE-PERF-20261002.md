@@ -218,3 +218,97 @@ decode span 43.39 → 42.10 ms/step。这三项都是同实例同配置的可复
 `regress2.py` 最初用 `ignore_eos=True` 做并发一致性判据，实测在真权重下
 **给出 3–4/8 的假失败**（强制越过 EOS 后，续写对批内数值差异极其敏感）。
 改用自然停止的短输出后稳定 **8/8**。**不要再用 `ignore_eos` 做一致性判据。**
+
+---
+
+# 第三部分：DSpark 的 13.2 ms 落在哪（2026-10-02 深挖）
+
+## 10. DSpark 增量的定标（用我们自己的历史实测）
+
+| 配置 | ms/step | 出处 |
+|---|---:|---|
+| 我们 DCP8 `SPEC=0` | **29.21** | `docs/V41-DSPARK-BATCH1-ROOTCAUSE-20261001.md:224`（今日基线口径） |
+| 我们 DCP8 `SPEC=1` | 42.37 | §9 实测 |
+| **⇒ DSpark 增量** | **+13.16 ms/step（+45%）** | |
+| A2 DCP1 `SPEC=0 → SPEC=1` | 24.35 → 32.68 = **+8.33（+34%）** | `CED-PD-DYNAMIC-SPEC-20260926.md` §11.4 |
+
+⇒ 主战场是 **DSpark 的 13.16 ms**，其中约 4.8 ms 是 DCP×DSpark 的交互
+（DCP 特有部分），其余是 DSpark 固有开销。
+
+## 11. 步的结构：真正的洞在**尾部 6 ms**（不是散布的气泡）
+
+把干净 decode 步按开始时间切 20 桶（本文件 `~/tmp/timeline.py`、`~/tmp/eagerphase.py`）：
+
+| 阶段 | 设备占用 | 说明 |
+|---|---:|---|
+| 0–20% | 17–19% | 输入准备（eager） |
+| **25–90%** | **121–128%** | 多流并行、**算力饱和**（不是瓶颈） |
+| 80–100% 的 stream 47 | — | **197 个微型算子的爆发** |
+
+**stream 47 的算子分布【实测】**（单步 203 条）：
+
+| 桶（时刻%） | 80 | 85 | 90 | 95 |
+|---|---:|---:|---:|---:|
+| stream 47 条数 | **98** | 19 | 29 | **51** |
+
+构成：`Cast 33 / Fill 24 / IndexCheck 19 / Index 19 / Add 10 / Sub 9 /
+BroadcastTo 8 / SelectV2 7 / Mul 7 / GatherV3 6 / FloorDiv 6 / FloorMod 6`。
+
+**尾部序列实测**（`~/tmp/tailseq.py`，从 90.5% 起）清楚地显示这是 **DSpark 的 draft 循环**：
+
+```
+IndexCheck → Index → MatMulV2 → Transpose → GatherV2(Embedding)
+  → Add → ArgMaxV2 → Cast → GatherV2 → MatMulV2 → Add → ArgMaxV2 → Cast → …
+```
+
+即 **K=7 个 draft step 的 Python 循环**，每轮 ~8–10 个微型算子，
+外加 verify/sample 的收尾。
+
+## 12. ★ 定量：host 下发是瓶颈，不是算力
+
+| 指标 | 值 | 出处 |
+|---|---:|---|
+| 每步算子总数 | **3972 条** | `~/tmp/tinyops.py` |
+| 其中 ≤64 元素的**微型算子** | **459.5 条/步（12%）** | 同上 |
+| 这些微型算子的设备时间合计 | **~2.4 ms/步** | 同上 |
+| `host,node,launch` | **46 081 次 / 64 步 = 720/步**，共 4.59 ms/步 | `api_statistic` |
+| `host,acl,aclrtLaunchKernelWithHostArgs` | 45 725 次 = 714/步，3.44 ms/步 | 同上 |
+| 设备空闲（并集补集） | **12.0 ms/步（28.5%）** | `idle_report.py` |
+
+⇒ 459 个微算子 × ~25 µs/条的 Python+下发代价 ≈ **11.5 ms/步**，
+与实测空闲 12.0 ms 吻合。**瓶颈是"把成千上万个微型算子逐个交给设备"，不是算力。**
+
+## 13. 两条被排除的路径（不要重走）
+
+### 13.1 `TASK_QUEUE_ENABLE=2` —— 与图捕获不兼容【实测】
+
+`TASK_QUEUE_ENABLE=2`（二级流水，本可缓解下发瓶颈）在本 CANN/torch_npu 上
+**直接拒绝图捕获**（容器内子进程冒烟测试，未动服务）：
+
+```
+TASK_QUEUE_ENABLE=1 → CAPTURE_OK, REPLAY_OK 288.5 us/replay
+TASK_QUEUE_ENABLE=2 → CAPTURE_FAIL:
+  RuntimeError: Do not support TASK_QUEUE_ENABLE = 2 during NPU graph capture,
+  please export TASK_QUEUE_ENABLE=1/0.  ERR00007 PTA feature not supported
+```
+
+而我们的 decode 是 `FULL_DECODE_ONLY` 图 ⇒ **不能用**。
+（复现：`docker exec <ctr> bash -lc "TASK_QUEUE_ENABLE=2 python3 /tmp/tq_smoke.py"`）
+
+### 13.2 `--no-async-scheduling` —— 破坏长上下文精度【历史实测，再次确认】
+
+`docs/V41-DSPARK-BATCH1-ROOTCAUSE-20261001.md` §6.4：加回该 flag 后长上下文精度立即崩
+（`17×23`/T=904 仍 PASS，但 4 个长上下文用例全 FAIL）⇒ **交付配置必须不带**。
+
+## 14. 下一步（唯一量级足够的杠杆：把 draft 循环搬进图/内核）
+
+| # | 动作 | 依据 | 预估 |
+|---|---|---|---|
+| 1 | **把 DSpark 的 K 轮 draft 循环从 Python 循环改成图内/单内核** | §11/§12：197 条/步的尾部爆发、~30 µs/条 | **6–10 ms/step** |
+| 2 | 把 `_prepare_inputs` 的 eager 段一并图化 | §11 的 0–20% 也偏低 | 2–3 ms/step |
+| 3 | 减少 `ScatterNdUpdateSk`/`MoeTokenUnpermute` 等每层 1 次的微型算子 | 各 40–58 条/步 | 需层内融合 |
+
+**共同前提**：`V41_CED_DYNAMIC_SPEC_FULL_GRAPHS` 那套「每个 K 各捉一组图」的基础设施
+（`experimental/ced/core_config_dynamic_sd_gate.patch` +
+`core_model_runner_dynamic_spec.patch` + `patch_cudagraph.py`）**已经存在**，
+把 draft 循环纳入它的图是关键路径。
