@@ -662,6 +662,10 @@ class MultiGroupBlockTable:
         self._v41_fused_warned = False
         # 融合 grid 覆盖的 group 下标（None = 本实例还没算过）
         self._v41_fused_group_idx: list[int] | None = None
+        # ★ [V41-SLOT-MAP-PARTIAL] 不能进 grid、需原路径补算的 group 下标；
+        #   以及"部分融合"日志只打一次。
+        self._v41_fused_rest_idx: list[int] | None = None
+        self._v41_partial_logged = False
 
     # ------------------------------------------------------------------
     # [V41-SLOT-MAP-FUSED] 前置条件 / 指针表 / 启动
@@ -673,7 +677,20 @@ class MultiGroupBlockTable:
     ) -> str | None:
         """返回 None = 可以融合；否则返回**不可融合的原因**（调用方回落并告警一次）。
 
-        每一条对应一个真实的语义差异，宁可回落也不静默算错。
+        ★ [V41-SLOT-MAP-PARTIAL 2026-10-02] **只保留"整步级"的前置条件**。
+
+        原来这里还逐组检查 `dcp_world_size`/`blocks_per_phys_block`/dtype/连续性，
+        只要**任一**组不合格就整步回落。实测后果（TP8+DCP8 + DSpark，见
+        `docs/V41-DSPARK-HIGHCONC-AICPU-20261002.md` §17）：
+
+          · 复制态组（SWA / compressor）的 `effective_dcp_world_size == 1`，
+            走的就是本融合 kernel 所复刻的那条 Triton 分支；
+          · 但配置值 `dcp_world_size == 8`（DCP8）⇒ 被这条检查挡掉 ⇒
+            **整步回落**，10.8 次/步的 kernel 启动一次都没省下来
+            （profiler：`_compute_slot_mapping_kernel` 紧随其后的空闲 1.30 ms/step）。
+
+        现在：整步级检查留在这里；**逐组级条件移到 `_v41_fused_group_reason()`**，
+        不合格的组由调用方用原路径补算（见 `_v41_try_fused`）。
         """
         if positions_compressed_list or req_indices_compressed_list:
             return "draft/compressed slot-mapping 路径（positions_compressed_list）"
@@ -681,30 +698,56 @@ class MultiGroupBlockTable:
             return "没有 block table"
         if self.block_tables[0].device.type == "cpu":
             return "device 是 CPU"
-        for i, bt in enumerate(self.block_tables):
-            if bt.is_mamba_group:
-                continue
-            if bt.dcp_world_size > 1:
-                return f"group{i} dcp_world_size={bt.dcp_world_size} > 1（走 _compute_dcp_slot_mapping）"
-            if bt.blocks_per_phys_block != 1:
-                return f"group{i} blocks_per_phys_block={bt.blocks_per_phys_block} != 1（物理块拆分）"
-            if bt.block_table.gpu.dtype != torch.int32:
-                return f"group{i} block_table dtype={bt.block_table.gpu.dtype}"
-            if bt.slot_mapping.gpu.dtype != torch.int32:
-                return f"group{i} slot_mapping dtype={bt.slot_mapping.gpu.dtype}"
-            if bt.block_table.gpu.stride(0) != bt.block_table.gpu.shape[1]:
-                return f"group{i} block_table 非连续（stride0={bt.block_table.gpu.stride(0)}）"
+        return None
+
+    def _v41_fused_group_reason(self, i: int, bt) -> str | None:
+        """**逐组**能否进融合 grid。返回 None = 可以；否则返回原因。
+
+        判据必须与 `_v41_launch_fused` 复刻的那条 Triton 分支完全对齐
+        （即 `_compute_slot_mapping_kernel` 的 `TOTAL_CP_WORLD_SIZE == 1` 分支）：
+        `compute_slot_mapping` 里一旦 `effective_dcp_world_size > 1` 就改走
+        `_compute_dcp_slot_mapping`（纯逐元素链，不是这个 kernel）⇒ 必须排除。
+        """
+        if bt.is_mamba_group:
+            return "mamba 组（原本就跳过）"
+        if bt.is_circular_group:
+            return None  # circular 由 fill_ 处理，不进 grid（但不算“不合格”）
+        # ★ 用 effective 而非配置值：复制态组 effective==1 ⇒ 走的就是本 kernel
+        if bt.effective_dcp_world_size > 1:
+            return f"effective_dcp_world_size={bt.effective_dcp_world_size} > 1（走 _compute_dcp_slot_mapping）"
+        if bt.blocks_per_phys_block != 1:
+            return f"blocks_per_phys_block={bt.blocks_per_phys_block} != 1（物理块拆分）"
+        if bt.block_table.gpu.dtype != torch.int32:
+            return f"block_table dtype={bt.block_table.gpu.dtype}"
+        if bt.slot_mapping.gpu.dtype != torch.int32:
+            return f"slot_mapping dtype={bt.slot_mapping.gpu.dtype}"
+        if bt.block_table.gpu.stride(0) != bt.block_table.gpu.shape[1]:
+            return f"block_table 非连续（stride0={bt.block_table.gpu.stride(0)}）"
         return None
 
     def _v41_fused_groups(self) -> list[int]:
-        """需要走 kernel 启动的 group 下标（mamba 组原本就跳过；circular 组是 fill_）。"""
+        """**可以进融合 grid** 的 group 下标（mamba 跳过；circular 走 fill_；其余见逐组判据）。"""
         if self._v41_fused_group_idx is None:
             self._v41_fused_group_idx = [
                 i
                 for i, bt in enumerate(self.block_tables)
-                if not bt.is_mamba_group and not bt.is_circular_group
+                if (not bt.is_mamba_group
+                    and not bt.is_circular_group
+                    and self._v41_fused_group_reason(i, bt) is None)
             ]
         return self._v41_fused_group_idx
+
+    def _v41_fused_rest(self) -> list[int]:
+        """**不**能进融合 grid、但原路径仍需处理的 group 下标。"""
+        if self._v41_fused_rest_idx is None:
+            self._v41_fused_rest_idx = [
+                i
+                for i, bt in enumerate(self.block_tables)
+                if (not bt.is_mamba_group
+                    and not bt.is_circular_group
+                    and self._v41_fused_group_reason(i, bt) is not None)
+            ]
+        return self._v41_fused_rest_idx
 
     def _v41_fused_tensors(self, device: torch.device) -> dict | None:
         """构造/复用 device 侧指针表。指针变了（buffer 重建）就重建；否则复用，无 D2H。"""
@@ -750,9 +793,14 @@ class MultiGroupBlockTable:
         if state is None:
             return False
         n_groups = len(state["idx"])
+        # ★ [V41-SLOT-MAP-PARTIAL] 逐组取 **max**：原实现固定用 `idx[0]` 那组的
+        #   上限；部分融合后 idx[0] 可能换成别的组，用 max 才能对所有组都安全。
+        _max_tokens = max(
+            self.block_tables[i].max_num_batched_tokens for i in state["idx"]
+        )
         _compute_slot_mappings_multi_kernel[(n_groups, num_reqs + 1)](
             positions.shape[0],
-            self.block_tables[state["idx"][0]].max_num_batched_tokens,
+            _max_tokens,
             query_start_loc,
             positions,
             state["block_table_ptrs"],
@@ -882,13 +930,40 @@ class MultiGroupBlockTable:
             if bt.is_circular_group:
                 bt.slot_mapping.gpu.fill_(PAD_SLOT_ID)
 
-        if not self._v41_launch_fused(num_reqs, query_start_loc, positions):
+        # ★ [V41-SLOT-MAP-PARTIAL] 融合 grid 只覆盖合格组；不合格组用原路径补算。
+        groups = self._v41_fused_groups()
+        rest = self._v41_fused_rest()
+        if groups:
+            if not self._v41_launch_fused(num_reqs, query_start_loc, positions):
+                if not self._v41_fused_warned:
+                    self._v41_fused_warned = True
+                    logger.warning(
+                        "[V41_SLOT_MAP_FUSED=%s] 没有可融合的 group，回落到逐组路径", mode
+                    )
+                return False
+        elif not rest:
             if not self._v41_fused_warned:
                 self._v41_fused_warned = True
                 logger.warning(
                     "[V41_SLOT_MAP_FUSED=%s] 没有可融合的 group，回落到逐组路径", mode
                 )
             return False
+        if rest:
+            for i in rest:
+                bt = self.block_tables[i]
+                if positions_compressed_list and req_indices_compressed_list:
+                    bt.compute_slot_mapping_draft(
+                        req_indices_compressed_list[i], positions_compressed_list[i]
+                    )
+                else:
+                    bt.compute_slot_mapping(num_reqs, query_start_loc, positions)
+            if not self._v41_partial_logged:
+                self._v41_partial_logged = True
+                logger.info(
+                    "[V41_SLOT_MAP_FUSED=%s] 部分融合：%d 组进 grid，%d 组走原路径（首组原因：%s）",
+                    mode, len(groups), len(rest),
+                    self._v41_fused_group_reason(rest[0], self.block_tables[rest[0]]),
+                )
         if mode == "verify":
             self._v41_fused_verify(num_reqs, query_start_loc, positions)
         return True

@@ -1015,7 +1015,24 @@ if [ "$PATCH_MODE" = "mount" ]; then
   MOUNTS+=(-v "$F/ascend_forward_context.py:/vllm-workspace/vllm-ascend/vllm_ascend/ascend_forward_context.py:ro")
   MOUNTS+=(-v "$F/rope_dsv4.py:/vllm-workspace/vllm-ascend/vllm_ascend/ops/rope_dsv4.py:ro")
   # [V41-SLOT-MAP-FUSED] block_table.py：12 次 slot-mapping 启动 → 1 次。
-  # 由 env `V41_SLOT_MAP_FUSED` 门控（默认 0/关 = 与 stock 完全一致）。
+  # 由 env `V41_SLOT_MAP_FUSED` 门控。
+  #
+  # ★ 2026-10-02：**DCP>1 时默认改成 `on`**。理由（实测，见
+  #   `docs/V41-DCP8-DECODE-PERF-20261002.md` §5）：
+  #     · 原实现的逐组 precheck 用**配置值** `dcp_world_size > 1` 判定，
+  #       DCP8 下**整步回落** ⇒ 这条优化在 DCP 形态上从未生效；
+  #     · 而复制态组（SWA/compressor）的 `effective_dcp_world_size == 1`，
+  #       走的**就是**融合 kernel 复刻的那条 Triton 分支 ⇒ 可以安全进 grid；
+  #     · 已按"部分融合"改造（不合格组用原路径补算），并以
+  #       `V41_SLOT_MAP_FUSED=verify` 做过逐元素门禁（零不一致）。
+  #   只对 DCP>1 改默认，**不动 DCP=1（A2 生产）的既有行为**。
+  #   实测收益：profiler 里紧随 `_compute_slot_mapping_kernel` 的
+  #   ≥50 µs 空闲 **1.302 ms/step → 0**，decode span 43.39 → 42.10 ms/step。
+  case "${KV_ARGS_EXTRA:-}" in
+    *--decode-context-parallel-size\ 1|*--decode-context-parallel-size\ 0|"") : ;;
+    *--decode-context-parallel-size\ *) : "${V41_SLOT_MAP_FUSED:=on}" ;;
+  esac
+  export V41_SLOT_MAP_FUSED="${V41_SLOT_MAP_FUSED:-0}"
   # 缺文件不致命（回落 stock），但要**响亮地**告诉用户门控会静默失效。
   if [ -f "$F/block_table.py" ]; then
     MOUNTS+=(-v "$F/block_table.py:/vllm-workspace/vllm-ascend/vllm_ascend/worker/block_table.py:rw")
