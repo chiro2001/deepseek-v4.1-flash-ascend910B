@@ -618,8 +618,29 @@ def _v41_dcp_merge_attention(
                 ),
                 flush=True,
             )
-        if not _is_capturing():
-            _d = float(_delta.max()) if _delta.numel() else 0.0
+        # ★★★★★★ [V41-ORIREF-GATE 2026-10-02] **必须显式门控 + 采样**。
+        #
+        # 这段原本只有 `not _is_capturing()` 一个条件 ⇒ 在**每个 eager（= prefill）
+        # 层的每次合并**都执行一次 `float(_delta.max())`，即一次 **D2H 同步**。
+        # 38 层 × 每个 prefill step × 每个 rank，全部串行化在关键路径上。
+        #
+        # 实测（2026-10-02，TP8+DCP8 + DSpark，`docs/V41-DSPARK-HIGHCONC-AICPU-20261002.md` §12）：
+        #   · N=16 连续 burst 下，它是引擎崩溃的**报丧点**：
+        #       `RuntimeError: ... LocalScalarDenseNpu.cpp:23 ... The vector core
+        #        execution is abnormal.`  ← 落在本行的 `float(_delta.max())`；
+        #   · 同一负载把 `VLLM_ADMISSION_GATE` 从 1 改成 0，就由"静默饿死"变成"崩溃"，
+        #     说明它是错误**暴露点**而非唯一根因 —— 但把它留在生产路径上没有任何理由。
+        #
+        # 修法：与同函数其它诊断一致，改为 env 门控（默认关）+ 前 8 次采样。
+        # 打开方式：`V41_DCP_ORIREF=1`（只应在单卡/排障时开）。
+        if (
+            _dcp_diag_on("oriref", "V41_DCP_ORIREF")
+            and not _is_capturing()
+            and _ORI_REF_DIAG["w"] < 8
+            and _delta.numel()
+        ):
+            _ORI_REF_DIAG["w"] += 1
+            _d = float(_delta.max())
             if _d > 60.0:
                 print(
                     "[V41-DCP-PERF][WARN] ori 参考点饱和：max(L_r - L_ori)=%.2f > 60 "
@@ -1775,7 +1796,7 @@ def _bump_lse_diag() -> None:
 
 
 _TIME_ACC = {}
-_ORI_REF_DIAG = {"n": 0}
+_ORI_REF_DIAG = {"n": 0, "w": 0}   # n=逐位诊断, w=权重饱和采样计数
 _WDIAG = {"n": 0}
 _WDIAG_LIMIT = 4000
 _MDIAG = {"n": 0}

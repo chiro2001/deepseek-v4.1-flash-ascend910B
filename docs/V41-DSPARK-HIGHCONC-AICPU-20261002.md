@@ -207,3 +207,85 @@ N=16（128 行）在**基线**上实测"15 个请求在跑、14 分钟零进展"
 * **A 随版本/形状漂移**（同配置不同 run：1.85 / 1.90 / 2.24）——HCCL allreduce 在该形状上
   求和顺序可变（本文件早前已记录），所以**跨 run 比 A 不可靠**，要按同一次生成内的
   `accepted/drafted` 比。
+
+
+---
+
+# 第二部分：并发 ≥16 的「静默饿死 / 崩溃」定位（2026-10-02）
+
+## 12. 复现与现场（TP8+DCP8 + DSpark，dense buckets）
+
+**触发**：`python3 ~/tmp/noprof.py 19210 16 200`（= `batch(16,32)` 预热 + 3×`batch(16,24)` + `batch(16,200)`，
+长 prompt ≈1800 字符）。单轮 16 并发**不触发**（`~/tmp/n16_mon.py` 16/16 用 21 s 完成；
+`~/tmp/burst.py` 连续 6 轮 × 16 也全部 20 s 完成）。**混合 max_tokens 的连续批次才触发。**
+
+**现场（`dcpcap_1002_030033_dense`）**：
+
+| 观测 | 值 |
+|---|---|
+| `num_requests_running` | **2**（永久） |
+| `num_requests_waiting` | 0 |
+| `spec_decode_num_draft_tokens_total` | **60 s 零增长** |
+| `kv_cache_usage_perc` | 0.5% |
+| `npu-smi` chips 8–15 的 AICore% | **全部 0** |
+| worker 主线程 | `sched_yield` @ `shm_broadcast.py:205 ← 795 ← worker_busy_loop:1001` |
+| EngineCore 主线程 | `enqueue → acquire_write @ shm_broadcast.py:702` |
+| 日志 | 每 10 s 打一次 `Running: 2 reqs`，`draft/generation throughput ≈ 0` |
+
+**⇒ NPU 完全空闲 ⇒ 时间全在主机侧。** 引擎**没有死锁**：新请求仍能正常服务
+（`ask.py` 返回 `4`），只有那 2 个请求被永久饿死。
+
+## 13. ★ 单变量 A/B：`VLLM_ADMISSION_GATE`
+
+| `VLLM_ADMISSION_GATE` | N=16 结果 |
+|---:|---|
+| **1**（现状默认） | **静默饿死**：2 个请求永久 `running`、draft 冻结、AICore 0% |
+| **0** | **引擎崩溃**（HTTP 500、8 worker 全挂、APIServer 退出） |
+
+⇒ **gate 没有修好这个 bug，只是把"崩溃"换成了"静默饿死"。**
+
+## 14. ★★ 崩溃点落在我们自己的 overlay（真 bug，已修）
+
+gate=0 时的 worker traceback（8 rank 一致）：
+
+```
+model.py:1007  x = self.self_attn(...)
+model.py:884   torch.ops.vllm.dsa_v41_forward(...)
+dsa_v41.py:3826  attention_output = self._attention(...)
+dsa_v41.py:3741  output = _v41_dcp_merge_attention(...)
+dsa_v41.py:622   _d = float(_delta.max()) if _delta.numel() else 0.0     ← 报丧点
+RuntimeError: operator(): LocalScalarDenseNpu.cpp:23 ... The vector core execution is abnormal.
+```
+
+`dsa_v41.py:621` 原文：
+
+```python
+if not _is_capturing():                 # ← 只有这一个条件！
+    _d = float(_delta.max()) ...        # ← 每次调用都做一次 D2H 同步
+```
+
+**这是唯一一处在"裸 `not _is_capturing()`"下做 D2H 的代码**（同文件其它 100+ 处诊断都带
+`_dcp_diag_on(...)` + 次数上限；本段上方的 `_ORI_REF_DIAG["n"] < 2` 守卫**漏掉了这一块**）。
+后果：**每个 eager（= prefill）层的每次合并都同步一次**，38 层 × 每 prefill step × 每 rank，
+全部串行在关键路径上。
+
+**修法**（`[V41-ORIREF-GATE]`）：改为 `_dcp_diag_on("oriref", "V41_DCP_ORIREF")` + 前 8 次采样，
+默认关。`V41_DCP_ORIREF=1` 只应在单卡/排障时打开。
+（`dsa_v41.py` md5 `c21d4afa` → **`d154b378`**）
+
+**注意**：它是"报丧点"而非唯一根因——底层设备异常仍在别处（gate=1 时该异常被调度器
+吸收成 placeholder 饿死）。但它**没有任何理由留在生产路径上**，且移除它会让下一次
+崩溃的报丧点前移到真正的凶手。
+
+## 15. 下一步（已收敛的线索）
+
+1. 用 §14 的修复重跑 N=16（进行中）：若崩溃消失且饿死也消失 ⇒ 根因就是它；
+   若仍有问题，报丧点会前移，直接指向真凶。
+2. `scheduler.py:607-621` 是"静默饿死"的**放大器**：异步调度 + 投机解码下，
+   若某请求的 `num_output_placeholders` 未清零，调度器会**无日志**地永久跳过它。
+   建议加一条「连续 N 步 0 token 且 running>0 就打日志」的看门狗（log-only）。
+
+## 16. 脚本改动
+
+`serve_a2.sh`：`-e VLLM_ADMISSION_GATE=1` → `-e VLLM_ADMISSION_GATE="${VLLM_ADMISSION_GATE:-1}"`
+（默认行为不变，但可 A/B 与临时规避）。
