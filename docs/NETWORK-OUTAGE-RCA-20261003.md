@@ -1,5 +1,8 @@
 # 内网中断的逐跳排查（2026-10-03）
 
+> **★ 排查网络请先看 [`NETWORK-RUNBOOK.md`](NETWORK-RUNBOOK.md)（拓扑 / 逐跳命令 / 已知故障）。**
+> 本文只是 2026-10-03 那一次的复盘。
+>
 > 用户：「VPN 断开，排查网络问题，看是路径上哪里断掉了」+「10.8.0.* 内网能否访问到平板 / 平板的端口转发还在不在」。
 > 本文按**逐跳实测**给结论，全部标注 **【实测】/【推断】**。
 
@@ -11,7 +14,7 @@
 
 | # | 断点 | 证据 | 处置 |
 |---|---|---|---|
-| **A** | **GamePC 的 UniVPN 掉了** ⇒ 第二跳（到 `192.168.45.0/24`）整段不通 | GamePC 上 `TAP-Windows Adapter V9 #2` 状态 **Disconnected**；无 `192.168.61.86`；无 `192.168.45.*` 路由；`Test-NetConnection 192.168.45.21:22` = **False** | 等 UniVPN 自行重连（**已恢复**：TAP 变 **Up**、Test-NetConnection = **True**） |
+| **A** | **GamePC 的 UniVPN 掉了** ⇒ 第二跳（到内网 `192.168.0.0/16`）整段不通 | GamePC 上 `TAP-Windows Adapter V9 #2` 状态 **Disconnected**（只剩 169.254 链路本地）；`Test-NetConnection 192.168.45.21:22` = **False** | 等 UniVPN 自行重连（**已恢复**：TAP 变 **Up**、Test-NetConnection = **True**） |
 | **B** | **平板上 `relay-34500` 死了，且自愈机制永远失败** | pidfile 指向**已死**的 pid 30525；实际占端口的是一批**陈旧 ncat**；三处探测全 CLOSED；`ncat -v -z 127.0.0.1 34500` = **TIMEOUT**（不是 refused） | **已修**（见 §3） |
 
 **另外回答用户的两个问题**：
@@ -26,7 +29,7 @@
 ```text
 server-mini (192.168.101.7 / tun1 10.8.0.10)
   └─ ssh GamePC 192.168.101.5
-       └─ GamePC 的 UniVPN (192.168.61.86)
+       └─ GamePC 的 UniVPN（TAP-Windows Adapter V9 #2，地址会变）
             └─ 192.168.45.21 (a3-21) / .22 (a3-22)
 
 另一条（平板咽喉，relay-healthcheck 监控的）：
@@ -37,18 +40,24 @@ server-mini (192.168.101.7 / tun1 10.8.0.10)
 
 ## 2. 逐跳实测（故障当时）
 
+> **事后核实的一处纠正**（2026-10-03 修复后实测）：当时我写的判据"无 `192.168.45.0/24` 路由"是**错的** ——
+> UniVPN 下发的是整段 **`192.168.0.0/16`** 直连（NextHop `0.0.0.0`），
+> **正常工作时也查不到 `192.168.45.0/24`**。正确的判据与健康时的样子见
+> [`NETWORK-RUNBOOK.md`](NETWORK-RUNBOOK.md) §4.1。UniVPN 的地址本身也会变
+> （故障后是 `192.168.59.100`，不再是 `192.168.61.86`），**不要拿固定 IP 当判据**。
+
 | 跳 | 测试 | 结果 | 判定 |
 |---|---|---|---|
 | server-mini → GamePC | `ssh chiro@192.168.101.5` | **通**（认证成功） | 第一跳 OK |
 | GamePC → a3-21 | `Test-NetConnection 192.168.45.21 -Port 22` | **False**（connect failed） | **★ 断在这里** |
-| GamePC 的 VPN 地址 | `Get-NetIPAddress` | **无 `192.168.61.86`**；`OpenVPN TAP-Windows6` = 169.254.x（链路本地、Disconnected） | UniVPN 未建立 |
-| GamePC 路由 | `Get-NetRoute` | **无 `192.168.45.0/24`** | 无路可走 |
+| GamePC 的 VPN 接口 | `Get-NetAdapter` | `TAP-Windows Adapter V9 #2` = **Disconnected**；另一个 `OpenVPN TAP-Windows6` = 169.254.x（那是**另一套**、应保持断开） | UniVPN 未建立 |
+| GamePC 路由 | `Get-NetRoute` | **没有 `192.168.0.0/16`**（UniVPN 下发的是整段 /16，不是 `192.168.45.0/24`） | 无路可走 |
 | server-mini → a3-21 | `ssh a3-21`（ProxyJump GamePC） | `Connection timed out during banner exchange`（在**认证之后**、`a3-21` 那一跳超时） | 印证第二跳 |
 | VPS → a3-21 | VPS 路由表只有 `10.8.0.0/24` 与 `192.168.101.0/24` | **无 `192.168.45.0/24`**，ping 100% 丢包 | 旁路不成立 |
 | 平板 → a3-21 | 平板自己 `ping 192.168.45.21` | **100% 丢包**，22 端口 CLOSED | 平板侧同样不是旁路 |
 | a3-21 → VPS 反向隧道 | VPS 上 `2223/2224` | **未监听** | 备用路也断 |
 
-**⇒ 结论**：从 server-mini 出发的三条可能通路（GamePC-UniVPN / VPS / 平板）**全部**在"到 `192.168.45.0/24`"这一步断掉，而**共同的上游**是那张内网 VPN。用户判断的"中间某个地方链路中断"成立。
+**⇒ 结论**：从 server-mini 出发的三条可能通路（GamePC-UniVPN / VPS / 平板）**全部**在"到内网 `192.168.0.0/16`"这一步断掉，而**共同的上游**是那张内网 VPN。用户判断的"中间某个地方链路中断"成立。
 
 ---
 
@@ -115,5 +124,5 @@ ssh … 'pkill -f "[n]cat -lk"; sleep 2; rm -f ~/.relay-34500.pid; ~/.local/bin/
 2. **进程数会显示 3 而不是 1**：`ncat -lk` 的父进程 + 每来一个连接 fork 的子进程
    命令行相同。**这不是泄漏**（实测父子关系明确），判"健康"应以**端口探测**为准。
 3. **`termux-job-scheduler -p` 会挂住**，不要用它查调度状态。
-4. GamePC 的 UniVPN 是**单点**（拓扑文档 §7 已列）：它一断，`192.168.45.0/24` 就整段不可达，
+4. GamePC 的 UniVPN 是**单点**（拓扑文档 §7 已列）：它一断，内网 `192.168.0.0/16`（含 `192.168.45.*`）就整段不可达，
    且**没有任何自动恢复**——这次是靠它自己重连的。若要做冗余，需要第二条独立内网通路。

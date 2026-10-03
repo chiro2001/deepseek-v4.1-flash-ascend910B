@@ -304,6 +304,7 @@ grep -a "SpecDecoding metrics" <serve.log> | tail -1
 | `quant/` | 量化链（5 级，含 msmodelslim 补丁） |
 | `docs/` `reports/` | 设计、验收、性能、故障史的完整记录 |
 | `AGENTS.md` | **开发者 / Agent 视角**：补丁明细、调试入口、必踩陷阱 |
+| [`docs/NETWORK-RUNBOOK.md`](docs/NETWORK-RUNBOOK.md) | **内网链路手册**：拓扑 / 逐跳排查命令 / 已知故障特征（连不上 a3 先看这个） |
 
 ---
 
