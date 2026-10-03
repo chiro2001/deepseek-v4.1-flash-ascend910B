@@ -210,6 +210,32 @@ self._dynamic_decode_query_lens = cached   # ← runner 读的是这个名字
 
 ---
 
+### 4.0.1 ★ 剩下那 8–13% 在哪：两个已定位的**每步固定开销**【代码级，未实测确认】
+
+先把量级钉住：动态档 N=2（K=0）的 `[bneck] hp = 25.5 ms/step`（`n=2 padded=2`，**无 padding**），
+而静态 `SPEC=0` 在 N=2 按聚合吞吐反算是 **21.6 ms/step** ⇒ **差 3.9 ms/step**；
+N=16 差 3.1 ms/step。**是个近乎常数**，不是随 batch 增长的开销。
+
+读代码找到两个"K=0 时本来不该做却仍在做"的点：
+
+| # | 位置 | 现象 | 代价【推断】 |
+|---|---|---|---|
+| **1** | `model_runner_v1.py:2044-2077` `_copy_draft_token_ids_to_cpu` | 守卫写的是 `if not self.num_spec_tokens: return`，而 **`self.num_spec_tokens` 是配置的最大 K（7）**，不是本步 K ⇒ **K=0 的步照样进来**，做一次 `copy_stream.wait_stream(default_stream)` + `event.record()` 的跨流往返（拷贝本身是 [N,0] 空张量） | 跨流 event 往返；量级**未确认** |
+| **2** | `model_runner_v1.py:2804-2820`（`sample`） | `if spec_decode_metadata is None: … return self.sampler(...)`，否则走 **`self.rejection_sampler(...)`**。K=0 时 `spec_decode_metadata` **是否仍非 None 未确认** ⇒ 若非 None，则每步仍跑拒绝采样；而该路径里有已知的 **D2H 同步点**（`vllm/v1/sample/rejection_sampler.py:271 parse_output → output_token_ids.cpu().numpy()`，这正是 2026-10-01 那次崩溃栈的报丧点）。静态 `SPEC=0` **完全没有**这条路径 | 每步一次设备→主机同步；量级**未确认** |
+
+**下一步要做的实验（尚未做）**：给 (1) 加一个 env 门控的提前返回
+（`本步 draft 宽为 0 ⇒ return`，放在 `prev_num_spec_tokens` 记账**之后**），
+再复测 N=2/16；若收益对得上，再查 (2)。
+⚠️ 该文件**不在我们的 overlay 名单里**，改它需要重新生成
+`experimental/ced/core_model_runner_dynamic_spec.patch`（多一个 hunk）+ 加 env 透传，
+**成本是约 20 分钟一轮重启**。
+
+> **为什么现在不直接做**：这两条都是【推断】，而且改的是 vLLM core 的每步热路径
+> （错一个分支就可能让 K=0 的步拿到过期草稿）。要在**有明确收益预期**时再做，
+> 并且必须带 env 门控（默认关）+ 全量正确性探针复验。
+
+---
+
 ### 4.1 修复前后（单点对照）
 
 | 并发 | 修复前 | **修复后** |
