@@ -210,7 +210,42 @@ self._dynamic_decode_query_lens = cached   # ← runner 读的是这个名字
 
 ---
 
-### 4.0.1 ★ 剩下那 8–13% 在哪：两个已定位的**每步固定开销**【代码级，未实测确认】
+### 4.0.1 ★ 剩下那 8–13% 在哪（**已修正口径 + 一条负结果**）
+
+#### (a) 先纠正我自己的一个口径错误
+
+我先前写「设备侧差 3.5 ms/step」是**从吞吐反推的，不是设备实测**。
+把两边的 `[bneck] hp`（设备侧完整 decode step，同口径、n=16、无 padding）摆在一起：
+
+| N=16 | 设备侧 `hp` | 吞吐反算的 step |
+|---|---:|---:|
+| **动态 K=0**（Arm B） | **29.17 ms**（多 rank 29.162–29.188） | 39.9 ms |
+| **静态 SPEC=0** | **28.50 ms**（多 rank 28.496–28.497） | 36.9 ms |
+| **差** | **+0.67 ms（+2.3%）** | **−6.9%** |
+
+⇒ **设备侧只差 0.67 ms，真正剩下的是 host 侧每步开销（约 2.4 ms/step）**。
+这个口径修正很重要：它把优化方向从"减少设备算子"改成了"减少 host 每步工作"。
+
+#### (b) 负结果：候选①（`_copy_draft_token_ids_to_cpu` 的跨流往返）**已证伪**
+
+单变量 A/B（同实例配置，只翻一个 env；每档 2 rep）：
+
+| 并发 | Arm A（门控关） | **Arm B（`V41_DYNSPEC_SKIP_K0_DRAFT_COPY=1`）** | Δ |
+|---:|---:|---:|---:|
+| 1 | 95.6 | 103.4 | +8%（噪声区间） |
+| 2 | 79.5 | 77.6 | −2.4% |
+| 4 | 144.1 | 144.3 | ±0 |
+| 8 | 261.6 | 262.8 | +0.5% |
+| **16** | **400.5** | **404.0** | **+0.9%（本机 run-to-run ±1.5%）** |
+
+**判据不成立**（N=16 只 +0.9%，落在噪声内）⇒ **候选①不是那部分开销的来源**。
+
+**门控确实被执行过**：起服首轮曾在**这一行**抛 `NameError: name 'os' is not defined`
+（独立 TP8 走 base 基线，`import os` 是 prompt-tail 补丁才引入的），
+栈帧正是 `model_runner_v1.py:2062` 的门控行 ⇒ 该行每步都会求值。
+（修法是**局部导入**，与本文件既有的 `_v41_shape_probe` 写法一致。已修并复测。）
+
+#### (c) 仍然待查的两个候选
 
 先把量级钉住：动态档 N=2（K=0）的 `[bneck] hp = 25.5 ms/step`（`n=2 padded=2`，**无 padding**），
 而静态 `SPEC=0` 在 N=2 按聚合吞吐反算是 **21.6 ms/step** ⇒ **差 3.9 ms/step**；
@@ -222,6 +257,13 @@ N=16 差 3.1 ms/step。**是个近乎常数**，不是随 batch 增长的开销�
 |---|---|---|---|
 | **1** | `model_runner_v1.py:2044-2077` `_copy_draft_token_ids_to_cpu` | 守卫写的是 `if not self.num_spec_tokens: return`，而 **`self.num_spec_tokens` 是配置的最大 K（7）**，不是本步 K ⇒ **K=0 的步照样进来**，做一次 `copy_stream.wait_stream(default_stream)` + `event.record()` 的跨流往返（拷贝本身是 [N,0] 空张量） | 跨流 event 往返；量级**未确认** |
 | **2** | `model_runner_v1.py:2804-2820`（`sample`） | `if spec_decode_metadata is None: … return self.sampler(...)`，否则走 **`self.rejection_sampler(...)`**。K=0 时 `spec_decode_metadata` **是否仍非 None 未确认** ⇒ 若非 None，则每步仍跑拒绝采样；而该路径里有已知的 **D2H 同步点**（`vllm/v1/sample/rejection_sampler.py:271 parse_output → output_token_ids.cpu().numpy()`，这正是 2026-10-01 那次崩溃栈的报丧点）。静态 `SPEC=0` **完全没有**这条路径 | 每步一次设备→主机同步；量级**未确认** |
+
+> **候选① 已按上表做完并被证伪**（见 (b)）。
+
+**候选② 的静态读码结论【推断，偏否】**：`use_spec_decode = len(scheduler_output.scheduled_spec_decode_tokens) > 0`
+（`model_runner_v1.py:1524`），K=0 时调度器不下发 draft 令牌 ⇒ `spec_decode_metadata=None`
+⇒ 走的是**普通 sampler**，**不经过 rejection_sampler**。
+⇒ 候选② 大概率也不成立，**但需要用一次 profiler 或计数器把它变成实测**，不要停在推断。
 
 **下一步要做的实验（尚未做）**：给 (1) 加一个 env 门控的提前返回
 （`本步 draft 宽为 0 ⇒ return`，放在 `prev_num_spec_tokens` 记账**之后**），
