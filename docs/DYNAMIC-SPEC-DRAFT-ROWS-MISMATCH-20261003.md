@@ -128,7 +128,54 @@ out = zeros((4,3)); out[:2] = [[7,8,9]]
 
 ---
 
-## 4. 待运行的判决实验（诊断探针**已就位，未运行**）
+## 4. 判决实验：**已运行，结论为情形 ①**【实测 2026-10-03 19:1x】
+
+服务 `dsv41-dynfix`（`SP_SCHEDULE='1,1,7;2,32,0'`，候选修复**关**）在 N=1→2 探针下复现，
+`[DYNSPEC-DIAG]` 打出决定性的一行：
+
+```
+[DYNSPEC-DIAG] pre-window gid=12 行数不一致:
+  num_reqs=2
+  block_table=(1, 8192)(rows=1)        ← 只有 1 行
+  seq_lens=(2,)(rows=2)                ← 2 行
+  qsl=(3,)
+  per_group_buffer=(1, 8192)(rows=1)   ← per-group 缓冲本身就只有 1 行
+```
+
+随后 `dsa_v1` 的断言接住（把原本含糊的 aclnn dim-0 报错换成带全部形状的可读错误）：
+
+```
+RuntimeError: [DYNSPEC-DIAG] build_dspark_swa_indices 行数不一致:
+  block_table=(1, 8192) safe_nums=(2, 256) seq_lens=(2,)
+  query_start_loc=(3,) num_decode_tokens=7 index_width=256
+```
+
+### 4.1 判读（三种情形互斥，命中的是 ①）
+
+| 情形 | 判据 | 本轮结果 |
+|---|---|---|
+| **① `pre-window` 就不一致** ⇒ per-group block table 切片太短 | `pre-window` 行警告 | **★ 命中** |
+| ② 只有 `post-window` 不一致 ⇒ 问题在 `SlidingWindowAdapter` | 只在 `post-window` 出现 | 未出现（本轮连 `sliding_window` 都是 None） |
+| ③ 两者都一致、只有 `dsa_v1` 报错 ⇒ build/run 期 `num_reqs` 偏移 | `pre`/`post` 都不警告 | 未出现 |
+
+⇒ **候选修复（`V41_DYNSPEC_BT_PERSIST=1`：让 `_per_group_block_table_buffers` 成为真常驻缓冲）
+正是对症的那一个**，不需要再去改 `spec_decode/utils.py`。
+
+### 4.2 复现用的探针
+
+```bash
+# 追加一段 N=1 与 N=2 的 decode（N=1 走 K=7、N≥2 走 K=0）
+python3 ~/tmp/dynprobe.py 19210 1,2 7 3 256
+# 崩溃/降级证据
+grep -a "DYNSPEC-DIAG" $(ls -t ~/cedpd-repo/results/dynfix2_*/serve.log | head -1)
+```
+
+> **B 轮（开 `V41_DYNSPEC_BT_PERSIST=1`）随后执行**，判据：**无** `DYNSPEC-DIAG`、
+> **无** `EngineDeadError`，且 `dynprobe` 的 1/2/4/8/16 全部跑完。
+
+---
+
+## 4.3 原始（A 轮之前的）待运行说明，保留备查
 
 已在两个**已挂载**的文件里插好探针，**正常路径零输出**（只在行数不一致时打印）：
 
