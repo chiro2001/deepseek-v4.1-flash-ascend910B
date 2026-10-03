@@ -376,6 +376,37 @@ if _DSPARK_DRAFT_METADATA_MODE not in ("sync", "async"):
         f"DSPARK_DRAFT_METADATA_MODE must be 'sync' or 'async', got {_DSPARK_DRAFT_METADATA_MODE!r}"
     )
 _DSPARK_DRAFT_METADATA_SYNC = _DSPARK_DRAFT_METADATA_MODE == "sync"
+def _v41_diag_bt(tag, gid, cam, full_buffer):
+    """[DYNSPEC-DIAG 2026-10-03] 只在草稿元数据**行数不一致**时打印（正常零输出）。
+
+    用于定位 dsa_v1.py 的
+    `AclNN_Parameter_Error: expected index shape 2 smaller than self shape 1`：
+    `_propose` 的 `_pad_query_start_loc_for_fia` 可能补一个 dummy 请求并把
+    `num_reqs_padded +1`，而 per-group block table 只是**目标侧**的切片
+    ⇒ 行数少一行，草稿侧拿它去 gather 就是行数不匹配。
+    """
+    try:
+        bt = cam.block_table_tensor
+        sl = cam.seq_lens
+        qsl = cam.query_start_loc
+        n_reqs = int(getattr(cam, "num_reqs", -1))
+        rows_bt = int(bt.shape[0]) if bt is not None else -1
+        rows_sl = int(sl.shape[0]) if sl is not None else -1
+        if rows_bt == rows_sl == n_reqs:
+            return
+        logger.warning(
+            "[DYNSPEC-DIAG] %s gid=%s 行数不一致: num_reqs=%d block_table=%s(rows=%d) "
+            "seq_lens=%s(rows=%d) qsl=%s per_group_buffer=%s(rows=%d)",
+            tag, gid, n_reqs, tuple(bt.shape) if bt is not None else None, rows_bt,
+            tuple(sl.shape) if sl is not None else None, rows_sl,
+            tuple(qsl.shape) if qsl is not None else None,
+            tuple(full_buffer.shape) if full_buffer is not None else None,
+            int(full_buffer.shape[0]) if full_buffer is not None else -1,
+        )
+    except Exception as exc:
+        logger.warning("[DYNSPEC-DIAG] %s probe failed: %r", tag, exc)
+
+
 DSPARK_DRAFT_METADATA_ASYNC_UNIMPLEMENTED = (
     "DSPARK_DRAFT_METADATA_MODE=async is not implemented. The async contract needs all three of "
     "(1) a draft-private DeviceMetadataExecutor, (2) a per-step submit(batch_descriptor) whose "
@@ -3307,6 +3338,7 @@ class AscendSpecDecodeBaseProposer(SpecDecodeBaseProposer):
                 block_table = getattr(self, "_per_group_block_table_buffers", {}).get(gid)
                 if block_table is not None:
                     common_attn_metadata.block_table_tensor = block_table[: common_attn_metadata.num_reqs]
+                    _v41_diag_bt("pre-window", gid, common_attn_metadata, block_table)
                 slot_mapping = self._per_group_query_slot_mapping_buffers[gid]
                 if slot_mapping is not None:
                     common_attn_metadata.slot_mapping = slot_mapping[:num_input_tokens]
@@ -3319,6 +3351,7 @@ class AscendSpecDecodeBaseProposer(SpecDecodeBaseProposer):
                 # (dspark only - self.sliding_window is None for MTP.)
                 if self.sliding_window is not None:
                     self.sliding_window.apply(common_attn_metadata)
+                    _v41_diag_bt("post-window", gid, common_attn_metadata, block_table)
                 attn_metadata = builder.build_for_drafting(
                     common_attn_metadata, draft_index=1, **extra_attn_metadata_args
                 )
