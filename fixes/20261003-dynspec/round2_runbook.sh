@@ -42,15 +42,37 @@ timeout 25 ssh -o ConnectTimeout=12 "$HOST" 'echo OK' >/dev/null 2>&1 \
 
 # ---------- 1) 同步三个带诊断的文件 ----------
 # 远端此前有过 ad-hoc 的手工插入，这里用仓库版本**覆盖**，保证两边逐字节一致。
+#
+# ★★ 2026-10-03 实测踩过的坑（白等了 25 分钟一轮起服）：
+#    我"手工"起 B 轮时**跳过了这一步**，于是容器里跑的还是原始
+#    `dspark_proposer.py`（本地 main-merge 已改、a3-21 上没改）——
+#    判据全都不变，看起来像"修复无效"，其实是**修复根本没上机**。
+#    特征：容器内 `grep -c V41_DYNSPEC_BT_PERSIST` = **0**，而本地是 1。
+#    ⇒ **任何手工起服都必须先跑本节的同步 + 容器内核对**，不要只信本地 git status。
 say "同步诊断文件（仓库版本 → 远端 overlay）"
 for f in dsa_v1.py llm_base_proposer.py dspark_proposer.py; do
   scp -q "$LOCAL_REPO/patches/files/draft/$f" "$HOST:$REPO_REMOTE/patches/files/draft/$f" \
     || die "scp $f 失败"
 done
+# 起服之后还要**在容器里**再核一次（bind mount 即时生效，但进程已导入的模块不会）
+check_inside() {
+  for f in dsa_v1.py llm_base_proposer.py dspark_proposer.py; do
+    case "$f" in
+      dsa_v1.py)             pat=DYNSPEC-DIAG ;;
+      llm_base_proposer.py)  pat=_v41_diag_bt ;;
+      dspark_proposer.py)    pat=V41_DYNSPEC_BT_PERSIST ;;
+    esac
+    n=$(timeout 30 ssh "$HOST" "docker exec $NAME bash -lc 'grep -c $pat /vllm-workspace/vllm-ascend/vllm_ascend/$( [ $f = dsa_v1.py ] && echo attention || echo spec_decode)/$f'" 2>/dev/null | tail -1)
+    [ "${n:-0}" -ge 1 ] || die "容器内 $f 不含 $pat（=$n）⇒ 修复/探针没上机，别浪费一轮起服"
+  done
+  say "  容器内三文件核对通过"
+}
 say "远端语法自检"
 timeout 60 ssh "$HOST" "cd $REPO_REMOTE && for f in dsa_v1 llm_base_proposer dspark_proposer; do python3 -c \"import ast,sys; ast.parse(open('patches/files/draft/\$f.py',encoding='utf-8').read())\" || exit 1; done; echo SYNTAX_OK" \
   | tail -1 | grep -q SYNTAX_OK || die "远端语法自检失败"
 say "  语法 OK"
+
+# 起服后核对容器内（见上面 check_inside 的定义；此处先定义、等容器起来再调）
 
 # ---------- 2) 重启动态 K 实例（默认档：候选修复**关**） ----------
 say "重启 $NAME（SP_SCHEDULE='1,1,7;2,32,0'，ROUND=$R2_ROUND，V41_DYNSPEC_BT_PERSIST=$PERSIST）"
@@ -81,6 +103,7 @@ for i in $(seq 1 40); do
 done
 [ "$ok" = "1" ] || die "40 分钟仍未就绪"
 say "就绪 ✓"
+check_inside
 
 # ---------- 4) 打探针 ----------
 say "跑 dynprobe（1/2/4/8/16 × 3 rep）"
