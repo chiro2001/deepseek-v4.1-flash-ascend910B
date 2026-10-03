@@ -190,3 +190,34 @@ allreduce 总时间的 52%**（总计 11,778 µs/step）：
 | 3 | 与 Track B 融合（0.62 ms/step）的关系 | **不冲突，可叠加** |
 
 > 工具：`~/tmp/arhist.py`（时长分布）、`~/tmp/arpos.py`（步内位置）、`~/tmp/arslow.py`（前后文）。
+
+---
+
+## 6. ⚠️ 对 §5 假设的**否证**（2026-10-04 05:0x 实测）
+
+§5 我推断"步尾的慢 allreduce 是 draft 段没进图（dispatcher 静默回落 eager）"。
+为验证，我把守卫**从"只对显式开启多 ql 的 dispatcher"扩展到所有 dispatcher**
+（原守卫带 `_v41_dynamic_sd_enabled` 条件，而 **draft proposer 用的是自己的
+dispatcher 实例、没有这个标记** ⇒ 若 draft 也回落，原守卫**照样静默**），
+改成按 `(num_tokens, step_ql)` 去重、每键最多报 3 次。
+
+**结果**：起服 + 打真实流量（N=1 与 N=8 各一整轮）后——
+
+```
+GUARD 命中 = 0
+```
+
+⇒ **没有任何 dispatcher（主或 draft）在回落 eager**。**§5 的"draft 退 eager"假设被否证。**
+
+### 6.1 那步尾的慢 allreduce 是什么？两个候选（**均未确认**）
+
+| # | 候选 | 支持 | 反证/缺证 |
+|---|---|---|---|
+| 1 | **那是 prefill 步**（不是 decode）—— prefill 的 allreduce payload 大（T≤8192 ⇒ 82 MB），走 AICPU 回落，单次 10.5 ms 量级；采集窗口里混进了 warmup 的 prefill | 量级接近（我们量到的 1.5–10 ms） | 时长分布里 >1000 µs 的只有 3.8 次/步、均值 1.6 ms，**比 prefill 的 10.5 ms 小一个量级** ⇒ 不像纯 prefill |
+| 2 | **是某个图的边界被切掉**（例如 capture 桶与真实 shape 不符，走了非 uniform 分支 → `uniform_decode=False` ⇒ **我的守卫不触发**） | 守卫只在 `uniform_decode=True` 时告警；`dispatch()` 在 `uniform_decode=False` 时照样可能返回 NONE | 需要新的判据（统计 `uniform_decode=False` 且 NONE 的次数） |
+
+⇒ **下一步的取证动作**：把守卫再加一路计数——**`uniform_decode=False` 且返回 NONE** 的次数
+（原来只统计 `True`）；并同时记录这些 miss 发生时**同一步内的算子序列**，判断是 decode 还是 prefill。
+
+> 📌 教训：守卫只覆盖"我认为会出问题的那条路径"，就可能**在另一条路径上继续静默**。
+> 这条与 §5.2 的"先证明谁在让设备等"是同一类纪律。
