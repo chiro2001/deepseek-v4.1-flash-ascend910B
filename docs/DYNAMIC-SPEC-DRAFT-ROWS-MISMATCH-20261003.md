@@ -45,6 +45,47 @@ AclNN_Parameter_Error(EZ1001): Size does not match at dimension 0,
 | `(2,2,uniform=True)` 这张图不存在 | 同上（2 ∈ ql=1 的桶集合，且 `num_reqs = 2//1 = 2` 合法） | **存在** |
 | 缺图告警被日志级别吞掉 | 已加 `dispatch()` 守卫，本次运行**没有**打印 `★` 告警 | **这次命中了图** |
 
+### 2.1 ★ 静态推导出的根因（比探针更早收敛，探针用于**确认**）
+
+关键在 `dsa_v1.py` 这两行（build 期，同一个 `num_reqs`）：
+
+```python
+1407:  self.seq_lens   = common_attn_metadata.seq_lens[:num_reqs]
+1408:  self.block_table = common_attn_metadata.block_table_tensor[:num_reqs]
+```
+
+**两行的 `[:num_reqs]` 截断效果并不相同**：
+
+| 张量 | 自身行数 | 截断后行数 |
+|---|---:|---:|
+| `seq_lens` | ≥ num_reqs（常驻缓冲） | **num_reqs** |
+| `block_table_tensor` | 若**只有 1 行** | **1**（截断取不到更多） |
+
+⇒ 两者行数不一致，run 期 `build_dspark_swa_indices` 拿 2 行的 `safe_nums`
+（由 `seq_lens` 派生）去 gather 1 行的 `block_table` ⇒ 正是那句报错。
+
+**为什么"广播补齐"没有兜住它**【推断，与代码一致】：
+唯一会把行数补齐的是 `SlidingWindowAdapter.apply()`（`out[:num_reqs].copy_(gathered)`，
+见 §3）。而它只在 `self.draft_window_size is not None` 时才会被构造
+（`llm_base_proposer.py:788`：`if self.draft_window_size is not None and self.method != "mtp"`），
+**我们的动态 K 启动命令没有设 `draft_window_size`** ⇒ `self.sliding_window is None`
+⇒ `build_draft_attn_metadata` 里 `if self.sliding_window is not None:` 整段被跳过
+⇒ 短表**原封不动**进了 `dsa_v1`。
+
+**短表的来源**（`block_table_tensor` 为什么只有 1 行）：
+`_per_group_block_table_buffers[gid]` 在 `dspark_proposer.set_per_group_attn_metadata`
+里被赋成 runner 传来的 `blk_table.get_device_tensor()[:num_reqs_padded]`
+—— 一个按**目标侧** padded 行数切出来的视图；而草稿侧在 `_propose` 里会走自己的
+`_pad_query_start_loc_for_fia`，其 mixed-batch 分支**补一个 dummy 请求并 +1**
+（见 `llm_base_proposer` 顶部注释）⇒ 草稿侧要的行数比目标侧多 1。
+
+**⇒ 修法**：把 `_per_group_block_table_buffers` 做成**真常驻缓冲**
+（`max_num_reqs + 2` 行），每次原地拷入目标侧的行、多余行清零。
+已实现并**默认关闭**（env `V41_DYNSPEC_BT_PERSIST=1`）：
+`patches/files/draft/dspark_proposer.py` 的 `set_per_group_attn_metadata`。
+多余行对应草稿侧补出来的 dummy 请求，`seq_lens=0` ⇒ 窗口掩码把它们的 slot 全置 -1，
+读哪一块都不影响结果；且传给 Triton kernel 的 `block_table_stride` 仍是列数，语义不变。
+
 ---
 
 ## 3. ★ 一个已确认的**静默正确性隐患**（独立于上面那个崩溃）

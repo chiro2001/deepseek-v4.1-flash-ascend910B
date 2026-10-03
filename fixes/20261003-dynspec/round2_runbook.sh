@@ -25,6 +25,9 @@ HOST=${HOST:-a3-21}
 REPO_REMOTE=${REPO_REMOTE:-/home/l00886679/cedpd-repo}
 LOCAL_REPO=${LOCAL_REPO:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}
 PORT=${PORT:-19210}
+# R2_ROUND=A（默认）= 基线 + 探针；B = 开候选修复复测
+R2_ROUND=${R2_ROUND:-A}
+case "$R2_ROUND" in A) PERSIST=0 ;; B) PERSIST=1 ;; *) echo "R2_ROUND 只能是 A 或 B"; exit 2 ;; esac
 NAME=${NAME:-dsv41-dynfix}
 STAMP=$(date +%m%d_%H%M%S)
 OUT_REMOTE="$HOME/tmp/a3perf/dynr2_$STAMP"
@@ -50,16 +53,16 @@ timeout 60 ssh "$HOST" "cd $REPO_REMOTE && for f in dsa_v1 llm_base_proposer dsp
 say "  语法 OK"
 
 # ---------- 2) 重启动态 K 实例（默认档：候选修复**关**） ----------
-say "重启 $NAME（SP_SCHEDULE='1,1,7;2,32,0'，V41_DYNSPEC_BT_PERSIST=0）"
+say "重启 $NAME（SP_SCHEDULE='1,1,7;2,32,0'，ROUND=$R2_ROUND，V41_DYNSPEC_BT_PERSIST=$PERSIST）"
 timeout 120 ssh "$HOST" "docker rm -f $NAME >/dev/null 2>&1; mkdir -p $OUT_REMOTE; \
 cd $REPO_REMOTE && nohup env \
   MODEL=/home/l00886679/models/out/v41-flat-verify3 \
   DEVS='8 9 10 11 12 13 14 15' TP=8 DP=1 NAME=$NAME PORT=$PORT \
   SPEC=1 SP_TOKENS=7 DRAFT_GRAPH=1 SP_SCHEDULE='1,1,7;2,32,0' \
-  V41_CED_DYNAMIC_SPEC_FULL_GRAPHS=1 V41_DYNSPEC_BT_PERSIST=0 \
+  V41_CED_DYNAMIC_SPEC_FULL_GRAPHS=1 V41_DYNSPEC_BT_PERSIST=$PERSIST \
   MAX_SEQS=32 BAT_TOKENS=8192 PREFIX=1 ENGRAM=1 ENGRAM_DEVICE_INDEX=0 \
   GPU_UTIL=0.92 PATCH_MODE=mount PROFILE=1 VLLM_ENGINE_READY_TIMEOUT_S=7200 \
-  RUN_ID=dynr2_$STAMP \
+  RUN_ID=dynr2${R2_ROUND}_$STAMP \
   bash scripts/serve_a3.sh > $OUT_REMOTE/serve.log 2>&1 & echo STARTED" \
   | tail -1 | grep -q STARTED || die "起服命令提交失败"
 
@@ -101,4 +104,6 @@ cat <<EOF
   ③ 两者都一致、dsa_v1 才报错 → build/run 偏移，候选修复无效
 若本轮**没有** DYNSPEC-DIAG 且引擎存活 ⇒ 说明只是偶发；把 dynprobe 的
 1/2/4/8/16 曲线当交付数据，并补跑正确性探针（144K/1M 四针 + 并发 2 各带不同针）。
+第二轮（候选修复）直接用：  R2_ROUND=B bash fixes/20261003-dynspec/round2_runbook.sh
+（判据：B 轮应**无** DYNSPEC-DIAG、无 EngineDead，且 dynprobe 1/2/4/8/16 全部跑完）
 EOF
