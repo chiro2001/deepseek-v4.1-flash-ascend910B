@@ -138,7 +138,7 @@ timeout 20 ssh -o ConnectTimeout=10 a3-21 'hostname'
 
 ## 4. 已知故障模式（按出现频率）
 
-### 4.1 ★ GamePC 的 UniVPN 掉线 ⇒ `192.168.45.0/24` 整段不通
+### 4.1 ★ GamePC 的 UniVPN 掉线 ⇒ 内网 `192.168.0.0/16` 整段不通
 
 **特征签名**（四条同时成立即可确诊）：
 
