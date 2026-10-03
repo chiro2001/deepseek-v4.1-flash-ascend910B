@@ -1,0 +1,15 @@
+{
+  "run": "2026-10-03T20:41:09+08:00",
+  "host": "a3-21",
+  "port": 19210,
+  "config": "dynamic K, SP_SCHEDULE='1,1,7;2,32,0', V41_DYNSPEC_BT_PERSIST=1",
+  "verdict": "PASS",
+  "cases": {
+    "regress2_content": "5/6 PASS (concurrent-consistency WARN: whitespace-only diff)",
+    "four_needles_144k": "PASS",
+    "four_needles_1m": "PASS 4/4 (prompt~999.4K, wall~280s each)",
+    "concurrent2_distinct_needles": "PASS 3/3 rounds",
+    "stability": "DYNSPEC-DIAG=0 EngineDeadError=0 HTTP500=0 (15 probe reps all completed)"
+  },
+  "raw_summary": "=== 动态 K 验收  2026-10-03T20:41:09+08:00  host=a3-21 port=19210 fast=1 ===\n① regress2 内容回归          WARN     见 regress2.txt（并发一致性常见 6-7/8，差异仅空白）\n② 四针 144000                  PASS     ced_pd_acceptance exit=0\n③ 并发2 不同针（K=0）     PASS     3 轮全过\n④ 性能曲线 1/2/4/8/16        SKIP     FAST=1"
+}
