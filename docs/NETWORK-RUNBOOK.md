@@ -87,7 +87,7 @@ timeout 20 ssh -o ConnectTimeout=10 a3-22 'echo A22_OK'
 | `a3-21` | `l00886679@192.168.45.21` | `ProxyJump chiro@192.168.101.5` |
 | `a3-22` | `l00886679@192.168.45.22` | 同上 |
 | `gpu5080` / `wsl5080` | GamePC / 其 WSL | 直连 |
-| `ysy21` / `ysy22` | `spark.zhujihezi.com:39921/39922` | 另一套机器（与外层 VPN 无关，**本次故障中一直可用**） |
+| `ysy21` / `ysy22` | `spark.zhujihezi.com:39921/39922` | 另一套机器，**独立于外层 VPN**。2026-10-03 实测：TCP `39921` **OPEN**（网络可达），但 `ssh ysy21` 被拒（`Permission denied (publickey,password)`）⇒ **是认证问题不是网络问题**，用之前先确认密钥/密码 |
 
 ---
 
@@ -182,8 +182,9 @@ Test-NetConnection 192.168.45.21 -Port 22 -InformationLevel Quiet → True
    且 `Test-NetConnection 192.168.45.21` = **True**。
 
 **为什么没有自动恢复**：GamePC 是单点，拓扑文档 §7 已把它列为已知单点。
-目前**没有**任何针对 UniVPN 的保活脚本（`ssh-tunnel-8888.service` 只保 `ysy21`，
-与内网无关）。
+目前**没有**任何针对 UniVPN 的保活脚本 —— 系统里唯一的 tunnel unit
+`ssh-tunnel-8888.service` 保的是 `ysy21:8888` 那条转发，**与内网无关**，
+不要以为它在保 a3 通路。
 
 ### 4.2 平板 `relay-34500` 死掉 ⇒ 咽喉断（外层仍通）
 
@@ -217,7 +218,22 @@ timeout 60 ssh -o BatchMode=yes -p 8022 chiro@10.8.0.21 \
 
 ### 4.3 a3-21 的反向隧道没起（备用入口缺失）
 
-**特征**：VPS 上 `ss -ltn | grep -E '222[34]'` 为空；a3-21 上 `pgrep -f a3-vps-tunnel` 无输出。
+**特征**（2026-10-03 实测确认：当时确实是这个状态）：
+
+```bash
+# VPS 上应看到 2223/2224 两条监听；一条都没有 = 没起
+ssh chiro@117.72.247.67 'ss -ltn | grep -E ":222[34]"'
+
+# a3-21 上数进程 —— **必须用方括号写法**，否则会匹配到你自己这条 ssh 命令
+ssh a3-21 'ps -eo cmd | grep -c "[a]3-vps-tunnel"'    # 0 = 没在跑
+
+# 另一个旁证：日志文件根本不存在
+ssh a3-21 'ls -la ~/.a3-vps-tunnel.log'    # No such file
+```
+
+> ⚠️ **不要用 `pgrep -c -f a3-vps-tunnel`**：远端那条 `bash -c "…pgrep…a3-vps-tunnel…"`
+> 的命令行里**本身就含这个字符串**，会把包装 shell 也数进去
+> （2026-10-03 实测：`pgrep` 数出 **2**，而真实进程数是 **0**）。
 
 **处置**：在 a3-21 上
 
@@ -267,14 +283,18 @@ setsid nohup ~/.a3-vps-tunnel.sh >/dev/null 2>&1 </dev/null &
 ## 6. 维护要点 / 陷阱
 
 1. **别用 `termux-job-scheduler -p`** 查调度状态 —— 实测会**挂住**（本手册踩过）。
-2. **`ps -ef | grep -c "ncat -lk"` 会数出 3 而不是 1**：父进程 + 每来一个连接 fork 的子进程，
+2. **`pgrep -f <名字>` / `grep <名字>` 会匹配到「你自己这条 ssh 命令」** ——
+   远端 `bash -c` 的命令行里含那个字符串就会被一起数进去
+   （实测把「没在跑」数成 **2**）。**一律用方括号写法**：
+   `grep -c "[a]3-vps-tunnel"`、`grep "[n]cat -lk"`。
+3. **`ps -ef | grep -c "ncat -lk"` 会数出 3 而不是 1**：父进程 + 每来一个连接 fork 的子进程，
    命令行相同。**这不是泄漏**；判健康一律以**端口探测**为准。
-3. **Android 不让普通应用读 `/proc/net/tcp`**（SELinux），`ss`/`netstat` 看不到连接是正常的
+4. **Android 不让普通应用读 `/proc/net/tcp`**（SELinux），`ss`/`netstat` 看不到连接是正常的
    —— 用 `ncat -z 127.0.0.1 34500` 代替。
-4. **`grep -rl ... ~/` 这类全盘搜索会炸**（家目录里有巨大的 `.config/Token Monitor/*.json`）。
+5. **`grep -rl ... ~/` 这类全盘搜索会炸**（家目录里有巨大的 `.config/Token Monitor/*.json`）。
    加 `--include` 与 `--exclude-dir`，或限定目录。
-5. **多层 ssh 里的引号**：Windows PowerShell 一律走"写 .ps1 + `-File`"，别拼 `-Command`。
-6. **外层通 ≠ 内网通**：`ping 10.8.0.21` 通只证明 §1 里的"外层 VPN"好，**不证明** a3 可达。
+6. **多层 ssh 里的引号**：Windows PowerShell 一律走「写 `.ps1` + `-File`」，别拼 `-Command`。
+7. **外层通 ≠ 内网通**：`ping 10.8.0.21` 通只证明 §1 里的「外层 VPN」好，**不证明** a3 可达。
 
 ---
 
