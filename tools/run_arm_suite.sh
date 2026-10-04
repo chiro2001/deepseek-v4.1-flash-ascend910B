@@ -68,9 +68,14 @@ for c in /health /v1/models; do
 done
 
 if [ "$BENCH" = "1" ]; then
-  say "基准（并发 1,2,4,8,16 / 1024-256 / 4 rep）…"
+  # 用小样本时把并发/rep 显式收窄（例如只为生成 `[bneck] hp` 样本做单变量 A/B，
+  # 不需要完整四维度扫描）。默认保持交付口径。
+  BENCH_CONC=${BENCH_CONC:-1,2,4,8,16}
+  BENCH_REPS=${BENCH_REPS:-4}
+  BENCH_OUT=${BENCH_OUT:-256}
+  say "基准（并发 $BENCH_CONC / 1024-$BENCH_OUT / $BENCH_REPS rep）…"
   python3 "$REPO/tools/bench_concurrency.py" --base-url "$HOST" \
-    --concurrency 1,2,4,8,16 --prompt-tokens 1024 --output-tokens 256 --repeats 4 \
+    --concurrency "$BENCH_CONC" --prompt-tokens 1024 --output-tokens "$BENCH_OUT" --repeats "$BENCH_REPS" \
     --spec-tokens 5 --label "$TAG" --json-out "$HOME/tmp/${TAG}_bench.json" \
     > "$HOME/tmp/${TAG}_bench.log" 2>&1
   tail -22 "$HOME/tmp/${TAG}_bench.log"
