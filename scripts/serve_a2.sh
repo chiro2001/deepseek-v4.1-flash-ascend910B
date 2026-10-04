@@ -2087,9 +2087,26 @@ if [ "$_kv32_enforce" = "1" ] && [ "$_kv32_pinned" != "1" ] && [ "$_kv32_user_se
   if [ -n "${_kv32_src:-}" ]; then
     echo "  [KV32] 池大小来源：$_kv32_src"
   fi
-    if [ "${_kv32_blocks:-0}" -gt "$_ced_max_blocks" ]; then
+    # ★★ [KV32-DCP-WARN 2026-10-05] DCP 形态下**只警告不拦截**：
+    # 上界 29076 是用 **CED 的单组页步长 147712 B** 校准的，对 DCP 不适用 ——
+    # **实测**（DCP8，4 条并发 × 960K = 3,840,166 tokens ≈ 30,001 块）**超过 29,076 仍全部正确**，
+    # 说明 DCP 的页步长更小、真实上界更高（按 92,363 B/块 推 ≈46,498 块）。
+    # 但 DCP 的真实上界**尚未实测确定** ⇒ 不静默放行，也不误拦已证可用的配置，
+    # 而是**响亮警告**并打印精确块数与已验证的观测上限。
+    _kv32_is_dcp=0
+    case "${KV_ARGS_EXTRA:-}" in *--decode-context-parallel-size\ *) _kv32_is_dcp=1 ;; esac
+    if [ "${_kv32_blocks:-0}" -gt "$_ced_max_blocks" ] && [ "$_kv32_is_dcp" = "1" ]; then
       echo
-      echo "  \033[31m✗ [KV32] KV 池超出 4 GiB 寻址上界：${_kv32_blocks} 块 > 上界 ${_ced_max_blocks}（$_kv32_src）\033[0m"
+      echo -e "  \033[33m⚠️  [KV32] DCP 形态：池 ${_kv32_blocks} 块 > 非 DCP 上界 ${_ced_max_blocks}（$_kv32_src）\033[0m"
+      echo "    该上界由 **CED 单组页步长 147712 B** 校准，**对 DCP 不适用**：实测 4 条并发 960K"
+      echo "    （≈30,001 块）**超过 29,076 仍 4/4 正确** ⇒ DCP 的页步长更小、真实上界更高"
+      echo "    （按 92,363 B/块 推 ≈46,498 块）。**但 DCP 真实上界尚未实测确定。**"
+      echo "    ⇒ 若要把池用满到 >30,001 块，请先跑长上下文边界测试；否则按实测上限使用。"
+      echo "    已知风险症状：块号回绕 ⇒ HTTP 200 + 1 token（EOS）的**静默**空答。"
+      echo "    关闭本警告：V41_KV32_POOL_GUARD=off（同时关掉 pin/clamp/本复核）"
+    elif [ "${_kv32_blocks:-0}" -gt "$_ced_max_blocks" ]; then
+      echo
+      echo -e "  \033[31m✗ [KV32] KV 池超出 4 GiB 寻址上界：${_kv32_blocks} 块 > 上界 ${_ced_max_blocks}（$_kv32_src）\033[0m"
       echo "    该配置下块号 ≥ ${_ced_max_blocks} 的访问会 32 位回绕，长上下文请求会**静默**变成 1 token（EOS）。"
       echo "    处置（任选其一）："
       echo "      1) 显式压池：KV_CACHE_MEMORY_BYTES=$(( _ced_max_blocks * _ced_bytes_per_block ))"
@@ -2097,8 +2114,10 @@ if [ "$_kv32_enforce" = "1" ] && [ "$_kv32_pinned" != "1" ] && [ "$_kv32_user_se
       echo "      3) 确知风险仍要跑：V41_KV32_POOL_GUARD=off（会同时关掉 pin/clamp/本复核）"
       die "[KV32] 拒绝以越界池起服（避免长上下文静默空答）"
     fi
-    if [ -n "${_kv32_src:-}" ]; then
+    if [ -n "${_kv32_src:-}" ] && [ "${_kv32_blocks:-0}" -le "$_ced_max_blocks" ]; then
       echo "  ✓ [KV32] 池上界复核：${_kv32_blocks} 块 ≤ 上界 ${_ced_max_blocks}（用到 $(( _kv32_blocks * 100 / _ced_max_blocks ))%；来源见上）"
+    elif [ "${_kv32_blocks:-0}" -gt "$_ced_max_blocks" ]; then
+      echo "  ⚠️  [KV32] 池上界复核：${_kv32_blocks} 块 **超过** 上界 ${_ced_max_blocks}（用到 $(( _kv32_blocks * 100 / _ced_max_blocks ))%）—— 见上方警告/拒绝说明"
     fi
 fi
 # 镜像指纹落到结果目录（make_report.sh 会读它）
