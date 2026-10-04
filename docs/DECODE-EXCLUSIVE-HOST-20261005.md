@@ -14,11 +14,11 @@
 2. 三个非主流加起来 **4.70 ms（18.4%）**：**draft 1.87** > **采样/输入准备 1.64** > **metadata 1.19**。
 3. metadata 的 7 次/步 **不是"算得慢"，是"被争用放大"**：隔离基准里 device 排队吞吐只有
    **1.4 µs/次**，服务内实测 165–232 µs/次。
-4. **host 侧下发账（含一处自我修正）**：本 profile 的 acl host 时间合计 **33.9 ms/步**，
+4. **host 侧下发账（含两处自我修正）**：本 profile 的 acl host 时间合计 **33.9 ms/步**，
    但拆开看 **65% 是 `aclrtSynchronizeEvent/Stream` 的阻塞等待**，真正的 host API 工作只有
-   **11.8 ms/步**（且分摊在多线程上）⇒ **不能据此判"host CPU 打满"**（详见 §4）。
-   对照交付口径（`ENGRAM_DEVICE_INDEX=1`）的 `[bneck] hp` 中位数 **1.31 ms/步**，
-   才是当前配置真正可优化的 host 侧开销（5.2%）。
+   **7.4 ms/步**（多线程之和）⇒ **不能据此判"host CPU 打满"**（详见 §4）。
+   另外：**交付口径没有直接的 host 侧计时**（`[bneck] hp` 其实是步周期，见 §4.2）
+   ⇒ 想把"交付配置到底有多 host-bound"做实，需要新采一份 profile 或加插针。
 
 ## 1. 各 stream 的独占贡献（decode 步，25.59 ms）
 
@@ -141,13 +141,36 @@
 > 教训（写进口径纪律）：**"host 时间"必须区分"host 在算"与"host 在等"**。
 > 只看 aclnn 总量会把同步阻塞算成 host 开销，从而把优化方向引偏。
 
+### 4.2 再修正一处：`[bneck] hp` **不是 host 开销，是步周期**
+
+本轮我先按"每行 = 20 步的累计"把 `hp` 除以 20，得出 1.31 ms/步 —— **这是错的**。
+回读 `model.py:361 mark_step()`：`hp` 累加的是**两次 `prepare_engram_inputs` 之间的间隔**，
+而 `print_every=20` 的窗口里 `dec` 记的是"窗口内有几次 decode 调用"，
+`body` 打印时再做 `v/n`（n = `dec_calls`）—— 所以 **`hp` 就是 ms/步**，无需再除。
+
+跨 run 实测中位数（全部 `[bneck]` 行）：
+
+| run | 配置 | `hp` 中位（ms/步） |
+|---|---|---:|
+| `final_armF_1004_2145` | TP8 + devidx=1 + SPEC5 + draft 图 | **26.33** |
+| `final_tp8_1004_2320` | 同上（交付终验 run） | **26.21** |
+| `armF_meta2_1004_2010` | 同上 + metadata 插针 | 27.42 |
+| `dcp8c_1004_2245` | DCP8 | 44.96 |
+| `final_1004_1815` | TP8 + devidx=1（B 臂） | 25.58 |
+| `devidx_1004_170852` | TP8 + devidx=1（首次） | 26.40 |
+
+⇒ 与 `ab_gate.py` 一直以来的用法（把 `hp` 当步时 KPI）一致；我先前那个"1.31 ms/步"
+是把口径搞错了。**同一行里真正的 host 相位账是 `total`**（`prepare_engram_inputs` 全程，
+armF 实测 **0.234/20 ≈ 12 µs/步**）——也就是说 **交付口径的 host 侧开销在探针里没有直接量**。
+想把"到底多 host-bound"做实，要么新采一份带 host trace 的 profile，要么加插针。
+
 ## 5. 下一步排序（含可执行实验）
 
 | # | 靶点 | 上界 | 成本 | 备注 |
 |---|---|---:|---|---|
 | **1** | **metadata 7 次/步 → 更少**（跨 ratio 合并成一个 kernel，或改为 host 计算 + H2D） | **0.6–1.2 ms/步** | 高（要动 vendor 算子 `csrc/attention/sparse_flash_mla_metadata/` 或写 host 参考实现） | 源码在仓库里，可改可重编；tiny 上可先做"逐位一致"的 host 参考实现 |
 | **2** | **stream 47 融合**（ViewCopy/Index/Cast/Floor*/SelectV2/Fill 一族，420 个算子） | **0.5–1.6 ms/步** | 中高（有 `_compute_slot_mapping_kernel` 先例） | 与 1 同源：都是"少发几次" |
-| **3** | 减少 eager 算子总数（host 调用次数） | 交付口径 **≤1.31 ms/步**（＝`[bneck] hp` 中位） | 中 | 这是 host 侧真账（§4.1）；两个已接线开关先吃掉一部分 |
+| **3** | 减少 eager 算子总数（host 调用次数） | 未直接量出（§4.2 修正）；按 api_statistic 的**真实 API 工作 7.4 ms/步**（多线程之和）估 | 中 | 两个已接线开关先吃掉一部分；要定量需补 host 侧插针 |
 | **3b** | 交付口径的 **~1.5 ms/步 真空闲**（AI core 占空 91.6% ⇒ 5.9% 空闲） | **1.5 ms/步（5.9%）** | 中 | 洞口前驱是 `RepeatInterleave/Add/LogicalOr/Cast` 一族（60–260 µs/洞）⇒ **等 host 下发**，需要**新采一份 devidx=1 的 profile 用 §6 的工具定位**（旧的那份已被清掉） |
 | **4** | HcPre A1 重测（必须先清 static kernel 缓存） | 0.12–0.14 ms | 低 | 见 `KERNEL-CACHE-STALE`；重启实例即可做 |
 | 5 | 主模型图内（HcPre 3.42 / gmm1 2.66 / MatMulV2 2.34 ms） | 已多次攻过 | 高 | 参考 `LEVERS-R5` |
@@ -181,7 +204,8 @@ docker cp ~/tmp/meta_bench2.py dsv41-tinyspark:/tmp/ && \
 |---|---|
 | 2026-10-05 03:0x | 初版：用"手填时间窗"切步 |
 | 2026-10-05 03:2x | **改用锚点切步**（gmm1 每步 40 个），并把 16 步取平均；正式数字为 27.41 ms 步长 / 并集 24.545 / 真空闲 **1.470 ms（5.36%）** |
-| 同上 | **修正 §4**：acl 33.9 ms/步里 65% 是 `aclrtSynchronize*` 阻塞，**不是 host-bound**；交付口径的 host 真账是 `[bneck] hp` ≈ 1.31 ms/步 |
+| 同上 | **修正 §4**：acl 33.9 ms/步里 65% 是 `aclrtSynchronize*` 阻塞，**不是 host-bound** |
+| 同上 | **再修正 §4.2**：`[bneck] hp` 是**步周期**（中位 26.2–26.3 ms），不是 host 开销；`hp` 是唯一不能直接当 host 账用的那个数 |
 | 同上 | 补 §5 `3b`：交付口径仍有 ~1.5 ms/步真空闲，需新采 devidx=1 profile 定位 |
 
 新增工具（本目录 `tools/`）：`excl_steps.py`（锚点切步 + 多步平均的独占贡献）、
