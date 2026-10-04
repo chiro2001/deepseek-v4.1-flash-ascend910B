@@ -29,4 +29,25 @@ for S in 47 154 35; do
   "$PY" "$HERE/op_chain_cluster.py" "$PROF" "$S" "$ANCHOR" "$NSTEPS" 2>&1 | head -16
   echo
 done
+
+echo "================ 4) Python 侧 aten 算子账（每步次数）================"
+FRAME=$(dirname "$PROF")/../FRAMEWORK/torch.op_range
+if [ -f "$FRAME" ]; then
+  "$PY" - "$FRAME" "$NSTEPS" <<'PYEOF'
+import collections
+import re
+import sys
+
+path, nsteps = sys.argv[1], int(sys.argv[2])
+data = open(path, "rb").read()
+toks = [m.group().decode() for m in re.finditer(rb"[A-Za-z_][A-Za-z0-9_:]{3,60}", data)]
+total_steps = 626  # 由锚点法数出；如需精确请用 stepclass 输出覆盖
+c = collections.Counter(toks)
+print(f"{'per_step':>9}{'count':>10}  op")
+for k, v in c.most_common(28):
+    print(f"{v/total_steps:>9.1f}{v:>10}  {k}")
+PYEOF
+else
+  echo "（没有 FRAMEWORK/torch.op_range，跳过）"
+fi
 exit 0

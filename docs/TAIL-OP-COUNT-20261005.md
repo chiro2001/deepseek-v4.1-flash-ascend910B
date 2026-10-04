@@ -103,6 +103,41 @@
 
 ## 5. 可做的融合清单（按"每步次数 × 结构"排序）
 
+### 5.0 ★ 另一条独立证据：每步 **42 次设备→主机同步** + 36 次 H2D
+
+从 `FRAMEWORK/torch.op_range`（Python 侧 aten 算子时间线，按时间顺序抽取）统计同一份 profile：
+
+| Python 侧算子 | 全 profile | **每步** | 含义 |
+|---|---:|---:|---|
+| `aten::as_strided` / `aten::slice` | 284k / 232k | 454 / 371 | 视图（几乎免费） |
+| `empty_tensor` / `aten::empty` | 206k / 65k | 329 / 103 | **每次申请临时张量** |
+| `aten::copy_` | 92.8k | 148 | 拷贝 |
+| `aclnnInplaceCopy` | 50.1k | 80 | → 上一节 F3 的 24× ViewCopy 即其中一部分 |
+| `aten::fill_` / `aclnnInplaceFillScalar` | 54.0k / 47.7k | 86 / 76 | 常量填充 |
+| **`aten::item` / `aten::_local_scalar_dense`** | **26.4k / 26.4k** | **42.2** | **每次 = 一次设备→主机同步（会把流水线抽干）** |
+| `aten::to` / `aten::_to_copy` | 61.7k / 24.8k | 99 / 40 | dtype 提升 |
+| `aten::where` / `aclnnSWhere` | 39.6k / 22.6k | 63 / 36 | mask 选择 |
+| `aten::scalar_tensor` | 19.5k | 31 | 标量转张量 |
+| **`acl_memcpy_host_to_device`** | **22.6k** | **36.1** | **每步 36 次 H2D** |
+| `aten::remainder` / `aten::div` | 11.9k / 9.4k | 19 / 15 | `%` / `//`（位置与槽位） |
+| `aten::index_select` | 15.1k | 24 | RoPE 快路径 + 其它 |
+
+把 `aten::item` 的**上下文窗口**（op_range 里按顺序取前 14 / 后 8 个算子）摊开看，三种典型形态：
+
+```
+… aten::sub | detach | to | as_strided | _local_scalar_dense | item | aclnnSubs | sub …
+… fill_ | aten::max | _local_scalar_dense | item | as_strided | slice | to …
+… copy_ | _to_copy | to | fill_ | sum | sum | _local_scalar_dense | item | empty | as_strided_ | nonzero | select …
+```
+
+⇒ 都是**"对 device 张量求标量再拿去做 Python 控制流"**（`x.max().item()` / `mask.sum().item()` / `(a-b).item()`）。
+每次 `.item()` 都会**把已经入队的设备工作抽干**，所以它不只是"42 次往返"，
+更是**把本来能重叠的 eager 尾巴切成了 42 段**。
+
+> ⚠️ 口径提醒：本 profile 是 `ENGRAM_DEVICE_INDEX=0`，host engram 路径本身也会做 D2H；
+> 交付口径（`=1`）的数量会少一些 —— 但 `.item()` 的**代码位置**与 engram 无关，
+> 值得在新采的交付 profile 上复核同一张表。
+
 | # | 目标链 | 每步算子 | 现耗时 | 融合后 | 预估省 |
 |---|---|---:|---:|---|---:|
 | **F1** | **spec-decode 后处理链**（`IndexCheck+Index` → `NotEqual/Less/LogicalAnd/ReduceSum/Sub/Clip/GatherElements/SelectV2` → `IndexFill`） | ~120 | ~0.6 ms | 1 个 kernel（输入：logits + 已接受 token + mask） | **0.3–0.5 ms** |
