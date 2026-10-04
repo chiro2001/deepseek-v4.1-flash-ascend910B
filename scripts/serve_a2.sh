@@ -198,6 +198,8 @@ MOE_AG=${MOE_AG:-1}            # MoE AllGather            −4.25 ms @128K
 O_PROJ_2D=${O_PROJ_2D:-1}      # F3 wo_a 2D matmul        −0.31~0.76 ms
 MOE_MASK=${MOE_MASK:-1}        # moe-mask-range           −0.51 ms
 ROPE_IDXSEL=${ROPE_IDXSEL:-1}  # rope-idxsel              −0.45~0.62 ms
+IDS64_HOIST=${IDS64_HOIST:-0}  # [IDS64-HOIST] 每层 int64 cast 提到每步一次（−39 op/步）
+PAD_SKIP=${PAD_SKIP:-0}        # [ENGRAM-PAD-SKIP] 只清零会被读到的 padded 行（−0.13 ms/步 memset）
 ENGRAM_JIT=${ENGRAM_JIT:-1}    # hash/plan numba JIT      −0.54 / −0.11 ms
 
 # [DEVICE-INDEX] Engram 端到端设备化（表仍常驻 host DRAM，但由 device 算子直索）。
@@ -1346,7 +1348,7 @@ if [ "$DRY_RUN" = "1" ]; then
   echo "[a2-dry] TP=$TP DP=$DP MAX_SEQS=$MAX_SEQS PREFIX=$PREFIX SP_TOKENS=$SP_TOKENS BAT_TOKENS=$BAT_TOKENS"
   echo "[a2-dry] GRAPH=$GRAPH EAGER=$EAGER"
   echo "[a2-dry] CAPTURE_SIZES=$CAPTURE_SIZES"
-  echo "[a2-dry] MOE_AG=$MOE_AG O_PROJ_2D=$O_PROJ_2D MOE_MASK=$MOE_MASK ROPE_IDXSEL=$ROPE_IDXSEL ENGRAM_JIT=$ENGRAM_JIT QLI_NOCAND=$QLI_NOCAND LOCAL_OWNER=$LOCAL_OWNER"
+  echo "[a2-dry] MOE_AG=$MOE_AG O_PROJ_2D=$O_PROJ_2D MOE_MASK=$MOE_MASK ROPE_IDXSEL=$ROPE_IDXSEL ENGRAM_JIT=$ENGRAM_JIT QLI_NOCAND=$QLI_NOCAND LOCAL_OWNER=$LOCAL_OWNER IDS64_HOIST=$IDS64_HOIST PAD_SKIP=$PAD_SKIP"
   echo "[a2-dry] PROFILE=$V41_PROFILE ENGRAM_DEVICE_INDEX=$ENGRAM_DEVICE_INDEX ENGRAM_DEVICE_FALLBACK=$ENGRAM_DEVICE_FALLBACK"
   echo "[a2-dry] KV_ARGS_EXTRA=${KV_ARGS_EXTRA:-<none>}（inner.sh 会原样透传）"
   echo "[a2-dry] DROPCACHE=$DROPCACHE（起服前清 page cache；0 关闭）"
@@ -1518,6 +1520,8 @@ $DOCKER run -d --name "$NAME" --net=host --shm-size=512g --privileged=true \
   -e V41_MOE_COMM_ALLGATHER="$MOE_AG" \
   -e V41_MOE_MASK_RANGE="$MOE_MASK" \
   -e V41_ROPE_IDXSEL="$ROPE_IDXSEL" \
+  -e V41_IDS64_HOIST="$IDS64_HOIST" \
+  -e V41_ENGRAM_PAD_SKIP="$PAD_SKIP" \
   -e V41_O_PROJ_2D="$O_PROJ_2D" \
   -e V41_ENGRAM_ROUTE_PROBE="$ROUTE_PROBE" \
   -e V41_MOE_ZERO_INVALID="$MOE_ZERO" -e V41_MOE_ZERO_INVALID_FILE=/tmp/v41_moe_zero_file \
@@ -1868,7 +1872,7 @@ mkdir -p "$OUT"
   echo "[serve_a2] run_id=$RUN_ID image=$IMAGE model=$MODEL"
   echo "[serve_a2] port=$PORT served_name=$SERVED_NAME tp=$TP dp=$DP util=$GPU_UTIL max_len=$MAX_LEN max_seqs=$MAX_SEQS bat=$BAT_TOKENS"
   echo "[serve_a2] sptok=$SP_TOKENS capture_sizes=$CAPTURE_SIZES"
-  echo "[serve_a2] MOE_AG=$MOE_AG O_PROJ_2D=$O_PROJ_2D MOE_MASK=$MOE_MASK ROPE_IDXSEL=$ROPE_IDXSEL"
+  echo "[serve_a2] MOE_AG=$MOE_AG O_PROJ_2D=$O_PROJ_2D MOE_MASK=$MOE_MASK ROPE_IDXSEL=$ROPE_IDXSEL IDS64_HOIST=$IDS64_HOIST PAD_SKIP=$PAD_SKIP"
   echo "[serve_a2] ENGRAM_JIT=$ENGRAM_JIT QLI_NOCAND=$QLI_NOCAND LOCAL_OWNER=$LOCAL_OWNER GATE_CHUNK=$GATE_CHUNK"
   echo "[serve_a2] PYTHON_PGO=$PYTHON_PGO pgo_target=${PGO_LIB:-none} STATIC_KERNEL=$STATIC_KERNEL NPUGRAPH_EX=$NPUGRAPH_EX"
   echo "[serve_a2] LOAD_FORMAT=${LOAD_FORMAT:-<real weights>} MOE_ZERO=$MOE_ZERO(unverified) MOE_NF=$MOE_NF(negative-result) DRAFT_GRAPH=$DRAFT_GRAPH(unverified)"
