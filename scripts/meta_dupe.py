@@ -3,7 +3,7 @@
 import glob, sys
 import pandas as pd
 M = sys.argv[1]
-files = sorted(glob.glob(M + "/op_summary_slice_*.csv"))
+files = sorted(glob.glob(M + "/op_summary*.csv"))
 cols = ["Op Name","OP Type","Task Start Time(us)","Task Duration(us)","Task Type","Stream ID"]
 df = pd.concat([pd.read_csv(f, usecols=lambda c: c in cols, low_memory=False) for f in files],
                ignore_index=True)
