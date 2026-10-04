@@ -36,6 +36,25 @@ if [ -z "$HOST_MD5" ] || [ "$HOST_MD5" != "$CTR_MD5" ]; then
 fi
 echo "  ✓ 一致（自定义 kernel 已真正加载）"
 
+echo "== [0.5] ★ 该 .o 真的是被调用的那个吗？（2026-10-04 血的教训）=="
+# 只断言"文件一致"是不够的 —— 我们曾用 armD 内核验证过：容器内 .o 与宿主逐字节一致，
+# 但 msprof 显示该算子的设备时间**毫无变化**（73.64 -> 72.98us，噪声内）。
+# 原因候选：该 op 目录下有多个 tiling key 的 .o，补丁改的那个根本没被调用
+# （例如 Fusion 模板优先于 Base 模板）。
+# ⇒ 必须再证明"改动后的算子真的被调用且指标变了"。
+if [ -n "${BASE_JSON:-}" ]; then
+  echo "  对照基线：$BASE_JSON"
+  python3 - "$BASE_JSON" | tail -20
+else
+  cat <<'WARN'
+  ⚠️ 未给 BASE_JSON（基线 bench 结果 json）⇒ 无法自动判定"指标是否真的变了"。
+     请手工确认下面任一条成立后再相信性能数字：
+       a) 目标算子的 msprof Duration / aic_scalar 按预期变化；
+       b) 端到端 ms/step（或 [bneck] hp）按预期下降。
+     若两者都没变，**先怀疑内核没被调用**，而不是"改动无效"。
+WARN
+fi
+
 echo "== [1] 就绪 =="
 for i in $(seq 1 60); do
   c=$(curl -s -o /dev/null -w "%{http_code}" "$BASE/health" 2>/dev/null); c=${c:-000}
