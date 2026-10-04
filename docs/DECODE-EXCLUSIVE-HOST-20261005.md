@@ -14,9 +14,11 @@
 2. 三个非主流加起来 **4.70 ms（18.4%）**：**draft 1.87** > **采样/输入准备 1.64** > **metadata 1.19**。
 3. metadata 的 7 次/步 **不是"算得慢"，是"被争用放大"**：隔离基准里 device 排队吞吐只有
    **1.4 µs/次**，服务内实测 165–232 µs/次。
-4. **host 侧下发账（新证据）**：本 profile 的 acl host 时间合计 **33.9 ms/步**，
-   而步周期 ~28 ms ⇒ 【推断】decode 墙钟**至少部分是 host-launch-bound**，
-   "并集里的 2.88 ms 空隙"很可能不是设备的锅。
+4. **host 侧下发账（含一处自我修正）**：本 profile 的 acl host 时间合计 **33.9 ms/步**，
+   但拆开看 **65% 是 `aclrtSynchronizeEvent/Stream` 的阻塞等待**，真正的 host API 工作只有
+   **11.8 ms/步**（且分摊在多线程上）⇒ **不能据此判"host CPU 打满"**（详见 §4）。
+   对照交付口径（`ENGRAM_DEVICE_INDEX=1`）的 `[bneck] hp` 中位数 **1.31 ms/步**，
+   才是当前配置真正可优化的 host 侧开销（5.2%）。
 
 ## 1. 各 stream 的独占贡献（decode 步，25.59 ms）
 
@@ -95,7 +97,7 @@
 * 服务内 165–232 µs 的 device duration **是争用/调度膨胀**（同一时刻 AI core / HCCW 都在跑），
   不是算法工作量 ⇒ **想省它只能"少发几次"或"挪到不争用的地方"，优化 kernel 本体没有意义**。
 
-## 4. host 侧下发账：33.9 ms/步 vs 步周期 ~28 ms【推断：host-bound】
+## 4. host 侧下发账：33.9 ms/步里 **65% 是阻塞等待**，不是 host CPU
 
 同一 profile 的 `api_statistic`（Level=acl，host 侧）：
 
@@ -105,16 +107,39 @@
 | 其中 `*GetWorkspaceSize` | 1 286.9 ms | **2.06 ms/步** |
 | 其中名字含 `Metadata` 的 | 1 013.3 ms | **1.62 ms/步** |
 
-（步数 = 主模型 gmm1 锚点数 25040 ÷ 40 = **626 步**；profile 跨度 17.69 s。）
+（步数 = 主模型 gmm1 锚点数 25040 ÷ 40 = **626 步**；profile 跨度 17.69 s。
+本 profile 全部 626 步的 M 都是 36 = 6 req × 6 token（`SPEC=5`），即**纯 decode 段**，
+所以"÷626"是干净的口径，不混 prefill。）
 
-**为什么值得记一笔**：每步的 acl host 时间（33.9 ms）**大于**步周期（~28 ms）。
-单进程不可能真的忙 120%，所以要么（a）统计含嵌套/多线程重复计入，
-要么（b）host 确实在多个线程上并发下发、但**某些线程排队**。
-无论哪种，它和 §1 的现象一致：**设备侧 2.88 ms 的空隙更像"等 host"**，
-而不是"设备没活干"。
+### 4.1 ★ 修正：这 33.9 ms 里 65% 是**同步等待**，不是 host 干活
 
-> 待补的直接证据（下一轮做）：把 host 侧 trace（`FRAMEWORK/`）按线程拆开，
-> 看 E2E 每步里 host 的 gantt。本轮只有 api_statistic 聚合值，故标【推断】。
+按 API 名拆开（同一份 `api_statistic`）：
+
+| API | 合计 | 次数 | 均值 | 每步 | 性质 |
+|---|---:|---:|---:|---:|---|
+| **`aclrtSynchronizeEvent`** | 10998.1 ms | 3138 | **3.505 ms** | **17.6 ms** | **阻塞等待** |
+| **`aclrtSynchronizeStream`** | 2813.3 ms | 3768 | 0.747 ms | **4.49 ms** | **阻塞等待** |
+| `aclrtLaunchKernelWithHostArgs` | 1577.7 ms | 288810 | 5.5 µs | 2.52 ms | 真实下发 |
+| `aclnnInplaceCopy` | 582.2 ms | 50134 | 11.6 µs | 0.93 ms | 真实下发 |
+| `*MetadataGetWorkspaceSize`（3 个） | 919.7 ms | 4396 | 149–258 µs | 1.47 ms | 真实下发（tiling） |
+| `aclnnInplaceFillScalar` / `aclnnSWhere` / `DivMods` … | ~1740 ms | — | — | ~2.8 ms | 真实下发 |
+| **合计** | **21196.8 ms** | | | **33.86 ms** | |
+
+⇒ **阻塞 21.1 ms/步（62%）+ 真实 API 7.4 ms/步（22%）**，另有 ~5.4 ms 级零碎项。
+
+**这意味着什么**：
+* 上一版这里写的"host 侧 33.9 ms > 步周期 ⇒ host-bound"是**错的方向**：
+  阻塞等待本来就会随步长增长，把它算进"host 时间"必然超过步周期。
+* 这份 profile 是 **`ENGRAM_DEVICE_INDEX=0`**（见其 `inner.sh`），host engram 路径里
+  `.cpu()`（D2H 同步）+ CPU 查表 + collective 屏障正是 `aclrtSynchronizeEvent`
+  （5.0 次/步 × 3.5 ms）的来源 —— 与 `ENGRAM-IDLE-ELIMINATED-20261004.md` 的
+  "devidx=1 让 AI core 空闲 10.6% → 5.9%"完全自洽：**同一件事的两种测量视角**。
+* 交付口径下的 host 侧真账是 `[bneck] hp`：`final_tp8_1004_2320` 与
+  `final_armF_1004_2145` 的**中位数都是 1.31–1.32 ms/步**（n=5464/5680 个打印窗口；
+  末行出现的 193/942 ms/步是长上下文尾部的离群窗口，不能当中位数用）。
+
+> 教训（写进口径纪律）：**"host 时间"必须区分"host 在算"与"host 在等"**。
+> 只看 aclnn 总量会把同步阻塞算成 host 开销，从而把优化方向引偏。
 
 ## 5. 下一步排序（含可执行实验）
 
@@ -122,7 +147,8 @@
 |---|---|---:|---|---|
 | **1** | **metadata 7 次/步 → 更少**（跨 ratio 合并成一个 kernel，或改为 host 计算 + H2D） | **0.6–1.2 ms/步** | 高（要动 vendor 算子 `csrc/attention/sparse_flash_mla_metadata/` 或写 host 参考实现） | 源码在仓库里，可改可重编；tiny 上可先做"逐位一致"的 host 参考实现 |
 | **2** | **stream 47 融合**（ViewCopy/Index/Cast/Floor*/SelectV2/Fill 一族，420 个算子） | **0.5–1.6 ms/步** | 中高（有 `_compute_slot_mapping_kernel` 先例） | 与 1 同源：都是"少发几次" |
-| **3** | 减少 eager 算子总数（host 调用次数） | 最大，但最难 | 高 | 需要 §4 的 host trace 才能定位"谁在排队" |
+| **3** | 减少 eager 算子总数（host 调用次数） | 交付口径 **≤1.31 ms/步**（＝`[bneck] hp` 中位） | 中 | 这是 host 侧真账（§4.1）；两个已接线开关先吃掉一部分 |
+| **3b** | 交付口径的 **~1.5 ms/步 真空闲**（AI core 占空 91.6% ⇒ 5.9% 空闲） | **1.5 ms/步（5.9%）** | 中 | 洞口前驱是 `RepeatInterleave/Add/LogicalOr/Cast` 一族（60–260 µs/洞）⇒ **等 host 下发**，需要**新采一份 devidx=1 的 profile 用 §6 的工具定位**（旧的那份已被清掉） |
 | **4** | HcPre A1 重测（必须先清 static kernel 缓存） | 0.12–0.14 ms | 低 | 见 `KERNEL-CACHE-STALE`；重启实例即可做 |
 | 5 | 主模型图内（HcPre 3.42 / gmm1 2.66 / MatMulV2 2.34 ms） | 已多次攻过 | 高 | 参考 `LEVERS-R5` |
 
@@ -148,3 +174,16 @@ python3 ~/tmp/excl_op.py <mindstudio_profiler_output> 3728.88 3754.47 47
 docker cp ~/tmp/meta_bench2.py dsv41-tinyspark:/tmp/ && \
   docker exec -e ASCEND_RT_VISIBLE_DEVICES=0 dsv41-tinyspark bash -lc "cd /workspace && python /tmp/meta_bench2.py"
 ```
+
+## 7. 修订记录
+
+| 时间 | 修订 |
+|---|---|
+| 2026-10-05 03:0x | 初版：用"手填时间窗"切步 |
+| 2026-10-05 03:2x | **改用锚点切步**（gmm1 每步 40 个），并把 16 步取平均；正式数字为 27.41 ms 步长 / 并集 24.545 / 真空闲 **1.470 ms（5.36%）** |
+| 同上 | **修正 §4**：acl 33.9 ms/步里 65% 是 `aclrtSynchronize*` 阻塞，**不是 host-bound**；交付口径的 host 真账是 `[bneck] hp` ≈ 1.31 ms/步 |
+| 同上 | 补 §5 `3b`：交付口径仍有 ~1.5 ms/步真空闲，需新采 devidx=1 profile 定位 |
+
+新增工具（本目录 `tools/`）：`excl_steps.py`（锚点切步 + 多步平均的独占贡献）、
+`idle_who.py`（跨步的空闲归因 + 并行覆盖者）、`step_gap_detail.py`（单步缺口前后文）、
+`capture_profile.sh`（start_profile → 打请求 → stop_profile）、`meta_bench_metadata.py`（metadata 隔离基准）。
