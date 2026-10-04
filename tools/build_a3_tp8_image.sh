@@ -82,6 +82,26 @@ while IFS=$'\t' read -r src dst mode; do
 done < "$PAIRS"
 ok "已复制 $_copied 个挂载源（$(du -sh "$CTX" | cut -f1)）"
 
+# ---------- ③b [OPP-KERNEL] 把仓库内的自定义 kernel 一起烘进这一层 ----------
+# 为什么必须在这里做：`V41_HC_OPP_PKG` 的方式是**容器启动时**把包内 vendor 覆盖到镜像里
+# （`patches/opp_override_block.sh`），所以它**不在挂载清单里**，光靠 ③ 会漏掉。
+# 漏掉的后果很隐蔽：镜像能起来、功能正常，但**丢掉已验证的 kernel 收益**（gmm1 armF ≈3%）。
+#
+# 目标路径 = OPP-OVERRIDE 最终落地的那个真实路径，因此烘进去之后
+# **即使不传 `V41_HC_OPP_PKG`**，部署方拿到的也是带自定义 kernel 的镜像。
+OPP_SRC=${OPP_SRC:-$PKG/kernels/gmm1_armF/vendors/custom_transformer}
+OPP_DST=/vllm-workspace/vllm-ascend/vllm_ascend/_cann_ops_custom/vendors/custom_transformer
+OPP_LIST=$WORK/opp_files.txt
+: > "$OPP_LIST"
+if [ -d "$OPP_SRC" ]; then
+    mkdir -p "$CTX$OPP_DST"
+    cp -a "$OPP_SRC/." "$CTX$OPP_DST/"
+    find "$OPP_SRC" -type f | sed "s|^$OPP_SRC/||" | sort > "$OPP_LIST"
+    ok "OPP 自定义 kernel 已并入（$(wc -l < "$OPP_LIST") 个文件 → $OPP_DST）"
+else
+    printf '  \033[33mWARN\033[0m  没有 %s ⇒ 本镜像**不含**自定义 kernel（gmm1 armF 的 ≈3%% 会回退）\n' "$OPP_SRC"
+fi
+
 {
     echo "# 由 tools/build_a3_tp8_image.sh 生成：把 A3 的 TP8 工作形态固化成一层。"
     echo "# 基础镜像 = $BASE；本层只含 挂载件（补丁 + 起服脚本）。"
@@ -127,6 +147,19 @@ while IFS=$'\t' read -r src dst mode; do
         [ "$h1" = "$h2" ] || { bad "不一致：$dst（宿主 ${h1:0:12} / 镜像 ${h2:0:12}）"; _v=1; }
     fi
 done < "$PAIRS"
+# OPP 内核也逐字节自检（判据同上：绑内容不绑路径）
+if [ -s "$OPP_LIST" ]; then
+    _ok=0; _bad=0
+    while IFS= read -r rel; do
+        h1=$(md5sum "$OPP_SRC/$rel" | cut -d' ' -f1)
+        h2=$(docker run --rm --entrypoint md5sum "$TAG" "$OPP_DST/$rel" 2>/dev/null | cut -d' ' -f1)
+        if [ "$h1" = "$h2" ]; then _ok=$((_ok+1)); else
+            bad "OPP 不一致：$OPP_DST/$rel（宿主 ${h1:0:12} / 镜像 ${h2:0:12}）"; _bad=$((_bad+1)); fi
+    done < "$OPP_LIST"
+    _n=$((_n+_ok))
+    if [ "$_bad" = "0" ]; then ok "OPP 内核 $_ok 个文件逐字节一致"
+    else bad "OPP 内核有 $_bad 个文件不一致 ⇒ 产物不可用"; _v=1; fi
+fi
 if [ "$_v" = "0" ]; then ok "全部 $_n 个文件逐字节一致"
 else bad "有文件不一致 ⇒ 产物不可用"; exit 2; fi
 
