@@ -2060,13 +2060,36 @@ kv32_pool_blocks_from_log() {   # <logfile> <bytes_per_block> → 打印最小 r
 
 if [ "$_kv32_enforce" = "1" ] && [ "$_kv32_pinned" != "1" ] && [ "$_kv32_user_set" != "1" ]; then
   _kv32_avail=$(grep -aoE 'Available KV cache memory: [0-9.]+ GiB' "$LOG" 2>/dev/null | awk '{print $(NF-1)}' | sort -g | head -1 || true)
-  if [ -z "$_kv32_avail" ]; then
-    echo "  [KV32] 复核跳过：日志里没有 'Available KV cache memory'（pinned 路径或旧镜像）"
+  # ★★ [KV32-DCP 2026-10-05] DCP 形态下**不要**用固定 bytes_per_block 估算：
+  # DCP 把每个 KV group 按 decode_context_parallel_size 路分片 ⇒ 每块字节数变小，
+  # 用非 DCP 的常数会**假通过**。实测（DCP8，GPU_UTIL=0.85）：真值 92,363 B/块，
+  # 而常数 540,928 ⇒ 估出 22,863 块（<= 上界 29,076，放行），实际 133,924 块（5.9×）。
+  # 修法：**优先用 vLLM 自己打印的 `GPU KV cache size: <N> tokens` 反算块数**（精确，
+  # 不依赖任何常数）；只有拿不到那行时才退回常数估算（并明确标注是估算）。
+  _kv32_tokens=$(grep -aoE 'GPU KV cache size: [0-9,]+ tokens' "$LOG" 2>/dev/null | tail -1 | grep -oE '[0-9,]+' | tr -d ',' | head -1)
+  if [ -n "${_kv32_tokens:-}" ] && [ "${BLOCK:-0}" -gt 0 ] 2>/dev/null; then
+    _kv32_blocks=$(( _kv32_tokens / BLOCK ))
+    # ⚠️ [KV32-DCP 2026-10-05] 这里**只报告精确块数，不改上界**。
+    # 为什么不去推"本配置自己的页步长"：`Available KV cache memory` 是**所有 cache group
+    # 的总预算**，而回绕判据用的是**单个绑定组**的页步长（CED 文档：147712 B）——
+    # 两者不同源，用前者除总块数会得到错误的页步长（实测推导值与已知常数 540,928/147712
+    # 都不吻合）⇒ 那样改会引入新的误判。**上界仍沿用 _ced_max_blocks（已由 CED 文档校准）**，
+    # 但块数现在是**精确值**（以前是估算），所以 DCP 形态下的偏差会被如实报出来（供人工判断）。
+    _kv32_src="精确块数（GPU KV cache size ${_kv32_tokens} tokens ÷ block ${BLOCK}）"
+  elif [ -z "$_kv32_avail" ]; then
+    echo "  [KV32] 复核跳过：日志里既没有 'GPU KV cache size' 也没有 'Available KV cache memory'"
+    _kv32_blocks=0
+    _kv32_src=""
   else
     _kv32_blocks=$(kv32_pool_blocks_from_log "$LOG" "$_ced_bytes_per_block" || echo 0)
+    _kv32_src="估算（${_kv32_avail} GiB ÷ ${_ced_bytes_per_block} B/块）⚠️ DCP 形态下此估算偏小"
+  fi
+  if [ -n "${_kv32_src:-}" ]; then
+    echo "  [KV32] 池大小来源：$_kv32_src"
+  fi
     if [ "${_kv32_blocks:-0}" -gt "$_ced_max_blocks" ]; then
       echo
-      echo "  \033[31m✗ [KV32] KV 池超出 4 GiB 寻址上界：最小 rank 可用 ${_kv32_avail} GiB ⇒ 约 ${_kv32_blocks} 块 > 上界 ${_ced_max_blocks}\033[0m"
+      echo "  \033[31m✗ [KV32] KV 池超出 4 GiB 寻址上界：${_kv32_blocks} 块 > 上界 ${_ced_max_blocks}（$_kv32_src）\033[0m"
       echo "    该配置下块号 ≥ ${_ced_max_blocks} 的访问会 32 位回绕，长上下文请求会**静默**变成 1 token（EOS）。"
       echo "    处置（任选其一）："
       echo "      1) 显式压池：KV_CACHE_MEMORY_BYTES=$(( _ced_max_blocks * _ced_bytes_per_block ))"
@@ -2074,8 +2097,9 @@ if [ "$_kv32_enforce" = "1" ] && [ "$_kv32_pinned" != "1" ] && [ "$_kv32_user_se
       echo "      3) 确知风险仍要跑：V41_KV32_POOL_GUARD=off（会同时关掉 pin/clamp/本复核）"
       die "[KV32] 拒绝以越界池起服（避免长上下文静默空答）"
     fi
-    echo "  ✓ [KV32] 池上界复核：最小 rank 可用 ${_kv32_avail} GiB ⇒ 约 ${_kv32_blocks} 块 ≤ 上界 ${_ced_max_blocks}（用到 $(( _kv32_blocks * 100 / _ced_max_blocks ))%）"
-  fi
+    if [ -n "${_kv32_src:-}" ]; then
+      echo "  ✓ [KV32] 池上界复核：${_kv32_blocks} 块 ≤ 上界 ${_ced_max_blocks}（用到 $(( _kv32_blocks * 100 / _ced_max_blocks ))%；来源见上）"
+    fi
 fi
 # 镜像指纹落到结果目录（make_report.sh 会读它）
 $DOCKER exec "$NAME" bash -lc 'cat /opt/dsv41/BUILD_INFO.txt 2>/dev/null' > "$OUT/BUILD_INFO.txt" 2>/dev/null || true
