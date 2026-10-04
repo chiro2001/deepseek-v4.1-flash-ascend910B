@@ -57,7 +57,8 @@ def main() -> int:
     cols = ["OP Type", "Stream ID", "Task Start Time(us)", "Task Duration(us)", "Task Type"]
     frames = [
         pd.read_csv(f, usecols=cols, low_memory=False)
-        for f in sorted(glob.glob(prof_dir + "/op_summary*.csv"))
+        for f in sorted(glob.glob(prof_dir + "/op_summary*.csv")
+        or glob.glob(prof_dir + "/kernel_details.csv"))
     ]
     df = pd.concat(frames, ignore_index=True).sort_values("Task Start Time(us)").reset_index(drop=True)
     origin = df["Task Start Time(us)"].min()

@@ -42,7 +42,8 @@ def main() -> int:
     cols = ["OP Type", "Stream ID", "Task Duration(us)"] + [c for c, _ in COUNTERS]
     frames = [
         pd.read_csv(f, usecols=lambda c: c in cols, low_memory=False)
-        for f in sorted(glob.glob(prof_dir + "/op_summary*.csv"))
+        for f in sorted(glob.glob(prof_dir + "/op_summary*.csv")
+        or glob.glob(prof_dir + "/kernel_details.csv"))
     ]
     df = pd.concat(frames, ignore_index=True)
     df = df[df["Stream ID"] == stream]

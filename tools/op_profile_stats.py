@@ -58,7 +58,8 @@ def main() -> int:
     ]
     frames = [
         pd.read_csv(f, usecols=cols, low_memory=False)
-        for f in sorted(glob.glob(prof_dir + "/op_summary*.csv"))
+        for f in sorted(glob.glob(prof_dir + "/op_summary*.csv")
+        or glob.glob(prof_dir + "/kernel_details.csv"))
     ]
     df = pd.concat(frames, ignore_index=True)
     if only is not None:
