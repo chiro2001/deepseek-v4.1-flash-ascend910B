@@ -79,10 +79,13 @@ if [ "$PROF" = "1" ]; then
 fi
 
 if [ "$ACCEPT" = "1" ]; then
-  say "验收（ced_pd_acceptance --mode all）…"
-  python3 "$REPO/tools/ced_pd_acceptance.py" --port "$PORT" --mode all \
-    > "$HOME/tmp/${TAG}_accept.log" 2>&1 || true
-  tail -12 "$HOME/tmp/${TAG}_accept.log"
+  say "验收（ced_pd_acceptance --mode all @144K）…"
+  mkdir -p "$OUT"
+  python3 "$REPO/tools/ced_pd_acceptance.py" \
+    --base-url "$HOST" --tokenize-url "$HOST" --model "${SERVED_NAME:-deepseek-v41}" \
+    --corpus "$REPO/data/hongloumeng.txt" --mode all --context-tokens 144000 \
+    --out "$OUT/accept_144k.json" > "$HOME/tmp/${TAG}_accept.log" 2>&1 || true
+  grep -aE "PASS|FAIL|通过|失败|✔|✘" "$HOME/tmp/${TAG}_accept.log" | tail -16
 fi
 
 say "hp（host 每步开销，来自 [bneck]，中位/中位±）"
