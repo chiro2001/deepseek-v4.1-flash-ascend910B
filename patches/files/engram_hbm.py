@@ -60,7 +60,11 @@ import time as _rp_time
 
 class _RouteProbe:
     def __init__(self):
-        self.on = bool(os.environ.get("V41_ENGRAM_ROUTE_PROBE", ""))
+        # ★ [PROBE-FLAG-FIX 2026-10-04] 原来用 bool(os.environ.get(...))：值为 "0"
+        # 时字符串非空 ⇒ 被当成 True，探针被**强制打开**（实测交付日志里
+        # 有 1480 行 route-probe 与之对应）。改成显式解析，只有 1/true/yes/on
+        # 才算开；空串/0/未设一律关。
+        self.on = os.environ.get("V41_ENGRAM_ROUTE_PROBE", "").strip().lower() in ("1", "true", "yes", "on")
         self.every = int(os.environ.get("V41_ENGRAM_ROUTE_PROBE_EVERY", "20") or 20)
         self.rank0 = True
         try:
