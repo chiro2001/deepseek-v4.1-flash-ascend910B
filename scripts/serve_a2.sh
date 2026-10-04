@@ -1916,6 +1916,23 @@ md5sum /vllm-workspace/vllm-ascend/vllm_ascend/models/deepseek_v41/engram_hbm.py
        /vllm-workspace/vllm-ascend/vllm_ascend/models/deepseek_v41/engram_hash.py 2>/dev/null
 exec bash /opt/dsv41/scripts/serve_v2.sh
 INNER_EOF
+# [OPP-OVERRIDE 2026-10-04] 把自定义 vendor 复制覆盖到**镜像 vendor 路径**，再起服务。
+# 必须这样做：vllm_ascend.utils.bootstrap_custom_op_env() 会把镜像自带 vendor 路径**前插**
+# 到 ASCEND_CUSTOM_OPP_PATH（utils.py:323-332）⇒ 只设 env 时镜像内同名 kernel 优先，
+# 改 kernel 不生效（实测 profile 逐字段相同）；而 -v 覆盖挂载（:ro）会让内核启动期报
+# aicore exception/IndexCheck 507015。所以用"起服前复制"。
+# ★ 注入点刻意放在生成之后（不在 heredoc 内）：往该 heredoc 里插任何块都会让生成的
+#   inner.sh 变成 0 字节（实测复现 3 次，原因未查明），放在这里完全避开。
+if [ -n "${V41_HC_OPP_PKG:-}" ] && [ -f "$PKG/patches/opp_override_block.sh" ]; then
+  _blkf=$(mktemp)
+  cat "$PKG/patches/opp_override_block.sh" > "$_blkf"
+  awk -v blk="$(cat "$_blkf")" '
+    /^exec bash \/opt\/dsv41\/scripts\/serve_v2\.sh/ && !done {print blk; done=1}
+    {print}' "$OUT/inner.sh" > "$OUT/inner.sh.tmp" \
+    && mv "$OUT/inner.sh.tmp" "$OUT/inner.sh"
+  mv "$_blkf" "$_blkf.used" 2>/dev/null || true
+  say "[OPP-OVERRIDE] 已注入 inner.sh 覆盖块（$V41_HC_OPP_PKG/vendors/custom_transformer）"
+fi
 chmod +x "$OUT/inner.sh"
 
 $DOCKER exec -d "$NAME" bash -lc "bash $INNER > /opt/dsv41/results/$RUN_ID/serve.log 2>&1"
