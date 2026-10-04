@@ -333,6 +333,13 @@ CAND_MODE=${CAND_MODE:-0}           # 诊断用，0=不挂 indexer.py
 # [CPU_BIND] 1 = 打开 vllm-ascend 内部绑核（additional-config 的 enable_cpu_binding）。
 # 外部不再设 cpuset/mems（CPUSET/MEMS 默认 -1），绑核位置完全由内部按 NPU 拓扑决定。
 CPU_BIND=${CPU_BIND:-1}
+# [GATE-MULTIPREFILL 2026-10-04] admission gate 的一个 prefill-only 步里最多放几个
+# prefill 请求。1 = 历史行为（每步只放一个）；8 = 实测 N=8 交付吞吐 +11.0%、N=4 +6.6%、
+# N=1 不变、TTFT −29%，且 144K/1M 四针 + 混布 [C] + 多轮全部通过。
+# 硬不变量未变：prefill-only 步仍然不含任何 decode token。
+# 回退：V41_GATE_MAX_PREFILL=1。CED-PD/P-D 分离场景**未做端到端验证**，如需保守可在
+# deploy/a3-ced-pd 的 launcher 里显式设 1。
+V41_GATE_MAX_PREFILL=${V41_GATE_MAX_PREFILL:-8}
 MULTISTREAM=${MULTISTREAM:-1}
 # [MC2-PARAM] 这几个原本在 inner.sh 里硬编码为 0；改成可参数化，
 # 以便复现 2026-09-16 的"已知good"配置（FUSED_MC2=1 MULTISTREAM=0 SP_TOKENS=7）。
@@ -1010,6 +1017,59 @@ MOUNTS+=(-v "$PKG/scripts:/opt/dsv41/scripts:ro")
 if [ -f "$PKG/patches/files/v41_decode_guard.py" ]; then
   MOUNTS+=(-v "$PKG/patches/files/v41_decode_guard.py:/opt/dsv41/guards/v41_decode_guard.py:ro")
 fi
+# [DCP-DEV] V4.1 DCP 开发用的**整文件覆盖挂载**（2026-09-29）。
+#   §动机：DCP 需要替换 `vllm_ascend/core/deepseek_v41.py`（cache spec 与分配）、
+#   `attention/dsa_v41.py`（attention 执行）、以及新增 `attention/context_parallel/*_dcp.py`。
+#   每改一行就重打镜像不现实；这个开关把一棵**镜像容器路径布局**的目录整棵挂进去，
+#   让「改文件 → 重启服务」闭环，而不用动生产路径（默认不设 = 完全不生效）。
+#
+#   用法：
+#     mkdir -p ~/dcpw/vllm_ascend/core && cp <image>/.../deepseek_v41.py ~/dcpw/vllm_ascend/core/
+#     V41_DCP_MOUNT=$HOME/dcpw bash scripts/serve_a3.sh ...
+#   目录里的相对路径 = 相对 `/vllm-workspace/vllm-ascend/` 的路径。
+#   ★ 判据落在「实际生效」：起服日志会打印每个被挂的文件；挂载了不存在的容器路径
+#     docker 会自己建目录（静默），所以这里**逐个校验**相对路径在镜像里存在。
+if [ -n "${V41_DCP_MOUNT:-}" ]; then
+  [ -d "$V41_DCP_MOUNT" ] || die "V41_DCP_MOUNT=$V41_DCP_MOUNT 不是目录"
+  _dcp_n=0
+  # ★ 先收进**独立数组**，不要直接进 MOUNTS：下面 mount 模式还可能挂同一路径，
+  #   而去重时若不分家，就会把 overlay 自己删掉（2026-09-29 实踩）。
+  DCP_MOUNTS=()
+  while IFS= read -r _rel; do
+    _rel=${_rel#./}
+    case "$_rel" in
+      *.py) ;;
+      # ★★★ [V41-DCP-SO-MOUNT 2026-10-01] 同时挂 `.so`。
+      #   为什么需要：AscendC 融合算子（`v41_merge_kernel.so`）与 `.py` 同目录，
+      #   原来这里只放行 `*.py` ⇒ 容器里看不到 `.so` ⇒
+      #   `v41_merge_kernel.available()` 恒为 False，融合算子**静默退回
+      #   Python 路径**（不报错、只是没有加速，极难发现）。
+      *.so) ;;
+      *) continue ;;
+    esac
+    _dst="/vllm-workspace/vllm-ascend/$_rel"
+    DCP_MOUNTS+=(-v "$V41_DCP_MOUNT/$_rel:$_dst:rw")
+    _dcp_n=$((_dcp_n + 1))
+    echo "[serve_a2][DCP] mount $_rel → $_dst"
+  done < <(cd "$V41_DCP_MOUNT" && find . -type f \( -name '*.py' -o -name '*.so' \) | sort)
+  [ "$_dcp_n" -gt 0 ] || die "V41_DCP_MOUNT=$V41_DCP_MOUNT 下没有 .py/.so 文件"
+  echo "[serve_a2][DCP] 共挂 $_dcp_n 个文件（覆盖镜像内对应模块）"
+  # ★ 挂载本身不构成证据：`-v SRC:DST` 在 DST 是文件、SRC 是文件时才有意义；
+  #   写错路径 docker 会在宿主机建目录，容器里静默变成目录。所以把清单**写进
+  #   serve_cmd.txt**（那个文件不会被 `: > $LOG` 截断），起服后据此核对。
+  DCP_MOUNT_LIST=$(cd "$V41_DCP_MOUNT" && find . -type f \( -name '*.py' -o -name '*.so' \) | sed 's|^\./||' | sort | tr '\n' ' ')
+  # 后面 mount 模式还会挂 patches/files/*，二者可能指向同一容器路径
+  # （实测：engram_hbm.py）。docker 对重复的目的地直接报
+  # `Duplicate mount point` 并拒绝起容器，所以这里记下 DCP 的目的地集合，
+  # 在 mount 模式那一段结束后**移除冲突项**，让开发期 overlay 优先。
+  DCP_MOUNT_DSTS=" $(cd "$V41_DCP_MOUNT" && find . -type f \( -name '*.py' -o -name '*.so' \) | sed 's|^\./||' | sed 's|^|/vllm-workspace/vllm-ascend/|' | sort | tr '\n' ' ')"
+  echo "[serve_a2][DCP] MOUNT_LIST=$DCP_MOUNT_LIST"
+  # 开发期需要透传给容器的 env（DCP 各阶段开关）：DCP_EXTRA_ENV="A=1 B=2"
+  for _kv in ${DCP_EXTRA_ENV:-}; do
+    MOUNTS+=(-e "$_kv")
+    echo "[serve_a2][DCP] -e $_kv"
+  done
+fi
 if [ "$PATCH_MODE" = "mount" ]; then
   F=$PKG/patches/files
   # [ADMISSION-GATE] vLLM core 的 admission gate 是**补丁**（不是整文件），
@@ -1042,7 +1102,15 @@ if [ "$PATCH_MODE" = "mount" ]; then
   MOUNTS+=(-v "$F/ascend_forward_context.py:/vllm-workspace/vllm-ascend/vllm_ascend/ascend_forward_context.py:ro")
   MOUNTS+=(-v "$F/rope_dsv4.py:/vllm-workspace/vllm-ascend/vllm_ascend/ops/rope_dsv4.py:ro")
   # [V41-SLOT-MAP-FUSED] block_table.py：12 次 slot-mapping 启动 → 1 次。
-  # 由 env `V41_SLOT_MAP_FUSED` 门控（默认 0/关 = 与 stock 完全一致）。
+  # 由 env `V41_SLOT_MAP_FUSED` 门控。
+  #
+  # ★ 2026-10-02：**DCP>1 时默认改成 on**（见 docs/V41-DCP8-DECODE-PERF-20261002.md）。
+  #   只对 DCP>1 改默认，不动 DCP=1（A2 生产）的既有行为；显式传值优先。
+  case "${KV_ARGS_EXTRA:-}" in
+    *--decode-context-parallel-size\ 1|*--decode-context-parallel-size\ 0|"") : ;;
+    *--decode-context-parallel-size\ *) : "${V41_SLOT_MAP_FUSED:=on}" ;;
+  esac
+  export V41_SLOT_MAP_FUSED="${V41_SLOT_MAP_FUSED:-0}"
   # 缺文件不致命（回落 stock），但要**响亮地**告诉用户门控会静默失效。
   if [ -f "$F/block_table.py" ]; then
     MOUNTS+=(-v "$F/block_table.py:/vllm-workspace/vllm-ascend/vllm_ascend/worker/block_table.py:rw")
@@ -1057,6 +1125,18 @@ if [ "$PATCH_MODE" = "mount" ]; then
     MOUNTS+=(-v "$F/draft/llm_base_proposer.py:/vllm-workspace/vllm-ascend/vllm_ascend/spec_decode/llm_base_proposer.py:ro")
   else
     MOUNTS+=(-v "$F/dsa_v1.py:/vllm-workspace/vllm-ascend/vllm_ascend/attention/dsa_v1.py:rw")
+  fi
+
+  # [V41-HC-FUSE] 自定义融合算子包：hc_pre_norm 需要 ASCEND_CUSTOM_OPP_PATH 指向它。
+  # 用法：V41_HC_OPP_PKG=<宿主目录，内含 vendors/custom_transformer>。
+  if [ -n "${V41_HC_OPP_PKG:-}" ]; then
+    if [ -d "$V41_HC_OPP_PKG/vendors/custom_transformer" ]; then
+      MOUNTS+=(-v "$V41_HC_OPP_PKG:/opt/dsv41/hcfuse_opp:ro")
+      export ASCEND_CUSTOM_OPP_PATH=/opt/dsv41/hcfuse_opp/vendors/custom_transformer
+      say "[V41-HC-FUSE] opp pkg: $V41_HC_OPP_PKG -> /opt/dsv41/hcfuse_opp（ASCEND_CUSTOM_OPP_PATH 已设）"
+    else
+      echo "[serve_a2] WARNING: V41_HC_OPP_PKG=$V41_HC_OPP_PKG 缺少 vendors/custom_transformer；跳过" >&2
+    fi
   fi
   if [ "$MOE_NF" != "0" ]; then
     # 负结果臂（不采纳）：只零化非有限元素；文件缺失时退回 moemask 版并告警
@@ -1074,6 +1154,38 @@ if [ "$PATCH_MODE" = "mount" ]; then
   if [ "$CAND_MODE" != "0" ]; then
     MOUNTS+=(-v "$F/indexer.py:/vllm-workspace/vllm-ascend/vllm_ascend/models/deepseek_v41/indexer.py:rw")
   fi
+fi
+# [DCP-DEV] 去重：开发期 overlay 与 patches/files 可能覆盖**同一个容器路径**，
+# 而 docker 对重复目的地直接报 `Duplicate mount point` 并拒绝起容器。
+# 语义定为 **overlay 优先**（开发期改的就是它），在这里把冲突的旧挂载项整对剔除。
+if [ -n "${DCP_MOUNT_DSTS:-}" ]; then
+  _new_mounts=()
+  _mi=0
+  _dropped=0
+  while [ "$_mi" -lt "${#MOUNTS[@]}" ]; do
+    if [ "${MOUNTS[$_mi]}" = "-v" ] && [ $((_mi + 1)) -lt "${#MOUNTS[@]}" ]; then
+      _spec="${MOUNTS[$((_mi + 1))]}"
+      _dst="${_spec#*:}"
+      _dst="${_dst%%:*}"
+      case "$DCP_MOUNT_DSTS" in
+        *" $_dst "*)
+          say "[DCP-DEV] 移除与 overlay 冲突的挂载：$_dst"
+          _dropped=$((_dropped + 1))
+          _mi=$((_mi + 2))
+          continue
+          ;;
+      esac
+      _new_mounts+=("${MOUNTS[$_mi]}" "${MOUNTS[$((_mi + 1))]}")
+      _mi=$((_mi + 2))
+      continue
+    fi
+    _new_mounts+=("${MOUNTS[$_mi]}")
+    _mi=$((_mi + 1))
+  done
+  MOUNTS=("${_new_mounts[@]}")
+  [ "$_dropped" = "0" ] || say "[DCP-DEV] 共移除 $_dropped 项冲突挂载（overlay 优先）"
+  MOUNTS+=("${DCP_MOUNTS[@]}")
+  say "[DCP-DEV] overlay 挂载已追加（${#DCP_MOUNTS[@]} 项，最后生效）"
 fi
 if [ -n "${V41_CED_ROLE:-}" ]; then
   # [PATCH_MODE] 两条路都支持：
@@ -1309,6 +1421,7 @@ $DOCKER rm -f "$NAME" >/dev/null 2>&1 || true
 #    `docker run ... -e DSPARK_HOIST_CONTEXT_KV=0` 而丢掉 IMAGE 参数，报
 #    `"docker run" requires at least 1 argument` + `-e: command not found`。
 #    `bash -n` **抓不到**这种错（语法合法），所以已加 `tools/check_serve_run_chain.py` 回归。
+  # [V41-HC-FUSE] HcPre+RMSNorm 融合（Track B，env 门控，默认关）：V41_HC_FUSE_NORM / V41_HC_NORM_LIB / ASCEND_CUSTOM_OPP_PATH
 $DOCKER run -d --name "$NAME" --net=host --shm-size=512g --privileged=true \
   --ulimit memlock=-1 \
   "${CGROUP_ARGS[@]}" \
@@ -1340,7 +1453,7 @@ $DOCKER run -d --name "$NAME" --net=host --shm-size=512g --privileged=true \
   -e ASCEND_MAX_OP_CACHE_SIZE=-1 \
   -e CAPTURE_SIZES="$CAPTURE_SIZES" \
   -e NUMBA_CACHE_DIR=/numba_cache \
-  -e VLLM_ADMISSION_GATE=1 \
+  -e VLLM_ADMISSION_GATE="${VLLM_ADMISSION_GATE:-1}" \
   -e V41_ENGRAM_HOST_RESIDENT=1 -e V41_ENGRAM_REUSE_EP_GROUP=1 \
   -e V41_ENGRAM_GATE_CHUNK="$GATE_CHUNK" -e V41_ENGRAM_GATE_MAX_TOKENS="$GATE_MAX_TOKENS" -e MAX_TOKENS="$GATE_MAX_TOKENS" \
   -e V41_ENGRAM_GATE_HOIST=0 \
@@ -1413,6 +1526,14 @@ $DOCKER run -d --name "$NAME" --net=host --shm-size=512g --privileged=true \
   -e V41_DECODE_API_GUARD="${V41_DECODE_API_GUARD:-1}" \
   -e SP_SCHEDULE="${SP_SCHEDULE:-}" \
   -e V41_CED_DYNAMIC_SPEC_FULL_GRAPHS="${V41_CED_DYNAMIC_SPEC_FULL_GRAPHS:-0}" \
+  ${VLLM_ENGINE_READY_TIMEOUT_S:+-e VLLM_ENGINE_READY_TIMEOUT_S="$VLLM_ENGINE_READY_TIMEOUT_S"} \
+  ${V41_DYNSPEC_BT_PERSIST:+-e V41_DYNSPEC_BT_PERSIST="$V41_DYNSPEC_BT_PERSIST"} \
+  ${V41_DYNSPEC_SKIP_K0_DRAFT_COPY:+-e V41_DYNSPEC_SKIP_K0_DRAFT_COPY="$V41_DYNSPEC_SKIP_K0_DRAFT_COPY"} \
+  ${V41_HC_FUSE_NORM:+-e V41_HC_FUSE_NORM="$V41_HC_FUSE_NORM"} \
+  ${V41_GATE_MAX_PREFILL:+-e V41_GATE_MAX_PREFILL="$V41_GATE_MAX_PREFILL"} \
+  ${V41_HC_FUSE_ATTN_FP32:+-e V41_HC_FUSE_ATTN_FP32="$V41_HC_FUSE_ATTN_FP32"} \
+  ${V41_HC_NORM_LIB:+-e V41_HC_NORM_LIB="$V41_HC_NORM_LIB"} \
+  ${ASCEND_CUSTOM_OPP_PATH:+-e ASCEND_CUSTOM_OPP_PATH="$ASCEND_CUSTOM_OPP_PATH"} \
   -e LOAD_FORMAT="$LOAD_FORMAT" \
   -e KV_ARGS_EXTRA="$KV_ARGS_EXTRA" \
   ${HCCL_ENV_ARGS[@]+"${HCCL_ENV_ARGS[@]}"} \
@@ -1425,6 +1546,27 @@ _CONTAINER_STARTED=1     # [FAIL-CLEANUP] 之后任何 die() 都会删掉这个�
 $DOCKER exec "$NAME" bash -lc "printf '%s' '$LOCAL_OWNER' > /tmp/v41_engram_localowner; printf '%s' 'fast' > /tmp/v41_hash_mode" || true
 
 # ---------- [ADMISSION-GATE] mount 模式下现场打 vLLM core 补丁 ----------
+# ---------- [DCP-MOUNT-GUARD] DCP 覆盖挂载必须**逐个证明**真的换掉了文件 ----------
+# 判据不能落在"我传了 V41_DCP_MOUNT"：`-v SRC:DST` 在 DST 不存在时 docker 会
+# 创建目录；而 DST 写错一层（例如少了 `vllm_ascend/`）时容器里那份代码根本没变，
+# 起服照样成功、行为却完全不同（2026-09-29 容量探针已因此白跑一轮）。
+# 这里比对**容器内 md5 vs 宿主 md5**，不一致就直接 die。
+if [ -n "${V41_DCP_MOUNT:-}" ] && [ "${DCP_MOUNT_SKIP_VERIFY:-0}" != "1" ]; then
+  _dfail=0
+  while IFS= read -r _rel; do
+    _dst="/vllm-workspace/vllm-ascend/$_rel"
+    _want=$(md5sum "$V41_DCP_MOUNT/$_rel" | awk '{print $1}')
+    _got=$($DOCKER exec "$NAME" bash -lc "test -f '$_dst' && md5sum '$_dst' | awk '{print \$1}' || echo NOT_A_FILE" 2>/dev/null | tail -1)
+    if [ "$_got" != "$_want" ]; then
+      echo "[serve_a2][DCP][FAIL] $_rel：容器内=$_got 宿主=$_want（挂载未生效）" >&2
+      _dfail=1
+    else
+      say "[DCP-MOUNT-GUARD] $_rel ✓ md5=${_want:0:8}"
+    fi
+  done < <(cd "$V41_DCP_MOUNT" && find . -type f \( -name '*.py' -o -name '*.so' \) | sed 's|^\./||' | sort)
+  [ "$_dfail" = "0" ] || die "DCP 覆盖挂载未生效（见上）；不要在该状态下做任何结论"
+fi
+
 if [ "$PATCH_MODE" = "mount" ]; then
   say "[ADMISSION-GATE] mount 模式：在容器内现场应用 admission_gate.patch"
   _gate=$($DOCKER exec "$NAME" bash -lc '
@@ -1529,7 +1671,16 @@ fi
 # （base 是 67035d97…）。这与仓库里踩过的 durian 坑同源：拿错基线会让
 # `git apply --check` 失败，或者在容器里 `git checkout` 把 prompt-tail 抹掉。
 if [ -n "${SP_SCHEDULE:-}" ]; then
-  [ "${V41_CED_ROLE:-}" = "decode" ] || die "SP_SCHEDULE（按并发切 K）只对 decode 角色有意义"
+  # [DYNSPEC-ROLE-GATE 2026-10-03] 原来只允许 CED 的 decode 角色。现放宽到
+  # **空角色（独立 TP8/非 PD 形态）** 也允许 —— 动态 K 在单实例上同样成立
+  # （见 docs/PLAN-DYNAMIC-SPEC-AND-FUSION-20261003.md Track A）。
+  # **CED 的 prefill 角色仍然被拒**（P 侧恒关推测是架构性的，不是配置问题）。
+  # 这个放宽**不放宽安全门**：下面那条 `V41_CED_DYNAMIC_SPEC_FULL_GRAPHS=1`
+  # 的显式承担依旧强制（否则模型构造期就会炸）。
+  case "${V41_CED_ROLE:-}" in
+    ""|decode) : ;;
+    *) die "SP_SCHEDULE（按并发切 K）只对 decode 角色或非 PD（空角色）有意义，当前 V41_CED_ROLE=$V41_CED_ROLE" ;;
+  esac
   [ "$PATCH_MODE" = "mount" ] || die "SP_SCHEDULE 目前只支持 PATCH_MODE=mount（baked 镜像不含该补丁）"
   # [UPSTREAM-GUARD] 上游在 MRV1 上会**无条件**把 dynamic SD 的 cudagraph_mode
   # 降级成 PIECEWISE（vllm/config/vllm.py::_maybe_override_dynamic_sd_cudagraph_mode，
@@ -1578,7 +1729,21 @@ if [ -n "${SP_SCHEDULE:-}" ]; then
   _dynspec=$($DOCKER exec "$NAME" bash -lc '
     cd /vllm-workspace/vllm-ascend || exit 1
     _base=$(sha256sum vllm_ascend/worker/model_runner_v1.py | cut -d " " -f1)
-    [ "$_base" = bd250a59819dd806d16706177840c057416944c762264f2a291c608d915c2aff ] || exit 1
+    # [DYNSPEC-BASE 2026-10-03] 原来只接受 **CED prompt-tail 之后**的 bd250a59…，
+    # 于是独立 TP8（空角色、不打 prompt-tail）永远过不了这道门 —— 尽管补丁本身
+    # 在两条基线上都能干净应用。已用 A/B 双路验证（见
+    # docs/PLAN-DYNAMIC-SPEC-AND-FUSION-20261003.md Track A）：
+    #   A 路 = prompt-tail + dynamic-spec，B 路 = 只 dynamic-spec；
+    #   两者 diff 只有 25 行，且**全部是 prompt-tail 自己的改动**
+    #   （import os / ced_prompt_tail_eager 18 行 / 一处 force_eager），
+    #   ⇒ dynamic-spec 的 8 个 hunk 与 prompt-tail 无耦合。
+    # 所以这里接受**两个**基线；仍然要求 sha 命中（镜像换版照样 fail-closed），
+    # 并且应用后照旧断言可观测痕迹（[DYNAMIC-SPEC] + _v41_effective_udql + py_compile）。
+    case "$_base" in
+      bd250a59819dd806d16706177840c057416944c762264f2a291c608d915c2aff) : ;;   # CED prompt-tail 之后
+      67035d97f1cea4ae2df31adcc33f1de952f4cab6d8421e76df512296e0e3185e) : ;;   # 原始基线（独立 TP8）
+      *) echo "BASE_SHA_UNKNOWN:$_base"; exit 1 ;;
+    esac
     if grep -Fq "[DYNAMIC-SPEC]" vllm_ascend/worker/model_runner_v1.py; then
       echo ALREADY; exit 0
     fi
@@ -1590,11 +1755,12 @@ if [ -n "${SP_SCHEDULE:-}" ]; then
   case "${_dynspec:-}" in
     APPLIED) say "[DYNAMIC-SPEC] runner 补丁已应用 ✓" ;;
     ALREADY) say "[DYNAMIC-SPEC] runner 补丁已存在 ✓" ;;
-    *) die "DYNAMIC-SPEC runner 补丁未应用（$_dynspec）。两个常见原因：
-      ① 没开图模式 ⇒ 本补丁的前置补丁（prompt-tail）没打，文件仍是 base 的
-         67035d97… 而不是 bd250a59… ⇒ SP_SCHEDULE 需要
-         V41_CED_GRAPH_PROMPT_TAIL_EAGER=1 + GRAPH=1 EAGER=0；
-      ② 镜像换版导致 sha 门不匹配。两种情况都不要带着它起服。" ;;
+    BASE_SHA_UNKNOWN:*) die "DYNAMIC-SPEC runner 补丁未应用：model_runner_v1.py 的 sha 不在允许列表里（${_dynspec}）——
+      镜像换版了。不要在未知基线上带着它起服；确认新基线后再扩列表。" ;;
+    *) die "DYNAMIC-SPEC runner 补丁未应用（$_dynspec）。常见原因：
+      ① sha 门通过但 \`git apply --check\` 失败 ⇒ 基线被别的补丁改过；
+      ② patch_cudagraph.py 或 runner 补丁文件缺失。
+      两种情况都不要带着它起服。" ;;
   esac
   # 效果断言：patch_cudagraph.py 也必须在位（否则 runner 传的 query_len 没人消费）
   _dynspec_pc_hit=$($DOCKER exec "$NAME" bash -lc '
