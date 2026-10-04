@@ -15,7 +15,7 @@ import numpy as np
 
 M = sys.argv[1]
 GPS = int(sys.argv[2]) if len(sys.argv) > 2 else 43
-files = sorted(glob.glob(M + "/op_summary_slice_*.csv"))
+files = sorted(glob.glob(M + "/op_summary*.csv"))
 cols = ["OP Type", "Task Start Time(us)", "Task Duration(us)"]
 df = pd.concat([pd.read_csv(f, usecols=cols, low_memory=False) for f in files], ignore_index=True)
 df = df.sort_values("Task Start Time(us)").reset_index(drop=True)

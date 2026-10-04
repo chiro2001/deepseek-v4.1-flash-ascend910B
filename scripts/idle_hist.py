@@ -6,7 +6,7 @@ import numpy as np
 
 M = sys.argv[1]
 BUCKET_MS = float(sys.argv[2]) if len(sys.argv) > 2 else 100.0
-files = sorted(glob.glob(M + "/op_summary_slice_*.csv"))
+files = sorted(glob.glob(M + "/op_summary*.csv"))
 cols = ["Task Start Time(us)", "Task Duration(us)", "Task Type"]
 df = pd.concat([pd.read_csv(f, usecols=cols, low_memory=False) for f in files],
                ignore_index=True).sort_values("Task Start Time(us)").reset_index(drop=True)
