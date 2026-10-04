@@ -62,6 +62,18 @@ export PORT=${PORT:-8020}
 export SERVED_NAME=${SERVED_NAME:-deepseek-v41}
 export TOOL_CALLING=${TOOL_CALLING:-1}
 export MAX_SEQS=${MAX_SEQS:-32}
+
+# [A3-DELIVERABLE-DEFAULTS 2026-10-04] A3 单实例的三个交付默认（都经本机多轮实测：
+# `docs/TP8-DELIVERABLE-CONFIG-20261004.md` + `docs/CAPTURE-BUCKET-6N-20261004.md`）：
+#   · DRAFT_GRAPH=1 —— N=1 +15%（95.1 → 109.5）、N=8/16 无回退。
+#     serve_a2.sh 的默认仍保守为 0（历史上撞过一次未查明根因的静默失效 A≈1.06），
+#     所以这里显式给。**起服后务必用 tools/draft_graph_guard.sh 断言 A ≥ 1.3**。
+#     本机连续多轮 DRAFT_GRAPH=1 实测 A 稳定在 3.4–3.7，且 144K/1M 四针 + regress2 全过。
+#   · GPU_UTIL=0.92 / BAT_TOKENS=8192 —— 与容量实测口径一致（KV 2.82M tokens）。
+#   · SP_TOKENS=5 保持默认（K=5 在 N=1/2/4/8 全面优于 K=7）。
+export DRAFT_GRAPH=${DRAFT_GRAPH:-1}
+export GPU_UTIL=${GPU_UTIL:-0.92}
+export BAT_TOKENS=${BAT_TOKENS:-8192}
 export DP=${DP:-1}
 # [绑核] 外部**不做** CPU/NUMA 绑定：容器不设 --cpuset-cpus/--cpuset-mems，
 #   由 vllm-ascend 内部的 cpu_binding 按 NPU 拓扑给每个 rank 自己绑

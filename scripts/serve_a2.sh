@@ -912,12 +912,21 @@ if [ -z "${CAPTURE_SIZES:-}" ]; then
   # 桶列故意稀疏（几何级数）：每个桶要多花 ~10-30 s 捕获，32 个桶不现实。
   _cap_max=$(( MAX_SEQS * _step_tokens ))
   [ "$_cap_max" -lt 32 ] && _cap_max=32
-  for _c in 6 8 12 16 20 24 32 40 48; do
+  # [CAPTURE-BUCKET-6N 2026-10-04] ★ 用 `N × (SP_TOKENS+1)` 对齐的桶，替换原来的
+  # 几何级数（2 的幂/整十）。为什么：静态 K 下每步行数恒为 `T = N × (1+K)`，
+  # 几何表里没有 T=18/30/36/42（N=3/5/6/7），会被 padding 到 20/32/40/48 ——
+  # 白算 6.7%~14% 的行。而 8 路并发**不是同时进 decode 的**（admission gate 把 prefill
+  # 串行化 ⇒ 每个窗口都有 1→N 爬升与 N→1 回落），所以这些档真的会被走到。
+  # 受控 A/B（同脚本同 4 rep、两轮相隔 33 分钟、冷启值逐位相同）：**N=8 +4.3%、N=16 +0.7%**。
+  # 见 docs/CAPTURE-BUCKET-6N-20261004.md。
+  # 覆盖的并发档是**稀疏但完整覆盖关键档**的集合（桶数 ~16，与几何表相当，
+  # 起服捕获时间几乎不变；实测 9:56）。其余档 padding 到最近的上方桶。
+  for _n in 1 2 3 4 5 6 7 8 10 12 16; do
+    _c=$(( _n * _step_tokens ))
     if [ "$_c" -ge "$_step_tokens" ] && [ "$_c" -le "$_cap_max" ]; then CAPTURE_SIZES="$CAPTURE_SIZES,$_c"; fi
   done
-  # 48 以上按 2 倍增长（桶越少捕获越快；padding 只浪费算力，不影响正确性）。
-  _b=96
-  while [ "$_b" -le "$_cap_max" ]; do CAPTURE_SIZES="$CAPTURE_SIZES,$_b"; _b=$(( _b * 2 )); done
+  # 覆盖到 MAX_SEQS 档（大 batch 若没有桶会被判为不可图 ⇒ 退 eager）
+  if [ "$_cap_max" -gt $(( 16 * _step_tokens )) ]; then CAPTURE_SIZES="$CAPTURE_SIZES,$_cap_max"; fi
   case ",$CAPTURE_SIZES," in
     *",$_step_tokens,"*) : ;;
     *) CAPTURE_SIZES="$CAPTURE_SIZES,$_step_tokens" ;;
