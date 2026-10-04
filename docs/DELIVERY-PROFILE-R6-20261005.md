@@ -126,6 +126,64 @@ docker run --rm -v <run>/prof:/pf -v /tmp/prof_analyze.py:/a.py:ro \
 `tools/*.py` 已支持两种布局（找不到 `op_summary*.csv` 时自动用 `kernel_details.csv`）；
 本轮的归一化脚本见 `tools/normalize_kernel_details.py`。
 
+## 5.5 非主图两条流的具体构成（N=1，交付口径）
+
+### draft（stream 142，占 7.5%）—— 是"小 M 下的权重载入"
+
+| 每步 | ms/步 | 算子 | 说明 |
+|---:|---:|---|---|
+| 3 | 0.241 | `SparseAttnSharedkv` | 3 层注意力 |
+| 6 | 0.227 | `HcPre` | 每层 2 次（38 µs/次） |
+| 1 | **0.161** | `MatMulV2 "5,5120;16160,5120"` | draft 的 LM head；16160×5120×2 B = 165 MB ⇒ 载入受限 |
+| 5 | **0.156** | `MatMulV2 "1,256;129280,256"` | **vocab 映射，每次读 66 MB 权重 × 5 次** |
+| 5 | 0.083 | `ArgMaxV2 "1,129280"` | 同上链 |
+| 3 | 0.136 / 0.109 | `gmm1` / `gmm2` | MoE（M=15） |
+| 3 | 0.062 / 0.042 / 0.026 | `QBMV3` | q_a / q_b / kv |
+| 3+3 | 0.075 / 0.050 | `MatMulV2` o_proj | |
+| 18 | 0.054 | `GatherV3`（RoPE 表） | 与 decode 同源 |
+
+**可动的点**：5 次 `[1,256]×[129280,256]` 每次都要把同一份 66 MB 权重读一遍
+（合计 330 MB ≈ 206 µs 的理论载入）。若把 5 次合成 1 次 `[5,256]×[129280,256]`，
+权重只读一遍 ⇒ **理论省 ~0.12 ms/步（0.5%）**。这条在 vllm 的
+`v1/spec_decode/vocab_mapping.py` 里（我们有源码），属"中低成本"。
+
+### 采样 / 输入准备（stream 47，占 6.1%）
+
+| 每步 | ms/步 | 算子 | 归属 |
+|---:|---:|---|---|
+| 1 | 0.213 | `SparseAttnSharedkvMetadata` | 这一次走的是 s47（AICPU） |
+| 1 | 0.144 | `MatMulV2 "6,5120;16160,5120"` | target LM head |
+| **24** | **0.194** | **`ViewCopy "16384;1;1;1;6;1;1;1"`** | **与 `Fill "1;"` 严格交替的 24 组**（见下） |
+| 46 | 0.063 | `Fill "1;"` | 其中 24 次属于上面那组 |
+| 53 | 0.062 | `Cast "6"` | dtype 提升（`DivMods`/`GeScalar`） |
+| 2 | 0.062 | `ZerosLike "8192,6144"` | padding 底噪（`PAD_SKIP` 的靶点） |
+| 18 | 0.059 | `GatherV3`（RoPE） | |
+| 25 | 0.048 | `SelectV2 "6;6;"` | rejection 采样 |
+| 15–16 | ~0.09 | `FloorMod/FloorDiv/GreaterEqual` | 位置/槽位链 |
+
+**24 组 `Fill+ViewCopy` 的现场**（时间线上严格交替，每次 ~8 µs）：
+它**在 devidx=0 与 devidx=1 两份 profile 里都在**、形状完全相同
+（`16384;1;1;1;6;1;1;1`），且在 rejection 采样链之后 ⇒ 与 engram host 路径无关。
+24 = ?（未定位到源码行；`16384 = 2 × 8192` 与 `max_num_batched_tokens` 同阶）。
+【推断】是某个"逐项写回 + 逐项 fill"的循环（24 项）。**定位方法已备**
+（`tools/find_op_context.py` 给出前后文；下一步可在容器里对 `tensor.copy_` 打栈）。
+价值：**0.19 ms/步（0.75%）**，且是纯 Python 侧可控的循环。
+
+### 另一条候选：`hc_sinkhorn_iters`（0.3 ms/步，需真实权重验证）
+
+`npu_hc_pre_v2` 的 `hc_sinkhorn_iters` 是**可选属性**（op-proto 默认 20，Python 侧可传）。
+tiny 上实测设备时长：
+
+| iters | 设备时长（p50） |
+|---:|---:|
+| 20 | **33.76 µs** |
+| 1 | **29.98 µs** |
+
+⇒ 每次调用约 **0.2 µs/迭代**；20→1 可省 **3.8 µs/次 ⇒ 80 次 = 0.30 ms/步（1.2%）**。
+⚠️ **未做数值验证**：本次夹具用的是 `scale=base=0` 的退化输入（任何迭代数都逐位相同），
+真实权重下 Sinkhorn 未必收敛到同一点 ⇒ **要拿真实 `hc_fn/hc_scale/hc_base` 复测**，
+再决定是否值得（收益 1.2%，风险是数值语义变化）。
+
 ## 6. 复现
 
 ```bash
