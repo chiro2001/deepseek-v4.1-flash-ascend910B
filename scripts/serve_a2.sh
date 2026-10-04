@@ -198,8 +198,13 @@ MOE_AG=${MOE_AG:-1}            # MoE AllGather            −4.25 ms @128K
 O_PROJ_2D=${O_PROJ_2D:-1}      # F3 wo_a 2D matmul        −0.31~0.76 ms
 MOE_MASK=${MOE_MASK:-1}        # moe-mask-range           −0.51 ms
 ROPE_IDXSEL=${ROPE_IDXSEL:-1}  # rope-idxsel              −0.45~0.62 ms
-IDS64_HOIST=${IDS64_HOIST:-0}  # [IDS64-HOIST] 每层 int64 cast 提到每步一次（−39 op/步）
-PAD_SKIP=${PAD_SKIP:-0}        # [ENGRAM-PAD-SKIP] 只清零会被读到的 padded 行（−0.13 ms/步 memset）
+IDS64_HOIST=${IDS64_HOIST:-0}  # [IDS64-HOIST] ★ 2026-10-05 实测：本配置下**无可优化对象**
+#   —— 它 targeting 的 `input_ids.to(int64)`（fused_topk_router.py:164）只在
+#   `tid2eid`/`bias_vl` 非空（视觉/哈希路由）时执行；纯文本交付实例两者都是 None。
+#   逐算子族计数两臂逐项相同（Cast 253.1 vs 252.4/步）⇒ 保持默认 0，不必再验。
+PAD_SKIP=${PAD_SKIP:-1}        # [ENGRAM-PAD-SKIP] ★ 已转默认：只清零会被读到的 padded 行
+#   实测（零噪声判据）：`ZerosLike "8192,6144"` 1.86→0 /步 ⇒ 省 ~58 µs/步（0.22%）；
+#   模型只读 lookups[:n]，而清零范围 ≥ n ⇒ 可读区仍被清零；144K 验收 11/11 PASS。
 ENGRAM_JIT=${ENGRAM_JIT:-1}    # hash/plan numba JIT      −0.54 / −0.11 ms
 
 # [DEVICE-INDEX] Engram 端到端设备化（表仍常驻 host DRAM，但由 device 算子直索）。
