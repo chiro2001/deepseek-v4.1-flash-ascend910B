@@ -16,8 +16,17 @@
 3. **可用缓解（已验证）**：`num_blocks ≤ ⌊2³²/147712⌋ = 29076`（**按页尾**取界，不是
    "最大块号 ≤ 29076"）。C=29128/29129 时同一 1M 请求必挂；C=29077 与 29078 实测通过，
    但 29077/29078 的最后一页已经越界（见 §5.1.2），属于**侥幸**，不作为安全值。
-   容量代价相对 29600 为 1.77%。配置侧预防在 `scripts/serve_a3_ced_pd.sh` 的
-   `[CED-D-POOL-GUARD]`，强制校验在连接器的 `[CED-32BIT-GUARD]`。
+   容量代价相对 29600 为 1.77%。配置侧预防在 **`scripts/serve_a2.sh` 的
+   `[KV32-POOL-GUARD]`**（2026-09-29 起收敛到这里，见下），强制校验在连接器的
+   `[CED-32BIT-GUARD]`。
+   ★ **口径修正（2026-09-29）**：该配置侧守卫**只在会撞回绕的形态下默认使能**
+   （CED 角色 `V41_CED_ROLE` 非空，或 `KV_ARGS_EXTRA` 里带 `MooncakeHybridConnector`）。
+   非 CED 部署（A2 单实例、`a2/scripts/serve_a2_offload.sh`、`run_test.sh`、验证入口）
+   默认**不再 pin** `KV_CACHE_MEMORY_BYTES` ⇒ 回到 vLLM 自动显存 profiling、
+   `GPU_UTIL` 重新对 KV 池生效；同时新增**起服后复核**
+   （解析 `Available KV cache memory: X GiB`，取各 rank 最小值换算块数，
+   越界即拒绝起服），把"profiling 恰好算出越界值"这条路也堵上。
+   详见 `docs/KV32-POOL-GUARD-SCOPE-20260929.md`。
 4. **1+1 tiny 线不复现该故障**（几何逐字节相同，但它在 C=29600 / max=29599
    与 C=29129 / max=29128 处全部通过）。最可能的解释是 **dummy 权重的判据不够灵**：
    tiny 的基线本身首 token logprob 就是 −11.77（分布极平），
@@ -254,11 +263,16 @@ num_blocks × 147712 ≤ 2³²   ⇒   num_blocks ≤ ⌊2³²/147712⌋ = 29076
 最后 54528 B 仍然回绕。实测 `num_blocks=29077` 与 `29078` 都"通过"，
 但那只是因为回绕落点当时是恒零的 null block，**不能当安全值**。
 
-* 配置侧：`[CED-D-POOL-GUARD]` 取 `num_blocks = 29076`
+* 配置侧：`[KV32-POOL-GUARD]`（原 `[CED-D-POOL-GUARD]`，2026-09-29 收敛到
+  `scripts/serve_a2.sh`）取 `num_blocks = 29076`
   （`KV_CACHE_MEMORY_BYTES = 29076 × 540928`），容量相对 29600 损失 1.77%。
 * 强制侧：连接器的 `[CED-32BIT-GUARD]` 在 worker 注册 KV cache 时按**实测 stride**
   校验 `num_blocks × max_page_stride ≤ 2³²`，不满足直接抛错拒绝起服
   （`V41_CED_ALLOW_32BIT_OVERFLOW=1` 可显式绕过做实验）。
+  ★ 注意（2026-09-29 实测·代码）：该变量**只作用于宿主侧池守卫**，它**没有**进
+  `scripts/serve_a2.sh` 的 `docker run -e` 列表 ⇒ 容器里的连接器读不到它，
+  连接器那道硬门**不能**用这个变量绕过。要把这条硬门也关掉需要另加透传
+  （本仓刻意不做，避免一个环境变量同时关掉两层门）。
 
 ### 5.2 "绝对地址 32 位回绕"也被实测否掉
 
@@ -300,7 +314,8 @@ num_blocks × 147712 ≤ 2³²   ⇒   num_blocks ≤ ⌊2³²/147712⌋ = 29076
    每次夹紧都要重启 D，见 §7 的成本表）。
 2. 用 `V41_CED_KVGEOM` 在**同一次**失败实例里同时取基址与上界，做一对一回归
    （需要把探针改成每次请求都打印一次）。
-3. **缓解已落地并实测**：`scripts/serve_a3_ced_pd.sh` 的 `[CED-D-POOL-GUARD]` 会把
+3. **缓解已落地并实测**：`[CED-D-POOL-GUARD]`（2026-09-29 起改名为
+   `[KV32-POOL-GUARD]` 并收敛到 `scripts/serve_a2.sh`）会把
    decode 角色的池钳到 C=29077。实测（`ced_mitig_c29077`）：3 条 1M 的 g0 max 依次
    15955 / 23942 / **29076**，**全部 PASS** —— 29076 正是 C=29128/29129 臂里失败的
    同一区段，说明钳位有效。容量代价相对 29600 为 1.8%。

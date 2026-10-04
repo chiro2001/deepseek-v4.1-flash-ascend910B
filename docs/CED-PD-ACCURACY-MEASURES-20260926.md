@@ -36,7 +36,7 @@
 
 | # | 措施 | 对付哪族 | 证据强度 | 出处 |
 |---|---|---|---|---|
-| 1 | `[CED-POOL-GUARD]` / `[CED-32BIT-GUARD]`：池钳到 `num_blocks ≤ 29076` | **A** | 🟢 **刀锋实验验证** | `CED-PD-BLOCK-BOUND` |
+| 1 | `[KV32-POOL-GUARD]`（原 `[CED-POOL-GUARD]`）/ `[CED-32BIT-GUARD]`：池钳到 `num_blocks ≤ 29076`；★ 2026-09-29 起**只在 CED/PD 形态默认使能**，非 CED 交回自动 profiling + 起服后复核 | **A** | 🟢 **刀锋实验验证** | `CED-PD-BLOCK-BOUND` · `KV32-POOL-GUARD-SCOPE` |
 | 2 | D 侧 `MULTISTREAM=0 DSA_OVERLAP=0` | **B** | 🟢 **单变量 0/4 → 4/4** | `CED-PD-PERF` §3 |
 | 3 | `V41_CED_GRAPH_PROMPT_TAIL_EAGER=1` + fail-closed 门 | **B** | 🟢 **有/无对照** | `CED-PD-GRAPH-PREREQ` |
 | 4 | `DSPARK_GRAPH_CAPTURE_METADATA=1`（随 `DRAFT_GRAPH=1` 强制） | **C** | 🟢 **负控实测** | `draft-graph-negative-control` |
@@ -80,7 +80,9 @@ null block，属**侥幸**，不能当安全值。
 容量代价：相对 C=29600 损失 **1.77%**。
 
 **两道防线**：
-* 配置侧 `scripts/serve_a3_ced_pd.sh` 的 `[CED-POOL-GUARD]`；
+* 配置侧 `scripts/serve_a2.sh` 的 `[KV32-POOL-GUARD]`
+  （2026-09-29 前在 `scripts/serve_a3_ced_pd.sh`，两份公式相同故收敛到共享层；
+  作用域与"起服后复核"见 `docs/KV32-POOL-GUARD-SCOPE-20260929.md`）；
 * 强制侧 `experimental/ced/mooncake_hybrid_connector.py` 的 `[CED-32BIT-GUARD]`
   —— 它拿的是 **worker 实际注册的 stride**（planner 里拿不到，因为 stride 是
   打包布局算出来的，且 `num_blocks` 之后还会被多 rank 取 min 改动），

@@ -226,6 +226,23 @@ else
   bad "缺 tools/selftest_run_test_bat.sh（无法自动抓"验证入口把 8192 覆盖回 2048"）"
 fi
 
+# ------------------------------------------------- 9a-3) ★ KV32 池守卫的作用域
+# 2026-09-29：守卫原先"未设置 KV_CACHE_MEMORY_BYTES ⇒ 所有形态一律 pin"，
+#   非 CED 部署因此跳过 vLLM 自动显存 profiling、GPU_UTIL 对 KV 池失效。
+#   改成"只在 CED/PD 形态默认使能"后，最怕的是**改回去**（默认 ON 又来一次）
+#   或作用域判据被悄悄改掉 —— 两者 `bash -n` 都抓不到。这里钉死。
+if [ -f tools/selftest_kv32_scope.sh ]; then
+  if out=$(bash tools/selftest_kv32_scope.sh 2>&1); then
+    n=$(printf '%s' "$out" | grep -c '✓' || true)
+    ok "KV32 池守卫作用域：${n:-?} 条全过（非 CED 不 pin / CED+PD 仍 pin / 显式超界钳位 / off 完全不干预 / 起服后复核 / 内置负控）"
+  else
+    bad "KV32 池守卫作用域自检失败："
+    printf '%s' "$out" | grep -E '✗' | sed 's/^/        /' | head -8
+  fi
+else
+  bad "缺 tools/selftest_kv32_scope.sh（无法自动抓"池守卫又被默认打开"，见 docs/KV32-POOL-GUARD-SCOPE-20260929.md）"
+fi
+
 # ------------------------------------------------- 9b) A3 镜像「层补丁」工具链
 # 2026-09-23：把 A3 的 TP8 工作形态固化成"官方基础镜像 + 1 个工作层"（0.2 MiB），
 #   已发布 dsv41-a3-tp8-imagekit-v1。这里查工具链在位 + 语法 + 挂载解析器的正负控。

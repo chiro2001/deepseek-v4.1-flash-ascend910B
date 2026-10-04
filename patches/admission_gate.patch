@@ -10,7 +10,7 @@ index b4521a2..851260f 100644
  import time
  from collections import defaultdict, deque
  from collections.abc import Iterable
-@@ -65,6 +66,33 @@ from vllm.v1.utils import record_function_or_nullcontext
+@@ -65,6 +66,33 @@
  
  logger = init_logger(__name__)
  
@@ -44,7 +44,7 @@ index b4521a2..851260f 100644
  
  class Scheduler(SchedulerInterface):
      def __init__(
-@@ -80,6 +108,37 @@ class Scheduler(SchedulerInterface):
+@@ -80,6 +108,42 @@
      ) -> None:
          self.vllm_config = vllm_config
          self.scheduler_config = vllm_config.scheduler_config
@@ -58,6 +58,11 @@ index b4521a2..851260f 100644
 +        # prefills, so running decodes keep making progress instead of
 +        # deadlocking behind an un-admittable prefill.
 +        self._gate_force_decode_steps = 0
++        # [GATE-MULTIPREFILL] 一个 prefill-only 步里最多放几个 prefill 请求。
++        # 默认 1 = 与历史行为逐字一致。>1 时仍保持「本步不含任何 decode」的
++        # 不变量（gate_prefill_step 语义不变），只是不再每步只放一个请求，
++        # 使 N 路并发冷启动的 ramp 从 O(N) 步降到 O(总token/BAT_TOKENS) 步。
++        self._gate_max_prefill = max(1, int(os.environ.get("V41_GATE_MAX_PREFILL", "1")))
 +        self._gate_prefill_fail_streak = 0
 +        # Observability counters (INFO logs in schedule()).
 +        self._gate_prefill_steps = 0
@@ -82,7 +87,7 @@ index b4521a2..851260f 100644
          self.cache_config = vllm_config.cache_config
          self.lora_config = vllm_config.lora_config
          self.kv_cache_config = kv_cache_config
-@@ -359,6 +418,50 @@ class Scheduler(SchedulerInterface):
+@@ -359,6 +423,50 @@
          # async KV loads). Their remaining-block reservation gates async loads.
          self._inflight_prefills: set[Request] = set()
  
@@ -133,7 +138,7 @@ index b4521a2..851260f 100644
      def _mamba_block_aligned_split(
          self,
          request: Request,
-@@ -480,6 +583,22 @@ class Scheduler(SchedulerInterface):
+@@ -480,6 +588,23 @@
              throttle_prefills and not self.prefill_capacity_bound
          ) and any(not r.is_prefill_chunk for r in self.running)
  
@@ -143,6 +148,7 @@ index b4521a2..851260f 100644
 +        gate_enabled = self.admission_gate_enabled
 +        gate_prefill_step = False
 +        gate_prefill_done = False
++        gate_prefill_admitted = 0
 +        gate_step_deferred_decode_reqs = 0
 +        gate_async_admission = False
 +        if gate_enabled:
@@ -156,7 +162,7 @@ index b4521a2..851260f 100644
          # First, schedule the RUNNING requests.
          req_index = 0
          while req_index < len(self.running) and token_budget > 0:
-@@ -513,6 +632,20 @@ class Scheduler(SchedulerInterface):
+@@ -513,6 +638,20 @@
                  req_index += 1
                  continue
  
@@ -177,20 +183,21 @@ index b4521a2..851260f 100644
              num_new_tokens = (
                  request.num_tokens_with_spec
                  + request.num_output_placeholders
-@@ -670,6 +803,12 @@ class Scheduler(SchedulerInterface):
+@@ -670,6 +809,13 @@
                      if self.ec_connector is not None:
                          self.ec_connector.update_state_after_alloc(request, i)
  
 +            if gate_prefill_step:
-+                # Exactly one prefill request per prefill-only step. The normal
-+                # per-request bookkeeping above has already run for it.
-+                gate_prefill_done = True
-+                break
++                # [GATE-MULTIPREFILL] 计数到上限（默认 1）才封口本步。
++                gate_prefill_admitted += 1
++                if gate_prefill_admitted >= self._gate_max_prefill or token_budget <= 0:
++                    gate_prefill_done = True
++                    break
 +
          # Record the LoRAs in scheduled_running_reqs
          scheduled_loras: set[int] = set()
          if self.lora_config:
-@@ -680,7 +819,10 @@ class Scheduler(SchedulerInterface):
+@@ -680,7 +826,10 @@
              )
              assert len(scheduled_loras) <= self.lora_config.max_loras
  
@@ -202,7 +209,7 @@ index b4521a2..851260f 100644
          if not preempted_reqs and self._pause_state == PauseState.UNPAUSED:
              step_skipped_waiting = create_request_queue(self.policy)
  
-@@ -736,6 +878,13 @@ class Scheduler(SchedulerInterface):
+@@ -736,6 +885,13 @@
                      step_skipped_waiting.prepend_request(request)
                      continue
  
@@ -216,7 +223,7 @@ index b4521a2..851260f 100644
                  num_external_computed_tokens = 0
                  load_kv_async = False
                  connector_prefix_cache_queries, connector_prefix_cache_hits = 0, 0
-@@ -1050,6 +1199,12 @@ class Scheduler(SchedulerInterface):
+@@ -1050,6 +1206,12 @@
                                  num_computed_tokens,
                              )
                          )
@@ -229,20 +236,21 @@ index b4521a2..851260f 100644
                      continue
  
                  self.running.append(request)
-@@ -1096,6 +1251,12 @@ class Scheduler(SchedulerInterface):
+@@ -1096,6 +1258,13 @@
                          if self.ec_connector is not None:
                              self.ec_connector.update_state_after_alloc(request, i)
  
 +                if gate_prefill_step:
-+                    # Admitted one prefill request; no second request (prefill
-+                    # or decode) may join this step.
-+                    gate_prefill_done = True
-+                    break
++                    # [GATE-MULTIPREFILL] 同上；默认上限 1 时与历史行为一致。
++                    gate_prefill_admitted += 1
++                    if gate_prefill_admitted >= self._gate_max_prefill or token_budget <= 0:
++                        gate_prefill_done = True
++                        break
 +
              # re-queue requests skipped in this pass ahead of older skipped items.
              if step_skipped_waiting:
                  self.skipped_waiting.prepend_requests(step_skipped_waiting)
-@@ -1110,6 +1271,126 @@ class Scheduler(SchedulerInterface):
+@@ -1110,6 +1279,126 @@
          assert total_num_scheduled_tokens <= self.max_num_scheduled_tokens
  
          assert token_budget >= 0
@@ -282,10 +290,10 @@ index b4521a2..851260f 100644
 +                        if self._gate_is_prefill_request(self.requests[req_id])
 +                    ],
 +                )
-+            if gate_prefill_reqs > 1:
++            if gate_prefill_reqs > self._gate_max_prefill:
 +                logger.error(
 +                    "[admission_gate] invariant violated: step=%d scheduled %d "
-+                    "prefill requests (>1).",
++                    "prefill requests (>configured max).",
 +                    self.current_step,
 +                    gate_prefill_reqs,
 +                )
