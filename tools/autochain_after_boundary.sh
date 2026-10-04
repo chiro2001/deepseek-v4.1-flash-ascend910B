@@ -23,9 +23,24 @@ bash "$HERE/run_arm_suite.sh" "$HOME/tmp/launch_armF.sh" armF_r6_base 1 1 1
 say "开始 armH（IDS64_HOIST=1 + PAD_SKIP=1）"
 bash "$HERE/run_arm_suite.sh" "$HOME/tmp/launch_armH.sh" armH_r6_flags 1 1 1
 
-say "配对对比："
+say "配对对比（armF vs armH）："
 /home/l00886679/miniforge3/envs/dsv41/bin/python "$HERE/bench_delta.py" \
   "$HOME/tmp/armF_r6_base_bench.json" "$HOME/tmp/armH_r6_flags_bench.json" \
   --label-a armF_base --label-b armH_flags || true
+
+say "检查 PGO 产物是否能在 A3 镜像里加载（不合格就跳过该臂）"
+if docker run --rm --entrypoint bash \
+     -v "$HOME/cedpd-repo/optim/pgo/libpython3.12.so.1.0:/usr/local/python3.12.13/lib/libpython3.12.so.1.0:ro" \
+     quay.nju.edu.cn/ascend/vllm-ascend:deepseek-v4.1-flash-a3 \
+     -lc "python3 -c 'import sys; print(\"PYOK\", sys.version.split()[0])'" 2>/dev/null | grep -q PYOK; then
+  say "PGO 产物可加载 ⇒ 开始 armP"
+  bash "$HERE/run_arm_suite.sh" "$HOME/tmp/launch_armP.sh" armP_r6_pgo 1 1 1
+  say "配对对比（armF vs armP）："
+  /home/l00886679/miniforge3/envs/dsv41/bin/python "$HERE/bench_delta.py" \
+    "$HOME/tmp/armF_r6_base_bench.json" "$HOME/tmp/armP_r6_pgo_bench.json" \
+    --label-a armF_base --label-b armP_pgo || true
+else
+  say "⛔ PGO 产物在 A3 镜像里加载失败（glibc/ABI 不匹配）⇒ 跳过 armP，需用 A3 镜像重编"
+fi
 
 say "全部完成"

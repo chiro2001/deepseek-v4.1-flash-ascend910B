@@ -76,6 +76,28 @@ if [ "$PROF" = "1" ]; then
   say "采 profile（start → 并发 1/4/8 各一段 → stop）…"
   bash "$HOME/tmp/prof_conc.sh" "$PORT" "1,4,8" 160 > "$HOME/tmp/${TAG}_prof.log" 2>&1 || true
   tail -6 "$HOME/tmp/${TAG}_prof.log"
+
+  # ★ [MSPROF-EXPORT] torch_npu 的导出**不是**在 /stop_profile 时同步完成的；
+  #   若之后很快清容器，`ASCEND_PROFILER_OUTPUT/` 不会生成，只剩几个 GB 的原始数据。
+  #   实测：raw 数据在 stop 后立刻就是完整的（有 end_info.done），可以在**任意**
+  #   带 CANN 的容器里事后补跑 analyse（不需要 NPU）。这里就用一次性容器补跑。
+  say "补跑 msprof 导出（rank0 的每次捕获各 1–2 min）…"
+  cat > /tmp/prof_analyze_$$.py <<'PYEOF'
+import sys
+import torch_npu  # noqa
+from torch_npu.profiler.profiler import analyse
+analyse(sys.argv[1], max_process_number=16)
+print("ANALYSE_DONE")
+PYEOF
+  for d in $(ls -d "$OUT"/prof/dp0_pp0_tp0_* 2>/dev/null); do
+    [ -d "$d" ] || continue
+    if sudo -n test -d "$d" 2>/dev/null; then :; fi
+    docker run --rm -v "$OUT/prof":/pf -v "/tmp/prof_analyze_$$.py":/a.py:ro "$IMAGE" \
+      bash -lc "python3 /a.py /pf/$(basename "$d")" >> "$HOME/tmp/${TAG}_profexport.log" 2>&1 || true
+  done
+  say "导出完成；CSV 在 <run>/prof/*_ascend_pt/ASCEND_PROFILER_OUTPUT/（root 属主，用 sudo 读）"
+  sudo -n chmod -R a+rX "$OUT/prof" 2>/dev/null || true
+  ls -d "$OUT"/prof/*/ASCEND_PROFILER_OUTPUT 2>/dev/null | head -3
 fi
 
 if [ "$ACCEPT" = "1" ]; then
