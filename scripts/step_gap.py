@@ -1,5 +1,10 @@
 #!/usr/bin/env python3
 """用 gmm1(43次/步) 切步，输出：簇内设备跨度 vs 簇间隔（gap）。
+★ 警告：本工具的"设备跨度"把 Task Type==AI_CPU 的任务（metadata）也算进去了，
+所以它给出的是"AI core 或 AICPU 至少有一个在跑"的跨度，**不是 AI core 的占空比**。
+实测：把 AICPU 算进去会得到"100% 占空比"的假象，而真实 AI core 占空比是 85.1%。
+需要严格占空比请用 scripts/duty_fix.py。详见 docs/DUTY-CORRECTION-20261004.md。
+需要严格占空比请用 scripts/duty_fix.py。详见 docs/DUTY-CORRECTION-20261004.md。
 判据：若簇内跨度 ≈ 步周期、gap≈0 ⇒ 设备忙满（device-bound）；
       若簇内跨度 << 步周期、gap 大 ⇒ host 开销主导。
 用法: step_gap.py <mindstudio_profiler_output> [gmm_per_step]
