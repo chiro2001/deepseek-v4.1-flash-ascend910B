@@ -20,6 +20,10 @@ ACCEPT=${5:-0}
 
 PORT=${PORT:-19210}
 NAME=${NAME:-dsv41-tp8k5}
+# [BUGFIX 2026-10-05] 导出步骤要用镜像名，但本脚本**不定义** IMAGE（它由各 launcher 自己 export）。
+# 之前直接引用 $IMAGE，在 `set -u` 下会以 "IMAGE: unbound variable" **中止整个脚本** ——
+# 症状是：基准与 profile 都跑完了，**验收被静默跳过**。这里给一个可覆盖的默认值。
+IMAGE=${IMAGE:-quay.nju.edu.cn/ascend/vllm-ascend:deepseek-v4.1-flash-a3}
 REPO=$HOME/cedpd-repo
 OUT=$REPO/results/$TAG
 HOST=http://127.0.0.1:$PORT
