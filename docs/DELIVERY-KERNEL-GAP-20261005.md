@@ -74,6 +74,30 @@ sudo python3 tools/make_image_patch_kit.py --out ~/dsv41-kit-v2 \
   ⇒ payload-paths.txt / payload-sha256.original.txt.gz 里**明确含**那 2 个内核文件
 ```
 
+## 2.4 ★ 发布镜像的端到端验证（不传任何 OPP 环境变量）
+
+只做文件级 md5 还不够（镜像可能"文件对了但起不来"）。本轮的收口实验：
+**用新镜像起一个完整服务，完全不设 `V41_HC_OPP_PKG`**，看三件事。
+
+| 判据 | 结果 |
+|---|---|
+| 能否起服 | ✅ `health=200`、`/v1/models 200`（约 15 min，含 static kernel 冷编译） |
+| 容器内该内核的 md5 | ✅ **`01f600d2e49959145089c165839c9579`**（= armF，不是 base 的 `2e4a834a`） |
+| 是否有运行期 OPP 覆盖 | ✅ 驱动日志里 **`OPP-OVERRIDE` 出现 0 次** ⇒ 内核**来自镜像层**，不是启动时拷进去的 |
+| 正确性 | ✅ `ced_pd_acceptance --mode all`（144K）**11/11 通过，失败 0** |
+
+```bash
+# 复现（关键：**不要**设 V41_HC_OPP_PKG）
+sed -e 's|^export IMAGE=.*|export IMAGE=local/dsv41-a3-tp8:20261005-0633|' \
+    -e '/V41_HC_OPP_PKG/d' ~/tmp/launch_armF.sh > ~/tmp/launch_armIMG.sh
+bash tools/run_arm_suite.sh ~/tmp/launch_armIMG.sh armIMG_v2 0 0 1
+docker exec <name> md5sum <容器内 .o 路径>          # 期望 01f600d2…
+grep -c "OPP-OVERRIDE" results/armIMG_v2/driver.log  # 期望 0
+```
+
+⇒ **"仓库 → 镜像层 → 部署"这条链已经端到端打通**：部署方拿到镜像就能获得
+与我们在 a3-21 上实测**同一份**内核，不需要任何额外环境变量或临时目录。
+
 ## 3. 遗留（明确列出，不含糊）
 
 | 项 | 状态 |
