@@ -1933,6 +1933,17 @@ if [ -n "${V41_HC_OPP_PKG:-}" ] && [ -f "$PKG/patches/opp_override_block.sh" ]; 
   mv "$_blkf" "$_blkf.used" 2>/dev/null || true
   say "[OPP-OVERRIDE] 已注入 inner.sh 覆盖块（$V41_HC_OPP_PKG/vendors/custom_transformer）"
 fi
+# [OPP-OVERRIDE-SAFETY 2026-10-04] 自定义 kernel 若在**图捕获/重放**下不兼容，症状是
+# 服务"看起来在启动"但永远不 ready（EngineCore 每 60s 报 shm broadcast 超时），
+# 实测一次 35 分钟才被默认 READY_TIMEOUT 收掉，且现场没有指向 kernel 的线索。
+# 这里：只要启用了 OPP-OVERRIDE 就把 ready 上限收到 10 分钟，并在失败信息里点名。
+if [ -n "${V41_HC_OPP_PKG:-}" ]; then
+  : "${V41_OPP_READY_TIMEOUT:=600}"
+  READY_TIMEOUT="$V41_OPP_READY_TIMEOUT"
+  echo "[serve_a2][OPP-OVERRIDE] ⚠️ 已启用自定义 kernel（$V41_HC_OPP_PKG）"
+  echo "[serve_a2][OPP-OVERRIDE]    ready 上限收紧到 ${READY_TIMEOUT}s；若起不来，"
+  echo "[serve_a2][OPP-OVERRIDE]    第一嫌疑就是该 kernel（回退：不设 V41_HC_OPP_PKG）"
+fi
 chmod +x "$OUT/inner.sh"
 
 $DOCKER exec -d "$NAME" bash -lc "bash $INNER > /opt/dsv41/results/$RUN_ID/serve.log 2>&1"
