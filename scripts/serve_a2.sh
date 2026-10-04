@@ -1110,6 +1110,17 @@ if [ "$PATCH_MODE" = "mount" ]; then
   # 不要恢复这个挂载 —— 整文件覆盖 model_runner_v1.py 的风险远大于收益。
   MOUNTS+=(-v "$F/ascend_forward_context.py:/vllm-workspace/vllm-ascend/vllm_ascend/ascend_forward_context.py:ro")
   MOUNTS+=(-v "$F/rope_dsv4.py:/vllm-workspace/vllm-ascend/vllm_ascend/ops/rope_dsv4.py:ro")
+  # [META-HOST-SLEEP] 2026-10-04：device_metadata.py 的 host 侧 sleep 注入（**诊断用**）。
+  #   背景：api_statistic 显示三件套 GetWorkspaceSize 合计 919.7ms/4396 次
+  #         （平均 209µs，是算子入队 21µs 的 10 倍），但它在 host CPU 上跑，
+  #         **可能被其它线程盖住** ⇒ 必须实测才能判定是否在关键路径上。
+  #   用法：echo 300 > /tmp/v41_meta_host_sleep_us （单位 µs；0.25s 热切，无需重启）
+  #         缺文件 / 非法值 / 未设 ⇒ 恒 0 ⇒ 行为与 stock 相同。
+  #   来源：metadata 线子代理；见 docs/METADATA-AICPU-AUDIT-20261004.md。
+  if [ -f "$F/device_metadata.py" ]; then
+    MOUNTS+=(-v "$F/device_metadata.py:/vllm-workspace/vllm-ascend/vllm_ascend/worker/device_metadata.py:ro")
+    say "[META-HOST-SLEEP] device_metadata.py 已挂载（host 侧 sleep 注入，默认 0 = 与 stock 相同）"
+  fi
   # [V41-SLOT-MAP-FUSED] block_table.py：12 次 slot-mapping 启动 → 1 次。
   # 由 env `V41_SLOT_MAP_FUSED` 门控。
   #
@@ -1947,11 +1958,16 @@ fi
 # 实测一次 35 分钟才被默认 READY_TIMEOUT 收掉，且现场没有指向 kernel 的线索。
 # 这里：只要启用了 OPP-OVERRIDE 就把 ready 上限收到 10 分钟，并在失败信息里点名。
 if [ -n "${V41_HC_OPP_PKG:-}" ]; then
-  : "${V41_OPP_READY_TIMEOUT:=600}"
+  # ★ 2026-10-04 修正：原先这里把上限收到 600s，**把一次合法的启动杀掉了** ——
+  # 实测"静态内核编译(≈8min) + 121 桶图捕获(≈10min)"合法地超过 600s，
+  # 于是服务在 100% 捕获完成后被 die() 清掉，日志里只有一句"等待超时"。
+  # 教训：**安全闸不能短于合法的最慢路径**。改为 1800s（仍短于默认 2100s，
+  # 真·挂死的 kernel 会更快失败），并在失败信息里点名 kernel 是第一嫌疑。
+  : "${V41_OPP_READY_TIMEOUT:=1800}"
   READY_TIMEOUT="$V41_OPP_READY_TIMEOUT"
   echo "[serve_a2][OPP-OVERRIDE] ⚠️ 已启用自定义 kernel（$V41_HC_OPP_PKG）"
-  echo "[serve_a2][OPP-OVERRIDE]    ready 上限收紧到 ${READY_TIMEOUT}s；若起不来，"
-  echo "[serve_a2][OPP-OVERRIDE]    第一嫌疑就是该 kernel（回退：不设 V41_HC_OPP_PKG）"
+  echo "[serve_a2][OPP-OVERRIDE]    ready 上限 ${READY_TIMEOUT}s（覆盖静态编译+图捕获）；"
+  echo "[serve_a2][OPP-OVERRIDE]    若仍起不来，第一嫌疑是该 kernel（回退：不设 V41_HC_OPP_PKG）"
 fi
 chmod +x "$OUT/inner.sh"
 
