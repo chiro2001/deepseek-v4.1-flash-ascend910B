@@ -164,9 +164,24 @@ docker run --rm -v <run>/prof:/pf -v /tmp/prof_analyze.py:/a.py:ro \
 **24 组 `Fill+ViewCopy` 的现场**（时间线上严格交替，每次 ~8 µs）：
 它**在 devidx=0 与 devidx=1 两份 profile 里都在**、形状完全相同
 （`16384;1;1;1;6;1;1;1`），且在 rejection 采样链之后 ⇒ 与 engram host 路径无关。
-24 = ?（未定位到源码行；`16384 = 2 × 8192` 与 `max_num_batched_tokens` 同阶）。
-【推断】是某个"逐项写回 + 逐项 fill"的循环（24 项）。**定位方法已备**
-（`tools/find_op_context.py` 给出前后文；下一步可在容器里对 `tensor.copy_` 打栈）。
+
+**补充证据（本轮用 `FRAMEWORK/torch.op_range` 的 Python 侧算子序列）**：
+重复单元是
+```
+aten::as_strided | aten::slice | aclnnInplaceFillScalar | aten::fill_
+  | aten::as_strided | aten::slice | aclnnInplaceCopy | aten::copy_
+```
+即「对一个**切片** fill 一个标量，再对另一个**切片** copy 16384 个元素」，
+24 次；整块之前紧邻一次 **`acl_memcpy_host_to_device`**（主机侧准备好的数据刚搬上设备），
+之后紧跟 `aclnnIndex/aten::index` 与采样链。⇒ **【推断】是"主机侧算好 24 份数据 → H2D → 逐份写进设备缓冲"的循环**。
+
+**仍未定位到源码行**（在 `patches/` 里没有 `range(24)`；24 不在我们的补丁里，
+应在 vendored 的 vllm-ascend 侧）。**下一步的定位手段**（按成本排序）：
+1. `grep -rn "for .* in range(24)" /vllm-workspace/vllm-ascend/vllm_ascend/`（本仓已试 patches/ 无果）；
+2. 在容器里对 `torch.Tensor.copy_` 打一次 Python 栈（`sys.settrace` 或 `torch.overrides`），
+   只看 `input.numel()==16384` 的调用；
+3. 用 `tools/find_op_context.py` 把这块的前后 30 个原子操作对齐回代码路径。
+
 价值：**0.19 ms/步（0.75%）**，且是纯 Python 侧可控的循环。
 
 ### 另一条候选：`hc_sinkhorn_iters`（0.3 ms/步，需真实权重验证）
