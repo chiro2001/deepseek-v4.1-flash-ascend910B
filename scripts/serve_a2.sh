@@ -1952,6 +1952,29 @@ if [ -n "${V41_HC_OPP_PKG:-}" ] && [ -f "$PKG/patches/opp_override_block.sh" ]; 
     && mv "$OUT/inner.sh.tmp" "$OUT/inner.sh"
   mv "$_blkf" "$_blkf.used" 2>/dev/null || true
   say "[OPP-OVERRIDE] 已注入 inner.sh 覆盖块（$V41_HC_OPP_PKG/vendors/custom_transformer）"
+
+  # ★★ [SKCACHE-STALE 2026-10-04] 换 kernel 时**必须**同时让 static kernel 缓存失效，
+  # 否则运行时可能复用旧内核 ⇒ 改动静默不生效（实测：HcPre A1 的 .o 已在容器里、
+  # md5 已校验，但服务执行的仍是旧内核 —— 用 `aic_mac_time` 指纹 1.282 vs 1.282 判定）。
+  # 为什么单靠 .o 不够：static kernel 的缓存 key **不含被替换 .o 的内容**
+  # （文件哈希只由 op 定义决定），所以换 vendor 里的 .o 不会让它失效。
+  # 自动清 13GB 缓存会让起服多花 ~18 分钟（重编译），所以默认只**响亮警告**；
+  # 做 kernel A/B 时请显式 `V41_OPP_CLEAR_SKCACHE=1`。
+  if [ "${V41_OPP_CLEAR_SKCACHE:-0}" = "1" ]; then
+    for _d in "$CACHE/skcache/compile_outputs" "$CACHE/skcache/install"; do
+      if [ -d "$_d" ]; then
+        _ts=$(date +%Y%m%d_%H%M%S)
+        mv "$_d" "${_d}.stale_$_ts" 2>/dev/null && say "[OPP-OVERRIDE] 已让缓存失效：$_d → ${_d}.stale_$_ts"
+      fi
+    done
+    say "[OPP-OVERRIDE] static kernel 缓存已失效 ⇒ 本次会重编译（起服约 +18 min）"
+  else
+    echo "[serve_a2][OPP-OVERRIDE] ⚠️  static kernel 缓存**未清**（cache/skcache/compile_outputs）"
+    echo "[serve_a2][OPP-OVERRIDE]     若本次改了 kernel，运行时可能**复用旧内核**导致改动静默不生效。"
+    echo "[serve_a2][OPP-OVERRIDE]     kernel A/B 请改用 V41_OPP_CLEAR_SKCACHE=1。"
+    echo "[serve_a2][OPP-OVERRIDE]     起服后必须验执行：用资源计数指纹（aic_mac_time / cycles /"
+    echo "[serve_a2][OPP-OVERRIDE]     目标算子 Duration）与基线比对，看不到预期变化即判"内核没换"。"
+  fi
 fi
 # [OPP-OVERRIDE-SAFETY 2026-10-04] 自定义 kernel 若在**图捕获/重放**下不兼容，症状是
 # 服务"看起来在启动"但永远不 ready（EngineCore 每 60s 报 shm broadcast 超时），
