@@ -176,15 +176,75 @@ Test-NetConnection 192.168.45.21 -Port 22 -InformationLevel Quiet → True
   （**已经在认证之后**才超时，说明卡在第二跳而不是第一跳）。
 
 **处置**：
-1. **首选：等它自己重连**（2026-10-03 那次就是自行恢复的，无需人工）；
-2. 需要人工干预时，到 GamePC 上重连 UniVPN 客户端（远程做不到，**只能到机器旁**或让现场的人点一下）；
-3. 恢复判据：`Get-NetAdapter` 里 `TAP-Windows Adapter V9 #2` = **Up**
+1. **先判"对端是否真的断"**（★ 2026-10-05 新增，本次就是靠它翻案的）：从任意 10.8.0.x 主机跑
+   `openssl s_client -connect 10.8.0.21:34500 -brief` ——
+   若 **TLS 握手成功**（证书 `CN=LOCAL-101930058418`），说明**链路与网关正常**，
+   故障在 **UniVPN 客户端自身**（见 §4.5），不要再等；
+2. **对端真断时**：等它自己重连（2026-10-03 那次就是自行恢复的，无需人工）；
+3. 需要人工干预时，到 GamePC 上重连 UniVPN 客户端
+   （远程可以诊断到很深、但**重新连接这个动作远程做不到**，见 §4.5 的尝试记录）；
+4. 恢复判据：`Get-NetAdapter` 里 `TAP-Windows Adapter V9 #2` = **Up**
    且 `Test-NetConnection 192.168.45.21` = **True**。
 
 **为什么没有自动恢复**：GamePC 是单点，拓扑文档 §7 已把它列为已知单点。
 目前**没有**任何针对 UniVPN 的保活脚本 —— 系统里唯一的 tunnel unit
 `ssh-tunnel-8888.service` 保的是 `ysy21:8888` 那条转发，**与内网无关**，
 不要以为它在保 a3 通路。
+
+### 4.5 ★ UniVPN **客户端自身**永久卡死（2026-10-05 新增，远程修不好）
+
+**重要性**：这一档和 §4.1 的"对端真断"**外部表现完全一样**（TAP Down / 第二跳不通），
+但处置不同——**等它不会自愈**。2026-10-05 这次卡了 30 min+ 无任何重试动作。
+
+**两条前置事实**（2026-10-05 实测）：
+* UniVPN 客户端配置（`%APPDATA%\UniVPN\config\内蒙蓝区.ini`）写的是
+  **`GatewayAddress = 10.8.0.21` / `GatewayPort = 34500`** ⇒
+  所谓的"公司网关"**就是平板的 relay**（→ `120.46.228.53:34500`）。
+  所以 §4.2 的 relay 挂掉会同时打断 UniVPN，**两者是同一条链路**。
+* 链路健康时，`openssl s_client -connect 10.8.0.21:34500 -brief` 必成功（TLS1.3）；
+  从 **GamePC 本机**跑同样成功，且**可以稳定保持 45 s**（`.NET SslStream` 长连接实测）。
+
+**特征签名**（四条同时成立 ⇒ 判"客户端卡死"）：
+
+```
+① openssl s_client -connect 10.8.0.21:34500   → 握手成功（链路 OK）
+② UniVPN 日志 %APPDATA%\UniVPN\log\UniVPN_UniVPNCS_*.log 尾部：
+     [NETC WARN][n][SSL Connect failed][reason:ssl time out, reconnect]  + ErrorCode:10037
+     [CNEM ERROR][n][Cnem err handle][nem module reconnect fail]
+     [CAUTH INFO][2][Auth process][auth moudle exit success]     ← ★ 之后彻底不再重试
+③ TAP-Windows Adapter V9 #2 = Disconnected；无 192.168.0.0/16 路由
+④ GamePC 上 UniVPNCS.exe 不存在（组件已退出），GUI 启动 40 s 后报
+     [UI ERROR][1][UI and RPC connection failed!]  然后自己退出
+```
+
+> ⚠️ 日志里那句 `[CADM WARN][Route recovery item is Empty]` 是**现象不是原因**。
+> 另外：客户端配置 `ClientAutoBoot = 0`（不开机自启）⇒ **重启机器也不会自动拉起客户端**。
+
+**远程尝试记录（2026-10-05，全部无效，不要重复）**：
+
+| 尝试 | 结果 |
+|---|---|
+| `Restart-Service UniVPNService`（管理员） | 服务重启成功，但把 CSDK 推入 `#################CSDK exit!#################`，GUI 被连带重启一次后仍连不上 |
+| 计划任务在**会话 1** 以最高权限重启 GUI | GUI 弹一个 `QMessageBox「警告」`；用 UIAutomation 点掉「确定」后 GUI **自己退出**（日志：`UI and RPC connection failed!`） |
+| 在会话 0 / 会话 1 直接启动 `serviceclient\UniVPNCS.exe` | **秒退**，不留日志、不建进程（需要正常启动上下文/参数，脚本复现不了） |
+| 换 CSDK 组件为 CLI（`UniVPNUserConsole.exe`） | 它是 MFC GUI，不是 CLI，无命令行入口 |
+
+**结论 / 唯一恢复路径**：**必须有人在 GamePC 上手动重连客户端**
+（开始菜单/桌面启动 UniVPN，点"连接"；必要时先重启客户端进程再点）。
+远程能做的是"把现场诊断做完并确认不是链路问题"，这一个动作做不到。
+
+**可复用的诊断命令**（GamePC 有 SSH + 管理员权限：`chiro@192.168.101.5`，实测 `elevated_admin=True`）：
+
+```bash
+# 决定性的链路判据（本题两台机器都该跑一遍）
+ssh -o ControlMaster=no chiro@192.168.101.5 \
+  'powershell -NoProfile -Command "(Test-NetConnection 10.8.0.21 -Port 34500 -InformationLevel Quiet)"'
+timeout 12 bash -c 'echo Q | openssl s_client -connect 10.8.0.21:34500 -brief -no_ign_eof'   # 期望 TLS1.3 + CN=LOCAL-…
+
+# 客户端现场
+ssh -o ControlMaster=no chiro@192.168.101.5 \
+  'powershell -NoProfile -Command "Get-NetAdapter -InterfaceDescription \"TAP-Windows Adapter V9 #2\" | Select Status; Get-Process UniVPN,UniVPNCS -ErrorAction SilentlyContinue"'
+```
 
 ### 4.2 平板 `relay-34500` 死掉 ⇒ 咽喉断（外层仍通）
 
