@@ -85,3 +85,15 @@ logger.warning("[swa-groups] gid=%s groups=%d bt_ptr=%s bt_row0=%s seq_lens_ptr=
    本次 replay 恒为 1，"`> 0` 就复用"必然全跳过。
 3. **去重的判据必须是"输入是否相同"，不能是"循环变量是否相同"**。
 4. 负结果同样留档：本文节省了后来者至少一次起服 + 一次静默错误排查。
+
+## 6. 顺带定位：`TAIL-OP-COUNT` 的 **F2「位置/槽位链」真身**（2026-10-05 补充）
+
+追 F2 时把源头定位到了：
+
+| 项 | 结论 |
+|---|---|
+| 代码位置 | **`vllm_ascend/spec_decode/utils.py:130 SlidingWindowAdapter`**（`compute_sliding_window_block_table()` + `apply()`）—— **在上游文件里，不在我们的补丁集内** |
+| 每步调用次数 | **= `len(self.draft_attn_groups)`**。`_propose:1613` 那次被 `self.method not in ("dspark","mtp")` **显式排除**（注释写明"DSpark 的窗口在 build_draft_attn_metadata 里应用"）⇒ dspark 只在 `:3353` 的 group 循环里调 |
+| 链上算子 | `Sub/Add/Clamp/FloorDiv/Mul/Sub/FloorDiv/Range/BroadcastTo/Add/Clamp/Gather(+IndexCheck)/Add/FloorDiv/Clamp/Lt/Lt/And/Mul/Cast/ViewCopy`，两处 `needed/valid_mask` 分支各自成链 |
+| **唯一的"廉价"去重** | `start_block_indices = ((x // b) * b) // b` 里的**第二个除法是冗余的**（`(m*b)//b == m`，且前面已 `clamp(min=0)`）⇒ 每次调用省 1 个 `FloorDiv`。按 1–3 次/步估 ≈ **2–6 µs/步（0.01–0.02%）** |
+| 判决 | **不采纳**：收益低于噪声底，且要为一个上游文件新增挂载项（增加交付面）。真正的解法是把整条链**下沉成一个融合 kernel**（F2 本来的建议），那是独立项目 |
