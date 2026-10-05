@@ -43,6 +43,20 @@ if [ -d "$REPO/cache/npugraph" ]; then
 fi
 mkdir -p "$REPO/cache/npugraph"
 
+# ★★★ [COMPILE-CACHE 2026-10-05] **必须同时清 torch.compile 的图缓存**。
+#   实测事故：臂 W 把 engram wkv 权重从 [25600,6144] 改成 [3200,6144]（分片），
+#   跑完后再起"基线臂"（WKV_TP=0，权重 [25600,6144]）时 **复用到了 W 臂的编译产物**，
+#   直接 `AssertionError: expected size 25600==3200, stride 6144==6144 at dim=0`
+#   —— 起服 30 分钟不 ready（表面像编译慢，其实早就失败了）。
+#   ⇒ **任何改变张量形状/权重的 A/B，都必须清这个缓存**；否则基线会拿到改动臂的图。
+#   代价：起服多几分钟重编译；收益：不会把"缓存错配"误读成"改动无效/更慢"。
+CLEAR_COMPILE_CACHE=${CLEAR_COMPILE_CACHE:-1}
+_tcc=${VLLM_CACHE_ROOT:-$HOME/.cache/vllm}/torch_compile_cache
+if [ "$CLEAR_COMPILE_CACHE" = "1" ] && [ -d "$_tcc" ]; then
+  mv "$_tcc" "${_tcc}.bak_$(date +%m%d_%H%M%S)" 2>/dev/null \
+    && say "已让 torch.compile 图缓存失效：$_tcc"
+fi
+
 say "起服（RUN_ID=$TAG，launcher=$LAUNCHER）"
 cd "$REPO" || exit 1
 RUN_ID="$TAG" setsid nohup bash "$LAUNCHER" > "$HOME/tmp/${TAG}_launch.log" 2>&1 < /dev/null &
