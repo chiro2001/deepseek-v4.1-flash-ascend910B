@@ -13,7 +13,11 @@ set -uo pipefail
 
 REF=${1:-HEAD}
 REPO=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
-TMP=$(mktemp -d /tmp/audit-clone-XXXXXX)
+# ★ 不用 /tmp（本项目纪律：产物放 ~/tmp；且 /tmp 是 tmpfs，clone 会把它打满）
+TMP=$(mktemp -d "$HOME/tmp/audit-clone-XXXXXX")
+KEEP=${KEEP:-0}
+cleanup() { [ "$KEEP" = "1" ] || rm -r "$TMP" 2>/dev/null || true; }
+trap cleanup EXIT
 say() { printf '%s\n' "$*"; }
 fail=0
 
@@ -123,5 +127,5 @@ done
 
 say
 if [ "$fail" = "0" ]; then say "✅ 审计通过：全新 clone 具备交付默认的全部组成"; else say "⛔ 审计失败：见上面 ⛔ 行"; fi
-say "   （审计目录保留在 $TMP，便于人工复核）"
+say "   （临时 clone 已自动清理；要保留复核用 KEEP=1 重跑）"
 exit "$fail"
