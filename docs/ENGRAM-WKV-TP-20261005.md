@@ -80,10 +80,50 @@ kv = get_tp_group().all_gather(kv, dim=-1) # → [n, 25600]
 
 ## 5. 处置
 
-* **保留**：开关 `V41_ENGRAM_WKV_TP`（默认 **0**，待受控 A/B 复现后再转默认）；
-* 复现实验：`bash ~/tmp/launch_armW.sh` → `armF_r7_wkvtp`；
-* 相关代码：`patches/files/model.py`（4 处：开关 / `__init__` / `forward` / `load_weights`）、
-  `scripts/serve_a2.sh`（`ENGRAM_WKV_TP` 透传）。
+**已转交付默认**（`serve_a2.sh` 里 `ENGRAM_WKV_TP=${ENGRAM_WKV_TP:-1}`）。依据 = 机制 + 受控 A/B 双证据：
+
+### 5.1 受控 A/B（同 bench 参数：conc 1,2,4,8 / 3 rep / out 192；各 1 run）
+
+| batch n（真实并发档） | 样本数 A/B | 基线 A | 臂 W | Δ |
+|---:|---|---:|---:|---:|
+| **6**（conc=1） | 1080 / 1120 | 24.82 | **24.32** | **−0.50 ms（−2.0%）** |
+| **12**（conc=2） | 344 / 336 | 27.64 | **27.20** | **−0.44 ms（−1.6%）** |
+| **24**（conc=4） | 144 / 192 | 32.33 | **31.93** | **−0.40 ms（−1.2%）** |
+| **48**（conc=8） | 64 / 88 | 41.72 | **41.06** | **−0.66 ms（−1.6%）** |
+| 18（过渡桶） | **仅 24 / 40** | 32.04 | 33.82 | +1.78（**样本太少 + p90 达 1.9×10⁴ ms ⇒ 混入 prefill/ramp，不作判据**） |
+
+* 4 个稳定桶**全部**更快，且 p10 同向；与机制预测的 −0.57 ms 一致；
+* 144K 验收 **11/11 PASS**。
+
+### 5.2 相关文件
+
+`patches/files/model.py`（4 处：开关 / `__init__` / `forward` / `load_weights`）、
+`scripts/serve_a2.sh`（`ENGRAM_WKV_TP` 透传 + 默认 1）。
+
+## 5.5 ★ 途中踩到并修掉的一个**新缓存陷阱**（写给所有后续 A/B）
+
+臂 W 把 `engram.wkv` 权重从 `[25600,6144]` 换成 `[3200,6144]`。跑完再起"基线臂"
+（`WKV_TP=0`，权重仍是 `[25600,6144]`）时，**起服 30 分钟不 ready**，
+日志里是：
+
+```
+File ".../torch_npu/dynamo/npugraph_ex/npu_fx_compiler.py", line 511, in __call__
+    gm_result = self.run_kernel(*args, **kwargs)
+AssertionError: expected size 25600==3200, stride 6144==6144 at dim=0
+```
+
+**根因**：基线臂**复用了臂 W 编译出来的图**（`torch.compile` 缓存键没有覆盖"权重形状"这一维）。
+而 arm suite 原来只清 `cache/npugraph`（ACL 图），**没清 `torch_compile_cache`**。
+
+**两个坑叠在一起**：
+1. 得清**编译缓存**，不只是 ACL 图缓存；
+2. **路径不能猜** —— `serve_a2.sh:1465` 把 **`$PKG/cache/vllm` 挂成容器里的 `/root/.cache/vllm`**，
+   所以真正要清的是 **`$REPO/cache/vllm/torch_compile_cache`**（3.2 GB），
+   而宿主 `~/.cache/vllm` 是**另一个目录**（我第一版清了它，等于没清，基线依旧失败）。
+
+现在 `run_arm_suite.sh` 会**默认清编译缓存**（`CLEAR_COMPILE_CACHE=1`，代价是起服多几分钟）。
+⇒ **凡改动张量形状/权重的 A/B，必须走这条**；否则"基线"会拿到改动臂的图，
+表现为"起服极慢"或"结果荒谬"。
 
 ## 6. 复现
 
