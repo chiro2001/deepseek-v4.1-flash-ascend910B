@@ -1123,6 +1123,17 @@ if [ "$PATCH_MODE" = "mount" ]; then
   # 不要恢复这个挂载 —— 整文件覆盖 model_runner_v1.py 的风险远大于收益。
   MOUNTS+=(-v "$F/ascend_forward_context.py:/vllm-workspace/vllm-ascend/vllm_ascend/ascend_forward_context.py:ro")
   MOUNTS+=(-v "$F/rope_dsv4.py:/vllm-workspace/vllm-ascend/vllm_ascend/ops/rope_dsv4.py:ro")
+  # [V41-KV32-REPACK] core/deepseek_v41.py：把 ratio-1 源的 index 平面挪到另一个 slot 的
+  #   空闲区 ⇒ 四个 slot 页步长全为 131072 ⇒ 块上限 29076 → 32768（+12.7% 容量，零精度风险）。
+  #   门控默认关：只有 V41_KV32_REPACK=1 且 patches/files/deepseek_v41.repack.py 存在才挂。
+  if [ "${V41_KV32_REPACK:-0}" = "1" ]; then
+    if [ -f "$F/deepseek_v41.repack.py" ]; then
+      MOUNTS+=(-v "$F/deepseek_v41.repack.py:/vllm-workspace/vllm-ascend/vllm_ascend/core/deepseek_v41.py:ro")
+      say "[V41-KV32-REPACK] 已挂载 slot 重排版 deepseek_v41.py（四 slot 全 131072）"
+    else
+      die "V41_KV32_REPACK=1 但缺 patches/files/deepseek_v41.repack.py"
+    fi
+  fi
   # [META-HOST-SLEEP] 2026-10-04：device_metadata.py 的 host 侧 sleep 注入（**诊断用**）。
   #   背景：api_statistic 显示三件套 GetWorkspaceSize 合计 919.7ms/4396 次
   #         （平均 209µs，是算子入队 21µs 的 10 倍），但它在 host CPU 上跑，
