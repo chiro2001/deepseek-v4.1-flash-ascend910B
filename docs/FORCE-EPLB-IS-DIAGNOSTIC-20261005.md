@@ -75,6 +75,17 @@ expert_ids = row + col * experts_per_rank          # ← 只依赖 shape / rank�
 
 ### 4.1 交付默认的正确性证据盘点（本轮顺带核对）
 
+**并且对"当前正在服务的那个实例"做了一次现场验收**（不只是历史 run）：
+
+```bash
+# live: dsv41-tp8k5 @19210（发布镜像 local/dsv41-a3-tp8:20261005-1001，WKV_TP=1 PAD_SKIP=1）
+python3 tools/ced_pd_acceptance.py --base-url http://127.0.0.1:19210 --tokenize-url http://127.0.0.1:19210 \
+  --model deepseek-v41 --corpus data/hongloumeng.txt --mode all --context-tokens 144000
+#  ⇒ 总计 11 条，通过 11，失败 0
+#     needle144k 四针 A/B/C/D 全 PASS（3374 / 1485 / 1699 / 1694 tok/s）
+#     stream144k_D PASS（TTFT 0.75 s）、multiturn 3 轮 PASS、prefix 2 次 PASS
+```
+
 好消息：**当前交付默认里的每一项改动都有正确性证据**，只有 `force_eplb` 缺（而它已排除）：
 
 | 交付默认项 | 正确性证据 |
