@@ -279,6 +279,18 @@ docker exec <容器> bash /opt/dsv41/tools/enable_codex_responses.sh status  # P
 
 ---
 
+## 6.5 发布前门禁（改过 scripts/ 或 patches/ 就跑）
+
+```bash
+# 从**全新 clone** 自检：挂载/执行的文件是否都在库里、交付默认的代码特征是否齐全
+bash tools/audit_fresh_clone.sh        # exit 0 = 通过；KEEP=1 保留临时 clone 供复核
+```
+
+**为什么需要**：本仓曾四次出现“**工作区改了、git 里没有**”的静默缺口
+（自定义内核、`ENGRAM_WKV_TP` 实现、EPLB 接线/哑开关、`device_metadata` 诊断件），
+每一个都**不报错**、只是让部署的人悄悄少掉性能或功能。详见
+`docs/DELIVERY-AUDIT-20261005.md`。
+
 ## 7. 起服后必查（5 项）
 
 ```bash
