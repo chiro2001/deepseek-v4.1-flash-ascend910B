@@ -85,6 +85,104 @@ prompt 63,999 tok，每请求 ≈500 块，30 轮累计 ≈15,000 块）：
   与 BAT=2048 组合时是否装得下，取决于 A3 实测的可用 KV 预算（见
   `docs/CAPACITY-CEILING-MATH-20261006.md` 的内存账）。
 
+## 11. ★★ 交付侧的定量结论（2026-10-06，全部为真机实测 + vLLM 源码核对）
+
+### 11.1 先纠正一个被写进任务书的错误前提
+
+「BAT=2048 图捕获 16 桶只完成 10 桶、死在 12-token 桶」**不是崩溃**，是**误判**
+（`~/tmp/FINDINGS-20261005.md` §18 已更正）：那个「10 桶」是捕获进行中的快照。
+真实终态（`results/armC_bat2048/serve.log`）：
+
+```
+Capturing CUDA graphs (decode, FULL): 100%|██| 12/12
+Graph capturing finished in 520 secs, took 0.78 GiB
+```
+
+（12 桶而非 16：vLLM 自己丢掉了小于 `SP_TOKENS+1=6` 的 1/2/3/4 档。）
+容器退出是**我们自己的守卫**主动拒绝（`~/tmp/armC_bat2048_launch.log:229-242`）：
+
+```
+就绪（用时 1039s）
+GPU KV cache size: 4,032,862 tokens
+✗ [KV32] KV 池超出 4 GiB 寻址上界：31506 块 > 上界 29076
+[serve_a2][FAIL] [KV32] 拒绝以越界池起服（避免长上下文静默空答）
+```
+
+⇒ **BAT=2048 能起、能捕图、能到就绪**；唯一拦路的是 32 位块上界。
+
+### 11.2 交付实例的真实内存账（实测）
+
+| 量 | BAT=8192（现役 `armIMG_v3_restore7`） | BAT=2048（`armC_bat2048`） |
+|---|---:|---:|
+| weights | 38.71 GiB | 38.71 GiB |
+| **peak activation** | **3.21 GiB** | **0.79 GiB** |
+| non-torch / NPU graph | 0.63 / 0.77 GiB | 0.62 / 0.78 GiB |
+| `Available KV cache memory` | **13.82 GiB** | **16.60 GiB** |
+| `GPU KV cache size` | 2,988,163 tokens | **4,032,862 tokens** |
+| 块数（÷540,928，旧几何） | 27,432 | **32,950** |
+| npr（= 块数 ÷ 并发度，vLLM `get_max_concurrency_for_kv_cache_config`） | 9,627 | **8,567** |
+
+公式（vLLM 源码 `kv_cache_utils.py:937-959`）：
+`max_concurrency = num_blocks / Σ_groups cdiv(group_spec.max_memory_usage_bytes(MML), page_size)`，
+`num_tokens = max_concurrency × MML`。npr **只由 spec 与 config 决定，与池布局无关**
+⇒ 重排后 `tokens ∝ num_blocks`（与 §9 的 tiny 实测一致：1.12701 = 32768/29076）。
+
+### 11.3 ★ 关键推论：重排 + BAT=2048 时，**32 位上界成为约束瓶颈**
+
+同一份 16.60 GiB 显存，重排后池 stride 540,928 → 524,288 ⇒ 块数 = **33,993**，
+而重排后真实上界 = ⌊2³²/131,072⌋ = **32,768** ⇒ **33,993 > 32,768**，
+不压池会被守卫（正确地）拦下，硬压过去就是静默回绕。
+
+⇒ 正确配方是**显式压到上界**：`KV_CACHE_MEMORY_BYTES = 32768 × 524288 = 17,179,869,184`
+（16.000 GiB ≤ 实测可用 16.60 GiB，余 0.60 GiB），此时
+`32768 × 131,072 = 2³²` 恰好**取等**，页尾落进 32 位空间。
+
+容量预期（两档 npr 都算）：
+
+| npr | 容量 | vs 现役 2,988,163 |
+|---:|---:|---:|
+| 8,543（解析模型） | 4,021,975 | +34.6% |
+| 8,567（实测反解） | 4,010,708 | +34.2% |
+
+即 **≈4.01–4.02M（+34.2%~34.6%）**，与任务书里的 4.03M / +34.8% 相差 ≤0.5%
+（差在 npr 的 0.3% 口径，不是块数）。**32,768 块就是本几何的物理天花板**：
+要再往上必须压每槽页步长本身（即 int8 KV 那条路，见 §5 与
+`docs/CAPACITY-CEILING-MATH-20261006.md`）。
+
+### 11.4 顺带修掉的守卫缺口（同为"静默回绕"风险）
+
+1. **显式给值形态完全跳过复核**：旧版只在「交给 vLLM 自动 profiling」时复核，
+   显式 `KV_CACHE_MEMORY_BYTES` 只保证"池 = 我给的字节数"，不保证"块数 ≤ 上界"。
+   修法：显式形态用确定值 `KV_CACHE_MEMORY_BYTES ÷ 每块字节数` 复核（新函数
+   `kv32_blocks_explicit`）。
+2. **块数估算漏报 14%**：旧版用 `GPU KV cache size ÷ BLOCK`，该恒等式只在
+   `npr == BLOCK` 时成立。实测反例：现役 2,988,163 tokens ⇒ 旧做法 23,345 块，
+   真值 27,432 块 —— 一个真越界的池可能被放行。
+   修法：抽 `kv32_resolve_blocks`，**取「常数估算」与「tokens÷BLOCK」两来源的最大值**
+   （非 DCP 等价于常数口径（正确），DCP 取到保守的 tokens 口径）。
+3. **重排下的守卫上界**：守卫原用 `pool_bytes_per_block × 29076` 作 4 GiB 上界的代理；
+   重排后真实上界是 `每槽页步长 × 32768`。`V41_KV32_REPACK=1` 时改为
+   `_ced_max_blocks=32768 / _ced_bytes_per_block=524288 / _ced_cap=16 GiB`
+   —— 不改这一处，16 GiB 会被**静默钳回 14.65 GiB，直接废掉重排收益**。
+
+以上三条都进了 `tools/selftest_kv32_scope.sh` 的离线正/负控（**24/24 通过**，
+含"重排开不钳 / 重排关必钳 / 显式+旧几何须判越界 / 两来源取 max"）。
+
+### 11.5 A3 验证配方（一条命令，含自动回退）
+
+```bash
+ssh a3-21 'bash ~/tmp/verify_repack.sh'   # 约 45–60 min，需独占窗口
+```
+
+* `V41_KV32_REPACK=1` + `BAT_TOKENS=2048` + `KV_CACHE_MEMORY_BYTES=17179869184`；
+* 验收点：几何 `slots=[131072×4]`、`[KV32] 池上界复核 32768 ≤ 32768`、
+  图捕获 `finished`、容量 ≈4.01–4.02M、长文针 60K/150K/300K 全过；
+* 结束自动回退交付配置（BAT=8192、不压池、不重排）。
+
+> 已实测验证的挂载链路（本次试起时被中止前留下的日志）：
+> `[serve_a2] [V41-KV32-REPACK] 已挂载 slot 重排版 deepseek_v41.py（四 slot 全 131072）`
+> —— 即 repack 文件确实被挂进容器，不用等正式窗口才知道挂载对不对。
+
 **四个 slot 全为 131,072** ⇒
 * `pool_bytes_per_block = 524,288`（比现状 **小 16,640**）
 * 块上限 = `floor(2³²/131072)` = **32,768**
