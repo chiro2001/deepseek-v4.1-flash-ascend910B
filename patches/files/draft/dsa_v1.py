@@ -217,6 +217,28 @@ _DSA_CAPTURE_MAXSEQLEN = int(os.environ.get("DSPARK_CAPTURE_MAXSEQLEN", "0") or 
 # 因此本开关**默认 1（开启）**：这是本 bug 的唯一必需修复点。
 _DSA_SWA_RESIDENT = os.environ.get("DSPARK_SWA_INDICES_RESIDENT", "1") == "1"
 
+# [SWA-ONCE] ★ 候选优化（2026-10-05，默认关）：draft 的 SWA 索引每步被**重复构造 K 次**。
+#
+# 事实链（静态核对 2026-10-05）：
+#   * `llm_base_proposer.py` 的 draft 循环是 `for draft_index in range(num_speculative_tokens)`，
+#     每轮都调一次 builder ⇒ 每步 K（=5）次 metadata 构造；
+#   * 但 `build_dspark_swa_indices` 的输入里**只有 block_table / seq_lens / query_start_loc /
+#     num_actual_tokens**，逐轮只是被**重绑到 `*_group[draft_index]` 的常驻缓冲**上
+#     （`copy_` 的是同一份内容），**数值与 draft_index 无关**；
+#   * 真正随 draft_index 变的只有 `get_cos_and_sin_dsa(..., draft_index=)` 与
+#     `spec_slot_mapping[draft_index-1]`（那两处**不在本开关的范围内**，照旧逐轮算）；
+#   * device 分支（`_device_metadata_enabled`，生产 `dcp_size==1` 走这条）本来就把 K 次结果
+#     写进**同一个** `dspark_swa_indices_buffer` ⇒ 每步只有最后一次写有效。
+# ⇒ 打开本开关后：`draft_index > 0` 不再重算，直接复用 `draft_index == 0` 已写入的内容
+#    （地址不变 ⇒ ACLGraph 捕获的 data_ptr 语义不受影响）。
+#
+# ⚠️ 只对 `dcp_size == 1` 开（DCP>1 时 draft 步会换 `block_table_tensor_clone`，内容不再相同）。
+# ⚠️ `DSPARK_SWA_ONCE_VERIFY=1` 时，前 5 个 replay 步会**额外重算一次并逐位比对**，
+#    在 serve 日志里打 `[SWA-ONCE] verify ok/mismatch`（capture 期不做，避免 D2H 进图）。
+_DSPARK_SWA_ONCE = os.environ.get("DSPARK_SWA_ONCE", "0") == "1"
+_DSPARK_SWA_ONCE_VERIFY = os.environ.get("DSPARK_SWA_ONCE_VERIFY", "0") == "1"
+_DSPARK_SWA_ONCE_VERIFY_LEFT = 5 if _DSPARK_SWA_ONCE_VERIFY else 0
+
 
 def _dsa_write_probe(cache, slot_mapping, rank_hint: str = "write") -> None:
     global _DSA_WRITE_LEFT, _DSA_WRITE_CAP_SEEN
@@ -661,6 +683,43 @@ def build_dspark_swa_indices(
         per_token_slots = buffer[:num_rows]
 
     return per_token_slots, per_token_lens
+
+
+def _maybe_verify_swa_once(builder: Any, args: tuple, cached_view: torch.Tensor) -> None:
+    """[SWA-ONCE] 可选自校验：重算 SWA 索引并与"复用的内容"逐位比对。
+
+    只在 replay 期、前 `_DSPARK_SWA_ONCE_VERIFY_LEFT` 步各做一次（capture 期直接跳过，
+    因为 capture 区间里不能做 D2H）。结果打到 stdout ⇒ serve.log 里可 grep `[SWA-ONCE]`。
+    """
+    global _DSPARK_SWA_ONCE_VERIFY_LEFT
+    if _DSPARK_SWA_ONCE_VERIFY_LEFT <= 0:
+        return
+    try:
+        from vllm.forward_context import get_forward_context as _gfc_swa
+
+        if bool(getattr(_gfc_swa(), "capturing", False)):
+            return
+    except Exception:
+        return
+    _DSPARK_SWA_ONCE_VERIFY_LEFT -= 1
+    try:
+        scratch = getattr(builder, "_swa_once_verify_scratch", None)
+        if (
+            scratch is None
+            or tuple(scratch.shape) != tuple(cached_view.shape)
+            or scratch.dtype != cached_view.dtype
+        ):
+            scratch = torch.empty_like(cached_view)
+            builder._swa_once_verify_scratch = scratch
+        build_dspark_swa_indices(*args, indices_output=scratch)
+        same = bool(torch.equal(scratch, cached_view))
+        print(
+            f"[SWA-ONCE] verify {'ok' if same else 'MISMATCH'} "
+            f"left={_DSPARK_SWA_ONCE_VERIFY_LEFT} shape={tuple(cached_view.shape)}",
+            flush=True,
+        )
+    except Exception as exc:  # pragma: no cover - 诊断路径
+        print(f"[SWA-ONCE] verify error: {type(exc).__name__}: {exc}", flush=True)
 
 
 def build_vision_bidirectional_swa_indices(
@@ -1491,10 +1550,22 @@ class AscendDSAMetadataBuilder(AttentionMetadataBuilder[AscendDSAMetadata]):
                         f"active={self.num_actual_tokens}, capacity={self.dspark_swa_indices_buffer.shape[0]}"
                     )
                 dspark_swa_indices = self.dspark_swa_indices_buffer[: self.num_actual_tokens]
-                build_dspark_swa = lambda: build_dspark_swa_indices(
-                    *dspark_swa_args,
-                    indices_output=dspark_swa_indices,
+                # [SWA-ONCE] 见文件顶部说明：draft_index>0 的输入数值与 draft_index==0 相同
+                # （逐轮只是重绑常驻缓冲），且 K 次结果都写进同一个 buffer
+                # ⇒ 直接复用，省掉 4/5 次构造。默认关；`DSPARK_SWA_ONCE=1` 打开。
+                _swa_once_cached = (
+                    _DSPARK_SWA_ONCE
+                    and draft_index > 0
+                    and int(getattr(self, "dcp_size", 1)) == 1
                 )
+                if _swa_once_cached:
+                    build_dspark_swa = None
+                    _maybe_verify_swa_once(self, dspark_swa_args, dspark_swa_indices)
+                else:
+                    build_dspark_swa = lambda: build_dspark_swa_indices(
+                        *dspark_swa_args,
+                        indices_output=dspark_swa_indices,
+                    )
             else:
                 # [DSV41 SWA-INDICES-RESIDENT] 见文件顶部说明：不传 buffer 时每次新分配，
                 # ACLGraph 会一直读捕获期那个地址上的旧内容。开启本开关后走常驻 buffer
