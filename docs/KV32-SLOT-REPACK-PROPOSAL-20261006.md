@@ -210,6 +210,60 @@ SIM: FAIL — 槽长不齐：[131072, 131072, 131072, 147712]; pool stride 54092
 > 本几何下两者**行为等价**（候选宿主 slot0/1/2 的 `capacity == alias_max == 131072`），
 > 交付版写法更一般（对被别名顶住的槽也正确）。tiny 的实测结论因此对交付版有效。
 
+### 11.7 补丁安全性的两条口径（仿真已锁）
+
+「挪动 index 平面」唯一可能破坏的是**同源平面相交**，而这里的"字节范围"必须区分两种口径：
+
+| 口径 | 定义 | 谁消费 | 要求 |
+|---|---|---|---|
+| **A 真实数据范围** | `[offset, offset + _cache_plane_sizes(spec))`（`reshape_cache` 的 `as_strided` 就是按这个铺） | 算子读写 | **同槽内同一 block-id 组**（每源 KV+index 共享 block id）必须两两不相交 |
+| **B 声明页** | `placement.page_size_bytes` | 被 `replace(spec, page_size_padded=…)` 消费 ⇒ 决定调度器 npr | 必须与原公式（KV=`kv_bytes`；index=`原 capacity − kv_bytes`）**逐资源一致**，否则容量口径会变 |
+
+初版仿真用 B 当 A，结果与 layer-2 index 的"声明页 65,536"误报重叠（其真实数据只到 73,856）。
+改成两口径后本几何的结论（`tools/kv32_repack_sim.py`）：
+
+```
+声明页（page_size_padded 口径）与原公式逐资源一致 ⇒ npr/容量口径不变
+同组真实范围不相交检查：4 槽全部通过
+  slot0（页 131072）: L2.kv[0,65536), L2.idx[65536,73856), L20.idx[73856,90496)
+  slot1（页 131072）: L8.kv[0,65536), L8.idx[65536,73856)
+  slot2（页 131072）: L14.kv[0,65536), L14.idx[65536,73856)
+  slot3（页 131072）: L20.kv[0,131072)
+```
+
+即 layer-20 的 index（16,640 B）**恰好卡进** L2.idx 之后的空隙，四槽页全 131,072。
+
+`tools/selftest_kv32_repack.sh`：正控 PASS + 3 个负控全部按预期被拦
+（noop ⇒ 被补丁自带覆盖检查拦；偏移侵入 4,000 B ⇒ 同组真实范围相交；挪动大小写 100 ⇒ 声明页漂移），
+**4 通过 / 0 失败**。
+
+## 12. ★ 性能基线（零窗口、活实例实测，窗口前后对比用）
+
+目标 ③ 要求"decode/prefill 性能不掉出基线"。基线不能跨 run 比，所以在**重启之前**先对
+**正在运行的交付实例**（`armIMG_v3_restore7`，BAT=8192）实测一遍，窗口后再跑同一条命令：
+
+```bash
+python3 tools/bench_concurrency.py \
+  --base-url http://127.0.0.1:19210 --tokenize-url http://127.0.0.1:19210 \
+  --model deepseek-v41 --corpus-file data/dihuo.txt --corpus-mark dihuo_local \
+  --concurrency 1,2,4,8 --prompt-tokens 1024 --output-tokens 256 --repeats 2 \
+  --metrics-url http://127.0.0.1:19210/metrics --json-out ~/tmp/batcurve/base_restore7_KPI.json
+```
+
+| 并发 | 单流 tok/s | 总吞吐 tok/s | 接受长度 | TTFT s | （同镜像历史表 单流/总吞吐/ms/step） |
+|---:|---:|---:|---:|---:|---|
+| 1 | **121.2** | **118.8** | 3.68 | 0.18 | 116.4 / 117.0 / 24.84 |
+| 2 | **102.3** | **161.6** | 3.30 | 0.27 | 103.9 / 158.5 / 26.43 |
+| 4 | **89.8** | **268.0** | 3.51 | 0.28 | 88.1 / 249.5 / 31.55 |
+| 8 | **55.4** | **344.7** | 3.39 | 0.46 | 68.8 / 362.7 / 37.46 |
+
+* 与同镜像历史表逐档吻合（N=8 单流的 rep1/rep2 是 43.2 / 67.6 ⇒ 该档**方差大**，
+  判据以**总吞吐**与 **ms/step** 为准，不看 N=8 单流）。
+* 原始明细：`~/tmp/batcurve/base_restore7_KPI.json`（a3-21）。
+* 窗口内的验证脚本（`~/tmp/verify_bat2048.sh`）已把这条命令 + `ced_pd_bench`（两档上下文
+  的 prefill token/s 与 decode ms/step）加进流程，并在**未就绪时自动回退**到
+  「只开重排 + BAT=8192，auto profiling」（纯布局改动，容量 ≈3.085M / +3.2%）。
+
 **四个 slot 全为 131,072** ⇒
 * `pool_bytes_per_block = 524,288`（比现状 **小 16,640**）
 * 块上限 = `floor(2³²/131072)` = **32,768**
