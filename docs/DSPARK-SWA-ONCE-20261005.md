@@ -44,6 +44,32 @@ num_actual_tokens`）逐轮只是被**重绑到常驻缓冲**、**数值完全�
 
 ## 3. 上卡验证步骤（等 a3-21 可用）
 
+### 3.-1 跑之前必须先做两件事（否则会白跑一条臂）
+
+**(a) 把这两个文件同步到 a3-21 的工作副本**（a3-21 的 `~/cedpd-repo` 在 `main` 上，
+而本改动落在 `feat/v41-dcp8`）：
+
+```bash
+cd ~/cedpd-repo
+git fetch origin feat/v41-dcp8
+git checkout origin/feat/v41-dcp8 -- patches/files/draft/dsa_v1.py scripts/serve_a2.sh
+git diff --stat HEAD -- patches/files/draft/dsa_v1.py scripts/serve_a2.sh   # 应看到两个文件被改
+```
+
+**(b) 起服后**在容器内**确认补丁真的在跑**（本项目"哑开关"教训的正向用法）：
+
+```bash
+docker exec dsv41-tp8k5 bash -lc \
+  'grep -c "SWA-ONCE" /vllm-workspace/vllm-ascend/vllm_ascend/attention/dsa_v1.py; \
+   printf "DSPARK_SWA_ONCE=%s\n" "${DSPARK_SWA_ONCE:-unset}"'
+# 期望：≥1 且 =1；若 grep 为 0 ⇒ 容器里是旧文件（挂载/同步问题），不要看性能数据
+```
+
+> 注：A3 交付走 `PATCH_MODE=mount` ⇒ **挂载的** `patches/files/draft/dsa_v1.py` 生效
+> （`serve_a2.sh:1155-1158`）；镜像内 `/opt/dsv41/patches/draft/` 那份**只在 `PATCH_MODE=baked`
+> 时**才会被 `cp` 进 live tree（`:1862-1872`）。当前发布镜像
+> `local/dsv41-a3-tp8:20261005-1001` 构建于本补丁之前 ⇒ **凡是走 baked 模式的实例都拿不到它**。
+
 ### 3.0 ★ 上线前的四条风险自查（2026-10-05 静态完成，**全部通过**）
 
 | # | 风险 | 核对结果 |
