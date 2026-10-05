@@ -204,6 +204,12 @@ SIM: FAIL — 槽长不齐：[131072, 131072, 131072, 147712]; pool stride 54092
 
 即：**正控过、负控挂**，补丁与仿真都有鉴别力。
 
+> 可追溯性：tiny 上**实际跑过**的工作副本（`~/dcpw/.../core/deepseek_v41.py`，503 行底本）
+> 与本仓交付版（`patches/files/deepseek_v41.repack.py`，356 行底本）在挑宿主槽时差一个 token
+> —— tiny 版写 `q["alias_max"] − used`，交付版写 `q["capacity"] − used`。
+> 本几何下两者**行为等价**（候选宿主 slot0/1/2 的 `capacity == alias_max == 131072`），
+> 交付版写法更一般（对被别名顶住的槽也正确）。tiny 的实测结论因此对交付版有效。
+
 **四个 slot 全为 131,072** ⇒
 * `pool_bytes_per_block = 524,288`（比现状 **小 16,640**）
 * 块上限 = `floor(2³²/131072)` = **32,768**
