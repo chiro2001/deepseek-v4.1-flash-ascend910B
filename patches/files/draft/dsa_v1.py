@@ -232,7 +232,10 @@ _DSA_SWA_RESIDENT = os.environ.get("DSPARK_SWA_INDICES_RESIDENT", "1") == "1"
 # ⇒ 打开本开关后：`draft_index > 0` 不再重算，直接复用 `draft_index == 0` 已写入的内容
 #    （地址不变 ⇒ ACLGraph 捕获的 data_ptr 语义不受影响）。
 #
-# ⚠️ 只对 `dcp_size == 1` 开（DCP>1 时 draft 步会换 `block_table_tensor_clone`，内容不再相同）。
+# ⚠️ 前提"K 次输入一致"只对 `dcp_size == 1` 成立（DCP>1 时 draft 步会换
+#    `block_table_tensor_clone`）。该前提由 `enable_dspark_device_metadata()` 落成
+#    `self._swa_once_single_dcp` 标记 —— 那个入口唯一的调用点（`dspark_proposer.py:374`）
+#    条件里就含 `dcp_size == 1`，见该处注释。
 # ⚠️ `DSPARK_SWA_ONCE_VERIFY=1` 时，前 5 个 replay 步会**额外重算一次并逐位比对**，
 #    在 serve 日志里打 `[SWA-ONCE] verify ok/mismatch`（capture 期不做，避免 D2H 进图）。
 _DSPARK_SWA_ONCE = os.environ.get("DSPARK_SWA_ONCE", "0") == "1"
@@ -1211,6 +1214,12 @@ class AscendDSAMetadataBuilder(AttentionMetadataBuilder[AscendDSAMetadata]):
 
     def enable_dspark_device_metadata(self, max_num_tokens: int) -> None:
         self.enable_device_metadata()
+        # [SWA-ONCE] 本入口**唯一**的调用点是 `dspark_proposer.py:374`，其条件里含
+        # `self.dcp_size == 1 and not enable_pcp()` ⇒ 走到这里就说明"本步内 K 次 SWA 索引
+        # 的输入完全一致"这一前提成立（DCP>1 时 draft 步会换 block_table_tensor_clone）。
+        # 因此把该前提**显式落成标记**，供 build_for_drafting 里的快路径使用，
+        # 而不是在那边猜（builder 上没有 `dcp_size` 属性，猜会默认成 1 ⇒ 隐患）。
+        self._swa_once_single_dcp = True
         assert self.speculative_config is not None
         index_width = _aligned_dspark_index_width(
             self.model_config.hf_config.sliding_window,
@@ -1556,7 +1565,7 @@ class AscendDSAMetadataBuilder(AttentionMetadataBuilder[AscendDSAMetadata]):
                 _swa_once_cached = (
                     _DSPARK_SWA_ONCE
                     and draft_index > 0
-                    and int(getattr(self, "dcp_size", 1)) == 1
+                    and bool(getattr(self, "_swa_once_single_dcp", False))
                 )
                 if _swa_once_cached:
                     build_dspark_swa = None

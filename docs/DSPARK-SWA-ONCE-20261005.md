@@ -44,6 +44,21 @@ num_actual_tokens`）逐轮只是被**重绑到常驻缓冲**、**数值完全�
 
 ## 3. 上卡验证步骤（等 a3-21 可用）
 
+### 3.0 ★ 上线前的四条风险自查（2026-10-05 静态完成，**全部通过**）
+
+| # | 风险 | 核对结果 |
+|---|---|---|
+| 1 | **补丁会不会是死代码？** draft 循环里 `draft_index == 0` 走 `build_for_graph_capture`、只有 `>0` 才走 `build_for_drafting`；若 `use_compress=False` 则全部走 `build_for_graph_capture`，本补丁永不执行 | `use_compress = hasattr(hf_config, "compress_ratios")`（`llm_base_proposer.py:544`），而 V4.1-Flash 的 config **确有** `compress_ratios`（43 项，见 `a2/logs/129-…md` 与 `067-…md`）⇒ `use_compress=True` ⇒ **补丁在活路径上** |
+| 2 | **replay 期 buffer 还会不会被刷新？** 若 K 次全跳过，buffer 会停在旧值 | 不会：每步 `draft_index == 0` 走 `build_for_graph_capture → build() → build_req_metadata()`，而那条路**同样**调用 `build_dspark_swa_indices(..., buffer=self.dspark_swa_indices_buffer)`（`:1224`），且该分支注明"**不**走 SAS metadata 缓存、每个 draft 步都要重建"⇒ 每步仍有且仅有 1 次正确写入 |
+| 3 | **DCP>1 会不会误开？** 我在守卫里用过 `getattr(self, "dcp_size", 1)` —— 但 builder 上**没有** `dcp_size` 属性，getattr 恒返回 1 ⇒ 守卫形同虚设 | 已修：改为读 `enable_dspark_device_metadata()` 落的显式标记 `_swa_once_single_dcp`。该入口**唯一**调用点（`dspark_proposer.py:374`）条件里含 `dcp_size == 1 and not enable_pcp()` ⇒ 标记为真当且仅当前提成立 |
+| 4 | **捕获期跳过写入会不会污染图？**（`dspark_proposer.py:709` 以 `draft_index=1` 直接调 `build_for_drafting` 做 capture） | 无害：`DSPARK_SWA_INDICES_RESIDENT` 当年的实验已证"**常驻化之后捕获期的内容不再重要**"（捕获期 seq_lens 取 0/6/1037/8192 全部 5/5）；且 replay 期每步由第 2 条路径刷新同一地址 |
+
+**另外两个 `build_for_drafting` 调用点已确认不受影响**：
+`llm_base_proposer.py:2795`（MTP 路径）与 `:3355`（DCP 路径）——前者不会启用 draft 侧 device metadata、
+后者被 `dcp_size == 1` 门控排除，都到不了本快路径。
+
+> 这四条正是"哑开关/静默无效"类事故的同一族：**先证明代码会被执行，再谈收益**。
+
 ```bash
 # 0) 判据前置：先用 VERIFY 证明"复用的内容确实等于重算的内容"
 DSPARK_SWA_ONCE=1 DSPARK_SWA_ONCE_VERIFY=1 bash ~/tmp/launch_armF.sh
