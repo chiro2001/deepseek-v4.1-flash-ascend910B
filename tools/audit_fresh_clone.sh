@@ -47,6 +47,8 @@ PREFIX = {
 ALLOW = (
     "optim/pgo/",            # 二进制按 README 明说不入库
     "reports/probe/",        # PROBE 派生件，README 明说不随包
+    "dsa_v41.probe.py",      # 同上（docs/PROBE 的生成物）
+    "sparse_capture.py",     # 同上
     "cache/", "results/", "logs/", "probe_capture/", "payload/",
 )
 
@@ -69,13 +71,27 @@ for r in sorted(refs):
             rel = os.path.join(v, rel[len(k):]) if v else rel[len(k):].lstrip("/")
             break
     rel = rel.lstrip("./")
-    if rel.startswith(ALLOW) or any(rel.startswith(a) for a in ALLOW):
+    if any(rel == a.rstrip("/") or rel.startswith(a) for a in ALLOW):
         skipped += 1
         continue
-    if os.path.exists(os.path.join(root, rel)):
+    base0 = os.path.basename(rel)
+    if base0 in ("xxx", "<file>", "<name>", "..."):
+        skipped += 1           # 用法示例里的占位符，不是真依赖
+        continue
+    full = os.path.join(root, rel)
+    if os.path.exists(full):
         ok += 1
-    else:
-        missing.append(rel)
+        continue
+    # 兜底：`$HERE`/`$SELF` 在不同脚本里指向不同目录（scripts/ 或 tools/），
+    # 前缀表无法对所有脚本都正确 ⇒ 按**文件名**在 clone 里找一次。
+    # 只要仓库任何位置有同名文件，就算"这个依赖在仓库里存在"。
+    base = os.path.basename(rel)
+    if base and base not in ("xxx", "<file>", "<name>"):  # 用法示例里的占位符
+        hits = [os.path.join(dp, fn) for dp, _, fns in os.walk(root) for fn in fns if fn == base]
+        if hits:
+            ok += 1
+            continue
+    missing.append(rel)
 print("   解析出 %d 个挂载/执行目标：存在 %d、缺失 %d、跳过（文档化可选）%d"
       % (ok + len(missing), ok, len(missing), skipped))
 for m in missing:
