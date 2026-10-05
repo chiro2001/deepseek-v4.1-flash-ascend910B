@@ -400,7 +400,43 @@ class AscendDSparkProposer(AscendDflashProposer):
         block_table: torch.Tensor,
         slot_mapping: torch.Tensor,
     ) -> None:
-        self._per_group_block_tables[gid] = block_table
+        # [DYNSPEC-FIX-CANDIDATE 2026-10-03] ★ 行数不匹配的**候选**修复（**默认关**）。
+        #
+        # 背景：runner 传进来的是 `blk_table.get_device_tensor()[:num_reqs_padded]`
+        # —— 一个按**目标侧** padded 行数切出来的**视图**，名字却叫
+        # `_per_group_block_table_buffers`（并不是常驻缓冲）。草稿侧在 `_propose`
+        # 里有自己的 `_pad_query_start_loc_for_fia`，其 mixed-batch 分支会
+        # **补一个 dummy 请求并把 num_reqs_padded +1**（见 llm_base_proposer 顶部注释）
+        # ⇒ 两侧行数可能不同，进而触发
+        #   dsa_v1.build_dspark_swa_indices 的
+        #   `expected index shape 2 smaller than self shape 1`。
+        #
+        # 为什么**默认关**：这条修复只是候选之一 —— 还有一个同样成立的候选是
+        # "build 期与 run 期的 num_reqs 偏移"（builder 在 build 时把
+        # `block_table_tensor[:num_reqs]` 存成切片，run 期再用**当时**的 num_reqs
+        # 去切这个已经变短的切片）。两种候选要靠 `[DYNSPEC-DIAG]` 的探针输出来分辨：
+        #   * 若 `pre-window` 就不一致 ⇒ 本修复对症；
+        #   * 若 `pre-window` 一致、只有 dsa_v1 报错 ⇒ 是 build/run 偏移，本修复无效。
+        # 先跑**未修改**的基线拿探针输出，再决定开不开这个开关（本仓单变量纪律）。
+        if os.environ.get("V41_DYNSPEC_BT_PERSIST", "0") != "1":
+            self._per_group_block_tables[gid] = block_table
+            self._per_group_slot_mappings[gid] = slot_mapping
+            return
+        _rows = int(block_table.shape[0])
+        _cols = int(block_table.shape[1])
+        _cap = int(getattr(self.runner, "max_num_reqs", _rows)) + 2
+        _buf = self._per_group_block_table_buffers.get(gid)
+        if _buf is None or int(_buf.shape[0]) < max(_rows, _cap) or int(_buf.shape[1]) != _cols:
+            _buf = torch.zeros(
+                (max(_rows, _cap), _cols),
+                dtype=block_table.dtype,
+                device=block_table.device,
+            )
+            self._per_group_block_table_buffers[gid] = _buf
+        _buf[:_rows].copy_(block_table)
+        if int(_buf.shape[0]) > _rows:
+            _buf[_rows:].fill_(0)
+        self._per_group_block_tables[gid] = _buf
         self._per_group_slot_mappings[gid] = slot_mapping
 
     def set_inputs_first_pass(
