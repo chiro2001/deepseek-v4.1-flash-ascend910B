@@ -110,6 +110,19 @@ GPU KV cache size: 4,032,862 tokens
 
 ⇒ **BAT=2048 能起、能捕图、能到就绪**；唯一拦路的是 32 位块上界。
 
+**"10 桶"那条快照的精确证据**（本轮从原始日志复核，不依赖既有结论）：
+
+* `armC_bat2048/serve.log` 里 `[bneck] … graphs=10` 共 8 条，全部落在第 1608–1629 行；
+  而 `Graph capturing finished` 在第 **1805** 行 ⇒ 8 条**全在捕获完成之前**；
+* 第 1805 行之后该日志里 `[bneck]` **一条都没有** ⇒ 该实例**从未跑过一步 decode**
+  （就绪后约 1 分钟即被守卫杀掉）；
+* 对照现役 `armIMG_v3_restore7`：`graphs=12` 出现 **1336 次**、`graphs=10` 只有 8 次
+  （同为捕获中快照），终态 keys = `(6,1) (12,2) (18,3) … (192,32)` 共 12 项。
+
+⇒ BAT=2048 的**终态**桶集合**尚无观测**（从未跑过 decode）；"死在 12-token 桶"完全
+由快照造成。**是否保住 `(6,1)/(12,2)` 由窗口里的一次真实 decode 判定** ——
+验证脚本已把它写成硬检查（缺 `(6,1)` ⇒ 单流 decode 可能退化为 eager）。
+
 ### 11.2 交付实例的真实内存账（实测）
 
 | 量 | BAT=8192（现役 `armIMG_v3_restore7`） | BAT=2048（`armC_bat2048`） |
@@ -285,6 +298,15 @@ python3 tools/bench_concurrency.py \
 | **A** | 派生出的启动器含 `V41_KV32_REPACK=1` | `exit 2` 拒跑 |
 | **B** | 守卫解析出 `cap=17179869184 bytes=17179869184`（未钳） | `exit 2` 拒跑 |
 | **C** | 起服后日志含 `pool_bytes_per_block=524288 (slots=[131072,131072,131072,131072])` | 标 ✗，**该轮数据不得用于重排结论** |
+
+窗口有**两档**，便于先拿短窗确认容量再决定是否开长窗：
+
+```bash
+MODE=capacity CONFIRM_WINDOW=1 bash ~/tmp/verify_repack.sh   # 短窗 ≈25 min：几何+容量+图桶，随即回退
+CONFIRM_WINDOW=1 bash ~/tmp/verify_repack.sh                 # 完整窗 ≈60 min：再加 KPI 性能 + 长文针
+```
+
+（`MODE=capacity` 在"容量/几何/桶"三项之后**立即回退**，跳过性能与长文针。）
 
 另加两道门槛：
 
