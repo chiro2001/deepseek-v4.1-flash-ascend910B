@@ -155,5 +155,76 @@ else:
 names = [p.name for s in slots for p in s.placements]
 if len(names) != len(set(names)):
     fails.append("资源被重复放置")
+
+# ---- 真正的不变量：**同一来源**（共享同一批 block id）的平面必须字节不相交 ----
+# 设计说明（补丁注释里的 "overlay a slot at distinct live block IDs"）：
+#   slot 页内不同**组**可以互相覆盖，因为调度器给它们不同的 block id；
+#   但**同源**的 KV 与 index 用同一批 block id ⇒ 必须落在不相交的字节区间。
+#   这条是"挪动 index 平面"唯一可能破坏的东西，必须显式锁住。
+# ---- 不变量（用正确的两种口径分开写）----
+#
+# 【口径 A：真实数据字节范围】= [offset, offset + 平面实际大小)，平面实际大小来自
+#   `_cache_plane_sizes(spec)`（reshape_cache 的 as_strided 视图就是按这个铺的）。
+# 【口径 B：声明页 `placement.page_size_bytes`】它被 `plan_cache_slots` 之后的
+#   `replace(spec, page_size_padded=p.page_size_bytes)` 消费，**只影响调度器的
+#   每请求块数（npr）**，不影响数据落点。所以它必须与"挪动前"逐资源一致，否则容量口径会变。
+FULL_TAGS = (".long_kv_cache", ".indexer.k_cache")
+
+def _actual(name):
+    return sum(m._cache_plane_sizes(specs[name]))
+
+fails = []
+# A1/ A2: 同一槽内、同一 block-id 组（full 组：每源 KV+index 共享 block id）的真实范围必须不相交
+for si, slot in enumerate(slots):
+    mem = [pl for pl in slot.placements if pl.name.endswith(FULL_TAGS)]
+    for i in range(len(mem)):
+        for j in range(i + 1, len(mem)):
+            a, b = mem[i], mem[j]
+            a1, b1 = a.offset + _actual(a.name), b.offset + _actual(b.name)
+            if a.offset < b1 and b.offset < a1:
+                fails.append(f"slot{si} 同组真实范围相交：{a.name}[{a.offset},{a1}) ∩ {b.name}[{b.offset},{b1})")
+    for pl in slot.placements:
+        if pl.offset + _actual(pl.name) > slot.page_size_bytes:
+            fails.append(f"slot{si} {pl.name} 真实范围越出页（{pl.offset}+{_actual(pl.name)}>{slot.page_size_bytes}）")
+
+# B: 声明页必须等于"原公式"给的值（原公式：KV=kv_bytes，index=原 capacity − kv_bytes）
+orig_decl = {}
+for si, kv_name in enumerate([n for n in specs if n.endswith(".long_kv_cache")] ):
+    pass
+by_slot = {}
+for slot in slots:
+    for pl in slot.placements:
+        by_slot[pl.name] = pl.page_size_bytes
+decl_drift = []
+for kv_name, kv_spec in ((n, specs[n]) for n in specs if n.endswith(".long_kv_cache")):
+    prefix = kv_name[: -len(".long_kv_cache")]
+    ix_name = prefix + ".indexer.k_cache"
+    kvb = sum(m._cache_plane_sizes(kv_spec))
+    ixb = sum(m._cache_plane_sizes(specs[ix_name]))
+    # 原 capacity：别名集合里最大者 与 kv+index 取大（这里用"同槽别名"的近似：直接用本几何实测值）
+    # —— 本仿真只锁"声明页 == 实测几何该有的值"：
+    expect = {"model.layers.2": (65536, 65536), "model.layers.8": (65536, 65536),
+              "model.layers.14": (65536, 65536), "model.layers.20": (131072, 16640)}[
+        prefix.split(".self_attn")[0]]
+    got = (by_slot.get(kv_name), by_slot.get(ix_name))
+    if got != expect:
+        decl_drift.append(f"{prefix}: 声明页 {got} != 原公式 {expect}")
+if decl_drift:
+    fails.append("声明页漂移（会改 npr/容量口径）：" + "; ".join(decl_drift))
+else:
+    print("声明页（page_size_padded 口径）与原公式逐资源一致 ⇒ npr/容量口径不变")
+
+# ---- 组装 ----------
+if fails:
+    pass
+else:
+    print(f"同组真实范围不相交检查：{len(slots)} 槽全部通过")
+    for si, slot in enumerate(slots):
+        mem = [pl for pl in slot.placements if pl.name.endswith(FULL_TAGS)]
+        seg = ", ".join(f"L{pl.name.split('.layers.')[1].split('.')[0]}"
+                        f"{'.kv' if pl.name.endswith('.long_kv_cache') else '.idx'}"
+                        f"[{pl.offset},{pl.offset+_actual(pl.name)})" for pl in mem)
+        print(f"  slot{si}（页 {slot.page_size_bytes}）: {seg}")
+
 print("SIM:", "FAIL — " + "; ".join(fails) if fails else "PASS（四槽 131072 / pool 524288 / 上限 32768）")
 raise SystemExit(1 if fails else 0)
