@@ -91,7 +91,45 @@ MIX 算子占用导致自旋等待计入时长。**未验证**；若将来能证
   **Dynamic EPLB = False、冗余专家 = 0**（`serve.log` 实测），
   即**当前没有开启任何专家负载均衡**。这是一条**尚未验证的候选**（需要 EPLB 权重搬运支持）。
 
-## 3.6 由 §3.5 推出的**唯一未验证候选**：EPLB（专家负载均衡）
+## 3.6 ⚠️ 更正：EPLB 的两种形态**都不能用**（2026-10-05 二次核实）
+
+**① `enable_force_eplb`** —— **不是负载均衡，是"绕过门控"**：
+它用一张"形状轮转"表替换 `topk_ids`（`force_eplb.py:108-143`，只依赖 shape/ep_rank），
+而 `topk_weights` 仍是门控权重 ⇒ **模型输出是错的**。它只能当**负载均衡压测工具**。
+（我曾据此得出"单流 +17.6%"，已撤回：见 `FORCE-EPLB-IS-DIAGNOSTIC-20261005.md`。）
+
+**② 动态 EPLB（`eplb_config.dynamic_eplb`）** —— **结构性受阻**：
+
+实测（`armEP_eplb`，redundancy=8、以及 redundancy=0 的对照）都在 `profile_run` 阶段崩溃：
+
+```
+model_runner_v1.py:3987   self.eplb_adaptor = VllmEplbAdaptor(model=self.model)
+eplb/adaptor/vllm_adaptor.py:105   self.init_expert_param_per_layer()
+eplb/adaptor/vllm_adaptor.py:163   self.param_dict[...][local_expert_id]
+IndexError: list index out of range
+```
+
+**根因（已定位到适配器的两个"同构假设"）**：`VllmEplbAdaptor` 假定**所有 MoE 层同构** ——
+
+1. `self.num_local_experts = self.moe_layers[0].local_num_experts`（取**第一层**的专家数，
+   再对所有层用它索引"每专家权重列表"）；
+2. `self.buffer_tensor_list` 以 `expert_weight_key` 为键，并 **assert 各层同键权重形状相同**。
+
+而我们的部署里 **DSpark draft（`dspark_n_routed_experts=128` ⇒ 16/rank）与主模型（384 ⇒ 48/rank）
+注册进了同一张表**（`routed_experts.py:494` 的 `VllmEplbAdaptor.register_layer(self)` 是**无条件**调用，
+注释只提 PP/`PPMissingLayer`）⇒ 假设 1 必然失败；即便修好假设 1，假设 2 也会因权重形状不同而断言失败。
+（`redundancy=0` 的对照臂同样崩溃 ⇒ **与"冗余专家数"无关**，纯属层异质性。）
+
+**要打通需要**：把适配器改成 **per-layer 视角**（每层各自的专家数 + 以 `(layer, weight_key)` 为缓冲键），
+属对 vendor 打补丁的中等工作量，且必须重验 144K 正确性（专家映射会变）。
+
+**收益/代价重估**：rank 间 gmm1 负载偏差实测仅 **4.7%**（rank0 8.06 ms vs rank5 8.44 ms，各 50 步），
+MoE 约占步长 32% ⇒ **完美均衡的理论上限 ≈1.5% 步时**；代价是 **−4% KV 容量** + 周期性权重搬运。
+
+⇒ **结论：暂不做**（收益 1.5% / 中等工作量 / 触及 vendor + 需重验正确性）。
+若将来要做，从"per-layer 适配器"这一条开始，且**必须先过正确性探针**。
+
+## 3.6.1 原 §3.6 内容（供追溯）
 
 既然 allreduce 的耗时里包含"等同伴到达"，而 MoE 侧比 attention 侧慢 2.3×，
 那"让各 rank 的 MoE 完成时刻更齐"就是唯一的优化方向。
