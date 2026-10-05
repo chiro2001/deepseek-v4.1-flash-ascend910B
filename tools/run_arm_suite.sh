@@ -50,8 +50,11 @@ mkdir -p "$REPO/cache/npugraph"
 #   —— 起服 30 分钟不 ready（表面像编译慢，其实早就失败了）。
 #   ⇒ **任何改变张量形状/权重的 A/B，都必须清这个缓存**；否则基线会拿到改动臂的图。
 #   代价：起服多几分钟重编译；收益：不会把"缓存错配"误读成"改动无效/更慢"。
+# ⚠️ 路径不要猜：`serve_a2.sh:1465` 把 **`$PKG/cache/vllm` 挂成容器里的 `/root/.cache/vllm`**
+#    ⇒ 真正要清的是 **`$REPO/cache/vllm/torch_compile_cache`**。
+#    （我第一版清的是宿主 `~/.cache/vllm`，那是**另一个目录**，清了个寂寞，基线依旧失败。）
 CLEAR_COMPILE_CACHE=${CLEAR_COMPILE_CACHE:-1}
-_tcc=${VLLM_CACHE_ROOT:-$HOME/.cache/vllm}/torch_compile_cache
+_tcc=$REPO/cache/vllm/torch_compile_cache
 if [ "$CLEAR_COMPILE_CACHE" = "1" ] && [ -d "$_tcc" ]; then
   mv "$_tcc" "${_tcc}.bak_$(date +%m%d_%H%M%S)" 2>/dev/null \
     && say "已让 torch.compile 图缓存失效：$_tcc"
