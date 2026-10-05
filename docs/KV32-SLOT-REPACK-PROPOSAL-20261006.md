@@ -264,6 +264,43 @@ python3 tools/bench_concurrency.py \
   的 prefill token/s 与 decode ms/step）加进流程，并在**未就绪时自动回退**到
   「只开重排 + BAT=8192，auto profiling」（纯布局改动，容量 ≈3.085M / +3.2%）。
 
+### 12.1 窗口脚本的三道防呆（VERIFY_DRY 抓到的真问题）
+
+本轮做了一次**不碰容器**的端到端静态检查（`VERIFY_DRY=1`），抓到两个会白跑窗口的错误：
+
+1. **静默跑错配方**：不设 `BASE_LAUNCHER` 时，脚本会退回**交付 launcher**（不含
+   `V41_KV32_REPACK=1`）⇒ 守卫把 16 GiB **钳回 14.65 GiB**，日志只留一行不显眼的 WARNING，
+   而容量/几何全部都"看起来正常"。
+2. **误导性期望值**：期望值块硬编码旧几何口径（`pool_blocks=29076 / +19.6%`），
+   在重排配方下会把判读带偏（真实预期是 32768 块 / +34%）。
+
+⇒ 新增三条硬断言，把它从"要靠人看日志"变成"直接拒跑"：
+
+| 断言 | 内容 | 不满足 |
+|---|---|---|
+| **A** | 派生出的启动器含 `V41_KV32_REPACK=1` | `exit 2` 拒跑 |
+| **B** | 守卫解析出 `cap=17179869184 bytes=17179869184`（未钳） | `exit 2` 拒跑 |
+| **C** | 起服后日志含 `pool_bytes_per_block=524288 (slots=[131072,131072,131072,131072])` | 标 ✗，**该轮数据不得用于重排结论** |
+
+另加两道门槛：
+
+* 直接跑 `verify_bat2048.sh` 需要 `CONFIRM_WINDOW=1`。**为什么加**：本轮我曾在一次取巧的
+  shell 写法（`... | head -12 & kill`）里**误启动过整条流程**约 20 秒；已立刻中止并核验
+  服务未受影响（容器 `StartedAt` 未变、`health=200`、编译缓存 mtime 未变），但这说明必须有闸门。
+* 自动回退分支加 `DRY_RUN` 保护：dry-run 下**不做任何 docker 动作**（否则 `docker rm -f` 会误删在跑的服务）。
+
+静态检查已全绿（`VERIFY_DRY=1 bash ~/tmp/verify_repack.sh`）：
+
+```
+✓ 断言 A：派生启动器含 V41_KV32_REPACK=1
+✓ 断言 B：守卫解析 cap=17179869184 bytes=17179869184（与 EXPECT_CAP 一致）
+-- 挂载清单：…/patches/files/deepseek_v41.repack.py → /vllm-workspace/…/core/deepseek_v41.py:ro
+VERIFY_DRY 完成：未起任何容器、未动 docker
+```
+
+另外核对了重复挂载风险：dry-run 的挂载清单里，指向 `core/deepseek_v41.py` 的**只有 repack 一份**
+（DCP overlay 在 DCP=1 时未激活；即便激活，`serve_a2.sh` 也有目的地去重并让开发期 overlay 优先）。
+
 **四个 slot 全为 131,072** ⇒
 * `pool_bytes_per_block = 524,288`（比现状 **小 16,640**）
 * 块上限 = `floor(2³²/131072)` = **32,768**
