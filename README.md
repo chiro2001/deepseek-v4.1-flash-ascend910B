@@ -48,7 +48,7 @@ prefill 相对全 40 层同置部署 **2.07×**（144K）。
 | 128K 单流吞吐 | **90.1 tok/s**（另一臂 85.0；峰值 110.5 **不可交付**，见 §6） |
 | 累计优化 | 未打补丁 39.10 → 全补丁 **31.39 ms/step（−19.7%）** |
 | （另一口径）设备直索引入图 | 并发 1 时 29.5 → **28.4**、并发 4 时 35.3 → **32.1 ms/step** —— ⚠️ 这是 1K prompt 口径，**不要与上面 128K 那行直接相减** |
-| KV 容量 | **2,823,080 tokens**（默认 `GPU_UTIL=0.92`） |
+| KV 容量 | **2,987,727 tokens**（默认 `GPU_UTIL=0.92`；比上一版 +5.9%，来自 engram `wkv` 分片，见 §4） |
 
 **并发吞吐**（A3、1024 token prompt、256 输出、`MAX_SEQS=64 PREFIX=1`）：
 
@@ -194,12 +194,14 @@ docker exec <容器> bash /opt/dsv41/tools/enable_codex_responses.sh status  # P
 
 | 旋钮 | 默认 | 调它会发生什么 |
 |---|---|---|
-| **`BAT_TOKENS`** | **8192** | ★ **长上下文正确率的开关**。2048 时 chunk 数翻 4 倍，长文通过率塌到 ~0（机制是 chunked prefill 每刀约 2% 偏离）。代价：KV 从 4.15M 降到 2.82M tokens（activation 峰值 0.79→3.21 GiB） |
+| **`BAT_TOKENS`** | **8192** | ★ **长上下文正确率的开关**。2048 时 chunk 数翻 4 倍，长文通过率塌到 ~0（机制是 chunked prefill 每刀约 2% 偏离）。代价：KV 从 4.15M 降到 2.82M tokens（activation 峰值 0.79→3.21 GiB）。**2026-10-05 复测补充**：在当前交付配置（发布镜像 + 两个新默认）下 `BAT_TOKENS=2048` 会把 KV 抬到 **4,032,862 tokens（+35%）**，但实例**在图捕获中途静默退出**（仅捕获 10/16 桶、无 traceback）⇒ 仍不可用；详见 `docs/BAT-TOKENS-TRADEOFF-20261005.md` |
 | **`GPU_UTIL`** | **0.92** | 调到 0.94 能多 ~9% KV（3.09M），但**长 prompt 首 token 从 1.1 s 涨到 8 s**（实测 6~7×）。这是"KV 容量换 prefill 速度"的主动取舍 |
 | **`DRAFT_GRAPH`** | **1**（CED-PD 形态）／0（其它入口） | 投机解码入图。CED-PD 自 2026-09-27 起默认 1；其它入口仍是 0，**低并发推荐显式开**。两种口径都必须同时有 `DSPARK_GRAPH_CAPTURE_METADATA=1`，否则**静默失效**（`A≈1.0` 而 ms/step 反而更好看） |
 | **`PREFIX`** | **1**（CED-PD） | 前缀缓存。**仍然取决于业务是否高度复用前缀** —— 若输入输出比很大且命中率低（实测某负载仅 3.52%），`PREFIX=0` 反而 TTFT −14.6%。CED-PD 自 2026-09-27 起默认开；做无缓存性能对照时必须显式 `PREFIX=0`，且**不要与开缓存的 ms/step、接受长度混比** |
 | **`SPEC_MODE`**（CED-PD 的 D 侧） | **on** | 推测解码三档：`on` 全开（固定 K）/ `off` 全关 / `dynamic` 按并发切 K（并发 1 走 K=7、≥2 走 K=0）。**高并发吞吐建议 `off`**：并发 4 时 DSpark 把 ms/step 从 28.2 抬到 41.1（1.45×），换接受长度 A≈2.4 —— 收益集中在接受长度高的请求上，**成本由全批承担**。`dynamic` 是高风险档（豁免了上游一道保护），必须用 144K/1M 正确性探针验收。详见 `docs/CED-PD-SPEC-MODE-20260928.md` |
 | **`SPEC`** | 1 | 旧写法（等价 `SPEC_MODE=on`/`off`）。非 CED-PD 入口仍用它；CED-PD 的 D 侧请优先用 `SPEC_MODE` |
+| **`ENGRAM_WKV_TP`** | **1**（A3 起服默认，2026-10-05 起） | engram gate 的 `wkv` 投影**按输出维分片 + all_gather**，替代原先每卡复制的 315 MB 权重。实测：**−0.57 ms/步（2.2%）** 且 **KV 容量 +5.9%**（2,821,337→2,987,727）；每个输出元素仍由一次 matmul 决定（语义等价），144K 验收 11/11。关掉它（`=0`）会退回旧行为，并发与容量都会变差。详见 `docs/ENGRAM-WKV-TP-20261005.md` |
+| **`ENGRAM_PAD_SKIP`** | **1**（A3 起服默认，2026-10-05 起） | engram 的 padded 缓冲只清零「会被真正读到」的行。实测 `ZerosLike "8192,6144"` **1.86→0 次/步**（省 ~58 µs/步）；模型只读 `lookups[:n]` 而清零范围 ≥ n，**零精度风险**。详见 `docs/ARMH-MECHANISM-AUDIT-20261005.md` |
 | **`CPU_BIND`** / **`DROPCACHE`** | A3: 0 / 0 | **A3 共用机必需**：`CPU_BIND=0` 关掉内部 NUMA 绑核（否则目标节点满时 `migratepages` 内核态空转、服务永不就绪、`docker stop` 都停不下来）；`DROPCACHE=0` 不清整机 page cache（会打到别人） |
 
 **`MAX_SEQS` 不是性能杠杆，是并发容量**：32→64 在并发 ≤32 时只有 ±1%；
@@ -282,7 +284,7 @@ docker exec <容器> bash /opt/dsv41/tools/enable_codex_responses.sh status  # P
 ```bash
 # ① 静态内核没有静默降级 —— 必须输出 0
 grep -ac "static_kernel.py:650" <serve.log>
-# ② KV 容量 —— 默认 GPU_UTIL=0.92 时实测 2,823,080 tokens
+# ② KV 容量 —— 默认 GPU_UTIL=0.92 时实测 2,987,727 tokens（DCP8 形态 18,285,996）
 grep -oE "GPU KV cache size: [0-9,]+ tokens" <serve.log> | tail -1
 # ②b 长 prompt 首 token —— 8K prompt 应 ~1.1 s（0.94 时会是 8 s）
 # ③ 口径对不对（性能口径 vs 生产口径不可混比）
