@@ -1479,7 +1479,7 @@ $DOCKER run -d --name "$NAME" --net=host --shm-size=512g --privileged=true \
   -e HCCL_BUFFSIZE="$HCCL_BUFFSIZE" \
   -e PYTORCH_NPU_ALLOC_CONF=expandable_segments:True \
   -e TASK_QUEUE_ENABLE=1 \
-  -e HCCL_OP_EXPANSION_MODE=AIV \
+  -e HCCL_OP_EXPANSION_MODE="${HCCL_OP_EXPANSION_MODE:-AIV}" \
   -e ASCEND_MAX_OP_CACHE_SIZE=-1 \
   -e CAPTURE_SIZES="$CAPTURE_SIZES" \
   -e NUMBA_CACHE_DIR=/numba_cache \
