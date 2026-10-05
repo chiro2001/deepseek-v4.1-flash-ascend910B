@@ -53,6 +53,11 @@ import numpy as _np
 
 _ENGRAM_WITH_DUMMY = _os_egd.environ.get("V41_ENGRAM_WITH_DUMMY", "0") == "1"
 _ENGRAM_PAD_SKIP = _os_egd.environ.get("V41_ENGRAM_PAD_SKIP", "0") == "1"
+# [ENGRAM-WKV-TP 2026-10-05] engram gate 的 wkv 投影 [6144 -> 25600] 原先**每卡复制**
+#   （权重 315 MB，M=6 时纯权重载入：隔离实测 254 µs、服务内 355–447 µs × 2 层/步）。
+#   改为**按输出维分片**：每卡只算 3200 列（39 MB，24 µs），再 all_gather 拼回 [n,25600]。
+#   ★ 数值**逐位不变**：每个输出元素仍由一次 matmul 算出，gather 只是搬字节。
+_ENGRAM_WKV_TP = _os_egd.environ.get("V41_ENGRAM_WKV_TP", "0") == "1"
 
 _IDS64_HOIST = _os_ids.environ.get("V41_IDS64_HOIST", "0") == "1"
 _CED_PREFILL_ROLE = _os_ids.environ.get("V41_CED_ROLE", "") == "prefill"
@@ -771,11 +776,27 @@ class DeepseekV41DecoderLayer(DeepseekV2DecoderLayer):
         engram_enabled = get_ascend_config().enable_engram
         if engram_enabled and self.layer_idx in config.engram_layer_ids:
             self.engram = torch.nn.Module()
+            _wkv_in = (config.engram_max_ngram_size - 1) * config.engram_n_heads * config.engram_head_dim
+            _wkv_out = (config.hc_mult + 1) * config.hidden_size
+            if _ENGRAM_WKV_TP:
+                from vllm.distributed import (
+                    get_tensor_model_parallel_rank,
+                    get_tensor_model_parallel_world_size,
+                )
+
+                _tp = get_tensor_model_parallel_world_size()
+                assert _wkv_out % _tp == 0, f"engram wkv out {_wkv_out} 不能被 TP {_tp} 整除"
+                self.engram._wkv_tp = _tp
+                self.engram._wkv_shard = _wkv_out // _tp
+                self.engram._wkv_rank = get_tensor_model_parallel_rank()
+                _wkv_out_local = self.engram._wkv_shard
+            else:
+                self.engram._wkv_tp = 1
+                self.engram._wkv_shard = _wkv_out
+                self.engram._wkv_rank = 0
+                _wkv_out_local = _wkv_out
             self.engram.wkv = torch.nn.Linear(
-                (config.engram_max_ngram_size - 1) * config.engram_n_heads * config.engram_head_dim,
-                (config.hc_mult + 1) * config.hidden_size,
-                bias=False,
-                dtype=torch.bfloat16,
+                _wkv_in, _wkv_out_local, bias=False, dtype=torch.bfloat16
             )
             self.engram.q_weight = torch.nn.Parameter(
                 torch.empty(config.hc_mult, config.hidden_size, dtype=torch.bfloat16)
@@ -1467,6 +1488,11 @@ class DeepseekV41Model(DeepseekV4Model):
                 lookup = lookups[layer.layer_idx][:n]
                 active_mask = token_mask[:n]
                 kv = layer.engram.wkv(lookup)
+                if getattr(layer.engram, "_wkv_tp", 1) > 1:
+                    # [ENGRAM-WKV-TP] 分片算出的 [n, 25600/tp] 拼回 [n, 25600]（逐位不变）
+                    from vllm.distributed import get_tp_group
+
+                    kv = get_tp_group().all_gather(kv, dim=-1)
                 key, value = kv.split([self.hc_mult * self.config.hidden_size, self.config.hidden_size], -1)
                 hidden_states[:n] = engram_gate(
                     hidden_states[:n],
@@ -1603,6 +1629,12 @@ class AscendDeepseekV41ForCausalLM(AscendDeepseekV4ForCausalLM):
                         layer_id = int(local_name.split(".")[1])
                         self.model.layers[layer_id].engram.embed.load_checkpoint(self.model.engram_root, local_name)
                     else:
+                        if _ENGRAM_WKV_TP and local_name.endswith(".engram.wkv.weight"):
+                            # [ENGRAM-WKV-TP] checkpoint 是全量 [25600, 6144]，按输出维切本卡的片
+                            _lid = int(local_name.split(".")[1])
+                            _eng = self.model.layers[_lid].engram
+                            _r, _sh = _eng._wkv_rank, _eng._wkv_shard
+                            tensor = tensor[_r * _sh : (_r + 1) * _sh].contiguous()
                         param = self.get_parameter(parameter_name)
                         if tensor.dtype != torch.bfloat16 or tensor.shape != param.shape:
                             raise ValueError(f"Unexpected BF16 Engram parameter: {name}")
