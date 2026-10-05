@@ -183,6 +183,27 @@ ssh a3-21 'bash ~/tmp/verify_repack.sh'   # 约 45–60 min，需独占窗口
 > `[serve_a2] [V41-KV32-REPACK] 已挂载 slot 重排版 deepseek_v41.py（四 slot 全 131072）`
 > —— 即 repack 文件确实被挂进容器，不用等正式窗口才知道挂载对不对。
 
+### 11.6 交付版补丁的逻辑仿真（不占卡、可当测试跑）
+
+交付镜像里那份 `core/deepseek_v41.py` 与 tiny 工作副本不是同一文件，补丁是逐行移植的
+——只做 AST 检查不够。`tools/kv32_repack_sim.py` 用极简桩 import 那份补丁，喂进与真机
+逐项一致的 V4.1 几何，然后调用 `plan_cache_slots`：
+
+```
+$ python3 tools/kv32_repack_sim.py                       # 打补丁版
+slots = [131072, 131072, 131072, 131072]
+pool stride = 524288 ⇒ 块上限 32768
+layer-20 index 落在 offset=73856 size=16640（宿主槽 131072）
+SIM: PASS（四槽 131072 / pool 524288 / 上限 32768）          # exit=0
+
+$ python3 tools/kv32_repack_sim.py <未打补丁的原文件>       # 负控
+slots = [131072, 131072, 131072, 147712] / pool stride 540928 ⇒ 上限 29076
+SIM: FAIL — 槽长不齐：[131072, 131072, 131072, 147712]; pool stride 540928 != 524288
+                                                            # exit=1
+```
+
+即：**正控过、负控挂**，补丁与仿真都有鉴别力。
+
 **四个 slot 全为 131,072** ⇒
 * `pool_bytes_per_block = 524,288`（比现状 **小 16,640**）
 * 块上限 = `floor(2³²/131072)` = **32,768**
