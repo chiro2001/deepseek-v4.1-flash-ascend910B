@@ -3,8 +3,14 @@
 > 动机：`BAT_TOKENS`（= `max_num_batched_tokens`，prefill chunk 大小）同时决定
 > **激活峰值**与 **engram 缓冲**（`_engram_max_tokens = max(BAT, capture_max)`，
 > 2 层 × rows × 6144 × 2 B：8192 行 = 201 MB、2048 行 = 50 MB）
-> ⇒ 它把 ③ prefill 与 ④ 容量绑在一起，而这个权衡**从未测过**。
+> ⇒ 它把 ③ prefill 与 ④ 容量绑在一起。
 > 标注：【实测】。
+>
+> ⚠️ **先看这条**：`README.md` §4 早已把 `BAT_TOKENS=2048` 记为
+> "**长上下文正确率的开关**（2048 时长文通过率塌到 ~0，机制是 chunked prefill 每刀约 2% 偏离）"，
+> 并给出 `KV 从 4.15M 降到 2.82M`。**本文是一次独立的复测**：
+> 结论与 README 一致（2048 不可交付，且容量确实 ~4.0M），
+> **新增的是崩溃现场证据**（§2）与"prefill 必须先热身"的口径修正（§3）。
 
 ## 0. 结论
 
