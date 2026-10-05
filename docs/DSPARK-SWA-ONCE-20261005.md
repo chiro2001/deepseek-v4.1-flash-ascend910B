@@ -62,6 +62,33 @@ python3 tools/ced_pd_acceptance.py --base-url http://127.0.0.1:19210 --mode all 
 **采纳门槛**（沿用本仓纪律）：`ab_gate` 中位为负且 ≥2/3 轮同向；144K 11/11；
 `[SWA-ONCE] verify ok` 全部命中；三条件缺一不采纳。
 
+### 3.1 ★ 可证伪指纹：改动到底有没有生效（照 `aic_mac_time` 的教训）
+
+`KERNEL-CACHE-STALE` 那次踩过的坑是"以为生效、其实没生效"。本候选同样需要一个
+**不依赖时间的计数指纹**——用同一份 profile 的算子计数对：
+
+| 算子（`k6full` 交付口径 s47 每步计数） | 改动前 | **SWA-ONCE 后（预期）** |
+|---|---:|---:|
+| `FloorDiv` | 15–17 | **~3–4** |
+| `FloorMod` | 16 | **~3** |
+| `ClipByValueV2` | 13 | **~3** |
+| `GatherV3` | 18 | **~4–5** |
+| `Index` | 17 | **~3–4** |
+| `IndexCheck` | 19 | **~4** |
+| `SelectV2` | 25 | **~5–6** |
+
+读法：这些算子在别的链里也有（不是专属），所以**不能看绝对值、要看"是否按 ~4/5 下降"**；
+若计数完全不变 ⇒ 判"改动没生效"（先查 `DSPARK_SWA_ONCE` 是否真的进了容器
+—— 本仓已有 5 个"哑开关"的教训）。
+
+### 3.2 一个必须区分的点：本文只做"**步内**去重"
+
+`build_req_metadata()` 里有一句注释："*the indices depend on the current step's block
+table / sequence lengths, so they must be rebuilt whenever a DSpark draft step runs*" ——
+它反对的是**跨步缓存**（上一步的索引拿到这一步用），**不是**步内去重。
+本候选保留"每步至少重建一次"（由 `draft_index == 0` 的那次完成），
+只是不再在同一份输入上重复 4 次 ⇒ **与该注释的约束不冲突**。
+
 ## 4. 顺带记录：同一循环里还有 6 个小算子/轮的"复制粘贴"
 
 `llm_base_proposer.py:1150-1160` 每轮做 3 次 `copy_` + 3 次 `fill_`（把同一份
