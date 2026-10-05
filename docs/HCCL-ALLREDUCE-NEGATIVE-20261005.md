@@ -91,6 +91,37 @@ MIX 算子占用导致自旋等待计入时长。**未验证**；若将来能证
   **Dynamic EPLB = False、冗余专家 = 0**（`serve.log` 实测），
   即**当前没有开启任何专家负载均衡**。这是一条**尚未验证的候选**（需要 EPLB 权重搬运支持）。
 
+## 3.6 由 §3.5 推出的**唯一未验证候选**：EPLB（专家负载均衡）
+
+既然 allreduce 的耗时里包含"等同伴到达"，而 MoE 侧比 attention 侧慢 2.3×，
+那"让各 rank 的 MoE 完成时刻更齐"就是唯一的优化方向。
+
+**现状**：`serve.log` 实测 `Dynamic EPLB is False` / `The number of redundant experts is 0`
+⇒ **当前完全没有开专家负载均衡**。
+
+**可配置面**（读 `vllm_ascend/ascend_config.py:105-160`）：
+
+```python
+additional_config = {"eplb_config": {
+    "dynamic_eplb": True,            # 还需 env DYNAMIC_EPLB=true（否则启动断言失败）
+    "num_redundant_experts": N,      # 每个 rank 多放的冗余专家数
+    "eplb_policy_type": 2,           # 0/1/2/3
+    "expert_heat_collection_stage": "decode",   # 只收 decode 的热度（更贴我们的负载）
+}}
+```
+
+**代价（必须一起算）**：
+* 冗余专家要占 HBM。按 `39.5 GiB 权重 / (40 层 × 384 专家) ≈ 2 MB/专家` 估，
+  8 个冗余专家 × 40 层 ≈ **640 MB ⇒ KV 容量约 −4%**（当前 2,987,727 → ~2.87M）；
+* `algorithm_execution_interval` 默认 50 步会触发一次权重搬运，**搬运期间有额外开销**；
+* 需要重新验证 144K 正确性（专家映射变了）。
+
+**收益（未验证）**：若能把两 rank 之间 34% 的到达偏差压掉一半，
+N=8 的 MoE 侧 allreduce（3.04 ms/步）大约能省 **0.5–1.0 ms/步（1.2–2.5%）**。
+**这是一条"用 4% 容量换 1–2.5% 速度"的取舍**，且需要实机 A/B 才能定价；
+在 ④ 维度已经达标（2.99M）的前提下**值得一试**，但排在
+"自研 attention 内核"之后（后者量级更大但成本更高）。
+
 ## 4. 复现
 
 ```bash
