@@ -80,6 +80,9 @@ def main():
               f"均值 = {statistics.mean(deltas):+.3f}   "
               f"负轮次 = {neg}/{len(deltas)}")
         print("判据建议：中位 < 0 且 负轮次 ≥ 2/3 才算 B 更优")
+        print("★ [STABLE-BUCKET] 上面的中位数可能被过渡桶带偏（n=18 等）。")
+        print("  请先看分桶样本数与 p10/p90，只在样本≥64 且 p90 与 p10 同量级的桶上判决：")
+        print("      python3 tools/hp_buckets.py <基线run> <候选run>")
     return 0
 
 if __name__ == "__main__":
