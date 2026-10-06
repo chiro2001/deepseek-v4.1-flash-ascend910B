@@ -1522,6 +1522,10 @@ $DOCKER rm -f "$NAME" >/dev/null 2>&1 || true
 #    `"docker run" requires at least 1 argument` + `-e: command not found`。
 #    `bash -n` **抓不到**这种错（语法合法），所以已加 `tools/check_serve_run_chain.py` 回归。
   # [V41-HC-FUSE] HcPre+RMSNorm 融合（Track B，env 门控，默认关）：V41_HC_FUSE_NORM / V41_HC_NORM_LIB / ASCEND_CUSTOM_OPP_PATH
+  # [V41-HC-LIMITCORE] HcPre 核数预算实验（纯 Python，不改数值路径）：
+  #   V41_HC_LIMIT_AIC / V41_HC_LIMIT_AIV —— 见 trackB 的 limit_core 实验说明。
+  #   ⚠️ 这两个 env **必须显式透传**：启动器只转发白名单里的变量，
+  #      2026-10-07 实测漏了它们 ⇒ 容器内读到 0 ⇒ 整臂静默变成空操作（浪费一次 10 min 重启）。
 $DOCKER run -d --name "$NAME" --net=host --shm-size=512g --privileged=true \
   --ulimit memlock=-1 \
   "${CGROUP_ARGS[@]}" \
@@ -1636,6 +1640,8 @@ $DOCKER run -d --name "$NAME" --net=host --shm-size=512g --privileged=true \
   ${V41_GATE_MAX_PREFILL:+-e V41_GATE_MAX_PREFILL="$V41_GATE_MAX_PREFILL"} \
   ${V41_HC_FUSE_ATTN_FP32:+-e V41_HC_FUSE_ATTN_FP32="$V41_HC_FUSE_ATTN_FP32"} \
   ${V41_HC_NORM_LIB:+-e V41_HC_NORM_LIB="$V41_HC_NORM_LIB"} \
+  ${V41_HC_LIMIT_AIC:+-e V41_HC_LIMIT_AIC="$V41_HC_LIMIT_AIC"} \
+  ${V41_HC_LIMIT_AIV:+-e V41_HC_LIMIT_AIV="$V41_HC_LIMIT_AIV"} \
   ${ASCEND_CUSTOM_OPP_PATH:+-e ASCEND_CUSTOM_OPP_PATH="$ASCEND_CUSTOM_OPP_PATH"} \
   -e LOAD_FORMAT="$LOAD_FORMAT" \
   -e KV_ARGS_EXTRA="$KV_ARGS_EXTRA" \
