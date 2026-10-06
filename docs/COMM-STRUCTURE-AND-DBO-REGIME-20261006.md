@@ -139,8 +139,60 @@ conc=4 实测（带 `V41_DBO_DEBUG=1`）：
 * 备选排查手段：`ASCEND_LAUNCH_BLOCKING=1`（牺牲性能换同步栈）、
   在 `_run_ubatches_graph` / `_run_ubatches` 两端各加一次 `torch.npu.synchronize()` 定位到具体算子。
 
-**结论：DBO 仍未到"能测收益"的状态**——目前只能确定"捕获不再崩"，
-以及"真实步走的是 eager"。
+**结论：DBO 仍未到"能测收益"的状态**。
+
+## 4.3 ★ 决定性证据：真实步**没有调用 wrapper** ⇒ 它 replay 了那张图
+
+给 `NPUUBatchWrapper.__call__` 加栈探针（`V41_DBO_PROBE=1`）后，整个起服+一次
+4 并发请求只产生 **22 条**探针记录，且**全部来自 capture/warmup**：
+
+| # | capturing | mode | ntok | nub | 来源 |
+|---|---|---|---|---|---|
+| 1–2 | False | NONE | 2048 | 2 | `gpu_model_runner.py:6493`（profile 跑） |
+| 3–22 | 既有 False/NONE 也有 True/FULL | 128/96/48/40/32 | **2** | `gpu_model_runner.py:6935`(warmup) / `:6956`(capture)，`acl_graph.py:145/189` |
+
+两个要点：
+
+1. **捕获确实带 ubatch**（每次都有 `nub=2`）⇒ 32/40/48/96/128 这些档位的 FULL 图里
+   真的含 fork/join 双分支；
+2. **真实请求一条探针都没有** ⇒ 真实步既不是"回落 eager"（那样会打 `capturing=False -> thread`
+   并计一次探针），也不是"走了别的路径"——**它就是 replay 了那张已捕获的图**。
+
+（上一节"真实步走 eager"的判断**由此被推翻**：当时看到的 `capturing=False -> thread`
+是捕获前的 warmup 行。）
+
+## 4.4 ★★ 四格对照：挂死是 DBO 独有，且与多流无关
+
+为排除"配置本身坏了"，做了 2×2 对照（都是 graph 模式、conc=4、`npu_ubatch` 相关补丁在位）：
+
+| 多流（MULTISTREAM/DSA_OVERLAP） | DBO | 结果 |
+|---|---|---|
+| ON | off | ✅ 正常（基线 84.5 tok/s @conc8） |
+| ON | **on** | 🔴 **挂死**（无异常栈，EngineCore 每 60 s 报 shm 广播超时） |
+| OFF | off | ✅ 正常（本轮新增对照，4/4 请求通过） |
+| OFF | **on** | 🔴 **MTE 越界**：`fftsplus aivector … MTE accesses an invalid GM address`，随后 `SUSPECT REMOTE ERROR(507057)`，请求 500 |
+
+⇒ 三条结论：
+
+1. **多流不是根因**：关掉多流 DBO 仍然坏（只是从"挂死"变成"快速内存越界"）；
+2. **关多流是更好的调试体制**：同样的 bug 从 60 s 静默挂死变成**确定性、带设备错误码的快速失败**；
+3. **根因方向明确**：`MTE accesses an invalid GM address` = **replay 时读到了无效地址**
+   ⇒ 捕获期被写进图里的某批 tensor 地址**在 replay 时不再有效**（非持久 buffer）。
+   挂死与越界是同一根因的两种表现（无效地址恰好落在已映射但语义错的位置时表现为等事件不来）。
+
+## 4.5 下一步（已收敛，按性价比）
+
+1. **在关多流的体制下做地址审计**（快速失败，迭代成本低）：把 `_run_ubatches_graph` 喂给模型的
+   每个张量（`input_ids/positions/intermediate_tensors` + 每个 ubatch 的 `attn_metadata`
+   全部字段）在捕获后**重新取一遍地址**，比对捕获期是否变化；变化者即元凶。
+   【推断】最可能的候选：`ascend_split_attn_metadata()` 按 ubatch 切出来的中间张量
+   （`pad_sparse_indices` 里的 `contiguous()`、`F.pad` 会产生**每步新分配**）。
+2. 修法两个方向：
+   * **持久化**：让 ubatch 路径只消费预分配 buffer（照主路径 `_dummy_run` 的做法），
+     切片结果写进常驻 buffer 而不是临时张量；
+   * **改设计**：不在图内 fork，改为**两次图 replay 各挂一条流**（每半批用自己的
+     attention metadata + 自己的输入切片），fork/join 留在 Python 侧——这样每条分支
+     内部仍是标准 FULL 图，地址稳定性由既有机制保证。
 
 ## 5. 顺带修掉的坑：NPU `set_stream` 不更新 vLLM `current_stream()`
 
