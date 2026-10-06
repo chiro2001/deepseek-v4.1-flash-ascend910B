@@ -1,5 +1,10 @@
 # 测量陷阱（prefix cache / 重复退化 / 冷启动）+ 更正后的 prefill 曲线（2026-10-06）
 
+
+> ⚠️ **本文 §3 的「prefill conc=8 崩到 0.59×」是冷启动 artifact**，
+> **chunk 边界推断也被证伪**。稳定值与更正见
+> **`docs/PREFILL-DESIGN-POINT-AND-CORRECTIONS-20261006.md`**（conc=8 = 7,965 tok/s = 1.11×）。
+
 > 本轮先是在测 tp8k5 时**踩中三个测量陷阱**，随后发现 tp8k5 被外部停掉并**恢复**了它。
 > 三处此前的数字必须更正。全部为【实测】。
 
