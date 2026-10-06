@@ -1138,7 +1138,19 @@ if [ "$PATCH_MODE" = "mount" ]; then
   MOUNTS+=(-v "$F/engram_jit_kernel.py:/vllm-workspace/vllm-ascend/vllm_ascend/models/deepseek_v41/engram_jit_kernel.py:ro")
   MOUNTS+=(-v "$F/engram_plan_kernel.py:/vllm-workspace/vllm-ascend/vllm_ascend/models/deepseek_v41/engram_plan_kernel.py:ro")
   MOUNTS+=(-v "$F/engram_gate.py:/vllm-workspace/vllm-ascend/vllm_ascend/models/deepseek_v41/engram_gate.py:ro")
-  MOUNTS+=(-v "$F/model.py:/vllm-workspace/vllm-ascend/vllm_ascend/models/deepseek_v41/model.py:rw")
+  # [V41-HCFUSE-MOUNT] HcPre+RMSNorm 融合（Track B）的 A/B 用：交付的 model.py
+  # 打上 trackB/apply_overlay_hcfuse.py 那几处补丁后，用本 env 指过去覆盖，
+  # **不动交付文件** ⇒ 随时可以切回 `V41_HCFUSE_MOUNT=` 空值跑基线。
+  #   V41_HCFUSE_MOUNT=<宿主 model.py 路径>
+  # ⚠️ 该路径也必须**同时**挂载 libhc_pre_norm_ops.so 与 custom OPP 包（见 V41_HC_OPP_PKG），
+  #    否则 overlay 会在 import 期 load_library 失败。
+  _model_py="$F/model.py"
+  if [ -n "${V41_HCFUSE_MOUNT:-}" ]; then
+    [ -f "$V41_HCFUSE_MOUNT" ] || die "V41_HCFUSE_MOUNT=$V41_HCFUSE_MOUNT 不存在"
+    _model_py="$V41_HCFUSE_MOUNT"
+    say "[V41-HCFUSE-MOUNT] model.py <- $V41_HCFUSE_MOUNT（交付文件未被改动）"
+  fi
+  MOUNTS+=(-v "$_model_py:/vllm-workspace/vllm-ascend/vllm_ascend/models/deepseek_v41/model.py:rw")
   # [DMQ-GUARD-REMOVED] 曾在这里挂 patches/files/model_runner_v1.py（device_metadata
   # 的 submit/release 自愈护栏）。**已撤销**：该护栏在正常运行中也会误触发，
   # 提前释放 device metadata ⇒ 64 并发实测 57/64 + 服务挂（ScatterElements 0x91 →
