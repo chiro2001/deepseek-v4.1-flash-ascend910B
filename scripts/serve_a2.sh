@@ -2118,6 +2118,13 @@ kv32_resolve_blocks() {   # <logfile> <bytes_per_block> <block_size> → "blocks
   if [ -n "$_g" ]; then
     _a=$(awk -v g="$_g" -v bpb="$_bpb" 'BEGIN{printf "%d", (g*1073741824)/bpb}')
   fi
+  # ★ [2026-10-06] 先看 [V41-KV32-CAP]：它给出**夹取后的真实块数**。
+  #   没有这行时（未启用 cap）再退回"profiling 估算 vs tokens÷block 取大"的旧逻辑。
+  _cap=$(grep -aoE '\[V41-KV32-CAP\] 块数 [0-9]+ → [0-9]+' "$_log" 2>/dev/null | tail -1 | grep -oE '[0-9]+$')
+  if [ -n "${_cap:-}" ]; then
+    printf '%s\t精确块数（[V41-KV32-CAP] 夹取后）\n' "$_cap"
+    return 0
+  fi
   _t=$(grep -aoE 'GPU KV cache size: [0-9,]+ tokens' "$_log" 2>/dev/null \
        | tail -1 | grep -oE '[0-9,]+' | tr -d ',' | head -1)
   if [ -n "${_t:-}" ] && [ "${_blk:-0}" -gt 0 ] 2>/dev/null; then

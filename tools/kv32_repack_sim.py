@@ -215,6 +215,27 @@ else:
     print("声明页（page_size_padded 口径）与原公式逐资源一致 ⇒ npr/容量口径不变")
 
 # ---- 组装 ----------
+# ---- [V41-KV32-CAP] 上限语义单测（auto/off/收紧/越界夹回/0=auto）----
+def _cap_of(env):
+    class _S:
+        page_size_bytes = 131072
+    backup = os.environ.get("V41_KV_MAX_BLOCKS")
+    os.environ["V41_KV_MAX_BLOCKS"] = env
+    try:
+        return m._kv32_safe_blocks([_S()])
+    finally:
+        if backup is None:
+            os.environ.pop("V41_KV_MAX_BLOCKS", None)
+        else:
+            os.environ["V41_KV_MAX_BLOCKS"] = backup
+
+for env, want in (("auto", 32768), ("off", None), ("20000", 20000), ("99999", 32768), ("0", 32768)):
+    got = _cap_of(env)
+    if got != want:
+        fails.append(f"CAP[{env}] = {got}，期望 {want}")
+if not any(x.startswith("CAP[") for x in fails):
+    print("V41-KV32-CAP 上限语义：auto=32768 / off=None / 收紧=20000 / 越界夹回=32768 / 0=auto ⇒ 5/5 ✓")
+
 if fails:
     pass
 else:
