@@ -106,7 +106,7 @@ def _select_fused_or_capacity_moe_comm_method(num_tokens, vllm_config, mc2_token
 若 MC2 生效，预期 prefill 有**可观提升**（上界 1.84×）；
 若无效，则 prefill 只剩 kernel/V2-runner 两条路。
 
-## 6. 环境状态
+## 6. 环境状态（见 §9 的最终核验）
 
 本轮**做了 1 次重启**（为 MC2 A/B），当前 tp8k5 运行在 **MC2=1 测试配置**下，
 测完将按约束恢复到**交付基线**（MAX_SEQS=32、MC2=0、KV 2,987,836、BAT 8192）并核验。
@@ -125,3 +125,29 @@ ssh a3-21 'docker exec dsv41-tp8k5 python3 -c "from torch_npu.profiler.profiler 
 # 看构成
 ssh a3-21 'docker exec dsv41-tp8k5 sort -t, -k5 -rn $R/ASCEND_PROFILER_OUTPUT/op_statistic.csv | head -12'
 ```
+
+## 8. ★ MC2=1 实测：**明确负结果**（prefill 严重变慢，decode 中性）
+
+按 §5 的计划做了 `MC2=1` 的 A/B 重启（其余参数逐项相同）：
+
+| 指标 | 基线（`MC2=0`，走 ALLTOALL） | **测试（`MC2=1`，走 MC2）** | 结论 |
+|---|---:|---:|---|
+| prefill ≈8000 tok，conc=1 | 7937 tok/s | **971 tok/s** | **慢 8.2×** ❌ |
+| prefill ≈8000 tok，conc=8 | 8041 tok/s | **3650 tok/s** | **慢 2.2×** ❌ |
+| decode conc=32 | 1503~1740 tok/s | 1738.9 tok/s | 中性（噪声内） |
+| GPU KV cache size | 2,987,836 | 2,987,727 | 基本不变 |
+
+**配置核验**：`enable_prefill_mc2":true` 确认已生效（`max_num_seqs=32` 不变）。
+
+⇒ **MC2 路径在 A3 + W4A8 + TP8 下对 prefill 是严重退化**，与上游注释的动机一致：
+
+> "A3 的 FUSED_OR_CAPACITY 会把选择短路到 FUSED_MC2，而 **MC2 路径下 TP 会把 8 个 token
+> 切成「每 rank 1 个」**，`DispatchFFNCombineW4A8` 的标量开销（aic_scalar_ratio=0.444 /
+> aiv_scalar_ratio=0.336）**只服务 1 个 token**。"
+
+即：我们**当前默认（`MC2=0` ⇒ ALLTOALL）已经是三种里最好的**（ALLTOALL 8K vs MC2 0.97~3.65K）。
+
+**⇒ prefill 侧的配置杠杆全部试过，全部为负或封堵**（PCP 需 V2 runner / MegaMoE 双门 /
+MC2 负结果 / 合批无效）。**只剩 kernel 级工作**：那 45.5% 的 allreduce 本身要变快或变少。
+
+## 9. 环境状态（恢复核验）
