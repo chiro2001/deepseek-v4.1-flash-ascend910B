@@ -115,3 +115,31 @@ ssh a3-21 'python3 ~/tmp/gate_handoff.py http://127.0.0.1:19210 8 4'
 ssh a3-21 'python3 ~/tmp/gate_decode_diverge.py http://127.0.0.1:19210 48 8 3000'
 ssh a3-21 'sed -n "55,70p" ~/opensrc/op-plugin/docs/zh/custom_APIs/determin_API_list.md'
 ```
+
+## 7. ★ 该线索的实测结论：**被否掉**（单算子逐位确定）
+
+用 `tools/scatter_det.py` 在 tiny（同机）上对 `npu_scatter_nd_update_sk` 做**逐位相同的输入
+连续 100 次调用**，覆盖 4 种索引特征：
+
+| 用法 | 100 次是否逐位相同 | 最大绝对差 |
+|---|---|---|
+| 唯一索引 / 无 `-1` | ✅ 是 | 0.000e+00 |
+| 含 `-1` 跳过行（builder 真实用法） | ✅ 是 | 0.000e+00 |
+| 全部重复索引（同一行写 T 次） | ✅ 是 | 0.000e+00 |
+| 部分重复索引 | ✅ 是 | 0.000e+00 |
+
+⇒ **在我们的用法下该算子逐位确定**，官方清单里那一族 API 的随机性**不在这里触发**。
+§3 的线索**撤回**（保留为"已排查"记录，避免以后重复投入）。
+
+## 8. 至此已排除的候选（三条，都是实测否定）
++
++| 候选 | 否定方式 |
++|---|---|
++| 投机解码 | `SPEC=0` 判别重启：抖动同量级（1.79 vs 1.97） |
++| 小 T 的 TP allreduce 不定序 | prefill 在 **T=32** 也逐位确定 |
++| `npu_scatter_nd_update_sk`（KV 写入） | 单算子 100 次 × 4 种用法**逐位相同** |
++
++**剩下的候选（decode 独有）**：
++1. **capture 图 replay 语义**（eager 下 token 身份 0 处不同、graph 下大量不同）；        |
++2. **device-metadata 的异步时序**（`DeviceMetadataExecutor` 在独立流上构建、靠 event 同步）； |
++3. **decode 专属算子**（SFA 的 decode 布局、QLI 的 top-k tie-break）。
