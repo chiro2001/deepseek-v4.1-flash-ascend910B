@@ -95,18 +95,52 @@ finally:
    等于在噪声里找信号。
 3. ⇒ **DBO 有没有前途，图模式之前的任何数字都不能作为判据。**
 
-## 4. 下一步（唯一有意义的实验）
+## 4. 图模式 DBO：捕获已通，卡在"2-ubatch 步实际走的是 eager"
 
-把 ubatch 双流分支**在捕获期内**走 stream 版（`_run_ubatches_graph`），让一张 ACL graph
-完整捕获 fork/join（规则已由 `tools/tiny_graph_ms.py` 验证：fork event 必须 record 在捕获根流）。
+### 4.1 捕获检测：`forward_context.capturing`
 
-本轮已写好 `~/tmp/fix_dbo_graph_capture.py`（按 `torch.npu.is_current_stream_capturing()`
-选择路径），但**捕获检测没生效**：实测捕获期该 API 返回 False（在独立 `torch.npu.graph(g)`
-上下文里返回 True）⇒ 捕获期仍走了 threading 版，随后捕获阶段报 aicore exception(507015)。
+第一版按 `torch.npu.is_current_stream_capturing()` 选路径 ⇒ **失效**
+（实测捕获期该 API 返回 False，而在独立 `torch.npu.graph(g)` 上下文里返回 True），
+捕获期仍走 threading 版，随后捕获阶段 aicore exception(507015)、engine init 失败。
 
-【推断】vLLM/Ascend 的 capture 走的不是 `torch.npu.graph()` 那层上下文，
-所以要在**外层 wrapper**（`BreakableACLGraphWrapper` / `capture_model`）打标记，
-而不是靠 stream 状态查询。这是下一步的第一件事。
+可靠标志在 vllm-ascend 自己的代码里：
+`vllm_ascend/compilation/acl_graph.py:183` 在进入 `torch.npu.graph(aclgraph, …)` **之前**
+显式 `forward_context.capturing = True`。改用它之后：
+
+```
+(Worker_TP0_EP0) [DBO-GRAPH] capturing=True  -> graph
+(Worker_TP1_EP1) [DBO-GRAPH] capturing=True  -> graph
+Capturing CUDA graphs (decode, FULL): 100%|██████████| 8/8  … 0 errors
+```
+
+⇒ **捕获阶段从此通关**（此前是 aicore exception 直接起不来）。
+
+### 4.2 但真正的 2-ubatch 步并没有走那张图
+
+conc=4 实测（带 `V41_DBO_DEBUG=1`）：
+
+```
+[DBO-GRAPH] capturing=False -> thread      ← 真实步走的是 threading/eager 路径
+…（随后 EngineCore 每 60 s 报 shm 广播超时 = 进程在等 NPU，无任何异常栈）
+```
+
+⇒ 两个事实同时成立：
+1. 2-ubatch 的真实步**不是 replay 捕获好的 FULL 图**，而是回落到 eager（threading 版）；
+2. 这个 eager 2-ubatch 步在 **GRAPH 版服务配置下挂死**（在 EAGER 版服务配置下同样这一步是能跑完的，
+   只是慢 —— 见 §3 的 0.52×）。
+
+**下一步要回答的问题**（已缩小）：
+
+* 为什么 2-ubatch 的 decode 步没命中 `cudagraph_capture_sizes` 里的 FULL 图？
+  （ubatch 的 `num_tokens_padded` 与捕获键是否对得上？捕获期 `_dummy_run` 用的 should_ubatch
+  与真实步是否一致？）
+* 【推断】若捕获期写入了设备侧状态（侧流上的 event、device-metadata 的 frontier 表），
+  而真实步落到 eager，二者对不上就会"等一个永远不会来的事件" —— 现象与 shm 超时完全一致。
+* 备选排查手段：`ASCEND_LAUNCH_BLOCKING=1`（牺牲性能换同步栈）、
+  在 `_run_ubatches_graph` / `_run_ubatches` 两端各加一次 `torch.npu.synchronize()` 定位到具体算子。
+
+**结论：DBO 仍未到"能测收益"的状态**——目前只能确定"捕获不再崩"，
+以及"真实步走的是 eager"。
 
 ## 5. 顺带修掉的坑：NPU `set_stream` 不更新 vLLM `current_stream()`
 
