@@ -74,13 +74,47 @@ profile 实测（armF_r6_base）：1.180 profile ms = 0.721 真实 ms/步，58 �
 但障碍在于**逐层流水**：kv 是在各层 forward 里分别算出来的，要合并就得先落到 staging buffer、
 步末统一 scatter——那会引入额外拷贝与同步，需要专门评估。
 
-## 5. 结论
+## 5. ★ 合并方案的可行性判定（本轮补完）：**被依赖结构挡住**
 
-1. 线 A 的 `ScatterNdUpdateSk` 一项，**收益真实存在（0.721 ms 暴露，+2.9%）**，
-   但**路径不是换算子**，而是**合并 58 次零散写入**；
-2. 换 `_asc` 属于无效投入，**建议从 A1'/A4 里划掉**；
-3. 合并方案需要跨层协作（staging + 步末统一写），属于**中等改动**，
-   建议作为线 A 的下一个候选，但要先做一次**可行性验证**（确认各层 cache 确实是同一 base 的视图）。
+合并写入（把 58 次调用并成少数几次）需要把各层的 KV 攒到步末统一写。但它**做不到**：
+
+**布局侧是完全可行的**（这是好消息，说明不是布局问题）：
+
+```python
+# core/deepseek_v41.py: plan_cache_slots 尾部
+placements.extend(CachePlacement(name, 0, _cap) for name in p["aliases"])
+```
+
+即同一 slot 内的**所有别名层 offset 都是 0、block_stride 相同** ⇒ 索引公式一致
+（线性行号 = `block × (block_stride/row_bytes) + row`），拼一次调用在数学上没有问题。
+
+**但依赖结构不允许延后**（这是决定性的坏消息）：
+
+```python
+# attention/dsa_v41.py:3836-3860（同一层的 forward 内）
+compressed_indices = self._select_sparse_indices(...)   # 读压缩 KV/索引
+...
+attention_output = self._attention(attn, q, metadata, ...)   # ★ 读 SWA 缓存
+```
+
+而 SWA 的**写**发生在**更早**的 `preprocess(...)` / `_write_compressed_source(...)` 里
+（`scatter_cache_sk(...)`）。也就是说**同一层内是「先写 SWA 缓存、再被本层注意力读」**。
+
+这在本仓已有**独立佐证**：`dsa_v41.py:3840` 有一段 [V41-SYNCATTN] 注释，
+记录的正是"发散发生在注意力**读** SWA 缓存与本层给该缓存**写** K/V 之间（同一 forward 内）"，
+并提供了 `sync_attn=1` 的串行化判别开关。
+
+⇒ 写入必须在注意力之前**完成并可见**，**不能攒到步末**。合并方案在结构上不成立。
+
+## 6. 结论
+
+1. 线 A 的 `ScatterNdUpdateSk`（0.721 ms 暴露，+2.9%）**三条路径全部被证伪**：
+   * 换 `_asc`：同一 aclnn 启动路径，固定开销不变（且需额外编译）；
+   * 换专用 PA 写算子：形状（head=1）不被接受；
+   * 合并调用：**被「同层先写后读」的依赖结构挡住**。
+2. ⇒ **该项应从线 A 划掉**，不建议再投入。
+3. 遗留的唯一可能：把 scatter **融进上游算子**（例如 SFA 自带的 KV 写入），
+   属于 kernel 级改动，不在"低风险小改动"范围内。
 
 ## 6. 复现
 
