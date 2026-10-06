@@ -945,12 +945,24 @@ if [ -z "${CAPTURE_SIZES:-}" ]; then
   # 见 docs/CAPTURE-BUCKET-6N-20261004.md。
   # 覆盖的并发档是**稀疏但完整覆盖关键档**的集合（桶数 ~16，与几何表相当，
   # 起服捕获时间几乎不变；实测 9:56）。其余档 padding 到最近的上方桶。
-  for _n in 1 2 3 4 5 6 7 8 10 12 16; do
+  _n_list="1 2 3 4 5 6 7 8 10 12 16"
+  # [CAPTURE-BUCKET-EXT 2026-10-07] ★ MAX_SEQS>32 时必须**补中间档**，否则 N=17..MAX_SEQS-1
+  # 全部被 padding 到最大桶，性能断崖。实测（`docs/MAXSEQS-128-MEASURED-20261007.md`）：
+  #   · MAX_SEQS=64 ：旧表只有 `…,96,384` ⇒ conc=17 的 102 token 被 padding 到 **384（+276%）**；
+  #                    补齐 144/192/240/288/336 后 conc=64 实测 **2210~2290 tok/s**；
+  #   · MAX_SEQS=128：旧表只有 `…,96,768` ⇒ 最坏 **+653%**；补齐后 conc=128 实测 **2768~2853 tok/s**。
+  # **门控条件故意写成 `MAX_SEQS>32`**（而不是 `_cap_max>96`）：交付基线 MAX_SEQS=32 时
+  # 桶表与历史**逐字节相同**（已用仿真核对 `tools/capture_sizes_sim.py`），
+  # 只有显式提高 MAX_SEQS 的场景才会多捕几个桶（每桶 ~10-30 s 捕获）。
+  if [ "$MAX_SEQS" -gt 32 ]; then
+    _n_list="$_n_list 20 24 32 40 48 56 64 72 80 96 112 128 144 160 192 224 256"
+  fi
+  for _n in $_n_list; do
     _c=$(( _n * _step_tokens ))
     if [ "$_c" -ge "$_step_tokens" ] && [ "$_c" -le "$_cap_max" ]; then CAPTURE_SIZES="$CAPTURE_SIZES,$_c"; fi
   done
-  # 覆盖到 MAX_SEQS 档（大 batch 若没有桶会被判为不可图 ⇒ 退 eager）
-  if [ "$_cap_max" -gt $(( 16 * _step_tokens )) ]; then CAPTURE_SIZES="$CAPTURE_SIZES,$_cap_max"; fi
+  # 覆盖到 MAX_SEQS 档（大 batch 若没有桶会被判为不可图 ⇒ 退 eager）。
+  # 固定的下方 `case` 已保证 `_cap_max` 在表内 ⇒ 这里不再重复追加（否则会出现重复项）。
   case ",$CAPTURE_SIZES," in
     *",$_step_tokens,"*) : ;;
     *) CAPTURE_SIZES="$CAPTURE_SIZES,$_step_tokens" ;;
