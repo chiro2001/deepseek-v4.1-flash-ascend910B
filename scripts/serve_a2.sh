@@ -1194,6 +1194,27 @@ if [ "$PATCH_MODE" = "mount" ]; then
     MOUNTS+=(-v "$F/dsa_v1.py:/vllm-workspace/vllm-ascend/vllm_ascend/attention/dsa_v1.py:rw")
   fi
 
+  # [V41-MAINPY-MOUNT] 主层（40 层）的 prolog 不在 dsa_v1.py 里，而在**镜像自带的**
+  # attention/dsa_v41.py（1092 行）与 models/deepseek_v41/indexer.py（244 行）。
+  # 这两个文件**默认不被挂载** ⇒ 想改主层路径就必须重建镜像。
+  # 本开关把它们纳入挂载，从而可以「改文件 + 重启」迭代（无需重建镜像）。
+  #
+  #   V41_MAINPY_MOUNT=1 → 挂 patches/files/mainpy/{dsa_v41.py,indexer.py}
+  #
+  # ⚠️ 基线是**从镜像逐字节抽出**的（dsa_v41.py md5 6e60fc4d…、indexer.py md5 eabbce97…），
+  #    所以只开这个开关而文件不改 ⇒ 行为与镜像完全一致（可作为 A/B 的 A 臂）。
+  # ⚠️ 与 CED decode 路径冲突（那里也挂 dsa_v41.py，同一目标会 duplicate mount）。
+  if [ "${V41_MAINPY_MOUNT:-0}" = "1" ]; then
+    [ "${V41_CED_ROLE:-}" != "decode" ] || die "V41_MAINPY_MOUNT=1 与 CED decode 冲突（两者都挂 dsa_v41.py）"
+    _mainpy_dsa="$F/mainpy/dsa_v41.py"
+    _mainpy_idx="$F/mainpy/indexer.py"
+    [ -f "$_mainpy_dsa" ] || die "V41_MAINPY_MOUNT=1 但缺 $_mainpy_dsa"
+    [ -f "$_mainpy_idx" ] || die "V41_MAINPY_MOUNT=1 但缺 $_mainpy_idx"
+    MOUNTS+=(-v "$_mainpy_dsa:/vllm-workspace/vllm-ascend/vllm_ascend/attention/dsa_v41.py:ro")
+    MOUNTS+=(-v "$_mainpy_idx:/vllm-workspace/vllm-ascend/vllm_ascend/models/deepseek_v41/indexer.py:ro")
+    echo "[serve_a2] [V41-MAINPY-MOUNT] 已挂 patches/files/mainpy/{dsa_v41.py,indexer.py}（主层路径可迭代）"
+  fi
+
   # [V41-HC-FUSE] 自定义融合算子包：hc_pre_norm 需要 ASCEND_CUSTOM_OPP_PATH 指向它。
   # 用法：V41_HC_OPP_PKG=<宿主目录，内含 vendors/custom_transformer>。
   if [ -n "${V41_HC_OPP_PKG:-}" ]; then
