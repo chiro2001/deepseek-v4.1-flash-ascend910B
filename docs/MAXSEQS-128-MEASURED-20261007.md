@@ -86,16 +86,18 @@ python3 tools/ced_pd_acceptance.py --base-url http://127.0.0.1:19210 \
 
 本轮共 2 次起服：MAX_SEQS=128 测试 → 恢复交付配置。
 
-| 项 | 恢复后 | 交付基线（armFINAL/restore11） |
+| 项 | 恢复后 | 交付基线 |
 |---|---|---|
 | tp8k5 health | **200** | 200 |
-| GPU KV cache size | **2,987,618 token** | 2,987,618 |
+| GPU KV cache size | **2,987,836 token** | **2,987,836**（与最初的原始基线 `armIMG_restore10` **逐位相同**） |
 | max_num_batched_tokens | 8192 | 8192 |
 | max_num_seqs | **32** | 32 |
 | capture_sizes | `…,96,192` | 同 |
 | SP_TOKENS | 5 | 5 |
 | dspark 投机解码 | 开启 | 开启 |
 | 1M 上下文并发 | 2.85× | 同 |
+| **功能抽查** | `'北京'`（正确） | — |
+| **吞吐抽查** | conc=32 → **1503.5 tok/s**（落在基线 1502~1740 区间） | — |
 
 | 其他 | 状态 |
 |---|---|
