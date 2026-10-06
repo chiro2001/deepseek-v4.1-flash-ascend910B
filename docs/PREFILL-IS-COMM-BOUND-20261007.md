@@ -151,3 +151,18 @@ ssh a3-21 'docker exec dsv41-tp8k5 sort -t, -k5 -rn $R/ASCEND_PROFILER_OUTPUT/op
 MC2 负结果 / 合批无效）。**只剩 kernel 级工作**：那 45.5% 的 allreduce 本身要变快或变少。
 
 ## 9. 环境状态（恢复核验）
+
+本轮共 2 次起服（MC2=1 测试 → 恢复交付配置），恢复后逐项核验：
+
+| 项 | 恢复后 | 交付基线 | 一致 |
+|---|---|---|---|
+| tp8k5 health | **200** | 200 | ✅ |
+| `enable_prefill_mc2` | **false** | false | ✅ |
+| max_num_seqs | **32** | 32 | ✅ |
+| SP_TOKENS | 5 | 5 | ✅ |
+| GPU KV cache size | 2,987,400 | 2,987,292~2,987,945（同一基线在多次重启间的正常抖动 ≤0.02%） | ✅ |
+| **功能抽查** | `'北京'` | — | ✅ |
+| **decode 抽查**（conc=32） | **1605.8 tok/s** | 1503~1740 | ✅ |
+| **prefill 抽查**（conc=1, 8K） | **7892 tok/s** | 7937 | ✅ |
+
+tiny（chips 2/3）= health=200、全程未动；chips 0–3 他人负载未受影响。
