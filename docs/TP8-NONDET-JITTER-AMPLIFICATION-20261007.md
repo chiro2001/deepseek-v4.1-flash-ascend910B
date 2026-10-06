@@ -1,5 +1,11 @@
 # TP=8 非确定性：**基础抖动极小、被解码放大** + 一条官方线索（2026-10-07）
 
+
+> ✅ **最终实践结论见 `docs/ANSWER-STABILITY-VIA-CHAT-API-20261007.md`**：
+> 用服务实际接口（`/v1/chat/completions`）实测 —— **结构化任务（抽取/事实/算术）逐字一致且 100% 正确**，
+> 开放生成仅措辞差异（前 8 字一致）。本文的数值层观测仍成立，但**不构成使用层面的风险**。
+> 另：本文若出现 `/v1/completions` 裸 prompt 的结论，属**接口误用（OOD）**，以该文为准。
+
 > 承接 `TP8-DECODE-NONDETERMINISM-ROOTCAUSE` 与 `PREFILL-DETERMINISTIC-ANY-T`。
 > 本轮用**同请求内同时取 `prompt_logprobs` 与 `logprobs`** 的手法，量化了抖动的"源头大小"，
 > 并找到一个官方文档层面的线索。全部为【实测】，推断处已标注。

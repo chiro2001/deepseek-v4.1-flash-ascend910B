@@ -1,5 +1,11 @@
 # 补充：prefill 在 **T=32 / 1024 / 1240** 下都逐位确定 ⇒ 排除「小 T 规约」假设（2026-10-07）
 
+
+> ✅ **最终实践结论见 `docs/ANSWER-STABILITY-VIA-CHAT-API-20261007.md`**：
+> 用服务实际接口（`/v1/chat/completions`）实测 —— **结构化任务（抽取/事实/算术）逐字一致且 100% 正确**，
+> 开放生成仅措辞差异（前 8 字一致）。本文的数值层观测仍成立，但**不构成使用层面的风险**。
+> 另：本文若出现 `/v1/completions` 裸 prompt 的结论，属**接口误用（OOD）**，以该文为准。
+
 > 承接 `TP8-DECODE-NONDETERMINISM-ROOTCAUSE`。该文把我此前的假设收敛到
 > 「TP=8 decode 的小张量 allreduce 不定序」。**本轮实测把它否掉了。**
 > 全部为【实测】，运行在**交付配置**（graph 模式、TP=8、镜像版 attention）。
