@@ -327,3 +327,82 @@ docker exec -i dsv41-tinyspark bash -lc "cat > /vllm-workspace/.../dsa_v41.py" <
 
 > 注：`~/dcpw` 里 **`dsa_v41.py` 有陈旧 inode 问题**（见 §7.1），对它必须
 > `docker exec -i <ct> bash -lc "cat > <容器路径>" < <宿主文件>`，否则改了不生效。
+
+---
+
+## 9. ★ 本轮再推进：`_cat_ubatch_outputs` 修好、DCP 隔离完成、撞上 device-metadata 内核
+
+### 9.1 `_cat_ubatch_outputs` 已正确工作（实测链）
+
+模型输出是 **嵌套结构**：`list(len=2)[tuple(len=2)[Tensor(1024,5120), list(len=3)[Tensor×3]]]`。
+递归版调试输出证实拼接正确：
+
+```
+[DBO-CAT0] in:  list(len=2)[tuple(len=2)[Tensor(1024, 5120), list(len=3)[Tensor(1024,5120)×3]]]
+[DBO-CAT1] in:  list(len=2)[Tensor(1024,5120), Tensor(1024,5120)]
+[DBO-CAT1] out: Tensor(2048, 5120)                     ← hidden states 拼对了
+[DBO-CAT1] in:  list(len=2)[list(len=3)[Tensor×3], list(len=3)[Tensor×3]]
+[DBO-CAT2] out: Tensor(2048, 5120) ×3                  ← aux hidden states 也拼对了
+```
+
+末尾还加了"**任何情况下都不返回比输入更少元素的容器**"的兜底
+（否则调用方 `hidden_states, _ = outputs` 会报 `expected 2 got 0`）。
+
+### 9.2 ★ DCP 隔离实验：DCP=2 是前一个拦路虎，改 DCP=1 后错误**换了地方**
+
+tiny 容器创建时带了 `KV_ARGS_EXTRA=--decode-context-parallel-size 2`。
+上游 PR 明确写"**PCP/DCP 不支持**"，于是改跑 **DCP=1**（也正是 tp8 交付的配置）：
+
+| 配置 | 报错 |
+|---|---|
+| DCP=2 + DBO | `HcclAllGather` / `aclnnMatmul` AICPU exception ⇒ **卡在 DCP 通信** |
+| **DCP=1 + DBO** | `aclnnHcPre failed` + `AICPU kernel execution failed … kernelName=QuantLightningIndexerV2Metadata`（errcode 22007）⇒ **换了地方** |
+
+⇒ **DCP 确实是独立的一层障碍**（与 PR 的 known limitation 一致）；
+DCP=1 下能过 DCP，但撞上 **device-metadata 的 AICPU 内核**。
+
+### 9.3 尝试"关掉 device-metadata"⇒ 撞上设计耦合
+
+思路：ubatching 时把 metadata 计算留在 eager 路径，绕开 AICPU 任务队列。
+在 `enable_device_metadata()` 里加 `use_ubatching` 提前返回 ⇒ 新错误：
+
+```
+RuntimeError: V4.1 source RoPE buffers were not prepared
+```
+
+⇒ **RoPE buffer 的准备与 device-metadata 是绑定的**，不能单独关。
+（该改动已回退。）
+
+### 9.4 下一层的根因判断（待验证）
+
+`QuantLightningIndexerV2Metadata` 是 AICPU 元数据内核。它与 ubatch 的两处潜在不匹配：
+
+1. **device-metadata 任务是 per-builder 收集、由 runner 统一执行**：
+   `_build_attn_group_metadata` 里 `device_metadata_tasks.extend(provider.take_device_metadata_tasks())`。
+   我们让它按 ubid 调了两次 ⇒ 两个 builder 的任务都会入队，但
+   **执行侧是否按 ubatch 分组执行**未知（可能需要 per-ubatch 的 task 列表与 buffer 绑定）；
+2. **tiling 的 T 维**：AICPU 内核的 tiling 可能仍按全批 token 数算，
+   而 buffer 已是半批 ⇒ 与之前 RoPE 的"全批/半批"是同一类问题，只是换到 metadata 内核。
+
+### 9.5 当前状态
+
+| 项 | 状态 |
+|---|---|
+| ubatching 激活（2 × 1024） | ✅ |
+| 模型前向跑通（含输出拼接） | ✅ |
+| **DCP=2 + DBO** | 🔴 卡在 DCP 通信（PR 已知限制） |
+| **DCP=1 + DBO** | 🔴 卡在 AICPU metadata 内核（22007） |
+| device-metadata 可否绕过 | ❌ 与 RoPE buffer 强耦合 |
+| 精度 / 性能 | ⏳ 未到 |
+| tiny | ✅ 已完全回退（健康、容量 3,403,198） |
+| tp8k5 | **未动** |
+
+### 9.6 下一步（按性价比）
+
+1. **查 `DeviceMetadataTask` 的执行侧**：确认 runner 是否按 ubatch 分组执行 metadata 任务；
+   若否，需要把 task 列表也做成 per-ubatch（与 `_publish_task` 的 key 同思路）。
+2. **查 AICPU metadata 内核的 tiling 入参**：核对 T 维是否用了全批 token 数。
+3. 若 1/2 都需要大改，**退一步的可行交付**：用 `V41_DCP_MERGE_KERNEL=0` + 关 device-metadata
+   的组合需要在 RoPE buffer 上补一条独立准备路径 —— 属于中等改动。
+
+> 注：`~/tmp/` 下的 `fix_disable_devmeta.py` 是**负结果**（已验证不可行），保留作记录。
