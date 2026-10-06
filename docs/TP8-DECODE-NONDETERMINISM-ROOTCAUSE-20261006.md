@@ -129,3 +129,24 @@ ssh a3-21 'python3 ~/tmp/gate_bit_exact2.py http://127.0.0.1:19310 8000 6 32'
 
 > 附：`SPEC=0` 会让可用 KV 变大（少了 draft 模型占用）⇒ 触发 `[KV32]` 池越界守卫，
 > 需按脚本提示显式 `KV_CACHE_MEMORY_BYTES=15728022528` 压池后重跑。
+
+## 8. 环境状态（按约束恢复并核验）
+
+本轮共 3 次起服（SPEC=0 首轮被 KV32 守卫拒绝 → 压池重试成功 → 恢复交付配置）：
+
+| 项 | **恢复后** | 原始交付基线（restore11） | 一致 |
+|---|---|---|---|
+| tp8k5 health | **200** | 200 | ✅ |
+| **GPU KV cache size** | **2,987,509 token** | **2,987,509 token** | ✅ **逐位相同** |
+| max_num_batched_tokens | 8192 | 8192 | ✅ |
+| max_num_seqs | 32 | 32 | ✅ |
+| capture_sizes | `…96,192` | 同 | ✅ |
+| SP_TOKENS | 5 | 5 | ✅ |
+| speculative_config | `dspark`（SPEC=1） | 同 | ✅ |
+| 1M 上下文并发 | 2.85× | 同 | ✅ |
+| 功能抽查 | `'水的化学式是H2O。…'` 正常生成 | — | ✅ |
+
+| 其他 | 状态 |
+|---|---|
+| tiny（a3-21 chip2/3） | health=200，**全程未动** |
+| a3-21 chips 0–3 | 仍为他人负载（`hlz-dsv4-dp2`）+ 我们的 tiny，未受影响 |
