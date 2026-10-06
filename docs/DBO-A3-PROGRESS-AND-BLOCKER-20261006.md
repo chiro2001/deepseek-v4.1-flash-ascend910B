@@ -212,3 +212,52 @@
 +# 4) 回退到常规 tiny
 +ssh a3-21 'python3 ~/tmp/revert_pf.py && bash ~/tmp/launch_tiny_prof.sh'
 +```
+
+---
+
+## 7. ★ 本轮继续推进：又解决 2 个阻塞、又发现 1 个（截至 16:30）
+
+在 §4 的"one owner"阻塞之后继续迭代，**又前进了 3 步**（每一步的错误都不同，说明在真推进）：
+
+| 步 | 现象 | 处置 | 结果 |
+|---|---|---|---|
+| 1 | `RuntimeError: V4.1 compressor metadata must have one owner` | **方案 A**：`_publish_task` 的缓存 key 加 `:ub{ubid}` 后缀（透传 `ubid` 到 `builder.build()`） | ✅ **已解决**（该错误消失） |
+| 2 | `name 'kwargs' is not defined` | 我第一版把 `self._ubid = kwargs.get(...)` 插到了**别的方法**（`build()` 之前也有一处 `self._device_metadata_tasks = ()`） | ✅ 已修（移到 `build()` 内） |
+| 3 | `list indices must be integers or slices` @ `dsa_v41._get_layer_metadata` | ubatching 下 `attn_metadata` 是 **per-ubatch 的 list**，需要按 ubid 索引 | ✅ 已修（wrapper 在每个 per-ubatch forward context 上写 `ubatch_id`，`_get_layer_metadata` 遇 list 时按其索引） |
+| 4 | `call aclnnInplacePartialRotaryMul failed` | **当前阻塞**：RoPE 算子的入参形状/长度不一致 | 🔴 待查 |
+
+### 7.1 一个重要的环境坑（会影响后续所有人）
+
+**`~/dcpw/` 里被挂载的文件可能是"陈旧 inode"**：
+
+```
+宿主  ~/dcpw/vllm_ascend/attention/dsa_v41.py   inode 80300207  260829 B  Oct 6 16:19
+容器  /vllm-workspace/.../attention/dsa_v41.py  inode 80300221  261212 B  Oct 1 16:47   ← 不同 inode！
+```
+
+即：该文件在容器启动后被**替换过**（新 inode），而 bind mount 仍指向**旧 inode** ⇒
+**宿主改了、容器看不到**。（对照 `platform.py` 两边 inode 相同，所以它的改动是生效的。）
+
+**处置**：对这类文件必须**原地截断写**，不能用 `cp`/`mv`：
+```bash
+docker exec -i dsv41-tinyspark bash -lc "cat > /vllm-workspace/.../dsa_v41.py" < ~/dcpw/...
+```
+> 这条坑值得单独记住：它表现为"我明明改了、日志却没有变化"，极易误判为"改动无效"。
+
+### 7.2 修正后的现状表
+
+| 项 | 状态 |
+|---|---|
+| 多流图捕获 | ✅ 已验证（1.31×） |
+| DBO 配置校验 | ✅ 已通（platform.py 两处 all2all 覆盖都要放开） |
+| `_publish_task` 冲突 | ✅ 已解（key 按 ubatch） |
+| `_get_layer_metadata` list 索引 | ✅ 已解（forward context 带 ubatch_id） |
+| **RoPE 入参形状** | 🔴 **当前阻塞** |
+| 长 prompt 精度 / 性能 | ⏳ 未到（还在起服阶段） |
+
+### 7.3 下一步
+
+1. 查 `aclnnInplacePartialRotaryMul` 的入参：它在 `dsa_v41` 里用的是 `common.positions`（我按 token_slice 切了）
+   还是别处传入的**未切**张量（很可能是 `attn_metadata` 之外的输入，如 `positions` 从 model runner 传进 forward）。
+2. 若是后者，需要在 `_slice_model_inputs` 之外**再切一次 positions**（那属于 wrapper 的职责）。
+3. 通过后继续走：图模式 → `walk_blocks` 十轮逐位 → `[bneck] hp`。
