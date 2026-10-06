@@ -261,3 +261,69 @@ docker exec -i dsv41-tinyspark bash -lc "cat > /vllm-workspace/.../dsa_v41.py" <
    还是别处传入的**未切**张量（很可能是 `attn_metadata` 之外的输入，如 `positions` 从 model runner 传进 forward）。
 2. 若是后者，需要在 `_slice_model_inputs` 之外**再切一次 positions**（那属于 wrapper 的职责）。
 3. 通过后继续走：图模式 → `walk_blocks` 十轮逐位 → `[bneck] hp`。
+
+---
+
+## 8. ★★ 本轮续推：**ubatching 真的激活了**（2 × 1024 token），错误链又推进 4 步
+
+### 8.1 决定性证据：ubatching 已激活
+
+补上"`set_ascend_forward_context` 没传 `ubatch_slices`"这个缺失接线后，wrapper 的调试输出：
+
+```
+[DBO-DBG2] args=0 kwargs=['engram_lookups','engram_mask','input_ids','inputs_embeds',
+                          'intermediate_tensors','positions']
+           input_ids=(2048,) positions=(2048,) embeds=None
+           **ubatches=2 ntoks=[1024, 1024]**
+```
+
+⇒ **模型确实被拆成 2 个 1024-token 的 ubatch 调用了**（此前一直被 `ubatch_slices=None` 挡住）。
+
+同一时刻的 RoPE 调试（修复前）：
+```
+[DBO-DBG] rotary kv=(128,1,512) cos=(64,1,1,64) sin=(64,1,1,64) slot=(64,2) hidden=(128,5120)
+```
+⇒ 精确定位到"**模型收全批、metadata 是半批**"这个不一致。
+
+### 8.2 本轮完整错误链（每一步错误都不同 ⇒ 确实在推进）
+
+| # | 错误 | 根因 | 处置 | 结果 |
+|---|---|---|---|---|
+| 1 | `V4.1 compressor metadata must have one owner` | `_publish_task` 的组级共享缓存被两个 ubatch 撞车 | key 加 `:ub{ubid}` 后缀 | ✅ |
+| 2 | `name 'kwargs' is not defined` | 插入命中了 `build()` 之前同名的 `self._device_metadata_tasks = ()` | 移到 `build()` 内 | ✅ |
+| 3 | `list indices must be integers` | ubatching 下 `attn_metadata` 是 list；本仓是**无线程**实现 ⇒ `dbo_current_ubatch_id()` 恒 0，索引不到 | wrapper 在每个 per-ubatch forward context 上写 `ubatch_id`；`_get_layer_metadata` 遇 list 时按它索引 | ✅ |
+| 4 | `aclnnInplacePartialRotaryMul: dim0 must be equal` | **两个原因叠加**：① `batch_shared["rope"]` 是跨 group 共享缓存，ubatch 1 拿到 ubatch 0 的全量 cos/sin；② **`set_ascend_forward_context` 两个调用点都没传 `ubatch_slices`** ⇒ 模型跑全批、metadata 是半批 | ① rope 缓存 key 按 ubatch；② 两个调用点补 `ubatch_slices=...`（用 `'ubatch_slices_padded' in locals()` 的安全形式，`pad_attn` 在该作用域不存在） | ✅ |
+| 5 | `expected Tensor as element 0 in argument 0, but got tuple/list` | `torch.cat(sorted_results)`：V4.1 + spec decode 的模型输出是**嵌套的 tuple/list**（不是单个张量） | 写递归版 `_cat_ubatch_outputs`（支持 tuple/list/dict/嵌套） | ✅ 已改 |
+| 6 | `torch.cat(): expected a non-...`（空序列） | 递归版遇到空 list/dict 分支 | **当前阻塞**（下一步：对空序列直接返回，或跳过 None/空项） | 🔴 |
+
+### 8.3 当前状态
+
+| 项 | 状态 |
+|---|---|
+| ubatching 激活（2 × 1024 token） | ✅ **已确认** |
+| 起服完成 | 🔴 未到（仍卡在 `_cat_ubatch_outputs` 的空序列） |
+| 精度 / 性能 | ⏳ 未到 |
+| tiny | ✅ 已完全回退（health=200、容量 3,403,198、无 DBO 残留） |
+| tp8k5 | **未动** |
+
+### 8.4 下一步（明确、短）
+
+1. **`_cat_ubatch_outputs` 处理空序列**：递归时若 `sorted_results` 为空或全是 None，直接返回原值/`None`
+   （大概率是 `aux_hidden_states` 在某些配置下为空 list）。
+2. 起服成功（eager）→ 立刻跑 `walk_blocks` 十轮逐位比对（这是四道门的第一道，**必须先过**）。
+3. 通过后切图模式（本仓的 `_run_ubatches_graph` 已写好：根流 fork → 侧流 join，规则已由
+   `tools/tiny_graph_ms.py` 验证）→ 测 `[bneck] hp` 与聚合 tok/s → 扫 k=2/4。
+
+### 8.5 本轮修复脚本（都在 `tools/`）
+
+| 脚本 | 作用 |
+|---|---|
+| `dbo_fix_publish_ubid.py` | ① `build()` 记 `_ubid` ② `_publish_task` key 加 ub 后缀 ③ `builder.build(ubid=)` |
+| `dbo_fix_layer_meta.py` | wrapper 写 `forward_context.ubatch_id` + `_get_layer_metadata` 的 list 分支 |
+| `fix_rope_cache.py`（在 `~/tmp/`） | rope 缓存 key 按 ubatch |
+| `fix_ctx_arg2.py`（在 `~/tmp/`） | 两个 `set_ascend_forward_context` 调用补 `ubatch_slices=` |
+| `fix_cat_outputs.py`（在 `~/tmp/`） | 递归版 `_cat_ubatch_outputs` |
+| `dbo_fix_numin.py` / `dbo_fix_afc.py` / `dbo_revert_pf.py` | 前一轮的 num_input_tokens / forward context 形参 / 回退 |
+
+> 注：`~/dcpw` 里 **`dsa_v41.py` 有陈旧 inode 问题**（见 §7.1），对它必须
+> `docker exec -i <ct> bash -lc "cat > <容器路径>" < <宿主文件>`，否则改了不生效。
