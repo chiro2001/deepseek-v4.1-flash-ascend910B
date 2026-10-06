@@ -1,5 +1,10 @@
 # prefill 的三条非 kernel 杠杆**全部被封堵**（2026-10-07）
 
+
+> ✅ 本文的「prefill 是 compute-bound」**最终成立**；但本文 §1 之后我曾一度改口称
+> 「通信受限（allreduce 45.5%）」，那是 `op_statistic` 求和假象，**已撤回**。
+> 完整的暴露度证据与最终画像见 **`docs/PREFILL-FINAL-PICTURE-20261007.md`**。
+
 > 本轮先**否掉了我自己上一轮提出的 BAT_TOKENS 假设**，随后把 prefill 剩下的三条
 > 非 kernel 路径逐条查到底 —— 结论是**三条都不通**。全部为【实测】/【实测·代码】。
 
