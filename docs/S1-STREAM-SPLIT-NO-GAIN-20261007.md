@@ -1,5 +1,9 @@
 # S1：为什么"把 AIC/AIV 分到两条流"不会有收益 —— 解析证明 + 实测（2026-10-07）
 
+> ⚠️ **本文 §2.3 的"被 HBM 争用压到 1.30×"归因已作废**，实测证明与 HBM 无关
+> （HBM 足迹 672MB 反而略好）。真正的限制是 **AI Core 执行资源池争用**，
+> 见 `S1-CORRECTION-NOT-HBM-CORE-POOL-20261007.md`。**§1 的解析恒等式与 §3 的两条实现规则不受影响。**
+
 > 环境：a3-21 **chip 5**（`dsv41-op-hcfuse`，全程未动 tp8k5 / tiny）。
 > 解析臂用**真实 trace**（`armF_r6_base`，主流 stream 109，3 步窗口）；
 > 实测臂用**真实算子**（`MatMulV2` / `RmsNorm`）在 NPUGraph 内回放。全部【实测】。
