@@ -1,5 +1,10 @@
 # 第2步实测：DBO 双流在 conc=2 已逼近盈亏平衡（落后仅 7%）（2026-10-07）
 
+
+> ⚠️ **本文的核心结论（conc=2「只落后 7%」）已被撤回**：DBO 在 conc=2 时**根本没触发**
+> （16 token < 阈值 32）⇒ 那 −7% 不是 DBO 的效果。强制触发后 **−42.5%**（与历史 −42% 一致）。
+> 详见 `S14-CORRECTION-DBO-NOT-TRIGGERED-20261007.md`。**§3.3「第 2 步已实现」的代码观察仍然成立。**
+
 > 承接 `S12-BM-CURVE-AND-CBP-CRITERIA`。本文用 **DCP=1 基线** + **DBO 双流臂**做直接对照。
 > 环境：tiny（`dsv41-tinyspark`），dummy 权重，SPEC=1 SP_TOKENS=7，graph 模式。全部【实测】。
 
