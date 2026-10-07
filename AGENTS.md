@@ -279,6 +279,7 @@ python3 tools/check_checksums.py        # 期望：三方一致 ✅
 | 长 prompt 首 token 的命门 | `GPU_UTIL`：**0.92 是默认**，0.94 会让 8K prefill 从 1.14 s 掉到 8.0–8.6 s（`docs/prefill-memory-headroom.md`） |
 | **CED-PD 形态的卡分配** | **P = die 0–7 / D = die 8–15**（16 个 die = **8 块卡全用**）；全部实测参数在 `deploy/a3-ced-pd/launch/_common.sh` |
 | **CED-PD 的 D 必须关多流** | `MULTISTREAM=0 DSA_OVERLAP=0` —— 开了长上下文**静默算错**（实测 144K 四针 0/4） |
+| **`DepStream` 是线名（依赖驱动侧流化）** | **不要叫 U3 / Path A / ubatch / 「AIC∥AIV 并行」** ——前者会被读成「把 AIC 算子放一条流、AIV 放另一条」（那样**收益为零**，相邻 AIC/AIV 是硬依赖），后者会被读成**切批**（那是 DBO，与我们相反）。定义、判据、五个禁用叫法见 `docs/PLAN-UBATCH-AND-DEPSTREAM-20261007.md` §0.0；分支 `feat/depstream` |
 | **CED-PD 的 D 池有硬上界** | `num_blocks ≤ ⌊2³²/147712⌋ = **29076**`（按**页尾**取界）；越界 ⇒ 1M 静默空答（族 A） |
 | 大文件传输 | 走 `scripts/cos-put.sh`（**在 dsv41 仓根，不在 dsv41-release 里**）；**禁止 ssh 传 ≥1 MB** |
 | 发布纪律 | 发布仓远端 = `chiro2001/deepseek-v4.1-flash-ascend910B`；ModelScope 的 README 源在 `../ms_readme.md`（用 `tools/repack_to_modelscope_layout.sh` 打包） |
