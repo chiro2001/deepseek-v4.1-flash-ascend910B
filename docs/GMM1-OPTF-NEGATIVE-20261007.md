@@ -1,5 +1,31 @@
 # gmm1 `OPT-F`（单段快路径）E2E 实测：**无可测收益**（2026-10-07）
 
+> ## ⛔⛔ 2026-10-07 22:xx **标题级更正**：**`OPT-F` 就是 `armF` 本身**
+>
+> 逐文件 diff 显示：`arms/armF/op_kernel/…_a8w4_msd_pipeline.h` **已含**
+> `[GMM1-OPT-F]`（line 100）**与** `[GMM1-OPT-A]`（line 205），且含 `loopCount <= 1` 快路径。
+> 而**当前源码树与 `arms/armF` 的唯一差异就是"探针块"**（`GMM1-PROBE` 那几个纯标量函数）。
+>
+> ⇒ **本文测的"OPT-F 臂"= armF + 死探针代码 ⇒ 与 armF 功能等价**，
+> 所以 "+0.16%" 是 **armF 对 armF** 的噪声 —— 结论正确（无差异），但**标题与框架是错的**：
+> **`OPT-F` 不是"从未测过的新优化"，它就是已交付、已验证 −0.67~−1.09 ms/步的那个 armF。**
+>
+> **修正后的 gmm1 谱系**：
+>
+> | 变体 | 内容 | 服务内 |
+> |---|---|---|
+> | `base` | stock | — |
+> | `armC` | base + `OPT-C`（用 group_list 定 M）+ `OPT-A` | ❌ 崩溃 507015（OPT-C 把 M 取成 `x.dim0` 容量 ⇒ 越界） |
+> | `armD` | base + `OPT-A`（去掉 OPT-C） | ❌ 设备时间无变化 |
+> | **`armF`** | base + **`OPT-F`**（单段快路径 6→2 同步）+ **`OPT-A`** | ✅ **−7.56 µs/op ⇒ −0.67~−1.09 ms/步 ⇒ 已交付** |
+>
+> ⇒ **`OPT-A` 与 `OPT-F` 都已在交付内核里**；`OPT-C` 是有 bug 的死路。
+> **gmm1 kernel 线到此封闭，没有"未测的新优化"遗留。**
+>
+> **但本文的两个探针实验依然有效且更有价值**：它们证明了
+> ①**内核确实被执行**（+227%）；②**armF 的快路径确实被走到**（+113%）。
+> 这正是 `GMM1-ARMC-VERDICT` §4 / `GMM1-ARMD-VERDICT` §3 遗留的"两条候选，均未最终确证"的答案。
+
 > 背景：`GroupedMatmulSwigluQuantWeightNzV2` 是**主流上最大的单项之一**
 > （40 次/步、2.636 ms、其中**标量 1.410 ms**=53%）。
 > 相邻目录的 `csrc/gmm/grouped_matmul_swiglu_quant_v2/` 里已实现一个
