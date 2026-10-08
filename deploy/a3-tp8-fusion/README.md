@@ -4,6 +4,12 @@
 > （或 `deploy/a3-ced-pd` 的 PD 分离形态）之上，把 decode 路径上的两处
 > 「归一化 + 量化」合成一次算子下发。
 > 所有数字为【实测】。
+>
+> 📦 **可直接下载已构建好的包**（不需要仓库）：
+> [Release `a3-tp8-fusion-v1`](https://github.com/chiro2001/deepseek-v4.1-flash-ascend910B/releases/tag/a3-tp8-fusion-v1)
+> —— `dsv41-fusion-c62316af3c37-12060edba7de.tar.zst`（808 KB，
+> sha256 `168d8b70…`）。已实测：从 GitHub 下载后 `sha256sum -c` 通过，
+> 且与本地构建产物**逐字节一致**。
 
 ---
 
