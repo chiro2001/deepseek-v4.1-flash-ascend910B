@@ -80,3 +80,30 @@ this->AICore().AddConfig("ascend910_93");     // A3
 ⇒ 在 A2 上装本包，**算子会找不到 910b 的 kernel 二进制**。
 需要按 `REPRODUCE.md` §2 用 `--soc=ascend910b`（或 A2 实际的 SoC 名）重编一份 OPP。
 **在补上这份 kernel 之前，A2 不要启用 `V41_LNORM_FUSE=1`。**
+
+---
+
+## ⛔ 应用补丁前必读：必须同时补 Meta 实现（否则服务起不来）
+
+`apply_lnorm_fuse_portable.py` 之外，**还必须**给自研算子补 `Meta` 实现。
+否则 `torch.compile` 的 fake-tensor 追踪会直接炸：
+
+```
+torch._dynamo.exc.Unsupported: Operator does not support running with fake tensors
+```
+
+**原因**：vllm-ascend 的 Meta 实现注册在**独立文件** `csrc/torch_binding_meta.cpp`
+（不是 `torch_binding.cpp`）。加新算子时漏了这个文件 ⇒ 算子无法参与 shape 推导。
+
+**修复**（两份脚本在本目录）：
+
+| 脚本 | 作用 |
+|---|---|
+| `patch_torch_binding_meta.py` | 给 `csrc/torch_binding_meta.cpp` 插入 3 输出算子的 Meta 实现 + 注册 |
+| `check_op_meta.py` | 自检：打印各算子的 Meta 注册状态（改完必须 `npu_rms_norm_dynamic_quant_bf16 Meta=True`）|
+
+**顺序**：① 打 Meta 补丁 → ② **重编 torch 扩展**（`VLLM_SKIP_OPS_BUILD=1 python3 setup.py build_ext --inplace`）
+→ ③ 用 `check_op_meta.py` 验证 → ④ 才打 Python 融合补丁 → ⑤ 重启。
+
+> 完整三层根因（还有个「真张量当常量」的坑）见
+> [`docs/LNORM-FUSE-RCA-20261008.md`](../../../docs/LNORM-FUSE-RCA-20261008.md)。
