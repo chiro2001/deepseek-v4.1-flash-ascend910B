@@ -37,7 +37,8 @@ MODEL_ANCHOR = """        hidden_states, post, comb = self.hc_pre(hidden_states,
 
 MODEL_NEW = """        hidden_states, post, comb = self.hc_pre(hidden_states, self.hc_attn_fn, self.hc_attn_scale, self.hc_attn_base)
         # [LNORM-FUSE] 可选融合：一次算子同时给出 bf16 归一化结果与 wq_a 需要的 int8/scale
-        if _lnorm_fuse_on() and hidden_states.shape[-1] == 1280:
+        # D>=513：实测算子正确区间（D<=512 是上游 rms_norm_dynamic_quant 已有缺陷，见 docs §9.3）
+        if _lnorm_fuse_on() and hidden_states.shape[-1] >= 513:
             _w = getattr(self, "_lnorm_w_bf16", None)
             if _w is None:
                 _w = self.input_layernorm.weight.data.to(torch.bfloat16)
@@ -45,7 +46,10 @@ MODEL_NEW = """        hidden_states, post, comb = self.hc_pre(hidden_states, se
             _normed, _q_i8, _q_sc = torch.ops._C_ascend.npu_rms_norm_dynamic_quant_bf16(
                 hidden_states.contiguous(), _w, epsilon=self.norm_eps
             )
-            self.self_attn._lnorm_fused_quant = (_q_i8, _q_sc)
+            # 读侧是 forward_context.no_compile_layers[prefix] = AscendDeepseekSparseAttention
+            # 实例，也就是 layer.self_attn.dsa_attn；写到 self.self_attn 上读不到（会静默失效）。
+            _fuse_tgt = getattr(self.self_attn, "dsa_attn", self.self_attn)
+            _fuse_tgt._lnorm_fused_quant = (_q_i8, _q_sc)
             hidden_states = _normed
         else:
             hidden_states = self.input_layernorm(hidden_states)

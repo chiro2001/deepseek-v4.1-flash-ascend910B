@@ -57,3 +57,30 @@ export V41_LNORM_FUSE=1          # 关闭时删掉这一行即可
   `D ≤ 512` 的输入**不要**走融合：上游 `rms_norm_dynamic_quant` 在该区间本身就有缺陷
   （原算子同条件 20/20 错，见 `docs/MULTI-OUT-OP-IMPLEMENTATION-20261008.md` §9.3）。
 * `wq_a` 若有 TP 通信或非 W8A8-dynamic，会自动回退到原 `quantize` 分支。
+
+---
+
+## A/B 实测结果（2026-10-08，tp8k5 实机）
+
+主判据 = bneck `hp` p50（decode ms/step），同容器同负载（4 并发 × 700 token × 3 轮 + 单流 1200）。
+
+| 臂 | 后20 hp p50 | 后60 hp p50 |
+|---|---:|---:|
+| **A**：`V41_LNORM_FUSE` 走不到融合（同一份补丁，形状判定为假 ⇒ 原路径） | 24.668 ms | 24.600 ms |
+| **B**：融合开启（真正执行三输出算子） | **24.445 ms** | **24.424 ms** |
+| **差值** | **−0.223 ms（−0.90%）** | **−0.72%** |
+
+B 臂 p50 低于 A 臂最小值，分布基本分离。单流吞吐 132.7 vs 132.3 tok/s（噪声内）。
+
+### 调试中踩到的两个坑（都会让融合**静默失效**）
+
+1. **形状判定写错**：`hidden_size = 5120`，初版保护条件写成 `== 1280` ⇒ 永远为假。
+   已改为 `>= 513`（D≤512 是上游缺陷区，见 `docs/MULTI-OUT-OP-IMPLEMENTATION-20261008.md` §9.3）。
+   补测 D=5120 × N∈{6,160} × 各 20 次：bf16/int8/scale **全部零错**。
+2. **对象身份不匹配**：读侧是 `forward_context.no_compile_layers[prefix]`，
+   绑定的是 `AscendDeepseekSparseAttention` 实例（`layer.self_attn.dsa_attn`），
+   而初版写到了 `self.self_attn` 上 ⇒ `getattr(attn, "_lnorm_fused_quant", None)` 恒为 `None`，
+   静默回退到 `wq_a.quantize`。已改为写 `getattr(self.self_attn, "dsa_attn", self.self_attn)`。
+
+**教训**：这类"跨层传状态"的融合，必须验证**传到了**，不能只看启动没报错、输出没乱码。
+两次失效都产出了完全正常的输出，只是没有性能收益。
