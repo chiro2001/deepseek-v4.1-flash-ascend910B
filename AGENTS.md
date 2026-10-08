@@ -356,3 +356,40 @@ python3 tools/check_checksums.py        # 期望：三方一致 ✅
 | **CED-PD 的 `A≈1.0`**（看着像"没开推测解码"） | 草稿图**静默无 attention** —— 缺 `DSPARK_GRAPH_CAPTURE_METADATA=1`（见 §3.4）。`ms/step` 此时反而更好看 |
 | CED-PD 的 `u_fffd` 全是 0，但文本明显是乱的 | **预期**：乱码来自 token 层面（族 B/C），不是 UTF-8 解码问题 ⇒ `u_fffd` 从来不是判据 |
 | CED-PD 单流 `tok/s` 与历史差 14–21% | **语料不同**：`A` 是内容驱动的（同样配置下《地火》A=2.76 vs 《红楼梦》A=2.32，而 `ms/step` 几乎一样）。跨语料比 `tok/s` 没有意义 |
+
+---
+
+## `deploy/a3-tp8-fusion/` —— 解码路径融合优化叠加包（2026-10-08）
+
+**叠加**在任意 A3 TP8 单实例（或 CED-PD 形态）之上的解码优化，不是独立部署形态。
+新增自研算子 `RmsNormDynamicQuantBf16`（三输出：bf16 + int8 + scale），
+把 `input_layernorm` + `wq_a.quantize`（43 层）合成一次下发。
+
+| 入口 | 命令 |
+|---|---|
+| 组装 payload | `bash deploy/a3-tp8-fusion/build_payload.sh --from-container <ct>` （或 `--artifacts <tgz>`） |
+| 装进容器 | `bash deploy/a3-tp8-fusion/install.sh <ct>` （`--dry-run` / `--rollback`） |
+| **一致性判据** | `bash deploy/a3-tp8-fusion/verify_consistency.sh <ct>` （逐文件 sha256） |
+| 出发布包 | `bash deploy/a3-tp8-fusion/package_release.sh build` （`verify` / `selftest`） |
+| **从源码重建二进制** | `deploy/a3-tp8-fusion/REPRODUCE.md` |
+
+**三个开关**（全部只在进程启动时读一次 ⇒ 改完必须重启）：
+
+| 变量 | 取值 | 默认 | 说明 |
+|---|---|---|---|
+| `ASCEND_CUSTOM_OPP_PATH` | `/vllm-workspace/3out_opp/vendors/custom_transformer` | 无 | 让 CANN 找到自研算子 |
+| `V41_LNORM_FUSE` | `1` | 关 | 融合点 B（本包新增，43 层） |
+| `V41_QNORM_FUSE` | `1` | 关 | 融合点 A（上游已有，35 层） |
+
+**★ 融合失效是静默的**（输出正常、无报错、只是没收益）——开发中因此白测两轮。
+验收**必须看 `bneck hp p50` 数字**（期望 ≤24.5 ms，关闭时 ~24.67 ms），
+不能只看"没崩"。完整语义与失效模式见 `SWITCHES.md`。
+
+**必踩的三个打包坑**（已在脚本里规避，改脚本时别退回去）：
+
+1. `docker cp` 在带符号链接/紧权限目录上会**静默漏文件**
+   （实测 84 文件被取成 55 个，顶层目录一个不少）⇒ 目录一律走**容器内 tar 管道**。
+2. `PAYLOAD.sha256` 的 shell 重定向会**先创建空文件**，被 `find` 收进清单
+   ⇒ 必须 `! -name 'PAYLOAD.sha256'` 并在生成后立刻 `sha256sum -c` 自检。
+3. `V41_LNORM_FUSE` 的读侧是 `forward_context.no_compile_layers[prefix]`
+   （= `layer.self_attn.dsa_attn`），写到 `self.self_attn` 上读不到 ⇒ 静默失效。

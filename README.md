@@ -252,6 +252,8 @@ docker exec <容器> bash /opt/dsv41/tools/enable_codex_responses.sh status  # P
 | 算子 | **rope 取表融合**（6 kernel → 2） | −0.45~0.62 ms |
 | 算子 | **`wo_a` 2D matmul** | −0.31~0.76 ms |
 | 算子 | **expert mask 区间比较** | −0.51 ms |
+| 算子 | **`q_norm` + `wq_b.quantize` 融合**（`V41_QNORM_FUSE`，35 层，用官方算子） | **decode −0.62%** |
+| 算子 | **`input_layernorm` + `wq_a.quantize` 融合**（`V41_LNORM_FUSE`，43 层，**自研三输出算子**） | **decode −0.90%** |
 | 量化 | msmodelslim 的 V4.1 W4A8 支持 | 仅在重新量化时需要 |
 
 > ⚠️ **结构差异（要移植的人注意）**：本包的 Engram 补丁面向**扁平文件布局**
@@ -313,6 +315,7 @@ grep -a "SpecDecoding metrics" <serve.log> | tail -1
 |---|---|
 | `scripts/` | 起服脚本（`serve_a3.sh` / `serve_a2.sh` / `serve_a3_ced_pd.sh` …） |
 | `deploy/a3-ced-pd/` | **PD 分离 + CED 部署形态**（启动器 + 镜像包 + payload 清单） |
+| `deploy/a3-tp8-fusion/` | **解码路径融合优化叠加包**（自研三输出算子 + 2 个开关 + 可复现发布包） |
 | `tools/` | 自检、探针、压测、诊断（40+ 个，见 `AGENTS.md` §4） |
 | `patches/` | 补丁件与载荷（`PATCHES.md` 有逐项说明） |
 | `quant/` | 量化链（5 级，含 msmodelslim 补丁） |
