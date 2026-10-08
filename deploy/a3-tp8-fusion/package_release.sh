@@ -75,11 +75,28 @@ do_build() {
     local stage; stage="$(new_tmpdir)"
     # 用 tar 搬运以保留目录结构；-p 保权限位（OPP 里有可执行脚本）
     ( cd "$PAYLOAD" && tar -cf - . ) | ( cd "$stage" && tar -xpf - )
-    # 文档与脚本也进包（消费者不解仓库也能看懂）
-    for f in README.md SWITCHES.md PAYLOAD.md REPRODUCE.md; do
-        [ -f "$HERE/$f" ] && cp -p "$HERE/$f" "$stage/$f"
+    # ★ 脚本与文档一律用**当前源目录**的版本覆盖 stage：
+    #   payload/install.sh 是 build_payload.sh 组装时拷进去的快照，
+    #   之后改了脚本却没重新组装 ⇒ 包里会带着**旧脚本**发出去
+    #   （实测踩到：包里 install.sh 还是 `docker cp dir/.` 的老版本，
+    #     消费者一装就报 evalSymlinksInScope）。以 $HERE 为准可根除这一类。
+    for f in install.sh verify_consistency.sh build_payload.sh package_release.sh \
+             README.md SWITCHES.md PAYLOAD.md REPRODUCE.md; do
+        [ -f "$HERE/$f" ] || die "源目录缺少 $f"
+        cp -p "$HERE/$f" "$stage/$f"
     done
+    [ -d "$HERE/checks" ] && cp -a "$HERE/checks" "$stage/checks"
     [ -d "$HERE/launch" ] && cp -a "$HERE/launch" "$stage/launch"
+    # 包内必需件自检 + **脚本与源一致**自检（防再次发旧脚本）
+    for f in install.sh verify_consistency.sh README.md SWITCHES.md PAYLOAD.md; do
+        [ -s "$stage/$f" ] || die "打好的包里缺 $f"
+        cmp -s "$stage/$f" "$HERE/$f" || die "包内 $f 与源不一致（发出去了旧版本）"
+    done
+    [ -s "$stage/checks/smoke_chat.py" ] || die "打好的包里缺 checks/smoke_chat.py"
+    # 负向自检：安装脚本不得再用 docker cp 拷目录（那会静默漏文件）
+    if grep -q 'docker cp "\$PAYLOAD/opp/' "$stage/install.sh"; then
+        die "包内 install.sh 仍用 docker cp 拷 OPP 目录（已知会静默漏文件）"
+    fi
     write_metadata "$stage"
 
     local name="dsv41-fusion-$(git_info)-$(payload_fp)"

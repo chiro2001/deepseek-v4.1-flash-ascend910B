@@ -19,8 +19,12 @@ set -uo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 MODE=baked
 CT=""
-PAYLOAD="$HERE/payload"
-REF="$HERE/payload"
+# ★ 两种布局都要能识别：
+#   * 仓库里：deploy/a3-tp8-fusion/{payload/,verify_consistency.sh}
+#   * 发布包里：包根直接就是 payload（./{opp,so,py}/verify_consistency.sh）
+if [ -d "$HERE/payload/opp" ]; then DEFAULT_REF="$HERE/payload"; else DEFAULT_REF="$HERE"; fi
+PAYLOAD="$DEFAULT_REF"
+REF="$DEFAULT_REF"
 
 while [ $# -gt 0 ]; do
     case "$1" in

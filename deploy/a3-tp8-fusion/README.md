@@ -166,30 +166,43 @@ bash install.sh <ct> --rollback     # 换回备份的 .so / .py
 
 ---
 
-## 8. 打包自验（本包交付前已跑过，可复跑）
+## 8. 打包自验（交付前已实跑，可复跑）
 
 | 检查 | 命令 | 结果 |
 |---|---|---|
-| payload 组装 | `build_payload.sh --from-container <ct>` | 91 文件 / 3.8 MB，含 2 个算子目录 |
-| **两种来源等价** | 分别用 `--from-container` 与 `--artifacts` 构建，比聚合指纹 | ✅ **同为 `098c15d53cbc`** |
+| payload 组装 | `build_payload.sh --from-container <ct>` | 91 文件，含 2 个算子目录 |
+| **两种来源等价** | `--from-container` vs `--artifacts`，比聚合指纹 | ✅ **同为 `098c15d53cbc`** |
 | 逐文件一致性 | `verify_consistency.sh <ct>` | ✅ 87 项一致 / 0 不一致 |
 | **打包可复现** | `package_release.sh build` 连跑两次 | ✅ **sha256 完全相同** |
 | 篡改检出（负控） | `package_release.sh selftest` | ✅ 正常包可验、篡改包被抓 |
 | 安装自校验 | `install.sh <ct>` | ✅ 装完逐文件 sha256 比对通过 |
-| **回滚正确性** | `install.sh <ct> --rollback` 后跑 `verify_consistency.sh` | ✅ 检出 2 项不一致（证明回滚真的换了文件、校验器也不是摆设） |
+| **回滚正确性** | `install.sh --rollback` 后跑 `verify_consistency.sh` | ✅ 检出 2 项不一致（回滚真换了文件、校验器不是摆设） |
 | mount 形态 | `verify_consistency.sh --mode mount` | ✅ 2 个 `.py` 与仓库挂载源一致 |
+| **消费者侧闭环** | 只拿发布 tar：解包 → `sha256sum -c` → `install.sh` → 用**包自带**校验器复验 | ✅ 99 文件解包、包自证 OK、安装 rc=0、87 项一致 |
 
 > 这些是"可复现"的**证据**，不是承诺。改任何脚本后请重跑 `package_release.sh selftest`。
 
-### 8.1 踩到并已修的三个坑（都会让发布包静默出错）
+### 8.1 踩到并已修的五个坑（都会让发布包**静默出错**）
 
 1. **`docker cp` 会静默漏文件** —— 在带符号链接/紧权限的目录上，`docker cp <ct>:/dir/. <dst>`
-   报 `evalSymlinksInScope: ... is not in ...`，或只报一个 `permission denied` 就少拷几十个文件。
+   会报 `evalSymlinksInScope: ... is not in ...`，或只报一个 `permission denied` 就少拷几十个文件。
    实测：一个 84 文件的 OPP 树被取成 55 个，**而顶层目录一个不少**，肉眼看不出来。
-   ⇒ 取/放目录一律走**容器内 tar 管道**；并且 `build_payload.sh` 加了
-   「逐算子查 kernel `.o` + aclnn 头 + tiling 三件套 + 总数 ≥80」的完整性校验。
+   ⇒ 取/放目录一律走**容器内 tar 管道**；`build_payload.sh` 加了
+   「逐算子查 kernel `.o` + aclnn 头 + tiling + 总数 ≥80」的完整性校验。
 2. **`PAYLOAD.sha256` 不能把自己收进清单** —— shell 重定向会**先创建空文件**，
    `find` 于是把它也列进去，存的是"空文件的哈希"，之后永远校验失败。
    ⇒ `find ... ! -name 'PAYLOAD.sha256'`，并在生成后立刻 `sha256sum -c` 自检。
 3. **dry-run 里不能用 `$(...)` 包住会打印内容的探测命令** —— 输出会被当成结果值。
    ⇒ dry-run 分支单独走一条只打印、不取值的路径。
+4. **发布包里漏了 `verify_consistency.sh`** —— 消费者装完无法自证，"可复现"就成了空话。
+   ⇒ `package_release.sh` 现在把安装/校验脚本、文档、`checks/` 全部打进包并逐个自检存在性。
+5. **包里带着旧版 `install.sh`** —— `payload/install.sh` 是组装时的快照，
+   改了源脚本却没重新组装 ⇒ 发出去的是老版本（实测：消费者一装就报 `evalSymlinksInScope`）。
+   ⇒ `package_release.sh` 一律用**当前源目录**的脚本覆盖 stage，并用 `cmp -s` 逐个断言一致，
+   另加一条负向检查（安装脚本不得再用 `docker cp` 拷目录）。
+
+### 8.2 关于解包时的 `time stamp ... in the future` 告警
+
+本包的归档 mtime 固定为 **git 提交时间**（可复现构建的代价）。
+若目标机时钟落后于提交时间，`tar` 会打这类告警 —— **无害**，不影响内容与校验。
+要静音：`tar -I zstd -xf <包> -C <dir> 2>/dev/null`。
