@@ -49,3 +49,49 @@
 
 本包**不读不写**任何 `V41_CED_*` 变量，与 PD 分离 / CED 形态正交。
 在 CED 形态下，融合点 B 落在 **D（decode）侧**的 43 个 decoder layer 上，P 侧不受影响。
+
+## E. ★ 兼容性：三形态的差异（2026-10-08 对齐用）
+
+用户报告正在 A2 与 A3 上部署发布版 ⇒ 本节列出**必须知道的三个差异**。
+
+### E.1 `deepseek_v4/model.py` 是三形态共用的
+
+| | |
+|---|---|
+| `model_type` | `deepseek_v41`（配置里就是这个） |
+| 入口 | `models/deepseek_v41/model.py` |
+| **它 import** | `from vllm_ascend.models.deepseek_v4.model import (…, DeepseekV2DecoderLayer, DeepseekV4Attention, …)` |
+
+⇒ 融合补丁打在 **`models/deepseek_v4/model.py`**，三形态都吃得到；
+**不要**去打 `models/deepseek_v41/model.py`（那是 `patches/files/model.py` 覆盖的那份，
+里面没有 `DeepseekV2DecoderLayer`）。
+
+### E.2 `attention/dsa_v41.py` 各形态**不同** ⇒ 禁止整文件覆盖
+
+| 形态 | 该文件 | 整文件覆盖的后果 |
+|---|---|---|
+| A3 TP8 单实例 | 容器原版 | ✅ 安全 |
+| **A3 CED-PD** | **CED 定制版**（含 `[CED-SWA-CLIP]` 等约 168 行） | ❌ 抹掉 CED 修复 |
+| A2 | 容器原版 | ✅ 安全（但二进制侧另有问题，见 E.3） |
+
+⇒ 改用 `integration/apply_lnorm_fuse_portable.py`（锚点驱动，只动两处，已验证
+CED 版的锚点在第 502–503 行存在）。
+
+### E.3 ⛔ A2 暂不可用：OPP 只编了 `ascend910_93`
+
+```
+op_impl/ai_core/tbe/kernel/ascend910_93/    ← 只有这一个 SoC
+```
+
+算子 def 声明支持 `ascend910b` + `ascend910_93` 两代，但本次编译只传了 `--soc=ascend910_93`
+⇒ 在 A2（910B3）上算子找不到 kernel 二进制。
+**在补上 910b 的 kernel 之前，A2 不要启用 `V41_LNORM_FUSE=1`。**
+重编步骤见 [`REPRODUCE.md`](REPRODUCE.md) §2。
+
+### E.4 一句话对齐表
+
+| 形态 | `deepseek_v4/model.py` | `dsa_v41.py` | OPP kernel | 能否用本包 |
+|---|---|---|---|---|
+| A3 TP8 单实例 | 共用 | 容器原版 | ✅ 910_93 | ✅ **已实测 −0.90%** |
+| A3 CED-PD | 共用 | **CED 定制版** | ✅ 910_93 | ⚠️ **须用 portable 补丁**（否则抹掉 CED 修复） |
+| A2 8×910B3 | 共用 | 容器原版 | ❌ 无 910b | ❌ **需先重编 kernel** |
