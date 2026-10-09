@@ -43,7 +43,7 @@
 - c6的`goal20_c6_rebaseline_v1`无结果：两次native栈采样证实在_fx_func_run流同步等待，输出目录空；SIGTERM无效后仅停止自己的PID184。
 - c6 `goal20_c6_nostatic_v1`退出1：dummy param.uniform_的DSA随机任务分配80字节失败，207001/EL0019，没有模型性能。
 - 增加可选GOAL20_SERIAL_DUMMY=1：调用原有NPU RNG/seed，仅每个参数初始化后同步，避免加载阶段任务积压；12451参数完成并进入图捕获。
-- c6 `goal20_c6_serial_dummy_v1`两次栈证实capture warmup后stream同步等待；仅自己的PID2165已停止，无有效计时。当前任务为goal20_c6_blocking_diagnostic_v1，LAUNCH_BLOCKING=1和操作超时30000ms，只用于定位，不能当性能。
+- c6 `goal20_c6_serial_dummy_v1`两次栈证实capture warmup后stream同步等待；仅自己的PID2165已停止，无有效计时。goal20_c6_blocking_diagnostic_v1在框架配置校验中因ACL graph不兼容LAUNCH_BLOCKING=1被拒绝，没有执行模型。当前任务goal20_c6_timeout_diagnostic_v2仅设置操作超时30000ms，LAUNCH_BLOCKING=0，只用于定位，不能当正式性能。
 - run_in_container.sh/serve_goal20_tiny.sh新增GOAL20_CHIP=4或6；源同步session2259可能尚在进行，启动c6重测使用显式环境包装，避免旧脚本强制4。
 
 下一项CPU实现建议：HC finish与全维RMS/RmsNormCast融合。先独立kernel筛选：顺序加载四行形成完整5120维BF16 raw y，
