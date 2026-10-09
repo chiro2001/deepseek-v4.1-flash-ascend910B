@@ -141,6 +141,7 @@ class MooncakeAgentMetadata(msgspec.Struct, omit_defaults=True, dict=True):
     block_lens: list[int]
     ssm_sizes: tuple[int, int]
     local_ip: str = ""
+    mock_segments: list[dict[str, Any]] | None = None
 
 
 @dataclass
@@ -2102,6 +2103,14 @@ class MooncakeConnectorWorker:
             except Exception as exc:  # noqa: BLE001 - 探针不得影响主路径
                 print(f"[CED-KVGEOM] skipped: {exc!r}", flush=True)
         global_te.register_buffer(ptrs, lengths)
+        mock_segments = None
+        if os.environ.get("V41_CED_MOCK_ENABLE", "0") == "1":
+            if self.ced_role != "prefill":
+                raise RuntimeError("CED mock metadata is only supported on P")
+            from vllm_ascend.distributed.kv_transfer.ced_dram.mock_geometry import describe_mock_segments
+
+            mock_segments = describe_mock_segments(self.kv_cache_config, kv_caches)
+            logger.info("[CED-MOCK] registered %d exact KV payload views", len(mock_segments))
         # After KV Caches registered, start the sending or receiving thread.
         metadata = MooncakeAgentMetadata(
             engine_id=self.engine_id,
@@ -2112,6 +2121,7 @@ class MooncakeConnectorWorker:
             block_lens=self.block_len_per_addr,
             ssm_sizes=self._mamba_ssm_size,
             local_ip=get_ip(),
+            mock_segments=mock_segments,
         )
         self.xfer_handshake_metadata = metadata
 

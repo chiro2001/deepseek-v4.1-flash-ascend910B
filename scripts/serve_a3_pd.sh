@@ -79,6 +79,16 @@ fi
 # vLLM 的 kv-transfer-config 由 serve_a2.sh → inner.sh → serve_v2.sh 透传。
 # JSON 必须保持紧凑，否则兼容展开会把 JSON 内空格拆成额外 CLI 参数。
 KV_CONFIG=$(printf '{"kv_connector":"MooncakeHybridConnector","kv_role":"%s","kv_port":"%s","kv_connector_extra_config":{"prefill":{"dp_size":1,"tp_size":8},"decode":{"dp_size":1,"tp_size":8}}}' "$_kv_role" "$KV_PORT")
+if [ "${CED_DRAM:-0}" = "1" ]; then
+  [ "$role" = prefill ] && [ "${V41_CED_ROLE:-}" = prefill ] \
+    || { echo "[CED-DRAM][FAIL] DRAM adapter only supports CED prefill" >&2; exit 2; }
+  case "${CED_DRAM_GB:-64}" in
+    ''|*[!0-9]*|0) echo "[CED-DRAM][FAIL] CED_DRAM_GB must be a positive integer" >&2; exit 2 ;;
+  esac
+  KV_CONFIG=$(python3 "$PKG/experimental/ced/dram/config.py" \
+    --kv-port "$KV_PORT" --cpu-bytes "$(( ${CED_DRAM_GB:-64} * 1073741824 ))" \
+    --pending-blocks "${CED_DRAM_PENDING_BLOCKS:-16384}")
+fi
 
 export MODEL IMAGE=${IMAGE:-quay.nju.edu.cn/ascend/vllm-ascend:deepseek-v4.1-flash-a3}
 export PATCH_MODE=${PATCH_MODE:-mount} NAME PORT SERVED_NAME=${SERVED_NAME:-deepseek-v41-pd}

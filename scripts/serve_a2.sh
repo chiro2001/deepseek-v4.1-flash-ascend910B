@@ -926,6 +926,32 @@ if [ -n "${V41_CED_SNAPSHOT_POS:-}" ] && [ -z "${V41_CED_ROLE:-}" ]; then
   [ -f "$_ced_dsa" ] || die "CED cache snapshot 缺少 $_ced_dsa"
   MOUNTS+=(-v "$_ced_dsa:/vllm-workspace/vllm-ascend/vllm_ascend/attention/dsa_v41.py:ro")
 fi
+CED_DRAM_ENV_ARGS=()
+if [ "${CED_DRAM:-0}" = "1" ]; then
+  [ "${V41_CED_ROLE:-}" = prefill ] && [ "$PREFIX" = 1 ] && [ "$PATCH_MODE" = mount ] \
+    || die "CED DRAM requires prefill, PREFIX=1, PATCH_MODE=mount"
+  _V=/vllm-workspace/vllm/vllm
+  _A=/vllm-workspace/vllm-ascend/vllm_ascend/distributed/kv_transfer
+  for _entry in \
+    "0001-offload-scheduler.patch.py:$_V/distributed/kv_transfer/kv_connector/v1/offloading/scheduler.py" \
+    "0002-offload-cpu-pool-host-registered.patch.py:$_A/kv_pool/kv_offload/native/cpu_npu.py" \
+    "kv8-offload-pool/offloading_config.py:$_V/distributed/kv_transfer/kv_connector/v1/offloading/config.py" \
+    "kv8-offload-pool/cpu_spec.py:$_V/v1/kv_offload/cpu/spec.py" \
+    "kv8-offload-pool/pgp_manager.py:$_V/v1/kv_offload/cpu/pgp_manager.py" \
+    "kv8-offload-pool/p2_pool.py:$_V/v1/kv_offload/cpu/p2_pool.py" \
+    "kv8-offload-pool/npu.py:$_A/kv_pool/kv_offload/native/npu.py" \
+    "kv8-offload-pool/p2_worker.py:$_A/kv_pool/kv_offload/native/p2_worker.py"; do
+    _source="$PKG/a2/patches/${_entry%%:*}"
+    [ -f "$_source" ] || die "CED DRAM missing $_source"
+    MOUNTS+=(-v "$_source:${_entry#*:}:ro")
+  done
+  MOUNTS+=(-v "$PKG/experimental/ced/dram:$_A/ced_dram:ro")
+  MOUNTS+=(-v "$PKG/experimental/ced/core_scheduler_dram.patch:/opt/dsv41/ced_scheduler_dram.patch:ro")
+  CED_DRAM_ENV_ARGS=(-e NPU_OFFLOAD_HOST_MEM=registered -e CED_DRAM_STRICT_REGISTER=1
+    -e P2_POOL_PATCH=1 -e P2_WORKER_ROWS=1 -e VLLM_V41_APC_ALIGN=3 -e SWA_TRIM=off
+    -e "V41_CED_MOCK_ENABLE=${V41_CED_MOCK_ENABLE:-0}")
+  say "[CED-DRAM] native adapter, per-group chunks, registered host pool"
+fi
 [ -n "$PGO_LIB" ] && MOUNTS+=(-v "$PKG/optim/pgo/libpython3.12.so.1.0:$PGO_LIB:ro")
 # ---------- [PROBE] 稀疏状态插针（事后取证；独立于 PATCH_MODE） ----------
 # PROBE=1 时用只读挂载覆盖 dsa_v41.py 并注入 sparse_capture.py。
@@ -1182,6 +1208,7 @@ $DOCKER run -d --name "$NAME" --net=host --shm-size=512g --privileged=true \
   -e V41_CED_CAPTURE_DECODE="${V41_CED_CAPTURE_DECODE:-0}" \
   -e LOAD_FORMAT="$LOAD_FORMAT" \
   -e KV_ARGS_EXTRA="$KV_ARGS_EXTRA" \
+  ${CED_DRAM_ENV_ARGS[@]+"${CED_DRAM_ENV_ARGS[@]}"} \
   ${HCCL_ENV_ARGS[@]+"${HCCL_ENV_ARGS[@]}"} \
   -w /workspace "$IMAGE" \
   bash -lc "sleep infinity" >/dev/null || die "docker run 失败"
@@ -1275,6 +1302,18 @@ if [ "${V41_CED_ROLE:-}" = "prefill" ] && [ "${V41_CED_P_HIT_DIAG:-1}" = "1" ]; 
     python3 -m py_compile vllm/v1/core/sched/scheduler.py || exit 1
     echo APPLIED' 2>/dev/null | tail -1)
   [ "${_ced_phhit:-}" = "APPLIED" ] || die "CED prefill 命中诊断补丁未应用"
+fi
+if [ "${CED_DRAM:-0}" = "1" ]; then
+  say "[CED-DRAM] applying P async-load boundary validation"
+  _ced_dram_patch=$($DOCKER exec "$NAME" bash -lc '
+    cd /vllm-workspace/vllm || exit 1
+    grep -Fq "[CED-P-HIT]" vllm/v1/core/sched/scheduler.py || exit 1
+    git apply --unidiff-zero --check /opt/dsv41/ced_scheduler_dram.patch || exit 1
+    git apply --unidiff-zero /opt/dsv41/ced_scheduler_dram.patch || exit 1
+    python3 -m py_compile vllm/v1/core/sched/scheduler.py || exit 1
+    grep -Fq "[CED-DRAM-RESUME]" vllm/v1/core/sched/scheduler.py || exit 1
+    echo APPLIED' 2>/dev/null | tail -1)
+  [ "${_ced_dram_patch:-}" = APPLIED ] || die "CED DRAM async-load patch was not applied"
 fi
 if [ "${V41_CED_GRAPH_PROMPT_TAIL_EAGER:-0}" = "1" ]; then
   say "[CED-GRAPH] 应用固定 runner 版本的单 token prompt 尾部 eager 补丁"
