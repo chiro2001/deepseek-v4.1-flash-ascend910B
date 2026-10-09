@@ -1,0 +1,468 @@
+{
+  "gmmact": {
+    "steps": 20,
+    "rows": 34360,
+    "tasks_per_step": 1718.0,
+    "device": "4",
+    "csv": "/work/operator_opt/results/goal20_metadata_perf_v1/prof/gmmact/tiny_chip4_76025_20261009203400629_ascend_pt/ASCEND_PROFILER_OUTPUT/kernel_details.csv",
+    "sha256": "1224c8903c5a89324500a05c621dd3933d64d0a7d68501e9a8f8bf34c2cbf083",
+    "trace_valid": true,
+    "structural_checks_passed": true,
+    "kernel_us_per_step": 14618.924900000022,
+    "pipe_duration_weighted_task_ratios": {
+      "_compute_slot_mapping_kernel": {
+        "aiv_vec_ratio": 0.25030311879713074,
+        "aiv_scalar_ratio": 0.3250976553061355,
+        "aiv_mte2_ratio": 0.08407025780218118,
+        "aiv_mte3_ratio": 0.16969757644306813
+      }
+    },
+    "pipe_note": "Duration-weighted per-task ratios; overlapping counters, not whole-chip utilization",
+    "types": {
+      "Fill": {
+        "calls_per_step": 34.0,
+        "us_per_step": 37.412099999999995
+      },
+      "IndexCheck": {
+        "calls_per_step": 2.0,
+        "us_per_step": 6.7658000000000005
+      },
+      "Index": {
+        "calls_per_step": 2.0,
+        "us_per_step": 20.797600000000003
+      },
+      "Cast": {
+        "calls_per_step": 162.0,
+        "us_per_step": 209.28804999999693
+      },
+      "Add": {
+        "calls_per_step": 43.0,
+        "us_per_step": 80.16914999999992
+      },
+      "_compute_slot_mapping_kernel": {
+        "calls_per_step": 11.0,
+        "us_per_step": 33.72935000000002
+      },
+      "Sub": {
+        "calls_per_step": 5.0,
+        "us_per_step": 8.560800000000004
+      },
+      "GreaterEqual": {
+        "calls_per_step": 13.0,
+        "us_per_step": 29.080249999999996
+      },
+      "BroadcastTo": {
+        "calls_per_step": 24.0,
+        "us_per_step": 34.73935000000003
+      },
+      "FloorMod": {
+        "calls_per_step": 16.0,
+        "us_per_step": 35.89730000000004
+      },
+      "Equal": {
+        "calls_per_step": 4.0,
+        "us_per_step": 7.2677000000000005
+      },
+      "LogicalAnd": {
+        "calls_per_step": 4.0,
+        "us_per_step": 5.518850000000002
+      },
+      "FloorDiv": {
+        "calls_per_step": 14.0,
+        "us_per_step": 23.346349999999997
+      },
+      "SelectV2": {
+        "calls_per_step": 29.0,
+        "us_per_step": 45.67009999999999
+      },
+      "ClipByValueV2": {
+        "calls_per_step": 17.0,
+        "us_per_step": 26.202649999999984
+      },
+      "Range": {
+        "calls_per_step": 3.0,
+        "us_per_step": 20.615700000000004
+      },
+      "Less": {
+        "calls_per_step": 3.0,
+        "us_per_step": 7.756899999999999
+      },
+      "GatherElementsV2": {
+        "calls_per_step": 8.0,
+        "us_per_step": 73.7596
+      },
+      "Greater": {
+        "calls_per_step": 1.0,
+        "us_per_step": 2.9498999999999995
+      },
+      "ZerosLike": {
+        "calls_per_step": 6.0,
+        "us_per_step": 7.8717000000000015
+      },
+      "QuantLightningIndexerV2Metadata": {
+        "calls_per_step": 2.0,
+        "us_per_step": 108.20280000000002
+      },
+      "SparseFlashMlaMetadata": {
+        "calls_per_step": 3.0,
+        "us_per_step": 171.15659999999997
+      },
+      "GatherV2": {
+        "calls_per_step": 1.0,
+        "us_per_step": 10.5029
+      },
+      "Tile": {
+        "calls_per_step": 1.0,
+        "us_per_step": 4.6029
+      },
+      "project_static": {
+        "calls_per_step": 80.0,
+        "us_per_step": 648.7344999999996
+      },
+      "finish_hc": {
+        "calls_per_step": 80.0,
+        "us_per_step": 522.3895000000008
+      },
+      "RmsNorm": {
+        "calls_per_step": 129.0,
+        "us_per_step": 517.2048500000012
+      },
+      "MatMulV2": {
+        "calls_per_step": 262.0,
+        "us_per_step": 5435.374650000024
+      },
+      "InplacePartialRotaryMul": {
+        "calls_per_step": 136.0,
+        "us_per_step": 465.7005999999992
+      },
+      "ScatterNdUpdateSk": {
+        "calls_per_step": 52.0,
+        "us_per_step": 279.47045000000014
+      },
+      "SparseFlashMla": {
+        "calls_per_step": 40.0,
+        "us_per_step": 1391.760749999999
+      },
+      "Neg": {
+        "calls_per_step": 40.0,
+        "us_per_step": 47.68330000000012
+      },
+      "TransposeBatchMatMul": {
+        "calls_per_step": 40.0,
+        "us_per_step": 1311.4745999999998
+      },
+      "hc_post_kernel": {
+        "calls_per_step": 80.0,
+        "us_per_step": 310.04290000000003
+      },
+      "RmsNormCast": {
+        "calls_per_step": 40.0,
+        "us_per_step": 116.91875000000013
+      },
+      "tiny_router_gemv": {
+        "calls_per_step": 40.0,
+        "us_per_step": 142.45350000000025
+      },
+      "MoeGatingTopKHash": {
+        "calls_per_step": 40.0,
+        "us_per_step": 113.34365000000017
+      },
+      "route_init_kernel": {
+        "calls_per_step": 40.0,
+        "us_per_step": 129.04745000000068
+      },
+      "gmm1_activation_kernel": {
+        "calls_per_step": 40.0,
+        "us_per_step": 919.3143499999994
+      },
+      "GroupedMatmul": {
+        "calls_per_step": 40.0,
+        "us_per_step": 462.50175000000024
+      },
+      "route_combine_kernel": {
+        "calls_per_step": 40.0,
+        "us_per_step": 130.27020000000053
+      },
+      "clamped_swiglu_kernel": {
+        "calls_per_step": 40.0,
+        "us_per_step": 84.96340000000032
+      },
+      "MatMulV3": {
+        "calls_per_step": 6.0,
+        "us_per_step": 92.31569999999998
+      },
+      "_pool_kernel": {
+        "calls_per_step": 3.0,
+        "us_per_step": 9.195899999999998
+      },
+      "_cache_update_kernel": {
+        "calls_per_step": 3.0,
+        "us_per_step": 5.423950000000001
+      },
+      "DynamicQuant": {
+        "calls_per_step": 4.0,
+        "us_per_step": 8.0149
+      },
+      "Mul": {
+        "calls_per_step": 9.0,
+        "us_per_step": 15.285800000000004
+      },
+      "_quantize_indexer_query_kernel": {
+        "calls_per_step": 8.0,
+        "us_per_step": 39.23610000000001
+      },
+      "QuantLightningIndexerV2": {
+        "calls_per_step": 8.0,
+        "us_per_step": 279.03329999999994
+      },
+      "_prepare_indexer_indices_kernel": {
+        "calls_per_step": 8.0,
+        "us_per_step": 90.93544999999993
+      },
+      "ReduceSum": {
+        "calls_per_step": 1.0,
+        "us_per_step": 21.975600000000004
+      },
+      "ArgMaxV2": {
+        "calls_per_step": 1.0,
+        "us_per_step": 16.99465
+      }
+    }
+  },
+  "mdall": {
+    "steps": 20,
+    "rows": 30720,
+    "tasks_per_step": 1536.0,
+    "device": "4",
+    "csv": "/work/operator_opt/results/goal20_metadata_perf_v1/prof/mdall/tiny_chip4_76025_20261009203414801_ascend_pt/ASCEND_PROFILER_OUTPUT/kernel_details.csv",
+    "sha256": "e2478bdd92128db242513983174baaeb5d38859065ce0fb855ecc2c5b6b86d35",
+    "trace_valid": true,
+    "structural_checks_passed": true,
+    "kernel_us_per_step": 14600.647600000008,
+    "pipe_duration_weighted_task_ratios": {
+      "slot_mapping_kernel": {
+        "aiv_vec_ratio": 0.5331510935068081,
+        "aiv_scalar_ratio": 0.4189236417635412,
+        "aiv_mte2_ratio": 0.004605871620316068,
+        "aiv_mte3_ratio": 0.00912718052781552
+      },
+      "ring_counts_kernel": {
+        "aiv_vec_ratio": 0.09200509410417272,
+        "aiv_scalar_ratio": 0.320474760252312,
+        "aiv_mte2_ratio": 0.17455553086377543,
+        "aiv_mte3_ratio": 0.2701759004427426
+      },
+      "ring_sources_kernel": {
+        "aiv_vec_ratio": 0.08001231527093597,
+        "aiv_scalar_ratio": 0.506160372194855,
+        "aiv_mte2_ratio": 0.09708839627805145,
+        "aiv_mte3_ratio": 0.07708921729611384
+      },
+      "_compute_slot_mapping_kernel": {
+        "aiv_vec_ratio": 0.25161899596508785,
+        "aiv_scalar_ratio": 0.3246326355621279,
+        "aiv_mte2_ratio": 0.08512418497430584,
+        "aiv_mte3_ratio": 0.1674060384954825
+      }
+    },
+    "pipe_note": "Duration-weighted per-task ratios; overlapping counters, not whole-chip utilization",
+    "types": {
+      "Fill": {
+        "calls_per_step": 7.0,
+        "us_per_step": 8.964949999999998
+      },
+      "IndexCheck": {
+        "calls_per_step": 2.0,
+        "us_per_step": 6.89785
+      },
+      "Index": {
+        "calls_per_step": 2.0,
+        "us_per_step": 20.411649999999998
+      },
+      "Cast": {
+        "calls_per_step": 118.0,
+        "us_per_step": 159.11639999999892
+      },
+      "Add": {
+        "calls_per_step": 42.0,
+        "us_per_step": 78.82279999999989
+      },
+      "_compute_slot_mapping_kernel": {
+        "calls_per_step": 11.0,
+        "us_per_step": 33.8793
+      },
+      "Sub": {
+        "calls_per_step": 1.0,
+        "us_per_step": 1.91695
+      },
+      "slot_mapping_kernel": {
+        "calls_per_step": 12.0,
+        "us_per_step": 305.08955000000026
+      },
+      "FloorDiv": {
+        "calls_per_step": 1.0,
+        "us_per_step": 2.304899999999999
+      },
+      "BroadcastTo": {
+        "calls_per_step": 7.0,
+        "us_per_step": 11.882699999999998
+      },
+      "FloorMod": {
+        "calls_per_step": 1.0,
+        "us_per_step": 3.4359499999999996
+      },
+      "GatherElementsV2": {
+        "calls_per_step": 6.0,
+        "us_per_step": 53.784200000000034
+      },
+      "ring_counts_kernel": {
+        "calls_per_step": 1.0,
+        "us_per_step": 2.92495
+      },
+      "ring_sources_kernel": {
+        "calls_per_step": 1.0,
+        "us_per_step": 3.654000000000001
+      },
+      "QuantLightningIndexerV2Metadata": {
+        "calls_per_step": 2.0,
+        "us_per_step": 100.76094999999998
+      },
+      "SparseFlashMlaMetadata": {
+        "calls_per_step": 3.0,
+        "us_per_step": 168.08775000000003
+      },
+      "ZerosLike": {
+        "calls_per_step": 5.0,
+        "us_per_step": 6.096799999999999
+      },
+      "GatherV2": {
+        "calls_per_step": 1.0,
+        "us_per_step": 10.61065
+      },
+      "Tile": {
+        "calls_per_step": 1.0,
+        "us_per_step": 4.6259999999999994
+      },
+      "Equal": {
+        "calls_per_step": 1.0,
+        "us_per_step": 1.2960000000000005
+      },
+      "SelectV2": {
+        "calls_per_step": 1.0,
+        "us_per_step": 1.3079999999999996
+      },
+      "project_static": {
+        "calls_per_step": 80.0,
+        "us_per_step": 649.5314500000014
+      },
+      "finish_hc": {
+        "calls_per_step": 80.0,
+        "us_per_step": 523.8879499999998
+      },
+      "RmsNorm": {
+        "calls_per_step": 129.0,
+        "us_per_step": 512.7836500000024
+      },
+      "MatMulV2": {
+        "calls_per_step": 262.0,
+        "us_per_step": 5455.612850000002
+      },
+      "InplacePartialRotaryMul": {
+        "calls_per_step": 136.0,
+        "us_per_step": 462.9178999999991
+      },
+      "ScatterNdUpdateSk": {
+        "calls_per_step": 52.0,
+        "us_per_step": 281.05124999999975
+      },
+      "SparseFlashMla": {
+        "calls_per_step": 40.0,
+        "us_per_step": 1386.9556000000007
+      },
+      "Neg": {
+        "calls_per_step": 40.0,
+        "us_per_step": 47.78845000000014
+      },
+      "TransposeBatchMatMul": {
+        "calls_per_step": 40.0,
+        "us_per_step": 1309.9597999999994
+      },
+      "hc_post_kernel": {
+        "calls_per_step": 80.0,
+        "us_per_step": 309.80830000000043
+      },
+      "RmsNormCast": {
+        "calls_per_step": 40.0,
+        "us_per_step": 117.00210000000023
+      },
+      "tiny_router_gemv": {
+        "calls_per_step": 40.0,
+        "us_per_step": 141.5943500000002
+      },
+      "MoeGatingTopKHash": {
+        "calls_per_step": 40.0,
+        "us_per_step": 114.03945000000033
+      },
+      "route_init_kernel": {
+        "calls_per_step": 40.0,
+        "us_per_step": 127.7000000000005
+      },
+      "gmm1_activation_kernel": {
+        "calls_per_step": 40.0,
+        "us_per_step": 918.417900000001
+      },
+      "GroupedMatmul": {
+        "calls_per_step": 40.0,
+        "us_per_step": 464.9046000000003
+      },
+      "route_combine_kernel": {
+        "calls_per_step": 40.0,
+        "us_per_step": 129.13285000000036
+      },
+      "clamped_swiglu_kernel": {
+        "calls_per_step": 40.0,
+        "us_per_step": 85.49750000000033
+      },
+      "MatMulV3": {
+        "calls_per_step": 6.0,
+        "us_per_step": 92.08410000000009
+      },
+      "_pool_kernel": {
+        "calls_per_step": 3.0,
+        "us_per_step": 9.093949999999998
+      },
+      "_cache_update_kernel": {
+        "calls_per_step": 3.0,
+        "us_per_step": 5.607950000000001
+      },
+      "DynamicQuant": {
+        "calls_per_step": 4.0,
+        "us_per_step": 7.9986500000000005
+      },
+      "Mul": {
+        "calls_per_step": 9.0,
+        "us_per_step": 15.31979999999999
+      },
+      "_quantize_indexer_query_kernel": {
+        "calls_per_step": 8.0,
+        "us_per_step": 38.95519999999999
+      },
+      "QuantLightningIndexerV2": {
+        "calls_per_step": 8.0,
+        "us_per_step": 274.53120000000007
+      },
+      "_prepare_indexer_indices_kernel": {
+        "calls_per_step": 8.0,
+        "us_per_step": 90.93615
+      },
+      "ReduceSum": {
+        "calls_per_step": 1.0,
+        "us_per_step": 24.897599999999994
+      },
+      "ArgMaxV2": {
+        "calls_per_step": 1.0,
+        "us_per_step": 16.76475
+      }
+    }
+  }
+}

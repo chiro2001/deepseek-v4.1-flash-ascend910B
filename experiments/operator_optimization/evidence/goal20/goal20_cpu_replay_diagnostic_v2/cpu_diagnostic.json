@@ -1,0 +1,4601 @@
+{
+  "steps": 39,
+  "step_device_event_ms": [
+    25.798240661621094,
+    25.17885971069336,
+    25.129499435424805,
+    25.10614013671875,
+    25.113239288330078,
+    25.114479064941406,
+    25.1329402923584,
+    25.119539260864258,
+    25.073440551757812,
+    25.184980392456055,
+    25.20292091369629,
+    25.114839553833008,
+    25.138399124145508,
+    25.090280532836914,
+    25.008020401000977,
+    25.10063934326172,
+    25.17177963256836,
+    25.068479537963867,
+    25.023380279541016,
+    25.03849983215332,
+    25.121959686279297,
+    25.024080276489258,
+    25.007740020751953,
+    25.063459396362305,
+    25.03499984741211,
+    25.027000427246094,
+    25.04715919494629,
+    24.99287986755371,
+    24.994239807128906,
+    25.00037956237793,
+    25.057199478149414,
+    25.053640365600586,
+    24.990419387817383,
+    25.172700881958008,
+    25.03820037841797,
+    24.986499786376953,
+    25.017200469970703,
+    25.12070083618164,
+    25.230159759521484
+  ],
+  "device_event_median_ms": 25.073440551757812,
+  "engine_step_wall_median_ms": 24.910910055041313,
+  "cpu_functions": [
+    {
+      "file": "/usr/local/python3.12.13/lib/python3.12/site-packages/torch/autograd/grad_mode.py",
+      "line": 293,
+      "function": "__exit__",
+      "calls": 117,
+      "self_ms": 3.42156,
+      "cumulative_ms": 1453.94891
+    },
+    {
+      "file": "/vllm-workspace/vllm-ascend/vllm_ascend/worker/worker.py",
+      "line": 717,
+      "function": "sample_tokens",
+      "calls": 39,
+      "self_ms": 0.0632,
+      "cumulative_ms": 503.67878
+    },
+    {
+      "file": "/vllm-workspace/vllm-ascend/vllm_ascend/worker/model_runner_v1.py",
+      "line": 2537,
+      "function": "sample_tokens",
+      "calls": 39,
+      "self_ms": 0.7781200000000001,
+      "cumulative_ms": 499.57293000000004
+    },
+    {
+      "file": "/vllm-workspace/vllm-ascend/vllm_ascend/worker/model_runner_v1.py",
+      "line": 2805,
+      "function": "_bookkeeping_sync",
+      "calls": 39,
+      "self_ms": 1.94829,
+      "cumulative_ms": 493.71045000000004
+    },
+    {
+      "file": "/vllm-workspace/vllm/vllm/v1/worker/gpu_model_runner.py",
+      "line": 7839,
+      "function": "_to_list",
+      "calls": 39,
+      "self_ms": 0.46587,
+      "cumulative_ms": 491.46435
+    },
+    {
+      "file": "/usr/local/python3.12.13/lib/python3.12/site-packages/torch_npu/npu/streams.py",
+      "line": 183,
+      "function": "synchronize",
+      "calls": 39,
+      "self_ms": 0.05664000000000001,
+      "cumulative_ms": 487.46493000000004
+    },
+    {
+      "file": "~",
+      "line": 0,
+      "function": "<function Event.synchronize at 0xffff56fc07c0>",
+      "calls": 39,
+      "self_ms": 487.40829,
+      "cumulative_ms": 487.40829
+    },
+    {
+      "file": "/vllm-workspace/vllm/vllm/v1/executor/uniproc_executor.py",
+      "line": 108,
+      "function": "execute_model",
+      "calls": 39,
+      "self_ms": 0.17434000000000002,
+      "cumulative_ms": 462.83986000000004
+    },
+    {
+      "file": "/vllm-workspace/vllm/vllm/v1/worker/worker_base.py",
+      "line": 346,
+      "function": "execute_model",
+      "calls": 39,
+      "self_ms": 0.07008,
+      "cumulative_ms": 447.75788000000006
+    },
+    {
+      "file": "/vllm-workspace/vllm-ascend/vllm_ascend/worker/worker.py",
+      "line": 649,
+      "function": "execute_model",
+      "calls": 39,
+      "self_ms": 0.10162,
+      "cumulative_ms": 447.68780000000004
+    },
+    {
+      "file": "/vllm-workspace/vllm-ascend/vllm_ascend/worker/model_runner_v1.py",
+      "line": 2082,
+      "function": "execute_model",
+      "calls": 39,
+      "self_ms": 2.1782,
+      "cumulative_ms": 446.94854
+    },
+    {
+      "file": "/vllm-workspace/vllm-ascend/vllm_ascend/worker/model_runner_v1.py",
+      "line": 2965,
+      "function": "_model_forward",
+      "calls": 39,
+      "self_ms": 3.8381700000000003,
+      "cumulative_ms": 436.87036
+    },
+    {
+      "file": "/vllm-workspace/vllm-ascend/vllm_ascend/worker/model_runner_v1.py",
+      "line": 3166,
+      "function": "_build_attention_metadata",
+      "calls": 39,
+      "self_ms": 6.722860000000001,
+      "cumulative_ms": 311.49171
+    },
+    {
+      "file": "/vllm-workspace/vllm-ascend/vllm_ascend/worker/model_runner_v1.py",
+      "line": 3377,
+      "function": "_build_attn_group_metadata",
+      "calls": 975,
+      "self_ms": 11.141390000000001,
+      "cumulative_ms": 217.13222000000002
+    },
+    {
+      "file": "/vllm-workspace/vllm-ascend/vllm_ascend/attention/dsa_v41.py",
+      "line": 739,
+      "function": "build",
+      "calls": 975,
+      "self_ms": 58.15297,
+      "cumulative_ms": 191.64486
+    },
+    {
+      "file": "/vllm-workspace/vllm-ascend/vllm_ascend/worker/model_runner_v1.py",
+      "line": 1150,
+      "function": "_prepare_inputs",
+      "calls": 39,
+      "self_ms": 11.676,
+      "cumulative_ms": 90.72803
+    },
+    {
+      "file": "/vllm-workspace/vllm-ascend/vllm_ascend/worker/device_metadata.py",
+      "line": 119,
+      "function": "submit",
+      "calls": 39,
+      "self_ms": 3.29809,
+      "cumulative_ms": 58.01991
+    },
+    {
+      "file": "/vllm-workspace/vllm-ascend/vllm_ascend/worker/block_table.py",
+      "line": 691,
+      "function": "compute_slot_mapping",
+      "calls": 39,
+      "self_ms": 0.49240999999999996,
+      "cumulative_ms": 57.162780000000005
+    },
+    {
+      "file": "/vllm-workspace/vllm-ascend/vllm_ascend/worker/block_table.py",
+      "line": 260,
+      "function": "compute_slot_mapping",
+      "calls": 468,
+      "self_ms": 2.6704100000000004,
+      "cumulative_ms": 55.86789
+    },
+    {
+      "file": "/usr/local/python3.12.13/lib/python3.12/site-packages/triton/runtime/jit.py",
+      "line": 333,
+      "function": "<lambda>",
+      "calls": 429,
+      "self_ms": 1.6256700000000002,
+      "cumulative_ms": 51.306490000000004
+    },
+    {
+      "file": "/usr/local/python3.12.13/lib/python3.12/site-packages/triton/runtime/jit.py",
+      "line": 566,
+      "function": "run",
+      "calls": 429,
+      "self_ms": 8.0288,
+      "cumulative_ms": 49.68082
+    },
+    {
+      "file": "~",
+      "line": 0,
+      "function": "<method 'copy_' of 'torch._C.TensorBase' objects>",
+      "calls": 2340,
+      "self_ms": 39.34317,
+      "cumulative_ms": 39.34317
+    },
+    {
+      "file": "/vllm-workspace/vllm-ascend/vllm_ascend/attention/dsa_v41.py",
+      "line": 79,
+      "function": "_config_value",
+      "calls": 4056,
+      "self_ms": 1.67924,
+      "cumulative_ms": 37.132290000000005
+    },
+    {
+      "file": "/usr/local/python3.12.13/lib/python3.12/site-packages/transformers/configuration_utils.py",
+      "line": 461,
+      "function": "__getattribute__",
+      "calls": 8190,
+      "self_ms": 10.008580000000002,
+      "cumulative_ms": 32.81236
+    },
+    {
+      "file": "~",
+      "line": 0,
+      "function": "<built-in method builtins.isinstance>",
+      "calls": 32565,
+      "self_ms": 8.0885,
+      "cumulative_ms": 28.569530000000004
+    },
+    {
+      "file": "/usr/local/python3.12.13/lib/python3.12/site-packages/transformers/integrations/heterogeneity/configuration_utils.py",
+      "line": 259,
+      "function": "__getattribute__",
+      "calls": 16380,
+      "self_ms": 19.71683,
+      "cumulative_ms": 22.803780000000003
+    },
+    {
+      "file": "/vllm-workspace/vllm-ascend/vllm_ascend/attention/dsa_v41.py",
+      "line": 954,
+      "function": "build_c2_metadata",
+      "calls": 39,
+      "self_ms": 9.331050000000001,
+      "cumulative_ms": 22.66021
+    },
+    {
+      "file": "~",
+      "line": 0,
+      "function": "<built-in method torch.where>",
+      "calls": 1092,
+      "self_ms": 22.468210000000003,
+      "cumulative_ms": 22.468210000000003
+    },
+    {
+      "file": "~",
+      "line": 0,
+      "function": "<built-in method builtins.getattr>",
+      "calls": 17901,
+      "self_ms": 5.43681,
+      "cumulative_ms": 21.13295
+    },
+    {
+      "file": "/vllm-workspace/vllm-ascend/vllm_ascend/worker/model_runner_v1.py",
+      "line": 3241,
+      "function": "_get_block_table_and_slot_mapping",
+      "calls": 468,
+      "self_ms": 10.13114,
+      "cumulative_ms": 20.41739
+    },
+    {
+      "file": "/vllm-workspace/vllm/vllm/v1/utils.py",
+      "line": 139,
+      "function": "copy_to_gpu",
+      "calls": 780,
+      "self_ms": 6.11181,
+      "cumulative_ms": 13.387400000000001
+    },
+    {
+      "file": "/vllm-workspace/vllm-ascend/vllm_ascend/patch/platform/patch_balance_schedule.py",
+      "line": 164,
+      "function": "schedule",
+      "calls": 39,
+      "self_ms": 0.13095,
+      "cumulative_ms": 12.991190000000001
+    },
+    {
+      "file": "/vllm-workspace/vllm/vllm/v1/core/sched/scheduler.py",
+      "line": 439,
+      "function": "schedule",
+      "calls": 39,
+      "self_ms": 1.4874900000000002,
+      "cumulative_ms": 12.860240000000001
+    },
+    {
+      "file": "/vllm-workspace/vllm/vllm/v1/executor/uniproc_executor.py",
+      "line": 79,
+      "function": "collective_rpc",
+      "calls": 39,
+      "self_ms": 0.2267,
+      "cumulative_ms": 12.526900000000001
+    },
+    {
+      "file": "/vllm-workspace/vllm/vllm/v1/serial_utils.py",
+      "line": 486,
+      "function": "run_method",
+      "calls": 39,
+      "self_ms": 0.22186000000000003,
+      "cumulative_ms": 12.49149
+    },
+    {
+      "file": "/usr/local/python3.12.13/lib/python3.12/site-packages/torch_npu/npu/utils.py",
+      "line": 260,
+      "function": "current_stream",
+      "calls": 195,
+      "self_ms": 0.9903400000000001,
+      "cumulative_ms": 12.15859
+    },
+    {
+      "file": "~",
+      "line": 0,
+      "function": "<method 'fill_' of 'torch._C.TensorBase' objects>",
+      "calls": 1131,
+      "self_ms": 12.08241,
+      "cumulative_ms": 12.08241
+    },
+    {
+      "file": "/usr/local/python3.12.13/lib/python3.12/site-packages/torch/utils/_contextlib.py",
+      "line": 120,
+      "function": "decorate_context",
+      "calls": 78,
+      "self_ms": 0.30338000000000004,
+      "cumulative_ms": 12.051
+    },
+    {
+      "file": "/vllm-workspace/vllm-ascend/vllm_ascend/attention/dsa_v41.py",
+      "line": 872,
+      "function": "build_smla_metadata",
+      "calls": 117,
+      "self_ms": 1.9546200000000002,
+      "cumulative_ms": 12.00364
+    },
+    {
+      "file": "/usr/local/python3.12.13/lib/python3.12/site-packages/torch/_ops.py",
+      "line": 1197,
+      "function": "__call__",
+      "calls": 195,
+      "self_ms": 0.29248,
+      "cumulative_ms": 11.84505
+    },
+    {
+      "file": "<string>",
+      "line": 1,
+      "function": "dynamic_func",
+      "calls": 429,
+      "self_ms": 2.09165,
+      "cumulative_ms": 10.94935
+    },
+    {
+      "file": "~",
+      "line": 0,
+      "function": "<built-in method torch.div>",
+      "calls": 507,
+      "self_ms": 10.30557,
+      "cumulative_ms": 10.30557
+    },
+    {
+      "file": "/usr/local/python3.12.13/lib/python3.12/site-packages/torch_npu/npu/utils.py",
+      "line": 129,
+      "function": "_get_device_index",
+      "calls": 429,
+      "self_ms": 0.96557,
+      "cumulative_ms": 9.75896
+    },
+    {
+      "file": "/vllm-workspace/vllm-ascend/vllm_ascend/attention/dsa_v41.py",
+      "line": 910,
+      "function": "build_qli_metadata",
+      "calls": 78,
+      "self_ms": 1.4141100000000002,
+      "cumulative_ms": 9.39239
+    },
+    {
+      "file": "/work/operator_opt/replay_patches.py",
+      "line": 21,
+      "function": "call",
+      "calls": 39,
+      "self_ms": 0.31038000000000004,
+      "cumulative_ms": 9.350670000000001
+    },
+    {
+      "file": "/vllm-workspace/vllm-ascend/vllm_ascend/worker/block_table.py",
+      "line": 774,
+      "function": "commit_block_table",
+      "calls": 39,
+      "self_ms": 0.23772000000000001,
+      "cumulative_ms": 9.23813
+    },
+    {
+      "file": "/vllm-workspace/vllm-ascend/vllm_ascend/worker/block_table.py",
+      "line": 404,
+      "function": "commit_block_table",
+      "calls": 468,
+      "self_ms": 0.48441,
+      "cumulative_ms": 9.00041
+    },
+    {
+      "file": "/vllm-workspace/vllm-ascend/vllm_ascend/ops/rope_dsv4.py",
+      "line": 117,
+      "function": "get_cos_and_sin_dsa",
+      "calls": 39,
+      "self_ms": 3.36166,
+      "cumulative_ms": 8.84742
+    },
+    {
+      "file": "/usr/local/python3.12.13/lib/python3.12/site-packages/torch/_utils.py",
+      "line": 837,
+      "function": "_get_device_index",
+      "calls": 429,
+      "self_ms": 0.66598,
+      "cumulative_ms": 8.417290000000001
+    },
+    {
+      "file": "~",
+      "line": 0,
+      "function": "<method 'remainder' of 'torch._C.TensorBase' objects>",
+      "calls": 546,
+      "self_ms": 8.05084,
+      "cumulative_ms": 8.05084
+    },
+    {
+      "file": "~",
+      "line": 0,
+      "function": "<built-in method builtins.next>",
+      "calls": 547,
+      "self_ms": 0.7527300000000001,
+      "cumulative_ms": 7.872280000000001
+    },
+    {
+      "file": "/vllm-workspace/vllm/vllm/v1/core/kv_cache_manager.py",
+      "line": 344,
+      "function": "allocate_slots",
+      "calls": 39,
+      "self_ms": 0.29802,
+      "cumulative_ms": 7.781410000000001
+    },
+    {
+      "file": "/usr/local/python3.12.13/lib/python3.12/site-packages/triton/backends/ascend/driver.py",
+      "line": 192,
+      "function": "__call__",
+      "calls": 429,
+      "self_ms": 0.52569,
+      "cumulative_ms": 7.66943
+    },
+    {
+      "file": "/usr/local/python3.12.13/lib/python3.12/copy.py",
+      "line": 61,
+      "function": "copy",
+      "calls": 468,
+      "self_ms": 2.18972,
+      "cumulative_ms": 7.61094
+    },
+    {
+      "file": "/usr/local/python3.12.13/lib/python3.12/site-packages/torch/nn/modules/module.py",
+      "line": 1772,
+      "function": "_wrapped_call_impl",
+      "calls": 78,
+      "self_ms": 0.20400000000000001,
+      "cumulative_ms": 7.508780000000001
+    },
+    {
+      "file": "/usr/local/python3.12.13/lib/python3.12/site-packages/torch/_utils.py",
+      "line": 811,
+      "function": "_get_current_device_index",
+      "calls": 429,
+      "self_ms": 0.33764,
+      "cumulative_ms": 7.501460000000001
+    },
+    {
+      "file": "/usr/local/python3.12.13/lib/python3.12/site-packages/torch/nn/modules/module.py",
+      "line": 1780,
+      "function": "_call_impl",
+      "calls": 78,
+      "self_ms": 0.42545,
+      "cumulative_ms": 7.30478
+    },
+    {
+      "file": "~",
+      "line": 0,
+      "function": "<method 'get' of 'dict' objects>",
+      "calls": 28745,
+      "self_ms": 7.080570000000001,
+      "cumulative_ms": 7.2923100000000005
+    },
+    {
+      "file": "/vllm-workspace/vllm-ascend/vllm_ascend/ascend_forward_context.py",
+      "line": 100,
+      "function": "set_ascend_forward_context",
+      "calls": 78,
+      "self_ms": 3.91162,
+      "cumulative_ms": 7.2580100000000005
+    },
+    {
+      "file": "~",
+      "line": 0,
+      "function": "<built-in method torch._ops._C_ascend.npu_sparse_flash_mla_metadata>",
+      "calls": 117,
+      "self_ms": 7.201910000000001,
+      "cumulative_ms": 7.201910000000001
+    },
+    {
+      "file": "/usr/local/python3.12.13/lib/python3.12/contextlib.py",
+      "line": 132,
+      "function": "__enter__",
+      "calls": 273,
+      "self_ms": 0.2574,
+      "cumulative_ms": 7.170050000000001
+    },
+    {
+      "file": "/usr/local/python3.12.13/lib/python3.12/site-packages/torch/_utils.py",
+      "line": 795,
+      "function": "_get_device_attr",
+      "calls": 429,
+      "self_ms": 1.2085100000000002,
+      "cumulative_ms": 7.16382
+    },
+    {
+      "file": "~",
+      "line": 0,
+      "function": "<built-in method __triton_launcher.launch>",
+      "calls": 429,
+      "self_ms": 7.143740000000001,
+      "cumulative_ms": 7.143740000000001
+    },
+    {
+      "file": "/vllm-workspace/vllm-ascend/vllm_ascend/attention/dsa_v41.py",
+      "line": 712,
+      "function": "_build_batch_metadata",
+      "calls": 39,
+      "self_ms": 1.5077200000000002,
+      "cumulative_ms": 6.92823
+    },
+    {
+      "file": "/vllm-workspace/vllm/vllm/config/compilation.py",
+      "line": 83,
+      "function": "has_full_cudagraphs",
+      "calls": 975,
+      "self_ms": 0.6124200000000001,
+      "cumulative_ms": 6.049880000000001
+    },
+    {
+      "file": "/usr/local/python3.12.13/lib/python3.12/site-packages/torch_npu/utils/patch_getenv.py",
+      "line": 26,
+      "function": "_patched_environ_get",
+      "calls": 897,
+      "self_ms": 0.78876,
+      "cumulative_ms": 6.0458300000000005
+    },
+    {
+      "file": "/vllm-workspace/vllm-ascend/vllm_ascend/compilation/acl_graph.py",
+      "line": 133,
+      "function": "__call__",
+      "calls": 39,
+      "self_ms": 0.35706000000000004,
+      "cumulative_ms": 5.97432
+    },
+    {
+      "file": "/usr/local/python3.12.13/lib/python3.12/site-packages/triton/backends/ascend/driver.py",
+      "line": 231,
+      "function": "get_current_target",
+      "calls": 429,
+      "self_ms": 0.8129700000000001,
+      "cumulative_ms": 5.96673
+    },
+    {
+      "file": "/usr/local/python3.12.13/lib/python3.12/site-packages/torch_npu/npu/streams.py",
+      "line": 24,
+      "function": "__new__",
+      "calls": 195,
+      "self_ms": 0.9518500000000001,
+      "cumulative_ms": 5.46483
+    },
+    {
+      "file": "/vllm-workspace/vllm/vllm/v1/worker/gpu_model_runner.py",
+      "line": 2620,
+      "function": "_compute_cascade_attn_prefix_lens",
+      "calls": 39,
+      "self_ms": 1.48458,
+      "cumulative_ms": 5.4598
+    },
+    {
+      "file": "/vllm-workspace/vllm/vllm/config/compilation.py",
+      "line": 80,
+      "function": "max_cudagraph_mode",
+      "calls": 975,
+      "self_ms": 1.7618900000000002,
+      "cumulative_ms": 5.437460000000001
+    },
+    {
+      "file": "~",
+      "line": 0,
+      "function": "<method 'clamp_min' of 'torch._C.TensorBase' objects>",
+      "calls": 546,
+      "self_ms": 5.36854,
+      "cumulative_ms": 5.36854
+    },
+    {
+      "file": "/vllm-workspace/vllm-ascend/vllm_ascend/attention/dsa_v41.py",
+      "line": 175,
+      "function": "compressed_slot_mapping",
+      "calls": 39,
+      "self_ms": 3.36979,
+      "cumulative_ms": 5.2806500000000005
+    },
+    {
+      "file": "/usr/local/python3.12.13/lib/python3.12/site-packages/torch_npu/npu/graphs.py",
+      "line": 638,
+      "function": "replay",
+      "calls": 39,
+      "self_ms": 1.3545200000000002,
+      "cumulative_ms": 5.127440000000001
+    },
+    {
+      "file": "/usr/local/python3.12.13/lib/python3.12/site-packages/triton/backends/ascend/utils.py",
+      "line": 58,
+      "function": "get_backend_func",
+      "calls": 858,
+      "self_ms": 0.99434,
+      "cumulative_ms": 4.96023
+    },
+    {
+      "file": "<frozen os>",
+      "line": 709,
+      "function": "__getitem__",
+      "calls": 2223,
+      "self_ms": 2.75954,
+      "cumulative_ms": 4.930960000000001
+    },
+    {
+      "file": "/vllm-workspace/vllm-ascend/vllm_ascend/worker/model_runner_v1.py",
+      "line": 2774,
+      "function": "_sample",
+      "calls": 39,
+      "self_ms": 0.17148,
+      "cumulative_ms": 4.70088
+    },
+    {
+      "file": "/usr/local/python3.12.13/lib/python3.12/site-packages/triton/runtime/jit.py",
+      "line": 297,
+      "function": "mangle_type",
+      "calls": 3432,
+      "self_ms": 2.56513,
+      "cumulative_ms": 4.54452
+    },
+    {
+      "file": "/usr/local/python3.12.13/lib/python3.12/site-packages/torch/_utils.py",
+      "line": 778,
+      "function": "_get_available_device_type",
+      "calls": 429,
+      "self_ms": 1.8346600000000002,
+      "cumulative_ms": 4.4524300000000006
+    },
+    {
+      "file": "/usr/local/python3.12.13/lib/python3.12/site-packages/triton/backends/ascend/utils.py",
+      "line": 449,
+      "function": "get_ascend_arch_from_env",
+      "calls": 429,
+      "self_ms": 0.23105,
+      "cumulative_ms": 4.40121
+    },
+    {
+      "file": "~",
+      "line": 0,
+      "function": "<built-in method torch._ops._C_ascend.npu_quant_lightning_indexer_v2_metadata>",
+      "calls": 78,
+      "self_ms": 4.35066,
+      "cumulative_ms": 4.35066
+    },
+    {
+      "file": "/usr/local/python3.12.13/lib/python3.12/site-packages/triton/backends/compiler.py",
+      "line": 300,
+      "function": "compute_spec_key",
+      "calls": 2574,
+      "self_ms": 0.9348900000000001,
+      "cumulative_ms": 4.313180000000001
+    },
+    {
+      "file": "<frozen _collections_abc>",
+      "line": 811,
+      "function": "__contains__",
+      "calls": 1326,
+      "self_ms": 1.0221,
+      "cumulative_ms": 4.307670000000001
+    },
+    {
+      "file": "/usr/local/python3.12.13/lib/python3.12/site-packages/torch_npu/utils/patch_getenv.py",
+      "line": 18,
+      "function": "_patched_getenv",
+      "calls": 429,
+      "self_ms": 0.34720000000000006,
+      "cumulative_ms": 4.17016
+    },
+    {
+      "file": "~",
+      "line": 0,
+      "function": "<built-in method torch.gather>",
+      "calls": 312,
+      "self_ms": 4.06338,
+      "cumulative_ms": 4.06338
+    },
+    {
+      "file": "/vllm-workspace/vllm/vllm/v1/sample/sampler.py",
+      "line": 72,
+      "function": "forward",
+      "calls": 39,
+      "self_ms": 0.44742000000000004,
+      "cumulative_ms": 4.04129
+    },
+    {
+      "file": "/vllm-workspace/vllm/vllm/v1/core/kv_cache_coordinator.py",
+      "line": 130,
+      "function": "get_num_blocks_to_allocate",
+      "calls": 39,
+      "self_ms": 0.35833000000000004,
+      "cumulative_ms": 4.00827
+    },
+    {
+      "file": "/usr/local/python3.12.13/lib/python3.12/site-packages/triton/backends/ascend/backend_register.py",
+      "line": 68,
+      "function": "execute_func",
+      "calls": 858,
+      "self_ms": 0.78821,
+      "cumulative_ms": 3.9658900000000004
+    },
+    {
+      "file": "/vllm-workspace/vllm-ascend/vllm_ascend/attention/dsa_v41.py",
+      "line": 187,
+      "function": "_request_counts",
+      "calls": 39,
+      "self_ms": 2.4582200000000003,
+      "cumulative_ms": 3.75194
+    },
+    {
+      "file": "/usr/local/python3.12.13/lib/python3.12/site-packages/torch_npu/npu/utils.py",
+      "line": 107,
+      "function": "__init__",
+      "calls": 195,
+      "self_ms": 0.11869,
+      "cumulative_ms": 3.6365100000000004
+    },
+    {
+      "file": "/vllm-workspace/vllm-ascend/vllm_ascend/models/deepseek_v4/vl_model.py",
+      "line": 226,
+      "function": "compute_logits",
+      "calls": 39,
+      "self_ms": 0.08117,
+      "cumulative_ms": 3.6359600000000003
+    },
+    {
+      "file": "/usr/local/python3.12.13/lib/python3.12/site-packages/torch_npu/npu/streams.py",
+      "line": 143,
+      "function": "record",
+      "calls": 117,
+      "self_ms": 0.22322000000000003,
+      "cumulative_ms": 3.50096
+    },
+    {
+      "file": "/vllm-workspace/vllm-ascend/vllm_ascend/models/deepseek_v41/model.py",
+      "line": 1572,
+      "function": "compute_logits",
+      "calls": 39,
+      "self_ms": 0.16783,
+      "cumulative_ms": 3.47992
+    },
+    {
+      "file": "~",
+      "line": 0,
+      "function": "<built-in method builtins.hasattr>",
+      "calls": 8697,
+      "self_ms": 2.37468,
+      "cumulative_ms": 3.44946
+    },
+    {
+      "file": "/usr/local/python3.12.13/lib/python3.12/site-packages/triton/backends/compiler.py",
+      "line": 205,
+      "function": "get_property_key",
+      "calls": 2574,
+      "self_ms": 0.90541,
+      "cumulative_ms": 3.3782900000000002
+    },
+    {
+      "file": "/usr/local/python3.12.13/lib/python3.12/copy.py",
+      "line": 247,
+      "function": "_reconstruct",
+      "calls": 468,
+      "self_ms": 1.09051,
+      "cumulative_ms": 3.32539
+    },
+    {
+      "file": "<frozen abc>",
+      "line": 117,
+      "function": "__instancecheck__",
+      "calls": 4953,
+      "self_ms": 1.21838,
+      "cumulative_ms": 3.28616
+    },
+    {
+      "file": "/vllm-workspace/vllm-ascend/vllm_ascend/models/deepseek_v4/model.py",
+      "line": 1082,
+      "function": "compute_logits",
+      "calls": 39,
+      "self_ms": 0.12019000000000002,
+      "cumulative_ms": 3.26908
+    },
+    {
+      "file": "~",
+      "line": 0,
+      "function": "<method 'to' of 'torch._C.TensorBase' objects>",
+      "calls": 234,
+      "self_ms": 3.25106,
+      "cumulative_ms": 3.25106
+    },
+    {
+      "file": "/vllm-workspace/vllm-ascend/vllm_ascend/ops/rope_dsv4.py",
+      "line": 40,
+      "function": "_rope_write_rows",
+      "calls": 234,
+      "self_ms": 0.18061000000000002,
+      "cumulative_ms": 3.18636
+    },
+    {
+      "file": "/vllm-workspace/vllm/vllm/v1/worker/gpu_model_runner.py",
+      "line": 2658,
+      "function": "_compute_cascade_attn_prefix_len",
+      "calls": 975,
+      "self_ms": 1.3088400000000002,
+      "cumulative_ms": 3.11275
+    },
+    {
+      "file": "/usr/local/python3.12.13/lib/python3.12/site-packages/triton/backends/ascend/driver.py",
+      "line": 241,
+      "function": "get_current_device",
+      "calls": 429,
+      "self_ms": 0.22246000000000002,
+      "cumulative_ms": 3.0653200000000003
+    },
+    {
+      "file": "/vllm-workspace/vllm/vllm/v1/core/single_type_kv_cache_manager.py",
+      "line": 144,
+      "function": "get_num_blocks_to_allocate",
+      "calls": 429,
+      "self_ms": 1.3560500000000002,
+      "cumulative_ms": 3.06347
+    },
+    {
+      "file": "/usr/local/python3.12.13/lib/python3.12/site-packages/triton/backends/ascend/backend_register.py",
+      "line": 40,
+      "function": "execute_func",
+      "calls": 858,
+      "self_ms": 0.67769,
+      "cumulative_ms": 3.05987
+    },
+    {
+      "file": "/usr/local/python3.12.13/lib/python3.12/site-packages/triton/compiler/compiler.py",
+      "line": 417,
+      "function": "__getattribute__",
+      "calls": 3003,
+      "self_ms": 2.79852,
+      "cumulative_ms": 2.93997
+    },
+    {
+      "file": "/vllm-workspace/vllm-ascend/vllm_ascend/models/deepseek_v41/vl_model.py",
+      "line": 222,
+      "function": "prepare_engram_inputs",
+      "calls": 39,
+      "self_ms": 0.10673,
+      "cumulative_ms": 2.88951
+    },
+    {
+      "file": "/vllm-workspace/vllm-ascend/vllm_ascend/worker/model_runner_v1.py",
+      "line": 3065,
+      "function": "_determine_batch_execution_and_padding",
+      "calls": 39,
+      "self_ms": 0.55309,
+      "cumulative_ms": 2.8087700000000004
+    },
+    {
+      "file": "/vllm-workspace/vllm/vllm/model_executor/layers/logits_processor.py",
+      "line": 63,
+      "function": "forward",
+      "calls": 39,
+      "self_ms": 0.09201000000000001,
+      "cumulative_ms": 2.7259900000000004
+    },
+    {
+      "file": "/vllm-workspace/vllm-ascend/vllm_ascend/models/deepseek_v41/model.py",
+      "line": 1587,
+      "function": "prepare_engram_inputs",
+      "calls": 39,
+      "self_ms": 0.12416,
+      "cumulative_ms": 2.66887
+    },
+    {
+      "file": "/vllm-workspace/vllm-ascend/vllm_ascend/ops/vocab_parallel_embedding.py",
+      "line": 361,
+      "function": "_get_logits",
+      "calls": 39,
+      "self_ms": 0.07507000000000001,
+      "cumulative_ms": 2.63398
+    },
+    {
+      "file": "<frozen os>",
+      "line": 808,
+      "function": "getenv",
+      "calls": 429,
+      "self_ms": 0.19289,
+      "cumulative_ms": 2.5378700000000003
+    },
+    {
+      "file": "/vllm-workspace/vllm-ascend/vllm_ascend/models/deepseek_v41/model.py",
+      "line": 1377,
+      "function": "prepare_engram_inputs",
+      "calls": 39,
+      "self_ms": 0.99248,
+      "cumulative_ms": 2.49826
+    },
+    {
+      "file": "/usr/local/python3.12.13/lib/python3.12/site-packages/triton/backends/compiler.py",
+      "line": 189,
+      "function": "is_divisible_by_16",
+      "calls": 2574,
+      "self_ms": 1.32308,
+      "cumulative_ms": 2.4728800000000004
+    },
+    {
+      "file": "/vllm-workspace/vllm-ascend/vllm_ascend/ops/vocab_parallel_embedding.py",
+      "line": 393,
+      "function": "_get_logits_normal",
+      "calls": 39,
+      "self_ms": 0.43906,
+      "cumulative_ms": 2.4248200000000004
+    },
+    {
+      "file": "/vllm-workspace/vllm-ascend/vllm_ascend/worker/device_metadata.py",
+      "line": 179,
+      "function": "release",
+      "calls": 39,
+      "self_ms": 0.09035,
+      "cumulative_ms": 2.41588
+    },
+    {
+      "file": "/usr/local/python3.12.13/lib/python3.12/site-packages/triton/backends/ascend/driver.py",
+      "line": 253,
+      "function": "get_current_stream",
+      "calls": 429,
+      "self_ms": 0.20924,
+      "cumulative_ms": 2.32661
+    },
+    {
+      "file": "/vllm-workspace/vllm-ascend/vllm_ascend/patch/platform/patch_pp_mtp.py",
+      "line": 245,
+      "function": "_patched_update_from_output",
+      "calls": 39,
+      "self_ms": 0.16249,
+      "cumulative_ms": 2.31006
+    },
+    {
+      "file": "~",
+      "line": 0,
+      "function": "<built-in method builtins.id>",
+      "calls": 1287,
+      "self_ms": 2.30905,
+      "cumulative_ms": 2.30905
+    },
+    {
+      "file": "<frozen _collections_abc>",
+      "line": 804,
+      "function": "get",
+      "calls": 897,
+      "self_ms": 0.5891000000000001,
+      "cumulative_ms": 2.23449
+    },
+    {
+      "file": "~",
+      "line": 0,
+      "function": "<built-in method builtins.max>",
+      "calls": 4212,
+      "self_ms": 2.21517,
+      "cumulative_ms": 2.21517
+    },
+    {
+      "file": "<frozen os>",
+      "line": 791,
+      "function": "encode",
+      "calls": 2223,
+      "self_ms": 1.09251,
+      "cumulative_ms": 2.1714200000000003
+    },
+    {
+      "file": "/vllm-workspace/vllm-ascend/vllm_ascend/attention/dsa_v41.py",
+      "line": 691,
+      "function": "_publish_task",
+      "calls": 975,
+      "self_ms": 0.9116800000000002,
+      "cumulative_ms": 2.07599
+    },
+    {
+      "file": "/vllm-workspace/vllm/vllm/v1/core/sched/scheduler.py",
+      "line": 1670,
+      "function": "update_from_output",
+      "calls": 39,
+      "self_ms": 0.9420700000000001,
+      "cumulative_ms": 2.07398
+    },
+    {
+      "file": "/usr/local/python3.12.13/lib/python3.12/site-packages/triton/compiler/compiler.py",
+      "line": 330,
+      "function": "make_backend",
+      "calls": 429,
+      "self_ms": 1.1235700000000002,
+      "cumulative_ms": 2.07181
+    },
+    {
+      "file": "~",
+      "line": 0,
+      "function": "<built-in method _abc._abc_instancecheck>",
+      "calls": 4953,
+      "self_ms": 2.06778,
+      "cumulative_ms": 2.06778
+    },
+    {
+      "file": "/vllm-workspace/vllm/vllm/forward_context.py",
+      "line": 259,
+      "function": "set_forward_context",
+      "calls": 78,
+      "self_ms": 0.33426,
+      "cumulative_ms": 2.0253900000000002
+    },
+    {
+      "file": "/vllm-workspace/vllm/vllm/v1/core/kv_cache_coordinator.py",
+      "line": 336,
+      "function": "remove_skipped_blocks",
+      "calls": 39,
+      "self_ms": 0.18163,
+      "cumulative_ms": 2.01235
+    },
+    {
+      "file": "/usr/local/python3.12.13/lib/python3.12/site-packages/torch_npu/npu/utils.py",
+      "line": 203,
+      "function": "__enter__",
+      "calls": 39,
+      "self_ms": 0.09564000000000002,
+      "cumulative_ms": 1.9990800000000002
+    },
+    {
+      "file": "/vllm-workspace/vllm-ascend/vllm_ascend/worker/model_runner_v1.py",
+      "line": 854,
+      "function": "_update_states",
+      "calls": 39,
+      "self_ms": 0.1874,
+      "cumulative_ms": 1.8691600000000002
+    },
+    {
+      "file": "~",
+      "line": 0,
+      "function": "<function Event.record at 0xffff56fc04a0>",
+      "calls": 351,
+      "self_ms": 1.8393200000000003,
+      "cumulative_ms": 1.8393200000000003
+    },
+    {
+      "file": "/vllm-workspace/vllm/vllm/v1/core/single_type_kv_cache_manager.py",
+      "line": 622,
+      "function": "remove_skipped_blocks",
+      "calls": 429,
+      "self_ms": 0.56786,
+      "cumulative_ms": 1.82426
+    },
+    {
+      "file": "~",
+      "line": 0,
+      "function": "<built-in method builtins.len>",
+      "calls": 9163,
+      "self_ms": 1.5938,
+      "cumulative_ms": 1.7868000000000002
+    },
+    {
+      "file": "/vllm-workspace/vllm-ascend/vllm_ascend/ops/vocab_parallel_embedding.py",
+      "line": 353,
+      "function": "_apply_head",
+      "calls": 39,
+      "self_ms": 0.05894,
+      "cumulative_ms": 1.71947
+    },
+    {
+      "file": "~",
+      "line": 0,
+      "function": "<method 'reduce' of 'numpy.ufunc' objects>",
+      "calls": 351,
+      "self_ms": 1.6980500000000003,
+      "cumulative_ms": 1.6980500000000003
+    },
+    {
+      "file": "/vllm-workspace/vllm/vllm/config/compilation.py",
+      "line": 89,
+      "function": "separate_routine",
+      "calls": 1092,
+      "self_ms": 0.8389900000000001,
+      "cumulative_ms": 1.69387
+    },
+    {
+      "file": "~",
+      "line": 0,
+      "function": "<built-in method torch.arange>",
+      "calls": 117,
+      "self_ms": 1.6933500000000001,
+      "cumulative_ms": 1.6933500000000001
+    },
+    {
+      "file": "/vllm-workspace/vllm/vllm/model_executor/layers/logits_processor.py",
+      "line": 98,
+      "function": "_apply_head",
+      "calls": 39,
+      "self_ms": 0.0917,
+      "cumulative_ms": 1.66053
+    },
+    {
+      "file": "/vllm-workspace/vllm/vllm/v1/worker/gpu_model_runner.py",
+      "line": 1192,
+      "function": "_update_states",
+      "calls": 39,
+      "self_ms": 0.6790100000000001,
+      "cumulative_ms": 1.64426
+    },
+    {
+      "file": "/vllm-workspace/vllm-ascend/vllm_ascend/worker/model_runner_v1.py",
+      "line": 3105,
+      "function": "dispatch_cudagraph",
+      "calls": 39,
+      "self_ms": 0.0631,
+      "cumulative_ms": 1.60722
+    },
+    {
+      "file": "~",
+      "line": 0,
+      "function": "<method 'disable' of '_lsprof.Profiler' objects>",
+      "calls": 39,
+      "self_ms": 1.60329,
+      "cumulative_ms": 1.60329
+    },
+    {
+      "file": "~",
+      "line": 0,
+      "function": "<built-in method builtins.min>",
+      "calls": 2106,
+      "self_ms": 1.5745900000000002,
+      "cumulative_ms": 1.5745900000000002
+    },
+    {
+      "file": "/vllm-workspace/vllm/vllm/model_executor/layers/vocab_parallel_embedding.py",
+      "line": 67,
+      "function": "apply",
+      "calls": 39,
+      "self_ms": 0.24845,
+      "cumulative_ms": 1.56883
+    },
+    {
+      "file": "/vllm-workspace/vllm-ascend/vllm_ascend/patch/worker/patch_cudagraph.py",
+      "line": 304,
+      "function": "dispatch",
+      "calls": 39,
+      "self_ms": 0.11429,
+      "cumulative_ms": 1.5441200000000002
+    },
+    {
+      "file": "~",
+      "line": 0,
+      "function": "<method 'update' of 'dict' objects>",
+      "calls": 507,
+      "self_ms": 1.5145,
+      "cumulative_ms": 1.5145
+    },
+    {
+      "file": "/usr/local/python3.12.13/lib/python3.12/site-packages/torch_npu/npu/utils.py",
+      "line": 94,
+      "function": "current_device",
+      "calls": 858,
+      "self_ms": 0.82843,
+      "cumulative_ms": 1.50625
+    },
+    {
+      "file": "/vllm-workspace/vllm/vllm/v1/cudagraph_dispatcher.py",
+      "line": 235,
+      "function": "dispatch",
+      "calls": 39,
+      "self_ms": 0.34523000000000004,
+      "cumulative_ms": 1.42168
+    },
+    {
+      "file": "/usr/local/python3.12.13/lib/python3.12/site-packages/triton/backends/ascend/backend_register.py",
+      "line": 246,
+      "function": "get_current_device",
+      "calls": 429,
+      "self_ms": 0.5611200000000001,
+      "cumulative_ms": 1.40992
+    },
+    {
+      "file": "/vllm-workspace/vllm/vllm/v1/sample/sampler.py",
+      "line": 243,
+      "function": "sample",
+      "calls": 39,
+      "self_ms": 0.07987000000000001,
+      "cumulative_ms": 1.3984400000000001
+    },
+    {
+      "file": "~",
+      "line": 0,
+      "function": "<method 'clamp_max' of 'torch._C.TensorBase' objects>",
+      "calls": 117,
+      "self_ms": 1.38853,
+      "cumulative_ms": 1.38853
+    },
+    {
+      "file": "/vllm-workspace/vllm-ascend/vllm_ascend/worker/model_runner_v1.py",
+      "line": 1562,
+      "function": "_build_attn_state",
+      "calls": 39,
+      "self_ms": 0.66303,
+      "cumulative_ms": 1.3763800000000002
+    },
+    {
+      "file": "/usr/local/python3.12.13/lib/python3.12/site-packages/torch/autograd/grad_mode.py",
+      "line": 289,
+      "function": "__enter__",
+      "calls": 117,
+      "self_ms": 0.7441500000000001,
+      "cumulative_ms": 1.36808
+    },
+    {
+      "file": "/usr/local/python3.12.13/lib/python3.12/site-packages/torch_npu/npu/streams.py",
+      "line": 231,
+      "function": "record",
+      "calls": 234,
+      "self_ms": 0.31958000000000003,
+      "cumulative_ms": 1.36254
+    },
+    {
+      "file": "/vllm-workspace/vllm/vllm/v1/core/kv_cache_coordinator.py",
+      "line": 238,
+      "function": "allocate_new_blocks",
+      "calls": 39,
+      "self_ms": 0.19385000000000002,
+      "cumulative_ms": 1.35797
+    },
+    {
+      "file": "/vllm-workspace/vllm-ascend/vllm_ascend/sample/sampler.py",
+      "line": 88,
+      "function": "greedy_sample",
+      "calls": 39,
+      "self_ms": 0.13075,
+      "cumulative_ms": 1.31857
+    },
+    {
+      "file": "/vllm-workspace/vllm/vllm/v1/worker/utils.py",
+      "line": 261,
+      "function": "get_metadata_builder",
+      "calls": 1950,
+      "self_ms": 0.9180200000000001,
+      "cumulative_ms": 1.24239
+    },
+    {
+      "file": "/usr/local/python3.12.13/lib/python3.12/enum.py",
+      "line": 720,
+      "function": "__call__",
+      "calls": 975,
+      "self_ms": 0.76888,
+      "cumulative_ms": 1.22098
+    },
+    {
+      "file": "/vllm-workspace/vllm/vllm/v1/core/kv_cache_coordinator.py",
+      "line": 262,
+      "function": "<genexpr>",
+      "calls": 507,
+      "self_ms": 0.28473000000000004,
+      "cumulative_ms": 1.16412
+    },
+    {
+      "file": "/vllm-workspace/vllm-ascend/vllm_ascend/worker/model_runner_v1.py",
+      "line": 931,
+      "function": "_pad_query_start_loc_for_fia",
+      "calls": 39,
+      "self_ms": 0.46469000000000005,
+      "cumulative_ms": 1.16135
+    },
+    {
+      "file": "~",
+      "line": 0,
+      "function": "<method '__reduce_ex__' of 'object' objects>",
+      "calls": 468,
+      "self_ms": 1.16029,
+      "cumulative_ms": 1.16029
+    },
+    {
+      "file": "/vllm-workspace/vllm/vllm/model_executor/layers/utils.py",
+      "line": 92,
+      "function": "default_unquantized_gemm",
+      "calls": 39,
+      "self_ms": 0.07646000000000001,
+      "cumulative_ms": 1.1243100000000001
+    },
+    {
+      "file": "/usr/local/python3.12.13/lib/python3.12/site-packages/triton/runtime/driver.py",
+      "line": 22,
+      "function": "__getattr__",
+      "calls": 1287,
+      "self_ms": 0.6545700000000001,
+      "cumulative_ms": 1.12202
+    },
+    {
+      "file": "/usr/local/python3.12.13/lib/python3.12/contextlib.py",
+      "line": 141,
+      "function": "__exit__",
+      "calls": 273,
+      "self_ms": 0.33797000000000005,
+      "cumulative_ms": 1.11508
+    },
+    {
+      "file": "/usr/local/python3.12.13/lib/python3.12/enum.py",
+      "line": 202,
+      "function": "__get__",
+      "calls": 2146,
+      "self_ms": 0.84059,
+      "cumulative_ms": 1.10804
+    },
+    {
+      "file": "/usr/local/python3.12.13/lib/python3.12/site-packages/numpy/core/fromnumeric.py",
+      "line": 2421,
+      "function": "all",
+      "calls": 117,
+      "self_ms": 0.22627000000000003,
+      "cumulative_ms": 1.0789600000000001
+    },
+    {
+      "file": "/work/operator_opt/baseline/runtime_patches.py",
+      "line": 49,
+      "function": "dispatch",
+      "calls": 39,
+      "self_ms": 0.08666,
+      "cumulative_ms": 1.0478500000000002
+    },
+    {
+      "file": "~",
+      "line": 0,
+      "function": "<method 'sum' of 'torch._C.TensorBase' objects>",
+      "calls": 117,
+      "self_ms": 1.04213,
+      "cumulative_ms": 1.04213
+    },
+    {
+      "file": "/vllm-workspace/vllm/vllm/v1/engine/output_processor.py",
+      "line": 589,
+      "function": "process_outputs",
+      "calls": 39,
+      "self_ms": 0.3093,
+      "cumulative_ms": 1.00295
+    },
+    {
+      "file": "~",
+      "line": 0,
+      "function": "<method 'argmax' of 'torch._C.TensorBase' objects>",
+      "calls": 39,
+      "self_ms": 0.98212,
+      "cumulative_ms": 0.98212
+    },
+    {
+      "file": "/vllm-workspace/vllm/vllm/v1/worker/gpu_model_runner.py",
+      "line": 1743,
+      "function": "_get_cumsum_and_arange",
+      "calls": 39,
+      "self_ms": 0.40331000000000006,
+      "cumulative_ms": 0.98184
+    },
+    {
+      "file": "/usr/local/python3.12.13/lib/python3.12/site-packages/triton/backends/ascend/backend_register.py",
+      "line": 275,
+      "function": "get_current_stream",
+      "calls": 429,
+      "self_ms": 0.65575,
+      "cumulative_ms": 0.9722600000000001
+    },
+    {
+      "file": "/usr/local/python3.12.13/lib/python3.12/site-packages/torch/_tensor.py",
+      "line": 40,
+      "function": "wrapped",
+      "calls": 39,
+      "self_ms": 0.16102,
+      "cumulative_ms": 0.9623900000000001
+    },
+    {
+      "file": "~",
+      "line": 0,
+      "function": "<built-in method torch._C._nn.linear>",
+      "calls": 39,
+      "self_ms": 0.9611900000000001,
+      "cumulative_ms": 0.9611900000000001
+    },
+    {
+      "file": "~",
+      "line": 0,
+      "function": "<method 'reshape' of 'torch._C.TensorBase' objects>",
+      "calls": 156,
+      "self_ms": 0.9268700000000001,
+      "cumulative_ms": 0.9268700000000001
+    },
+    {
+      "file": "~",
+      "line": 0,
+      "function": "<method 'min' of 'numpy.ndarray' objects>",
+      "calls": 156,
+      "self_ms": 0.15424000000000002,
+      "cumulative_ms": 0.9250200000000001
+    },
+    {
+      "file": "/usr/local/python3.12.13/lib/python3.12/site-packages/numpy/core/fromnumeric.py",
+      "line": 53,
+      "function": "_wrapfunc",
+      "calls": 156,
+      "self_ms": 0.18269,
+      "cumulative_ms": 0.9078
+    },
+    {
+      "file": "/usr/local/python3.12.13/lib/python3.12/site-packages/torch_npu/npu/utils.py",
+      "line": 232,
+      "function": "stream",
+      "calls": 39,
+      "self_ms": 0.06001,
+      "cumulative_ms": 0.9067500000000001
+    },
+    {
+      "file": "/vllm-workspace/vllm/vllm/v1/worker/gpu_model_runner.py",
+      "line": 3545,
+      "function": "_preprocess",
+      "calls": 39,
+      "self_ms": 0.6215200000000001,
+      "cumulative_ms": 0.8992300000000001
+    },
+    {
+      "file": "/vllm-workspace/vllm-ascend/vllm_ascend/platform.py",
+      "line": 512,
+      "function": "set_additional_forward_context",
+      "calls": 39,
+      "self_ms": 0.37351,
+      "cumulative_ms": 0.8543600000000001
+    },
+    {
+      "file": "/usr/local/python3.12.13/lib/python3.12/site-packages/numpy/core/fromnumeric.py",
+      "line": 71,
+      "function": "_wrapreduction",
+      "calls": 117,
+      "self_ms": 0.33362,
+      "cumulative_ms": 0.8526900000000001
+    },
+    {
+      "file": "/usr/local/python3.12.13/lib/python3.12/site-packages/torch_npu/npu/utils.py",
+      "line": 189,
+      "function": "__init__",
+      "calls": 39,
+      "self_ms": 0.07517,
+      "cumulative_ms": 0.84674
+    },
+    {
+      "file": "/usr/local/python3.12.13/lib/python3.12/site-packages/torch/_utils.py",
+      "line": 813,
+      "function": "<lambda>",
+      "calls": 429,
+      "self_ms": 0.18555000000000002,
+      "cumulative_ms": 0.843
+    },
+    {
+      "file": "/vllm-workspace/vllm/vllm/v1/core/single_type_kv_cache_manager.py",
+      "line": 595,
+      "function": "_remove_blocks_in_range",
+      "calls": 390,
+      "self_ms": 0.51685,
+      "cumulative_ms": 0.82863
+    },
+    {
+      "file": "/vllm-workspace/vllm-ascend/vllm_ascend/patch/platform/patch_pp_mtp.py",
+      "line": 164,
+      "function": "_patched_make_cached_request_data",
+      "calls": 39,
+      "self_ms": 0.10421000000000001,
+      "cumulative_ms": 0.8223600000000001
+    },
+    {
+      "file": "/usr/local/python3.12.13/lib/python3.12/contextlib.py",
+      "line": 299,
+      "function": "helper",
+      "calls": 273,
+      "self_ms": 0.26913000000000004,
+      "cumulative_ms": 0.82164
+    },
+    {
+      "file": "~",
+      "line": 0,
+      "function": "<method 'encode' of 'str' objects>",
+      "calls": 2223,
+      "self_ms": 0.81842,
+      "cumulative_ms": 0.81842
+    },
+    {
+      "file": "/vllm-workspace/vllm-ascend/vllm_ascend/worker/block_table.py",
+      "line": 49,
+      "function": "_v41_slot_map_fused_mode",
+      "calls": 39,
+      "self_ms": 0.1413,
+      "cumulative_ms": 0.8024800000000001
+    },
+    {
+      "file": "/usr/local/python3.12.13/lib/python3.12/site-packages/torch/_tensor.py",
+      "line": 1157,
+      "function": "__floordiv__",
+      "calls": 39,
+      "self_ms": 0.044020000000000004,
+      "cumulative_ms": 0.7826000000000001
+    },
+    {
+      "file": "~",
+      "line": 0,
+      "function": "<method 'expand' of 'torch._C.TensorBase' objects>",
+      "calls": 156,
+      "self_ms": 0.77868,
+      "cumulative_ms": 0.77868
+    },
+    {
+      "file": "/usr/local/python3.12.13/lib/python3.12/site-packages/numpy/core/_methods.py",
+      "line": 43,
+      "function": "_amin",
+      "calls": 156,
+      "self_ms": 0.07427,
+      "cumulative_ms": 0.7707800000000001
+    },
+    {
+      "file": "/vllm-workspace/vllm-ascend/vllm_ascend/core/kv_cache_interface.py",
+      "line": 190,
+      "function": "storage_block_size",
+      "calls": 2340,
+      "self_ms": 0.7581300000000001,
+      "cumulative_ms": 0.7581300000000001
+    },
+    {
+      "file": "<string>",
+      "line": 2,
+      "function": "__init__",
+      "calls": 429,
+      "self_ms": 0.75255,
+      "cumulative_ms": 0.75255
+    },
+    {
+      "file": "/vllm-workspace/vllm/vllm/v1/worker/gpu_model_runner.py",
+      "line": 1784,
+      "function": "_prepare_input_ids",
+      "calls": 39,
+      "self_ms": 0.04793,
+      "cumulative_ms": 0.74009
+    },
+    {
+      "file": "~",
+      "line": 0,
+      "function": "<built-in method torch.floor_divide>",
+      "calls": 39,
+      "self_ms": 0.7385800000000001,
+      "cumulative_ms": 0.7385800000000001
+    },
+    {
+      "file": "/usr/local/python3.12.13/lib/python3.12/site-packages/torch/mtia/__init__.py",
+      "line": 129,
+      "function": "is_available",
+      "calls": 429,
+      "self_ms": 0.18098000000000003,
+      "cumulative_ms": 0.72374
+    },
+    {
+      "file": "~",
+      "line": 0,
+      "function": "<built-in method torch.zeros_like>",
+      "calls": 39,
+      "self_ms": 0.70427,
+      "cumulative_ms": 0.70427
+    },
+    {
+      "file": "~",
+      "line": 0,
+      "function": "<method 'max' of 'numpy.ndarray' objects>",
+      "calls": 78,
+      "self_ms": 0.11758,
+      "cumulative_ms": 0.70157
+    },
+    {
+      "file": "<string>",
+      "line": 2,
+      "function": "__hash__",
+      "calls": 663,
+      "self_ms": 0.51768,
+      "cumulative_ms": 0.69985
+    },
+    {
+      "file": "/vllm-workspace/vllm/vllm/v1/core/sched/scheduler.py",
+      "line": 1410,
+      "function": "_make_cached_request_data",
+      "calls": 39,
+      "self_ms": 0.34252000000000005,
+      "cumulative_ms": 0.6939400000000001
+    },
+    {
+      "file": "/usr/local/python3.12.13/lib/python3.12/site-packages/triton/backends/ascend/compiler.py",
+      "line": 1148,
+      "function": "__init__",
+      "calls": 429,
+      "self_ms": 0.41473000000000004,
+      "cumulative_ms": 0.67852
+    },
+    {
+      "file": "<frozen importlib._bootstrap>",
+      "line": 1390,
+      "function": "_handle_fromlist",
+      "calls": 507,
+      "self_ms": 0.44924000000000003,
+      "cumulative_ms": 0.6756700000000001
+    },
+    {
+      "file": "~",
+      "line": 0,
+      "function": "<built-in method __new__ of type object at 0xffff8d954858>",
+      "calls": 819,
+      "self_ms": 0.6381000000000001,
+      "cumulative_ms": 0.6381000000000001
+    },
+    {
+      "file": "/usr/local/python3.12.13/lib/python3.12/site-packages/torch_npu/npu/streams.py",
+      "line": 79,
+      "function": "synchronize",
+      "calls": 39,
+      "self_ms": 0.048,
+      "cumulative_ms": 0.62538
+    },
+    {
+      "file": "/usr/local/python3.12.13/lib/python3.12/site-packages/torch/autograd/grad_mode.py",
+      "line": 296,
+      "function": "clone",
+      "calls": 117,
+      "self_ms": 0.19422000000000003,
+      "cumulative_ms": 0.6239300000000001
+    },
+    {
+      "file": "/vllm-workspace/vllm-ascend/vllm_ascend/ascend_config.py",
+      "line": 1475,
+      "function": "get_ascend_config",
+      "calls": 312,
+      "self_ms": 0.22207000000000002,
+      "cumulative_ms": 0.6093500000000001
+    },
+    {
+      "file": "/vllm-workspace/vllm-ascend/vllm_ascend/models/deepseek_v41/model.py",
+      "line": 1236,
+      "function": "prepare_engram",
+      "calls": 39,
+      "self_ms": 0.06165000000000001,
+      "cumulative_ms": 0.60916
+    },
+    {
+      "file": "/vllm-workspace/vllm/vllm/v1/engine/output_processor.py",
+      "line": 276,
+      "function": "make_request_output",
+      "calls": 39,
+      "self_ms": 0.0966,
+      "cumulative_ms": 0.5973
+    },
+    {
+      "file": "/vllm-workspace/vllm/vllm/v1/utils.py",
+      "line": 758,
+      "function": "record_function_or_nullcontext",
+      "calls": 507,
+      "self_ms": 0.5125500000000001,
+      "cumulative_ms": 0.5968800000000001
+    },
+    {
+      "file": "~",
+      "line": 0,
+      "function": "<built-in method torch.remainder>",
+      "calls": 39,
+      "self_ms": 0.58591,
+      "cumulative_ms": 0.58591
+    },
+    {
+      "file": "/usr/local/python3.12.13/lib/python3.12/site-packages/numpy/core/_methods.py",
+      "line": 39,
+      "function": "_amax",
+      "calls": 78,
+      "self_ms": 0.05450000000000001,
+      "cumulative_ms": 0.58399
+    },
+    {
+      "file": "/vllm-workspace/vllm-ascend/vllm_ascend/patch/worker/patch_cudagraph.py",
+      "line": 112,
+      "function": "_create_padded_batch_descriptor",
+      "calls": 39,
+      "self_ms": 0.23542000000000002,
+      "cumulative_ms": 0.5833100000000001
+    },
+    {
+      "file": "~",
+      "line": 0,
+      "function": "<function Stream.synchronize at 0xffff56f9bec0>",
+      "calls": 39,
+      "self_ms": 0.57738,
+      "cumulative_ms": 0.57738
+    },
+    {
+      "file": "~",
+      "line": 0,
+      "function": "<method 'stride' of 'torch._C.TensorBase' objects>",
+      "calls": 429,
+      "self_ms": 0.57443,
+      "cumulative_ms": 0.57443
+    },
+    {
+      "file": "~",
+      "line": 0,
+      "function": "<method 'extend' of 'list' objects>",
+      "calls": 1989,
+      "self_ms": 0.57216,
+      "cumulative_ms": 0.57216
+    },
+    {
+      "file": "~",
+      "line": 0,
+      "function": "<method 'data_ptr' of 'torch._C.TensorBase' objects>",
+      "calls": 1716,
+      "self_ms": 0.56605,
+      "cumulative_ms": 0.56605
+    },
+    {
+      "file": "/usr/local/python3.12.13/lib/python3.12/site-packages/torch/cuda/__init__.py",
+      "line": 165,
+      "function": "is_available",
+      "calls": 429,
+      "self_ms": 0.19616000000000003,
+      "cumulative_ms": 0.5658
+    },
+    {
+      "file": "/usr/local/python3.12.13/lib/python3.12/contextlib.py",
+      "line": 104,
+      "function": "__init__",
+      "calls": 273,
+      "self_ms": 0.45063000000000003,
+      "cumulative_ms": 0.55251
+    },
+    {
+      "file": "/vllm-workspace/vllm/vllm/v1/core/single_type_kv_cache_manager.py",
+      "line": 128,
+      "function": "_get_num_evictable_blocks",
+      "calls": 429,
+      "self_ms": 0.28041000000000005,
+      "cumulative_ms": 0.54988
+    },
+    {
+      "file": "/vllm-workspace/vllm-ascend/vllm_ascend/models/deepseek_v41/model.py",
+      "line": 1278,
+      "function": "_prepare_engram_host",
+      "calls": 39,
+      "self_ms": 0.13558,
+      "cumulative_ms": 0.54751
+    },
+    {
+      "file": "/usr/local/python3.12.13/lib/python3.12/site-packages/torch/mtia/__init__.py",
+      "line": 124,
+      "function": "_is_compiled",
+      "calls": 429,
+      "self_ms": 0.20436,
+      "cumulative_ms": 0.54276
+    },
+    {
+      "file": "/usr/local/python3.12.13/lib/python3.12/copyreg.py",
+      "line": 98,
+      "function": "__newobj__",
+      "calls": 468,
+      "self_ms": 0.34551000000000004,
+      "cumulative_ms": 0.5352800000000001
+    },
+    {
+      "file": "~",
+      "line": 0,
+      "function": "<method 'numpy' of 'torch._C.TensorBase' objects>",
+      "calls": 78,
+      "self_ms": 0.5328,
+      "cumulative_ms": 0.5328
+    },
+    {
+      "file": "/usr/local/python3.12.13/lib/python3.12/site-packages/numpy/core/fromnumeric.py",
+      "line": 423,
+      "function": "repeat",
+      "calls": 78,
+      "self_ms": 0.0984,
+      "cumulative_ms": 0.53168
+    },
+    {
+      "file": "/vllm-workspace/vllm/vllm/v1/core/single_type_kv_cache_manager.py",
+      "line": 1057,
+      "function": "get_num_skipped_tokens",
+      "calls": 780,
+      "self_ms": 0.25857,
+      "cumulative_ms": 0.5293300000000001
+    },
+    {
+      "file": "/vllm-workspace/vllm/vllm/forward_context.py",
+      "line": 212,
+      "function": "create_forward_context",
+      "calls": 39,
+      "self_ms": 0.17250000000000001,
+      "cumulative_ms": 0.5270900000000001
+    },
+    {
+      "file": "/vllm-workspace/vllm-ascend/vllm_ascend/worker/device_metadata.py",
+      "line": 53,
+      "function": "maybe_sleep",
+      "calls": 234,
+      "self_ms": 0.3192,
+      "cumulative_ms": 0.51035
+    },
+    {
+      "file": "/usr/local/python3.12.13/lib/python3.12/site-packages/torch_npu/npu/__init__.py",
+      "line": 357,
+      "function": "is_available",
+      "calls": 429,
+      "self_ms": 0.34829,
+      "cumulative_ms": 0.5053000000000001
+    },
+    {
+      "file": "/vllm-workspace/vllm/vllm/v1/core/sched/scheduler.py",
+      "line": 2094,
+      "function": "_update_request_with_output",
+      "calls": 39,
+      "self_ms": 0.12672,
+      "cumulative_ms": 0.5018500000000001
+    },
+    {
+      "file": "<frozen importlib._bootstrap>",
+      "line": 645,
+      "function": "parent",
+      "calls": 429,
+      "self_ms": 0.26748,
+      "cumulative_ms": 0.49339
+    },
+    {
+      "file": "/vllm-workspace/vllm/vllm/v1/core/kv_cache_manager.py",
+      "line": 831,
+      "function": "take_kv_cache_block_copies",
+      "calls": 39,
+      "self_ms": 0.27553,
+      "cumulative_ms": 0.48540000000000005
+    },
+    {
+      "file": "/vllm-workspace/vllm/vllm/v1/core/single_type_kv_cache_manager.py",
+      "line": 330,
+      "function": "allocate_new_blocks",
+      "calls": 429,
+      "self_ms": 0.3355,
+      "cumulative_ms": 0.4787
+    },
+    {
+      "file": "/vllm-workspace/vllm-ascend/vllm_ascend/ascend_forward_context.py",
+      "line": 433,
+      "function": "__getattr__",
+      "calls": 78,
+      "self_ms": 0.34237000000000006,
+      "cumulative_ms": 0.46706000000000003
+    },
+    {
+      "file": "~",
+      "line": 0,
+      "function": "<method 'lower' of 'str' objects>",
+      "calls": 1755,
+      "self_ms": 0.46149000000000007,
+      "cumulative_ms": 0.46149000000000007
+    },
+    {
+      "file": "~",
+      "line": 0,
+      "function": "<method 'int' of 'torch._C.TensorBase' objects>",
+      "calls": 273,
+      "self_ms": 0.45817,
+      "cumulative_ms": 0.45817
+    },
+    {
+      "file": "/usr/local/python3.12.13/lib/python3.12/enum.py",
+      "line": 1128,
+      "function": "__new__",
+      "calls": 975,
+      "self_ms": 0.45210000000000006,
+      "cumulative_ms": 0.45210000000000006
+    },
+    {
+      "file": "/usr/local/python3.12.13/lib/python3.12/site-packages/torch_npu/npu/streams.py",
+      "line": 28,
+      "function": "wait_event",
+      "calls": 78,
+      "self_ms": 0.05584,
+      "cumulative_ms": 0.4431800000000001
+    },
+    {
+      "file": "/usr/local/python3.12.13/lib/python3.12/site-packages/numpy/core/numeric.py",
+      "line": 136,
+      "function": "ones",
+      "calls": 39,
+      "self_ms": 0.30599000000000004,
+      "cumulative_ms": 0.44085
+    },
+    {
+      "file": "/vllm-workspace/vllm/vllm/v1/core/sched/scheduler.py",
+      "line": 1260,
+      "function": "_get_new_block_ids_to_zero",
+      "calls": 39,
+      "self_ms": 0.04015,
+      "cumulative_ms": 0.43920000000000003
+    },
+    {
+      "file": "<string>",
+      "line": 2,
+      "function": "__eq__",
+      "calls": 663,
+      "self_ms": 0.43649000000000004,
+      "cumulative_ms": 0.43649000000000004
+    },
+    {
+      "file": "/vllm-workspace/vllm-ascend/vllm_ascend/ops/triton/compute_slot_mapping.py",
+      "line": 7,
+      "function": "_next_power_of_2",
+      "calls": 429,
+      "self_ms": 0.29277000000000003,
+      "cumulative_ms": 0.43497
+    },
+    {
+      "file": "/vllm-workspace/vllm/vllm/v1/core/kv_cache_manager.py",
+      "line": 643,
+      "function": "get_num_common_prefix_blocks",
+      "calls": 39,
+      "self_ms": 0.027250000000000003,
+      "cumulative_ms": 0.4349100000000001
+    },
+    {
+      "file": "/usr/local/python3.12.13/lib/python3.12/site-packages/torch_npu/npu/__init__.py",
+      "line": 244,
+      "function": "_lazy_init",
+      "calls": 1248,
+      "self_ms": 0.42565000000000003,
+      "cumulative_ms": 0.42565000000000003
+    },
+    {
+      "file": "/usr/local/python3.12.13/lib/python3.12/concurrent/futures/_base.py",
+      "line": 537,
+      "function": "set_result",
+      "calls": 39,
+      "self_ms": 0.18847000000000003,
+      "cumulative_ms": 0.42285
+    },
+    {
+      "file": "/vllm-workspace/vllm/vllm/v1/worker/gpu_input_batch.py",
+      "line": 840,
+      "function": "refresh_metadata",
+      "calls": 39,
+      "self_ms": 0.21414,
+      "cumulative_ms": 0.41796000000000005
+    },
+    {
+      "file": "~",
+      "line": 0,
+      "function": "<method 'zero_' of 'torch._C.TensorBase' objects>",
+      "calls": 39,
+      "self_ms": 0.41039000000000003,
+      "cumulative_ms": 0.41039000000000003
+    },
+    {
+      "file": "/vllm-workspace/vllm/vllm/v1/core/kv_cache_coordinator.py",
+      "line": 319,
+      "function": "get_num_common_prefix_blocks",
+      "calls": 39,
+      "self_ms": 0.17482,
+      "cumulative_ms": 0.40766
+    },
+    {
+      "file": "~",
+      "line": 0,
+      "function": "<method 'view' of 'torch._C.TensorBase' objects>",
+      "calls": 78,
+      "self_ms": 0.40639000000000003,
+      "cumulative_ms": 0.40639000000000003
+    },
+    {
+      "file": "/vllm-workspace/vllm-ascend/vllm_ascend/utils.py",
+      "line": 804,
+      "function": "lmhead_tp_enable",
+      "calls": 117,
+      "self_ms": 0.14615,
+      "cumulative_ms": 0.40023000000000003
+    },
+    {
+      "file": "/vllm-workspace/vllm/vllm/v1/core/kv_cache_manager.py",
+      "line": 796,
+      "function": "take_new_block_ids",
+      "calls": 39,
+      "self_ms": 0.23062000000000002,
+      "cumulative_ms": 0.39905
+    },
+    {
+      "file": "~",
+      "line": 0,
+      "function": "<built-in method torch_npu._C._npu_getDevice>",
+      "calls": 858,
+      "self_ms": 0.39602000000000004,
+      "cumulative_ms": 0.39602000000000004
+    },
+    {
+      "file": "/usr/local/python3.12.13/lib/python3.12/site-packages/numpy/core/fromnumeric.py",
+      "line": 2512,
+      "function": "cumsum",
+      "calls": 39,
+      "self_ms": 0.045380000000000004,
+      "cumulative_ms": 0.39308000000000004
+    },
+    {
+      "file": "/usr/local/python3.12.13/lib/python3.12/site-packages/torch_npu/npu/streams.py",
+      "line": 153,
+      "function": "wait",
+      "calls": 78,
+      "self_ms": 0.07505,
+      "cumulative_ms": 0.38734
+    },
+    {
+      "file": "/vllm-workspace/vllm-ascend/vllm_ascend/ascend_config.py",
+      "line": 1339,
+      "function": "_is_ascend_config_initialized",
+      "calls": 312,
+      "self_ms": 0.19995000000000002,
+      "cumulative_ms": 0.38728000000000007
+    },
+    {
+      "file": "/vllm-workspace/vllm/vllm/config/compilation.py",
+      "line": 92,
+      "function": "valid_runtime_modes",
+      "calls": 78,
+      "self_ms": 0.25308,
+      "cumulative_ms": 0.38396
+    },
+    {
+      "file": "/usr/local/python3.12.13/lib/python3.12/site-packages/torch/nn/modules/module.py",
+      "line": 1952,
+      "function": "__getattr__",
+      "calls": 273,
+      "self_ms": 0.38162000000000007,
+      "cumulative_ms": 0.38162000000000007
+    },
+    {
+      "file": "/usr/local/python3.12.13/lib/python3.12/site-packages/triton/compiler/compiler.py",
+      "line": 403,
+      "function": "_init_handles",
+      "calls": 429,
+      "self_ms": 0.14145,
+      "cumulative_ms": 0.37943000000000005
+    },
+    {
+      "file": "~",
+      "line": 0,
+      "function": "<method 'append' of 'list' objects>",
+      "calls": 1403,
+      "self_ms": 0.36976000000000003,
+      "cumulative_ms": 0.36976000000000003
+    },
+    {
+      "file": "/usr/local/python3.12.13/lib/python3.12/site-packages/torch/cuda/__init__.py",
+      "line": 156,
+      "function": "_is_compiled",
+      "calls": 429,
+      "self_ms": 0.18023,
+      "cumulative_ms": 0.36964
+    },
+    {
+      "file": "/vllm-workspace/vllm/vllm/v1/worker/gpu_model_runner.py",
+      "line": 1915,
+      "function": "_get_encoder_seq_lens",
+      "calls": 468,
+      "self_ms": 0.21265,
+      "cumulative_ms": 0.36442
+    },
+    {
+      "file": "/vllm-workspace/vllm/vllm/v1/core/sched/scheduler.py",
+      "line": 2406,
+      "function": "has_requests",
+      "calls": 39,
+      "self_ms": 0.041530000000000004,
+      "cumulative_ms": 0.36352000000000007
+    },
+    {
+      "file": "/vllm-workspace/vllm/vllm/utils/math_utils.py",
+      "line": 10,
+      "function": "cdiv",
+      "calls": 1287,
+      "self_ms": 0.35775000000000007,
+      "cumulative_ms": 0.35775000000000007
+    },
+    {
+      "file": "~",
+      "line": 0,
+      "function": "<built-in method torch.add>",
+      "calls": 39,
+      "self_ms": 0.34115,
+      "cumulative_ms": 0.34115
+    },
+    {
+      "file": "~",
+      "line": 0,
+      "function": "<built-in method torch._C._get_privateuse1_backend_name>",
+      "calls": 858,
+      "self_ms": 0.33915,
+      "cumulative_ms": 0.33915
+    },
+    {
+      "file": "~",
+      "line": 0,
+      "function": "<built-in method torch._C._mtia_isBuilt>",
+      "calls": 429,
+      "self_ms": 0.33840000000000003,
+      "cumulative_ms": 0.33840000000000003
+    },
+    {
+      "file": "/vllm-workspace/vllm/vllm/v1/worker/gpu_input_batch.py",
+      "line": 318,
+      "function": "req_ids",
+      "calls": 156,
+      "self_ms": 0.31341,
+      "cumulative_ms": 0.33785
+    },
+    {
+      "file": "/usr/local/python3.12.13/lib/python3.12/concurrent/futures/_base.py",
+      "line": 328,
+      "function": "__init__",
+      "calls": 39,
+      "self_ms": 0.09006,
+      "cumulative_ms": 0.33756
+    },
+    {
+      "file": "/vllm-workspace/vllm-ascend/vllm_ascend/ascend_forward_context.py",
+      "line": 351,
+      "function": "select_moe_comm_method",
+      "calls": 39,
+      "self_ms": 0.21055000000000001,
+      "cumulative_ms": 0.33180000000000004
+    },
+    {
+      "file": "/vllm-workspace/vllm-ascend/vllm_ascend/patch/platform/patch_pp_mtp.py",
+      "line": 129,
+      "function": "_patched_update_after_schedule",
+      "calls": 39,
+      "self_ms": 0.07091000000000001,
+      "cumulative_ms": 0.32544
+    },
+    {
+      "file": "/vllm-workspace/vllm/vllm/v1/core/sched/interface.py",
+      "line": 173,
+      "function": "has_unfinished_requests",
+      "calls": 39,
+      "self_ms": 0.05297,
+      "cumulative_ms": 0.32199
+    },
+    {
+      "file": "/usr/local/python3.12.13/lib/python3.12/site-packages/torch_npu/npu/utils.py",
+      "line": 111,
+      "function": "__enter__",
+      "calls": 195,
+      "self_ms": 0.21267,
+      "cumulative_ms": 0.31663
+    },
+    {
+      "file": "~",
+      "line": 0,
+      "function": "<method 'items' of 'dict' objects>",
+      "calls": 858,
+      "self_ms": 0.31505000000000005,
+      "cumulative_ms": 0.31505000000000005
+    },
+    {
+      "file": "~",
+      "line": 0,
+      "function": "<built-in method torch.empty>",
+      "calls": 39,
+      "self_ms": 0.3138,
+      "cumulative_ms": 0.3138
+    },
+    {
+      "file": "~",
+      "line": 0,
+      "function": "<method 'repeat' of 'numpy.ndarray' objects>",
+      "calls": 78,
+      "self_ms": 0.31307,
+      "cumulative_ms": 0.31307
+    },
+    {
+      "file": "~",
+      "line": 0,
+      "function": "<function Event.wait at 0xffff56fc0540>",
+      "calls": 78,
+      "self_ms": 0.31229,
+      "cumulative_ms": 0.31229
+    },
+    {
+      "file": "~",
+      "line": 0,
+      "function": "<built-in method builtins.sum>",
+      "calls": 507,
+      "self_ms": 0.25795,
+      "cumulative_ms": 0.30803
+    },
+    {
+      "file": "/usr/local/python3.12.13/lib/python3.12/site-packages/torch_npu/npu/utils.py",
+      "line": 245,
+      "function": "set_stream",
+      "calls": 78,
+      "self_ms": 0.15136000000000002,
+      "cumulative_ms": 0.29647
+    },
+    {
+      "file": "~",
+      "line": 0,
+      "function": "<built-in method numpy.array>",
+      "calls": 78,
+      "self_ms": 0.29092,
+      "cumulative_ms": 0.29092
+    },
+    {
+      "file": "~",
+      "line": 0,
+      "function": "<method 'cumsum' of 'numpy.ndarray' objects>",
+      "calls": 39,
+      "self_ms": 0.28948999999999997,
+      "cumulative_ms": 0.28948999999999997
+    },
+    {
+      "file": "~",
+      "line": 0,
+      "function": "<built-in method torch.from_numpy>",
+      "calls": 117,
+      "self_ms": 0.28927,
+      "cumulative_ms": 0.28927
+    },
+    {
+      "file": "/usr/local/python3.12.13/lib/python3.12/site-packages/torch_npu/npu/utils.py",
+      "line": 218,
+      "function": "__exit__",
+      "calls": 39,
+      "self_ms": 0.10589,
+      "cumulative_ms": 0.27982
+    },
+    {
+      "file": "~",
+      "line": 0,
+      "function": "<method 'size' of 'torch._C.TensorBase' objects>",
+      "calls": 234,
+      "self_ms": 0.27858,
+      "cumulative_ms": 0.27858
+    },
+    {
+      "file": "/vllm-workspace/vllm/vllm/v1/core/kv_cache_manager.py",
+      "line": 76,
+      "function": "get_block_ids",
+      "calls": 39,
+      "self_ms": 0.04564,
+      "cumulative_ms": 0.2722
+    },
+    {
+      "file": "/vllm-workspace/vllm/vllm/forward_context.py",
+      "line": 190,
+      "function": "__post_init__",
+      "calls": 39,
+      "self_ms": 0.03361000000000001,
+      "cumulative_ms": 0.27127999999999997
+    },
+    {
+      "file": "~",
+      "line": 0,
+      "function": "<built-in method builtins.hash>",
+      "calls": 1131,
+      "self_ms": 0.26992,
+      "cumulative_ms": 0.26992
+    },
+    {
+      "file": "/vllm-workspace/vllm/vllm/v1/core/sched/scheduler.py",
+      "line": 2382,
+      "function": "get_num_unfinished_requests",
+      "calls": 39,
+      "self_ms": 0.09597,
+      "cumulative_ms": 0.26902000000000004
+    },
+    {
+      "file": "/usr/local/python3.12.13/lib/python3.12/enum.py",
+      "line": 1291,
+      "function": "value",
+      "calls": 2146,
+      "self_ms": 0.26745,
+      "cumulative_ms": 0.26745
+    },
+    {
+      "file": "/usr/local/python3.12.13/lib/python3.12/site-packages/triton/backends/compiler.py",
+      "line": 228,
+      "function": "__init__",
+      "calls": 429,
+      "self_ms": 0.20772000000000002,
+      "cumulative_ms": 0.26379
+    },
+    {
+      "file": "/vllm-workspace/vllm/vllm/v1/core/kv_cache_manager.py",
+      "line": 876,
+      "function": "new_step_starts",
+      "calls": 39,
+      "self_ms": 0.03646,
+      "cumulative_ms": 0.26275000000000004
+    },
+    {
+      "file": "~",
+      "line": 0,
+      "function": "<method 'max' of 'torch._C.TensorBase' objects>",
+      "calls": 39,
+      "self_ms": 0.26170000000000004,
+      "cumulative_ms": 0.26170000000000004
+    },
+    {
+      "file": "/usr/local/python3.12.13/lib/python3.12/enum.py",
+      "line": 1266,
+      "function": "__hash__",
+      "calls": 468,
+      "self_ms": 0.17289000000000002,
+      "cumulative_ms": 0.26064000000000004
+    },
+    {
+      "file": "/vllm-workspace/vllm/vllm/config/vllm.py",
+      "line": 2373,
+      "function": "set_current_vllm_config",
+      "calls": 78,
+      "self_ms": 0.22480000000000003,
+      "cumulative_ms": 0.26063000000000003
+    },
+    {
+      "file": "/vllm-workspace/vllm/vllm/v1/engine/output_processor.py",
+      "line": 342,
+      "function": "_new_request_output",
+      "calls": 39,
+      "self_ms": 0.21961000000000003,
+      "cumulative_ms": 0.25884
+    },
+    {
+      "file": "/usr/local/python3.12.13/lib/python3.12/concurrent/futures/_base.py",
+      "line": 428,
+      "function": "result",
+      "calls": 78,
+      "self_ms": 0.13426000000000002,
+      "cumulative_ms": 0.25048000000000004
+    },
+    {
+      "file": "~",
+      "line": 0,
+      "function": "<built-in method torch.index_select>",
+      "calls": 39,
+      "self_ms": 0.24928,
+      "cumulative_ms": 0.24928
+    },
+    {
+      "file": "~",
+      "line": 0,
+      "function": "<method 'join' of 'str' objects>",
+      "calls": 429,
+      "self_ms": 0.24865,
+      "cumulative_ms": 0.24865
+    },
+    {
+      "file": "/vllm-workspace/vllm/vllm/v1/engine/core.py",
+      "line": 741,
+      "function": "_process_aborts_queue",
+      "calls": 39,
+      "self_ms": 0.05109,
+      "cumulative_ms": 0.24805000000000005
+    },
+    {
+      "file": "/usr/local/python3.12.13/lib/python3.12/threading.py",
+      "line": 277,
+      "function": "__init__",
+      "calls": 39,
+      "self_ms": 0.16757000000000002,
+      "cumulative_ms": 0.2475
+    },
+    {
+      "file": "/vllm-workspace/vllm/vllm/v1/engine/output_processor.py",
+      "line": 388,
+      "function": "_new_completion_output",
+      "calls": 39,
+      "self_ms": 0.19412000000000001,
+      "cumulative_ms": 0.24186000000000002
+    },
+    {
+      "file": "/vllm-workspace/vllm/vllm/v1/core/sched/utils.py",
+      "line": 94,
+      "function": "check_stop",
+      "calls": 39,
+      "self_ms": 0.15632000000000001,
+      "cumulative_ms": 0.24137000000000003
+    },
+    {
+      "file": "/vllm-workspace/vllm/vllm/config/compilation.py",
+      "line": 96,
+      "function": "is_valid_runtime_mode",
+      "calls": 39,
+      "self_ms": 0.06941,
+      "cumulative_ms": 0.23767000000000002
+    },
+    {
+      "file": "/vllm-workspace/vllm/vllm/v1/core/sched/scheduler.py",
+      "line": 1317,
+      "function": "_update_after_schedule",
+      "calls": 39,
+      "self_ms": 0.17259,
+      "cumulative_ms": 0.23257
+    },
+    {
+      "file": "~",
+      "line": 0,
+      "function": "<built-in method builtins.all>",
+      "calls": 39,
+      "self_ms": 0.08149,
+      "cumulative_ms": 0.22656000000000004
+    },
+    {
+      "file": "/vllm-workspace/vllm/vllm/v1/core/kv_cache_coordinator.py",
+      "line": 379,
+      "function": "new_step_starts",
+      "calls": 39,
+      "self_ms": 0.18117,
+      "cumulative_ms": 0.22629
+    },
+    {
+      "file": "~",
+      "line": 0,
+      "function": "<method 'rpartition' of 'str' objects>",
+      "calls": 429,
+      "self_ms": 0.22591,
+      "cumulative_ms": 0.22591
+    },
+    {
+      "file": "~",
+      "line": 0,
+      "function": "<built-in method torch_npu._C._npu_getCurrentRawStreamNoWait>",
+      "calls": 429,
+      "self_ms": 0.22306000000000004,
+      "cumulative_ms": 0.22306000000000004
+    },
+    {
+      "file": "~",
+      "line": 0,
+      "function": "<method 'item' of 'torch._C.TensorBase' objects>",
+      "calls": 156,
+      "self_ms": 0.21983000000000003,
+      "cumulative_ms": 0.21983000000000003
+    },
+    {
+      "file": "/vllm-workspace/vllm/vllm/v1/sample/sampler.py",
+      "line": 371,
+      "function": "apply_logits_processors",
+      "calls": 39,
+      "self_ms": 0.17929,
+      "cumulative_ms": 0.21865
+    },
+    {
+      "file": "/usr/local/python3.12.13/lib/python3.12/site-packages/torch/autograd/grad_mode.py",
+      "line": 284,
+      "function": "__new__",
+      "calls": 117,
+      "self_ms": 0.15253,
+      "cumulative_ms": 0.21712
+    },
+    {
+      "file": "/vllm-workspace/vllm/vllm/logger.py",
+      "line": 127,
+      "function": "info_once",
+      "calls": 39,
+      "self_ms": 0.08482,
+      "cumulative_ms": 0.21367
+    },
+    {
+      "file": "/vllm-workspace/vllm-ascend/vllm_ascend/patch/platform/patch_pp_mtp.py",
+      "line": 75,
+      "function": "_patched_init",
+      "calls": 39,
+      "self_ms": 0.14457,
+      "cumulative_ms": 0.21275000000000002
+    },
+    {
+      "file": "/vllm-workspace/vllm-ascend/vllm_ascend/core/kv_cache_interface.py",
+      "line": 52,
+      "function": "storage_block_size",
+      "calls": 468,
+      "self_ms": 0.21271,
+      "cumulative_ms": 0.21271
+    },
+    {
+      "file": "/usr/local/python3.12.13/lib/python3.12/site-packages/torch/autograd/grad_mode.py",
+      "line": 279,
+      "function": "__init__",
+      "calls": 117,
+      "self_ms": 0.19971000000000003,
+      "cumulative_ms": 0.21259000000000003
+    },
+    {
+      "file": "~",
+      "line": 0,
+      "function": "<method 'flatten' of 'torch._C.TensorBase' objects>",
+      "calls": 39,
+      "self_ms": 0.20981000000000002,
+      "cumulative_ms": 0.20981000000000002
+    },
+    {
+      "file": "/usr/local/python3.12.13/lib/python3.12/site-packages/triton/runtime/jit.py",
+      "line": 327,
+      "function": "__getitem__",
+      "calls": 429,
+      "self_ms": 0.20618,
+      "cumulative_ms": 0.20618
+    },
+    {
+      "file": "~",
+      "line": 0,
+      "function": "<built-in method time.monotonic>",
+      "calls": 351,
+      "self_ms": 0.20443000000000003,
+      "cumulative_ms": 0.20443000000000003
+    },
+    {
+      "file": "/vllm-workspace/vllm/vllm/v1/core/sched/request_queue.py",
+      "line": 118,
+      "function": "__bool__",
+      "calls": 156,
+      "self_ms": 0.04206,
+      "cumulative_ms": 0.20247
+    },
+    {
+      "file": "/usr/local/python3.12.13/lib/python3.12/queue.py",
+      "line": 97,
+      "function": "empty",
+      "calls": 39,
+      "self_ms": 0.14664000000000002,
+      "cumulative_ms": 0.19696000000000002
+    },
+    {
+      "file": "/vllm-workspace/vllm/vllm/v1/worker/gpu_model_runner.py",
+      "line": 1074,
+      "function": "_init_model_kwargs",
+      "calls": 39,
+      "self_ms": 0.19659000000000001,
+      "cumulative_ms": 0.19659000000000001
+    },
+    {
+      "file": "/vllm-workspace/vllm-ascend/vllm_ascend/worker/model_runner_v1.py",
+      "line": 3012,
+      "function": "_pad_for_sequence_parallelism",
+      "calls": 39,
+      "self_ms": 0.09568,
+      "cumulative_ms": 0.19522
+    },
+    {
+      "file": "/vllm-workspace/vllm/vllm/v1/core/single_type_kv_cache_manager.py",
+      "line": 821,
+      "function": "get_num_common_prefix_blocks",
+      "calls": 39,
+      "self_ms": 0.13640000000000002,
+      "cumulative_ms": 0.19326000000000002
+    },
+    {
+      "file": "/vllm-workspace/vllm/vllm/v1/core/sched/request_queue.py",
+      "line": 122,
+      "function": "__len__",
+      "calls": 234,
+      "self_ms": 0.193,
+      "cumulative_ms": 0.193
+    },
+    {
+      "file": "/usr/local/python3.12.13/lib/python3.12/site-packages/torch_npu/npu/utils.py",
+      "line": 119,
+      "function": "__exit__",
+      "calls": 195,
+      "self_ms": 0.12527,
+      "cumulative_ms": 0.19089
+    },
+    {
+      "file": "/vllm-workspace/vllm/vllm/config/compilation.py",
+      "line": 71,
+      "function": "has_mode",
+      "calls": 39,
+      "self_ms": 0.05777,
+      "cumulative_ms": 0.18995
+    },
+    {
+      "file": "/vllm-workspace/vllm/vllm/v1/worker/gpu_input_batch.py",
+      "line": 708,
+      "function": "condense",
+      "calls": 39,
+      "self_ms": 0.05963,
+      "cumulative_ms": 0.17920000000000003
+    },
+    {
+      "file": "~",
+      "line": 0,
+      "function": "<built-in method fromkeys>",
+      "calls": 39,
+      "self_ms": 0.1165,
+      "cumulative_ms": 0.1787
+    },
+    {
+      "file": "~",
+      "line": 0,
+      "function": "<built-in method builtins.sorted>",
+      "calls": 39,
+      "self_ms": 0.14779000000000003,
+      "cumulative_ms": 0.17735
+    },
+    {
+      "file": "/vllm-workspace/vllm-ascend/vllm_ascend/quantization/utils.py",
+      "line": 46,
+      "function": "get_dynamic_mx_quant_scale_alg",
+      "calls": 39,
+      "self_ms": 0.07669,
+      "cumulative_ms": 0.17685
+    },
+    {
+      "file": "/usr/local/python3.12.13/lib/python3.12/threading.py",
+      "line": 299,
+      "function": "__enter__",
+      "calls": 156,
+      "self_ms": 0.07209000000000002,
+      "cumulative_ms": 0.17617000000000002
+    },
+    {
+      "file": "/vllm-workspace/vllm-ascend/vllm_ascend/attention/dsa_v41.py",
+      "line": 686,
+      "function": "take_device_metadata_tasks",
+      "calls": 975,
+      "self_ms": 0.17467000000000002,
+      "cumulative_ms": 0.17467000000000002
+    },
+    {
+      "file": "/usr/local/python3.12.13/lib/python3.12/site-packages/torch/xpu/__init__.py",
+      "line": 65,
+      "function": "is_available",
+      "calls": 429,
+      "self_ms": 0.17332,
+      "cumulative_ms": 0.17332
+    },
+    {
+      "file": "~",
+      "line": 0,
+      "function": "<method 'unsqueeze' of 'torch._C.TensorBase' objects>",
+      "calls": 39,
+      "self_ms": 0.17017000000000002,
+      "cumulative_ms": 0.17017000000000002
+    },
+    {
+      "file": "/usr/local/python3.12.13/lib/python3.12/site-packages/triton/runtime/driver.py",
+      "line": 18,
+      "function": "_initialize_obj",
+      "calls": 1287,
+      "self_ms": 0.16989,
+      "cumulative_ms": 0.16989
+    },
+    {
+      "file": "/vllm-workspace/vllm/vllm/model_executor/layers/logits_processor.py",
+      "line": 84,
+      "function": "_gather_logits",
+      "calls": 39,
+      "self_ms": 0.04728,
+      "cumulative_ms": 0.16352
+    },
+    {
+      "file": "/vllm-workspace/vllm/vllm/v1/core/single_type_kv_cache_manager.py",
+      "line": 132,
+      "function": "_has_partial_local_hit",
+      "calls": 429,
+      "self_ms": 0.11273000000000001,
+      "cumulative_ms": 0.16316
+    },
+    {
+      "file": "/vllm-workspace/vllm/vllm/model_executor/layers/utils.py",
+      "line": 348,
+      "function": "dispatch_unquantized_gemm",
+      "calls": 39,
+      "self_ms": 0.1061,
+      "cumulative_ms": 0.16294
+    },
+    {
+      "file": "/usr/local/python3.12.13/lib/python3.12/site-packages/numpy/core/fromnumeric.py",
+      "line": 1881,
+      "function": "nonzero",
+      "calls": 39,
+      "self_ms": 0.03488000000000001,
+      "cumulative_ms": 0.1617
+    },
+    {
+      "file": "/vllm-workspace/vllm-ascend/vllm_ascend/patch/platform/patch_pp_mtp.py",
+      "line": 96,
+      "function": "_patched_post_step",
+      "calls": 39,
+      "self_ms": 0.09531,
+      "cumulative_ms": 0.16084
+    },
+    {
+      "file": "/vllm-workspace/vllm-ascend/vllm_ascend/compilation/acl_graph.py",
+      "line": 119,
+      "function": "__getattr__",
+      "calls": 78,
+      "self_ms": 0.06810000000000001,
+      "cumulative_ms": 0.15519000000000002
+    },
+    {
+      "file": "/vllm-workspace/vllm-ascend/vllm_ascend/patch/platform/patch_use_v2_model_runner.py",
+      "line": 11,
+      "function": "_patched_use_v2_model_runner",
+      "calls": 39,
+      "self_ms": 0.14988,
+      "cumulative_ms": 0.14988
+    },
+    {
+      "file": "/vllm-workspace/vllm-ascend/vllm_ascend/utils.py",
+      "line": 824,
+      "function": "enable_sp",
+      "calls": 78,
+      "self_ms": 0.08567000000000001,
+      "cumulative_ms": 0.14883
+    },
+    {
+      "file": "~",
+      "line": 0,
+      "function": "<built-in method torch_npu._C._npu_setStream>",
+      "calls": 78,
+      "self_ms": 0.14511,
+      "cumulative_ms": 0.14511
+    },
+    {
+      "file": "/vllm-workspace/vllm/vllm/v1/core/kv_cache_manager.py",
+      "line": 89,
+      "function": "<genexpr>",
+      "calls": 507,
+      "self_ms": 0.10604000000000001,
+      "cumulative_ms": 0.14507000000000003
+    },
+    {
+      "file": "~",
+      "line": 0,
+      "function": "<method 'bit_length' of 'int' objects>",
+      "calls": 429,
+      "self_ms": 0.14220000000000002,
+      "cumulative_ms": 0.14220000000000002
+    },
+    {
+      "file": "/vllm-workspace/vllm-ascend/vllm_ascend/worker/block_table.py",
+      "line": 782,
+      "function": "__getitem__",
+      "calls": 468,
+      "self_ms": 0.14135000000000003,
+      "cumulative_ms": 0.14135000000000003
+    },
+    {
+      "file": "/vllm-workspace/vllm-ascend/vllm_ascend/worker/block_table.py",
+      "line": 428,
+      "function": "get_device_tensor",
+      "calls": 468,
+      "self_ms": 0.13909,
+      "cumulative_ms": 0.13909
+    },
+    {
+      "file": "/vllm-workspace/vllm/vllm/v1/core/sched/scheduler.py",
+      "line": 2300,
+      "function": "_free_request",
+      "calls": 1,
+      "self_ms": 0.01021,
+      "cumulative_ms": 0.13893
+    },
+    {
+      "file": "~",
+      "line": 0,
+      "function": "<method 'tolist' of 'torch._C.TensorBase' objects>",
+      "calls": 39,
+      "self_ms": 0.13578,
+      "cumulative_ms": 0.13578
+    },
+    {
+      "file": "/vllm-workspace/vllm/vllm/v1/request.py",
+      "line": 249,
+      "function": "append_output_token_ids",
+      "calls": 39,
+      "self_ms": 0.09408000000000001,
+      "cumulative_ms": 0.13376000000000002
+    },
+    {
+      "file": "/usr/local/python3.12.13/lib/python3.12/site-packages/torch/_jit_internal.py",
+      "line": 98,
+      "function": "is_scripting",
+      "calls": 1092,
+      "self_ms": 0.13118,
+      "cumulative_ms": 0.13118
+    },
+    {
+      "file": "/vllm-workspace/vllm/vllm/logger.py",
+      "line": 96,
+      "function": "_should_log_with_scope",
+      "calls": 39,
+      "self_ms": 0.11103000000000002,
+      "cumulative_ms": 0.12885000000000002
+    },
+    {
+      "file": "/usr/local/python3.12.13/lib/python3.12/site-packages/triton/backends/ascend/compiler.py",
+      "line": 1144,
+      "function": "supports_target",
+      "calls": 858,
+      "self_ms": 0.12793000000000002,
+      "cumulative_ms": 0.12793000000000002
+    },
+    {
+      "file": "~",
+      "line": 0,
+      "function": "<method 'values' of 'dict' objects>",
+      "calls": 468,
+      "self_ms": 0.12669,
+      "cumulative_ms": 0.12669
+    },
+    {
+      "file": "/vllm-workspace/vllm/vllm/v1/worker/kv_connector_model_runner_mixin.py",
+      "line": 50,
+      "function": "maybe_get_kv_connector_output",
+      "calls": 39,
+      "self_ms": 0.10308,
+      "cumulative_ms": 0.12574
+    },
+    {
+      "file": "/vllm-workspace/vllm/vllm/distributed/parallel_state.py",
+      "line": 599,
+      "function": "is_last_rank",
+      "calls": 78,
+      "self_ms": 0.07328,
+      "cumulative_ms": 0.12565
+    },
+    {
+      "file": "~",
+      "line": 0,
+      "function": "<built-in method torch_npu._C._npu_getCurrentStream>",
+      "calls": 195,
+      "self_ms": 0.12414000000000001,
+      "cumulative_ms": 0.12414000000000001
+    },
+    {
+      "file": "/usr/local/python3.12.13/lib/python3.12/logging/__init__.py",
+      "line": 1517,
+      "function": "debug",
+      "calls": 78,
+      "self_ms": 0.07522,
+      "cumulative_ms": 0.12407
+    },
+    {
+      "file": "~",
+      "line": 0,
+      "function": "<built-in method numpy.empty>",
+      "calls": 39,
+      "self_ms": 0.12388000000000002,
+      "cumulative_ms": 0.12388000000000002
+    },
+    {
+      "file": "/vllm-workspace/vllm/vllm/distributed/parallel_state.py",
+      "line": 594,
+      "function": "is_first_rank",
+      "calls": 78,
+      "self_ms": 0.07706000000000002,
+      "cumulative_ms": 0.12312000000000001
+    },
+    {
+      "file": "/vllm-workspace/vllm/vllm/v1/core/sched/scheduler.py",
+      "line": 2329,
+      "function": "_free_blocks",
+      "calls": 1,
+      "self_ms": 0.00274,
+      "cumulative_ms": 0.12265
+    },
+    {
+      "file": "~",
+      "line": 0,
+      "function": "<built-in method builtins.issubclass>",
+      "calls": 468,
+      "self_ms": 0.12226000000000001,
+      "cumulative_ms": 0.12226000000000001
+    },
+    {
+      "file": "/vllm-workspace/vllm-ascend/vllm_ascend/models/deepseek_v41/model.py",
+      "line": 307,
+      "function": "refresh",
+      "calls": 39,
+      "self_ms": 0.054380000000000005,
+      "cumulative_ms": 0.12063
+    },
+    {
+      "file": "/vllm-workspace/vllm/vllm/v1/core/sched/scheduler.py",
+      "line": 2341,
+      "function": "_free_request_blocks",
+      "calls": 1,
+      "self_ms": 0.0014900000000000002,
+      "cumulative_ms": 0.11921000000000001
+    },
+    {
+      "file": "/usr/local/python3.12.13/lib/python3.12/site-packages/triton/backends/ascend/backend_register.py",
+      "line": 60,
+      "function": "_get_instance",
+      "calls": 858,
+      "self_ms": 0.11781000000000001,
+      "cumulative_ms": 0.11781000000000001
+    },
+    {
+      "file": "/vllm-workspace/vllm/vllm/v1/core/kv_cache_manager.py",
+      "line": 567,
+      "function": "free",
+      "calls": 1,
+      "self_ms": 0.0030800000000000003,
+      "cumulative_ms": 0.11772
+    },
+    {
+      "file": "/vllm-workspace/vllm/vllm/distributed/communication_op.py",
+      "line": 17,
+      "function": "tensor_model_parallel_all_gather",
+      "calls": 39,
+      "self_ms": 0.08208,
+      "cumulative_ms": 0.11624000000000001
+    },
+    {
+      "file": "/usr/local/python3.12.13/lib/python3.12/site-packages/triton/compiler/compiler.py",
+      "line": 422,
+      "function": "launch_metadata",
+      "calls": 429,
+      "self_ms": 0.11528000000000001,
+      "cumulative_ms": 0.11528000000000001
+    },
+    {
+      "file": "/vllm-workspace/vllm/vllm/v1/core/kv_cache_coordinator.py",
+      "line": 290,
+      "function": "free",
+      "calls": 1,
+      "self_ms": 0.00591,
+      "cumulative_ms": 0.11409
+    },
+    {
+      "file": "/vllm-workspace/vllm/vllm/v1/core/single_type_kv_cache_manager.py",
+      "line": 382,
+      "function": "take_pending_cow_copies",
+      "calls": 468,
+      "self_ms": 0.1139,
+      "cumulative_ms": 0.1139
+    },
+    {
+      "file": "/vllm-workspace/vllm-ascend/vllm_ascend/worker/model_runner_v1.py",
+      "line": 1013,
+      "function": "_process_encoder_cache_scheduler_output",
+      "calls": 39,
+      "self_ms": 0.08446000000000001,
+      "cumulative_ms": 0.11236
+    },
+    {
+      "file": "~",
+      "line": 0,
+      "function": "<built-in method torch._C._get_tracing_state>",
+      "calls": 78,
+      "self_ms": 0.11205000000000001,
+      "cumulative_ms": 0.11205000000000001
+    },
+    {
+      "file": "/usr/local/python3.12.13/lib/python3.12/concurrent/futures/_base.py",
+      "line": 393,
+      "function": "done",
+      "calls": 39,
+      "self_ms": 0.05317,
+      "cumulative_ms": 0.10935
+    },
+    {
+      "file": "~",
+      "line": 0,
+      "function": "<method 'long' of 'torch._C.TensorBase' objects>",
+      "calls": 78,
+      "self_ms": 0.10886000000000001,
+      "cumulative_ms": 0.10886000000000001
+    },
+    {
+      "file": "~",
+      "line": 0,
+      "function": "<method 'fill' of 'numpy.ndarray' objects>",
+      "calls": 78,
+      "self_ms": 0.10877,
+      "cumulative_ms": 0.10877
+    },
+    {
+      "file": "/vllm-workspace/vllm/vllm/v1/core/single_type_kv_cache_manager.py",
+      "line": 519,
+      "function": "free",
+      "calls": 12,
+      "self_ms": 0.01591,
+      "cumulative_ms": 0.10818000000000001
+    },
+    {
+      "file": "/usr/local/python3.12.13/lib/python3.12/threading.py",
+      "line": 302,
+      "function": "__exit__",
+      "calls": 156,
+      "self_ms": 0.07701000000000001,
+      "cumulative_ms": 0.10786
+    },
+    {
+      "file": "/usr/local/python3.12.13/lib/python3.12/enum.py",
+      "line": 819,
+      "function": "<genexpr>",
+      "calls": 156,
+      "self_ms": 0.10480000000000002,
+      "cumulative_ms": 0.10480000000000002
+    },
+    {
+      "file": "~",
+      "line": 0,
+      "function": "<built-in method builtins.callable>",
+      "calls": 429,
+      "self_ms": 0.10478000000000001,
+      "cumulative_ms": 0.10478000000000001
+    },
+    {
+      "file": "~",
+      "line": 0,
+      "function": "<method '__enter__' of '_thread.RLock' objects>",
+      "calls": 156,
+      "self_ms": 0.10408,
+      "cumulative_ms": 0.10408
+    },
+    {
+      "file": "/vllm-workspace/vllm/vllm/v1/worker/gpu_input_batch.py",
+      "line": 503,
+      "function": "update_req_spec_token_ids",
+      "calls": 39,
+      "self_ms": 0.07634,
+      "cumulative_ms": 0.10344000000000002
+    },
+    {
+      "file": "/vllm-workspace/vllm/vllm/v1/worker/gpu_model_runner.py",
+      "line": 1769,
+      "function": "_compute_prev_positions",
+      "calls": 39,
+      "self_ms": 0.05514,
+      "cumulative_ms": 0.10312
+    },
+    {
+      "file": "~",
+      "line": 0,
+      "function": "<method 'item' of 'numpy.generic' objects>",
+      "calls": 39,
+      "self_ms": 0.10194,
+      "cumulative_ms": 0.10194
+    },
+    {
+      "file": "/vllm-workspace/vllm/vllm/config/parallel.py",
+      "line": 672,
+      "function": "use_sequence_parallel_moe",
+      "calls": 117,
+      "self_ms": 0.10063,
+      "cumulative_ms": 0.10063
+    },
+    {
+      "file": "/vllm-workspace/vllm/vllm/v1/request.py",
+      "line": 287,
+      "function": "has_encoder_inputs",
+      "calls": 78,
+      "self_ms": 0.05235000000000001,
+      "cumulative_ms": 0.09983000000000002
+    },
+    {
+      "file": "/vllm-workspace/vllm/vllm/v1/sample/logits_processor/state.py",
+      "line": 69,
+      "function": "removed",
+      "calls": 39,
+      "self_ms": 0.03061,
+      "cumulative_ms": 0.09789
+    },
+    {
+      "file": "/usr/local/python3.12.13/lib/python3.12/threading.py",
+      "line": 424,
+      "function": "notify_all",
+      "calls": 39,
+      "self_ms": 0.042230000000000004,
+      "cumulative_ms": 0.09708000000000001
+    },
+    {
+      "file": "/vllm-workspace/vllm/vllm/v1/worker/gpu_input_batch.py",
+      "line": 1114,
+      "function": "num_reqs",
+      "calls": 195,
+      "self_ms": 0.06402,
+      "cumulative_ms": 0.09653000000000002
+    },
+    {
+      "file": "/vllm-workspace/vllm-ascend/vllm_ascend/worker/worker.py",
+      "line": 637,
+      "function": "log_memory_stats",
+      "calls": 39,
+      "self_ms": 0.07309,
+      "cumulative_ms": 0.09433
+    },
+    {
+      "file": "/usr/local/python3.12.13/lib/python3.12/contextlib.py",
+      "line": 772,
+      "function": "__init__",
+      "calls": 546,
+      "self_ms": 0.09348000000000001,
+      "cumulative_ms": 0.09348000000000001
+    },
+    {
+      "file": "/usr/local/python3.12.13/lib/python3.12/logging/__init__.py",
+      "line": 1790,
+      "function": "isEnabledFor",
+      "calls": 156,
+      "self_ms": 0.08865,
+      "cumulative_ms": 0.08865
+    },
+    {
+      "file": "~",
+      "line": 0,
+      "function": "<built-in method posix.stat>",
+      "calls": 8,
+      "self_ms": 0.08864000000000001,
+      "cumulative_ms": 0.08864000000000001
+    },
+    {
+      "file": "/vllm-workspace/vllm/vllm/v1/core/single_type_kv_cache_manager.py",
+      "line": 376,
+      "function": "take_new_block_ids",
+      "calls": 468,
+      "self_ms": 0.08854000000000001,
+      "cumulative_ms": 0.08854000000000001
+    },
+    {
+      "file": "/vllm-workspace/vllm-ascend/vllm_ascend/ops/fused_moe/moe_comm_method.py",
+      "line": 75,
+      "function": "get_moe_comm_method",
+      "calls": 39,
+      "self_ms": 0.02334,
+      "cumulative_ms": 0.08704
+    },
+    {
+      "file": "/vllm-workspace/vllm-ascend/vllm_ascend/device/hardware_profile.py",
+      "line": 128,
+      "function": "supports",
+      "calls": 39,
+      "self_ms": 0.05156,
+      "cumulative_ms": 0.08680000000000002
+    },
+    {
+      "file": "/vllm-workspace/vllm/vllm/v1/engine/__init__.py",
+      "line": 256,
+      "function": "__post_init__",
+      "calls": 39,
+      "self_ms": 0.06055,
+      "cumulative_ms": 0.08395000000000001
+    },
+    {
+      "file": "/vllm-workspace/vllm-ascend/vllm_ascend/worker/model_runner_v1.py",
+      "line": 3002,
+      "function": "_prepare_device_metadata_for_forward",
+      "calls": 39,
+      "self_ms": 0.06676,
+      "cumulative_ms": 0.08336
+    },
+    {
+      "file": "/usr/local/python3.12.13/lib/python3.12/contextlib.py",
+      "line": 775,
+      "function": "__enter__",
+      "calls": 546,
+      "self_ms": 0.0799,
+      "cumulative_ms": 0.0799
+    },
+    {
+      "file": "/vllm-workspace/vllm/vllm/v1/request.py",
+      "line": 304,
+      "function": "is_finished",
+      "calls": 41,
+      "self_ms": 0.05954,
+      "cumulative_ms": 0.0786
+    },
+    {
+      "file": "/vllm-workspace/vllm/vllm/distributed/parallel_state.py",
+      "line": 1409,
+      "function": "get_pp_group",
+      "calls": 273,
+      "self_ms": 0.07776,
+      "cumulative_ms": 0.07776
+    },
+    {
+      "file": "~",
+      "line": 0,
+      "function": "<built-in method time.perf_counter>",
+      "calls": 273,
+      "self_ms": 0.07551,
+      "cumulative_ms": 0.07551
+    },
+    {
+      "file": "/usr/local/python3.12.13/lib/python3.12/site-packages/torch_npu/npu/__init__.py",
+      "line": 437,
+      "function": "device_count",
+      "calls": 429,
+      "self_ms": 0.06956999999999999,
+      "cumulative_ms": 0.06956999999999999
+    },
+    {
+      "file": "/vllm-workspace/vllm/vllm/v1/core/block_pool.py",
+      "line": 719,
+      "function": "free_blocks",
+      "calls": 12,
+      "self_ms": 0.042760000000000006,
+      "cumulative_ms": 0.06928
+    },
+    {
+      "file": "~",
+      "line": 0,
+      "function": "<method 'bool' of 'torch._C.TensorBase' objects>",
+      "calls": 39,
+      "self_ms": 0.06873,
+      "cumulative_ms": 0.06873
+    },
+    {
+      "file": "/vllm-workspace/vllm/vllm/v1/sample/logits_processor/state.py",
+      "line": 59,
+      "function": "_ensure_removed_sorted",
+      "calls": 39,
+      "self_ms": 0.03196,
+      "cumulative_ms": 0.06728
+    },
+    {
+      "file": "/usr/local/python3.12.13/lib/python3.12/contextlib.py",
+      "line": 778,
+      "function": "__exit__",
+      "calls": 546,
+      "self_ms": 0.06673000000000001,
+      "cumulative_ms": 0.06673000000000001
+    },
+    {
+      "file": "~",
+      "line": 0,
+      "function": "<built-in method torch_npu._C._npu_maybeExchangeDevice>",
+      "calls": 195,
+      "self_ms": 0.06562,
+      "cumulative_ms": 0.06562
+    },
+    {
+      "file": "/vllm-workspace/vllm/vllm/v1/core/kv_cache_manager.py",
+      "line": 677,
+      "function": "take_events",
+      "calls": 39,
+      "self_ms": 0.051800000000000006,
+      "cumulative_ms": 0.06495000000000001
+    },
+    {
+      "file": "<string>",
+      "line": 1,
+      "function": "<lambda>",
+      "calls": 39,
+      "self_ms": 0.03349,
+      "cumulative_ms": 0.06272000000000001
+    },
+    {
+      "file": "/vllm-workspace/vllm-ascend/vllm_ascend/worker/device_metadata.py",
+      "line": 129,
+      "function": "<genexpr>",
+      "calls": 273,
+      "self_ms": 0.062200000000000005,
+      "cumulative_ms": 0.062200000000000005
+    },
+    {
+      "file": "/vllm-workspace/vllm-ascend/vllm_ascend/ascend_forward_context.py",
+      "line": 422,
+      "function": "check_extra_attr",
+      "calls": 78,
+      "self_ms": 0.06203,
+      "cumulative_ms": 0.06203
+    },
+    {
+      "file": "~",
+      "line": 0,
+      "function": "<method 'nonzero' of 'numpy.ndarray' objects>",
+      "calls": 39,
+      "self_ms": 0.060160000000000005,
+      "cumulative_ms": 0.060160000000000005
+    },
+    {
+      "file": "/vllm-workspace/vllm/vllm/v1/sample/logits_processor/builtin.py",
+      "line": 197,
+      "function": "update_state",
+      "calls": 39,
+      "self_ms": 0.05301,
+      "cumulative_ms": 0.05952
+    },
+    {
+      "file": "~",
+      "line": 0,
+      "function": "<built-in method torch_npu._C._npu_getDeviceWithoutSet>",
+      "calls": 195,
+      "self_ms": 0.05796,
+      "cumulative_ms": 0.05796
+    },
+    {
+      "file": "/vllm-workspace/vllm-ascend/vllm_ascend/models/deepseek_v41/model.py",
+      "line": 360,
+      "function": "stat",
+      "calls": 78,
+      "self_ms": 0.04002,
+      "cumulative_ms": 0.05765000000000001
+    },
+    {
+      "file": "/vllm-workspace/vllm/vllm/v1/request.py",
+      "line": 279,
+      "function": "num_output_tokens",
+      "calls": 117,
+      "self_ms": 0.04117,
+      "cumulative_ms": 0.054400000000000004
+    },
+    {
+      "file": "/vllm-workspace/vllm/vllm/distributed/parallel_state.py",
+      "line": 589,
+      "function": "last_rank",
+      "calls": 78,
+      "self_ms": 0.05237,
+      "cumulative_ms": 0.05237
+    },
+    {
+      "file": "/vllm-workspace/vllm/vllm/v1/core/single_type_kv_cache_manager.py",
+      "line": 130,
+      "function": "<genexpr>",
+      "calls": 429,
+      "self_ms": 0.05008,
+      "cumulative_ms": 0.05008
+    },
+    {
+      "file": "~",
+      "line": 0,
+      "function": "<method 'clear' of 'set' objects>",
+      "calls": 117,
+      "self_ms": 0.049600000000000005,
+      "cumulative_ms": 0.049600000000000005
+    },
+    {
+      "file": "/vllm-workspace/vllm/vllm/v1/core/sched/request_queue.py",
+      "line": 201,
+      "function": "create_request_queue",
+      "calls": 39,
+      "self_ms": 0.049420000000000006,
+      "cumulative_ms": 0.049420000000000006
+    },
+    {
+      "file": "/vllm-workspace/vllm/vllm/distributed/parallel_state.py",
+      "line": 2087,
+      "function": "get_tensor_model_parallel_world_size",
+      "calls": 39,
+      "self_ms": 0.039920000000000004,
+      "cumulative_ms": 0.048900000000000006
+    },
+    {
+      "file": "/vllm-workspace/vllm/vllm/v1/engine/core.py",
+      "line": 509,
+      "function": "capture_iteration_details",
+      "calls": 78,
+      "self_ms": 0.04867,
+      "cumulative_ms": 0.04867
+    },
+    {
+      "file": "/vllm-workspace/vllm/vllm/v1/engine/output_processor.py",
+      "line": 727,
+      "function": "update_scheduler_stats",
+      "calls": 39,
+      "self_ms": 0.03885,
+      "cumulative_ms": 0.047810000000000005
+    },
+    {
+      "file": "/vllm-workspace/vllm-ascend/vllm_ascend/ascend_forward_context.py",
+      "line": 87,
+      "function": "use_cann_megamoe",
+      "calls": 39,
+      "self_ms": 0.03386,
+      "cumulative_ms": 0.04757
+    },
+    {
+      "file": "/vllm-workspace/vllm/vllm/v1/request.py",
+      "line": 283,
+      "function": "num_encoder_inputs",
+      "calls": 78,
+      "self_ms": 0.03587,
+      "cumulative_ms": 0.04748000000000001
+    },
+    {
+      "file": "/vllm-workspace/vllm-ascend/vllm_ascend/core/circular_buffer.py",
+      "line": 76,
+      "function": "get_num_blocks_to_allocate",
+      "calls": 39,
+      "self_ms": 0.026760000000000003,
+      "cumulative_ms": 0.04703
+    },
+    {
+      "file": "/vllm-workspace/vllm/vllm/v1/sample/logits_processor/builtin.py",
+      "line": 135,
+      "function": "update_state",
+      "calls": 39,
+      "self_ms": 0.041440000000000005,
+      "cumulative_ms": 0.04650000000000001
+    },
+    {
+      "file": "/vllm-workspace/vllm/vllm/v1/request.py",
+      "line": 271,
+      "function": "num_tokens",
+      "calls": 78,
+      "self_ms": 0.031740000000000004,
+      "cumulative_ms": 0.046220000000000004
+    },
+    {
+      "file": "/vllm-workspace/vllm/vllm/distributed/parallel_state.py",
+      "line": 584,
+      "function": "first_rank",
+      "calls": 78,
+      "self_ms": 0.046060000000000004,
+      "cumulative_ms": 0.046060000000000004
+    },
+    {
+      "file": "/vllm-workspace/vllm/vllm/v1/core/single_type_kv_cache_manager.py",
+      "line": 674,
+      "function": "new_step_starts",
+      "calls": 468,
+      "self_ms": 0.04512,
+      "cumulative_ms": 0.04512
+    },
+    {
+      "file": "/usr/local/python3.12.13/lib/python3.12/enum.py",
+      "line": 815,
+      "function": "__iter__",
+      "calls": 39,
+      "self_ms": 0.04467,
+      "cumulative_ms": 0.04467
+    },
+    {
+      "file": "/vllm-workspace/vllm/vllm/v1/core/kv_cache_manager.py",
+      "line": 771,
+      "function": "create_kv_cache_blocks",
+      "calls": 39,
+      "self_ms": 0.025810000000000003,
+      "cumulative_ms": 0.04451000000000001
+    },
+    {
+      "file": "/vllm-workspace/vllm/vllm/v1/sample/logits_processor/state.py",
+      "line": 119,
+      "function": "get_and_reset",
+      "calls": 39,
+      "self_ms": 0.03022,
+      "cumulative_ms": 0.04358
+    },
+    {
+      "file": "/vllm-workspace/vllm-ascend/vllm_ascend/core/circular_buffer.py",
+      "line": 88,
+      "function": "allocate_new_blocks",
+      "calls": 39,
+      "self_ms": 0.028710000000000003,
+      "cumulative_ms": 0.04318
+    },
+    {
+      "file": "/vllm-workspace/vllm-ascend/vllm_ascend/ascend_forward_context.py",
+      "line": 429,
+      "function": "_ctx",
+      "calls": 78,
+      "self_ms": 0.03178,
+      "cumulative_ms": 0.04197
+    },
+    {
+      "file": "/vllm-workspace/vllm/vllm/v1/worker/gpu_input_batch.py",
+      "line": 75,
+      "function": "num_tokens",
+      "calls": 39,
+      "self_ms": 0.02525,
+      "cumulative_ms": 0.04132
+    },
+    {
+      "file": "/vllm-workspace/vllm/vllm/platforms/interface.py",
+      "line": 192,
+      "function": "is_rocm",
+      "calls": 39,
+      "self_ms": 0.040720000000000006,
+      "cumulative_ms": 0.040720000000000006
+    },
+    {
+      "file": "/vllm-workspace/vllm/vllm/v1/request.py",
+      "line": 275,
+      "function": "num_tokens_with_spec",
+      "calls": 39,
+      "self_ms": 0.029060000000000002,
+      "cumulative_ms": 0.040670000000000005
+    },
+    {
+      "file": "/usr/local/python3.12.13/lib/python3.12/threading.py",
+      "line": 124,
+      "function": "RLock",
+      "calls": 39,
+      "self_ms": 0.039360000000000006,
+      "cumulative_ms": 0.039360000000000006
+    },
+    {
+      "file": "/vllm-workspace/vllm-ascend/vllm_ascend/worker/model_runner_v1.py",
+      "line": 3221,
+      "function": "_get_dcp_metadata",
+      "calls": 39,
+      "self_ms": 0.02894,
+      "cumulative_ms": 0.03901
+    },
+    {
+      "file": "~",
+      "line": 0,
+      "function": "<method 'update' of 'set' objects>",
+      "calls": 39,
+      "self_ms": 0.03858,
+      "cumulative_ms": 0.03858
+    },
+    {
+      "file": "~",
+      "line": 0,
+      "function": "<method 'copy' of 'dict' objects>",
+      "calls": 39,
+      "self_ms": 0.03857000000000001,
+      "cumulative_ms": 0.03857000000000001
+    },
+    {
+      "file": "/usr/local/python3.12.13/lib/python3.12/threading.py",
+      "line": 394,
+      "function": "notify",
+      "calls": 39,
+      "self_ms": 0.02893,
+      "cumulative_ms": 0.03791
+    },
+    {
+      "file": "~",
+      "line": 0,
+      "function": "<method 'keys' of 'dict' objects>",
+      "calls": 117,
+      "self_ms": 0.037559999999999996,
+      "cumulative_ms": 0.037559999999999996
+    },
+    {
+      "file": "~",
+      "line": 0,
+      "function": "<built-in method math.ceil>",
+      "calls": 78,
+      "self_ms": 0.037500000000000006,
+      "cumulative_ms": 0.037500000000000006
+    },
+    {
+      "file": "/vllm-workspace/vllm/vllm/forward_context.py",
+      "line": 199,
+      "function": "get_forward_context",
+      "calls": 234,
+      "self_ms": 0.03733,
+      "cumulative_ms": 0.03733
+    },
+    {
+      "file": "/vllm-workspace/vllm/vllm/v1/worker/gpu_model_runner.py",
+      "line": 1115,
+      "function": "_may_reorder_batch",
+      "calls": 39,
+      "self_ms": 0.03197,
+      "cumulative_ms": 0.03692000000000001
+    },
+    {
+      "file": "/vllm-workspace/vllm/vllm/v1/engine/detokenizer.py",
+      "line": 42,
+      "function": "update",
+      "calls": 39,
+      "self_ms": 0.02312,
+      "cumulative_ms": 0.03656
+    },
+    {
+      "file": "/vllm-workspace/vllm-ascend/vllm_ascend/models/deepseek_v41/model.py",
+      "line": 372,
+      "function": "tick",
+      "calls": 39,
+      "self_ms": 0.03606,
+      "cumulative_ms": 0.03606
+    },
+    {
+      "file": "/vllm-workspace/vllm-ascend/vllm_ascend/worker/model_runner_v1.py",
+      "line": 2943,
+      "function": "_update_full_graph_params_if_needed",
+      "calls": 39,
+      "self_ms": 0.03596,
+      "cumulative_ms": 0.03596
+    },
+    {
+      "file": "/vllm-workspace/vllm/vllm/v1/structured_output/__init__.py",
+      "line": 381,
+      "function": "should_advance",
+      "calls": 39,
+      "self_ms": 0.02772,
+      "cumulative_ms": 0.03592
+    },
+    {
+      "file": "~",
+      "line": 0,
+      "function": "<method 'cache_clear' of 'functools._lru_cache_wrapper' objects>",
+      "calls": 78,
+      "self_ms": 0.03583,
+      "cumulative_ms": 0.03583
+    },
+    {
+      "file": "/vllm-workspace/vllm/vllm/forward_context.py",
+      "line": 244,
+      "function": "override_forward_context",
+      "calls": 78,
+      "self_ms": 0.035660000000000004,
+      "cumulative_ms": 0.035660000000000004
+    },
+    {
+      "file": "/vllm-workspace/vllm/vllm/v1/worker/worker_base.py",
+      "line": 333,
+      "function": "__getattr__",
+      "calls": 39,
+      "self_ms": 0.01592,
+      "cumulative_ms": 0.035410000000000004
+    },
+    {
+      "file": "~",
+      "line": 0,
+      "function": "<method 'sort' of 'list' objects>",
+      "calls": 39,
+      "self_ms": 0.03532,
+      "cumulative_ms": 0.03532
+    },
+    {
+      "file": "/vllm-workspace/vllm/vllm/v1/core/single_type_kv_cache_manager.py",
+      "line": 1085,
+      "function": "get_num_common_prefix_blocks",
+      "calls": 390,
+      "self_ms": 0.03451,
+      "cumulative_ms": 0.03451
+    },
+    {
+      "file": "/vllm-workspace/vllm-ascend/vllm_ascend/models/deepseek_v41/model.py",
+      "line": 366,
+      "function": "mark_step",
+      "calls": 39,
+      "self_ms": 0.02331,
+      "cumulative_ms": 0.03382
+    },
+    {
+      "file": "~",
+      "line": 0,
+      "function": "<built-in method builtins.any>",
+      "calls": 78,
+      "self_ms": 0.03206,
+      "cumulative_ms": 0.03206
+    },
+    {
+      "file": "/usr/local/python3.12.13/lib/python3.12/queue.py",
+      "line": 209,
+      "function": "_qsize",
+      "calls": 39,
+      "self_ms": 0.01825,
+      "cumulative_ms": 0.03202
+    },
+    {
+      "file": "~",
+      "line": 0,
+      "function": "<method '__exit__' of '_thread.RLock' objects>",
+      "calls": 156,
+      "self_ms": 0.030850000000000006,
+      "cumulative_ms": 0.030850000000000006
+    },
+    {
+      "file": "/vllm-workspace/vllm/vllm/v1/sample/logits_processor/state.py",
+      "line": 162,
+      "function": "all",
+      "calls": 39,
+      "self_ms": 0.030670000000000003,
+      "cumulative_ms": 0.030670000000000003
+    },
+    {
+      "file": "/usr/local/python3.12.13/lib/python3.12/site-packages/numpy/core/fromnumeric.py",
+      "line": 2416,
+      "function": "_all_dispatcher",
+      "calls": 117,
+      "self_ms": 0.030140000000000004,
+      "cumulative_ms": 0.030140000000000004
+    },
+    {
+      "file": "/usr/local/python3.12.13/lib/python3.12/typing.py",
+      "line": 2187,
+      "function": "cast",
+      "calls": 195,
+      "self_ms": 0.03005,
+      "cumulative_ms": 0.03005
+    },
+    {
+      "file": "/vllm-workspace/vllm-ascend/vllm_ascend/ascend_forward_context.py",
+      "line": 41,
+      "function": "_is_decode_only_node",
+      "calls": 39,
+      "self_ms": 0.01835,
+      "cumulative_ms": 0.029910000000000003
+    },
+    {
+      "file": "/vllm-workspace/vllm/vllm/v1/engine/core_client.py",
+      "line": 331,
+      "function": "abort_requests",
+      "calls": 39,
+      "self_ms": 0.022550000000000004,
+      "cumulative_ms": 0.029740000000000003
+    },
+    {
+      "file": "/vllm-workspace/vllm-ascend/vllm_ascend/worker/device_metadata.py",
+      "line": 126,
+      "function": "<lambda>",
+      "calls": 234,
+      "self_ms": 0.029560000000000003,
+      "cumulative_ms": 0.029560000000000003
+    },
+    {
+      "file": "/vllm-workspace/vllm/vllm/v1/attention/backend.py",
+      "line": 760,
+      "function": "use_cascade_attention",
+      "calls": 156,
+      "self_ms": 0.02952,
+      "cumulative_ms": 0.02952
+    },
+    {
+      "file": "~",
+      "line": 0,
+      "function": "<method 'numel' of 'torch._C.TensorBase' objects>",
+      "calls": 39,
+      "self_ms": 0.02917,
+      "cumulative_ms": 0.02917
+    },
+    {
+      "file": "/vllm-workspace/vllm-ascend/vllm_ascend/patch/platform/patch_pp_mtp.py",
+      "line": 58,
+      "function": "_use_pp_ipc_runtime_patch",
+      "calls": 156,
+      "self_ms": 0.02891,
+      "cumulative_ms": 0.02891
+    },
+    {
+      "file": "/vllm-workspace/vllm-ascend/vllm_ascend/worker/model_runner_v1.py",
+      "line": 789,
+      "function": "_apply_pp_sampled_tokens_from_scheduler_output",
+      "calls": 39,
+      "self_ms": 0.022680000000000002,
+      "cumulative_ms": 0.028880000000000003
+    },
+    {
+      "file": "/vllm-workspace/vllm-ascend/vllm_ascend/patch/platform/patch_pp_mtp.py",
+      "line": 51,
+      "function": "_use_pp_mtp_runtime_patch",
+      "calls": 39,
+      "self_ms": 0.02137,
+      "cumulative_ms": 0.02847
+    },
+    {
+      "file": "/vllm-workspace/vllm/vllm/distributed/kv_transfer/kv_transfer_state.py",
+      "line": 26,
+      "function": "has_kv_transfer_group",
+      "calls": 78,
+      "self_ms": 0.025010000000000004,
+      "cumulative_ms": 0.025010000000000004
+    },
+    {
+      "file": "~",
+      "line": 0,
+      "function": "<method 'copy' of 'list' objects>",
+      "calls": 39,
+      "self_ms": 0.02489,
+      "cumulative_ms": 0.02489
+    },
+    {
+      "file": "/vllm-workspace/vllm/vllm/distributed/parallel_state.py",
+      "line": 1393,
+      "function": "get_tp_group",
+      "calls": 78,
+      "self_ms": 0.02312,
+      "cumulative_ms": 0.02312
+    },
+    {
+      "file": "/vllm-workspace/vllm/vllm/v1/core/single_type_kv_cache_manager.py",
+      "line": 500,
+      "function": "pop_blocks_for_free",
+      "calls": 12,
+      "self_ms": 0.0134,
+      "cumulative_ms": 0.022990000000000003
+    },
+    {
+      "file": "/vllm-workspace/vllm-ascend/vllm_ascend/worker/model_runner_v1.py",
+      "line": 623,
+      "function": "use_dcp",
+      "calls": 78,
+      "self_ms": 0.0228,
+      "cumulative_ms": 0.0228
+    },
+    {
+      "file": "/vllm-workspace/vllm/vllm/v1/core/sched/scheduler.py",
+      "line": 1646,
+      "function": "get_grammar_bitmask",
+      "calls": 39,
+      "self_ms": 0.0216,
+      "cumulative_ms": 0.0216
+    },
+    {
+      "file": "/vllm-workspace/vllm-ascend/vllm_ascend/ops/rope_dsv4.py",
+      "line": 59,
+      "function": "__init__",
+      "calls": 78,
+      "self_ms": 0.021400000000000002,
+      "cumulative_ms": 0.021400000000000002
+    },
+    {
+      "file": "/vllm-workspace/vllm/vllm/v1/worker/gpu_model_runner.py",
+      "line": 3864,
+      "function": "synchronize_input_prep",
+      "calls": 78,
+      "self_ms": 0.02027,
+      "cumulative_ms": 0.02027
+    },
+    {
+      "file": "/vllm-workspace/vllm/vllm/distributed/parallel_state.py",
+      "line": 691,
+      "function": "all_gather",
+      "calls": 39,
+      "self_ms": 0.020020000000000003,
+      "cumulative_ms": 0.020020000000000003
+    },
+    {
+      "file": "/vllm-workspace/vllm/vllm/outputs.py",
+      "line": 112,
+      "function": "__init__",
+      "calls": 39,
+      "self_ms": 0.019690000000000003,
+      "cumulative_ms": 0.019690000000000003
+    },
+    {
+      "file": "/vllm-workspace/vllm/vllm/v1/worker/gpu_model_runner.py",
+      "line": 5620,
+      "function": "_get_prompt_logprobs_dict",
+      "calls": 39,
+      "self_ms": 0.019410000000000004,
+      "cumulative_ms": 0.019410000000000004
+    },
+    {
+      "file": "/vllm-workspace/vllm-ascend/vllm_ascend/device/hardware_profile.py",
+      "line": 266,
+      "function": "get_current_hardware_profile",
+      "calls": 78,
+      "self_ms": 0.019190000000000002,
+      "cumulative_ms": 0.019190000000000002
+    },
+    {
+      "file": "/vllm-workspace/vllm/vllm/v1/request.py",
+      "line": 369,
+      "function": "is_finished",
+      "calls": 41,
+      "self_ms": 0.01906,
+      "cumulative_ms": 0.01906
+    },
+    {
+      "file": "/vllm-workspace/vllm/vllm/v1/utils.py",
+      "line": 79,
+      "function": "__getitem__",
+      "calls": 39,
+      "self_ms": 0.018860000000000002,
+      "cumulative_ms": 0.018860000000000002
+    },
+    {
+      "file": "~",
+      "line": 0,
+      "function": "<built-in method torch._C._has_torch_function>",
+      "calls": 39,
+      "self_ms": 0.018770000000000002,
+      "cumulative_ms": 0.018770000000000002
+    },
+    {
+      "file": "/vllm-workspace/vllm-ascend/vllm_ascend/sample/sampler.py",
+      "line": 49,
+      "function": "apply_penalties",
+      "calls": 39,
+      "self_ms": 0.018439999999999998,
+      "cumulative_ms": 0.018439999999999998
+    },
+    {
+      "file": "~",
+      "line": 0,
+      "function": "<method '__exit__' of '_thread.lock' objects>",
+      "calls": 39,
+      "self_ms": 0.0183,
+      "cumulative_ms": 0.0183
+    },
+    {
+      "file": "/usr/local/python3.12.13/lib/python3.12/site-packages/numpy/core/fromnumeric.py",
+      "line": 419,
+      "function": "_repeat_dispatcher",
+      "calls": 78,
+      "self_ms": 0.017990000000000003,
+      "cumulative_ms": 0.017990000000000003
+    },
+    {
+      "file": "/vllm-workspace/vllm/vllm/distributed/parallel_state.py",
+      "line": 2319,
+      "function": "is_local_first_rank",
+      "calls": 39,
+      "self_ms": 0.017820000000000003,
+      "cumulative_ms": 0.017820000000000003
+    },
+    {
+      "file": "~",
+      "line": 0,
+      "function": "<method 'discard' of 'set' objects>",
+      "calls": 40,
+      "self_ms": 0.01732,
+      "cumulative_ms": 0.01732
+    },
+    {
+      "file": "/vllm-workspace/vllm-ascend/vllm_ascend/worker/model_runner_v1.py",
+      "line": 1591,
+      "function": "_sanitize_placeholder_input_ids_for_forward",
+      "calls": 39,
+      "self_ms": 0.017060000000000002,
+      "cumulative_ms": 0.017060000000000002
+    },
+    {
+      "file": "~",
+      "line": 0,
+      "function": "<method 'strip' of 'str' objects>",
+      "calls": 39,
+      "self_ms": 0.016880000000000003,
+      "cumulative_ms": 0.016880000000000003
+    },
+    {
+      "file": "/vllm-workspace/vllm/vllm/v1/request.py",
+      "line": 267,
+      "function": "use_structured_output",
+      "calls": 78,
+      "self_ms": 0.01659,
+      "cumulative_ms": 0.01659
+    },
+    {
+      "file": "/vllm-workspace/vllm/vllm/v1/engine/core.py",
+      "line": 493,
+      "function": "log_error_detail",
+      "calls": 78,
+      "self_ms": 0.01617,
+      "cumulative_ms": 0.01617
+    },
+    {
+      "file": "/vllm-workspace/vllm/vllm/platforms/interface.py",
+      "line": 201,
+      "function": "is_cpu",
+      "calls": 39,
+      "self_ms": 0.016120000000000002,
+      "cumulative_ms": 0.016120000000000002
+    },
+    {
+      "file": "/vllm-workspace/vllm/vllm/v1/worker/gpu_input_batch.py",
+      "line": 1047,
+      "function": "update_async_output_token_ids",
+      "calls": 39,
+      "self_ms": 0.015809999999999998,
+      "cumulative_ms": 0.015809999999999998
+    },
+    {
+      "file": "/vllm-workspace/vllm-ascend/vllm_ascend/worker/model_runner_v1.py",
+      "line": 1082,
+      "function": "_clear_finished_encoder_cache_copies",
+      "calls": 39,
+      "self_ms": 0.015809999999999998,
+      "cumulative_ms": 0.015809999999999998
+    },
+    {
+      "file": "/vllm-workspace/vllm-ascend/vllm_ascend/ops/rotary_embedding.py",
+      "line": 150,
+      "function": "update_cos_sin",
+      "calls": 39,
+      "self_ms": 0.015550000000000001,
+      "cumulative_ms": 0.015550000000000001
+    },
+    {
+      "file": "/usr/local/python3.12.13/lib/python3.12/concurrent/futures/_base.py",
+      "line": 398,
+      "function": "__get_result",
+      "calls": 78,
+      "self_ms": 0.0152,
+      "cumulative_ms": 0.0152
+    },
+    {
+      "file": "/vllm-workspace/vllm-ascend/vllm_ascend/core/circular_buffer.py",
+      "line": 68,
+      "function": "_claim_ring_block",
+      "calls": 39,
+      "self_ms": 0.01447,
+      "cumulative_ms": 0.01447
+    },
+    {
+      "file": "/vllm-workspace/vllm/vllm/config/parallel.py",
+      "line": 557,
+      "function": "num_ubatches",
+      "calls": 39,
+      "self_ms": 0.013890000000000001,
+      "cumulative_ms": 0.013890000000000001
+    },
+    {
+      "file": "/vllm-workspace/vllm-ascend/vllm_ascend/ascend_config.py",
+      "line": 36,
+      "function": "is_mega_moe_supported",
+      "calls": 39,
+      "self_ms": 0.013710000000000002,
+      "cumulative_ms": 0.013710000000000002
+    },
+    {
+      "file": "/vllm-workspace/vllm/vllm/v1/core/block_pool.py",
+      "line": 820,
+      "function": "take_events",
+      "calls": 39,
+      "self_ms": 0.013150000000000002,
+      "cumulative_ms": 0.013150000000000002
+    },
+    {
+      "file": "/vllm-workspace/vllm/vllm/distributed/parallel_state.py",
+      "line": 1425,
+      "function": "get_ep_group",
+      "calls": 39,
+      "self_ms": 0.01303,
+      "cumulative_ms": 0.01303
+    },
+    {
+      "file": "/vllm-workspace/vllm/vllm/distributed/ec_transfer/ec_transfer_state.py",
+      "line": 22,
+      "function": "has_ec_transfer",
+      "calls": 39,
+      "self_ms": 0.01267,
+      "cumulative_ms": 0.01267
+    },
+    {
+      "file": "/vllm-workspace/vllm/vllm/v1/worker/gpu_model_runner.py",
+      "line": 1184,
+      "function": "_process_encoder_cache_scheduler_output",
+      "calls": 39,
+      "self_ms": 0.012090000000000002,
+      "cumulative_ms": 0.012090000000000002
+    },
+    {
+      "file": "/vllm-workspace/vllm-ascend/vllm_ascend/utils.py",
+      "line": 850,
+      "function": "is_moe_model",
+      "calls": 39,
+      "self_ms": 0.012090000000000002,
+      "cumulative_ms": 0.012090000000000002
+    },
+    {
+      "file": "/vllm-workspace/vllm/vllm/v1/core/block_pool.py",
+      "line": 799,
+      "function": "get_num_free_blocks",
+      "calls": 39,
+      "self_ms": 0.01166,
+      "cumulative_ms": 0.01166
+    },
+    {
+      "file": "/vllm-workspace/vllm/vllm/v1/sample/logits_processor/builtin.py",
+      "line": 289,
+      "function": "process_dict_updates",
+      "calls": 78,
+      "self_ms": 0.01157,
+      "cumulative_ms": 0.01157
+    },
+    {
+      "file": "/vllm-workspace/vllm/vllm/v1/sample/logits_processor/builtin.py",
+      "line": 229,
+      "function": "apply",
+      "calls": 39,
+      "self_ms": 0.011130000000000001,
+      "cumulative_ms": 0.011130000000000001
+    },
+    {
+      "file": "~",
+      "line": 0,
+      "function": "<method 'clear' of 'list' objects>",
+      "calls": 39,
+      "self_ms": 0.0111,
+      "cumulative_ms": 0.0111
+    },
+    {
+      "file": "/vllm-workspace/vllm/vllm/v1/core/kv_cache_utils.py",
+      "line": 370,
+      "function": "append_n",
+      "calls": 12,
+      "self_ms": 0.008720000000000002,
+      "cumulative_ms": 0.01105
+    },
+    {
+      "file": "/vllm-workspace/vllm/vllm/v1/pool/late_interaction_runner.py",
+      "line": 41,
+      "function": "on_requests_finished",
+      "calls": 39,
+      "self_ms": 0.011020000000000002,
+      "cumulative_ms": 0.011020000000000002
+    },
+    {
+      "file": "/vllm-workspace/vllm/vllm/v1/core/sched/utils.py",
+      "line": 62,
+      "function": "remove_all",
+      "calls": 1,
+      "self_ms": 0.009340000000000001,
+      "cumulative_ms": 0.011000000000000001
+    },
+    {
+      "file": "/usr/local/python3.12.13/lib/python3.12/site-packages/numpy/core/multiarray.py",
+      "line": 1080,
+      "function": "copyto",
+      "calls": 39,
+      "self_ms": 0.01098,
+      "cumulative_ms": 0.01098
+    },
+    {
+      "file": "/usr/local/python3.12.13/lib/python3.12/concurrent/futures/_base.py",
+      "line": 337,
+      "function": "_invoke_callbacks",
+      "calls": 39,
+      "self_ms": 0.010470000000000002,
+      "cumulative_ms": 0.010470000000000002
+    },
+    {
+      "file": "/vllm-workspace/vllm-ascend/vllm_ascend/worker/model_runner_v1.py",
+      "line": 4156,
+      "function": "_finalize_dump_data",
+      "calls": 39,
+      "self_ms": 0.01044,
+      "cumulative_ms": 0.01044
+    },
+    {
+      "file": "~",
+      "line": 0,
+      "function": "<method 'pop' of 'dict' objects>",
+      "calls": 38,
+      "self_ms": 0.01044,
+      "cumulative_ms": 0.01044
+    },
+    {
+      "file": "/vllm-workspace/vllm/vllm/sampling_params.py",
+      "line": 738,
+      "function": "num_logprobs",
+      "calls": 39,
+      "self_ms": 0.010290000000000002,
+      "cumulative_ms": 0.010290000000000002
+    },
+    {
+      "file": "/vllm-workspace/vllm/vllm/v1/engine/core.py",
+      "line": 616,
+      "function": "post_step",
+      "calls": 39,
+      "self_ms": 0.009960000000000002,
+      "cumulative_ms": 0.009960000000000002
+    },
+    {
+      "file": "/vllm-workspace/vllm/vllm/v1/request.py",
+      "line": 321,
+      "function": "take_events",
+      "calls": 39,
+      "self_ms": 0.009800000000000001,
+      "cumulative_ms": 0.009800000000000001
+    },
+    {
+      "file": "/vllm-workspace/vllm/vllm/v1/sample/logits_processor/builtin.py",
+      "line": 159,
+      "function": "apply",
+      "calls": 39,
+      "self_ms": 0.009790000000000002,
+      "cumulative_ms": 0.009790000000000002
+    },
+    {
+      "file": "/vllm-workspace/vllm/vllm/v1/request.py",
+      "line": 262,
+      "function": "update_block_hashes",
+      "calls": 39,
+      "self_ms": 0.00974,
+      "cumulative_ms": 0.00974
+    },
+    {
+      "file": "/vllm-workspace/vllm/vllm/v1/worker/worker_base.py",
+      "line": 336,
+      "function": "_apply_mm_cache",
+      "calls": 39,
+      "self_ms": 0.0095,
+      "cumulative_ms": 0.0095
+    },
+    {
+      "file": "/vllm-workspace/vllm/vllm/v1/core/single_type_kv_cache_manager.py",
+      "line": 661,
+      "function": "get_num_skipped_tokens",
+      "calls": 78,
+      "self_ms": 0.00933,
+      "cumulative_ms": 0.00933
+    },
+    {
+      "file": "/vllm-workspace/vllm/vllm/v1/engine/logprobs.py",
+      "line": 348,
+      "function": "update_from_output",
+      "calls": 39,
+      "self_ms": 0.0091,
+      "cumulative_ms": 0.0091
+    },
+    {
+      "file": "/usr/local/python3.12.13/lib/python3.12/site-packages/numpy/core/fromnumeric.py",
+      "line": 1877,
+      "function": "_nonzero_dispatcher",
+      "calls": 39,
+      "self_ms": 0.00904,
+      "cumulative_ms": 0.00904
+    },
+    {
+      "file": "~",
+      "line": 0,
+      "function": "<method '_is_owned' of '_thread.RLock' objects>",
+      "calls": 39,
+      "self_ms": 0.00898,
+      "cumulative_ms": 0.00898
+    },
+    {
+      "file": "/vllm-workspace/vllm/vllm/v1/metrics/stats.py",
+      "line": 558,
+      "function": "update_scheduler_stats",
+      "calls": 39,
+      "self_ms": 0.008960000000000001,
+      "cumulative_ms": 0.008960000000000001
+    },
+    {
+      "file": "/vllm-workspace/vllm-ascend/vllm_ascend/worker/device_metadata.py",
+      "line": 115,
+      "function": "uses_external_events",
+      "calls": 39,
+      "self_ms": 0.00885,
+      "cumulative_ms": 0.00885
+    },
+    {
+      "file": "/vllm-workspace/vllm-ascend/vllm_ascend/core/circular_buffer.py",
+      "line": 31,
+      "function": "storage_block_size",
+      "calls": 39,
+      "self_ms": 0.0088,
+      "cumulative_ms": 0.0088
+    },
+    {
+      "file": "/vllm-workspace/vllm/vllm/v1/core/sched/scheduler.py",
+      "line": 2495,
+      "function": "make_stats",
+      "calls": 39,
+      "self_ms": 0.00871,
+      "cumulative_ms": 0.00871
+    },
+    {
+      "file": "/vllm-workspace/vllm/vllm/v1/sample/logits_processor/builtin.py",
+      "line": 54,
+      "function": "update_state",
+      "calls": 39,
+      "self_ms": 0.00866,
+      "cumulative_ms": 0.00866
+    },
+    {
+      "file": "/vllm-workspace/vllm/vllm/v1/core/encoder_cache_manager.py",
+      "line": 256,
+      "function": "get_freed_mm_hashes",
+      "calls": 39,
+      "self_ms": 0.00864,
+      "cumulative_ms": 0.00864
+    },
+    {
+      "file": "/vllm-workspace/vllm-ascend/vllm_ascend/worker/model_runner_v1.py",
+      "line": 980,
+      "function": "_track_tmp_encoder_cache_refs",
+      "calls": 39,
+      "self_ms": 0.008620000000000001,
+      "cumulative_ms": 0.008620000000000001
+    },
+    {
+      "file": "/vllm-workspace/vllm/vllm/distributed/parallel_state.py",
+      "line": 1417,
+      "function": "get_dp_group",
+      "calls": 39,
+      "self_ms": 0.00826,
+      "cumulative_ms": 0.00826
+    },
+    {
+      "file": "/vllm-workspace/vllm-ascend/vllm_ascend/utils.py",
+      "line": 1176,
+      "function": "has_layer_idx",
+      "calls": 39,
+      "self_ms": 0.00824,
+      "cumulative_ms": 0.00824
+    },
+    {
+      "file": "/vllm-workspace/vllm-ascend/vllm_ascend/worker/model_runner_v1.py",
+      "line": 4150,
+      "function": "_start_dump_data",
+      "calls": 39,
+      "self_ms": 0.00807,
+      "cumulative_ms": 0.00807
+    },
+    {
+      "file": "/vllm-workspace/vllm/vllm/v1/worker/ubatch_utils.py",
+      "line": 63,
+      "function": "maybe_create_ubatch_slices",
+      "calls": 39,
+      "self_ms": 0.00781,
+      "cumulative_ms": 0.00781
+    },
+    {
+      "file": "/vllm-workspace/vllm-ascend/vllm_ascend/worker/device_metadata.py",
+      "line": 111,
+      "function": "submission_in_flight",
+      "calls": 39,
+      "self_ms": 0.00775,
+      "cumulative_ms": 0.00775
+    },
+    {
+      "file": "/usr/local/python3.12.13/lib/python3.12/site-packages/numpy/core/fromnumeric.py",
+      "line": 2508,
+      "function": "_cumsum_dispatcher",
+      "calls": 39,
+      "self_ms": 0.007680000000000001,
+      "cumulative_ms": 0.007680000000000001
+    },
+    {
+      "file": "/vllm-workspace/vllm-ascend/vllm_ascend/ascend_forward_context.py",
+      "line": 263,
+      "function": "get_mc2_tokens_capacity",
+      "calls": 39,
+      "self_ms": 0.007220000000000001,
+      "cumulative_ms": 0.007220000000000001
+    },
+    {
+      "file": "/vllm-workspace/vllm/vllm/v1/engine/output_processor.py",
+      "line": 792,
+      "function": "_update_stats_from_output",
+      "calls": 39,
+      "self_ms": 0.00698,
+      "cumulative_ms": 0.00698
+    },
+    {
+      "file": "/vllm-workspace/vllm/vllm/v1/request.py",
+      "line": 327,
+      "function": "take_prefill_stats",
+      "calls": 39,
+      "self_ms": 0.0069700000000000005,
+      "cumulative_ms": 0.0069700000000000005
+    },
+    {
+      "file": "/vllm-workspace/vllm-ascend/vllm_ascend/ascend_forward_context.py",
+      "line": 279,
+      "function": "get_mc2_mask",
+      "calls": 39,
+      "self_ms": 0.0068200000000000005,
+      "cumulative_ms": 0.0068200000000000005
+    },
+    {
+      "file": "/vllm-workspace/vllm/vllm/v1/engine/detokenizer.py",
+      "line": 46,
+      "function": "get_next_output_text",
+      "calls": 39,
+      "self_ms": 0.00677,
+      "cumulative_ms": 0.00677
+    },
+    {
+      "file": "/vllm-workspace/vllm/vllm/sampling_params.py",
+      "line": 725,
+      "function": "eos_token_id",
+      "calls": 39,
+      "self_ms": 0.006500000000000001,
+      "cumulative_ms": 0.006500000000000001
+    },
+    {
+      "file": "/vllm-workspace/vllm-ascend/vllm_ascend/core/circular_buffer.py",
+      "line": 121,
+      "function": "remove_skipped_blocks",
+      "calls": 39,
+      "self_ms": 0.00646,
+      "cumulative_ms": 0.00646
+    },
+    {
+      "file": "/vllm-workspace/vllm/vllm/v1/engine/core.py",
+      "line": 564,
+      "function": "_attach_iteration_details",
+      "calls": 39,
+      "self_ms": 0.006110000000000001,
+      "cumulative_ms": 0.006110000000000001
+    },
+    {
+      "file": "/vllm-workspace/vllm/vllm/v1/engine/core.py",
+      "line": 579,
+      "function": "_should_throttle_prefills",
+      "calls": 39,
+      "self_ms": 0.00573,
+      "cumulative_ms": 0.00573
+    },
+    {
+      "file": "/vllm-workspace/vllm/vllm/v1/engine/detokenizer.py",
+      "line": 35,
+      "function": "output_token_ids",
+      "calls": 39,
+      "self_ms": 0.00545,
+      "cumulative_ms": 0.00545
+    },
+    {
+      "file": "/vllm-workspace/vllm/vllm/v1/core/encoder_cache_manager.py",
+      "line": 269,
+      "function": "get_manager_metadata",
+      "calls": 39,
+      "self_ms": 0.00528,
+      "cumulative_ms": 0.00528
+    },
+    {
+      "file": "/vllm-workspace/vllm-ascend/vllm_ascend/core/circular_buffer.py",
+      "line": 124,
+      "function": "get_num_common_prefix_blocks",
+      "calls": 39,
+      "self_ms": 0.005070000000000001,
+      "cumulative_ms": 0.005070000000000001
+    },
+    {
+      "file": "/vllm-workspace/vllm/vllm/v1/core/kv_cache_utils.py",
+      "line": 349,
+      "function": "prepend_n",
+      "calls": 12,
+      "self_ms": 0.0034300000000000003,
+      "cumulative_ms": 0.0048200000000000005
+    },
+    {
+      "file": "/vllm-workspace/vllm/vllm/v1/core/encoder_cache_manager.py",
+      "line": 244,
+      "function": "free",
+      "calls": 1,
+      "self_ms": 0.0027600000000000003,
+      "cumulative_ms": 0.0041
+    },
+    {
+      "file": "/vllm-workspace/vllm/vllm/v1/engine/__init__.py",
+      "line": 64,
+      "function": "__str__",
+      "calls": 1,
+      "self_ms": 0.0012900000000000001,
+      "cumulative_ms": 0.0032900000000000004
+    },
+    {
+      "file": "/vllm-workspace/vllm/vllm/v1/request.py",
+      "line": 307,
+      "function": "get_finished_reason",
+      "calls": 1,
+      "self_ms": 0.0019,
+      "cumulative_ms": 0.0030800000000000003
+    },
+    {
+      "file": "/vllm-workspace/vllm/vllm/v1/core/kv_cache_utils.py",
+      "line": 140,
+      "function": "block_hash",
+      "calls": 38,
+      "self_ms": 0.0030700000000000002,
+      "cumulative_ms": 0.0030700000000000002
+    },
+    {
+      "file": "/vllm-workspace/vllm/vllm/v1/engine/output_processor.py",
+      "line": 713,
+      "function": "_finish_request",
+      "calls": 1,
+      "self_ms": 0.0014500000000000001,
+      "cumulative_ms": 0.00206
+    },
+    {
+      "file": "/vllm-workspace/vllm/vllm/v1/core/encoder_cache_manager.py",
+      "line": 213,
+      "function": "get_cached_input_ids",
+      "calls": 1,
+      "self_ms": 0.00104,
+      "cumulative_ms": 0.00134
+    },
+    {
+      "file": "/vllm-workspace/vllm/vllm/v1/request.py",
+      "line": 373,
+      "function": "get_finished_reason",
+      "calls": 1,
+      "self_ms": 0.00052,
+      "cumulative_ms": 0.00118
+    },
+    {
+      "file": "~",
+      "line": 0,
+      "function": "<method 'add' of 'set' objects>",
+      "calls": 2,
+      "self_ms": 0.0009200000000000001,
+      "cumulative_ms": 0.0009200000000000001
+    },
+    {
+      "file": "~",
+      "line": 0,
+      "function": "<method 'remove' of 'list' objects>",
+      "calls": 2,
+      "self_ms": 0.0006900000000000001,
+      "cumulative_ms": 0.0006900000000000001
+    },
+    {
+      "file": "/vllm-workspace/vllm/vllm/v1/core/sched/scheduler.py",
+      "line": 2076,
+      "function": "_handle_stopped_request",
+      "calls": 1,
+      "self_ms": 0.00030000000000000003,
+      "cumulative_ms": 0.00030000000000000003
+    },
+    {
+      "file": "~",
+      "line": 0,
+      "function": "<built-in method builtins.iter>",
+      "calls": 1,
+      "self_ms": 0.00029000000000000006,
+      "cumulative_ms": 0.00029000000000000006
+    },
+    {
+      "file": "/vllm-workspace/vllm/vllm/v1/engine/__init__.py",
+      "line": 213,
+      "function": "finished",
+      "calls": 1,
+      "self_ms": 0.00026,
+      "cumulative_ms": 0.00026
+    },
+    {
+      "file": "/vllm-workspace/vllm/vllm/v1/core/sched/scheduler.py",
+      "line": 2577,
+      "function": "_connector_finished",
+      "calls": 1,
+      "self_ms": 0.00023000000000000003,
+      "cumulative_ms": 0.00023000000000000003
+    },
+    {
+      "file": "/usr/local/python3.12.13/lib/python3.12/contextlib.py",
+      "line": 440,
+      "function": "__init__",
+      "calls": 1,
+      "self_ms": 0.00023000000000000003,
+      "cumulative_ms": 0.00023000000000000003
+    },
+    {
+      "file": "/usr/local/python3.12.13/lib/python3.12/contextlib.py",
+      "line": 446,
+      "function": "__exit__",
+      "calls": 1,
+      "self_ms": 0.00021,
+      "cumulative_ms": 0.00021
+    },
+    {
+      "file": "/vllm-workspace/vllm/vllm/v1/engine/output_processor.py",
+      "line": 813,
+      "function": "_update_stats_from_finished",
+      "calls": 1,
+      "self_ms": 0.00015000000000000001,
+      "cumulative_ms": 0.00015000000000000001
+    },
+    {
+      "file": "/usr/local/python3.12.13/lib/python3.12/contextlib.py",
+      "line": 443,
+      "function": "__enter__",
+      "calls": 1,
+      "self_ms": 0.00014000000000000001,
+      "cumulative_ms": 0.00014000000000000001
+    }
+  ],
+  "note": "cProfile/event diagnostics perturb timing; end-event fence is outside CPU profile; no formal throughput claim"
+}

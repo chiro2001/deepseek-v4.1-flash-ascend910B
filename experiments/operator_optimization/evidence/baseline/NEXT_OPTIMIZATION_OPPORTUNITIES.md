@@ -1,5 +1,7 @@
 # 下一轮优化机会：基于优化后 tiny 的热点与源码
 
+> 历史快照（2026-10-09）。最新实验状态与未尝试方向见`../../OPTIMIZATION_OPPORTUNITIES.md`和`../../GOAL20_STATUS.md`。
+
 日期：2026-10-09。当前基线为已接入 HC + router 的 `both`：无 profiler decode 中位 **26.122 ms/步、38.282 token/s**。
 
 本次只重新分析已有20步 matched profiling，并只读核对当前容器源码；没有重启服务、修改运行中的模型或新增NPU测试。以下时间均为**已有采集态累计时间**，用于排序和确定覆盖范围，不是新增实测收益，也不能直接当作可回收墙钟。
@@ -132,7 +134,7 @@ ViewCopy只处理1024个BF16元素，却启动48个Vector block，Vec比例约0.
 
 可在单token、TP1、top2且所有expert本地的条件下，直接准备两个路由slot、group list、反向映射和加权汇合。TopK必须保留bias、hash/token-ID策略、tie规则、权重归一化，不能替换成未经核验的普通topk。
 
-`RmsNormCast`已提供BF16规范化输入与独立FP32路由输入。即使后续与router融合，也不能把BF16输出再转FP32来替代这条精度语义。
+`RmsNormCast`提供BF16规范化输入与FP32路由输入。2026-10-10核实当前安装vendor的FP32输出等于最终BF16输出再转FP32（上板max diff=0），此前关于“独立未舍入FP32”的警告不适用于该实现。融合仍须以实际vendor定义和固定精度门槛验证。
 
 ### 6.2 GMM小M
 

@@ -26,11 +26,25 @@ def main():
     parser.add_argument('--profile',action='store_true')
     parser.add_argument('--static-kernel',action='store_true')
     parser.add_argument('--test-gmm1-activation',action='store_true')
+    parser.add_argument('--test-replay',action='store_true')
+    parser.add_argument('--replay-diagnostic',action='store_true')
+    parser.add_argument('--cpu-diagnostic',action='store_true')
+    parser.add_argument('--cpu-diagnostic-arm',help='One requested arm; defaults to the reference')
+    parser.add_argument('--test-metadata',action='store_true')
+    parser.add_argument('--test-blockmap',action='store_true')
     args=parser.parse_args()
     arms=(args.arms or 'baseline,hcstatic,hcpost,route,gmm1,combo').split(',')
-    assert arms[0] in ['baseline','combo'] and set(arms)<=set(['baseline','hcstatic','hcpost','route','gmm1','gmm2','combo','all_candidates','gmmact'])
+    assert arms[0] in ['baseline','combo','gmmact','mdall'] and set(arms)<=set(['baseline','hcstatic','hcpost','route','gmm1','gmm2','combo','all_candidates','gmmact','nosync','mdstatic','mdslots','mdall','mdlaunch','mdfull'])
     if args.test_gmm1_activation:os.environ['OPT_TEST_GMM_ACT']='1'
-    assert 'gmmact' not in arms or args.test_gmm1_activation
+    if args.test_replay or args.replay_diagnostic:os.environ['OPT_TEST_REPLAY']='1'
+    if args.test_metadata:os.environ['OPT_TEST_METADATA']='1'
+    if args.test_blockmap:
+        os.environ['OPT_TEST_BLOCKMAP']='1'
+        os.environ['OPT_BLOCKMAP_VERIFY']='1' if args.audit else '0'
+    assert not (set(arms)&{'gmmact','nosync','mdstatic','mdslots','mdall','mdlaunch','mdfull'}) or args.test_gmm1_activation
+    assert not (set(arms)&{'mdstatic','mdslots','mdall','mdfull'}) or args.test_metadata
+    assert not (set(arms)&{'mdlaunch','mdfull'}) or args.test_blockmap
+    assert 'nosync' not in arms or args.test_replay
     if args.test_overlap:os.environ['OPT_TEST_OVERLAP']='1'
     out=Path(args.output);out.mkdir(parents=True,exist_ok=True)
     os.environ['VLLM_CACHE_ROOT']=str(out/'vllm_cache')
@@ -72,12 +86,24 @@ def main():
             SamplingParams(temperature=0,max_tokens=48,ignore_eos=True,detokenize=False,
                            logprobs=5 if args.audit else None))
         times=[];final=None
+        cpu_probe=None;whole_events=[]
+        if tag=='cpu-diagnostic':
+            import cProfile
+            import torch
+            cpu_probe=cProfile.Profile()
         while engine.has_unfinished_requests():
             if profile and len(times)==9:
                 from tiny_profile import configure_profiler
                 llm.collective_rpc(configure_profiler,args=('PipeUtilization',str(out/'prof'/arm),20))
                 llm.start_profile()
+            sample_diagnostic=cpu_probe is not None and len(times)>=9
+            if sample_diagnostic:
+                begin=torch.npu.Event(enable_timing=True);end=torch.npu.Event(enable_timing=True)
+                begin.record();cpu_probe.enable()
             start=time.perf_counter();outputs=engine.step();times.append((time.perf_counter()-start)*1000)
+            if sample_diagnostic:
+                cpu_probe.disable();end.record();end.synchronize()
+                whole_events.append(begin.elapsed_time(end))
             if profile and 9<len(times)<=29:
                 from tiny_profile import advance_profiler
                 llm.collective_rpc(advance_profiler)
@@ -86,6 +112,21 @@ def main():
                 if item.finished:final=item
         assert final is not None and len(final.outputs[0].token_ids)==48
         output=final.outputs[0]
+        if cpu_probe is not None:
+            import pstats
+            stats=pstats.Stats(cpu_probe)
+            rows=[]
+            for (filename,line,function),(primitive,calls,self_s,cumulative_s,_) in stats.stats.items():
+                rows.append({'file':filename,'line':line,'function':function,'calls':calls,
+                             'self_ms':self_s*1000,'cumulative_ms':cumulative_s*1000})
+            rows.sort(key=lambda r:-r['cumulative_ms'])
+            diagnostic={'arm':arm,'steps':len(whole_events),'step_device_event_ms':whole_events,
+                'device_event_median_ms':statistics.median(whole_events),
+                'engine_step_wall_median_ms':statistics.median(times[9:]),'cpu_functions':rows,
+                'note':'cProfile/event diagnostics perturb timing; end-event fence is outside CPU profile; no formal throughput claim'}
+            (out/'cpu_diagnostic.json').write_text(json.dumps(diagnostic,indent=2)+'\n')
+            print('CPU_DIAGNOSTIC',json.dumps({k:v for k,v in diagnostic.items() if k!='cpu_functions'}),flush=True)
+            print('CPU_TOP',json.dumps(rows[:30]),flush=True)
         record={'arm':arm,'tag':tag,'prompt_seed':seed,'step_ms':times,
                 'decode_median_ms':statistics.median(times[9:]),'prefill_ms':times[0],
                 'token_ids':output.token_ids,'profiled':profile}
@@ -98,6 +139,14 @@ def main():
             record['route_shape']=list(routes.shape)
             record['unique_experts']=np.unique(routes).tolist()
             record['activation_audit']=llm.collective_rpc(patches.audit,args=(arm,))[0]
+        if args.test_metadata:
+            import metadata_patches
+            record['metadata_coverage']=llm.collective_rpc(metadata_patches.stats)[0]
+        if args.test_blockmap:
+            import blockmap_patches
+            record['blockmap_coverage']=llm.collective_rpc(blockmap_patches.stats)[0]
+            if arm in ['mdlaunch','mdfull']:
+                assert record['blockmap_coverage']['fused_calls'][arm]['used'] > 0, record['blockmap_coverage']
         records.append(record)
         (out/'requests.json').write_text(json.dumps(records,indent=2)+'\n')
         print('REQUEST',json.dumps({key:value for key,value in record.items()
@@ -141,6 +190,18 @@ def main():
     print('RESULT',json.dumps(result),flush=True)
     if args.profile:
         for arm in [arms[0],arms[-1]]:request(arm,'profile',0,True)
+    if args.replay_diagnostic:
+        import replay_patches
+        llm.collective_rpc(replay_patches.diagnostics,args=(True,))
+        request(arms[0],'replay-diagnostic',2)
+        llm.collective_rpc(replay_patches.diagnostics,args=(False,))
+        diagnostic=llm.collective_rpc(replay_patches.summarize)[0]
+        (out/'replay_diagnostic.json').write_text(json.dumps(diagnostic,indent=2)+'\n')
+        print('REPLAY_DIAGNOSTIC',json.dumps(diagnostic),flush=True)
+    if args.cpu_diagnostic:
+        diagnostic_arm=args.cpu_diagnostic_arm or arms[0]
+        assert diagnostic_arm in arms,diagnostic_arm
+        request(diagnostic_arm,'cpu-diagnostic',2)
     print('COMPLETE',flush=True)
 
 

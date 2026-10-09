@@ -10,6 +10,7 @@ def main():
     parser=argparse.ArgumentParser()
     parser.add_argument('--host',default='a3-21')
     parser.add_argument('--ssh-control-path',help='Use a dedicated task SSH multiplex socket')
+    parser.add_argument('--container',help='Extract as root inside this task container when experiment source files are root-owned')
     args=parser.parse_args()
     root=Path(__file__).resolve().parent
     runtime=root/'runtime';runtime.mkdir(exist_ok=True)
@@ -26,14 +27,20 @@ def main():
     options=['-o','BatchMode=yes','-o','ConnectTimeout=30']
     if args.ssh_control_path:options+=['-o','ControlPath='+args.ssh_control_path]
     subprocess.run(['scp','-q',*options,str(bundle),args.host+':'+remote+'/operator_opt_source.tgz'],check=True)
+    destination='/work' if args.container else remote
     code=f"""from pathlib import Path
 import tarfile
-root=Path({remote!r})
+root=Path({destination!r})
 out=root/'operator_opt';out.mkdir(exist_ok=True)
 with tarfile.open(root/'operator_opt_source.tgz') as archive:archive.extractall(out,filter='data')
 print('Source synced to '+str(out))
 """
-    subprocess.run(['ssh',*options,args.host,'python3 -'],input=code,text=True,check=True)
+    command=['ssh',*options,args.host]
+    if args.container:
+        import shlex
+        command+=['docker exec -i '+shlex.quote(args.container)+' python -']
+    else:command+=['python3 -']
+    subprocess.run(command,input=code,text=True,check=True)
 
 
 if __name__=='__main__':main()

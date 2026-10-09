@@ -1,0 +1,52 @@
+{
+  "same_model_process": true,
+  "profiler_during_timing": "OFF",
+  "audit": true,
+  "reference_arm": "mdall",
+  "static_kernel_requested": true,
+  "randomized_gate_hc_and_mlp": true,
+  "A": 1.0,
+  "baseline_ms": 19.94812022894621,
+  "baseline_tokens_per_second": 50.13003674145324,
+  "pairs": [
+    {
+      "pair": 0,
+      "arm": "mdfull",
+      "baseline_ms": 19.867740105837584,
+      "candidate_ms": 20.93107020482421,
+      "speedup": 0.9491984839484439,
+      "tokens_equal": true,
+      "actual_routes_equal": true,
+      "max_logprob_delta": 0.0
+    },
+    {
+      "pair": 1,
+      "arm": "mdfull",
+      "baseline_ms": 19.94812022894621,
+      "candidate_ms": 21.35636005550623,
+      "speedup": 0.9340599323620722,
+      "tokens_equal": true,
+      "actual_routes_equal": true,
+      "max_logprob_delta": 0.0
+    },
+    {
+      "pair": 2,
+      "arm": "mdfull",
+      "baseline_ms": 20.243539940565825,
+      "candidate_ms": 20.828889682888985,
+      "speedup": 0.97189721817942,
+      "tokens_equal": true,
+      "actual_routes_equal": true,
+      "max_logprob_delta": 0.0
+    }
+  ],
+  "arms": {
+    "mdfull": {
+      "ms_per_step": 20.93107020482421,
+      "A": 1.0,
+      "tokens_per_second": 47.77586574476823,
+      "paired_speedup_median": 0.9491984839484439,
+      "all_pairs_faster": false
+    }
+  }
+}

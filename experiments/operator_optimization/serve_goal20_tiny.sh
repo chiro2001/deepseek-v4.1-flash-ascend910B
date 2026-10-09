@@ -18,12 +18,18 @@ export TINY_PERF_HC_ENABLE=1
 export VLLM_DISABLE_COMPILE_CACHE=1
 export OPT_ACT_ARM=overlap
 export OPT_TEST_OVERLAP=1
-export GOAL20_ARM=${GOAL20_ARM:-gmmact}
-case "$GOAL20_ARM" in baseline|hcstatic|hcpost|route|gmm1|combo|gmmact) ;; *) exit 2 ;; esac
-if [ "$GOAL20_ARM" = gmmact ]; then
+export GOAL20_ARM=${GOAL20_ARM:-mdfull}
+case "$GOAL20_ARM" in baseline|hcstatic|hcpost|route|gmm1|combo|gmmact|mdstatic|mdslots|mdall|mdfull) ;; *) exit 2 ;; esac
+case "$GOAL20_ARM" in gmmact|mdstatic|mdslots|mdall|mdfull)
   export OPT_TEST_GMM_ACT=1
   export GMM_ACT_BN=16
   export GMM_ACT_BK=512
+  ;;
+esac
+case "$GOAL20_ARM" in mdstatic|mdslots|mdall|mdfull) export OPT_TEST_METADATA=1 ;; esac
+if [ "$GOAL20_ARM" = mdfull ]; then
+  export OPT_TEST_BLOCKMAP=1
+  export OPT_BLOCKMAP_VERIFY=0
 fi
 export GOAL20_SERIAL_DUMMY=1
 export VLLM_CACHE_ROOT=/work/operator_opt/runtime/goal20_service_cache

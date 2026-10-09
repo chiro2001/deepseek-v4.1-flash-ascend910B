@@ -1,7 +1,7 @@
 # 20 ms/step 持续优化状态
 
 目标：语义与实际路由验证通过，无profiler/审计decode ≤20 ms/step，A=1，≥50 token/s。
-本goal仍为active。独立分支 `feat/tiny-operator-opt-20261009`，初期chip4，后因别租户占用迁移chip6，始终排除14–15。
+**性能目标已达成：19.209 ms/step、A=1、52.058 token/s。** 独立分支 `feat/tiny-operator-opt-20261009`，当前chip4；chip6的AICPU问题单独保留，始终排除14–15。最终状态与交付见本文末尾及v4报告。
 
 ## 已完成
 
@@ -80,3 +80,31 @@
 - shared真实N-major投影+激活七种Vector配置均更慢（native约8.26us，较优约10.535us），拒绝，保留结果。
 - 已恢复c4 API，默认GOAL20_ARM=gmmact，static=true；health200模型归属正确，32输入/16输出token验收通过。
 - 目标尚未20ms。下一项优先：融合kernel的multibuffer/分工、metadata准备/图回放开销，以及剩余norm/RoPE/cache邻接融合。重测前停止仅自己的API并核验芯片。
+
+## Metadata与replay后续（2026-10-10）
+
+- 本轮已停止仅自己的c4 API，容器保持运行。新实验前确认chip4无设备进程，其他租户不变。
+- `goal20_gmmact_buffer_v1`相同BN16/BK512、40旋转权重、十组：default18.501us、off18.591us、on18.476us；逐位相同，但on收益约0.025us，无实用收益，保留默认。
+- `goal20_replay_audit_v1`三组实际路由、48token及logprobs通过；TP1同步scheduler单tokenFULL图跳过pre-replay barrier并没有稳定收益，未采纳。
+- 有效replay诊断47个decode图：event中位12.144ms、调用墙钟0.112ms。不能将图与step差值全部归CPU，lm_head/sampler和图外准备仍在其间。
+- `goal20_cpu_replay_diagnostic_v2`完成。39个诊断步中`_build_attention_metadata`累计311.492ms，`_build_attn_group_metadata`975次（25次/步），`dsa_v41.build`191.645ms。`_config_value`4056次37.132ms，Tensor.copy_2340次39.343ms。cProfile/event扰动计时，不作为正式吞吐。
+- `_bookkeeping_sync`的Event.synchronize主要等待device，不能和图耗时相加当成CPU成本。
+- 新候选：`mdstatic`缓存builder模型静态配置；`mdslots`增加group-local slot转换/掩码融合；`mdall`再融合C2 ring计数及源位置/RoPE gather。均从原vendor build的严格唯一source anchor生成，不改vendor文件；batch/task共享、persistent buffer地址和同步阶段保留。
+- 绝不跨step缓存seq_lens、positions、slot、block table、indices或长度。slot和ring边界逐位校验、实际路由审计及正式同进程性能尚在进行，当前没有采纳metadata候选。
+- 当前有效正式基线仍为`goal20_gmmact_paired_v2`：21.991ms/step、A=1、45.474token/s。goal尚未完成。
+
+## 20 ms目标达成与交付（2026-10-10）
+
+- 新slot核224例、C2 ring/RoPE144例逐位通过；尾部不变、group物理buffer独立，动态数据逐步更新。
+- `goal20_metadata_audit_v1`三组、三个候选的非恒定权重实际路由/48token/logprobs通过，max delta0。
+- `goal20_metadata_perf_v1`同进程十组：gmmact22.265ms/A1/44.913tok/s，mdstatic21.711/1/46.060，mdslots20.386/1/49.054，mdall19.970/1/50.075；三个候选十组均快于参照。mdall范围19.938–20.026，三组略高于20。
+- 第一套匹配20步验收：1718→1536 task/step、kernel累计14.619→14.601ms；12个group-local slot核、1个ring counts、1个ring sources实际执行，40层模型覆盖不变。差异主要来自准备/分派，不将累计kernel当墙钟收益。
+- `goal20_blockmap_audit_v1`：在mdall上增加既有原始slot多group融合，三组fused/native逐位verify及实际路由/token/logprobs通过，delta0。11个group，240次used、0 fallback。
+- **最终`goal20_blockmap_perf_v1`**紧邻十组：mdall19.856865ms/A1/50.360417tok/s，mdfull19.209445ms/A1/52.057724tok/s；十组全快，配对中位约3.43%。mdfull十组均≤20，范围19.028640–19.342620ms。禁止与第一套会话相减或累计百分比。
+- 第二套匹配20步验收：1536→1526 task/step、kernel累计14.496→14.412ms；原始slot kernel11次/步变为multi-group1次/步。正式verify关闭，624次used、0 fallback。trace/Device4/CSV哈希与结构检查均通过。
+- slot核PipeUtilization（task duration加权）Vector约53.3%、Scalar约41.9%、MTE2约0.46%、MTE3约0.92%；对应小坐标运算，不能凭带宽低视为UB容量或HBM瓶颈。当前B128的单tokenblock缩小是后续机会，尚未试验。
+- 独立服务默认`mdfull`、static启用、verify关闭。模型归属正确、health200、32输入→16输出token通过，`http://172.17.0.4:18971`。服务冒烟不作为跨进程吞吐证明。
+- 本轮报告：`reports/a3-21-tiny-goal20-metadata-20261010-v4.md`；完整试验/未试机会见`OPTIMIZATION_OPPORTUNITIES.md`。小型精度、计时、profiling和coverage凭据入Git；raw大trace/请求保留远程。
+- 范围仍为TP1 tiny dummy BF16，真实checkpoint、生产TP8/W4A8、DSpark和CED-PD没有据此获益的验证。
+- v4 HTML/Markdown及各自SHA256已上传COS、逐项登记links-server，外部下载字节及哈希一致：
+  https://uploads-new-1254016670.cos.ap-shanghai.myqcloud.com/share/a3-21-tiny-goal20-metadata-20261010-v4.html

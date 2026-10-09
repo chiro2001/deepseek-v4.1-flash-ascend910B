@@ -1,0 +1,52 @@
+{
+  "same_model_process": true,
+  "profiler_during_timing": "OFF",
+  "audit": true,
+  "reference_arm": "gmmact",
+  "static_kernel_requested": true,
+  "randomized_gate_hc_and_mlp": true,
+  "A": 1.0,
+  "baseline_ms": 22.243279963731766,
+  "baseline_tokens_per_second": 44.95739844260943,
+  "pairs": [
+    {
+      "pair": 0,
+      "arm": "nosync",
+      "baseline_ms": 22.513960022479296,
+      "candidate_ms": 22.47346006333828,
+      "speedup": 1.0018021238842116,
+      "tokens_equal": true,
+      "actual_routes_equal": true,
+      "max_logprob_delta": 0.0
+    },
+    {
+      "pair": 1,
+      "arm": "nosync",
+      "baseline_ms": 22.243279963731766,
+      "candidate_ms": 22.491909563541412,
+      "speedup": 0.9889458207580264,
+      "tokens_equal": true,
+      "actual_routes_equal": true,
+      "max_logprob_delta": 0.0
+    },
+    {
+      "pair": 2,
+      "arm": "nosync",
+      "baseline_ms": 22.202020045369864,
+      "candidate_ms": 21.98704006150365,
+      "speedup": 1.009777577303032,
+      "tokens_equal": true,
+      "actual_routes_equal": true,
+      "max_logprob_delta": 0.0
+    }
+  ],
+  "arms": {
+    "nosync": {
+      "ms_per_step": 22.47346006333828,
+      "A": 1.0,
+      "tokens_per_second": 44.49693092125738,
+      "paired_speedup_median": 1.0018021238842116,
+      "all_pairs_faster": false
+    }
+  }
+}

@@ -38,12 +38,13 @@ def gmm1_activation_kernel(x,w,counts,raw,y,K:tl.constexpr,D:tl.constexpr,
     tl.store(y+slot*D+n,output,n<D)
 
 
-def gmm1_activation(x,nk_weight,counts,limit,*,count_type=1,bn=8,bk=512):
+def gmm1_activation(x,nk_weight,counts,limit,*,count_type=1,bn=8,bk=512,multibuffer=None):
     assert x.shape==(2,5120) and nk_weight.shape==(8,512,5120) and counts.shape==(8,)
     assert x.dtype==nk_weight.dtype==torch.bfloat16
     assert x.is_contiguous() and nk_weight.is_contiguous() and count_type in [0,1]
     raw=torch.empty((2,512),device=x.device,dtype=x.dtype)
     y=torch.empty((2,256),device=x.device,dtype=x.dtype)
+    options={} if multibuffer is None else {'multibuffer':multibuffer}
     gmm1_activation_kernel[(triton.cdiv(256,bn),2)](x,nk_weight,counts,raw,y,
-                     5120,256,count_type,float(limit),bn,bk,enable_fp_fusion=False)
+                     5120,256,count_type,float(limit),bn,bk,enable_fp_fusion=False,**options)
     return raw,y
