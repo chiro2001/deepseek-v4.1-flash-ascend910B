@@ -134,3 +134,25 @@ shape 说明：逻辑 token/block、物理 block ID 与物理 stride 必须分�
 实际 NZ/padded 形状不能从 input_layout 字面推断。本实现沿用目标镜像 native
 canonical views，不修改 attention layout/FA 算子配置；mock 读取有效 payload，
 未写满的末页和 circular state 消费但不进入 reusable-prefix 指纹。
+
+### 2026-10-09 后续接入修复
+
+- 第三臂已退出，报 `tokens_per_block=32 not divisible by tokens_per_hash=128`。
+  这是 non-prefix-cacheable G1 被 offloading config 的通用 hash 校验误纳入；
+  已让该校验同 save/lookup 一样排除 CED 无效组，参与组仍严格校验。
+- 第四臂 `ced-dram-p-20261009-1225` 在 1 GiB HBM 下成功启动，GPU KV cache
+  报告 41,733 tokens；已确认 `/v1/models` 为本实验模型。
+- 第一个真实预热请求返回交接参数，并有八 worker 的 DRAM save barrier 完成
+  日志，但尚未证明消费或 DRAM 读回成功。
+- API 统计汇总随后报 `Connector CEDOffloadingConnector is not registered`。
+  构造路径支持外部 module，统计路径仍按 registry 名称解析；已在 module 加入
+  注册，实际镜像 `get_connector_class_by_name` 同类身份校验通过。
+- mock 在第一次 `/consume` 退出 139。跨线程 device/TE 调用是候选原因，
+  尚未确认；改成主线程 HTTPServer，并开启 faulthandler，待重新消费定位。
+- 客户端输出改用 user-owned `client_results/`，避免 P supervisor 的 root-owned
+  服务目录影响记录。bench 的 `external_hit_tokens` 按 `external_kv_transfer` 读取。
+- 本地另补 abort-during-load 的完成屏障保护：request 结束时须等 pending load
+  destination 与 store source 一起完成；目前十一项离线测试通过。
+- 两端旧实例已确认退出/清理；第五臂 P `ced-dram-p-20261009-1250` 和 mock
+  `ced-dram-mock-20261009-1250` 正在启动，真实 KV 消费、挤出读回、三轮一致性、
+  边界和 1M 实验仍未完成。不得把 save barrier 日志当成 read-back 证据。

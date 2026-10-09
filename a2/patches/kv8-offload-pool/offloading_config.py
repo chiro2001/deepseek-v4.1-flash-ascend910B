@@ -28,6 +28,19 @@ def is_kv_cache_tensor_packed(kv_cache_tensor: "KVCacheTensor") -> bool:
     return bool(kv_cache_tensor.block_stride)
 
 
+def validate_group_hash_alignment(groups, tokens_per_hash, excluded_groups=()):
+    """Inactive CED state/decoder groups do not consume prefix hashes."""
+    excluded = set(excluded_groups)
+    for idx, group in enumerate(groups):
+        if idx in excluded:
+            continue
+        assert group.tokens_per_block % tokens_per_hash == 0, (
+            f"group={idx}: tokens_per_block={group.tokens_per_block} not divisible by "
+            f"tokens_per_hash={tokens_per_hash}. "
+            "Hybrid models need prefix-cache-compatible block sizes."
+        )
+
+
 def build_offloading_config(
     vllm_config: "VllmConfig",
     kv_cache_config: "KVCacheConfig",
@@ -56,12 +69,14 @@ def build_offloading_config(
     )
 
     _, tokens_per_hash = resolve_kv_cache_block_sizes(kv_cache_config, vllm_config)
-    for group in groups:
-        assert group.tokens_per_block % tokens_per_hash == 0, (
-            f"tokens_per_block={group.tokens_per_block} not divisible by "
-            f"tokens_per_hash={tokens_per_hash}. "
-            f"Hybrid models (e.g. Mamba+Attention) need "
-            f"--enable-prefix-caching to align block sizes."
+    validate_group_hash_alignment(
+        groups, tokens_per_hash, extra_config.get("ced_excluded_groups", ())
+    )
+    if "ced_excluded_groups" in extra_config:
+        print(
+            "[CED-DRAM] hash geometry: tokens_per_hash=%d group_blocks=%s excluded=%s"
+            % (tokens_per_hash, [g.tokens_per_block for g in groups], extra_config["ced_excluded_groups"]),
+            flush=True,
         )
 
     blocks_per_chunk = 1

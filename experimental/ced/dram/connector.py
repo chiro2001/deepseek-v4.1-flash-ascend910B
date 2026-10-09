@@ -8,6 +8,7 @@ from dataclasses import dataclass, field, replace
 from vllm.distributed.kv_transfer.kv_connector.v1.offloading.common import (
     OffloadingConnectorMetadata,
 )
+from vllm.distributed.kv_transfer.kv_connector.factory import KVConnectorFactory
 from vllm.v1.kv_offload.base import CanonicalKVCaches
 from vllm_ascend.distributed.kv_transfer.kv_pool.kv_offload.native.npu import (
     NPUOffloadingSpec,
@@ -146,7 +147,10 @@ class CEDOffloadingConnector(AscendOffloadingConnector):
         if metadata is self._ced_seen_metadata:
             return
         self._ced_seen_metadata = metadata
-        for job_id, job in metadata.store_jobs.items():
+        # An aborted request can still have an async DRAM load in flight.
+        # Its completion barrier must protect destination pages as well as
+        # store source pages until the native worker reports completion.
+        for job_id, job in {**metadata.load_jobs, **metadata.store_jobs}.items():
             if job_id not in self._ced_job_requests:
                 self._ced_job_requests[job_id] = job.req_id
                 self._ced_request_jobs.setdefault(job.req_id, set()).add(job_id)
@@ -177,3 +181,12 @@ class CEDOffloadingConnector(AscendOffloadingConnector):
         if self._ced_finish_barriers:
             raise RuntimeError("Cannot reset CED DRAM while save barriers are pending")
         return super().reset_cache()
+
+
+# MultiConnector's stats deserializer resolves child class names through the
+# registry even when construction used kv_connector_module_path. Register the
+# external class so API-server metrics use the same class as scheduler/workers.
+if "CEDOffloadingConnector" not in KVConnectorFactory._registry:
+    KVConnectorFactory.register_connector(
+        "CEDOffloadingConnector", __name__, "CEDOffloadingConnector"
+    )

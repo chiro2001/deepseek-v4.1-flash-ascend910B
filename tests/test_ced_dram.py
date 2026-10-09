@@ -26,6 +26,20 @@ def compile_class(path, name, namespace):
 
 
 class GeometryTests(unittest.TestCase):
+    def test_noncacheable_state_does_not_constrain_native_hash_alignment(self):
+        path = ROOT / "a2/patches/kv8-offload-pool/offloading_config.py"
+        node = next(n for n in ast.parse(path.read_text()).body
+                    if isinstance(n, ast.FunctionDef) and n.name == "validate_group_hash_alignment")
+        namespace = {}
+        exec(compile(ast.Module(body=[node], type_ignores=[]), str(path), "exec"), namespace)
+        check = namespace[node.name]
+        groups = [NS(tokens_per_block=128), NS(tokens_per_block=32), NS(tokens_per_block=128)]
+        check(groups, 128, [1])
+        with self.assertRaises(AssertionError):
+            check(groups, 128)
+        with self.assertRaises(AssertionError):
+            check([NS(tokens_per_block=32)], 128, [])
+
     def test_shared_spec_does_not_exclude_encoder_groups(self):
         full = NS(block_size=128)
         recurrent = NS(block_size=32, prefix_cacheable=False)
@@ -124,6 +138,15 @@ class BarrierTests(unittest.TestCase):
         c = self.connector
         c._connector_metadata = self.Metadata({}, {}, finished_store_requests={"r"})
         self.assertEqual(c.get_finished({"r"})[0], {"r"})
+
+    def test_abort_barrier_waits_for_pending_load_destinations(self):
+        c = self.connector
+        c._connector_metadata = self.Metadata({4: NS(req_id="aborted")}, {})
+        c.handle_preemptions(c._connector_metadata)
+        c._connector_metadata = self.Metadata({}, {}, finished_store_requests={"aborted"})
+        self.assertEqual(c.get_finished({"aborted"})[0], set())
+        c.connector_worker._connector_worker_meta.completed_jobs = {4: 1}
+        self.assertEqual(c.get_finished(set())[0], {"aborted"})
 
 
 class AsyncResumeTests(unittest.TestCase):

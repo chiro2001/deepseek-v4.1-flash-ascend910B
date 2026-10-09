@@ -9,12 +9,13 @@ host buffer and sends DONE_RECVING only after all data have been consumed.
 from __future__ import annotations
 
 import argparse
+import faulthandler
 import hashlib
 import json
 import math
 import threading
 import time
-from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from http.server import BaseHTTPRequestHandler, HTTPServer
 from pathlib import Path
 
 
@@ -237,10 +238,14 @@ def serve(consumer, host, port):
             self.end_headers()
             self.wfile.write(encoded)
 
-    ThreadingHTTPServer((host, port), Handler).serve_forever()
+    # Ascend TE and its device context are initialized on this thread. Keep
+    # consumption on the same thread rather than moving calls between fresh
+    # HTTP worker contexts. The bounded receiver was already serialized.
+    HTTPServer((host, port), Handler).serve_forever()
 
 
 def main():
+    faulthandler.enable(all_threads=True)
     parser = argparse.ArgumentParser(allow_abbrev=False)
     parser.add_argument("--device", type=int, default=0)
     parser.add_argument("--engine-host", default="127.0.0.1")
