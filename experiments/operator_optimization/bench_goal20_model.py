@@ -25,9 +25,12 @@ def main():
     parser.add_argument('--audit',action='store_true')
     parser.add_argument('--profile',action='store_true')
     parser.add_argument('--static-kernel',action='store_true')
+    parser.add_argument('--test-gmm1-activation',action='store_true')
     args=parser.parse_args()
     arms=(args.arms or 'baseline,hcstatic,hcpost,route,gmm1,combo').split(',')
-    assert arms[0]=='baseline' and set(arms)<=set(['baseline','hcstatic','hcpost','route','gmm1','gmm2','combo','all_candidates'])
+    assert arms[0] in ['baseline','combo'] and set(arms)<=set(['baseline','hcstatic','hcpost','route','gmm1','gmm2','combo','all_candidates','gmmact'])
+    if args.test_gmm1_activation:os.environ['OPT_TEST_GMM_ACT']='1'
+    assert 'gmmact' not in arms or args.test_gmm1_activation
     if args.test_overlap:os.environ['OPT_TEST_OVERLAP']='1'
     out=Path(args.output);out.mkdir(parents=True,exist_ok=True)
     os.environ['VLLM_CACHE_ROOT']=str(out/'vllm_cache')
@@ -51,10 +54,10 @@ def main():
                 'ascend_compilation_config':{'enable_npugraph_ex':True,'enable_static_kernel':args.static_kernel},
                 'multistream_dsv4_dsa_overlap':True})
     banks=[]
-    banks.append(llm.collective_rpc(patches.save_bank,args=(arms[0],))[0])
+    banks.append(llm.collective_rpc(patches.save_bank,args=('baseline',))[0])
     print('BANK',json.dumps(banks[-1]),flush=True)
     print('WARM_CANDIDATES',llm.collective_rpc(patches.warm),flush=True)
-    for arm in arms[1:]:
+    for arm in [a for a in arms if a!='baseline']:
         banks.append(llm.collective_rpc(patches.create_bank,args=(arm,))[0])
         print('BANK',json.dumps(banks[-1]),flush=True)
     (out/'banks.json').write_text(json.dumps(banks,indent=2)+'\n')
@@ -124,6 +127,7 @@ def main():
         (out/'comparisons.json').write_text(json.dumps(comparisons,indent=2)+'\n')
     baseline_ms=statistics.median(item['baseline_ms'] for item in comparisons)
     result={'same_model_process':True,'profiler_during_timing':'OFF','audit':args.audit,
+            'reference_arm':arms[0],
             'static_kernel_requested':args.static_kernel,
             'randomized_gate_hc_and_mlp':args.audit,'A':1.0,'baseline_ms':baseline_ms,
             'baseline_tokens_per_second':1000/baseline_ms,'pairs':comparisons,'arms':{}}

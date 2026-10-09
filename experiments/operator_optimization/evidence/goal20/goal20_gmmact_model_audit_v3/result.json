@@ -1,0 +1,88 @@
+{
+  "same_model_process": true,
+  "profiler_during_timing": "OFF",
+  "audit": true,
+  "static_kernel_requested": false,
+  "randomized_gate_hc_and_mlp": true,
+  "A": 1.0,
+  "baseline_ms": 24.06887011602521,
+  "baseline_tokens_per_second": 41.547442616934205,
+  "pairs": [
+    {
+      "pair": 0,
+      "arm": "combo",
+      "baseline_ms": 24.138670414686203,
+      "candidate_ms": 23.50179012864828,
+      "speedup": 1.027099224465526,
+      "tokens_equal": true,
+      "actual_routes_equal": true,
+      "max_logprob_delta": 0.0
+    },
+    {
+      "pair": 0,
+      "arm": "gmmact",
+      "baseline_ms": 24.138670414686203,
+      "candidate_ms": 22.99695974215865,
+      "speedup": 1.049646156941108,
+      "tokens_equal": true,
+      "actual_routes_equal": true,
+      "max_logprob_delta": 0.0
+    },
+    {
+      "pair": 1,
+      "arm": "combo",
+      "baseline_ms": 24.06887011602521,
+      "candidate_ms": 23.39156996458769,
+      "speedup": 1.028954882141852,
+      "tokens_equal": true,
+      "actual_routes_equal": true,
+      "max_logprob_delta": 0.0
+    },
+    {
+      "pair": 1,
+      "arm": "gmmact",
+      "baseline_ms": 24.06887011602521,
+      "candidate_ms": 23.067640140652657,
+      "speedup": 1.0434040920210153,
+      "tokens_equal": true,
+      "actual_routes_equal": true,
+      "max_logprob_delta": 0.0
+    },
+    {
+      "pair": 2,
+      "arm": "combo",
+      "baseline_ms": 24.033510126173496,
+      "candidate_ms": 23.519630078226328,
+      "speedup": 1.02184898513446,
+      "tokens_equal": true,
+      "actual_routes_equal": true,
+      "max_logprob_delta": 9.5367431640625e-07
+    },
+    {
+      "pair": 2,
+      "arm": "gmmact",
+      "baseline_ms": 24.033510126173496,
+      "candidate_ms": 23.07470003142953,
+      "speedup": 1.0415524402673921,
+      "tokens_equal": true,
+      "actual_routes_equal": true,
+      "max_logprob_delta": 9.5367431640625e-07
+    }
+  ],
+  "arms": {
+    "combo": {
+      "ms_per_step": 23.50179012864828,
+      "A": 1.0,
+      "tokens_per_second": 42.54995021766521,
+      "paired_speedup_median": 1.027099224465526,
+      "all_pairs_faster": true
+    },
+    "gmmact": {
+      "ms_per_step": 23.067640140652657,
+      "A": 1.0,
+      "tokens_per_second": 43.35077163951747,
+      "paired_speedup_median": 1.0434040920210153,
+      "all_pairs_faster": true
+    }
+  }
+}

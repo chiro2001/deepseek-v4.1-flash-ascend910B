@@ -65,3 +65,18 @@
 - SparseFlashMla/Indexer逐核等待与控制路径诊断；metadata与邻接norm/RoPE/cache store融合。
 - static kernel配置筛选与有效性检查，保留同口径证据，禁止跨进程计算百分比。
 - 更新工作/原理报告并上传COS及links-server，必要自检和提交；goal达到目标后才标complete。
+
+## GMM1/activation后续（2026-10-10）
+
+- chip4重新空闲，已恢复在c4实验；c6明确失败算子QuantLightningIndexerV2Metadata，AICPU函数注册/copy so name失败及timeout，507017；无有效模型计时，不重置。
+- 新gmm1_activation.py按选中expert同时计算gate/up，保留GMM1 BF16边界与原clamp副作用，融合routed激活。BN16/BK512较优。
+- 40份旋转权重：原生链56.254us，已有Vector+activation27.440us，融合18.499us，独立筛选通过。
+- composed对native的额外1ULP检查发现已有两kernel基线也在极小值处相差5ULP（abs1.137e-12），融合与已有基线逐位一致；修正融合参照为当前基线，保持1ULP门槛及原矩阵/激活/路由检查。
+- goal20_gmmact_model_audit_v3（非static）和static_audit_v4各三组通过：路由、48token一致，logprob最大9.537e-7/0，实际融合40层，输出对已有两kernel0ULP。
+- static三模式六组正式会话：baseline23.086ms/A1/43.316tok/s，combo22.220/1/45.004，gmmact21.779/1/45.915；native基线六组全快，对combo五组快一组持平。
+- 紧邻两模式十组goal20_gmmact_paired_v2：combo22.276ms/A1/44.892tok/s，gmmact21.991/1/45.474；十组全快，配对约1.31%。不能跨进程相减。
+- 匹配20步profiling：1758→1718 task/step，kernel累计14.881→14.572ms/step；vector_gemv40及routed激活40合为gmm1_activation_kernel40，结构/hash验收通过。
+- Default/MemoryDetail成功32Vector核、Device4/1800MHz；task18.720/18.680us，最慢核Vec11.080、MTE2 5.719us；逐核GM→UB330.125KiB，UB→GM0.375KiB。
+- shared真实N-major投影+激活七种Vector配置均更慢（native约8.26us，较优约10.535us），拒绝，保留结果。
+- 已恢复c4 API，默认GOAL20_ARM=gmmact，static=true；health200模型归属正确，32输入/16输出token验收通过。
+- 目标尚未20ms。下一项优先：融合kernel的multibuffer/分工、metadata准备/图回放开销，以及剩余norm/RoPE/cache邻接融合。重测前停止仅自己的API并核验芯片。

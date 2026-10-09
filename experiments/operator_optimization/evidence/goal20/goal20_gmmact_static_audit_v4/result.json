@@ -1,0 +1,52 @@
+{
+  "same_model_process": true,
+  "profiler_during_timing": "OFF",
+  "audit": true,
+  "reference_arm": "combo",
+  "static_kernel_requested": true,
+  "randomized_gate_hc_and_mlp": true,
+  "A": 1.0,
+  "baseline_ms": 22.374209947884083,
+  "baseline_tokens_per_second": 44.69431556820488,
+  "pairs": [
+    {
+      "pair": 0,
+      "arm": "gmmact",
+      "baseline_ms": 22.374209947884083,
+      "candidate_ms": 21.955369971692562,
+      "speedup": 1.0190768808146498,
+      "tokens_equal": true,
+      "actual_routes_equal": true,
+      "max_logprob_delta": 0.0
+    },
+    {
+      "pair": 1,
+      "arm": "gmmact",
+      "baseline_ms": 22.421369794756174,
+      "candidate_ms": 22.29622984305024,
+      "speedup": 1.0056126059242674,
+      "tokens_equal": true,
+      "actual_routes_equal": true,
+      "max_logprob_delta": 0.0
+    },
+    {
+      "pair": 2,
+      "arm": "gmmact",
+      "baseline_ms": 22.32306031510234,
+      "candidate_ms": 21.996260154992342,
+      "speedup": 1.0148570783309192,
+      "tokens_equal": true,
+      "actual_routes_equal": true,
+      "max_logprob_delta": 0.0
+    }
+  ],
+  "arms": {
+    "gmmact": {
+      "ms_per_step": 21.996260154992342,
+      "A": 1.0,
+      "tokens_per_second": 45.46227372079143,
+      "paired_speedup_median": 1.0148570783309192,
+      "all_pairs_faster": true
+    }
+  }
+}

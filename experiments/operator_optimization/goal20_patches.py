@@ -251,7 +251,7 @@ def audit(worker, name):
               'router': baseline.audit_router(worker, 'both')}
     for kind, rows in REFS[name].items():
         worst = 0.; exact = 0; min_std = float('inf')
-        for args, stored, selected in rows:
+        for index,(args, stored, selected) in enumerate(rows):
             if kind == 'hcpost':
                 x, residual, post, comb = args
                 expected = torch.ops._C_ascend.npu_hc_post(x.unsqueeze(0),residual.unsqueeze(0),post.unsqueeze(0),comb.unsqueeze(0)).squeeze(0)
@@ -265,6 +265,11 @@ def audit(worker, name):
             else:
                 x,w,counts,count_type = args
                 expected = ORIGINAL_GMM([x],[w],group_list=counts,split_item=2,group_type=0,group_list_type=count_type)[0]
+                if kind=='gmm1':
+                    # The routed activation mutates this intermediate in place.
+                    limit=activation.REFS['overlap']['routed'][index][1][0]
+                    gate,up=expected.chunk(2,-1)
+                    gate.clamp_(max=limit);up.clamp_(min=-limit,max=limit)
                 min_std = min(min_std,float(w.float().std()))
             torch.testing.assert_close(stored,expected,rtol=1/64,atol=1/64)
             worst=max(worst,float((stored-expected).abs().max())); exact+=int(torch.equal(stored,expected))

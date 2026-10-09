@@ -30,6 +30,9 @@ class Goal20Worker(OperatorOptWorker):
         else:
             result = super().load_model(*args, **kwargs)
         patches.install(self.model_runner.model)
+        if os.getenv('OPT_TEST_GMM_ACT')=='1':
+            import gmm1_activation_patches
+            gmm1_activation_patches.install(self.model_runner.model)
         return result
 
     def compile_or_warm_up_model(self, *args, **kwargs):
