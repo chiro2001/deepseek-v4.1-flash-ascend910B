@@ -205,6 +205,39 @@ class BarrierTests(unittest.TestCase):
 
 @unittest.skipUnless(importlib.util.find_spec("torch"), "Run mirror tests in the target CPU image")
 class EngramRestoreTests(unittest.TestCase):
+    def clip_function(self):
+        import torch
+        path = ROOT / "experimental/ced/dsa_v41.py"
+        node = next(n for n in ast.parse(path.read_text()).body if isinstance(n, ast.FunctionDef)
+                    and n.name == "_ced_clip_swa_table")
+        scope = {"torch": torch}
+        exec(compile(ast.Module(body=[node], type_ignores=[]), str(path), "exec"), scope)
+        return scope[node.name]
+
+    def test_prefill_window_keeps_past_context_and_d_replay_keeps_its_start(self):
+        import torch
+        clip = self.clip_function()
+        table = torch.arange(128).reshape(1, 128)
+        seq, first = torch.tensor([16383]), torch.tensor([15360])
+        p, lens, base = clip(table, seq, first, 128, 127)
+        self.assertEqual((base.tolist(), lens.tolist(), p.tolist()), ([119], [1151], [list(range(119, 128))]))
+        d, lens, base = clip(table, seq, first, 128, 0)
+        self.assertEqual((base.tolist(), lens.tolist(), d.tolist()), ([120], [1023], [list(range(120, 128))]))
+
+    def test_ragged_window_near_one_million_cannot_gather_past_allocated_row(self):
+        import torch
+        clip = self.clip_function()
+        table = torch.arange(2 * 8192).reshape(2, 8192)
+        trimmed, lens, base = clip(table, torch.tensor([1048575, 8192]),
+                                   torch.tensor([1048448, 0]), 128, 127)
+        self.assertEqual(base.tolist(), [8190, 0])
+        self.assertEqual(lens.tolist(), [255, 8192])
+        self.assertEqual(trimmed.shape, (2, 64))
+        self.assertEqual(trimmed[0, :2].tolist(), [8190, 8191])
+        self.assertEqual(trimmed[0, 2:].tolist(), [0] * 62)
+        self.assertEqual(trimmed[1].tolist(), table[1, :64].tolist())
+        self.assertTrue(trimmed.is_contiguous())
+
     def test_real_torch_dict_and_jit_mirrors_restore_tokens_and_image_barriers(self):
         import numpy as np
         import torch

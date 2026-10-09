@@ -61,6 +61,25 @@ _CED_SWA_CLIP_CAPTURE_WARNED = [False]
 _CED_KVGEOM_SEEN: set[tuple[int, str]] = set()
 
 
+def _ced_clip_swa_table(block_table, seq_lens, first_positions, block_size, prior_tokens):
+    """Rebase PA rows to the needed window, with safe padding for ragged batches."""
+    base_pages = torch.div(torch.clamp(first_positions - prior_tokens, min=0),
+                           block_size, rounding_mode="floor")
+    local_lens = seq_lens - base_pages.to(seq_lens.dtype) * block_size
+    if int(local_lens.min().item()) <= 0:
+        raise ValueError("CED SWA window has no valid KV tokens")
+    num_pages = (int(local_lens.max().item()) + block_size - 1) // block_size
+    offsets = torch.arange(num_pages, device=base_pages.device, dtype=torch.long)
+    valid = offsets[None, :] * block_size < local_lens[:, None]
+    columns = base_pages[:, None] + offsets[None, :]
+    # A short request near the maximum length can otherwise gather past
+    # its row when another request needs a wider window. Padded columns
+    # are never read by the operator's seq-used mask.
+    columns = torch.where(valid, columns, torch.zeros_like(columns))
+    table = torch.gather(block_table, 1, columns).masked_fill(~valid, 0)
+    return table, local_lens, base_pages
+
+
 def _ced_is_capturing() -> bool:
     """是否正在 ACL graph capture；capture 期间绝不能做 D2H 或临时分配。"""
     try:
@@ -717,19 +736,22 @@ class DeepseekV41EagerAttentionImpl:
         # ★ 触发条件必须与 forward() 里算出的 replay_chunk 同源，不能用
         #   "max_query_len > 1" 之类的启发式：否则 profile run（或将来任何新的
         #   多 token 步）会走进裁剪分支，而那不是有界重放语义。
-        clip_wanted = _CED_SWA_CLIP and replay_chunk
+        p_cache_window = (os.environ.get("CED_DRAM_STRICT_REGISTER") == "1"
+                          and os.environ.get("V41_CED_ROLE") == "prefill"
+                          and metadata.swa.num_prefills > 0)
+        clip_wanted = (_CED_SWA_CLIP and replay_chunk) or p_cache_window
         if clip_wanted and metadata.swa.positions is None:
             # 缺 positions 就没法算 rebase 起点，只能退回未裁剪路径 —— 那正是
             # 本次修复要消掉的错误路径，所以这里**报错**而不是静默继续。
             raise RuntimeError(
-                "CED SWA clip is enabled for a replay step but metadata.swa.positions "
+                "CED SWA clip is enabled but metadata.swa.positions "
                 "is missing; refusing to fall back to the un-clipped (buggy) path. "
                 "Set V41_CED_SWA_CLIP=0 to run the old behaviour on purpose."
             )
         if clip_wanted and _ced_is_capturing() and not _CED_SWA_CLIP_CAPTURE_WARNED[0]:
             _CED_SWA_CLIP_CAPTURE_WARNED[0] = True
             print(
-                "[CED-SWA-CLIP] WARNING: a replay step is being captured into an ACL "
+                "[CED-SWA-CLIP] WARNING: a window step is being captured into an ACL "
                 "graph; the clip is skipped for that step, so the graph would bake in "
                 "the un-clipped behaviour. Replay steps are prefill-shaped and should "
                 "not be FULL_DECODE_ONLY graph candidates — please investigate.",
@@ -745,12 +767,14 @@ class DeepseekV41EagerAttentionImpl:
             positions_swa = metadata.swa.positions[: q.shape[0]]
             query_starts = metadata.swa.query_start_loc[:num_reqs].to(torch.long)
             first_positions = positions_swa.index_select(0, query_starts)
-            base_pages = torch.div(first_positions, block_size, rounding_mode="floor")
-            local_lens = seq_lens - base_pages.to(seq_lens.dtype) * block_size
-            num_pages = int((int(local_lens.max().item()) + block_size - 1) // block_size)
-            offsets = torch.arange(num_pages, device=base_pages.device, dtype=torch.long)
-            columns = base_pages[:, None] + offsets[None, :]
-            ori_block_table = torch.gather(metadata.swa.block_table[:num_reqs], 1, columns)
+            # A P continuation needs the preceding 127 tokens. D replay
+            # retains its existing contract of rebuilding within the replay
+            # span. Both avoid prefetched reads of reclaimed prefix pages.
+            ori_block_table, local_lens, base_pages = _ced_clip_swa_table(
+                metadata.swa.block_table[:num_reqs], seq_lens, first_positions,
+                block_size, attn.window_size - 1 if p_cache_window else 0,
+            )
+            num_pages = ori_block_table.shape[1]
             if not ori_block_table.is_contiguous():
                 raise RuntimeError("CED SWA clip produced a non-contiguous block table")
             seqused_ori = local_lens

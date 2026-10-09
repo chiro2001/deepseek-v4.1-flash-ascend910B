@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import torch
+import torch_npu
 from vllm_ascend.distributed.kv_transfer.kv_pool.kv_offload.native.offloading_connector import (
     _canonicalize_split_attention_cache,
 )
@@ -64,6 +65,10 @@ def describe_mock_segments(kv_cache_config, kv_caches):
                                 if original is not None else None)
                     if not geometry or geometry[0] != segment["tokens_per_block"]:
                         raise ValueError("CED mock SWA tail requires verified token-contiguous physical slots")
+                    physical_format = torch_npu.get_npu_format(original)
+                    if physical_format not in (0, 2):
+                        raise ValueError("CED mock SWA partial comparison requires a dense physical NPU format")
                     segment["slot_bytes"] = geometry[1]
+                    segment["physical_format"] = physical_format
                 result.append(segment)
     return result

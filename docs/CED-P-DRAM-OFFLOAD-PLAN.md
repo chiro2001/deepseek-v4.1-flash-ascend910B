@@ -264,3 +264,21 @@ mock 入口已补占用拒绝检查；本任务 mock 将退出，释放自有 co
   18项测试全部通过，包含真实Torch的Python/JIT镜像扩容、token映射、图像
   barrier、无效页拒绝和G2物理页定位。第一次CPU容器缺driver导致torch_npu
   自动加载失败，未执行该测试；不能计为通过。修复后的实机臂尚待启动。
+
+### v10 与 P 的 SWA 窗口
+
+- 【实测】Engram页恢复在三次DRAM回访的八rank全部执行，未再出现缺页提示。
+  P response 为0.16013/0.14980/0.14926 s，三次H2D仍各375480320 B。
+  所有有效组都进入了修正后的指纹；全量一致性仍失败。实际SWA尾页的比较
+  也发现HBM续算与冷算不同，不能只归因于DRAM搬运。
+- 【实测】rank0 block120的long KV相对L2为1.53%/5.83%/7.85%/4.79%；
+  前缀block119仍逐字节相等。v10原始数据、镜像CPU测试日志和数值分析
+  已经归档，不能把消除Engram缺页当成消除全部计算差异。
+- 【待实测】现有SWA块表裁剪只作用于D replay。P的普通chunk或缓存续算也有
+  大量回收后的前缀null列，且算子按表宽预取；新增仅在CED DRAM P配置下
+  的窗口裁剪，保留起点前127 tokens。D维持原replay起点，G0全局表不裁剪。
+  不同长度请求共批时按各行seq-used做右侧零填充，避免近1Mi请求的列越界。
+- 新SWA摘要另外验证实际NPU storage format为dense（ND/NCHW），同时保留
+  shape/stride验证；不能仅凭logical stride假定physical NZ packing。
+- 目标镜像CPU模式20项测试全部通过，包含实际Torch gather的P/D窗口差异、
+  临近1Mi的ragged batch越界负控。新窗口方案仍是候选修复，下一臂须实测。
