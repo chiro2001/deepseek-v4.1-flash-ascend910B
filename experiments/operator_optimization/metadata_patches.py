@@ -79,7 +79,7 @@ def install(model):
             return static_build(self, *args, **kwargs)
         if arm == 'mdslots' and self._supports_device_ops:
             return fused_build(self, *args, **kwargs)
-        if arm in ['mdall', 'mdfull'] and self._supports_device_ops:
+        if (arm in ['mdall', 'mdfull'] or goal.enabled('metadata_all')) and self._supports_device_ops:
             return ring_build(self, *args, **kwargs)
         return original(self, *args, **kwargs)
 

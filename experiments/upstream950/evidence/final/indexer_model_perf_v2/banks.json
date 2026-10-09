@@ -1,0 +1,188 @@
+[
+  {
+    "arm": "baseline",
+    "k_source_calls": 4,
+    "fused_post_calls": 0,
+    "cache_layouts": [
+      {
+        "k_shape": [
+          7939,
+          64,
+          1,
+          128
+        ],
+        "k_stride": [
+          131072,
+          128,
+          128,
+          1
+        ],
+        "scale_stride": [
+          65536,
+          1,
+          1,
+          1
+        ],
+        "cos_dtype": "torch.float32"
+      },
+      {
+        "k_shape": [
+          7939,
+          64,
+          1,
+          128
+        ],
+        "k_stride": [
+          131072,
+          128,
+          128,
+          1
+        ],
+        "scale_stride": [
+          65536,
+          1,
+          1,
+          1
+        ],
+        "cos_dtype": "torch.float32"
+      },
+      {
+        "k_shape": [
+          7939,
+          64,
+          1,
+          128
+        ],
+        "k_stride": [
+          131072,
+          128,
+          128,
+          1
+        ],
+        "scale_stride": [
+          65536,
+          1,
+          1,
+          1
+        ],
+        "cos_dtype": "torch.float32"
+      },
+      {
+        "k_shape": [
+          7939,
+          128,
+          1,
+          128
+        ],
+        "k_stride": [
+          147712,
+          128,
+          128,
+          1
+        ],
+        "scale_stride": [
+          73856,
+          1,
+          1,
+          1
+        ],
+        "cos_dtype": "torch.float32"
+      }
+    ],
+    "hc_calls": 80,
+    "router_calls": 40
+  },
+  {
+    "arm": "fused",
+    "k_source_calls": 4,
+    "fused_post_calls": 4,
+    "cache_layouts": [
+      {
+        "k_shape": [
+          7939,
+          64,
+          1,
+          128
+        ],
+        "k_stride": [
+          131072,
+          128,
+          128,
+          1
+        ],
+        "scale_stride": [
+          65536,
+          1,
+          1,
+          1
+        ],
+        "cos_dtype": "torch.float32"
+      },
+      {
+        "k_shape": [
+          7939,
+          64,
+          1,
+          128
+        ],
+        "k_stride": [
+          131072,
+          128,
+          128,
+          1
+        ],
+        "scale_stride": [
+          65536,
+          1,
+          1,
+          1
+        ],
+        "cos_dtype": "torch.float32"
+      },
+      {
+        "k_shape": [
+          7939,
+          64,
+          1,
+          128
+        ],
+        "k_stride": [
+          131072,
+          128,
+          128,
+          1
+        ],
+        "scale_stride": [
+          65536,
+          1,
+          1,
+          1
+        ],
+        "cos_dtype": "torch.float32"
+      },
+      {
+        "k_shape": [
+          7939,
+          128,
+          1,
+          128
+        ],
+        "k_stride": [
+          147712,
+          128,
+          128,
+          1
+        ],
+        "scale_stride": [
+          73856,
+          1,
+          1,
+          1
+        ],
+        "cos_dtype": "torch.float32"
+      }
+    ],
+    "hc_calls": 80,
+    "router_calls": 40
+  }
+]

@@ -1,0 +1,42 @@
+{
+  "candidate": "sparse_gmm",
+  "same_model_process": true,
+  "profiler": "OFF",
+  "audit": true,
+  "baseline": {
+    "ms_per_step": 26.505960151553154,
+    "A": 1,
+    "tokens_per_second": 37.72736374318451
+  },
+  "pairs": [
+    {
+      "pair": 0,
+      "arm": "sparse",
+      "baseline_ms": 26.52243012562394,
+      "candidate_ms": 26.710540056228638,
+      "speedup": 0.9929574643489535,
+      "tokens_equal": true,
+      "actual_routes_equal": true,
+      "max_logprob_delta": 0.0
+    },
+    {
+      "pair": 1,
+      "arm": "sparse",
+      "baseline_ms": 26.489490177482367,
+      "candidate_ms": 26.629480067640543,
+      "speedup": 0.9947430483132756,
+      "tokens_equal": true,
+      "actual_routes_equal": true,
+      "max_logprob_delta": 0.0
+    }
+  ],
+  "arms": {
+    "sparse": {
+      "ms_per_step": 26.67001006193459,
+      "A": 1,
+      "tokens_per_second": 37.49529893981082,
+      "paired_speedup_median": 0.9938502563311146,
+      "all_pairs_faster": false
+    }
+  }
+}

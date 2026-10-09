@@ -1,0 +1,69 @@
+{
+  "candidate": "epilogue",
+  "same_model_process": true,
+  "profiler": "OFF",
+  "audit": true,
+  "baseline": {
+    "ms_per_step": 26.34836989454925,
+    "A": 1,
+    "tokens_per_second": 37.95301204598894
+  },
+  "pairs": [
+    {
+      "pair": 0,
+      "arm": "packed",
+      "baseline_ms": 26.567249558866024,
+      "candidate_ms": 31.14569978788495,
+      "speedup": 0.8529989610058513,
+      "tokens_equal": true,
+      "actual_routes_equal": true,
+      "max_logprob_delta": 0.0
+    },
+    {
+      "pair": 0,
+      "arm": "inplace",
+      "baseline_ms": 26.567249558866024,
+      "candidate_ms": 27.37689996138215,
+      "speedup": 0.9704257821865069,
+      "tokens_equal": true,
+      "actual_routes_equal": true,
+      "max_logprob_delta": 0.0
+    },
+    {
+      "pair": 1,
+      "arm": "packed",
+      "baseline_ms": 26.129490230232477,
+      "candidate_ms": 31.15398995578289,
+      "speedup": 0.838720506340224,
+      "tokens_equal": true,
+      "actual_routes_equal": true,
+      "max_logprob_delta": 0.0
+    },
+    {
+      "pair": 1,
+      "arm": "inplace",
+      "baseline_ms": 26.129490230232477,
+      "candidate_ms": 28.041119687259197,
+      "speedup": 0.9318276346184817,
+      "tokens_equal": true,
+      "actual_routes_equal": true,
+      "max_logprob_delta": 0.0
+    }
+  ],
+  "arms": {
+    "packed": {
+      "ms_per_step": 31.14984487183392,
+      "A": 1,
+      "tokens_per_second": 32.10288860552922,
+      "paired_speedup_median": 0.8458597336730376,
+      "all_pairs_faster": false
+    },
+    "inplace": {
+      "ms_per_step": 27.709009824320674,
+      "A": 1,
+      "tokens_per_second": 36.08934445294695,
+      "paired_speedup_median": 0.9511267084024944,
+      "all_pairs_faster": false
+    }
+  }
+}

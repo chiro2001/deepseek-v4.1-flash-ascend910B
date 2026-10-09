@@ -1,0 +1,42 @@
+{
+  "candidate": "indexer",
+  "same_model_process": true,
+  "profiler": "OFF",
+  "audit": true,
+  "baseline": {
+    "ms_per_step": 27.070252341218293,
+    "A": 1,
+    "tokens_per_second": 36.94091903522297
+  },
+  "pairs": [
+    {
+      "pair": 0,
+      "arm": "fused",
+      "baseline_ms": 27.130244998261333,
+      "candidate_ms": 26.964460033923388,
+      "speedup": 1.006148276810638,
+      "tokens_equal": true,
+      "actual_routes_equal": true,
+      "max_logprob_delta": 0.0
+    },
+    {
+      "pair": 1,
+      "arm": "fused",
+      "baseline_ms": 27.010259684175253,
+      "candidate_ms": 27.15469989925623,
+      "speedup": 0.994680839205852,
+      "tokens_equal": true,
+      "actual_routes_equal": true,
+      "max_logprob_delta": 0.0
+    }
+  ],
+  "arms": {
+    "fused": {
+      "ms_per_step": 27.05957996658981,
+      "A": 1,
+      "tokens_per_second": 36.9554886378388,
+      "paired_speedup_median": 1.000414558008245,
+      "all_pairs_faster": false
+    }
+  }
+}

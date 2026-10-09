@@ -15,7 +15,7 @@ def install(model):
     original_try = vendor.MultiGroupBlockTable._v41_try_fused
 
     def mode():
-        if goal.ARM in ['mdlaunch', 'mdfull']:
+        if goal.ARM in ['mdlaunch', 'mdfull'] or goal.enabled('blockmap'):
             return 'verify' if os.getenv('OPT_BLOCKMAP_VERIFY') == '1' else 'on'
         return original_mode()
 

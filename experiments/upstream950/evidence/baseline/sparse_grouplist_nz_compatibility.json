@@ -1,0 +1,64 @@
+{
+  "physical_chip": 5,
+  "dtype": "bfloat16",
+  "experts": 8,
+  "test_kind": "API compatibility and output comparison only",
+  "cases": [
+    {
+      "k": 5120,
+      "n": 512,
+      "active_experts": [
+        2,
+        5
+      ],
+      "format": "NZ",
+      "actual_format": 29,
+      "split_item": 2,
+      "supported": true,
+      "bitwise_equal": true,
+      "max_abs": 0.0
+    },
+    {
+      "k": 5120,
+      "n": 512,
+      "active_experts": [
+        0,
+        7
+      ],
+      "format": "NZ",
+      "actual_format": 29,
+      "split_item": 2,
+      "supported": true,
+      "bitwise_equal": true,
+      "max_abs": 0.0
+    },
+    {
+      "k": 256,
+      "n": 5120,
+      "active_experts": [
+        2,
+        5
+      ],
+      "format": "NZ",
+      "actual_format": 29,
+      "split_item": 2,
+      "supported": true,
+      "bitwise_equal": true,
+      "max_abs": 0.0
+    },
+    {
+      "k": 256,
+      "n": 5120,
+      "active_experts": [
+        0,
+        7
+      ],
+      "format": "NZ",
+      "actual_format": 29,
+      "split_item": 2,
+      "supported": true,
+      "bitwise_equal": true,
+      "max_abs": 0.0
+    }
+  ]
+}

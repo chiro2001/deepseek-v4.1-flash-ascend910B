@@ -1,0 +1,69 @@
+{
+  "candidate": "smla",
+  "same_model_process": true,
+  "profiler": "OFF",
+  "audit": true,
+  "baseline": {
+    "ms_per_step": 26.088139973580837,
+    "A": 1,
+    "tokens_per_second": 38.33159439548732
+  },
+  "pairs": [
+    {
+      "pair": 0,
+      "arm": "control",
+      "baseline_ms": 26.073419954627752,
+      "candidate_ms": 26.086279656738043,
+      "speedup": 0.9995070319616477,
+      "tokens_equal": true,
+      "actual_routes_equal": true,
+      "max_logprob_delta": 0.0
+    },
+    {
+      "pair": 0,
+      "arm": "prefetch",
+      "baseline_ms": 26.073419954627752,
+      "candidate_ms": 26.227999944239855,
+      "speedup": 0.9941062989957017,
+      "tokens_equal": true,
+      "actual_routes_equal": true,
+      "max_logprob_delta": 0.0
+    },
+    {
+      "pair": 1,
+      "arm": "control",
+      "baseline_ms": 26.102859992533922,
+      "candidate_ms": 26.10608981922269,
+      "speedup": 0.9998762807179806,
+      "tokens_equal": true,
+      "actual_routes_equal": true,
+      "max_logprob_delta": 0.0
+    },
+    {
+      "pair": 1,
+      "arm": "prefetch",
+      "baseline_ms": 26.102859992533922,
+      "candidate_ms": 26.1123301461339,
+      "speedup": 0.9996373301981486,
+      "tokens_equal": true,
+      "actual_routes_equal": true,
+      "max_logprob_delta": 0.0
+    }
+  ],
+  "arms": {
+    "control": {
+      "ms_per_step": 26.096184737980366,
+      "A": 1,
+      "tokens_per_second": 38.31977777750021,
+      "paired_speedup_median": 0.9996916563398142,
+      "all_pairs_faster": false
+    },
+    "prefetch": {
+      "ms_per_step": 26.170165045186877,
+      "A": 1,
+      "tokens_per_second": 38.21145179150929,
+      "paired_speedup_median": 0.9968718145969251,
+      "all_pairs_faster": false
+    }
+  }
+}
