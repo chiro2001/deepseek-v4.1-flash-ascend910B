@@ -142,6 +142,7 @@ class MooncakeAgentMetadata(msgspec.Struct, omit_defaults=True, dict=True):
     ssm_sizes: tuple[int, int]
     local_ip: str = ""
     mock_segments: list[dict[str, Any]] | None = None
+    mock_registered_regions: list[tuple[int, int]] | None = None
 
 
 @dataclass
@@ -2122,6 +2123,7 @@ class MooncakeConnectorWorker:
             ssm_sizes=self._mamba_ssm_size,
             local_ip=get_ip(),
             mock_segments=mock_segments,
+            mock_registered_regions=list(zip(ptrs, lengths)) if mock_segments is not None else None,
         )
         self.xfer_handshake_metadata = metadata
 

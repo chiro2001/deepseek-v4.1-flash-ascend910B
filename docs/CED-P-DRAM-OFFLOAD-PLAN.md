@@ -162,3 +162,28 @@ canonical views，不修改 attention layout/FA 算子配置；mock 读取有效
 ALLOW_BUSY、停止他人进程或重置设备。mock 所在 4 也出现同类测试进程，后续
 mock 入口已补占用拒绝检查；本任务 mock 将退出，释放自有 context 和锁。
 完整 TP8 验证须在 6–13 实际重新空闲后继续。goal 保持 active，本轮没有达成声明。
+
+### 第二轮继续：接收路径隔离
+
+- 【实测】两进程 Mooncake probe（无模型）在 Phy-ID 6/7 上完成 HBM→host
+  1 MiB 三轮逐元素比较，SHA256 均为
+  `21b9bf484e8bb6ca346d2cd113f24594cadb15c31c3e6ea4bd99897b1e728282`。
+  首轮包含建连约 1.25 s，后二轮约 0.37/0.27 ms；这是小数据路径诊断，不能
+  当成真实 KV 性能。进程结束时仍报堆损坏，probe 整体退出非零。
+- 【实测】仅导入该镜像的 Mooncake engine 并列举 API，退出时也报
+  `corrupted size vs. prev_size`；不能把所有清理错误归因于 KV 地址或线程。
+  新 probe 加入显式 unregister，尚待执行验证。
+- 【实测】Phy-ID 3 Health OK，但 `set_device` 返回 507033 / E39006，
+  `TsdOpen failed devId=3`，不用于后续 mock。未重置。
+- 第二次 probe 的 `7,6` 可见设备顺序导致初始化返回 107001；按 `6,7`
+  顺序启动后数据路径通过。该现象需保留，实验默认使用升序设备列表。
+- mock 增加 producer registered-region 元数据和消费前地址范围检查；
+  新负控证明超出注册区间会在原生 TE 调用前拒绝。当前十二项离线测试通过。
+- `tools/ced_mock_transport_probe.py` 使用真实 mock consumer + TE/ZMQ、单
+  source engine 的八个虚拟 rank endpoint，以小数据定位实际接收代码问题；
+  它不替代真实 P8 KV 验收。第一次启动 SSH 在 banner 阶段失败，尚未执行。
+- 连续原路径及禁用 jump/target ControlMaster 的 SSH 连接都在 banner 阶段
+  超时。当前没有本任务存活的 NPU 实验；待连接恢复后先复查实际占用。
+- 新原始日志**待 COS 取回**：
+  `a3-21:~/tmp/20261009/ced_dram_runtime_v0/client_results/pair-host.log`、
+  `pair-host76.log`、`pair-host67.log`。本机不声称这些文件已归档。

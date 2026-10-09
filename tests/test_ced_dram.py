@@ -84,7 +84,7 @@ class GeometryTests(unittest.TestCase):
         blocks[0] = [5, 7]
         params = {"remote_block_ids": blocks, "ced_prefix_tokens": 129,
                   "ced_missing_swa_groups": [7, 8, 9, 10, 11]}
-        metadata = {"mock_segments": [{"group": 0, "component": "kv",
+        metadata = {"mock_registered_regions": [(1000, 2048)], "mock_segments": [{"group": 0, "component": "kv",
                     "base": 1000, "stride": 256, "page_bytes": 128,
                     "num_blocks": 8, "tokens_per_block": 128, "prefix_cacheable": True}]}
         rows = list(page_plan(metadata, params))
@@ -92,6 +92,18 @@ class GeometryTests(unittest.TestCase):
         self.assertEqual([r["compare"] for r in rows], [True, False])
         blocks[0] = [8]
         with self.assertRaises(ValueError):
+            list(page_plan(metadata, params))
+
+    def test_mock_rejects_unregistered_payload_before_native_read(self):
+        blocks = [[1]] + [[] for _ in range(11)]
+        params = {"remote_block_ids": blocks, "ced_prefix_tokens": 128,
+                  "ced_missing_swa_groups": [7, 8, 9, 10, 11]}
+        metadata = {"mock_registered_regions": [(1000, 256)], "mock_segments": [{
+            "group": 0, "component": "kv", "base": 1000, "stride": 256,
+            "page_bytes": 128, "num_blocks": 2, "tokens_per_block": 128,
+            "prefix_cacheable": True,
+        }]}
+        with self.assertRaisesRegex(ValueError, "registered"):
             list(page_plan(metadata, params))
 
 

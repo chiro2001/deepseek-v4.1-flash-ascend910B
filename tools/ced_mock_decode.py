@@ -26,9 +26,10 @@ DONE_RECVING = b"done_recving_msg"
 def page_plan(metadata: dict, params: dict):
     """Return bounded/validated wire spans in stable logical payload order."""
     segments = metadata.get("mock_segments")
+    regions = metadata.get("mock_registered_regions")
     blocks = params["remote_block_ids"]
     prefix = int(params["ced_prefix_tokens"])
-    if not segments or len(blocks) != 12 or prefix < 1:
+    if not segments or not regions or len(blocks) != 12 or prefix < 1:
         raise ValueError("Mock requires CED P exact-payload metadata and 12 groups")
     if tuple(params.get("ced_missing_swa_groups", ())) != (7, 8, 9, 10, 11):
         raise ValueError("Incompatible CED missing-group contract")
@@ -52,8 +53,12 @@ def page_plan(metadata: dict, params: dict):
             compare = bool(segment["prefix_cacheable"]) and (
                 logical_start + position < prefix // unit
             )
+            address = int(segment["base"]) + block * stride
+            if not any(int(base) <= address and address + size <= int(base) + int(length)
+                       for base, length in regions):
+                raise ValueError("Mock payload falls outside producer's registered TE memory")
             yield {
-                "remote": int(segment["base"]) + block * stride,
+                "remote": address,
                 "size": size,
                 "group": group,
                 "component": segment["component"],
@@ -140,6 +145,9 @@ class MockConsumer:
                 raise ValueError("Producer engine identity changed during mock consumption")
             session = f"{host}:{metadata['te_rpc_port']}"
             rows = list(page_plan(metadata, params))
+            print(json.dumps({"mock_phase": "planned", "request_id": params["remote_request_id"],
+                              "rank": rank, "pages": len(rows),
+                              "bytes": sum(row["size"] for row in rows)}), flush=True)
             hashes = {}
             nonzero = {}
             byte_count, read_seconds, hash_seconds = 0, 0.0, 0.0
@@ -151,6 +159,8 @@ class MockConsumer:
                 if not batch:
                     return
                 before = time.perf_counter()
+                print(json.dumps({"mock_phase": "before_read", "rank": rank,
+                                  "copies": len(batch), "bytes": offset}), flush=True)
                 ret = self.engine.batch_transfer_sync_read(
                     session,
                     [self.buffer.data_ptr() + where for where, row in batch],
@@ -160,6 +170,8 @@ class MockConsumer:
                 read_seconds += time.perf_counter() - before
                 if ret < 0:
                     raise RuntimeError(f"Mock Mooncake read failed for rank {rank}: {ret}")
+                print(json.dumps({"mock_phase": "read_complete", "rank": rank,
+                                  "ret": ret, "bytes": offset}), flush=True)
                 before = time.perf_counter()
                 array = self.buffer.numpy()
                 for where, row in batch:
