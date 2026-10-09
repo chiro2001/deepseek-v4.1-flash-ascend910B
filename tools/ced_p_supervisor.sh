@@ -17,6 +17,8 @@ cleanup() {
 trap cleanup EXIT
 trap 'exit 143' TERM HUP
 trap 'exit 130' INT
+export RUN_ID=${RUN_ID:-$NAME}
+mkdir -p "$PKG/results/$RUN_ID"
 started=1
 bash "$PKG/scripts/serve_a3_ced_dram.sh"
 while [ "$(docker inspect --format '{{.State.Running}}' "$NAME" 2>/dev/null || true)" = true ]; do

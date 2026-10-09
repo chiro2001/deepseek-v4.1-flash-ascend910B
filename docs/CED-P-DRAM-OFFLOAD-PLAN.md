@@ -108,3 +108,29 @@ P 实算 token 数和阶段耗时共同证明恢复路径。
 镜像 native KV split helper 名称为 `_canonicalize_split_attention_cache`；
 本地较新 upstream fork 已改名，初版 mock 导入烟测抓到了这个差异，现按实际
 目标镜像 API 接入，不把参考代码的版本当作镜像事实。
+
+## 实机推进记录
+
+- 初版代码提交 `0e975b0`，MANIFEST 提交 `197a46a`；包完整 selfcheck 通过。
+- 真实镜像导入 `CEDOffloadingConnector`、`CEDNPUOffloadingSpec` 和 mock geometry
+  通过；`supports_hma(CEDOffloadingConnector)=True`。
+- mock 使用额外 Phy-ID 4（启动前已核对空闲、无锁），容器
+  `ced-dram-mock-20261009-1159`，HTTP `127.0.0.1:19191`。64 MiB host buffer
+  注册成功；未加载模型或启动真实 vLLM。
+- P 第一臂 `ced-dram-p-20261009-1159`，MAX_LEN=32768 / HBM 138477568 B，
+  在 KV 最低容量校验阶段失败：最低约 0.78 GiB。没有执行测试请求，已自动清理。
+- P 第二臂 `ced-dram-p-20261009-1210`，MAX_LEN=16384 / HBM 512 MiB，同一
+  校验报告最低约 0.72 GiB，已退出并清理。该模型的校验有显著固定开销，不能
+  按 max_len 线性缩小预算；这两臂不算 DRAM 存取失败。
+- P 第三臂 `ced-dram-p-20261009-1219`，MAX_LEN=32768 / HBM 1 GiB / DRAM
+  记账 2 GiB，真实权重正在启动。须以容器实际状态和新日志核验进展，禁止仅
+  凭旧锁文件或旧 PID 重启。每个 P 实例都由前台 supervisor 保持设备锁至退出。
+- 测试 runner `tools/ced_dram_bench.py` 已写入，逐请求保存原始 metrics、P 交接
+  参数、八 rank mock 数据指纹及阶段耗时；冷/热/四前缀交错/三轮回访、部分/
+  追加和短边界仍待实际运行。P response 和 mock consume 时长不标成真实 TTFT。
+
+按仓库要求读取 cannbot `model-infer-kvcache` 的 §2.1–2.6 与实际 paged tensor
+shape 说明：逻辑 token/block、物理 block ID 与物理 stride 必须分开；cache 的
+实际 NZ/padded 形状不能从 input_layout 字面推断。本实现沿用目标镜像 native
+canonical views，不修改 attention layout/FA 算子配置；mock 读取有效 payload，
+未写满的末页和 circular state 消费但不进入 reusable-prefix 指纹。
