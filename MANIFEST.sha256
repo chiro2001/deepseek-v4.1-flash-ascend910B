@@ -275,7 +275,7 @@ a111a618883a5348ce5f58b387ff7e25f06ac67a5b04ce08399d082783fce4d9  ./docs/A3-CED-
 c25585ef563fa6279634e6cb8018a938cc8f90ce3ba7a28e26124d81d3dfece2  ./docs/BENCH-METHODOLOGY.md
 c5454e6d634e110df3037e4984582c2de08906b2c4aa45931ec85ae6ebf8a1fd  ./docs/CED-D-1M-LAYOUT-BUG-20260924.md
 f257e6d68cc2e3865f417b86baa913b231aa2d4da4bc2cca729669d37ae366c7  ./docs/CED-D-STATUS-20260924-2030.md
-d1adf2d3ad40937a9e64d5a12326261028735b966801bb1255dbd33b6b4480bd  ./docs/CED-P-DRAM-OFFLOAD-PLAN.md
+f1b02495b98baa288917a8064b23006906c23579b43a2af6805f11da84225579  ./docs/CED-P-DRAM-OFFLOAD-PLAN.md
 db5c17f4e24d49b15612d75701ac281390cda392e0c6e963c4037887ef45a27c  ./docs/CED-PD-ACCEPTANCE.md
 b0e9df3e2af68645035f1f6c8aef5ce894a9fdcc174b4cf5d2477f9061e02d5a  ./docs/CED-PD-ACCURACY-MEASURES-20260926.md
 e97e8153ca737c1630d4e621210f43cba883130a0e70e2e4bd78319c334e4fb1  ./docs/CED-PD-BLOCK-BOUND-20260925.md
@@ -465,6 +465,7 @@ a8ca7004cd504565dd3160f50f80f6d89f198579c856c4fa2502af1c75c40fbd  ./evidence/ced
 21868750e8634ce54c6bfe07dff1b8b5dba67bf4f62c6186081d55af17694629  ./evidence/ced_d_oom_8b59d03/proxy_response.json
 6613dfbbc70a8e4222f782c54e66a9a3bb2eadfffaae32bbb908626a49d62696  ./evidence/ced_d_oom_8b59d03/serve.log.gz
 a08c155b527ef391d0f48ab6a3099a9bb5e3e850081a582b215218a1b4afec7a  ./evidence/ced_dram_20261009/README.md
+937435d9003ba98fd0f64f37ec2971e977b3653c3cb4562ba9ede6371afe867a  ./evidence/ced_dram_20261009/bench16k_v10.json.gz
 a09a6ff28ab5079891526cd815a41ca562bc9bc6c8238e6e12b9c18b1e189963  ./evidence/ced_dram_20261009/bench16k_v8.json
 8fce82c900cc1a9559fe074fb2f4f5c5b9d76568bff73d495171e8d7561736af  ./evidence/ced_dram_20261009/bench16k_v9.json.gz
 b1f579a5332f828c1e01cade49a0b4ce6dc687877c09ad8ffc2202a498ce4c2b  ./evidence/ced_dram_20261009/hccl8.log
@@ -475,6 +476,11 @@ f48f0627a5908fd98683563dcc31e30d8df1526a7b181e6c1a4c40c1bd278015  ./evidence/ced
 cb46536eeb1ac6edfac16195a5a83e348c702b17ccc2c7dcc9bf4a837df3ec00  ./evidence/ced_dram_20261009/pair-host76.log
 30bb001aaca06b5827d03265f6108afde0924b9e076777336366b29ffb88ba4c  ./evidence/ced_dram_20261009/pair-same139.log
 f328c8b2b2fe597a12542c4b7ce44356a4d67573fa179f5118368c0b064d60d9  ./evidence/ced_dram_20261009/probe8.log
+4ac80fc834fa055369ba2eacd4ca30c7a7dca18cb187a1fef5bca108c2370c78  ./evidence/ced_dram_20261009/v10-cpu-check.log
+346261bbd8737796c3941c6feb6d54400d025d1ac42385fbb775a966ccae8443  ./evidence/ced_dram_20261009/v10-mock-driver.log
+7e520569867750acf29edf98342dd93376c807c2da757303708e2f36ebb419ed  ./evidence/ced_dram_20261009/v10-numeric-analysis.json
+7c3b223b8e713001fcec7b85f333266b87c682a2bdc4ce7bcea551cb18037077  ./evidence/ced_dram_20261009/v10-p-serve.log
+e9168ec902aefe683cb39963c71f1c3fa9eaff755ce1edda29d378d85a914e5a  ./evidence/ced_dram_20261009/v10-snapshot-control.json.gz
 cf405705c44dda2f891d030dc9ae7098980167676cc75d8fe840025d52f128ed  ./evidence/ced_dram_20261009/v8-mock.log
 15eaab3414f066579738e8dfe34190d93811b22d3561d45ceeac7769a64a1097  ./evidence/ced_dram_20261009/v8-p-serve.log
 50c597de1e527a762cca30485a48d6926d9f83dd70280da1ea2d74f03361ebf6  ./evidence/ced_dram_20261009/v9-analysis.json
@@ -2056,8 +2062,8 @@ b8d9e90ab6e1bb6063d839eaf270c66f7a9a6f3f68f1f3d969bd8b2c8da60171  ./experimental
 56c911312b4b4efcccb1967f25b039de49b3e55595273a2d1613b5a5b11edff4  ./experimental/ced/dram/connector.py
 ab173dde855dde5f91a35d5279ba13a86923d367fd1008be119ea8d5e06dd3ef  ./experimental/ced/dram/contract.py
 91fdeeaf676ff04462eb5d5d1fb81aa215173be445af8ba02055a714cc131884  ./experimental/ced/dram/engram_history.py
-4cfa383232bff39294531b21c0655422d20f4ca30db54560d1b942a399b45d74  ./experimental/ced/dram/mock_geometry.py
-e1c6bfd81ee0eb6e351f642d11c10933f9de273846fe22b524d38a9d958c7bea  ./experimental/ced/dsa_v41.py
+1f8cbc1ce5b72630350701bc22915fb3e4e2029fda9dd6ff2e73cc562d80fa88  ./experimental/ced/dram/mock_geometry.py
+5954bbe405a815251ec21b3103b654542ac561925d51dfedee7993bb1ada74e7  ./experimental/ced/dsa_v41.py
 a740d5cd9309e84cbc1f9ee65d9b1ab644c6fc0d891926583ceaf2bddd5e7914  ./experimental/ced/mooncake_hybrid_connector.py
 cbad328db48ea46f8abb921ba664572faf201abae2748e9f6b4b107cca49ba5f  ./experiments/dspark/check_static_kernel.sh
 24f2e530e2ac002f00dbd88537696b0d28959397e07d2b7ab90da3b8e9d57a52  ./experiments/dspark/cmp_steps.py
@@ -2265,7 +2271,7 @@ c73073e3560b4fb6932cd90a18cdfa2e9d655be3d8c0e24c7fffb65844d14b16  ./tests/multib
 4f697c713a1c3b107882474a78ec0aa1ba404496d2e4ec5e57f5917751004223  ./tests/t_gsm8k.py
 aeeac0f3b1683f80bd71757128a6f3cc251148e3d8d483eca9d9b51207262e8d  ./tests/t_quote.sh
 b3fb3062cefa09deb72f140a139410666cfc045b774c466fafeadbc456b240ae  ./tests/t_vision.py
-2cdc21f068523d3590e213ffd3f876b704224494e9cd456f9748946bce1e9294  ./tests/test_ced_dram.py
+a21e0cee307bdaa1af3b703906fc67341a8116836c231fea1a55ac7373da6429  ./tests/test_ced_dram.py
 3413db18ddf3680010115f776b6de6274519d45820acb20a0d857a7db02902d6  ./tests/verify_dram_offload.py
 af13bc4785bfcddcd46a398fe7611c6942a4875e1eee8c767ce31148ebee675f  ./tests/vision_accuracy_check.py
 fc7e7059c49aeed54f3bc5cc6825bc4b614096d05bbb9f9418562f59b99ff27b  ./tools/analyze_samples.py
