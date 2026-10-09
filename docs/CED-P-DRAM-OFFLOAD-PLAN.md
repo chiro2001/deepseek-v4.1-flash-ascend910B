@@ -156,3 +156,9 @@ canonical views，不修改 attention layout/FA 算子配置；mock 读取有效
 - 两端旧实例已确认退出/清理；第五臂 P `ced-dram-p-20261009-1250` 和 mock
   `ced-dram-mock-20261009-1250` 正在启动，真实 KV 消费、挤出读回、三轮一致性、
   边界和 1M 实验仍未完成。不得把 save barrier 日志当成 read-back 证据。
+
+第五臂 P 启动检查拒绝：8/9/12 有他人的 `rain_fusion_att` 进程，root PID
+2489934/2491170/2492409 的存活复查分别已有约 9/8.5/8 分钟。没有设置
+ALLOW_BUSY、停止他人进程或重置设备。mock 所在 4 也出现同类测试进程，后续
+mock 入口已补占用拒绝检查；本任务 mock 将退出，释放自有 context 和锁。
+完整 TP8 验证须在 6–13 实际重新空闲后继续。goal 保持 active，本轮没有达成声明。

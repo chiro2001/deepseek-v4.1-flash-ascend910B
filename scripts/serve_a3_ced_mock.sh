@@ -12,6 +12,16 @@ if docker inspect "$NAME" >/dev/null 2>&1; then
   echo "Mock container name already exists: $NAME" >&2
   exit 3
 fi
+if command -v npu-smi >/dev/null 2>&1; then
+  busy=$(npu-smi info 2>/dev/null | awk -F'|' '
+    NF>=6 && $3 ~ /^[[:space:]]*[0-9]+[[:space:]]*$/ {
+      split($2, a, /[[:space:]]+/); print (a[2]+0)*2 + (a[3]+0)
+    }' | sort -n -u)
+  if printf '%s\n' "$busy" | grep -qx "$MOCK_DEV"; then
+    echo "[CED-MOCK] Phy-ID $MOCK_DEV is busy; choose a free device" >&2
+    exit 75
+  fi
+fi
 # Foreground docker wait keeps the lock supervisor alive until consumption
 # stops; the runtime creates only a device context and a bounded host buffer.
 exec docker run --rm --name "$NAME" --privileged --network host \
