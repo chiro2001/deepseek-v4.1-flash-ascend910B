@@ -1,6 +1,7 @@
 # CED P 侧 DRAM offloading 与 mock decode
 
-状态：2026-10-09，goal active，初版代码与离线检查已完成，硬件验收进行中。
+状态：2026-10-09，初版代码与离线检查已完成，硬件验收未完成。用户已授权恢复
+实验；goal控制端仍返回paused，工具不能切回active，已告知用户通过面板恢复。
 
 ## 分支与资源
 
@@ -282,3 +283,18 @@ mock 入口已补占用拒绝检查；本任务 mock 将退出，释放自有 co
   shape/stride验证；不能仅凭logical stride假定physical NZ packing。
 - 目标镜像CPU模式20项测试全部通过，包含实际Torch gather的P/D窗口差异、
   临近1Mi的ragged batch越界负控。新窗口方案仍是候选修复，下一臂须实测。
+
+### v11 资源重新被占用
+
+- 提交 `53c7807` / MANIFEST `ec84119`；CPU测试20项通过。
+  完整包自检首次有沙箱base用例失败；独立沙箱复测与完整包重跑通过。
+  未修改沙箱脚本绕过失败，原始日志保留在本机实验目录。
+- 【实测】v11源文件在远端完整MANIFEST校验通过，但P入口的二次占用检查
+  拒绝：chip8–13已有其他用户的TP8 sglang worker（约50 GiB/片），chip6有
+  `moe_init_routin`。后续ps确认sglang属于l50066329，存活约5–6分钟。
+  未开启ALLOW_BUSY、停止他人任务或重置设备。
+- 本任务P未启动、锁已释放；bench等待句柄退出70。mock11已显式停止，
+  supervisor退出137并释放chip4锁。新P窗口修复尚无实机结果，不计为通过。
+- `v11-cpu-check.log` 和 `v11-resource-block.log` 已COS归档。
+  仍待：有效SWA/G0全量一致性、partial DRAM命中、延迟消费与abort/背压、
+  默认安全池和至少四独立1Mi前缀交错；SDK退出堆损坏、真实D文本/TTFT另行标记。

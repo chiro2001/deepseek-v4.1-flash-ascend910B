@@ -1,0 +1,33 @@
+test_async_p_boundary_and_invalid_full_hit (tests.test_ced_dram.AsyncResumeTests.test_async_p_boundary_and_invalid_full_hit) ... ok
+test_local_full_hit_at_one_block_recomputes_instead_of_scheduling_zero (tests.test_ced_dram.AsyncResumeTests.test_local_full_hit_at_one_block_recomputes_instead_of_scheduling_zero) ... [CED-DRAM-RESUME] req=r loaded=1024 tail=1 unit=1024
+[CED-P-HIT] req=short status=WAITING num_tokens=1 num_computed=1 -> truncated to 0 (step=128, local=1 external=0 max_tokens=1)
+[CED-P-HIT] req=short status=WAITING num_tokens=128 num_computed=128 -> truncated to 0 (step=128, local=128 external=0 max_tokens=1)
+[CED-P-HIT] req=short status=WAITING num_tokens=1024 num_computed=1024 -> truncated to 896 (step=128, local=1024 external=0 max_tokens=1)
+[CED-P-HIT] req=short status=WAITING num_tokens=1025 num_computed=1025 -> truncated to 896 (step=128, local=1025 external=0 max_tokens=1)
+ok
+test_abort_barrier_waits_for_pending_load_destinations (tests.test_ced_dram.BarrierTests.test_abort_barrier_waits_for_pending_load_destinations) ... [CED-DRAM] save barrier complete req=aborted
+ok
+test_engram_seed_uses_layer_zero_swa_page_and_original_prompt_tokens (tests.test_ced_dram.BarrierTests.test_engram_seed_uses_layer_zero_swa_page_and_original_prompt_tokens) ... ok
+test_final_barrier_waits_for_all_stores_and_reports_once (tests.test_ced_dram.BarrierTests.test_final_barrier_waits_for_all_stores_and_reports_once) ... [CED-DRAM] save barrier complete req=r
+ok
+test_final_barrier_with_no_stores_completes (tests.test_ced_dram.BarrierTests.test_final_barrier_with_no_stores_completes) ... [CED-DRAM] save barrier complete req=r
+ok
+test_native_multi_waits_for_both_children_in_either_order (tests.test_ced_dram.CompositeCompletionTests.test_native_multi_waits_for_both_children_in_either_order) ... ok
+test_prefill_window_keeps_past_context_and_d_replay_keeps_its_start (tests.test_ced_dram.EngramRestoreTests.test_prefill_window_keeps_past_context_and_d_replay_keeps_its_start) ... ok
+test_ragged_window_near_one_million_cannot_gather_past_allocated_row (tests.test_ced_dram.EngramRestoreTests.test_ragged_window_near_one_million_cannot_gather_past_allocated_row) ... ok
+test_real_torch_dict_and_jit_mirrors_restore_tokens_and_image_barriers (tests.test_ced_dram.EngramRestoreTests.test_real_torch_dict_and_jit_mirrors_restore_tokens_and_image_barriers) ... ok
+test_backpressure_counts_shared_physical_blocks_once (tests.test_ced_dram.GeometryTests.test_backpressure_counts_shared_physical_blocks_once) ... ok
+test_composite_is_p_producer_then_native_dram (tests.test_ced_dram.GeometryTests.test_composite_is_p_producer_then_native_dram) ... ok
+test_full_hit_keeps_nonzero_aligned_tail_across_boundaries (tests.test_ced_dram.GeometryTests.test_full_hit_keeps_nonzero_aligned_tail_across_boundaries) ... ok
+test_mock_reads_partial_tail_but_compares_only_full_pages (tests.test_ced_dram.GeometryTests.test_mock_reads_partial_tail_but_compares_only_full_pages) ... ok
+test_mock_rejects_unregistered_payload_before_native_read (tests.test_ced_dram.GeometryTests.test_mock_rejects_unregistered_payload_before_native_read) ... ok
+test_mock_swa_compares_initialized_tail_and_excludes_null_page (tests.test_ced_dram.GeometryTests.test_mock_swa_compares_initialized_tail_and_excludes_null_page) ... ok
+test_noncacheable_state_does_not_constrain_native_hash_alignment (tests.test_ced_dram.GeometryTests.test_noncacheable_state_does_not_constrain_native_hash_alignment) ... ok
+test_shared_spec_does_not_exclude_encoder_groups (tests.test_ced_dram.GeometryTests.test_shared_spec_does_not_exclude_encoder_groups) ... ok
+test_slot_geometry_accepts_row_padding_but_rejects_blocked_token_axes (tests.test_ced_dram.GeometryTests.test_slot_geometry_accepts_row_padding_but_rejects_blocked_token_axes) ... ok
+test_lazy_identity_comes_from_p_and_mixed_addresses_fail_before_read (tests.test_ced_dram.MockIdentityTests.test_lazy_identity_comes_from_p_and_mixed_addresses_fail_before_read) ... ok
+
+----------------------------------------------------------------------
+Ran 20 tests in 1.420s
+
+OK
