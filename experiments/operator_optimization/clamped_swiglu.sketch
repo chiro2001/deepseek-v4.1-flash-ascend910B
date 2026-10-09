@@ -1,0 +1,29 @@
+# @architecture_decision("row-tile-single-kernel", reason="The rejected flat v1 made input mutation a slow scatter. Each Vector program now owns one contiguous row/tile; routed uses two programs and shared one. No category template exists.")
+sketch clamped_swiglu {
+  symbols: M, D;
+  tensors: X[M, 2*D]: bf16; Y[M, D]: bf16;
+  constexpr: LIMIT, ALPHA, BETA, MUTATE_INPUT, STAGED_ROUNDING, TILE;
+
+  @llm_hint("parallel", "coreidx")
+  for tile in range(0, M*ceil(D, TILE)):
+    gate = alloc([TILE], llm_hint=["fast", "input_cache"])
+    up = alloc([TILE], llm_hint=["fast", "input_cache"])
+    load(X[output_row, output_col] -> gate)
+    load(X[output_row, output_col+D] -> up)
+    clamp_gate_upper_preserving_nan(gate, cast_limit_to_input_dtype(LIMIT))
+    clamp_up_preserving_nan(up, cast_limit_to_input_dtype(-LIMIT), cast_limit_to_input_dtype(LIMIT))
+    if MUTATE_INPUT:
+      store(gate -> X[output_row, output_col])
+      store(up -> X[output_row, output_col+D])
+    if STAGED_ROUNDING:
+      sigmoid_input = cast_input_dtype(ALPHA * gate)
+      activation = cast_input_dtype(sigmoid(sigmoid_input))
+      gated = cast_input_dtype(gate * activation)
+      biased_up = cast_input_dtype(up + BETA)
+      output = gated * biased_up
+    else:
+      output = gate * sigmoid(gate) * up
+    store(output -> Y[output_row, output_col])
+}
+# Preserve real limit/alpha/beta. Routed mutation is part of the contract.
+# Shared staged casts preserve PyTorch BF16 intermediate boundaries.

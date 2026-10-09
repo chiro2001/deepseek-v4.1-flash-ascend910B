@@ -1,0 +1,44 @@
+=================================================================
+                   >>>>>   MindStudio   <<<<<
+    THE END-TO-END TOOLCHAIN TO UNLEASH HUAWEI ASCEND COMPUTE
+=================================================================
+
+[W1009 14:46:46.081658760 FunctionLoader.cpp:48] Warning: LD_PRELOAD detected, FunctionLoader prefers RTLD_DEFAULT for symbol resolution. (function operator())
+[WARN]  Currently, the root permission is used, which is unrecommended. Please ensure the security of the execution environment and programs.
+[INFO]  Op profiling analysis start.
+[INFO]  Running device task: DeviceProf
+[W1009 14:46:50.290729170 NPUCachingAllocator.cpp:202] Warning: The current CANN and HDK(driver) versions require processing for 32 padding size, with memory allocation. (function operator())
+[INFO]  Kernel Cast_9f288b80370c6545ffe8cef142d37f5c_high_performance_210000000 skipped: not selected via --kernel-name.
+[INFO] <ProfData> Start profiling on device 4, kernel: clamped_swiglu_kernel
+[INFO] <WarmUp> Warm Up enabled. times:10
+Routed probe completed: shape (2, 512) output (2, 256)
+[INFO]  Profiling running finished. All task success.
+[INFO]  Start analyze kernel on device: device4, kernel: clamped_swiglu_kernel, name is: 0
+[INFO]  Save profiling data with metric [PipeUtilization] success.
+[INFO]  Save profiling data with metric [ArithmeticUtilization] success.
+[INFO]  Save profiling data with metric [L2Cache] success.
+[INFO]  Save profiling data with metric [Memory] success.
+[INFO]  Save profiling data with metric [ResourceConflictRatio] success.
+[INFO]  Save profiling data with metric [MemoryL0] success.
+[INFO]  Save profiling data with metric [MemoryUB] success.
+[INFO]  Performance Summary Report:
+
+	1) MTE2 bandwidth utilization lower than 80% when active.
+	2) MTE3 bandwidth utilization lower than 80% when active.
+	3) aivector compute usage lower than 20%.
+
+[INFO]  Operator Basic Information:
+
+	Op Name: clamped_swiglu_kernel
+	Op Type: vector
+	Task Duration(us): 2.899942
+	Block Dim: 2
+	Mix Block Dim: 
+	Device Id: 4
+	Pid: 18578
+	Current Freq: 1800
+	Rated Freq: 1800
+
+[INFO]  Profiling results saved in /work/operator_opt/results/activation_microarch/default/OPPROF_20261009144644_SOXRTVMQRWFNNDWS
+[INFO]  Profiling data parse finished.
+[INFO]  Op profiling finish. Welcome to next use.

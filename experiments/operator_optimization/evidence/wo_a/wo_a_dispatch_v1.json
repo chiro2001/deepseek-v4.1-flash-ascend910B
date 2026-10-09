@@ -1,0 +1,113 @@
+{
+  "shape_x": [
+    1,
+    8,
+    4096
+  ],
+  "shape_weight": [
+    8,
+    4096,
+    512
+  ],
+  "dtype": "bfloat16",
+  "profiler": "OFF",
+  "precision": [
+    {
+      "scale": 0.0,
+      "max_abs_vs_fp64": {
+        "native": 0.0,
+        "bmm": 0.0
+      },
+      "native_max_abs_delta": 0.0,
+      "bit_equal_fraction": 1.0
+    },
+    {
+      "scale": 0.001,
+      "max_abs_vs_fp64": {
+        "native": 1.4726988609936598e-05,
+        "bmm": 1.4726988609936598e-05
+      },
+      "native_max_abs_delta": 0.0,
+      "bit_equal_fraction": 1.0
+    },
+    {
+      "scale": 1.0,
+      "max_abs_vs_fp64": {
+        "native": 0.007769981881210697,
+        "bmm": 0.007769981881210697
+      },
+      "native_max_abs_delta": 0.0,
+      "bit_equal_fraction": 1.0
+    },
+    {
+      "scale": 100.0,
+      "max_abs_vs_fp64": {
+        "native": 0.9695008397102356,
+        "bmm": 0.9695008397102356
+      },
+      "native_max_abs_delta": 0.0,
+      "bit_equal_fraction": 1.0
+    }
+  ],
+  "timings": [
+    {
+      "mode": "hot",
+      "samples_us": {
+        "transpose_batch": [
+          21.302600860595703,
+          20.69506072998047,
+          20.693260192871094,
+          20.385360717773438,
+          20.383560180664062,
+          20.393939971923828,
+          20.391740798950195
+        ],
+        "bmm": [
+          20.586580276489258,
+          19.962820053100586,
+          19.961559295654297,
+          19.963699340820312,
+          19.958120346069336,
+          19.960859298706055,
+          19.96265983581543
+        ]
+      },
+      "medians_us": {
+        "transpose_batch": 20.393939971923828,
+        "bmm": 19.96265983581543
+      },
+      "speedup": 1.02160434228983
+    },
+    {
+      "mode": "rotating_8",
+      "samples_us": {
+        "transpose_batch": [
+          41.56378173828125,
+          40.94797897338867,
+          40.91923904418945,
+          41.022098541259766,
+          41.142120361328125,
+          41.00680160522461,
+          40.931339263916016
+        ],
+        "bmm": [
+          41.300201416015625,
+          40.738121032714844,
+          40.83053970336914,
+          40.763099670410156,
+          40.86946105957031,
+          40.75326156616211,
+          40.82114028930664
+        ]
+      },
+      "medians_us": {
+        "transpose_batch": 41.00680160522461,
+        "bmm": 40.82114028930664
+      },
+      "speedup": 1.004548165842555
+    }
+  ],
+  "rotating_weight_bytes": 268435456,
+  "cache_note": "rotating weights exceed 192 MiB L2; this is not a measured cache-miss guarantee",
+  "deployment": "diagnostic dispatch comparison; not selected without matched model validation"
+}

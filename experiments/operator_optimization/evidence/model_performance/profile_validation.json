@@ -1,0 +1,495 @@
+{
+  "baseline": {
+    "rows": 45560,
+    "steps": 20,
+    "kernels_per_step": 2278.0,
+    "device_ids": [
+      "4"
+    ],
+    "csv": "/work/operator_opt/results/model_perf_v1/prof/baseline/tiny_chip4_15733_20261009141258468_ascend_pt/ASCEND_PROFILER_OUTPUT/kernel_details.csv",
+    "sha256": "80a51e15d915efb389792bb03d9ad680e39b58748ff9c7aedd73582026422592",
+    "trace_valid": true,
+    "kernel_us_per_step": 18096.858,
+    "streams": {
+      "47": 4360,
+      "42": 720,
+      "13": 40480
+    },
+    "types": {
+      "Fill": {
+        "calls_per_step": 34.0,
+        "us_per_step": 42.29109999999993
+      },
+      "IndexCheck": {
+        "calls_per_step": 2.0,
+        "us_per_step": 6.3078499999999975
+      },
+      "Index": {
+        "calls_per_step": 2.0,
+        "us_per_step": 20.964450000000003
+      },
+      "Cast": {
+        "calls_per_step": 162.0,
+        "us_per_step": 219.00434999999948
+      },
+      "Add": {
+        "calls_per_step": 83.0,
+        "us_per_step": 150.15480000000002
+      },
+      "_compute_slot_mapping_kernel": {
+        "calls_per_step": 11.0,
+        "us_per_step": 33.556800000000024
+      },
+      "Sub": {
+        "calls_per_step": 5.0,
+        "us_per_step": 8.715649999999997
+      },
+      "GreaterEqual": {
+        "calls_per_step": 13.0,
+        "us_per_step": 29.375299999999992
+      },
+      "BroadcastTo": {
+        "calls_per_step": 24.0,
+        "us_per_step": 33.98344999999998
+      },
+      "FloorMod": {
+        "calls_per_step": 16.0,
+        "us_per_step": 36.485
+      },
+      "Equal": {
+        "calls_per_step": 4.0,
+        "us_per_step": 8.2469
+      },
+      "LogicalAnd": {
+        "calls_per_step": 4.0,
+        "us_per_step": 5.721949999999999
+      },
+      "FloorDiv": {
+        "calls_per_step": 14.0,
+        "us_per_step": 23.994599999999977
+      },
+      "SelectV2": {
+        "calls_per_step": 29.0,
+        "us_per_step": 45.87760000000001
+      },
+      "ClipByValueV2": {
+        "calls_per_step": 177.0,
+        "us_per_step": 393.41220000000123
+      },
+      "Range": {
+        "calls_per_step": 3.0,
+        "us_per_step": 20.8965
+      },
+      "Less": {
+        "calls_per_step": 3.0,
+        "us_per_step": 7.840849999999998
+      },
+      "GatherElementsV2": {
+        "calls_per_step": 8.0,
+        "us_per_step": 70.72585000000001
+      },
+      "Greater": {
+        "calls_per_step": 1.0,
+        "us_per_step": 2.81695
+      },
+      "ZerosLike": {
+        "calls_per_step": 6.0,
+        "us_per_step": 9.316700000000006
+      },
+      "QuantLightningIndexerV2Metadata": {
+        "calls_per_step": 2.0,
+        "us_per_step": 108.76784999999998
+      },
+      "SparseFlashMlaMetadata": {
+        "calls_per_step": 3.0,
+        "us_per_step": 179.87134999999995
+      },
+      "GatherV2": {
+        "calls_per_step": 1.0,
+        "us_per_step": 10.143
+      },
+      "Tile": {
+        "calls_per_step": 1.0,
+        "us_per_step": 6.5149
+      },
+      "project_hf32": {
+        "calls_per_step": 80.0,
+        "us_per_step": 740.3623999999992
+      },
+      "finish_hc": {
+        "calls_per_step": 80.0,
+        "us_per_step": 541.3703500000001
+      },
+      "RmsNorm": {
+        "calls_per_step": 129.0,
+        "us_per_step": 540.6624499999987
+      },
+      "MatMulV2": {
+        "calls_per_step": 262.0,
+        "us_per_step": 5308.499949999992
+      },
+      "InplacePartialRotaryMul": {
+        "calls_per_step": 136.0,
+        "us_per_step": 450.3697500000011
+      },
+      "ScatterNdUpdateSk": {
+        "calls_per_step": 52.0,
+        "us_per_step": 289.9227000000002
+      },
+      "SparseFlashMla": {
+        "calls_per_step": 40.0,
+        "us_per_step": 1695.5199499999994
+      },
+      "Neg": {
+        "calls_per_step": 40.0,
+        "us_per_step": 51.285950000000035
+      },
+      "TransposeBatchMatMul": {
+        "calls_per_step": 40.0,
+        "us_per_step": 1523.5075999999992
+      },
+      "HcPost": {
+        "calls_per_step": 80.0,
+        "us_per_step": 588.4929000000034
+      },
+      "RmsNormCast": {
+        "calls_per_step": 40.0,
+        "us_per_step": 117.84754999999991
+      },
+      "tiny_router_gemv": {
+        "calls_per_step": 40.0,
+        "us_per_step": 143.55180000000027
+      },
+      "MoeGatingTopKHash": {
+        "calls_per_step": 40.0,
+        "us_per_step": 175.22159999999994
+      },
+      "MoeInitRoutingV3": {
+        "calls_per_step": 40.0,
+        "us_per_step": 463.7253000000002
+      },
+      "GroupedMatmul": {
+        "calls_per_step": 80.0,
+        "us_per_step": 1827.2280500000008
+      },
+      "Slice": {
+        "calls_per_step": 80.0,
+        "us_per_step": 135.33864999999878
+      },
+      "ViewCopy": {
+        "calls_per_step": 80.0,
+        "us_per_step": 766.5891000000004
+      },
+      "SwiGlu": {
+        "calls_per_step": 40.0,
+        "us_per_step": 149.50284999999963
+      },
+      "Abs": {
+        "calls_per_step": 40.0,
+        "us_per_step": 57.044
+      },
+      "MoeTokenUnpermute": {
+        "calls_per_step": 40.0,
+        "us_per_step": 125.7598000000003
+      },
+      "Muls": {
+        "calls_per_step": 40.0,
+        "us_per_step": 49.96040000000001
+      },
+      "Sigmoid": {
+        "calls_per_step": 40.0,
+        "us_per_step": 55.112249999999946
+      },
+      "Mul": {
+        "calls_per_step": 89.0,
+        "us_per_step": 141.19640000000044
+      },
+      "MatMulV3": {
+        "calls_per_step": 6.0,
+        "us_per_step": 123.61935000000001
+      },
+      "_pool_kernel": {
+        "calls_per_step": 3.0,
+        "us_per_step": 8.987950000000001
+      },
+      "_cache_update_kernel": {
+        "calls_per_step": 3.0,
+        "us_per_step": 5.5879
+      },
+      "DynamicQuant": {
+        "calls_per_step": 4.0,
+        "us_per_step": 12.28665
+      },
+      "_quantize_indexer_query_kernel": {
+        "calls_per_step": 8.0,
+        "us_per_step": 38.87805
+      },
+      "QuantLightningIndexerV2": {
+        "calls_per_step": 8.0,
+        "us_per_step": 368.1494999999999
+      },
+      "_prepare_indexer_indices_kernel": {
+        "calls_per_step": 8.0,
+        "us_per_step": 90.0607
+      },
+      "ReduceSum": {
+        "calls_per_step": 1.0,
+        "us_per_step": 19.799349999999997
+      },
+      "ArgMaxV2": {
+        "calls_per_step": 1.0,
+        "us_per_step": 16.43085
+      }
+    },
+    "activation_blocks": {}
+  },
+  "fused": {
+    "rows": 35960,
+    "steps": 20,
+    "kernels_per_step": 1798.0,
+    "device_ids": [
+      "4"
+    ],
+    "csv": "/work/operator_opt/results/model_perf_v1/prof/fused/tiny_chip4_15733_20261009141314045_ascend_pt/ASCEND_PROFILER_OUTPUT/kernel_details.csv",
+    "sha256": "08f316aeb2e636fc46204caa10827c4d15a0c2b4097b31c0d9536cdf4f3dd2a3",
+    "trace_valid": true,
+    "kernel_us_per_step": 16353.388200000001,
+    "streams": {
+      "47": 4360,
+      "42": 720,
+      "10": 30880
+    },
+    "types": {
+      "Fill": {
+        "calls_per_step": 34.0,
+        "us_per_step": 42.288449999999976
+      },
+      "IndexCheck": {
+        "calls_per_step": 2.0,
+        "us_per_step": 6.4978
+      },
+      "Index": {
+        "calls_per_step": 2.0,
+        "us_per_step": 19.963399999999993
+      },
+      "Cast": {
+        "calls_per_step": 162.0,
+        "us_per_step": 219.56174999999953
+      },
+      "Add": {
+        "calls_per_step": 43.0,
+        "us_per_step": 92.60459999999995
+      },
+      "_compute_slot_mapping_kernel": {
+        "calls_per_step": 11.0,
+        "us_per_step": 34.01840000000001
+      },
+      "Sub": {
+        "calls_per_step": 5.0,
+        "us_per_step": 9.074899999999996
+      },
+      "GreaterEqual": {
+        "calls_per_step": 13.0,
+        "us_per_step": 29.27165000000001
+      },
+      "BroadcastTo": {
+        "calls_per_step": 24.0,
+        "us_per_step": 33.84229999999999
+      },
+      "FloorMod": {
+        "calls_per_step": 16.0,
+        "us_per_step": 35.81755000000005
+      },
+      "Equal": {
+        "calls_per_step": 4.0,
+        "us_per_step": 8.497899999999998
+      },
+      "LogicalAnd": {
+        "calls_per_step": 4.0,
+        "us_per_step": 5.708899999999999
+      },
+      "FloorDiv": {
+        "calls_per_step": 14.0,
+        "us_per_step": 23.750649999999975
+      },
+      "SelectV2": {
+        "calls_per_step": 29.0,
+        "us_per_step": 45.43410000000001
+      },
+      "ClipByValueV2": {
+        "calls_per_step": 17.0,
+        "us_per_step": 26.239549999999998
+      },
+      "Range": {
+        "calls_per_step": 3.0,
+        "us_per_step": 21.153399999999998
+      },
+      "Less": {
+        "calls_per_step": 3.0,
+        "us_per_step": 7.979900000000001
+      },
+      "GatherElementsV2": {
+        "calls_per_step": 8.0,
+        "us_per_step": 71.1184
+      },
+      "Greater": {
+        "calls_per_step": 1.0,
+        "us_per_step": 2.9829000000000003
+      },
+      "ZerosLike": {
+        "calls_per_step": 6.0,
+        "us_per_step": 9.578800000000001
+      },
+      "QuantLightningIndexerV2Metadata": {
+        "calls_per_step": 2.0,
+        "us_per_step": 102.98300000000002
+      },
+      "SparseFlashMlaMetadata": {
+        "calls_per_step": 3.0,
+        "us_per_step": 167.06064999999998
+      },
+      "GatherV2": {
+        "calls_per_step": 1.0,
+        "us_per_step": 10.05695
+      },
+      "Tile": {
+        "calls_per_step": 1.0,
+        "us_per_step": 6.605850000000001
+      },
+      "project_hf32": {
+        "calls_per_step": 80.0,
+        "us_per_step": 701.3462500000014
+      },
+      "finish_hc": {
+        "calls_per_step": 80.0,
+        "us_per_step": 524.483250000002
+      },
+      "RmsNorm": {
+        "calls_per_step": 129.0,
+        "us_per_step": 530.8229499999984
+      },
+      "MatMulV2": {
+        "calls_per_step": 262.0,
+        "us_per_step": 5288.2160000000085
+      },
+      "InplacePartialRotaryMul": {
+        "calls_per_step": 136.0,
+        "us_per_step": 449.2679500000012
+      },
+      "ScatterNdUpdateSk": {
+        "calls_per_step": 52.0,
+        "us_per_step": 293.53235000000006
+      },
+      "SparseFlashMla": {
+        "calls_per_step": 40.0,
+        "us_per_step": 1633.708949999999
+      },
+      "Neg": {
+        "calls_per_step": 40.0,
+        "us_per_step": 51.39265
+      },
+      "TransposeBatchMatMul": {
+        "calls_per_step": 40.0,
+        "us_per_step": 1503.8862999999983
+      },
+      "HcPost": {
+        "calls_per_step": 80.0,
+        "us_per_step": 587.8795500000024
+      },
+      "RmsNormCast": {
+        "calls_per_step": 40.0,
+        "us_per_step": 117.96304999999992
+      },
+      "tiny_router_gemv": {
+        "calls_per_step": 40.0,
+        "us_per_step": 140.6394000000002
+      },
+      "MoeGatingTopKHash": {
+        "calls_per_step": 40.0,
+        "us_per_step": 174.71875000000006
+      },
+      "MoeInitRoutingV3": {
+        "calls_per_step": 40.0,
+        "us_per_step": 457.3190000000005
+      },
+      "GroupedMatmul": {
+        "calls_per_step": 80.0,
+        "us_per_step": 1817.8866000000035
+      },
+      "clamped_swiglu_kernel": {
+        "calls_per_step": 80.0,
+        "us_per_step": 170.40825000000257
+      },
+      "Abs": {
+        "calls_per_step": 40.0,
+        "us_per_step": 57.57169999999984
+      },
+      "MoeTokenUnpermute": {
+        "calls_per_step": 40.0,
+        "us_per_step": 129.95800000000017
+      },
+      "MatMulV3": {
+        "calls_per_step": 6.0,
+        "us_per_step": 121.89370000000001
+      },
+      "_pool_kernel": {
+        "calls_per_step": 3.0,
+        "us_per_step": 9.091899999999999
+      },
+      "_cache_update_kernel": {
+        "calls_per_step": 3.0,
+        "us_per_step": 5.6087000000000025
+      },
+      "DynamicQuant": {
+        "calls_per_step": 4.0,
+        "us_per_step": 13.0609
+      },
+      "Mul": {
+        "calls_per_step": 9.0,
+        "us_per_step": 21.480400000000007
+      },
+      "_quantize_indexer_query_kernel": {
+        "calls_per_step": 8.0,
+        "us_per_step": 38.9044
+      },
+      "QuantLightningIndexerV2": {
+        "calls_per_step": 8.0,
+        "us_per_step": 352.8998500000002
+      },
+      "_prepare_indexer_indices_kernel": {
+        "calls_per_step": 8.0,
+        "us_per_step": 90.49960000000003
+      },
+      "ReduceSum": {
+        "calls_per_step": 1.0,
+        "us_per_step": 20.1355
+      },
+      "ArgMaxV2": {
+        "calls_per_step": 1.0,
+        "us_per_step": 16.720549999999996
+      },
+      "ViewCopy": {
+        "calls_per_step": 0.0,
+        "us_per_step": 0.0
+      },
+      "Slice": {
+        "calls_per_step": 0.0,
+        "us_per_step": 0.0
+      },
+      "SwiGlu": {
+        "calls_per_step": 0.0,
+        "us_per_step": 0.0
+      }
+    },
+    "activation_blocks": {
+      "2": {
+        "calls_per_step": 40.0,
+        "us_per_step": 85.60555
+      },
+      "1": {
+        "calls_per_step": 40.0,
+        "us_per_step": 84.80270000000013
+      }
+    }
+  }
+}
