@@ -1,7 +1,7 @@
 # 20 ms/step 持续优化状态
 
 目标：语义与实际路由验证通过，无profiler/审计decode ≤20 ms/step，A=1，≥50 token/s。
-本goal仍为active。独立分支 `feat/tiny-operator-opt-20261009`，只使用chip4，排除14–15。
+本goal仍为active。独立分支 `feat/tiny-operator-opt-20261009`，初期chip4，后因别租户占用迁移chip6，始终排除14–15。
 
 ## 已完成
 
@@ -31,9 +31,22 @@
 - C128/C2的Default及MemoryDetail已成功采集，24Cube/48Vector、Device4、1800MHz，逐核CSV及summary已取回。
   只有1个Cube/2个Vector有实质计算，CSA源码mBaseSize=groupSize；C2 Cube wait_id6最大10.807us，对应V0→BMM1。
 - 源同步已结束；GMM2 Cube五个支持的多K-loop配置均更慢（较优13.386us，native11.846us），继续保留原生。
-- 当前NPU任务 `goal20_headsplit_c128_v1`：静态sink重复模式下，将head分组映射成独立batch，保留完整KV与indices，单独筛选2/4/8/16组；metadata准备成本尚未计入。
+- head分组C128初筛约8%改善、C2明显慢；但发现chip4别租户进程占用，两个晚期计时均quarantine，不能据此采纳。精度结果仍为逐位一致。
 - 阶段报告已发布COS并登记links-server，HTML/Markdown及SHA256均上传，内容明确goal仍active。
   https://uploads-new-1254016670.cos.ap-shanghai.myqcloud.com/share/a3-21-tiny-goal20-operator-milestone-20261010-v1.html
+- 已提交推送7220c70及manifest49a576c；仓库自检全部通过。
+- chip4后有别租户`m00933363_catlass_runtime_bz_a3_1`进程，约29.8GB/100% AICore；未操作其进程。
+  自己的goal20服务因空闲显存小于GPU_UTIL要求退出，当前chip4容器仅sleep，无API。
+- 空闲chip2/3初始化TSD/OPP失败；chip6计算冒烟通过。
+- 新独立容器：`dsv41-tiny-goal20-20261010-c6`，label task=dsv41-tiny-goal20-20261010, chip=6。
+  镜像及model/work挂载与c4一致，物理6→逻辑0，容器privileged，其他租户保持运行。
+- 当前NPU任务：c6的`goal20_c6_rebaseline_v1`，static、baseline/combo同进程六组；不能与chip4直接相减。
+- run_in_container.sh/serve_goal20_tiny.sh新增GOAL20_CHIP=4或6；源同步session2259可能尚在进行，启动c6重测使用显式环境包装，避免旧脚本强制4。
+
+下一项CPU实现建议：HC finish与全维RMS/RmsNormCast融合。先独立kernel筛选：顺序加载四行形成完整5120维BF16 raw y，
+再FP32全维RMS归约，保留BF16中间边界、20次Sinkhorn和独立FP32路由输出。
+原模型rms_norm_cast是方法，使用post_attention_layernorm.weight/variance_epsilon，不是独立模块。
+模型接入需要合理的prenorm opaque op/forward接入及旧HC refs审计，避免在Dynamo外冻结batch分派。
 - 候选源码在同目录，原始日志与trace在远程 `/work/operator_opt/results/goal20_*`。
 - 已有优化服务暂时停止，以避免污染本轮独立测量；任务结束或需要长期交付时恢复经过验证的服务。
 
