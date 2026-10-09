@@ -1,0 +1,1686 @@
+{
+  "timing_scope": "profiled cumulative kernel time, not recoverable wall time",
+  "arms": {
+    "overlap": {
+      "csv": "/work/operator_opt/results/goal20_rebaseline_v1/prof/overlap/tiny_chip4_19608_20261009160438653_ascend_pt/ASCEND_PROFILER_OUTPUT/kernel_details.csv",
+      "sha256": "af6439acad2baa8194555f071dc66b6a02718268e1a41bb2dcda2e4dd28a5e9a",
+      "rows": 35960,
+      "steps": 20,
+      "shapes": [
+        {
+          "type": "TransposeBatchMatMul",
+          "shape": "\"1,8,4096;8,4096,512\"",
+          "core": "AI_CORE",
+          "calls_per_step": 40.0,
+          "us_per_step": 1510.703,
+          "blocks": [
+            "24"
+          ],
+          "formats": [
+            "ND;ND"
+          ],
+          "aic_scalar_ratio": 0.3672593812555674,
+          "aic_mte2_ratio": 0.6524956614860491,
+          "aic_mte1_ratio": 0.28606774364325405,
+          "aic_mac_ratio": 0.10991682470502055,
+          "aic_icache_miss_rate": 0.03931623834544641
+        },
+        {
+          "type": "MatMulV2",
+          "shape": "\"1,4096;5120,4096\"",
+          "core": "AI_CORE",
+          "calls_per_step": 40.0,
+          "us_per_step": 1438.1037000000001,
+          "blocks": [
+            "23"
+          ],
+          "formats": [
+            "ND;ND"
+          ],
+          "aic_scalar_ratio": 0.4346911739778619,
+          "aic_mte2_ratio": 0.9021264222466062,
+          "aic_mte1_ratio": 0.3078684881900309,
+          "aic_mac_ratio": 0.1375370917855585,
+          "aic_icache_miss_rate": 0.00174728189202739
+        },
+        {
+          "type": "MatMulV2",
+          "shape": "\"1,5120;512,5120\"",
+          "core": "AI_CORE",
+          "calls_per_step": 121.0,
+          "us_per_step": 1306.5753,
+          "blocks": [
+            "16"
+          ],
+          "formats": [
+            "ND;ND"
+          ],
+          "aic_scalar_ratio": 0.3236273908701155,
+          "aic_mte2_ratio": 0.5740825072931762,
+          "aic_mte1_ratio": 0.2372467105535442,
+          "aic_mac_ratio": 0.07412340217462438,
+          "aic_icache_miss_rate": 0.04675196030049931
+        },
+        {
+          "type": "GroupedMatmul",
+          "shape": "\"2,5120;8,5120,512;;;;;;8\"",
+          "core": "MIX_AIC",
+          "calls_per_step": 40.0,
+          "us_per_step": 1252.5804,
+          "blocks": [
+            "4"
+          ],
+          "formats": [
+            "ND;NCL;ND;ND;ND;ND;ND;ND"
+          ],
+          "aic_scalar_ratio": 0.4337707311828959,
+          "aic_mte2_ratio": 0.8121784401095865,
+          "aic_mte1_ratio": 0.469845069663417,
+          "aic_mac_ratio": 0.1762040396841431,
+          "aic_icache_miss_rate": 0.022595496196627925
+        },
+        {
+          "type": "MatMulV2",
+          "shape": "\"1,512;32768,512\"",
+          "core": "AI_CORE",
+          "calls_per_step": 40.0,
+          "us_per_step": 1197.92785,
+          "blocks": [
+            "22"
+          ],
+          "formats": [
+            "ND;ND"
+          ],
+          "aic_scalar_ratio": 0.43027358912156516,
+          "aic_mte2_ratio": 0.8375903903244462,
+          "aic_mte1_ratio": 0.32795536144661547,
+          "aic_mac_ratio": 0.12315185554373421,
+          "aic_icache_miss_rate": 0.009830788001586998
+        },
+        {
+          "type": "MatMulV2",
+          "shape": "\"1,5120;129280,5120\"",
+          "core": "AI_CORE",
+          "calls_per_step": 1.0,
+          "us_per_step": 1013.3258,
+          "blocks": [
+            "23"
+          ],
+          "formats": [
+            "ND;ND"
+          ],
+          "aic_scalar_ratio": 0.32214882364292263,
+          "aic_mte2_ratio": 0.994550437206935,
+          "aic_mte1_ratio": 0.29369877719842596,
+          "aic_mac_ratio": 0.11809955401332521,
+          "aic_icache_miss_rate": 0.0
+        },
+        {
+          "type": "SparseFlashMla",
+          "shape": "\"1,64,512;7939,128,1,512;7939,128,1,512;;1,1,512;1,64;1,64;2;;;;1;1;;;;64;1024\"",
+          "core": "MIX_AIC",
+          "calls_per_step": 20.0,
+          "us_per_step": 829.7845,
+          "blocks": [
+            "24"
+          ],
+          "formats": [
+            "ND;ND;ND;NULL;ND;ND;ND;ND;NULL;NULL;NULL;ND;ND;NULL;NULL;NULL;ND;ND"
+          ],
+          "aic_scalar_ratio": 0.5944621136522488,
+          "aic_mte2_ratio": 0.03422099994318747,
+          "aic_mte1_ratio": 0.024912309606377546,
+          "aic_mac_ratio": 0.018722383500329988,
+          "aiv_vec_ratio": 0.017420400058002283,
+          "aiv_scalar_ratio": 0.5660591849789458,
+          "aiv_mte2_ratio": 0.31014148936837177,
+          "aic_icache_miss_rate": 0.22404747563241603,
+          "aiv_icache_miss_rate": 0.1536168215113235
+        },
+        {
+          "type": "SparseFlashMla",
+          "shape": "\"1,64,512;7939,128,1,512;7939,64,1,512;;1,1,512;1,64;1,64;2;;;;1;1;1;;;64;1024\"",
+          "core": "MIX_AIC",
+          "calls_per_step": 18.0,
+          "us_per_step": 748.70205,
+          "blocks": [
+            "24"
+          ],
+          "formats": [
+            "ND;ND;ND;NULL;ND;ND;ND;ND;NULL;NULL;NULL;ND;ND;ND;NULL;NULL;ND;ND"
+          ],
+          "aic_scalar_ratio": 0.6081779746330487,
+          "aic_mte2_ratio": 0.033852694234046646,
+          "aic_mte1_ratio": 0.024793611348014763,
+          "aic_mac_ratio": 0.0186414121742253,
+          "aiv_vec_ratio": 0.017190555874566835,
+          "aiv_scalar_ratio": 0.5596383016046638,
+          "aiv_mte2_ratio": 0.31294426110547846,
+          "aic_icache_miss_rate": 0.22400912020740693,
+          "aiv_icache_miss_rate": 0.1521662556528281
+        },
+        {
+          "type": "project_hf32",
+          "shape": "N/A",
+          "core": "AI_VECTOR_CORE",
+          "calls_per_step": 80.0,
+          "us_per_step": 700.3725000000001,
+          "blocks": [
+            "24"
+          ],
+          "formats": [
+            "N/A"
+          ],
+          "aiv_vec_ratio": 0.4154153014261927,
+          "aiv_scalar_ratio": 0.25694272892322284,
+          "aiv_mte2_ratio": 0.3568235563921701,
+          "aiv_icache_miss_rate": 0.02192865576271196
+        },
+        {
+          "type": "HcPost",
+          "shape": "\"1,1,5120;1,1,4,5120;1,1,4;1,1,4,4\"",
+          "core": "AI_VECTOR_CORE",
+          "calls_per_step": 80.0,
+          "us_per_step": 591.817,
+          "blocks": [
+            "1"
+          ],
+          "formats": [
+            "ND;ND;ND;ND"
+          ],
+          "aiv_vec_ratio": 0.6248316747676966,
+          "aiv_scalar_ratio": 0.4307687479255985,
+          "aiv_mte2_ratio": 0.21699371593419758,
+          "aiv_icache_miss_rate": 0.06507667315640935
+        },
+        {
+          "type": "GroupedMatmul",
+          "shape": "\"2,256;8,256,5120;;;;;;8\"",
+          "core": "MIX_AIC",
+          "calls_per_step": 40.0,
+          "us_per_step": 577.0563,
+          "blocks": [
+            "24"
+          ],
+          "formats": [
+            "ND;NCL;ND;ND;ND;ND;ND;ND"
+          ],
+          "aic_scalar_ratio": 0.6185168471275083,
+          "aic_mte2_ratio": 0.25630315410936305,
+          "aic_mte1_ratio": 0.08993109785225813,
+          "aic_mac_ratio": 0.039061562321489524,
+          "aic_icache_miss_rate": 0.07233342063547216
+        },
+        {
+          "type": "finish_hc",
+          "shape": "N/A",
+          "core": "AI_VECTOR_CORE",
+          "calls_per_step": 80.0,
+          "us_per_step": 524.41005,
+          "blocks": [
+            "5"
+          ],
+          "formats": [
+            "N/A"
+          ],
+          "aiv_vec_ratio": 0.3820499224470065,
+          "aiv_scalar_ratio": 0.26193654322874965,
+          "aiv_mte2_ratio": 0.18542186123495843,
+          "aiv_icache_miss_rate": 0.12172927478473383
+        },
+        {
+          "type": "MoeInitRoutingV3",
+          "shape": "\"1,5120;1,2\"",
+          "core": "MIX_AIV",
+          "calls_per_step": 40.0,
+          "us_per_step": 459.97799999999995,
+          "blocks": [
+            "48"
+          ],
+          "formats": [
+            "ND;ND"
+          ],
+          "aiv_vec_ratio": 0.0032188012239793293,
+          "aiv_scalar_ratio": 0.18794768170823836,
+          "aiv_mte2_ratio": 0.11050307597813597,
+          "aiv_icache_miss_rate": 0.15437575419473207
+        },
+        {
+          "type": "RmsNorm",
+          "shape": "\"1,512;512\"",
+          "core": "AI_VECTOR_CORE",
+          "calls_per_step": 84.0,
+          "us_per_step": 429.5302,
+          "blocks": [
+            "1"
+          ],
+          "formats": [
+            "ND;ND"
+          ],
+          "aiv_vec_ratio": 0.11318913332460484,
+          "aiv_scalar_ratio": 0.39101329786749456,
+          "aiv_mte2_ratio": 0.1286472204963326,
+          "aiv_icache_miss_rate": 0.20781677923920935
+        },
+        {
+          "type": "MatMulV2",
+          "shape": "\"1,256;5120,256\"",
+          "core": "AI_CORE",
+          "calls_per_step": 40.0,
+          "us_per_step": 368.28575,
+          "blocks": [
+            "23"
+          ],
+          "formats": [
+            "ND;ND"
+          ],
+          "aic_scalar_ratio": 0.2687089419505049,
+          "aic_mte2_ratio": 0.2888545369154776,
+          "aic_mte1_ratio": 0.08641810031121681,
+          "aic_mac_ratio": 0.037004907460961106,
+          "aic_icache_miss_rate": 0.10169331850145927
+        },
+        {
+          "type": "ScatterNdUpdateSk",
+          "shape": "\"7939,128,512;1,2;1,512\"",
+          "core": "MIX_AIV",
+          "calls_per_step": 41.0,
+          "us_per_step": 345.12080000000003,
+          "blocks": [
+            "2"
+          ],
+          "formats": [
+            "NCL;ND;ND"
+          ],
+          "aiv_vec_ratio": 0.02331955868456107,
+          "aiv_scalar_ratio": 0.2584846049407392,
+          "aiv_mte2_ratio": 0.1836555649414476,
+          "aiv_icache_miss_rate": 0.17541788595413724
+        },
+        {
+          "type": "InplacePartialRotaryMul",
+          "shape": "\"1,1,64,512;1,1,1,64;1,1,1,64\"",
+          "core": "AI_VECTOR_CORE",
+          "calls_per_step": 80.0,
+          "us_per_step": 291.5677,
+          "blocks": [
+            "1"
+          ],
+          "formats": [
+            "ND;ND;ND"
+          ],
+          "aiv_vec_ratio": 0.4139212386429573,
+          "aiv_scalar_ratio": 0.4582481110050858,
+          "aiv_mte2_ratio": 0.15854786189450842,
+          "aiv_icache_miss_rate": 0.12644254486036888
+        },
+        {
+          "type": "QuantLightningIndexerV2",
+          "shape": "\"1,32,128;7939,128,1,128;1,32;1,32;7939,128,1;2;;;1;;1,64;;1024;1,1,2048\"",
+          "core": "MIX_AIC",
+          "calls_per_step": 4.0,
+          "us_per_step": 225.43744999999998,
+          "blocks": [
+            "24"
+          ],
+          "formats": [
+            "ND;ND;ND;ND;ND;ND;NULL;NULL;ND;NULL;ND;NULL;ND;ND"
+          ],
+          "aic_scalar_ratio": 0.34225112736517643,
+          "aic_mte2_ratio": 0.02744219142700338,
+          "aic_mte1_ratio": 0.008395919902675283,
+          "aic_mac_ratio": 0.0040963671488562494,
+          "aiv_vec_ratio": 0.03734487507766832,
+          "aiv_scalar_ratio": 0.14811366615690946,
+          "aiv_mte2_ratio": 0.02490764703321539,
+          "aic_icache_miss_rate": 0.2087840251099175,
+          "aiv_icache_miss_rate": 0.18333459434027494
+        },
+        {
+          "type": "MoeGatingTopKHash",
+          "shape": "\"1,8;8;1;;8\"",
+          "core": "AI_VECTOR_CORE",
+          "calls_per_step": 40.0,
+          "us_per_step": 176.6594,
+          "blocks": [
+            "1"
+          ],
+          "formats": [
+            "ND;ND;ND;NULL;ND"
+          ],
+          "aiv_vec_ratio": 0.08111070997403436,
+          "aiv_scalar_ratio": 0.5076211242086333,
+          "aiv_mte2_ratio": 0.13570743342807542,
+          "aiv_icache_miss_rate": 0.1650022653203383
+        },
+        {
+          "type": "clamped_swiglu_kernel",
+          "shape": "N/A",
+          "core": "AI_VECTOR_CORE",
+          "calls_per_step": 80.0,
+          "us_per_step": 169.2397,
+          "blocks": [
+            "1",
+            "2"
+          ],
+          "formats": [
+            "N/A"
+          ],
+          "aiv_vec_ratio": 0.21610852322543722,
+          "aiv_scalar_ratio": 0.29858254943734513,
+          "aiv_mte2_ratio": 0.12205087990374258,
+          "aiv_icache_miss_rate": 0.17656455531015416
+        },
+        {
+          "type": "RmsNorm",
+          "shape": "\"1,5120;5120\"",
+          "core": "AI_VECTOR_CORE",
+          "calls_per_step": 41.0,
+          "us_per_step": 157.00719999999998,
+          "blocks": [
+            "1"
+          ],
+          "formats": [
+            "ND;ND"
+          ],
+          "aiv_vec_ratio": 0.18761574195943187,
+          "aiv_scalar_ratio": 0.49868424169915226,
+          "aiv_mte2_ratio": 0.18410644953534183,
+          "aiv_icache_miss_rate": 0.12896026041266143
+        },
+        {
+          "type": "InplacePartialRotaryMul",
+          "shape": "\"1,1,1,512;1,1,1,64;1,1,1,64\"",
+          "core": "AI_VECTOR_CORE",
+          "calls_per_step": 44.0,
+          "us_per_step": 154.6814,
+          "blocks": [
+            "1"
+          ],
+          "formats": [
+            "ND;ND;ND"
+          ],
+          "aiv_vec_ratio": 0.06198889212029059,
+          "aiv_scalar_ratio": 0.4521059904844126,
+          "aiv_mte2_ratio": 0.3068204346973156,
+          "aiv_icache_miss_rate": 0.1464110381119658
+        },
+        {
+          "type": "tiny_router_gemv",
+          "shape": "N/A",
+          "core": "AI_VECTOR_CORE",
+          "calls_per_step": 40.0,
+          "us_per_step": 139.8783,
+          "blocks": [
+            "8"
+          ],
+          "formats": [
+            "N/A"
+          ],
+          "aiv_vec_ratio": 0.25239596818938415,
+          "aiv_scalar_ratio": 0.15092624516410932,
+          "aiv_mte2_ratio": 0.20908758031877675,
+          "aiv_icache_miss_rate": 0.09683538720112655
+        },
+        {
+          "type": "MoeTokenUnpermute",
+          "shape": "\"2,5120;2;1,2\"",
+          "core": "AI_VECTOR_CORE",
+          "calls_per_step": 40.0,
+          "us_per_step": 130.78485,
+          "blocks": [
+            "1"
+          ],
+          "formats": [
+            "ND;ND;ND"
+          ],
+          "aiv_vec_ratio": 0.15639836133847468,
+          "aiv_scalar_ratio": 0.5447731336958567,
+          "aiv_mte2_ratio": 0.21160456262478106,
+          "aiv_icache_miss_rate": 0.14368510929585596
+        },
+        {
+          "type": "MatMulV3",
+          "shape": "\"1,5120;512,5120\"",
+          "core": "AI_CORE",
+          "calls_per_step": 6.0,
+          "us_per_step": 119.0067,
+          "blocks": [
+            "24"
+          ],
+          "formats": [
+            "ND;ND"
+          ],
+          "aic_scalar_ratio": 0.45330377829653956,
+          "aic_mte2_ratio": 0.44860018221729353,
+          "aic_mte1_ratio": 0.2264714126586773,
+          "aic_mac_ratio": 0.13152728851913928,
+          "aic_icache_miss_rate": 0.029354982219019513
+        },
+        {
+          "type": "RmsNormCast",
+          "shape": "\"1,5120;5120\"",
+          "core": "AI_VECTOR_CORE",
+          "calls_per_step": 40.0,
+          "us_per_step": 117.61955,
+          "blocks": [
+            "1"
+          ],
+          "formats": [
+            "ND;ND"
+          ],
+          "aiv_vec_ratio": 0.37094213696604794,
+          "aiv_scalar_ratio": 0.32355016500776373,
+          "aiv_mte2_ratio": 0.2223967059705452,
+          "aiv_icache_miss_rate": 0.14868399910085436
+        },
+        {
+          "type": "Cast",
+          "shape": "\"1\"",
+          "core": "AI_VECTOR_CORE",
+          "calls_per_step": 86.0,
+          "us_per_step": 108.33599999999998,
+          "blocks": [
+            "1"
+          ],
+          "formats": [
+            "ND"
+          ],
+          "aiv_vec_ratio": 0.04451203621112816,
+          "aiv_scalar_ratio": 0.37628642739610235,
+          "aiv_mte2_ratio": 0.1853876178393151,
+          "aiv_icache_miss_rate": 0.13028861579812565
+        },
+        {
+          "type": "MatMulV2",
+          "shape": "\"1,5120;32,5120\"",
+          "core": "AI_CORE",
+          "calls_per_step": 8.0,
+          "us_per_step": 101.6671,
+          "blocks": [
+            "2"
+          ],
+          "formats": [
+            "ND;ND"
+          ],
+          "aic_scalar_ratio": 0.7345787913807471,
+          "aic_mte2_ratio": 0.4137462547392098,
+          "aic_mte1_ratio": 0.14797928876853128,
+          "aic_mac_ratio": 0.11609663674315356,
+          "aic_icache_miss_rate": 0.018502710887409443
+        },
+        {
+          "type": "Add",
+          "shape": "\"1,5120;1,5120\"",
+          "core": "AI_VECTOR_CORE",
+          "calls_per_step": 40.0,
+          "us_per_step": 92.62190000000001,
+          "blocks": [
+            "5"
+          ],
+          "formats": [
+            "ND;ND"
+          ],
+          "aiv_vec_ratio": 0.06896022265689013,
+          "aiv_scalar_ratio": 0.15172376477028265,
+          "aiv_mte2_ratio": 0.16490228514446895,
+          "aiv_icache_miss_rate": 0.17286739520029007
+        },
+        {
+          "type": "_prepare_indexer_indices_kernel",
+          "shape": "N/A",
+          "core": "AI_VECTOR_CORE",
+          "calls_per_step": 8.0,
+          "us_per_step": 90.37095000000001,
+          "blocks": [
+            "1"
+          ],
+          "formats": [
+            "N/A"
+          ],
+          "aiv_vec_ratio": 0.10705786517832772,
+          "aiv_scalar_ratio": 0.7731367876038866,
+          "aiv_mte2_ratio": 0.02104837469436588,
+          "aiv_icache_miss_rate": 0.18274133509115303
+        },
+        {
+          "type": "QuantLightningIndexerV2",
+          "shape": "\"1,32,128;7939,64,1,128;1,32;1,32;7939,64,1;2;;;1;1;1,64;;1024;\"",
+          "core": "MIX_AIC",
+          "calls_per_step": 3.0,
+          "us_per_step": 85.66319999999999,
+          "blocks": [
+            "24"
+          ],
+          "formats": [
+            "ND;ND;ND;ND;ND;ND;NULL;NULL;ND;ND;ND;NULL;ND;NULL"
+          ],
+          "aic_scalar_ratio": 0.34515062747969216,
+          "aic_mte2_ratio": 0.02223730511462154,
+          "aic_mte1_ratio": 0.004109961427344047,
+          "aic_mac_ratio": 0.002,
+          "aiv_vec_ratio": 0.05733063364181431,
+          "aiv_scalar_ratio": 0.21469515961797306,
+          "aiv_mte2_ratio": 0.053628607585154274,
+          "aic_icache_miss_rate": 0.23624327734566442,
+          "aiv_icache_miss_rate": 0.272406749872808
+        },
+        {
+          "type": "GatherElementsV2",
+          "shape": "\"1048576,1,1,64;1,1,1,64\"",
+          "core": "AI_VECTOR_CORE",
+          "calls_per_step": 8.0,
+          "us_per_step": 71.87469999999999,
+          "blocks": [
+            "48"
+          ],
+          "formats": [
+            "NCHW;NCHW"
+          ],
+          "aiv_vec_ratio": 0.0032204543011513116,
+          "aiv_scalar_ratio": 0.354617410540013,
+          "aiv_mte2_ratio": 0.46380789228027497,
+          "aiv_icache_miss_rate": 0.05171065486124862
+        },
+        {
+          "type": "MatMulV2",
+          "shape": "\"1,512;4096,512\"",
+          "core": "AI_CORE",
+          "calls_per_step": 8.0,
+          "us_per_step": 60.4149,
+          "blocks": [
+            "24"
+          ],
+          "formats": [
+            "ND;ND"
+          ],
+          "aic_scalar_ratio": 0.6285652663051398,
+          "aic_mte2_ratio": 0.48748681774591984,
+          "aic_mte1_ratio": 0.17874617171889454,
+          "aic_mac_ratio": 0.08421373651757164,
+          "aic_icache_miss_rate": 0.005958376585163089
+        },
+        {
+          "type": "SparseFlashMlaMetadata",
+          "shape": "\"2;;;;1;1;1;;\"",
+          "core": "AI_CPU",
+          "calls_per_step": 1.0,
+          "us_per_step": 57.645,
+          "blocks": [
+            "48"
+          ],
+          "formats": [
+            "ND;ND;ND;ND;ND;ND;ND;ND;ND"
+          ]
+        },
+        {
+          "type": "Abs",
+          "shape": "\"2\"",
+          "core": "AI_VECTOR_CORE",
+          "calls_per_step": 40.0,
+          "us_per_step": 57.2587,
+          "blocks": [
+            "1"
+          ],
+          "formats": [
+            "ND"
+          ],
+          "aiv_vec_ratio": 0.05866605468120237,
+          "aiv_scalar_ratio": 0.31142064109762674,
+          "aiv_mte2_ratio": 0.11426443470332837,
+          "aiv_icache_miss_rate": 0.2127062177908483
+        },
+        {
+          "type": "QuantLightningIndexerV2Metadata",
+          "shape": "\"2;;;1;1\"",
+          "core": "AI_CPU",
+          "calls_per_step": 1.0,
+          "us_per_step": 57.096000000000004,
+          "blocks": [
+            "48"
+          ],
+          "formats": [
+            "ND;ND;ND;ND;ND"
+          ]
+        },
+        {
+          "type": "SparseFlashMlaMetadata",
+          "shape": "\"2;;;;1;1;;;\"",
+          "core": "AI_CPU",
+          "calls_per_step": 1.0,
+          "us_per_step": 54.020799999999994,
+          "blocks": [
+            "48"
+          ],
+          "formats": [
+            "ND;ND;ND;ND;ND;ND;ND;ND;ND"
+          ]
+        },
+        {
+          "type": "Cast",
+          "shape": "\"1,2\"",
+          "core": "AI_VECTOR_CORE",
+          "calls_per_step": 40.0,
+          "us_per_step": 53.71445,
+          "blocks": [
+            "1"
+          ],
+          "formats": [
+            "ND"
+          ],
+          "aiv_vec_ratio": 0.03215400707583449,
+          "aiv_scalar_ratio": 0.3438345362251961,
+          "aiv_mte2_ratio": 0.12564385325334562,
+          "aiv_icache_miss_rate": 0.211187944931549
+        },
+        {
+          "type": "SparseFlashMlaMetadata",
+          "shape": "\"2;;;;1;;;;\"",
+          "core": "AI_CPU",
+          "calls_per_step": 1.0,
+          "us_per_step": 53.4568,
+          "blocks": [
+            "48"
+          ],
+          "formats": [
+            "ND;ND;ND;ND;ND;ND;ND;ND;ND"
+          ]
+        },
+        {
+          "type": "Neg",
+          "shape": "\"1,1,1,64\"",
+          "core": "AI_VECTOR_CORE",
+          "calls_per_step": 40.0,
+          "us_per_step": 51.01565,
+          "blocks": [
+            "1"
+          ],
+          "formats": [
+            "NCHW"
+          ],
+          "aiv_vec_ratio": 0.03285937471139299,
+          "aiv_scalar_ratio": 0.3612560496227749,
+          "aiv_mte2_ratio": 0.14532279991201158,
+          "aiv_icache_miss_rate": 0.17511488028371225
+        },
+        {
+          "type": "SparseFlashMla",
+          "shape": "\"1,64,512;7939,128,1,512;;;;1,64;;2;;;;1;;;;;64;1024\"",
+          "core": "MIX_AIC",
+          "calls_per_step": 2.0,
+          "us_per_step": 49.0849,
+          "blocks": [
+            "24"
+          ],
+          "formats": [
+            "ND;ND;NULL;NULL;NULL;ND;NULL;ND;NULL;NULL;NULL;ND;NULL;NULL;NULL;NULL;ND;ND"
+          ],
+          "aic_scalar_ratio": 0.5883993004026087,
+          "aic_mte2_ratio": 0.016421221001527014,
+          "aic_mte1_ratio": 0.005484451501681862,
+          "aic_mac_ratio": 0.004,
+          "aiv_vec_ratio": 0.00813395196549824,
+          "aiv_scalar_ratio": 0.5682779861025777,
+          "aiv_mte2_ratio": 0.14868567090935755,
+          "aic_icache_miss_rate": 0.32229636757147695,
+          "aiv_icache_miss_rate": 0.228475039341676
+        },
+        {
+          "type": "QuantLightningIndexerV2Metadata",
+          "shape": "\"2;;;1;\"",
+          "core": "AI_CPU",
+          "calls_per_step": 1.0,
+          "us_per_step": 47.306850000000004,
+          "blocks": [
+            "48"
+          ],
+          "formats": [
+            "ND;ND;ND;ND;ND"
+          ]
+        },
+        {
+          "type": "Fill",
+          "shape": "\"1;\"",
+          "core": "AI_VECTOR_CORE",
+          "calls_per_step": 34.0,
+          "us_per_step": 42.45975,
+          "blocks": [
+            "1",
+            "2"
+          ],
+          "formats": [
+            "ND;ND"
+          ],
+          "aiv_vec_ratio": 0.014439865149088321,
+          "aiv_scalar_ratio": 0.47770912003106347,
+          "aiv_mte2_ratio": 0.14332151466614895,
+          "aiv_icache_miss_rate": 0.11135873618728664
+        },
+        {
+          "type": "SelectV2",
+          "shape": "\"1;1;\"",
+          "core": "AI_VECTOR_CORE",
+          "calls_per_step": 27.0,
+          "us_per_step": 40.976350000000004,
+          "blocks": [
+            "1"
+          ],
+          "formats": [
+            "ND;ND;ND"
+          ],
+          "aiv_vec_ratio": 0.08556522978547394,
+          "aiv_scalar_ratio": 0.3996083474003108,
+          "aiv_mte2_ratio": 0.32113581247508005,
+          "aiv_icache_miss_rate": 0.10056639985988919
+        },
+        {
+          "type": "_quantize_indexer_query_kernel",
+          "shape": "N/A",
+          "core": "AI_VECTOR_CORE",
+          "calls_per_step": 8.0,
+          "us_per_step": 38.6905,
+          "blocks": [
+            "2"
+          ],
+          "formats": [
+            "N/A"
+          ],
+          "aiv_vec_ratio": 0.4493679126529559,
+          "aiv_scalar_ratio": 0.21466539700708268,
+          "aiv_mte2_ratio": 0.030886329636049037,
+          "aiv_icache_miss_rate": 0.16361231149706654
+        },
+        {
+          "type": "QuantLightningIndexerV2",
+          "shape": "\"1,32,128;7939,128,1,128;1,32;1,32;7939,128,1;2;;;1;;1,64;;1024;\"",
+          "core": "MIX_AIC",
+          "calls_per_step": 1.0,
+          "us_per_step": 35.7863,
+          "blocks": [
+            "24"
+          ],
+          "formats": [
+            "ND;ND;ND;ND;ND;ND;NULL;NULL;ND;NULL;ND;NULL;ND;NULL"
+          ],
+          "aic_scalar_ratio": 0.34820716893203885,
+          "aic_mte2_ratio": 0.025867211650485437,
+          "aic_mte1_ratio": 0.009197755339805824,
+          "aic_mac_ratio": 0.004698322330097087,
+          "aiv_vec_ratio": 0.07847473237120246,
+          "aiv_scalar_ratio": 0.2276000995828084,
+          "aiv_mte2_ratio": 0.03663877694205337,
+          "aic_icache_miss_rate": 0.2093514019417476,
+          "aiv_icache_miss_rate": 0.23222821211138187
+        },
+        {
+          "type": "FloorMod",
+          "shape": "\"1;1\"",
+          "core": "AI_VECTOR_CORE",
+          "calls_per_step": 16.0,
+          "us_per_step": 35.390249999999995,
+          "blocks": [
+            "1"
+          ],
+          "formats": [
+            "ND;ND"
+          ],
+          "aiv_vec_ratio": 0.34443474371507093,
+          "aiv_scalar_ratio": 0.3355111035284136,
+          "aiv_mte2_ratio": 0.12409234557426638,
+          "aiv_icache_miss_rate": 0.12472736411088774
+        },
+        {
+          "type": "_compute_slot_mapping_kernel",
+          "shape": "\"2;1;1,64\"",
+          "core": "AI_VECTOR_CORE",
+          "calls_per_step": 11.0,
+          "us_per_step": 34.01135,
+          "blocks": [
+            "2"
+          ],
+          "formats": [
+            "ND;ND;ND"
+          ],
+          "aiv_vec_ratio": 0.24974799790156874,
+          "aiv_scalar_ratio": 0.3242095042223965,
+          "aiv_mte2_ratio": 0.08649155520684867,
+          "aiv_icache_miss_rate": 0.1487894488832353
+        },
+        {
+          "type": "GreaterEqual",
+          "shape": "\"1;\"",
+          "core": "AI_VECTOR_CORE",
+          "calls_per_step": 13.0,
+          "us_per_step": 29.30545,
+          "blocks": [
+            "1"
+          ],
+          "formats": [
+            "ND;ND"
+          ],
+          "aiv_vec_ratio": 0.3338689313555289,
+          "aiv_scalar_ratio": 0.3417925897128251,
+          "aiv_mte2_ratio": 0.11790123713321134,
+          "aiv_icache_miss_rate": 0.08225705871970007
+        },
+        {
+          "type": "InplacePartialRotaryMul",
+          "shape": "\"1,1,32,128;1,1,1,64;1,1,1,64\"",
+          "core": "AI_VECTOR_CORE",
+          "calls_per_step": 8.0,
+          "us_per_step": 24.5517,
+          "blocks": [
+            "1"
+          ],
+          "formats": [
+            "ND;ND;ND"
+          ],
+          "aiv_vec_ratio": 0.2905770233250229,
+          "aiv_scalar_ratio": 0.5390339479104052,
+          "aiv_mte2_ratio": 0.194530723105273,
+          "aiv_icache_miss_rate": 0.11586747750766169
+        },
+        {
+          "type": "FloorDiv",
+          "shape": "\"1;\"",
+          "core": "AI_VECTOR_CORE",
+          "calls_per_step": 14.0,
+          "us_per_step": 23.61555,
+          "blocks": [
+            "1"
+          ],
+          "formats": [
+            "ND;ND"
+          ],
+          "aiv_vec_ratio": 0.07998140910078692,
+          "aiv_scalar_ratio": 0.40410359360796283,
+          "aiv_mte2_ratio": 0.1781219916809246,
+          "aiv_icache_miss_rate": 0.12182510046859839
+        },
+        {
+          "type": "ClipByValueV2",
+          "shape": "\"1;;\"",
+          "core": "AI_VECTOR_CORE",
+          "calls_per_step": 15.0,
+          "us_per_step": 22.76755,
+          "blocks": [
+            "1"
+          ],
+          "formats": [
+            "ND;ND;ND"
+          ],
+          "aiv_vec_ratio": 0.04052906114311781,
+          "aiv_scalar_ratio": 0.3993500008447516,
+          "aiv_mte2_ratio": 0.31929380459206946,
+          "aiv_icache_miss_rate": 0.1155122472080961
+        },
+        {
+          "type": "Range",
+          "shape": "\";;\"",
+          "core": "AI_VECTOR_CORE",
+          "calls_per_step": 3.0,
+          "us_per_step": 21.5957,
+          "blocks": [
+            "48"
+          ],
+          "formats": [
+            "ND;ND;ND"
+          ],
+          "aiv_vec_ratio": 0.002124476421515585,
+          "aiv_scalar_ratio": 0.18460063614785854,
+          "aiv_mte2_ratio": 0.15446344113232574,
+          "aiv_icache_miss_rate": 0.23085764337324163
+        },
+        {
+          "type": "Cast",
+          "shape": "\"1,32\"",
+          "core": "AI_VECTOR_CORE",
+          "calls_per_step": 16.0,
+          "us_per_step": 21.017500000000002,
+          "blocks": [
+            "1"
+          ],
+          "formats": [
+            "ND"
+          ],
+          "aiv_vec_ratio": 0.029189108708790438,
+          "aiv_scalar_ratio": 0.3573712732788742,
+          "aiv_mte2_ratio": 0.1307010258113836,
+          "aiv_icache_miss_rate": 0.17349391037058087
+        },
+        {
+          "type": "ReduceSum",
+          "shape": "\"1,4,5120;1\"",
+          "core": "MIX_AIV",
+          "calls_per_step": 1.0,
+          "us_per_step": 20.21765,
+          "blocks": [
+            "46"
+          ],
+          "formats": [
+            "NCL;ND"
+          ],
+          "aiv_vec_ratio": 0.011537848862902404,
+          "aiv_scalar_ratio": 0.10827373967433795,
+          "aiv_mte2_ratio": 0.019625043342285074,
+          "aiv_icache_miss_rate": 0.18854756433354863
+        },
+        {
+          "type": "BroadcastTo",
+          "shape": "\";1\"",
+          "core": "AI_VECTOR_CORE",
+          "calls_per_step": 16.0,
+          "us_per_step": 20.17255,
+          "blocks": [
+            "1"
+          ],
+          "formats": [
+            "ND;ND"
+          ],
+          "aiv_vec_ratio": 0.01791127882024902,
+          "aiv_scalar_ratio": 0.4825599105678172,
+          "aiv_mte2_ratio": 0.1421632437155474,
+          "aiv_icache_miss_rate": 0.10771498631533409
+        },
+        {
+          "type": "ScatterNdUpdateSk",
+          "shape": "\"7939,64,128;1,2;1,128\"",
+          "core": "MIX_AIV",
+          "calls_per_step": 3.0,
+          "us_per_step": 18.32755,
+          "blocks": [
+            "2"
+          ],
+          "formats": [
+            "NCL;ND;ND"
+          ],
+          "aiv_vec_ratio": 0.0327053015824132,
+          "aiv_scalar_ratio": 0.31348869424491926,
+          "aiv_mte2_ratio": 0.09232716189164952,
+          "aiv_icache_miss_rate": 0.19543520439126458
+        },
+        {
+          "type": "MatMulV2",
+          "shape": "\"1,512;128,512\"",
+          "core": "AI_CORE",
+          "calls_per_step": 4.0,
+          "us_per_step": 17.09365,
+          "blocks": [
+            "8"
+          ],
+          "formats": [
+            "ND;ND"
+          ],
+          "aic_scalar_ratio": 0.6221740511071977,
+          "aic_mte2_ratio": 0.1960787637228821,
+          "aic_mte1_ratio": 0.07784602738956124,
+          "aic_mac_ratio": 0.06078277099179437,
+          "aic_icache_miss_rate": 0.047557851549327436
+        },
+        {
+          "type": "ArgMaxV2",
+          "shape": "\"1,129280;\"",
+          "core": "AI_VECTOR_CORE",
+          "calls_per_step": 1.0,
+          "us_per_step": 16.69575,
+          "blocks": [
+            "1"
+          ],
+          "formats": [
+            "ND;ND"
+          ],
+          "aiv_vec_ratio": 0.5699749358081979,
+          "aiv_scalar_ratio": 0.1264357339520495,
+          "aiv_mte2_ratio": 0.26135394895591646,
+          "aiv_icache_miss_rate": 0.06120002474864655
+        },
+        {
+          "type": "ScatterNdUpdateSk",
+          "shape": "\"7939,64,1;1,2;1,1\"",
+          "core": "MIX_AIV",
+          "calls_per_step": 3.0,
+          "us_per_step": 16.21465,
+          "blocks": [
+            "2"
+          ],
+          "formats": [
+            "NCL;ND;ND"
+          ],
+          "aiv_vec_ratio": 0.036696250440591195,
+          "aiv_scalar_ratio": 0.3555968428004832,
+          "aiv_mte2_ratio": 0.09072325055351943,
+          "aiv_icache_miss_rate": 0.19641085000735745
+        },
+        {
+          "type": "RmsNorm",
+          "shape": "\"1,128;128\"",
+          "core": "AI_VECTOR_CORE",
+          "calls_per_step": 4.0,
+          "us_per_step": 15.917750000000002,
+          "blocks": [
+            "1"
+          ],
+          "formats": [
+            "ND;ND"
+          ],
+          "aiv_vec_ratio": 0.0914660801069538,
+          "aiv_scalar_ratio": 0.49792573937236906,
+          "aiv_mte2_ratio": 0.13047289479864863,
+          "aiv_icache_miss_rate": 0.21972618380878395
+        },
+        {
+          "type": "ScatterNdUpdateSk",
+          "shape": "\"7939,64,512;1,2;1,512\"",
+          "core": "MIX_AIV",
+          "calls_per_step": 3.0,
+          "us_per_step": 14.259649999999999,
+          "blocks": [
+            "2"
+          ],
+          "formats": [
+            "NCL;ND;ND"
+          ],
+          "aiv_vec_ratio": 0.04233497258470673,
+          "aiv_scalar_ratio": 0.4185603432940255,
+          "aiv_mte2_ratio": 0.10146785472859453,
+          "aiv_icache_miss_rate": 0.20057105640790476
+        },
+        {
+          "type": "BroadcastTo",
+          "shape": "\"1,1,1,1;4\"",
+          "core": "AI_VECTOR_CORE",
+          "calls_per_step": 8.0,
+          "us_per_step": 13.584399999999999,
+          "blocks": [
+            "1"
+          ],
+          "formats": [
+            "NCHW;ND"
+          ],
+          "aiv_vec_ratio": 0.10978553623963627,
+          "aiv_scalar_ratio": 0.4297067504680396,
+          "aiv_mte2_ratio": 0.10223089061246324,
+          "aiv_icache_miss_rate": 0.14814401176785236
+        },
+        {
+          "type": "DynamicQuant",
+          "shape": "\"1,128\"",
+          "core": "AI_VECTOR_CORE",
+          "calls_per_step": 4.0,
+          "us_per_step": 12.980799999999999,
+          "blocks": [
+            "1"
+          ],
+          "formats": [
+            "ND"
+          ],
+          "aiv_vec_ratio": 0.0762337215603788,
+          "aiv_scalar_ratio": 0.42454193495053777,
+          "aiv_mte2_ratio": 0.10243992890668774,
+          "aiv_icache_miss_rate": 0.20537622048111986
+        },
+        {
+          "type": "Mul",
+          "shape": "\"1,32;\"",
+          "core": "AI_VECTOR_CORE",
+          "calls_per_step": 8.0,
+          "us_per_step": 12.0056,
+          "blocks": [
+            "1"
+          ],
+          "formats": [
+            "ND;ND"
+          ],
+          "aiv_vec_ratio": 0.025217724768748468,
+          "aiv_scalar_ratio": 0.3870766452079006,
+          "aiv_mte2_ratio": 0.20860124753267192,
+          "aiv_icache_miss_rate": 0.15142399339465637
+        },
+        {
+          "type": "InplacePartialRotaryMul",
+          "shape": "\"1,1,1,128;1,1,1,64;1,1,1,64\"",
+          "core": "AI_VECTOR_CORE",
+          "calls_per_step": 4.0,
+          "us_per_step": 10.4207,
+          "blocks": [
+            "1"
+          ],
+          "formats": [
+            "ND;ND;ND"
+          ],
+          "aiv_vec_ratio": 0.08768780566743384,
+          "aiv_scalar_ratio": 0.6194289712792482,
+          "aiv_mte2_ratio": 0.3061903888569237,
+          "aiv_icache_miss_rate": 0.14230801088415806
+        },
+        {
+          "type": "Mul",
+          "shape": "\"1,4,1;1,4,5120\"",
+          "core": "AI_VECTOR_CORE",
+          "calls_per_step": 1.0,
+          "us_per_step": 10.2918,
+          "blocks": [
+            "40"
+          ],
+          "formats": [
+            "NCL;NCL"
+          ],
+          "aiv_vec_ratio": 0.015141952142192333,
+          "aiv_scalar_ratio": 0.2796179857087099,
+          "aiv_mte2_ratio": 0.0535102305821599,
+          "aiv_icache_miss_rate": 0.1873624688503918
+        },
+        {
+          "type": "Cast",
+          "shape": "\"1,1,1,64\"",
+          "core": "AI_VECTOR_CORE",
+          "calls_per_step": 8.0,
+          "us_per_step": 10.2059,
+          "blocks": [
+            "1"
+          ],
+          "formats": [
+            "NCHW"
+          ],
+          "aiv_vec_ratio": 0.031054481649120173,
+          "aiv_scalar_ratio": 0.39702908299782436,
+          "aiv_mte2_ratio": 0.14672619970491887,
+          "aiv_icache_miss_rate": 0.16751939283302908
+        },
+        {
+          "type": "GatherV2",
+          "shape": "\"129280,5120;1;1\"",
+          "core": "AI_VECTOR_CORE",
+          "calls_per_step": 1.0,
+          "us_per_step": 10.1547,
+          "blocks": [
+            "48"
+          ],
+          "formats": [
+            "ND;ND;ND"
+          ],
+          "aiv_vec_ratio": 0.007693331419137176,
+          "aiv_scalar_ratio": 0.2510338597372766,
+          "aiv_mte2_ratio": 0.06166715239394157,
+          "aiv_icache_miss_rate": 0.12767461058071924
+        },
+        {
+          "type": "Index",
+          "shape": "\"1;1;1;1\"",
+          "core": "AI_VECTOR_CORE",
+          "calls_per_step": 1.0,
+          "us_per_step": 9.863800000000001,
+          "blocks": [
+            "48"
+          ],
+          "formats": [
+            "ND;ND;ND;ND"
+          ],
+          "aiv_vec_ratio": 0.0011424725130398888,
+          "aiv_scalar_ratio": 0.07979329430747871,
+          "aiv_mte2_ratio": 0.07207465570940748,
+          "aiv_icache_miss_rate": 0.3344474933393373
+        },
+        {
+          "type": "Index",
+          "shape": "\"1,5120;1;2;1\"",
+          "core": "AI_VECTOR_CORE",
+          "calls_per_step": 1.0,
+          "us_per_step": 9.75965,
+          "blocks": [
+            "48"
+          ],
+          "formats": [
+            "ND;ND;ND;ND"
+          ],
+          "aiv_vec_ratio": 0.0013421825793071664,
+          "aiv_scalar_ratio": 0.07339113027114218,
+          "aiv_mte2_ratio": 0.05205589907058914,
+          "aiv_icache_miss_rate": 0.27524355749289503
+        },
+        {
+          "type": "_pool_kernel",
+          "shape": "N/A",
+          "core": "AI_VECTOR_CORE",
+          "calls_per_step": 3.0,
+          "us_per_step": 9.16185,
+          "blocks": [
+            "1"
+          ],
+          "formats": [
+            "N/A"
+          ],
+          "aiv_vec_ratio": 0.1558547450732594,
+          "aiv_scalar_ratio": 0.29858259942340354,
+          "aiv_mte2_ratio": 0.2579875794794834,
+          "aiv_icache_miss_rate": 0.1449852296512776
+        },
+        {
+          "type": "Cast",
+          "shape": "\"1,129280\"",
+          "core": "AI_VECTOR_CORE",
+          "calls_per_step": 1.0,
+          "us_per_step": 8.9328,
+          "blocks": [
+            "46"
+          ],
+          "formats": [
+            "ND"
+          ],
+          "aiv_vec_ratio": 0.008,
+          "aiv_scalar_ratio": 0.029492834368461254,
+          "aiv_mte2_ratio": 0.17793154870636685,
+          "aiv_icache_miss_rate": 0.2068515311036567
+        },
+        {
+          "type": "Equal",
+          "shape": "\"1;\"",
+          "core": "AI_VECTOR_CORE",
+          "calls_per_step": 4.0,
+          "us_per_step": 8.42775,
+          "blocks": [
+            "1"
+          ],
+          "formats": [
+            "ND;ND"
+          ],
+          "aiv_vec_ratio": 0.11298194631403913,
+          "aiv_scalar_ratio": 0.29153672499802047,
+          "aiv_mte2_ratio": 0.1332219336447858,
+          "aiv_icache_miss_rate": 0.18648860559030805
+        },
+        {
+          "type": "Cast",
+          "shape": "\"1,5120\"",
+          "core": "AI_VECTOR_CORE",
+          "calls_per_step": 4.0,
+          "us_per_step": 8.2708,
+          "blocks": [
+            "5"
+          ],
+          "formats": [
+            "ND"
+          ],
+          "aiv_vec_ratio": 0.026742045784453928,
+          "aiv_scalar_ratio": 0.1646223481467941,
+          "aiv_mte2_ratio": 0.10360829453446736,
+          "aiv_icache_miss_rate": 0.20040694186084018
+        },
+        {
+          "type": "Less",
+          "shape": "\"1;\"",
+          "core": "AI_VECTOR_CORE",
+          "calls_per_step": 3.0,
+          "us_per_step": 7.97595,
+          "blocks": [
+            "1"
+          ],
+          "formats": [
+            "ND;ND"
+          ],
+          "aiv_vec_ratio": 0.26294962279443856,
+          "aiv_scalar_ratio": 0.25933639877797865,
+          "aiv_mte2_ratio": 0.12923769405823304,
+          "aiv_icache_miss_rate": 0.16231763981544983
+        },
+        {
+          "type": "Tile",
+          "shape": "\"1,1,5120;3\"",
+          "core": "AI_VECTOR_CORE",
+          "calls_per_step": 1.0,
+          "us_per_step": 6.58895,
+          "blocks": [
+            "40"
+          ],
+          "formats": [
+            "NCL;ND"
+          ],
+          "aiv_vec_ratio": 0.002,
+          "aiv_scalar_ratio": 0.06813396246449525,
+          "aiv_mte2_ratio": 0.07028889596772053,
+          "aiv_icache_miss_rate": 0.17335026943802925
+        },
+        {
+          "type": "IndexCheck",
+          "shape": "\"1;1\"",
+          "core": "AI_VECTOR_CORE",
+          "calls_per_step": 2.0,
+          "us_per_step": 6.4609,
+          "blocks": [
+            "1"
+          ],
+          "formats": [
+            "ND;ND"
+          ],
+          "aiv_vec_ratio": 0.008208219507903729,
+          "aiv_scalar_ratio": 0.5642334447664997,
+          "aiv_mte2_ratio": 0.07169004602405846,
+          "aiv_icache_miss_rate": 0.16103790271051147
+        },
+        {
+          "type": "ScatterNdUpdateSk",
+          "shape": "\"7939,128,128;1,2;1,128\"",
+          "core": "MIX_AIV",
+          "calls_per_step": 1.0,
+          "us_per_step": 6.2759,
+          "blocks": [
+            "2"
+          ],
+          "formats": [
+            "NCL;ND;ND"
+          ],
+          "aiv_vec_ratio": 0.031984906474044526,
+          "aiv_scalar_ratio": 0.32217657628519575,
+          "aiv_mte2_ratio": 0.09787598152839919,
+          "aiv_icache_miss_rate": 0.18644084775304118
+        },
+        {
+          "type": "ScatterNdUpdateSk",
+          "shape": "\"7939,128,1;1,2;1,1\"",
+          "core": "MIX_AIV",
+          "calls_per_step": 1.0,
+          "us_per_step": 6.04475,
+          "blocks": [
+            "2"
+          ],
+          "formats": [
+            "NCL;ND;ND"
+          ],
+          "aiv_vec_ratio": 0.03259067828514237,
+          "aiv_scalar_ratio": 0.3260285197462055,
+          "aiv_mte2_ratio": 0.09276027252610025,
+          "aiv_icache_miss_rate": 0.18559554482264687
+        },
+        {
+          "type": "LogicalAnd",
+          "shape": "\"1;1\"",
+          "core": "AI_VECTOR_CORE",
+          "calls_per_step": 4.0,
+          "us_per_step": 5.735950000000001,
+          "blocks": [
+            "1"
+          ],
+          "formats": [
+            "ND;ND"
+          ],
+          "aiv_vec_ratio": 0.07478478113920732,
+          "aiv_scalar_ratio": 0.31884211397591355,
+          "aiv_mte2_ratio": 0.22812332905682242,
+          "aiv_icache_miss_rate": 0.15026081198526672
+        },
+        {
+          "type": "_cache_update_kernel",
+          "shape": "N/A",
+          "core": "AI_VECTOR_CORE",
+          "calls_per_step": 3.0,
+          "us_per_step": 5.73585,
+          "blocks": [
+            "1"
+          ],
+          "formats": [
+            "N/A"
+          ],
+          "aiv_vec_ratio": 0.0056269582284730335,
+          "aiv_scalar_ratio": 0.3113744626536781,
+          "aiv_mte2_ratio": 0.09237542596361098,
+          "aiv_icache_miss_rate": 0.1841692896793382
+        },
+        {
+          "type": "Cast",
+          "shape": "\"1,1\"",
+          "core": "AI_VECTOR_CORE",
+          "calls_per_step": 4.0,
+          "us_per_step": 5.5838,
+          "blocks": [
+            "1"
+          ],
+          "formats": [
+            "ND"
+          ],
+          "aiv_vec_ratio": 0.030168847505168947,
+          "aiv_scalar_ratio": 0.3079315819151859,
+          "aiv_mte2_ratio": 0.11514594508624554,
+          "aiv_icache_miss_rate": 0.20331383832395936
+        },
+        {
+          "type": "Sub",
+          "shape": "\"1;1\"",
+          "core": "AI_VECTOR_CORE",
+          "calls_per_step": 3.0,
+          "us_per_step": 5.1279,
+          "blocks": [
+            "1"
+          ],
+          "formats": [
+            "ND;ND"
+          ],
+          "aiv_vec_ratio": 0.02157499330731405,
+          "aiv_scalar_ratio": 0.2359491778563679,
+          "aiv_mte2_ratio": 0.2851275696391586,
+          "aiv_icache_miss_rate": 0.16499942231552844
+        },
+        {
+          "type": "Cast",
+          "shape": "\"1,4,5120\"",
+          "core": "AI_VECTOR_CORE",
+          "calls_per_step": 1.0,
+          "us_per_step": 4.73595,
+          "blocks": [
+            "20"
+          ],
+          "formats": [
+            "NCL"
+          ],
+          "aiv_vec_ratio": 0.012090752262991606,
+          "aiv_scalar_ratio": 0.06720658642011204,
+          "aiv_mte2_ratio": 0.046468124285243544,
+          "aiv_icache_miss_rate": 0.19951698939737553
+        },
+        {
+          "type": "ZerosLike",
+          "shape": "\"1,512\"",
+          "core": "AI_VECTOR_CORE",
+          "calls_per_step": 3.0,
+          "us_per_step": 4.61885,
+          "blocks": [
+            "1"
+          ],
+          "formats": [
+            "ND"
+          ],
+          "aiv_vec_ratio": 0.04556308057184267,
+          "aiv_scalar_ratio": 0.2814323572040319,
+          "aiv_mte2_ratio": 0.001,
+          "aiv_icache_miss_rate": 0.18585682521905264
+        },
+        {
+          "type": "Sub",
+          "shape": "\"1;\"",
+          "core": "AI_VECTOR_CORE",
+          "calls_per_step": 2.0,
+          "us_per_step": 4.0779499999999995,
+          "blocks": [
+            "1"
+          ],
+          "formats": [
+            "ND;ND"
+          ],
+          "aiv_vec_ratio": 0.10540918504282708,
+          "aiv_scalar_ratio": 0.289546132308355,
+          "aiv_mte2_ratio": 0.13924167067048826,
+          "aiv_icache_miss_rate": 0.18525248927251942
+        },
+        {
+          "type": "Add",
+          "shape": "\"1;1\"",
+          "core": "AI_VECTOR_CORE",
+          "calls_per_step": 2.0,
+          "us_per_step": 4.05595,
+          "blocks": [
+            "1"
+          ],
+          "formats": [
+            "ND;ND"
+          ],
+          "aiv_vec_ratio": 0.1064844235718822,
+          "aiv_scalar_ratio": 0.23901781595748237,
+          "aiv_mte2_ratio": 0.20840376708894606,
+          "aiv_icache_miss_rate": 0.18081289902062372
+        },
+        {
+          "type": "ClipByValueV2",
+          "shape": "\";;\"",
+          "core": "AI_VECTOR_CORE",
+          "calls_per_step": 2.0,
+          "us_per_step": 3.4079,
+          "blocks": [
+            "1"
+          ],
+          "formats": [
+            "ND;ND;ND"
+          ],
+          "aiv_vec_ratio": 0.03434775238708293,
+          "aiv_scalar_ratio": 0.3403309945284841,
+          "aiv_mte2_ratio": 0.31127338268426136,
+          "aiv_icache_miss_rate": 0.19433734577835
+        },
+        {
+          "type": "Greater",
+          "shape": "\"1;\"",
+          "core": "AI_VECTOR_CORE",
+          "calls_per_step": 1.0,
+          "us_per_step": 2.9829499999999998,
+          "blocks": [
+            "1"
+          ],
+          "formats": [
+            "ND;ND"
+          ],
+          "aiv_vec_ratio": 0.22981663657937973,
+          "aiv_scalar_ratio": 0.24194050830611954,
+          "aiv_mte2_ratio": 0.12179280339141194,
+          "aiv_icache_miss_rate": 0.15000285998255614
+        },
+        {
+          "type": "SelectV2",
+          "shape": "\"1;1;1\"",
+          "core": "AI_VECTOR_CORE",
+          "calls_per_step": 1.0,
+          "us_per_step": 2.66595,
+          "blocks": [
+            "1"
+          ],
+          "formats": [
+            "ND;ND;ND"
+          ],
+          "aiv_vec_ratio": 0.09002588898727687,
+          "aiv_scalar_ratio": 0.23142944027590065,
+          "aiv_mte2_ratio": 0.1892966164887915,
+          "aiv_icache_miss_rate": 0.16651777974553758
+        },
+        {
+          "type": "Cast",
+          "shape": "\"\"",
+          "core": "AI_VECTOR_CORE",
+          "calls_per_step": 2.0,
+          "us_per_step": 2.40995,
+          "blocks": [
+            "1"
+          ],
+          "formats": [
+            "ND"
+          ],
+          "aiv_vec_ratio": 0.03926094465720508,
+          "aiv_scalar_ratio": 0.40229233310805734,
+          "aiv_mte2_ratio": 0.1522042877524968,
+          "aiv_icache_miss_rate": 0.1059457084929038
+        },
+        {
+          "type": "ZerosLike",
+          "shape": "\"1\"",
+          "core": "AI_VECTOR_CORE",
+          "calls_per_step": 1.0,
+          "us_per_step": 1.972,
+          "blocks": [
+            "1"
+          ],
+          "formats": [
+            "ND"
+          ],
+          "aiv_vec_ratio": 0.04187896353034538,
+          "aiv_scalar_ratio": 0.22277076217092778,
+          "aiv_mte2_ratio": 0.001,
+          "aiv_icache_miss_rate": 0.2657487837697961
+        },
+        {
+          "type": "ZerosLike",
+          "shape": "\"2048\"",
+          "core": "AI_VECTOR_CORE",
+          "calls_per_step": 1.0,
+          "us_per_step": 1.702,
+          "blocks": [
+            "1"
+          ],
+          "formats": [
+            "ND"
+          ],
+          "aiv_vec_ratio": 0.02701322166482442,
+          "aiv_scalar_ratio": 0.2550173454638211,
+          "aiv_mte2_ratio": 0.001,
+          "aiv_icache_miss_rate": 0.25234631408893804
+        },
+        {
+          "type": "SelectV2",
+          "shape": "\"1;;1\"",
+          "core": "AI_VECTOR_CORE",
+          "calls_per_step": 1.0,
+          "us_per_step": 1.581,
+          "blocks": [
+            "1"
+          ],
+          "formats": [
+            "ND;ND;ND"
+          ],
+          "aiv_vec_ratio": 0.08000226041911937,
+          "aiv_scalar_ratio": 0.3690614551448081,
+          "aiv_mte2_ratio": 0.29537183894513774,
+          "aiv_icache_miss_rate": 0.168
+        },
+        {
+          "type": "Add",
+          "shape": "\"1;\"",
+          "core": "AI_VECTOR_CORE",
+          "calls_per_step": 1.0,
+          "us_per_step": 1.3899,
+          "blocks": [
+            "1"
+          ],
+          "formats": [
+            "ND;ND"
+          ],
+          "aiv_vec_ratio": 0.030282825305111734,
+          "aiv_scalar_ratio": 0.397361712163198,
+          "aiv_mte2_ratio": 0.22637138140439833,
+          "aiv_icache_miss_rate": 0.14193579388007782
+        },
+        {
+          "type": "ZerosLike",
+          "shape": "\"1,4\"",
+          "core": "AI_VECTOR_CORE",
+          "calls_per_step": 1.0,
+          "us_per_step": 1.35,
+          "blocks": [
+            "1"
+          ],
+          "formats": [
+            "ND"
+          ],
+          "aiv_vec_ratio": 0.03745320226751899,
+          "aiv_scalar_ratio": 0.3256721143408515,
+          "aiv_mte2_ratio": 0.001,
+          "aiv_icache_miss_rate": 0.20320564467494875
+        }
+      ]
+    }
+  }
+}

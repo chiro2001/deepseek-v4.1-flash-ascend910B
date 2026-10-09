@@ -1,0 +1,410 @@
+{
+  "shape": "wo_a",
+  "x_shape": [
+    8,
+    4096
+  ],
+  "weight_shape": [
+    8,
+    4096,
+    512
+  ],
+  "rotations": 8,
+  "weight_bytes": 268435456,
+  "physical_format": [
+    2,
+    2,
+    2,
+    2,
+    2,
+    2,
+    2,
+    2
+  ],
+  "results": [
+    {
+      "kind": "cube",
+      "nk_layout": false,
+      "bn": 32,
+      "bk": 128,
+      "status": "rejected",
+      "error": "at 19:12:\n        ids = tl.arange(0, 8)\n        ends = tl.load(counts + ids)\n        if COUNT_TYPE == 1:\n            ends = tl.cumsum(ends, 0)\n        expert = tl.sum((ends <= slot).to(tl.int32), 0)\n    m = tl.arange(0, 16)\n    n = tile * BN + tl.arange(0, BN)\n    k = tl.arange(0, BK)\n    acc = tl.zeros((16, BN), tl.float32)\n    for start in range(tl.cdiv(K, BK)):\n        kk = start * BK + k\n        a = tl.load(x + slot * K + kk[None, :],\n            ^\nValueError('Cannot broadcast, the expanded size of the tensor (1) must match the existing size (16) at non-singleton dimension 0: [16, 128], [1, 128]')"
+    },
+    {
+      "kind": "cube",
+      "nk_layout": false,
+      "bn": 64,
+      "bk": 128,
+      "status": "rejected",
+      "error": "at 19:12:\n        ids = tl.arange(0, 8)\n        ends = tl.load(counts + ids)\n        if COUNT_TYPE == 1:\n            ends = tl.cumsum(ends, 0)\n        expert = tl.sum((ends <= slot).to(tl.int32), 0)\n    m = tl.arange(0, 16)\n    n = tile * BN + tl.arange(0, BN)\n    k = tl.arange(0, BK)\n    acc = tl.zeros((16, BN), tl.float32)\n    for start in range(tl.cdiv(K, BK)):\n        kk = start * BK + k\n        a = tl.load(x + slot * K + kk[None, :],\n            ^\nValueError('Cannot broadcast, the expanded size of the tensor (1) must match the existing size (16) at non-singleton dimension 0: [16, 128], [1, 128]')"
+    },
+    {
+      "kind": "cube",
+      "nk_layout": false,
+      "bn": 64,
+      "bk": 256,
+      "status": "rejected",
+      "error": "at 19:12:\n        ids = tl.arange(0, 8)\n        ends = tl.load(counts + ids)\n        if COUNT_TYPE == 1:\n            ends = tl.cumsum(ends, 0)\n        expert = tl.sum((ends <= slot).to(tl.int32), 0)\n    m = tl.arange(0, 16)\n    n = tile * BN + tl.arange(0, BN)\n    k = tl.arange(0, BK)\n    acc = tl.zeros((16, BN), tl.float32)\n    for start in range(tl.cdiv(K, BK)):\n        kk = start * BK + k\n        a = tl.load(x + slot * K + kk[None, :],\n            ^\nValueError('Cannot broadcast, the expanded size of the tensor (1) must match the existing size (16) at non-singleton dimension 0: [16, 256], [1, 256]')"
+    },
+    {
+      "kind": "cube",
+      "nk_layout": false,
+      "bn": 128,
+      "bk": 256,
+      "status": "rejected",
+      "error": "at 19:12:\n        ids = tl.arange(0, 8)\n        ends = tl.load(counts + ids)\n        if COUNT_TYPE == 1:\n            ends = tl.cumsum(ends, 0)\n        expert = tl.sum((ends <= slot).to(tl.int32), 0)\n    m = tl.arange(0, 16)\n    n = tile * BN + tl.arange(0, BN)\n    k = tl.arange(0, BK)\n    acc = tl.zeros((16, BN), tl.float32)\n    for start in range(tl.cdiv(K, BK)):\n        kk = start * BK + k\n        a = tl.load(x + slot * K + kk[None, :],\n            ^\nValueError('Cannot broadcast, the expanded size of the tensor (1) must match the existing size (16) at non-singleton dimension 0: [16, 256], [1, 256]')"
+    },
+    {
+      "kind": "cube",
+      "nk_layout": false,
+      "bn": 128,
+      "bk": 512,
+      "status": "rejected",
+      "error": "at 19:12:\n        ids = tl.arange(0, 8)\n        ends = tl.load(counts + ids)\n        if COUNT_TYPE == 1:\n            ends = tl.cumsum(ends, 0)\n        expert = tl.sum((ends <= slot).to(tl.int32), 0)\n    m = tl.arange(0, 16)\n    n = tile * BN + tl.arange(0, BN)\n    k = tl.arange(0, BK)\n    acc = tl.zeros((16, BN), tl.float32)\n    for start in range(tl.cdiv(K, BK)):\n        kk = start * BK + k\n        a = tl.load(x + slot * K + kk[None, :],\n            ^\nValueError('Cannot broadcast, the expanded size of the tensor (1) must match the existing size (16) at non-singleton dimension 0: [16, 512], [1, 512]')"
+    },
+    {
+      "kind": "vector",
+      "nk_layout": true,
+      "bn": 1,
+      "bk": 4096,
+      "samples_us": {
+        "native": [
+          34.7776386472914,
+          33.416665924919975,
+          33.39613808525933,
+          33.35938983493381,
+          33.36688942379422,
+          33.384972148471405,
+          33.36166540781657
+        ],
+        "candidate": [
+          60.779057608710396,
+          59.824890560574005,
+          59.820779164632164,
+          59.80938805474175,
+          59.80602900187174,
+          59.79780620998807,
+          59.79666709899902
+        ]
+      },
+      "medians_us": {
+        "native": 33.384972148471405,
+        "candidate": 59.80938805474175
+      },
+      "profiler": "OFF",
+      "same_process": true,
+      "speedup": 0.5581894955674038,
+      "status": "passed_screen",
+      "max_abs_vs_native": 0.00048828125,
+      "fp64": [
+        {
+          "scale": 0.0,
+          "native_max_abs": 0.0,
+          "candidate_max_abs": 0.0
+        },
+        {
+          "scale": 0.001,
+          "native_max_abs": 7.6197996179416805e-06,
+          "candidate_max_abs": 7.6197996179416805e-06
+        },
+        {
+          "scale": 1.0,
+          "native_max_abs": 0.007761690714687575,
+          "candidate_max_abs": 0.007761690714687575
+        },
+        {
+          "scale": 100.0,
+          "native_max_abs": 0.9029323607683182,
+          "candidate_max_abs": 0.9029323607683182
+        }
+      ]
+    },
+    {
+      "kind": "vector",
+      "nk_layout": true,
+      "bn": 2,
+      "bk": 2048,
+      "samples_us": {
+        "native": [
+          33.396527502271866,
+          33.38630464341905,
+          33.32377804650201,
+          33.40958224402534,
+          33.38624901241727,
+          33.35369427998861,
+          33.31561088562012
+        ],
+        "candidate": [
+          68.06919309828017,
+          67.44033495585124,
+          67.36388736300998,
+          67.40744378831651,
+          67.38658481174045,
+          67.41208500332303,
+          67.41763750712077
+        ]
+      },
+      "medians_us": {
+        "native": 33.38624901241727,
+        "candidate": 67.41208500332303
+      },
+      "profiler": "OFF",
+      "same_process": true,
+      "speedup": 0.49525614006407775,
+      "status": "passed_screen",
+      "max_abs_vs_native": 0.00048828125,
+      "fp64": [
+        {
+          "scale": 0.0,
+          "native_max_abs": 0.0,
+          "candidate_max_abs": 0.0
+        },
+        {
+          "scale": 0.001,
+          "native_max_abs": 7.6197996179416805e-06,
+          "candidate_max_abs": 7.6197996179416805e-06
+        },
+        {
+          "scale": 1.0,
+          "native_max_abs": 0.007761690714687575,
+          "candidate_max_abs": 0.007761690714687575
+        },
+        {
+          "scale": 100.0,
+          "native_max_abs": 0.9029323607683182,
+          "candidate_max_abs": 0.9029323607683182
+        }
+      ]
+    },
+    {
+      "kind": "vector",
+      "nk_layout": true,
+      "bn": 4,
+      "bk": 1024,
+      "samples_us": {
+        "native": [
+          33.33402739630805,
+          33.25605657365587,
+          33.2386679119534,
+          33.40944449106852,
+          33.376028802659775,
+          33.35897127787272,
+          33.2859992980957
+        ],
+        "candidate": [
+          67.57477654351129,
+          66.5773073832194,
+          66.53769281175401,
+          66.55411190456815,
+          66.53047137790256,
+          66.54747327168782,
+          66.5391657087538
+        ]
+      },
+      "medians_us": {
+        "native": 33.33402739630805,
+        "candidate": 66.54747327168782
+      },
+      "profiler": "OFF",
+      "same_process": true,
+      "speedup": 0.5009059812116081,
+      "status": "passed_screen",
+      "max_abs_vs_native": 0.00048828125,
+      "fp64": [
+        {
+          "scale": 0.0,
+          "native_max_abs": 0.0,
+          "candidate_max_abs": 0.0
+        },
+        {
+          "scale": 0.001,
+          "native_max_abs": 7.6197996179416805e-06,
+          "candidate_max_abs": 7.6197996179416805e-06
+        },
+        {
+          "scale": 1.0,
+          "native_max_abs": 0.007761690714687575,
+          "candidate_max_abs": 0.007761690714687575
+        },
+        {
+          "scale": 100.0,
+          "native_max_abs": 0.9029323607683182,
+          "candidate_max_abs": 0.9029323607683182
+        }
+      ]
+    },
+    {
+      "kind": "vector",
+      "nk_layout": true,
+      "bn": 8,
+      "bk": 512,
+      "samples_us": {
+        "native": [
+          33.45291614532471,
+          33.3810011545817,
+          33.387721909417046,
+          33.414973153008354,
+          33.26563835144043,
+          33.38599999745687,
+          34.37786102294922
+        ],
+        "candidate": [
+          60.14060974121094,
+          59.47158071729872,
+          59.47166548834907,
+          59.45441457960341,
+          59.47502983940972,
+          59.46169429355197,
+          59.46922302246094
+        ]
+      },
+      "medians_us": {
+        "native": 33.387721909417046,
+        "candidate": 59.47158071729872
+      },
+      "profiler": "OFF",
+      "same_process": true,
+      "speedup": 0.5614063306661938,
+      "status": "passed_screen",
+      "max_abs_vs_native": 0.00048828125,
+      "fp64": [
+        {
+          "scale": 0.0,
+          "native_max_abs": 0.0,
+          "candidate_max_abs": 0.0
+        },
+        {
+          "scale": 0.001,
+          "native_max_abs": 7.6197996179416805e-06,
+          "candidate_max_abs": 7.6197996179416805e-06
+        },
+        {
+          "scale": 1.0,
+          "native_max_abs": 0.007761690714687575,
+          "candidate_max_abs": 0.007761690714687575
+        },
+        {
+          "scale": 100.0,
+          "native_max_abs": 0.9029323607683182,
+          "candidate_max_abs": 0.9029323607683182
+        }
+      ]
+    },
+    {
+      "kind": "vector",
+      "nk_layout": false,
+      "bn": 16,
+      "bk": 256,
+      "samples_us": {
+        "native": [
+          33.41977861192491,
+          33.21763939327664,
+          33.20924970838759,
+          33.27611022525363,
+          33.230082194010414,
+          33.21044445037842,
+          33.15247164832221
+        ],
+        "candidate": [
+          94.37999725341797,
+          93.25172636244032,
+          93.23591656155057,
+          93.1855837504069,
+          93.23478274875217,
+          93.16007826063368,
+          93.1190808614095
+        ]
+      },
+      "medians_us": {
+        "native": 33.21763939327664,
+        "candidate": 93.23478274875217
+      },
+      "profiler": "OFF",
+      "same_process": true,
+      "speedup": 0.35627947439735114,
+      "status": "passed_screen",
+      "max_abs_vs_native": 0.00048828125,
+      "fp64": [
+        {
+          "scale": 0.0,
+          "native_max_abs": 0.0,
+          "candidate_max_abs": 0.0
+        },
+        {
+          "scale": 0.001,
+          "native_max_abs": 7.6197996179416805e-06,
+          "candidate_max_abs": 7.6197996179416805e-06
+        },
+        {
+          "scale": 1.0,
+          "native_max_abs": 0.007761690714687575,
+          "candidate_max_abs": 0.007761690714687575
+        },
+        {
+          "scale": 100.0,
+          "native_max_abs": 0.9029323607683182,
+          "candidate_max_abs": 0.9029323607683182
+        }
+      ]
+    },
+    {
+      "kind": "vector",
+      "nk_layout": false,
+      "bn": 32,
+      "bk": 128,
+      "samples_us": {
+        "native": [
+          33.288915952046715,
+          33.12897152370877,
+          33.15544393327501,
+          33.159777853224014,
+          33.131000730726456,
+          33.124748865763344,
+          33.12405480278863
+        ],
+        "candidate": [
+          64.05019230312772,
+          63.40008311801486,
+          63.33622402615018,
+          63.410891426934135,
+          63.29897244771322,
+          63.42430644565158,
+          63.31911087036133
+        ]
+      },
+      "medians_us": {
+        "native": 33.131000730726456,
+        "candidate": 63.40008311801486
+      },
+      "profiler": "OFF",
+      "same_process": true,
+      "speedup": 0.522570304348898,
+      "status": "passed_screen",
+      "max_abs_vs_native": 0.001953125,
+      "fp64": [
+        {
+          "scale": 0.0,
+          "native_max_abs": 0.0,
+          "candidate_max_abs": 0.0
+        },
+        {
+          "scale": 0.001,
+          "native_max_abs": 7.6197996179416805e-06,
+          "candidate_max_abs": 7.6197996179416805e-06
+        },
+        {
+          "scale": 1.0,
+          "native_max_abs": 0.007761690714687575,
+          "candidate_max_abs": 0.007761690714687575
+        },
+        {
+          "scale": 100.0,
+          "native_max_abs": 0.9029323607683182,
+          "candidate_max_abs": 0.9029323607683182
+        }
+      ]
+    }
+  ],
+  "precision_gate": "all elements rtol=1/64, atol=1/64; FP64 error recorded",
+  "end_to_end": false
+}
