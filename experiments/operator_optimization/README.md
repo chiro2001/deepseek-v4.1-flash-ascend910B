@@ -29,6 +29,7 @@ shared 14.194→14.153 μs（1.003×，没有明确收益）。
 【实测】整模型激活和多流随机化审计均通过；最终六组对照为
 `(26.456 ms/步, A=1, 37.799 token/s)` → `(24.446 ms/步, A=1, 40.907 token/s)`，
 吞吐提升约8.2%，六组全部更快。完整结果和边界见 [REPORT.md](REPORT.md)。
+本轮工作与优化原理见 [总结报告](reports/a3-21-tiny-operator-fusion-qkv-overlap-20261009-v1.md)。
 性能脚本的audit阶段会在
 编译前随机化gate、HC和routed/shared MLP权重；审计耗时不进入正式计时。
 
