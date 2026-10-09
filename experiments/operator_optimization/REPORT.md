@@ -149,3 +149,17 @@ baseline保留HC/router并关闭新激活和多流；完全原生回退仍可用
 原始请求/trace分别在 `results/model_audit_v2`、`model_perf_v1`、`overlap_audit_v1`、
 `combined_perf_v1`、`activation_microarch`。仓库保存小型结果及逐核CSV，
 两份 `profile_validation.json`包含完整CSV哈希、设备、类型计数和流信息。
+
+## 20 ms goal后续：HC finish/norm筛选与语义核对（2026-10-10）
+
+新增hc_prenorm.py把finish和全5120维RMS放入同一Vector kernel，保留20次Sinkhorn和HC的BF16中间输出。
+固定的FP32路由1e-4门槛下，候选未通过，暂未接入模型；BF16路径的独立图改善约1%，8192布局更慢。
+v1编译选项错误已单独保留，v2/v3逐步校正原生边界，没有放宽容差。
+
+源码及上板检查证明当前vendor的RmsNormCast将最终BF16输出扩展到FP32，检查max差0。
+因此旧机会清单中“不能从BF16输出float替代独立未舍入FP32”的警告不描述当前实现；融合仍必须保持真实舍入和归约顺序。
+相关证据在evidence/goal20/rms_norm_cast_semantics.json，适用范围限当前vendor/BF16。
+
+chip6完整模型尚无有效计时：static尝试在运行时流同步等待，nostatic尝试报DSA随机任务分配80字节失败；
+可选GOAL20_SERIAL_DUMMY=1保持NPU RNG/seed不变，只在初始化后同步，12451个参数完成加载，但图warmup后仍同步等待。
+未重置设备、未操作其他租户进程。此前22.674 ms/step、A=1、44.103 token/s仍为阶段最佳，goal保持active。

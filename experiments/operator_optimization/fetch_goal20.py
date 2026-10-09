@@ -10,6 +10,7 @@ from pathlib import Path
 def main():
     p = argparse.ArgumentParser()
     p.add_argument('--output', type=Path, required=True)
+    p.add_argument('--ssh-control-path')
     p.add_argument('files', nargs='+')
     args = p.parse_args(); args.output.mkdir(parents=True, exist_ok=True)
     records = []
@@ -18,7 +19,9 @@ def main():
         code = ("from pathlib import Path\nimport sys\np=Path('/work/operator_opt/results')/"+repr(relative)+
                 "\nassert p.stat().st_size<1000000, 'Use COS for >=1 MB'\nsys.stdout.buffer.write(p.read_bytes())")
         command = shlex.join(['docker','exec','dsv41-tiny-prof-20261009-c4','python','-c',code])
-        data = subprocess.check_output(['ssh','-o','BatchMode=yes','a3-21',command])
+        opts=['-o','BatchMode=yes','-o','ConnectTimeout=30']
+        if args.ssh_control_path:opts+=['-S',args.ssh_control_path]
+        data = subprocess.check_output(['ssh',*opts,'a3-21',command])
         assert len(data) < 1000000
         target = args.output/relative; target.parent.mkdir(parents=True, exist_ok=True); target.write_bytes(data)
         records.append({'relative':relative,'bytes':len(data),'sha256':hashlib.sha256(data).hexdigest()})

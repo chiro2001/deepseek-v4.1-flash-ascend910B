@@ -1,0 +1,226 @@
+{
+  "precision_gate": "HC 4e-3/1e-4; norm BF16 1/64; FP32 routing 1e-4 all elements",
+  "end_to_end": false,
+  "results": [
+    {
+      "by": 5120,
+      "tree": true,
+      "emit_fp32": false,
+      "samples_us": {
+        "baseline": [
+          16.393799781799316,
+          14.454299608866373,
+          14.463699658711752,
+          14.474833806355795,
+          14.51136589050293,
+          14.485333760579428,
+          14.477699597676596
+        ],
+        "candidate": [
+          15.376966794331869,
+          14.277234077453613,
+          14.360899925231934,
+          14.365766843159994,
+          14.364867210388184,
+          14.397832552591959,
+          14.40886656443278
+        ]
+      },
+      "medians_us": {
+        "baseline": 14.477699597676596,
+        "candidate": 14.365766843159994
+      },
+      "profiler": "OFF",
+      "same_process": true,
+      "status": "passed_screen",
+      "worst_abs": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.001953125,
+        0.0
+      ],
+      "bit_equal": [
+        true,
+        true,
+        true,
+        true,
+        false,
+        true
+      ]
+    },
+    {
+      "by": 5120,
+      "tree": true,
+      "emit_fp32": true,
+      "status": "rejected",
+      "error": "Tensor-likes are not close!\n\nMismatched elements: 2 / 5120 (0.0%)\nGreatest absolute difference: 0.001953125 at index (0, 2550) (up to 0.0001 allowed)\nGreatest relative difference: 0.0055555556900799274 at index (0, 1412) (up to 0.0001 allowed)"
+    },
+    {
+      "by": 5120,
+      "tree": false,
+      "emit_fp32": false,
+      "samples_us": {
+        "baseline": [
+          15.587967236836752,
+          14.359933535257975,
+          14.36370054880778,
+          14.392333030700684,
+          14.407100677490234,
+          14.386399586995443,
+          14.41423257191976
+        ],
+        "candidate": [
+          15.175333023071289,
+          14.437200228373209,
+          14.415966669718424,
+          14.383567174275717,
+          14.373799959818522,
+          14.470300674438477,
+          14.354766209920248
+        ]
+      },
+      "medians_us": {
+        "baseline": 14.392333030700684,
+        "candidate": 14.415966669718424
+      },
+      "profiler": "OFF",
+      "same_process": true,
+      "status": "passed_screen",
+      "worst_abs": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.001953125,
+        0.0
+      ],
+      "bit_equal": [
+        true,
+        true,
+        true,
+        true,
+        false,
+        true
+      ]
+    },
+    {
+      "by": 5120,
+      "tree": false,
+      "emit_fp32": true,
+      "status": "rejected",
+      "error": "Tensor-likes are not close!\n\nMismatched elements: 2 / 5120 (0.0%)\nGreatest absolute difference: 0.001953125 at index (0, 2550) (up to 0.0001 allowed)\nGreatest relative difference: 0.0055555556900799274 at index (0, 1412) (up to 0.0001 allowed)"
+    },
+    {
+      "by": 8192,
+      "tree": true,
+      "emit_fp32": false,
+      "samples_us": {
+        "baseline": [
+          15.82883358001709,
+          14.360933303833008,
+          14.416534105936686,
+          14.377466837565104,
+          14.360033671061197,
+          14.374566078186035,
+          14.326066970825195
+        ],
+        "candidate": [
+          16.257766087849934,
+          15.227766036987305,
+          15.24079958597819,
+          17.53053347269694,
+          15.215999285380045,
+          15.214200019836426,
+          15.217733383178711
+        ]
+      },
+      "medians_us": {
+        "baseline": 14.374566078186035,
+        "candidate": 15.227766036987305
+      },
+      "profiler": "OFF",
+      "same_process": true,
+      "status": "passed_screen",
+      "worst_abs": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.001953125,
+        0.0
+      ],
+      "bit_equal": [
+        true,
+        true,
+        true,
+        true,
+        false,
+        true
+      ]
+    },
+    {
+      "by": 8192,
+      "tree": true,
+      "emit_fp32": true,
+      "status": "rejected",
+      "error": "Tensor-likes are not close!\n\nMismatched elements: 2 / 5120 (0.0%)\nGreatest absolute difference: 0.001953125 at index (0, 2550) (up to 0.0001 allowed)\nGreatest relative difference: 0.0055555556900799274 at index (0, 1412) (up to 0.0001 allowed)"
+    },
+    {
+      "by": 8192,
+      "tree": false,
+      "emit_fp32": false,
+      "samples_us": {
+        "baseline": [
+          15.448400179545084,
+          14.39319928487142,
+          14.380900065104166,
+          14.356600443522135,
+          14.41836675008138,
+          14.409599304199219,
+          14.419967333475748
+        ],
+        "candidate": [
+          16.071300506591797,
+          15.262433687845865,
+          15.263566970825195,
+          15.25036652882894,
+          15.255866050720215,
+          15.255033175150553,
+          15.255765914916992
+        ]
+      },
+      "medians_us": {
+        "baseline": 14.409599304199219,
+        "candidate": 15.255866050720215
+      },
+      "profiler": "OFF",
+      "same_process": true,
+      "status": "passed_screen",
+      "worst_abs": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.001953125,
+        0.0
+      ],
+      "bit_equal": [
+        true,
+        true,
+        true,
+        true,
+        false,
+        true
+      ]
+    },
+    {
+      "by": 8192,
+      "tree": false,
+      "emit_fp32": true,
+      "status": "rejected",
+      "error": "Tensor-likes are not close!\n\nMismatched elements: 2 / 5120 (0.0%)\nGreatest absolute difference: 0.001953125 at index (0, 2550) (up to 0.0001 allowed)\nGreatest relative difference: 0.0055555556900799274 at index (0, 1412) (up to 0.0001 allowed)"
+    }
+  ]
+}

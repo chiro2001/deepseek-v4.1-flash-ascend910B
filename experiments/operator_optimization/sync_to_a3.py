@@ -9,6 +9,7 @@ from pathlib import Path
 def main():
     parser=argparse.ArgumentParser()
     parser.add_argument('--host',default='a3-21')
+    parser.add_argument('--ssh-control-path',help='Use a dedicated task SSH multiplex socket')
     args=parser.parse_args()
     root=Path(__file__).resolve().parent
     runtime=root/'runtime';runtime.mkdir(exist_ok=True)
@@ -22,7 +23,9 @@ def main():
     if bundle.stat().st_size>=1000000:
         raise RuntimeError('Use COS for a bundle >=1 MB')
     remote='/home/l00886679/projects/dsv41-tiny-prof-20261009'
-    subprocess.run(['scp','-q',str(bundle),args.host+':'+remote+'/operator_opt_source.tgz'],check=True)
+    options=['-o','BatchMode=yes','-o','ConnectTimeout=30']
+    if args.ssh_control_path:options+=['-o','ControlPath='+args.ssh_control_path]
+    subprocess.run(['scp','-q',*options,str(bundle),args.host+':'+remote+'/operator_opt_source.tgz'],check=True)
     code=f"""from pathlib import Path
 import tarfile
 root=Path({remote!r})
@@ -30,7 +33,7 @@ out=root/'operator_opt';out.mkdir(exist_ok=True)
 with tarfile.open(root/'operator_opt_source.tgz') as archive:archive.extractall(out,filter='data')
 print('Source synced to '+str(out))
 """
-    subprocess.run(['ssh','-o','BatchMode=yes','-o','ConnectTimeout=10',args.host,'python3 -'],input=code,text=True,check=True)
+    subprocess.run(['ssh',*options,args.host,'python3 -'],input=code,text=True,check=True)
 
 
 if __name__=='__main__':main()

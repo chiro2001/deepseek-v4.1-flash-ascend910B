@@ -40,13 +40,21 @@
 - 空闲chip2/3初始化TSD/OPP失败；chip6计算冒烟通过。
 - 新独立容器：`dsv41-tiny-goal20-20261010-c6`，label task=dsv41-tiny-goal20-20261010, chip=6。
   镜像及model/work挂载与c4一致，物理6→逻辑0，容器privileged，其他租户保持运行。
-- 当前NPU任务：c6的`goal20_c6_rebaseline_v1`，static、baseline/combo同进程六组；不能与chip4直接相减。
+- c6的`goal20_c6_rebaseline_v1`无结果：两次native栈采样证实在_fx_func_run流同步等待，输出目录空；SIGTERM无效后仅停止自己的PID184。
+- c6 `goal20_c6_nostatic_v1`退出1：dummy param.uniform_的DSA随机任务分配80字节失败，207001/EL0019，没有模型性能。
+- 增加可选GOAL20_SERIAL_DUMMY=1：调用原有NPU RNG/seed，仅每个参数初始化后同步，避免加载阶段任务积压；12451参数完成并进入图捕获。
+- c6 `goal20_c6_serial_dummy_v1`两次栈证实capture warmup后stream同步等待；仅自己的PID2165已停止，无有效计时。当前任务为goal20_c6_blocking_diagnostic_v1，LAUNCH_BLOCKING=1和操作超时30000ms，只用于定位，不能当性能。
 - run_in_container.sh/serve_goal20_tiny.sh新增GOAL20_CHIP=4或6；源同步session2259可能尚在进行，启动c6重测使用显式环境包装，避免旧脚本强制4。
 
 下一项CPU实现建议：HC finish与全维RMS/RmsNormCast融合。先独立kernel筛选：顺序加载四行形成完整5120维BF16 raw y，
 再FP32全维RMS归约，保留BF16中间边界、20次Sinkhorn和独立FP32路由输出。
 原模型rms_norm_cast是方法，使用post_attention_layernorm.weight/variance_epsilon，不是独立模块。
 模型接入需要合理的prenorm opaque op/forward接入及旧HC refs审计，避免在Dynamo外冻结batch分派。
+- 已实现hc_prenorm.py/probe_hc_prenorm.py。v1仅编译选项错误，v2/v3路由精度拒绝；BF16 norm改善约1%，8192布局更慢。
+- RmsNormCast源码和上板证明当前vendor的FP32输出=最终BF16.float()（max diff0）；前机会清单“独立未舍入FP32”警告不适用于此实现。
+- v3修正final BF16→FP32边界和均值顺序后仅2个元素仍不符1e-4门槛，没有放宽。v4进一步64-lane布局仍未通过路由门槛（2元素），未接入模型；第一次v4源同步先后不完整，需保存源fingerprint再确认，不据此采纳。
+- debug工具py-spy仅安装在runtime/debug_tools，未改全局依赖；共享SSH multiplex拥挤，增加可选--ssh-control-path到sync/fetch。
+- vLLM现有qk norm/rope/cache融合开关源码限定CUDA/ROCm/XPU，会在Ascend禁用，不作为有效候选。
 - 候选源码在同目录，原始日志与trace在远程 `/work/operator_opt/results/goal20_*`。
 - 已有优化服务暂时停止，以避免污染本轮独立测量；任务结束或需要长期交付时恢复经过验证的服务。
 

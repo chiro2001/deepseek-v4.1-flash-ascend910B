@@ -1,0 +1,10 @@
+{
+  "scope": "current a3-21 vendor BF16 RmsNormCast",
+  "source": "csrc/moe/rms_norm_cast/op_kernel/rms_norm_cast.h:122",
+  "source_comment": "The FP32 result deliberately widens the rounded low-precision result. HashTopK therefore sees exactly the same values as the original RMSNorm followed by Tensor.float().",
+  "on_board_random_signed_input_and_gamma": {
+    "torch_equal_fp32_and_bf16_float": true,
+    "max_abs_difference": 0.0
+  },
+  "correction": "Previous opportunity list caution about independently unrounded FP32 routing does not describe this actual vendor implementation."
+}

@@ -1,0 +1,141 @@
+INFO 10-09 18:29:08 [__init__.py:52] Available plugins for group vllm.platform_plugins:
+INFO 10-09 18:29:08 [__init__.py:54] - ascend -> vllm_ascend:register
+INFO 10-09 18:29:08 [__init__.py:57] All plugins in this group will be loaded. Set `VLLM_PLUGINS` to control which plugins to load.
+INFO 10-09 18:29:08 [__init__.py:237] Platform plugin ascend is activated
+INFO 10-09 18:29:08 [platform.py:70] Breakable CUDAGraph on Ascend is opt-in; using VLLM_USE_BREAKABLE_CUDAGRAPH=0.
+2026-10-09 18:29:14,266 - 1915 - ServiceProfiler - INFO - VLLM_USE_V1 not set, auto-detected via vLLM 0.27.1+empty: default 1
+INFO 10-09 18:29:15 [__init__.py:112] Registered model loader `<class 'vllm_ascend.model_loader.netloader.netloader.ModelNetLoaderElastic'>` with load format `netloader`
+INFO 10-09 18:29:15 [__init__.py:112] Registered model loader `<class 'vllm_ascend.model_loader.rfork.rfork_loader.RForkModelLoader'>` with load format `rfork`
+INFO 10-09 18:29:15 [api_utils.py:273] non-default args: {'tokenizer': '/model', 'trust_remote_code': True, 'load_format': 'dummy', 'dtype': 'bfloat16', 'max_model_len': 8192, 'enable_expert_parallel': True, 'block_size': 128, 'enable_prefix_caching': False, 'gpu_memory_utilization': 0.7, 'kv_cache_memory_bytes': 4294967296, 'max_num_batched_tokens': 2048, 'max_num_seqs': 1, 'disable_log_stats': True, 'limit_mm_per_prompt': {'image': 0}, 'compilation_config': {'mode': None, 'debug_dump_path': None, 'cache_dir': '', 'compile_cache_save_format': 'binary', 'backend': 'vllm_ascend.compilation.compiler_interface.AscendCompiler', 'custom_ops': [], 'ir_enable_torch_wrap': None, 'splitting_ops': None, 'compile_mm_encoder': False, 'cudagraph_mm_encoder': False, 'encoder_cudagraph_token_budgets': [], 'encoder_cudagraph_max_vision_items_per_batch': 0, 'encoder_cudagraph_max_frames_per_batch': None, 'compile_sizes': None, 'compile_ranges_endpoints': None, 'inductor_compile_config': {'enable_auto_functionalized_v2': False, 'size_asserts': False, 'alignment_asserts': False, 'scalar_asserts': False, 'combo_kernels': True, 'benchmark_combo_kernel': True}, 'inductor_passes': {}, 'cudagraph_mode': <CUDAGraphMode.FULL_DECODE_ONLY: (2, 0)>, 'cudagraph_num_of_warmups': 0, 'cudagraph_capture_sizes': [1], 'cudagraph_copy_inputs': False, 'cudagraph_specialize_lora': True, 'use_inductor_graph_partition': None, 'pass_config': {}, 'max_cudagraph_capture_size': None, 'dynamic_shapes_config': {'type': <DynamicShapesType.BACKED: 'backed'>, 'evaluate_guards': False, 'assume_32_bit_indexing': False}, 'local_cache_dir': None, 'fast_moe_cold_start': None, 'static_all_moe_layers': []}, 'worker_cls': 'goal20_worker.Goal20Worker', 'additional_config': {'enable_engram': False, 'enable_cpu_binding': True, 'ascend_compilation_config': {'enable_npugraph_ex': True, 'enable_static_kernel': False}, 'multistream_dsv4_dsa_overlap': True}, 'async_scheduling': False, 'model': '/model'}
+WARNING 10-09 18:29:15 [arg_utils.py:1678] The global random seed is set to 0. Since VLLM_ENABLE_V1_MULTIPROCESSING is set to False, this may affect the random state of the Python process that launched vLLM.
+[transformers] Unrecognized keys in `rope_parameters` for 'rope_type'='default': {'factor', 'beta_fast', 'beta_slow', 'original_max_position_embeddings'}
+[transformers] Unrecognized keys in `rope_parameters` for 'rope_type'='default': {'factor', 'beta_fast', 'beta_slow', 'original_max_position_embeddings'}
+INFO 10-09 18:29:29 [model.py:645] Resolved architecture: DeepseekV41ForCausalLM
+INFO 10-09 18:29:29 [model.py:2214] Downcasting torch.float32 to torch.bfloat16.
+INFO 10-09 18:29:29 [model.py:1883] Using max model len 8192
+[transformers] Unrecognized keys in `rope_parameters` for 'rope_type'='default': {'factor', 'beta_fast', 'beta_slow', 'original_max_position_embeddings'}
+[transformers] Unrecognized keys in `rope_parameters` for 'rope_type'='default': {'factor', 'beta_fast', 'beta_slow', 'original_max_position_embeddings'}
+INFO 10-09 18:29:30 [registry.py:134] All limits of multimodal modalities supported by the model are set to 0, running in text-only mode.
+INFO 10-09 18:29:30 [model.py:842] Disabled mm_prefix attention mode because multimodal inputs are configuration-disabled. Attention backends without mm_prefix support may now be selected.
+INFO 10-09 18:29:30 [scheduler.py:242] Chunked prefill is enabled with max_num_batched_tokens=2048.
+INFO 10-09 18:29:30 [kernel.py:306] Final IR op priority after setting platform defaults: IrOpPriorityConfig(rms_norm=['native'], fused_add_rms_norm=['native'])
+INFO 10-09 18:29:30 [utils.py:224] No quantization signature detected from model files for "/model". The model will be loaded as float. To force a quantization method, pass "--quantization <method>" explicitly.
+WARNING 10-09 18:29:30 [platform.py:651] GPU-specific parameter is not supported on Ascend. parameter=disable_cascade_attn, value=True, action: resetting to False.
+INFO 10-09 18:29:30 [platform.py:863] The timeout interval of the HCCL operator is 1836s. Timeout in seconds for execute_model RPC calls in multiprocessing must be greater than 1836s, Set VLLM_EXECUTE_MODEL_TIMEOUT_SECONDS=3000
+INFO 10-09 18:29:30 [ascend_config.py:161] Dynamic EPLB is False
+INFO 10-09 18:29:30 [ascend_config.py:162] The number of redundant experts is 0
+INFO 10-09 18:29:30 [platform.py:1167] FlashComm1 is disabled. Using flashinfer_all2allv as the all2all backend.
+INFO 10-09 18:29:30 [platform.py:1356] Set PYTORCH_NPU_ALLOC_CONF=expandable_segments:True
+INFO 10-09 18:29:30 [compilation.py:329] Enabled custom fusions: norm_quant, act_quant
+[transformers] Unrecognized keys in `rope_parameters` for 'rope_type'='default': {'factor', 'beta_fast', 'beta_slow', 'original_max_position_embeddings'}
+[transformers] Unrecognized keys in `rope_parameters` for 'rope_type'='default': {'factor', 'beta_fast', 'beta_slow', 'original_max_position_embeddings'}
+INFO 10-09 18:29:32 [core.py:121] Initializing a V1 LLM engine (v0.27.1) with config: model='/model', speculative_config=None, tokenizer='/model', skip_tokenizer_init=False, tokenizer_mode=auto, revision=None, tokenizer_revision=None, trust_remote_code=True, dtype=torch.bfloat16, max_seq_len=8192, download_dir=None, load_format=dummy, tensor_parallel_size=1, pipeline_parallel_size=1, data_parallel_size=1, decode_context_parallel_size=1, dcp_comm_backend=ag_rs, disable_custom_all_reduce=True, quantization=None, quantization_config=None, enforce_eager=False, enable_return_routed_experts=False, kv_cache_dtype=bfloat16, device_config=npu, structured_outputs_config=StructuredOutputsConfig(backend='auto', disable_any_whitespace=False, disable_additional_properties=False, reasoning_parser='', reasoning_parser_plugin='', enable_in_reasoning=False), observability_config=ObservabilityConfig(show_hidden_metrics_for_version=None, otlp_traces_endpoint=None, collect_detailed_traces=None, kv_cache_metrics=False, kv_cache_metrics_sample=0.01, cudagraph_metrics=False, enable_layerwise_nvtx_tracing=False, enable_mfu_metrics=False, enable_mm_processor_stats=False, enable_logging_iteration_details=False, jit_monitor_mode='warn', jit_monitor_verbose=False), seed=0, served_model_name=/model, enable_prefix_caching=False, enable_chunked_prefill=True, pooler_config=None, compilation_config={'mode': <CompilationMode.VLLM_COMPILE: 3>, 'debug_dump_path': None, 'cache_dir': '', 'compile_cache_save_format': 'binary', 'backend': 'vllm_ascend.compilation.compiler_interface.AscendCompiler', 'custom_ops': ['all'], 'ir_enable_torch_wrap': False, 'splitting_ops': [], 'compile_mm_encoder': False, 'cudagraph_mm_encoder': False, 'encoder_cudagraph_token_budgets': [], 'encoder_cudagraph_max_vision_items_per_batch': 0, 'encoder_cudagraph_max_frames_per_batch': None, 'compile_sizes': [], 'compile_ranges_endpoints': [2048], 'inductor_compile_config': {'enable_auto_functionalized_v2': False, 'size_asserts': False, 'alignment_asserts': False, 'scalar_asserts': False, 'combo_kernels': True, 'benchmark_combo_kernel': True}, 'inductor_passes': {}, 'cudagraph_mode': <CUDAGraphMode.FULL_DECODE_ONLY: (2, 0)>, 'cudagraph_num_of_warmups': 1, 'cudagraph_capture_sizes': [1], 'cudagraph_copy_inputs': False, 'cudagraph_specialize_lora': True, 'use_inductor_graph_partition': False, 'pass_config': {'fuse_norm_quant': True, 'fuse_act_quant': True, 'fuse_attn_quant': False, 'enable_sp': False, 'fuse_gemm_comms': False, 'fuse_allreduce_rms': False, 'enable_qk_norm_rope_fusion': False, 'fuse_rope_kvcache_cat_mla': False, 'fuse_act_padding': False, 'fuse_qk_norm_rope_kvcache': False}, 'max_cudagraph_capture_size': 1, 'dynamic_shapes_config': {'type': <DynamicShapesType.BACKED: 'backed'>, 'evaluate_guards': False, 'assume_32_bit_indexing': False}, 'local_cache_dir': None, 'fast_moe_cold_start': True, 'static_all_moe_layers': []}, kernel_config=KernelConfig(ir_op_priority=IrOpPriorityConfig(rms_norm=['native'], fused_add_rms_norm=['native']), enable_flashinfer_autotune=True, enable_cutedsl_warmup=True, enable_jit_warmup=True, enable_bf16x3_router_gemm=False, moe_backend='auto', linear_backend='auto')
+WARNING 10-09 18:29:33 [patch_triton.py:332] NPU Triton causal_conv1d_update is unavailable (cannot import name 'causal_conv1d_update_npu' from 'vllm_ascend.ops.triton.mamba.causal_conv1d' (/vllm-workspace/vllm-ascend/vllm_ascend/ops/triton/mamba/causal_conv1d.py)); falling back to the PyTorch implementation, which syncs per request and therefore stalls ACL graph capture at decode-FULL.
+INFO 10-09 18:29:34 [parallel_state.py:1640] world_size=1 rank=0 local_rank=0 distributed_init_method=tcp://172.17.0.15:47527 backend=hccl
+[Gloo] Rank 0 is connected to 0 peer ranks. Expected number of connected peer ranks is : 0
+[Gloo] Rank 0 is connected to 0 peer ranks. Expected number of connected peer ranks is : 0
+[Gloo] Rank 0 is connected to 0 peer ranks. Expected number of connected peer ranks is : 0
+[Gloo] Rank 0 is connected to 0 peer ranks. Expected number of connected peer ranks is : 0
+[Gloo] Rank 0 is connected to 0 peer ranks. Expected number of connected peer ranks is : 0
+[Gloo] Rank 0 is connected to 0 peer ranks. Expected number of connected peer ranks is : 0
+[Gloo] Rank 0 is connected to 0 peer ranks. Expected number of connected peer ranks is : 0
+INFO 10-09 18:29:34 [parallel_state.py:1977] rank 0 in world size 1 is assigned as DP rank 0, PP rank 0, PCP rank 0, TP rank 0, EP rank 0, EPLB rank N/A
+[Gloo] Rank 0 is connected to 0 peer ranks. Expected number of connected peer ranks is : 0
+[rank0]:[W1009 18:29:34.744809020 NPUCachingAllocator.cpp:202] Warning: The current CANN and HDK(driver) versions require processing for 32 padding size, with memory allocation. (function operator())
+INFO 10-09 18:29:35 [platform.py:1379] FA3 will not be enabled when rl_config.enable_training_consistency is false. Note that Ascend NPU will use its registered plugin backend instead.
+INFO 10-09 18:29:35 [model_runner_v1.py:4005] Starting to load model /model...
+INFO 10-09 18:29:36 [compilation.py:1100] Using OOT custom backend for compilation.
+[rank0]:[E1009 18:29:36.358100710 OpParamMaker.cpp:453] operator():../third_party/op-plugin/op_plugin/ops/opapi/UniformKernelNpuOpApi.cpp:36 NPU function error: call aclnnInplaceUniform failed, error code is 207001
+[ERROR] 2026-10-09-18:29:36 (PID:1915, Device:0, RankID:-1) ERR00100 PTA call acl api failed
+[Error]: Failed to apply for memory.
+        Check the remaining storage space in the hardware environment.
+[PID: 1915] 2026-10-09-18:29:36.577.393 Resource_Error_Insufficient_Device_Memory(EL0019): Failed to allocate 80 bytes device memory requested by the RUNTIME module.
+        Possible Cause: Allocation failed due to insufficient device memory.
+        Solution: Ensure that the required memory is available. Take measures such as stopping unnecessary processes to free memory.
+TraceBack (most recent call last):
+        Failed to allocate memory requested by RUNTIME module.
+        Failed to get DSA SQE by random number task info, retCode=0x7020016.[FUNC:LaunchRandomNumTask][FILE:context.cc][LINE:1995]
+        rtsLaunchRandomNumTask execution failed, reason=driver error:out of memory[FUNC:FuncErrorReason][FILE:error_message_manage.cc][LINE:69]
+        rtsLaunchRandomNumTask failed, runtime error code: 207001
+        Distribute failed
+        DSA task distribute error.
+        launch failed for DSARandomUniform, errno:561000.
+
+Exception raised from operator() at ../third_party/op-plugin/op_plugin/ops/opapi/UniformKernelNpuOpApi.cpp:36 (most recent call first):
+frame #0: c10::Error::Error(c10::SourceLocation, std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> >) + 0xc8 (0xffff9e6c5978 in /usr/local/python3.12.13/lib/python3.12/site-packages/torch/lib/libc10.so)
+frame #1: <unknown function> + 0x43b7b1c (0xffff937a7b1c in /usr/local/python3.12.13/lib/python3.12/site-packages/torch_npu/lib/libtorch_npu.so)
+frame #2: <unknown function> + 0x4b10768 (0xffff93f00768 in /usr/local/python3.12.13/lib/python3.12/site-packages/torch_npu/lib/libtorch_npu.so)
+frame #3: <unknown function> + 0x1927070 (0xffff90d17070 in /usr/local/python3.12.13/lib/python3.12/site-packages/torch_npu/lib/libtorch_npu.so)
+frame #4: <unknown function> + 0x192810c (0xffff90d1810c in /usr/local/python3.12.13/lib/python3.12/site-packages/torch_npu/lib/libtorch_npu.so)
+frame #5: <unknown function> + 0x1925b38 (0xffff90d15b38 in /usr/local/python3.12.13/lib/python3.12/site-packages/torch_npu/lib/libtorch_npu.so)
+frame #6: <unknown function> + 0x7dcd24 (0xffff8f21cd24 in /usr/local/Ascend/cann-9.1.0/lib64/libhccl.so)
+frame #7: <unknown function> + 0x803c8 (0xffffaaea03c8 in /lib/aarch64-linux-gnu/libc.so.6)
+frame #8: <unknown function> + 0xe9edc (0xffffaaf09edc in /lib/aarch64-linux-gnu/libc.so.6)
+
+[rank0]: Traceback (most recent call last):
+[rank0]:   File "/work/operator_opt/bench_goal20_model.py", line 143, in <module>
+[rank0]:     if __name__=='__main__':main()
+[rank0]:                             ^^^^^^
+[rank0]:   File "/work/operator_opt/bench_goal20_model.py", line 40, in main
+[rank0]:     llm=LLM(model='/model',tokenizer='/model',load_format='dummy',dtype='bfloat16',
+[rank0]:         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[rank0]:   File "/vllm-workspace/vllm/vllm/entrypoints/llm.py", line 339, in __init__
+[rank0]:     self.llm_engine = LLMEngine.from_engine_args(
+[rank0]:                       ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[rank0]:   File "/vllm-workspace/vllm/vllm/v1/engine/llm_engine.py", line 179, in from_engine_args
+[rank0]:     return cls(
+[rank0]:            ^^^^
+[rank0]:   File "/vllm-workspace/vllm/vllm/v1/engine/llm_engine.py", line 105, in __init__
+[rank0]:     self.engine_core = EngineCoreClient.make_client(
+[rank0]:                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[rank0]:   File "/vllm-workspace/vllm/vllm/v1/engine/core_client.py", line 112, in make_client
+[rank0]:     return InprocClient(vllm_config, executor_class, log_stats)
+[rank0]:            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[rank0]:   File "/vllm-workspace/vllm/vllm/v1/engine/core_client.py", line 317, in __init__
+[rank0]:     self.engine_core = EngineCore(*args, **kwargs)
+[rank0]:                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[rank0]:   File "/vllm-workspace/vllm/vllm/v1/engine/core.py", line 132, in __init__
+[rank0]:     self.model_executor = executor_class(vllm_config)
+[rank0]:                           ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[rank0]:   File "/vllm-workspace/vllm/vllm/tracing/otel.py", line 178, in sync_wrapper
+[rank0]:     return func(*args, **kwargs)
+[rank0]:            ^^^^^^^^^^^^^^^^^^^^^
+[rank0]:   File "/vllm-workspace/vllm/vllm/v1/executor/abstract.py", line 109, in __init__
+[rank0]:     self._init_executor()
+[rank0]:   File "/vllm-workspace/vllm/vllm/v1/executor/uniproc_executor.py", line 68, in _init_executor
+[rank0]:     self.driver_worker.load_model()
+[rank0]:   File "/work/operator_opt/goal20_worker.py", line 8, in load_model
+[rank0]:     result = super().load_model(*args, **kwargs)
+[rank0]:              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[rank0]:   File "/work/operator_opt/operator_worker.py", line 11, in load_model
+[rank0]:     result = super().load_model(*args, **kwargs)
+[rank0]:              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[rank0]:   File "/work/operator_opt/baseline/tiny_perf_worker.py", line 11, in load_model
+[rank0]:     result=super().load_model(*args,**kwargs)
+[rank0]:            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[rank0]:   File "/vllm-workspace/vllm-ascend/vllm_ascend/worker/worker.py", line 741, in load_model
+[rank0]:     self.model_runner.load_model()
+[rank0]:   File "/vllm-workspace/vllm-ascend/vllm_ascend/worker/model_runner_v1.py", line 4021, in load_model
+[rank0]:     self.model: nn.Module = get_model(vllm_config=self.vllm_config)
+[rank0]:                             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[rank0]:   File "/vllm-workspace/vllm/vllm/model_executor/model_loader/__init__.py", line 140, in get_model
+[rank0]:     return loader.load_model(
+[rank0]:            ^^^^^^^^^^^^^^^^^^
+[rank0]:   File "/vllm-workspace/vllm/vllm/tracing/otel.py", line 178, in sync_wrapper
+[rank0]:     return func(*args, **kwargs)
+[rank0]:            ^^^^^^^^^^^^^^^^^^^^^
+[rank0]:   File "/vllm-workspace/vllm/vllm/model_executor/model_loader/base_loader.py", line 64, in load_model
+[rank0]:     self.load_weights(model, model_config)
+[rank0]:   File "/vllm-workspace/vllm/vllm/model_executor/model_loader/dummy_loader.py", line 44, in load_weights
+[rank0]:     initialize_dummy_weights(layer, model_config)
+[rank0]:   File "/vllm-workspace/vllm/vllm/model_executor/model_loader/weight_utils.py", line 1318, in initialize_dummy_weights
+[rank0]:     initialize_single_dummy_weight(param, low, high, seed)
+[rank0]:   File "/usr/local/python3.12.13/lib/python3.12/site-packages/torch/utils/_contextlib.py", line 124, in decorate_context
+[rank0]:     return func(*args, **kwargs)
+[rank0]:            ^^^^^^^^^^^^^^^^^^^^^
+[rank0]:   File "/vllm-workspace/vllm/vllm/model_executor/model_loader/weight_utils.py", line 1371, in initialize_single_dummy_weight
+[rank0]:     param.uniform_(low, high, generator=generator)
+[rank0]: RuntimeError: The Inner error is reported as above. The process exits for this inner error, and the current working operator name is aclnnInplaceUniform.
+[rank0]: Since the operator is called asynchronously, the stacktrace may be inaccurate. If you want to get the accurate stacktrace, please set the environment variable ASCEND_LAUNCH_BLOCKING=1.
+[rank0]: Note: ASCEND_LAUNCH_BLOCKING=1 will force ops to run in synchronous mode, resulting in performance degradation. Please unset ASCEND_LAUNCH_BLOCKING in time after debugging.
+[rank0]: [ERROR] 2026-10-09-18:29:36 (PID:1915, Device:0, RankID:-1) ERR00100 PTA call acl api failed.
