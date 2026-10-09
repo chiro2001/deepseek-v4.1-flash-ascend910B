@@ -275,7 +275,7 @@ a111a618883a5348ce5f58b387ff7e25f06ac67a5b04ce08399d082783fce4d9  ./docs/A3-CED-
 c25585ef563fa6279634e6cb8018a938cc8f90ce3ba7a28e26124d81d3dfece2  ./docs/BENCH-METHODOLOGY.md
 c5454e6d634e110df3037e4984582c2de08906b2c4aa45931ec85ae6ebf8a1fd  ./docs/CED-D-1M-LAYOUT-BUG-20260924.md
 f257e6d68cc2e3865f417b86baa913b231aa2d4da4bc2cca729669d37ae366c7  ./docs/CED-D-STATUS-20260924-2030.md
-0e43c767dc2d004b38192f504be2568b0fb2b71bfa068758cdf9228e524436f1  ./docs/CED-P-DRAM-OFFLOAD-PLAN.md
+d1adf2d3ad40937a9e64d5a12326261028735b966801bb1255dbd33b6b4480bd  ./docs/CED-P-DRAM-OFFLOAD-PLAN.md
 db5c17f4e24d49b15612d75701ac281390cda392e0c6e963c4037887ef45a27c  ./docs/CED-PD-ACCEPTANCE.md
 b0e9df3e2af68645035f1f6c8aef5ce894a9fdcc174b4cf5d2477f9061e02d5a  ./docs/CED-PD-ACCURACY-MEASURES-20260926.md
 e97e8153ca737c1630d4e621210f43cba883130a0e70e2e4bd78319c334e4fb1  ./docs/CED-PD-BLOCK-BOUND-20260925.md
@@ -466,6 +466,7 @@ a8ca7004cd504565dd3160f50f80f6d89f198579c856c4fa2502af1c75c40fbd  ./evidence/ced
 6613dfbbc70a8e4222f782c54e66a9a3bb2eadfffaae32bbb908626a49d62696  ./evidence/ced_d_oom_8b59d03/serve.log.gz
 a08c155b527ef391d0f48ab6a3099a9bb5e3e850081a582b215218a1b4afec7a  ./evidence/ced_dram_20261009/README.md
 a09a6ff28ab5079891526cd815a41ca562bc9bc6c8238e6e12b9c18b1e189963  ./evidence/ced_dram_20261009/bench16k_v8.json
+8fce82c900cc1a9559fe074fb2f4f5c5b9d76568bff73d495171e8d7561736af  ./evidence/ced_dram_20261009/bench16k_v9.json.gz
 b1f579a5332f828c1e01cade49a0b4ce6dc687877c09ad8ffc2202a498ce4c2b  ./evidence/ced_dram_20261009/hccl8.log
 550649fa73f61bea2fb231042fcf6f82524c529c90d1b02e11ec9d219f13a4db  ./evidence/ced_dram_20261009/mock-protocol.log
 91a521e7b79ca2bf6d4b6ae822a540eefc2b1dacc326777e7f3448df66ec6fd6  ./evidence/ced_dram_20261009/pair-address139.log
@@ -476,6 +477,13 @@ cb46536eeb1ac6edfac16195a5a83e348c702b17ccc2c7dcc9bf4a837df3ec00  ./evidence/ced
 f328c8b2b2fe597a12542c4b7ce44356a4d67573fa179f5118368c0b064d60d9  ./evidence/ced_dram_20261009/probe8.log
 cf405705c44dda2f891d030dc9ae7098980167676cc75d8fe840025d52f128ed  ./evidence/ced_dram_20261009/v8-mock.log
 15eaab3414f066579738e8dfe34190d93811b22d3561d45ceeac7769a64a1097  ./evidence/ced_dram_20261009/v8-p-serve.log
+50c597de1e527a762cca30485a48d6926d9f83dd70280da1ea2d74f03361ebf6  ./evidence/ced_dram_20261009/v9-analysis.json
+7ec26c49ab472e1391ab64d1fbfd333dadf8168da1c6484c84e5cb9bd78535c6  ./evidence/ced_dram_20261009/v9-local-tail-control.json.gz
+59d2afdeee6403767de3c534010f9f95b4a88f05c0aca267c816d80a1db75b3b  ./evidence/ced_dram_20261009/v9-mock-driver.log
+03d2d3d7e385873d182f249813b2cbb0a3312f9528587f763ee5a986672ae64e  ./evidence/ced_dram_20261009/v9-numeric-analysis.json
+f96f8dffdf5fc0158ee8208251b89d738be55659adc1ff12f975fd06a522aeb5  ./evidence/ced_dram_20261009/v9-p-serve.log
+af426a09ab7de6a93509025e2b906f5a23a3abcc32c640b097c52572848891e4  ./evidence/ced_dram_20261009/v9-rank0-meta.json
+3a86a0c7c5230959cb61a37573c1954c107e25fd1909463211fbac028e419578  ./evidence/ced_dram_20261009/v9-snapshot-control.json.gz
 60c23181082b0b12d5552df6dda7af690150eeefbd5960a53183d90ae9f1d55c  ./evidence/ced_engram_replay_history_20260924/README.md
 fc29977cac47bf7fd7207bdbb4fe605e134cfe410ad1262439035b222df3768d  ./evidence/ced_engram_replay_history_20260924/cpu_reuse_results.json
 f79f5f01c18c76847d7fdad0595faafc2dc287aa5dec517b33e4ee0d17c29e1d  ./evidence/ced_engram_replay_history_20260924/simulate_paged_ngram_reuse.py
@@ -2045,9 +2053,10 @@ f6a69058bebec209db457e83c9ed188906f4ad9f95ebf919562a518af66ac0e7  ./experimental
 725e25abfa0fc3ab0e50dfa0449d7bb6dfb658267284269999db91e6685bd3b5  ./experimental/ced/core_scheduler_replay.patch
 b8d9e90ab6e1bb6063d839eaf270c66f7a9a6f3f68f1f3d969bd8b2c8da60171  ./experimental/ced/dram/__init__.py
 0425118a36b1b532e9b71dd0bdba600609636fa48b69a43f05d6ad0f1b29a01b  ./experimental/ced/dram/config.py
-08129877dc35a54859e3ab0c5ff951af8489dd709372666813f72a7c5b3e5922  ./experimental/ced/dram/connector.py
-999c38bb56d79b3b2cf71abfdff2189379a842fdcd7173c73bc447bcf132f2a5  ./experimental/ced/dram/contract.py
-218b6c9f7e868e6be8f1c570dd9e55dcb1fc81127b31a8c9ff0711186ab1d33c  ./experimental/ced/dram/mock_geometry.py
+56c911312b4b4efcccb1967f25b039de49b3e55595273a2d1613b5a5b11edff4  ./experimental/ced/dram/connector.py
+ab173dde855dde5f91a35d5279ba13a86923d367fd1008be119ea8d5e06dd3ef  ./experimental/ced/dram/contract.py
+91fdeeaf676ff04462eb5d5d1fb81aa215173be445af8ba02055a714cc131884  ./experimental/ced/dram/engram_history.py
+4cfa383232bff39294531b21c0655422d20f4ca30db54560d1b942a399b45d74  ./experimental/ced/dram/mock_geometry.py
 e1c6bfd81ee0eb6e351f642d11c10933f9de273846fe22b524d38a9d958c7bea  ./experimental/ced/dsa_v41.py
 a740d5cd9309e84cbc1f9ee65d9b1ab644c6fc0d891926583ceaf2bddd5e7914  ./experimental/ced/mooncake_hybrid_connector.py
 cbad328db48ea46f8abb921ba664572faf201abae2748e9f6b4b107cca49ba5f  ./experiments/dspark/check_static_kernel.sh
@@ -2088,8 +2097,8 @@ aa32c8125b596459e1209d1ef1eeb650124086a124387e9626be13b6894a470c  ./logs_meta/sa
 68f50f3bf40316763f78db8f823091768e4ad4ecd6166fead74046cead6588be  ./logs_meta/samples/p42_t4_quote_8192_faB_w.jsonl
 3cc76ed02fc59ce18876f8616930919a79c3aed2045192a2cd467e607ccf4a1c  ./optim/pgo/README.md
 06acc84a3104c8f137d150058d4dff3dcc3282777df8b9f2006c0439b815c328  ./optim/pgo/build/README.md
-a7148980ad6ed7d73538d36473474e06be3edb50fa3616afd2f5c850e6d89b20  ./patches/MD5SUMS
-ed27c98c5870b635ac519e8cbe3c681040d03108896998c98d3a356d8877a4cf  ./patches/PATCHES.md
+c8557651349d7c49f5c0f52608d35823420893b53db98c5ae9e6935cc5fa132e  ./patches/MD5SUMS
+e512b61a8ce80be4a9babe5f30e55b77752c34e6ec728a34055f19750440bc81  ./patches/PATCHES.md
 16d6336c29fb629ba7d572eecb244a23e4550c3984087b898fb4dfe392452009  ./patches/README.md
 cdad8fc64569905b027a3a4e527e0bab2e731f7cbd25daa8beff7ec878321937  ./patches/_tools/make_series_va.sh
 d1952f7739173448d1d503bc94700d00da6ddc4de4743074b613af87b13bb218  ./patches/_tools/make_series_vllm.sh
@@ -2107,7 +2116,7 @@ f2633fd764203b14beff046a8029b48f4585d57df38914895be1cd432f41612c  ./patches/file
 4c9a29e3e37c0170ab8b349dc4996aaf0d488ad375b7dc400589d9cc906ca7f4  ./patches/files/engram_device_index.py
 955e40b94e933aabddb37035ec295e701bdfe3c12fef586a6b7ba775a05e90a2  ./patches/files/engram_gate.py
 14c14f0b24e2ba96caf424a187035e24947d81b28bba8de9bbc7eab6c886e962  ./patches/files/engram_graph.py
-acf1aa4a9a75eef5ebe6dbf69bbeb8dd9195797c739ecc46751e3a79776ff4a8  ./patches/files/engram_hash.py
+3d006d15d14eca9c1693713834820f6050049c3e76f17eebc6f67cbad530a9f8  ./patches/files/engram_hash.py
 b422e9899204b7a55af05832073bdea41e24cdc14900ea739c1dcd82822c77ae  ./patches/files/engram_hbm.py
 1394bbe7e9752a0bcf3cc177f3ff3baf10c9c1d6847569855f5d5ed5237f38cf  ./patches/files/engram_jit_kernel.py
 87fd738eeb8c69d363d01105de1bb7067acc714e8d8e98739f146b6c547e8117  ./patches/files/engram_plan_kernel.py
@@ -2134,7 +2143,7 @@ c95daeef70b2a7ea983b6abf89ad3f29aeb6ab57ecd99aaa22e2353cbd01109c  ./patches/vllm
 e6e32ae32376f35a9f5fcee70247df54215961337a982ed51540ab530b2923f7  ./patches/vllm-ascend/0008-perf-engram-numba-JIT-for-hash-and-plan-kernels.patch
 ba334cab101a4e2638e8c94e865c740ee207cb5e8111f25392dc95b913f35856  ./patches/vllm-ascend/0009-feat-engram-device-side-table-lookup-over-host-mappe.patch
 2d7b3e021a2bc4707d8da2dd8ac7430f82f99b0866769653f92b005fb4d6e218  ./patches/vllm-ascend/0010-feat-engram-A3-Engram-A2.patch
-24d7396a76a02ebe4fe7571417b645ba32272c04ab15213394671216ebaab62a  ./patches/vllm-ascend/MD5SUMS
+f1b653616c89c66a8490ddca2a180f033c7087b7ee0f21bde591e2cd5a8295ba  ./patches/vllm-ascend/MD5SUMS
 b6300ed7ed1889058057adfa98eada45a79922b0cac8a01131f759c514dd5fbc  ./patches/vllm-ascend/base.txt
 84fb32019ac86592d2485ba25c7f51da1ad3c308c4ed6f3d553ccae8e56e1d31  ./patches/vllm/0001-feat-scheduler-admission-gate-to-protect-decode-from.patch
 b6c9b86615f9dd3be4a725d35d6f23384fe327425c72af88f06225a708426a33  ./patches/vllm/MD5SUMS
@@ -2256,7 +2265,7 @@ c73073e3560b4fb6932cd90a18cdfa2e9d655be3d8c0e24c7fffb65844d14b16  ./tests/multib
 4f697c713a1c3b107882474a78ec0aa1ba404496d2e4ec5e57f5917751004223  ./tests/t_gsm8k.py
 aeeac0f3b1683f80bd71757128a6f3cc251148e3d8d483eca9d9b51207262e8d  ./tests/t_quote.sh
 b3fb3062cefa09deb72f140a139410666cfc045b774c466fafeadbc456b240ae  ./tests/t_vision.py
-773b1699d9418cef2555ef5895635c3ca79adbeb14cab21ca78d87b064fe55a9  ./tests/test_ced_dram.py
+2cdc21f068523d3590e213ffd3f876b704224494e9cd456f9748946bce1e9294  ./tests/test_ced_dram.py
 3413db18ddf3680010115f776b6de6274519d45820acb20a0d857a7db02902d6  ./tests/verify_dram_offload.py
 af13bc4785bfcddcd46a398fe7611c6942a4875e1eee8c767ce31148ebee675f  ./tests/vision_accuracy_check.py
 fc7e7059c49aeed54f3bc5cc6825bc4b614096d05bbb9f9418562f59b99ff27b  ./tools/analyze_samples.py
@@ -2264,7 +2273,7 @@ fc7e7059c49aeed54f3bc5cc6825bc4b614096d05bbb9f9418562f59b99ff27b  ./tools/analyz
 03c60d34c00305871425347ce73facb8f2778bc87c68166ca88d250d6e2d4fcf  ./tools/bench_concurrency.py
 0dd032dc9eb853da5b56bcadec51c8256184a82dc4952b9443046df6c541d1cf  ./tools/ced_block_dump_analysis.py
 7e70c5245f248f021be2ddb86d9c77e1c482e9eb8eed411f9a8a3acfd4f86350  ./tools/ced_device_probe.py
-79a44b5c16562cf9682b9e831cd66ab254e004c341f563568d1f1461b4325c7e  ./tools/ced_dram_bench.py
+137a52b9d588248edec7324a8dd20b48a8264266e6ac1405426fab8ae5589dfa  ./tools/ced_dram_bench.py
 ffcb882c36859c909567ab0342777931a11c6b9aac6527348f6ef6efb7b802fd  ./tools/ced_find_block_bound.py
 f5a2fcc71da1800a7968575a28312f17a6645782ccf3da5b812f64fd07e501a4  ./tools/ced_hccl_probe.py
 470fd2438d38f446715f77e53ad86acfa99e11888ba8e70ec951573ec5b9c01f  ./tools/ced_knifeedge_arm.sh
@@ -2279,7 +2288,7 @@ da3b6cdfb98536da5baa6d4b0b1a51868e6d49ce437e76fd8fde5622baeaaddd  ./tools/ced_kn
 753dc707fe24ca18cd094109477d43eb7077a56e929b388efa6db83ed06edafd  ./tools/ced_length_sweep.py
 40e19347f350e2fb586ca615b8afca0bb6d5f5f1d98a8b0e6d84a0f603faacb3  ./tools/ced_log_template_diff.py
 6a3837d394c12803a22246b6af369b124fcc3166545cd51acc6a0e9ac8cd68fb  ./tools/ced_maxid_sweep.py
-78588c57b5957b6293b6f5bc483ecdf3d868589f01e97dcbe7f680e69eeb7a23  ./tools/ced_mock_decode.py
+2707ae5cbc984520a64e1da68a9f3b177fbf24a4ccf786362a40ef469b66b703  ./tools/ced_mock_decode.py
 e5a60987f3ddfa7308db2b8fcdc847fb8d305528a60792e5166bd587afd226e2  ./tools/ced_mock_transport_probe.py
 37612f3b33f815c53456c77818121dbb5a6a3fff03e4209dd1f775efa83677d5  ./tools/ced_mooncake_pair_probe.py
 d2baedf676bd9c9e35e60aa0667fa08731d17d3840b089673002234d56f0eec6  ./tools/ced_ms4_smallpool_experiment.sh
