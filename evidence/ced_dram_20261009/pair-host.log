@@ -1,0 +1,45 @@
+[CED-LOCK] held Phy-ID=[3, 6]
+can not use command: npu-smi info
+can not use command: npu-smi info
+WARNING: Logging before InitGoogleLogging() is written to STDERR
+W1009 04:48:46.827766    76 transfer_engine_py.cpp:96] Using default malloc/free for protocol: ascend
+I1009 04:48:46.827838    76 transfer_engine_impl.cpp:811] Metrics reporting is disabled (set MC_TE_METRIC=1 to enable)
+I1009 04:48:46.827853    76 transfer_engine_impl.cpp:115] Transfer Engine parseHostNameWithPort. server_name: 127.0.0.1 port: 12001
+I1009 04:48:46.828028    76 transfer_engine_impl.cpp:182] Transfer Engine RPC using P2P handshake, listening on 127.0.0.1:16820
+I1009 04:48:46.828186    76 ascend_direct_transport.cpp:83] install AscendDirectTransport for: 127.0.0.1:16820
+I1009 04:48:46.828207    76 utils.cpp:82] Find available between 20600 and 20700
+I1009 04:48:47.208761    76 transfer_executor_base.cpp:227] Success to initialize adxl engine:127.0.0.1:20601, pid:76
+[W1009 04:48:47.016451530 NPUCachingAllocator.cpp:202] Warning: The current CANN and HDK(driver) versions require processing for 32 padding size, with memory allocation. (function operator())
+I1009 04:48:47.237793    76 transfer_executor_base.cpp:452] TransferExecutor register mem addr:0x12c081200000, length:1048576, mem type:device, engine index:0
+{"producer_ready": true, "device": 1, "bytes": 1048576}
+Process SpawnProcess-2:
+Traceback (most recent call last):
+  File "/usr/local/python3.12.13/lib/python3.12/multiprocessing/process.py", line 314, in _bootstrap
+    self.run()
+  File "/usr/local/python3.12.13/lib/python3.12/multiprocessing/process.py", line 108, in run
+    self._target(*self._args, **self._kwargs)
+  File "/opt/ced_pair.py", line 43, in receiver
+    torch.npu.set_device(0)
+  File "/usr/local/python3.12.13/lib/python3.12/site-packages/torch_npu/npu/utils.py", line 91, in set_device
+    torch_npu._C._npu_setDevice(device_id)
+RuntimeError: ExchangeDevice:../torch_npu/csrc/core/npu/sys_ctrl/npu_sys_ctrl.cpp:285 NPU function error: c10_npu::SetDevice(device), error code is 507033
+[ERROR] 2026-10-09-04:48:49 (PID:77, Device:0, RankID:-1) ERR00100 PTA call acl api failed
+[Error]: Failed to start the device. 
+        Rectify the fault based on the error information in the ascend log.
+[PID: 77] 2026-10-09-04:48:48.001.498 Inner_Error_Failed_Send_OPP_To_Device(E39006): Failed to send the OPP to the device.
+        Possible Cause: 1.The HDC link is faulty. 2. The device status is abnormal.
+        Solution: Obtain the host and device logs, and contact technical support at https://www.hiascend.com/support.
+TraceBack (most recent call last):
+        TsdOpen failed. devId=3, tdt error=1.[FUNC:PrintfTsdError][FILE:runtime.cc][LINE:1834]
+        Check param failed, dev can not be NULL![FUNC:DeviceRetain][FILE:runtime.cc][LINE:2773]
+        Check param failed, ctx can not be NULL![FUNC:PrimaryContextRetain][FILE:runtime.cc][LINE:2414]
+        rtSetDevice execution failed, reason=device retain error[FUNC:FuncErrorReason][FILE:error_message_manage.cc][LINE:69]
+        ctx is NULL![FUNC:GetDevErrMsg][FILE:api_impl.cc][LINE:6047]
+        The argument is invalid. Reason: rtGetDevMsg execution failed, the context is a null pointer.
+        ctx is NULL![FUNC:CheckCurCtxValid][FILE:api_impl.cc][LINE:271]
+        The argument is invalid. Reason: rtGetFaultEvent execution failed, the context is a null pointer.
+
+corrupted size vs. prev_size
+I1009 04:48:57.030367    76 ascend_direct_transport.cpp:69] AscendDirectTransport destructor called
+corrupted size vs. prev_size
+[CED-LOCK] command exited: 1

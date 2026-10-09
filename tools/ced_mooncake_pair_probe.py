@@ -15,7 +15,7 @@ import multiprocessing as mp
 import time
 
 
-def producer(queue, finished, nbytes):
+def producer(queue, finished, nbytes, hostname):
     faulthandler.enable(all_threads=True)
     import torch
     import torch_npu  # noqa: F401
@@ -23,11 +23,11 @@ def producer(queue, finished, nbytes):
 
     torch.npu.set_device(1)
     engine = TransferEngine()
-    assert engine.initialize("127.0.0.1", "P2PHANDSHAKE", "ascend", "") == 0
+    assert engine.initialize(hostname, "P2PHANDSHAKE", "ascend", "") == 0
     tensor = torch.arange(nbytes // 4, dtype=torch.int32).to("npu:1")
     torch.npu.synchronize()
     assert engine.register_memory(tensor.data_ptr(), nbytes) == 0
-    queue.put({"rpc_port": engine.get_rpc_port(), "ptr": tensor.data_ptr(), "bytes": nbytes})
+    queue.put({"host": hostname, "rpc_port": engine.get_rpc_port(), "ptr": tensor.data_ptr(), "bytes": nbytes})
     print(json.dumps({"producer_ready": True, "device": 1, "bytes": nbytes}), flush=True)
     if not finished.wait(120):
         raise TimeoutError("Pair consumer did not finish")
@@ -35,7 +35,7 @@ def producer(queue, finished, nbytes):
     del engine
 
 
-def receiver(queue, finished, nbytes, destination):
+def receiver(queue, finished, nbytes, destination, hostname, copy_ops):
     faulthandler.enable(all_threads=True)
     import torch
     import torch_npu  # noqa: F401
@@ -44,17 +44,21 @@ def receiver(queue, finished, nbytes, destination):
     metadata = queue.get(timeout=60)
     torch.npu.set_device(0)
     engine = TransferEngine()
-    assert engine.initialize("127.0.0.1", "P2PHANDSHAKE", "ascend", "") == 0
+    assert engine.initialize(hostname, "P2PHANDSHAKE", "ascend", "") == 0
     tensor = torch.empty(nbytes // 4, dtype=torch.int32,
                          device="cpu" if destination == "host" else "npu:0")
     assert engine.register_memory(tensor.data_ptr(), nbytes) == 0
+    chunk = (nbytes // copy_ops // 4) * 4
+    offsets = [i * chunk for i in range(copy_ops)]
+    lengths = [chunk] * (copy_ops - 1) + [nbytes - offsets[-1]]
     timings = []
     for iteration in range(3):
         started = time.perf_counter()
         print(json.dumps({"before_read": True, "destination": destination, "round": iteration}), flush=True)
         ret = engine.batch_transfer_sync_read(
-            f"127.0.0.1:{metadata['rpc_port']}", [tensor.data_ptr()],
-            [metadata["ptr"]], [nbytes],
+            f"{metadata['host']}:{metadata['rpc_port']}",
+            [tensor.data_ptr() + offset for offset in offsets],
+            [metadata["ptr"] + offset for offset in offsets], lengths,
         )
         timings.append(time.perf_counter() - started)
         assert ret >= 0, ret
@@ -72,13 +76,19 @@ def main():
     parser = argparse.ArgumentParser(allow_abbrev=False)
     parser.add_argument("--destination", choices=("host", "npu"), default="host")
     parser.add_argument("--mib", type=int, default=1)
+    parser.add_argument("--source-host", default="127.0.0.1")
+    parser.add_argument("--receiver-host", default="127.0.0.1")
+    parser.add_argument("--copy-ops", type=int, default=1)
     args = parser.parse_args()
     if not 1 <= args.mib <= 64:
         parser.error("Use a bounded 1–64 MiB buffer")
+    if not 1 <= args.copy_ops <= (args.mib << 20) // 4:
+        parser.error("Each copy must include at least one int32")
     context = mp.get_context("spawn")
     queue, finished = context.Queue(), context.Event()
-    source = context.Process(target=producer, args=(queue, finished, args.mib << 20))
-    target = context.Process(target=receiver, args=(queue, finished, args.mib << 20, args.destination))
+    source = context.Process(target=producer, args=(queue, finished, args.mib << 20, args.source_host))
+    target = context.Process(target=receiver, args=(queue, finished, args.mib << 20, args.destination,
+                                                 args.receiver_host, args.copy_ops))
     source.start()
     target.start()
     try:

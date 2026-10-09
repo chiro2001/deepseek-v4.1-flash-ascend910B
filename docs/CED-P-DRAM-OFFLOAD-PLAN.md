@@ -11,7 +11,8 @@
 - 【实测】2026-10-09 11:10 CST，上述卡无 NPU 计算进程；设备锁表未见这些卡的锁。
 - 【实测】6–7 Health OK；8–13 Health Alarm，8 的查询返回 `80C98001`，
   `AIC / RAS State / module error can not be fixed`。尚未重置设备。
-- 【未确认】8–13 的执行可用性以及跨 6–13 的 TP8/HCCL 通信可用性，须先验证。
+- 【实测】6–13 的基础计算和 TP8/HCCL 三轮检查已通过，原始日志见下文。
+  Alarm 仍存在，完整模型、消费和 DRAM 恢复须独立验收。
 - 当前没有 16 张卡；用户后续授权 mock 可使用一张 device 初始化通信和消费 KV，
   不加载 D 模型、不启动真实 vLLM。额外卡在启动前重新核对占用与锁。
 
@@ -24,7 +25,8 @@ MooncakeHybridConnector 的 128-token replay 交接契约。仅 P 接入本机 D
 组合目标为 P 上的 `MultiConnector[MooncakeHybridConnector(kv_producer),
 CED-adapted OffloadingConnector(kv_both)]`，DRAM 后端复用 Ascend native
 NPUOffloadingSpec 和已验证的 per-group chunk/registered host pool 修复。
-该 CED 适配尚待实现，不能把两个既有组件各自通过当成组合已通过。
+该 CED 适配初版已实现，真实 P 已完成启动及异步保存；消费与恢复尚未通过。
+不能把两个既有组件各自通过当成组合已通过。
 
 必须落实的语义：
 
@@ -187,3 +189,48 @@ mock 入口已补占用拒绝检查；本任务 mock 将退出，释放自有 co
 - 新原始日志**待 COS 取回**：
   `a3-21:~/tmp/20261009/ced_dram_runtime_v0/client_results/pair-host.log`、
   `pair-host76.log`、`pair-host67.log`。本机不声称这些文件已归档。
+
+### 地址对照与暂停后恢复
+
+- 上述三份 probe 日志和 `mock-protocol.log` 已通过 COS 取回，位于
+  `evidence/ced_dram_20261009/`。实际 mock consumer 在单 source engine 的
+  八个虚拟 endpoint 上完成三轮读回和 24 ACK，指纹一致；不算真实 P8 验收。
+- 【实测】源 TE 使用 `192.168.45.21`、接收 TE 使用 `127.0.0.1` 时，
+  两进程/139 段的无模型读回同样发生原生 SIGSEGV；两端同用
+  `192.168.45.21` 时，139 段、1 MiB 的三轮逐元素读回全部通过。
+  地址对照原始日志 `pair-address139.log`、`pair-same139.log` 已通过 COS
+  取回。成功读回后退出仍报堆损坏，数据路径通过不等于 SDK 生命周期通过。
+- mock 改为按首次 P handoff 的 `remote_host` 延迟初始化 TE，并限制每次
+  batch copy 数。bench 在 mock 消费前落盘交接参数和阶段，便于保留崩溃证据。
+- 继续臂 v7 在入口二次检查时被他人的 chip8–13 TP8 sglang 任务阻止，
+  未绕过检查；本任务 mock4 已退出，锁均释放。用户随后明确要求暂停。
+- 用户再次恢复实验后，15:04 CST 远端采样显示仅 chip0/1 有计算进程。
+  v8 真实 P（`ced-dram-p-20261009-v8`）和 mock4
+  （`ced-dram-mock-20261009-v8`）已在锁保护下启动，P 参数仍为
+  32K max_len / 1 GiB HBM / 2 GiB DRAM，RUN_ID
+  `ced_dram16k_20261009_v8`。
+
+### v8 真实消费与首轮 DRAM 读回
+
+- 【实测】v8 成功启动，真实八 rank KV 的 TE 读取与 ACK 均完成，未再发生
+  地址混用导致的 SIGSEGV。`bench16k_v8.json`、`v8-p-serve.log`、
+  `v8-mock.log` 已通过 COS 归档到本机 evidence 目录。
+- 【实测】16K 目标冷请求 P response 1.5866 s，HBM 回访 0.1214 s；首次
+  驱逐回访 0.1515 s，local hit=0 / external hit=15360 / computed=1023。
+  H2D 计数增量 375480320 B，且服务端记录 load boundary=15360 的完成。
+  这是 P response 时间，含测试场景各阶段；不能标为真实 D TTFT。
+- 【实测】配置的 DRAM 记账预算 2 GiB，实际 registered host tensor 每 rank
+  1136618240 B，八 rank 共 9092945920 B。物理分配与记账预算不能混用。
+- 【实测】HBM 回访 256 个 component 指纹全部与冷路径相等；首轮 DRAM
+  回访有 96 个 G0 指纹变化，G2–G6 指纹相等。当前未证明恢复正确。
+  新增可选逐页摘要以定位变化属于 load prefix 还是 recompute tail，不能
+  因为有 H2D 和 ACK 就降低全量一致性的验收条件。
+- 【实测】重复使用同一批 evictor，在恢复后四个前缀又能同时 HBM 命中，
+  后两轮目标回访 H2D=0。runner 改为每轮使用新的独立冷前缀维持驱逐压力，
+  仍要求每轮实测 H2D，而不以请求总 token 数推断驱逐。
+- 【实测】原始 129-token 请求在第二次访问时触发 `num_new_tokens > 0`
+  断言。CED P 会将其截为128 tokens，旧本地 full-hit 修复只覆盖 `N>128`。
+  现允许恰好一个 block 的命中退回到零边界并冷算；修改后的镜像原始
+  scheduler 经三份补丁应用成功，新增边界与地址混用负控后14项测试通过。
+- v8 P/API 已因上述断言退出，后续显式停止本任务 P/mock 并确认 supervisor
+  退出释放锁。下一臂须重新核对资源并使用修复后的补丁与逐页诊断。

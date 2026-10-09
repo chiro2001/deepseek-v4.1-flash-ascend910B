@@ -68,7 +68,7 @@ def page_plan(metadata: dict, params: dict):
 
 
 class MockConsumer:
-    def __init__(self, host: str, device: int, buffer_bytes: int, timeout_ms: int):
+    def __init__(self, host: str, device: int, buffer_bytes: int, timeout_ms: int, max_copy_ops: int = 64):
         import msgspec
         import torch
         import torch_npu  # noqa: F401
@@ -78,25 +78,36 @@ class MockConsumer:
         torch.npu.set_device(device)
         self.torch = torch
         self.device = device
-        self.engine = TransferEngine()
-        ret = self.engine.initialize(host, "P2PHANDSHAKE", "ascend", "")
-        if ret != 0:
-            raise RuntimeError(f"Mooncake mock initialize failed: {ret}")
+        self.engine_class = TransferEngine
+        self.engine = None
+        self.engine_host = host
         self.buffer = torch.empty(buffer_bytes, dtype=torch.uint8, device="cpu")
-        ret = self.engine.register_memory(self.buffer.data_ptr(), buffer_bytes)
-        if ret != 0:
-            raise RuntimeError(f"Mooncake mock host registration failed: {ret}")
         self.buffer_bytes = buffer_bytes
         self.timeout_ms = timeout_ms
+        self.max_copy_ops = max_copy_ops
         self.lock = threading.Lock()
         self.zmq = zmq
         self.context = zmq.Context()
         self.encode = msgspec.msgpack.encode
         self.decode = msgspec.msgpack.decode
         self.sockets = {}
+        if host:
+            self.initialize_transport(host)
         print(json.dumps({"mock_ready": True, "device": device,
                           "host_buffer_bytes": buffer_bytes,
-                          "rpc_port": self.engine.get_rpc_port()}), flush=True)
+                          "transport_initialized": self.engine is not None}), flush=True)
+
+    def initialize_transport(self, host):
+        engine = self.engine_class()
+        ret = engine.initialize(host, "P2PHANDSHAKE", "ascend", "")
+        if ret != 0:
+            raise RuntimeError(f"Mooncake mock initialize failed: {ret}")
+        ret = engine.register_memory(self.buffer.data_ptr(), self.buffer_bytes)
+        if ret != 0:
+            raise RuntimeError(f"Mooncake mock host registration failed: {ret}")
+        self.engine, self.engine_host = engine, host
+        print(json.dumps({"mock_transport_ready": True, "engine_host": host,
+                          "rpc_port": engine.get_rpc_port()}), flush=True)
 
     def socket(self, host, port):
         # A request failure leaves a REQ socket in its send/recv state. Drop
@@ -120,12 +131,23 @@ class MockConsumer:
             self.sockets.pop((host, port)).close()
             raise
 
-    def consume(self, params, hold_ms=0):
+    def consume(self, params, hold_ms=0, page_fingerprints=False):
         with self.lock:
             self.torch.npu.set_device(self.device)
-            return self._consume(params, hold_ms)
+            host = params["remote_host"]
+            if self.engine_host and self.engine_host != host:
+                raise ValueError("Single-host mock TE identity differs from producer host")
+            if any(node.get("host", host) != host for node in
+                   (params.get("remote_multi_nodes_meta_mapping") or {}).values()):
+                raise ValueError("Single-host mock requires one producer TE host identity")
+            if self.engine is None:
+                # The single-host CED experiment must use the same TE host
+                # identity as P. Mixing loopback with the physical host IP
+                # crashes this Ascend TE build, even on a model-free probe.
+                self.initialize_transport(host)
+            return self._consume(params, hold_ms, page_fingerprints)
 
-    def _consume(self, params, hold_ms):
+    def _consume(self, params, hold_ms, page_fingerprints=False):
         if int(params.get("remote_ptp_size", 0)) != 8:
             raise ValueError("Mock expects eight P tensor-parallel ranks")
         if not params.get("do_remote_prefill") or params.get("ced_replay_tokens") != 128:
@@ -149,6 +171,7 @@ class MockConsumer:
                               "rank": rank, "pages": len(rows),
                               "bytes": sum(row["size"] for row in rows)}), flush=True)
             hashes = {}
+            page_hashes = {}
             nonzero = {}
             byte_count, read_seconds, hash_seconds = 0, 0.0, 0.0
             offset = 0
@@ -183,6 +206,8 @@ class MockConsumer:
                         digest = hashes.setdefault(key, hashlib.sha256())
                         digest.update(row["logical_block"].to_bytes(8, "little"))
                         digest.update(payload)
+                        if page_fingerprints:
+                            page_hashes[f"{key}/b{row['logical_block']}"] = hashlib.sha256(payload).hexdigest()
                     byte_count += row["size"]
                 hash_seconds += time.perf_counter() - before
                 offset, batch = 0, []
@@ -190,7 +215,7 @@ class MockConsumer:
             for row in rows:
                 if row["size"] > self.buffer_bytes:
                     raise ValueError("Mock host buffer is smaller than one KV page")
-                if offset + row["size"] > self.buffer_bytes:
+                if offset + row["size"] > self.buffer_bytes or len(batch) >= self.max_copy_ops:
                     flush()
                 batch.append((offset, row))
                 offset += row["size"]
@@ -201,6 +226,7 @@ class MockConsumer:
                 "rank": rank, "bytes": byte_count, "read_s": read_seconds,
                 "hash_s": hash_seconds, "nonzero_groups": sorted(g for g, hit in nonzero.items() if hit),
                 "fingerprints": {key: digest.hexdigest() for key, digest in hashes.items()},
+                "page_fingerprints": page_hashes,
             })
             endpoints.append((host, port))
         if hold_ms:
@@ -218,7 +244,14 @@ class MockConsumer:
             "consume_s": ack_start - start, "ack_s": time.perf_counter() - ack_start,
             "total_s": time.perf_counter() - start, "hold_ms": hold_ms,
         }
-        print(json.dumps(result), flush=True)
+        # Page-level diagnostics are returned to the runner's raw artifact;
+        # duplicating them in service logs is costly at long context lengths.
+        logged = {**result, "ranks": [
+            {key: value for key, value in row.items()
+             if key not in ("fingerprints", "page_fingerprints")}
+            for row in rank_results
+        ]}
+        print(json.dumps(logged), flush=True)
         return result
 
 
@@ -238,7 +271,8 @@ def serve(consumer, host, port):
                 if not 0 < length <= 32 * 1024 * 1024:
                     raise ValueError("Invalid request body length")
                 body = json.loads(self.rfile.read(length))
-                result = consumer.consume(body["kv_transfer_params"], int(body.get("hold_ms", 0)))
+                result = consumer.consume(body["kv_transfer_params"], int(body.get("hold_ms", 0)),
+                                          bool(body.get("page_fingerprints", False)))
                 status = 200
             except Exception as exc:
                 result, status = {"ok": False, "error": repr(exc)}, 500
@@ -260,16 +294,20 @@ def main():
     faulthandler.enable(all_threads=True)
     parser = argparse.ArgumentParser(allow_abbrev=False)
     parser.add_argument("--device", type=int, default=0)
-    parser.add_argument("--engine-host", default="127.0.0.1")
+    parser.add_argument("--engine-host", help="TE identity; defaults to the first P handoff host")
     parser.add_argument("--host", default="127.0.0.1")
     parser.add_argument("--port", type=int, default=19191)
     parser.add_argument("--buffer-mib", type=int, default=64)
     parser.add_argument("--timeout-ms", type=int, default=30000)
+    parser.add_argument("--max-copy-ops", type=int, default=64)
     parser.add_argument("--params", type=Path)
     args = parser.parse_args()
     if not 1 <= args.buffer_mib <= 1024:
         parser.error("--buffer-mib must be in [1, 1024]")
-    consumer = MockConsumer(args.engine_host, args.device, args.buffer_mib * 1048576, args.timeout_ms)
+    if not 1 <= args.max_copy_ops <= 65536:
+        parser.error("--max-copy-ops must be in [1, 65536]")
+    consumer = MockConsumer(args.engine_host, args.device, args.buffer_mib * 1048576,
+                            args.timeout_ms, args.max_copy_ops)
     if args.params:
         document = json.loads(args.params.read_text())
         consumer.consume(document.get("kv_transfer_params", document))

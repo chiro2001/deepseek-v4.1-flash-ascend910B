@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import ast
 import os
+import threading
 import unittest
 from dataclasses import dataclass, field, replace
 from pathlib import Path
@@ -13,7 +14,7 @@ from experimental.ced.dram.config import make_config
 from experimental.ced.dram.contract import (
     alignment_unit, bound_store_keys, prefill_groups, tail_boundary,
 )
-from tools.ced_mock_decode import page_plan
+from tools.ced_mock_decode import MockConsumer, page_plan
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -175,6 +176,36 @@ class AsyncResumeTests(unittest.TestCase):
         exec(compile(ast.Module(body=[method], type_ignores=[]), source, "exec"), namespace)
         cls.method = staticmethod(namespace[method.name])
 
+    def test_local_full_hit_at_one_block_recomputes_instead_of_scheduling_zero(self):
+        source = Path(os.environ["CED_TEST_CORE"])
+        tree = ast.parse(source.read_text())
+        block = next(n for n in ast.walk(tree) if isinstance(n, ast.If)
+                     and "V41_CED_P_HIT_FIX" in ast.unparse(n.test))
+        code = compile(ast.Module(body=[block], type_ignores=[]), str(source), "exec")
+        old = os.environ.get("V41_CED_ROLE")
+        os.environ["V41_CED_ROLE"] = "prefill"
+        try:
+            for tokens in (1, 128, 1024, 1025):
+                boundaries = []
+                manager = NS(coordinator=NS(single_type_managers=[NS(block_size=32), NS(block_size=128)]),
+                             truncate_computed_blocks=lambda blocks, n: boundaries.append(n))
+                request = NS(request_id="short", status="WAITING", num_tokens=tokens, max_tokens=1)
+                scope = {"os": os, "self": NS(kv_cache_manager=manager), "request": request,
+                         "load_kv_async": False, "num_computed_tokens": tokens,
+                         "new_computed_blocks": object(), "num_new_local_computed_tokens": tokens,
+                         "num_external_computed_tokens": 0}
+                exec(code, scope)
+                boundary = scope["num_computed_tokens"]
+                self.assertLess(boundary, tokens)
+                self.assertEqual(boundary % 128, 0)
+                self.assertEqual(boundaries, [boundary])
+        finally:
+            if old is None:
+                os.environ.pop("V41_CED_ROLE", None)
+            else:
+                os.environ["V41_CED_ROLE"] = old
+
+
     def test_async_p_boundary_and_invalid_full_hit(self):
         saved = []
         request = NS(request_id="r", num_tokens=1025, num_computed_tokens=1024,
@@ -199,6 +230,35 @@ class AsyncResumeTests(unittest.TestCase):
                 os.environ.pop("V41_CED_ROLE", None)
             else:
                 os.environ["V41_CED_ROLE"] = old
+
+
+class MockIdentityTests(unittest.TestCase):
+    def test_lazy_identity_comes_from_p_and_mixed_addresses_fail_before_read(self):
+        consumer = MockConsumer.__new__(MockConsumer)
+        calls = []
+        consumer.lock = threading.Lock()
+        consumer.torch = NS(npu=NS(set_device=lambda _: None))
+        consumer.device = 0
+        consumer.engine = None
+        consumer.engine_host = None
+
+        def initialize(host):
+            calls.append(("init", host))
+            consumer.engine, consumer.engine_host = object(), host
+
+        consumer.initialize_transport = initialize
+        consumer._consume = lambda *args: calls.append(("read", args))
+        params = {"remote_host": "192.168.45.21"}
+        consumer.consume(params)
+        consumer.consume(params)
+        self.assertEqual([row for row in calls if row[0] == "init"], [("init", "192.168.45.21")])
+        count = len(calls)
+        for bad in ({"remote_host": "127.0.0.1"},
+                    {**params, "remote_multi_nodes_meta_mapping": {"1": {"host": "127.0.0.1"}}}):
+            with self.assertRaisesRegex(ValueError, "identity"):
+                consumer.consume(bad)
+            self.assertEqual(len(calls), count)
+
 
 
 class CompositeCompletionTests(unittest.TestCase):

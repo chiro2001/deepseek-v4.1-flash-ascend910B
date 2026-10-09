@@ -1,0 +1,57 @@
+[CED-LOCK] held Phy-ID=[6, 7]
+can not use command: npu-smi info
+can not use command: npu-smi info
+WARNING: Logging before InitGoogleLogging() is written to STDERR
+W1009 05:17:37.299633    76 transfer_engine_py.cpp:96] Using default malloc/free for protocol: ascend
+I1009 05:17:37.299726    76 transfer_engine_impl.cpp:811] Metrics reporting is disabled (set MC_TE_METRIC=1 to enable)
+I1009 05:17:37.299746    76 transfer_engine_impl.cpp:115] Transfer Engine parseHostNameWithPort. server_name: 192.168.45.21 port: 12001
+I1009 05:17:37.299996    76 transfer_engine_impl.cpp:182] Transfer Engine RPC using P2P handshake, listening on 192.168.45.21:15914
+I1009 05:17:37.300172    76 ascend_direct_transport.cpp:83] install AscendDirectTransport for: 192.168.45.21:15914
+I1009 05:17:37.300208    76 utils.cpp:82] Find available between 20700 and 20800
+I1009 05:17:37.676780    76 transfer_executor_base.cpp:227] Success to initialize adxl engine:192.168.45.21:20745, pid:76
+[W1009 05:17:37.485311400 NPUCachingAllocator.cpp:202] Warning: The current CANN and HDK(driver) versions require processing for 32 padding size, with memory allocation. (function operator())
+I1009 05:17:37.706664    76 transfer_executor_base.cpp:452] TransferExecutor register mem addr:0x12c081200000, length:1048576, mem type:device, engine index:0
+{"producer_ready": true, "device": 1, "bytes": 1048576}
+WARNING: Logging before InitGoogleLogging() is written to STDERR
+W1009 05:17:38.395285    77 transfer_engine_py.cpp:96] Using default malloc/free for protocol: ascend
+I1009 05:17:38.395380    77 transfer_engine_impl.cpp:811] Metrics reporting is disabled (set MC_TE_METRIC=1 to enable)
+I1009 05:17:38.395398    77 transfer_engine_impl.cpp:115] Transfer Engine parseHostNameWithPort. server_name: 127.0.0.1 port: 12001
+I1009 05:17:38.395529    77 transfer_engine_impl.cpp:182] Transfer Engine RPC using P2P handshake, listening on 127.0.0.1:15915
+I1009 05:17:38.395710    77 ascend_direct_transport.cpp:83] install AscendDirectTransport for: 127.0.0.1:15915
+I1009 05:17:38.395744    77 utils.cpp:82] Find available between 20600 and 20700
+I1009 05:17:38.762423    77 transfer_executor_base.cpp:227] Success to initialize adxl engine:127.0.0.1:20672, pid:77
+E1009 05:17:38.763371    77 ascend_direct_transport.cpp:342] mem addr:0x2cc84010000 can not be recognized, try set to host mem.
+I1009 05:17:38.763453    77 transfer_executor_base.cpp:452] TransferExecutor register mem addr:0x2cc84010000, length:1048576, mem type:host, engine index:0
+{"before_read": true, "destination": "host", "round": 0}
+Fatal Python error: Segmentation fault
+
+Thread 0x0000fffe17fff100 (most recent call first):
+  File "/usr/local/python3.12.13/lib/python3.12/threading.py", line 355 in wait
+  File "/usr/local/python3.12.13/lib/python3.12/multiprocessing/queues.py", line 251 in _feed
+  File "/usr/local/python3.12.13/lib/python3.12/threading.py", line 1012 in run
+  File "/usr/local/python3.12.13/lib/python3.12/threading.py", line 1075 in _bootstrap_inner
+  File "/usr/local/python3.12.13/lib/python3.12/threading.py", line 1032 in _bootstrap
+
+Thread 0x0000ffff8baa1b20 (most recent call first):
+  File "/usr/local/python3.12.13/lib/python3.12/multiprocessing/synchronize.py", line 268 in wait
+  File "/usr/local/python3.12.13/lib/python3.12/multiprocessing/synchronize.py", line 356 in wait
+  File "/opt/ced_pair.py", line 32 in producer
+  File "/usr/local/python3.12.13/lib/python3.12/multiprocessing/process.py", line 108 in run
+  File "/usr/local/python3.12.13/lib/python3.12/multiprocessing/process.py", line 314 in _bootstrap
+  File "/usr/local/python3.12.13/lib/python3.12/multiprocessing/spawn.py", line 135 in _main
+  File "/usr/local/python3.12.13/lib/python3.12/multiprocessing/spawn.py", line 122 in spawn_main
+  File "<string>", line 1 in <module>
+
+Extension modules: numpy.core._multiarray_umath, numpy.core._multiarray_tests, numpy.linalg._umath_linalg, numpy.fft._pocketfft_internal, numpy.random._common, numpy.random.bit_generator, numpy.random._bounded_integers, numpy.random._mt19937, numpy.random.mtrand, numpy.random._philox, numpy.random._pcg64, numpy.random._sfc64, numpy.random._generator, torch._C, torch._C._dynamo.autograd_compiler, torch._C._dynamo.eval_frame, torch._C._dynamo.guards, torch._C._dynamo.utils, torch._C._fft, torch._C._linalg, torch._C._nested, torch._C._nn, torch._C._sparse, torch._C._special, torch_npu._C, markupsafe._speedups, yaml._yaml (total: 27)
+Fatal Python error: Segmentation fault
+
+Thread 0x0000ffffa33e4b20 (most recent call first):
+  File "/opt/ced_pair.py", line 58 in receiver
+  File "/usr/local/python3.12.13/lib/python3.12/multiprocessing/process.py", line 108 in run
+  File "/usr/local/python3.12.13/lib/python3.12/multiprocessing/process.py", line 314 in _bootstrap
+  File "/usr/local/python3.12.13/lib/python3.12/multiprocessing/spawn.py", line 135 in _main
+  File "/usr/local/python3.12.13/lib/python3.12/multiprocessing/spawn.py", line 122 in spawn_main
+  File "<string>", line 1 in <module>
+
+Extension modules: numpy.core._multiarray_umath, numpy.core._multiarray_tests, numpy.linalg._umath_linalg, numpy.fft._pocketfft_internal, numpy.random._common, numpy.random.bit_generator, numpy.random._bounded_integers, numpy.random._mt19937, numpy.random.mtrand, numpy.random._philox, numpy.random._pcg64, numpy.random._sfc64, numpy.random._generator, torch._C, torch._C._dynamo.autograd_compiler, torch._C._dynamo.eval_frame, torch._C._dynamo.guards, torch._C._dynamo.utils, torch._C._fft, torch._C._linalg, torch._C._nested, torch._C._nn, torch._C._sparse, torch._C._special, torch_npu._C, markupsafe._speedups, yaml._yaml (total: 27)
+[CED-LOCK] command exited: 137

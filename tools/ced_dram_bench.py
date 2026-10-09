@@ -56,7 +56,7 @@ def fingerprints(result):
             for row in result["ranks"] for key, value in row["fingerprints"].items()}
 
 
-def one_request(args, seed, count, tag):
+def one_request(args, seed, count, tag, checkpoint=None):
     before = metrics(args.prefill_url)
     started = time.perf_counter()
     response = requests.post(
@@ -72,9 +72,18 @@ def one_request(args, seed, count, tag):
     params = document.get("kv_transfer_params")
     if not params or not params.get("remote_block_ids"):
         raise RuntimeError(f"P did not return a CED handoff: {document}")
+    result = {
+        "tag": tag, "seed": seed, "prompt_tokens": count,
+        "ced_prefix_tokens": params["ced_prefix_tokens"], "request_id": params["remote_request_id"],
+        "kv_transfer_params": params, "prefill_response_s": p_response_s,
+        "metrics_before": before, "phase": "prefill_complete",
+    }
+    if checkpoint is not None:
+        checkpoint(result)
     consumed = requests.post(
         f"{args.mock_url}/consume",
-        json={"kv_transfer_params": params, "hold_ms": args.hold_ms}, timeout=args.timeout,
+        json={"kv_transfer_params": params, "hold_ms": args.hold_ms,
+              "page_fingerprints": args.page_fingerprints}, timeout=args.timeout,
     )
     consumed.raise_for_status()
     mock = consumed.json()
@@ -89,14 +98,10 @@ def one_request(args, seed, count, tag):
         if writing == 0 or time.monotonic() >= deadline:
             break
         time.sleep(0.1)
-    result = {
-        "tag": tag, "seed": seed, "prompt_tokens": count,
-        "ced_prefix_tokens": params["ced_prefix_tokens"], "request_id": params["remote_request_id"],
-        "kv_transfer_params": params,
-        "prefill_response_s": p_response_s, "mock": mock,
-        "metrics_before": before, "metrics_after": after,
+    result.update({
+        "mock": mock, "phase": "consumption_complete", "metrics_after": after,
         "delta": metric_deltas(before, after), "fingerprints": fingerprints(mock),
-    }
+    })
     print(json.dumps({k: result[k] for k in ("tag", "prompt_tokens", "prefill_response_s", "delta")}), flush=True)
     return result
 
@@ -112,6 +117,8 @@ def main():
     parser.add_argument("--hold-ms", type=int, default=0)
     parser.add_argument("--timeout", type=float, default=900)
     parser.add_argument("--boundaries", action="store_true")
+    parser.add_argument("--page-fingerprints", action="store_true",
+                        help="Record per-page hashes to distinguish loaded prefix from recomputed tail")
     parser.add_argument("--out", type=Path, required=True)
     args = parser.parse_args()
     if args.rounds < 3 or args.interleave < 4:
@@ -125,12 +132,19 @@ def main():
     report = {"settings": vars(args).copy(), "results": [], "errors": []}
     report["settings"]["out"] = str(args.out)
     args.out.parent.mkdir(parents=True, exist_ok=True)
+    # Check result-file access before sending a request that pins producer KV.
+    args.out.write_text(json.dumps(report, ensure_ascii=False, indent=2) + "\n")
 
     def save():
         args.out.write_text(json.dumps(report, ensure_ascii=False, indent=2) + "\n")
 
     def run(seed, count, tag):
-        result = one_request(args, seed, count, tag)
+        def checkpoint(partial):
+            report["inflight"] = partial
+            save()
+
+        result = one_request(args, seed, count, tag, checkpoint)
+        report.pop("inflight", None)
         report["results"].append(result)
         save()
         return result
@@ -144,7 +158,12 @@ def main():
         h2d = []
         local_at_return = []
         for iteration in range(args.rounds):
-            for seed in range(1, args.interleave):
+            # Restored requests allocate fewer unused CED pages than cold
+            # requests. Reusing the same evictors can make all four fit in
+            # HBM after round one. Use fresh, independent cold prefixes to
+            # maintain pressure, and still require observed H2D each return.
+            for offset in range(args.interleave - 1):
+                seed = 1 + iteration * (args.interleave - 1) + offset
                 run(seed, args.prompt_tokens, f"evict_{iteration}_{seed}")
             returned = run(0, args.prompt_tokens, f"target_return_{iteration}")
             comparisons.append(returned["fingerprints"] == reference_fp)

@@ -35,8 +35,8 @@
 +                    ]
 +                    _step = max(_sizes) if _sizes else 0
 +                    _ok = bool(_step) and all(_step % _b == 0 for _b in _sizes)
-+                    if _ok and request.num_tokens > _step:
-+                        _new = (request.num_tokens // _step - 1) * _step
++                    if _ok and request.num_tokens > 0:
++                        _new = max(0, (request.num_tokens // _step - 1) * _step)
 +                        new_computed_blocks = self.kv_cache_manager.truncate_computed_blocks(
 +                            new_computed_blocks, _new
 +                        )
