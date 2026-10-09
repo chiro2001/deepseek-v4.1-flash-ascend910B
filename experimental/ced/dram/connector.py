@@ -23,6 +23,8 @@ from .contract import alignment_unit, prefill_groups
 @dataclass
 class CEDOffloadingMetadata(OffloadingConnectorMetadata):
     finished_store_requests: set[str] = field(default_factory=set)
+    engram_seed_pages: dict[int, list[int]] = field(default_factory=dict)
+    engram_block_size: int = 0
 
 
 class CEDNPUOffloadingSpec(NPUOffloadingSpec):
@@ -79,6 +81,8 @@ class CEDOffloadingConnector(AscendOffloadingConnector):
         self._ced_job_requests: dict[int, str] = {}
         self._ced_request_jobs: dict[str, set[int]] = {}
         self._ced_seen_metadata = None
+        self._ced_engram_seed_pages: dict[int, list[int]] = {}
+        self._ced_engram_block_size = 0
         scheduler = self.connector_scheduler
         if scheduler is not None:
             sizes = [
@@ -120,6 +124,27 @@ class CEDOffloadingConnector(AscendOffloadingConnector):
             )
         return tokens, asynchronous
 
+    def update_state_after_alloc(self, request, blocks, num_external_tokens):
+        super().update_state_after_alloc(request, blocks, num_external_tokens)
+        if not num_external_tokens:
+            return
+        boundary = request.kv_transfer_params["_ced_dram_load_boundary"]
+        # Engram uses layer 0's SWA page table (G2), rather than G0's
+        # compressed global table. The aligned load restores the previous
+        # complete SWA page; hydrate its token mirror from the request.
+        size = self.connector_scheduler.config.kv_group_configs[2].tokens_per_block
+        if boundary <= 0 or boundary % size:
+            raise RuntimeError("CED Engram restoration needs a complete prior SWA page")
+        position = boundary // size - 1
+        page = blocks.get_block_ids()[2][position]
+        tokens = list(request.prompt_token_ids[position * size:boundary])
+        if page <= 0 or len(tokens) != size:
+            raise RuntimeError("CED DRAM load lacks the actual prior Engram token page")
+        if self._ced_engram_block_size not in (0, size):
+            raise RuntimeError("CED Engram block geometry changed within one worker")
+        self._ced_engram_block_size = size
+        self._ced_engram_seed_pages[page] = tokens
+
     def request_finished_all_groups(self, request, block_ids):
         tracked = request.request_id in self.connector_scheduler._req_status
         super().request_finished_all_groups(request, block_ids)
@@ -131,11 +156,14 @@ class CEDOffloadingConnector(AscendOffloadingConnector):
         metadata = super().build_connector_meta(scheduler_output)
         barriers = self._ced_finish_barriers
         self._ced_finish_barriers = set()
+        seeds, self._ced_engram_seed_pages = self._ced_engram_seed_pages, {}
         return CEDOffloadingMetadata(
             load_jobs=metadata.load_jobs,
             store_jobs=metadata.store_jobs,
             jobs_to_flush=metadata.jobs_to_flush,
             finished_store_requests=barriers,
+            engram_seed_pages=seeds,
+            engram_block_size=self._ced_engram_block_size,
         )
 
     def has_pending_push_work(self):
@@ -157,6 +185,10 @@ class CEDOffloadingConnector(AscendOffloadingConnector):
         self._ced_worker_barriers.update(metadata.finished_store_requests)
 
     def handle_preemptions(self, kv_connector_metadata):
+        if kv_connector_metadata.engram_seed_pages:
+            from .engram_history import restore_history_pages
+            restore_history_pages(kv_connector_metadata.engram_seed_pages,
+                                  kv_connector_metadata.engram_block_size)
         self._observe_worker_metadata(kv_connector_metadata)
         super().handle_preemptions(kv_connector_metadata)
 

@@ -9,6 +9,7 @@ host buffer and sends DONE_RECVING only after all data have been consumed.
 from __future__ import annotations
 
 import argparse
+import base64
 import faulthandler
 import hashlib
 import json
@@ -48,11 +49,17 @@ def page_plan(metadata: dict, params: dict):
             block = int(block)
             if not 0 <= block < int(segment["num_blocks"]):
                 raise ValueError("Producer block ID exceeds registered KV allocation")
-            # Circular state and partially written last pages are consumed,
-            # but do not enter the reusable-prefix consistency fingerprint.
-            compare = bool(segment["prefix_cacheable"]) and (
-                logical_start + position < prefix // unit
-            )
+            # Null pages never prove consistency. A SWA handoff often has a
+            # null full page plus the actual partial tail; compare only its
+            # initialized slots using worker-verified physical geometry.
+            valid_tokens = max(0, min(unit, prefix - (logical_start + position) * unit))
+            compare_bytes = size if valid_tokens == unit else 0
+            if group in (2, 3, 4, 5, 6) and valid_tokens < unit:
+                slot_bytes = int(segment.get("slot_bytes", 0))
+                if slot_bytes <= 0 or slot_bytes * unit != size:
+                    raise ValueError("Mock SWA partial page lacks verified contiguous slot geometry")
+                compare_bytes = valid_tokens * slot_bytes
+            compare = bool(segment["prefix_cacheable"]) and block != 0 and compare_bytes > 0
             address = int(segment["base"]) + block * stride
             if not any(int(base) <= address and address + size <= int(base) + int(length)
                        for base, length in regions):
@@ -64,6 +71,7 @@ def page_plan(metadata: dict, params: dict):
                 "component": segment["component"],
                 "logical_block": logical_start + position,
                 "compare": compare,
+                "compare_bytes": compare_bytes,
             }
 
 
@@ -131,8 +139,11 @@ class MockConsumer:
             self.sockets.pop((host, port)).close()
             raise
 
-    def consume(self, params, hold_ms=0, page_fingerprints=False):
+    def consume(self, params, hold_ms=0, page_fingerprints=False, snapshot_blocks=()):
         with self.lock:
+            snapshot_blocks = tuple(int(n) for n in snapshot_blocks)
+            if len(snapshot_blocks) > 4 or any(n < 0 for n in snapshot_blocks):
+                raise ValueError("Snapshot accepts at most four non-negative global block indices")
             self.torch.npu.set_device(self.device)
             host = params["remote_host"]
             if self.engine_host and self.engine_host != host:
@@ -145,9 +156,9 @@ class MockConsumer:
                 # identity as P. Mixing loopback with the physical host IP
                 # crashes this Ascend TE build, even on a model-free probe.
                 self.initialize_transport(host)
-            return self._consume(params, hold_ms, page_fingerprints)
+            return self._consume(params, hold_ms, page_fingerprints, snapshot_blocks)
 
-    def _consume(self, params, hold_ms, page_fingerprints=False):
+    def _consume(self, params, hold_ms, page_fingerprints=False, snapshot_blocks=()):
         if int(params.get("remote_ptp_size", 0)) != 8:
             raise ValueError("Mock expects eight P tensor-parallel ranks")
         if not params.get("do_remote_prefill") or params.get("ced_replay_tokens") != 128:
@@ -172,6 +183,7 @@ class MockConsumer:
                               "bytes": sum(row["size"] for row in rows)}), flush=True)
             hashes = {}
             page_hashes = {}
+            snapshots = {}
             nonzero = {}
             byte_count, read_seconds, hash_seconds = 0, 0.0, 0.0
             offset = 0
@@ -205,9 +217,12 @@ class MockConsumer:
                         key = f"g{group}/{row['component']}"
                         digest = hashes.setdefault(key, hashlib.sha256())
                         digest.update(row["logical_block"].to_bytes(8, "little"))
-                        digest.update(payload)
+                        initialized = payload[:row["compare_bytes"]]
+                        digest.update(initialized)
                         if page_fingerprints:
-                            page_hashes[f"{key}/b{row['logical_block']}"] = hashlib.sha256(payload).hexdigest()
+                            page_hashes[f"{key}/b{row['logical_block']}"] = hashlib.sha256(initialized).hexdigest()
+                        if rank == 0 and group == 0 and row["logical_block"] in snapshot_blocks:
+                            snapshots[f"{key}/b{row['logical_block']}"] = base64.b64encode(payload).decode("ascii")
                     byte_count += row["size"]
                 hash_seconds += time.perf_counter() - before
                 offset, batch = 0, []
@@ -227,6 +242,7 @@ class MockConsumer:
                 "hash_s": hash_seconds, "nonzero_groups": sorted(g for g, hit in nonzero.items() if hit),
                 "fingerprints": {key: digest.hexdigest() for key, digest in hashes.items()},
                 "page_fingerprints": page_hashes,
+                "snapshots_base64": snapshots,
             })
             endpoints.append((host, port))
         if hold_ms:
@@ -248,7 +264,7 @@ class MockConsumer:
         # duplicating them in service logs is costly at long context lengths.
         logged = {**result, "ranks": [
             {key: value for key, value in row.items()
-             if key not in ("fingerprints", "page_fingerprints")}
+             if key not in ("fingerprints", "page_fingerprints", "snapshots_base64")}
             for row in rank_results
         ]}
         print(json.dumps(logged), flush=True)
@@ -272,7 +288,8 @@ def serve(consumer, host, port):
                     raise ValueError("Invalid request body length")
                 body = json.loads(self.rfile.read(length))
                 result = consumer.consume(body["kv_transfer_params"], int(body.get("hold_ms", 0)),
-                                          bool(body.get("page_fingerprints", False)))
+                                          bool(body.get("page_fingerprints", False)),
+                                          body.get("snapshot_blocks", ()))
                 status = 200
             except Exception as exc:
                 result, status = {"ok": False, "error": repr(exc)}, 500

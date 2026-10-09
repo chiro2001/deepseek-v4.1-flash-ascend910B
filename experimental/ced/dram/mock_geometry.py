@@ -7,7 +7,15 @@ from vllm_ascend.distributed.kv_transfer.kv_pool.kv_offload.native.offloading_co
     _canonicalize_split_attention_cache,
 )
 
-from .contract import prefill_groups, prefix_cacheable
+from .contract import contiguous_page_slots, prefill_groups, prefix_cacheable
+
+
+def cache_tensors(cache):
+    if isinstance(cache, torch.Tensor):
+        yield cache
+    else:
+        for part in cache:
+            yield from cache_tensors(part)
 
 
 def describe_mock_segments(kv_cache_config, kv_caches):
@@ -38,7 +46,7 @@ def describe_mock_segments(kv_cache_config, kv_caches):
                 if key in seen:
                     continue
                 seen.add(key)
-                result.append({
+                segment = {
                     "group": idx,
                     "component": f"{layer_name}:{part}",
                     "base": view.data_ptr(),
@@ -47,5 +55,15 @@ def describe_mock_segments(kv_cache_config, kv_caches):
                     "num_blocks": int(view.shape[0]),
                     "tokens_per_block": int(group.kv_cache_spec.block_size),
                     "prefix_cacheable": prefix_cacheable(group.kv_cache_spec),
-                })
+                }
+                if idx in contract.participating and idx != 0:
+                    original = next((t for t in cache_tensors(cache)
+                                     if t.data_ptr() == view.data_ptr()), None)
+                    geometry = (contiguous_page_slots(original.shape, original.stride(),
+                                                     original.element_size(), int(size))
+                                if original is not None else None)
+                    if not geometry or geometry[0] != segment["tokens_per_block"]:
+                        raise ValueError("CED mock SWA tail requires verified token-contiguous physical slots")
+                    segment["slot_bytes"] = geometry[1]
+                result.append(segment)
     return result

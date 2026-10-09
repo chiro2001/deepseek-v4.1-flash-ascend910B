@@ -78,3 +78,18 @@ def bound_store_keys(keys, source_blocks, pending_blocks, limit):
             selected.append(key)
             pinned = candidate
     return selected, pinned
+
+
+def contiguous_page_slots(shape, strides, element_bytes, page_bytes):
+    """Identify a token-contiguous physical page without assuming its layout."""
+    if len(shape) < 2 or len(shape) != len(strides) or min(shape) <= 0:
+        return None
+    width = 1
+    for size, stride in reversed(tuple(zip(shape[2:], strides[2:]))):
+        if size > 1 and stride != width:
+            return None
+        width *= size
+    slot_bytes = width * element_bytes
+    if strides[1] != width or shape[1] * slot_bytes != page_bytes:
+        return None
+    return shape[1], slot_bytes

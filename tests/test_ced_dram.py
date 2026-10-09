@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import ast
+import importlib.util
 import os
 import threading
 import unittest
@@ -12,7 +13,7 @@ from types import SimpleNamespace as NS
 
 from experimental.ced.dram.config import make_config
 from experimental.ced.dram.contract import (
-    alignment_unit, bound_store_keys, prefill_groups, tail_boundary,
+    alignment_unit, bound_store_keys, contiguous_page_slots, prefill_groups, tail_boundary,
 )
 from tools.ced_mock_decode import MockConsumer, page_plan
 
@@ -107,6 +108,28 @@ class GeometryTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "registered"):
             list(page_plan(metadata, params))
 
+    def test_mock_swa_compares_initialized_tail_and_excludes_null_page(self):
+        params = {"remote_block_ids": [[], [], [0, 2]] + [[] for _ in range(9)],
+                  "ced_prefix_tokens": 255, "ced_missing_swa_groups": [7, 8, 9, 10, 11]}
+        segment = {"group": 2, "component": "swa", "base": 1000, "stride": 1024,
+                   "page_bytes": 1024, "num_blocks": 4, "tokens_per_block": 128,
+                   "prefix_cacheable": True, "slot_bytes": 8}
+        metadata = {"mock_registered_regions": [(1000, 4096)], "mock_segments": [segment]}
+        rows = list(page_plan(metadata, params))
+        self.assertEqual([r["compare"] for r in rows], [False, True])
+        self.assertEqual(rows[1]["compare_bytes"], 127 * 8)
+        segment.pop("slot_bytes")
+        with self.assertRaisesRegex(ValueError, "slot geometry"):
+            list(page_plan(metadata, params))
+
+    def test_slot_geometry_accepts_row_padding_but_rejects_blocked_token_axes(self):
+        self.assertEqual(contiguous_page_slots((4, 128, 1, 512), (100000, 512, 512, 1),
+                                              2, 131072), (128, 1024))
+        self.assertIsNone(contiguous_page_slots((4, 128, 1, 512), (100000, 16, 512, 128),
+                                               2, 131072))
+        self.assertIsNone(contiguous_page_slots((4, 128, 1, 512), (100000, 512, 512, 1),
+                                               2, 65536))
+
 
 class BarrierTests(unittest.TestCase):
     def setUp(self):
@@ -116,8 +139,13 @@ class BarrierTests(unittest.TestCase):
             store_jobs: dict
             jobs_to_flush: set | None = None
             finished_store_requests: set = field(default_factory=set)
+            engram_seed_pages: dict = field(default_factory=dict)
+            engram_block_size: int = 0
 
         class Native:
+            def update_state_after_alloc(self, request, blocks, num_external_tokens):
+                self.native_alloc_seen = (request, blocks, num_external_tokens)
+
             def handle_preemptions(self, metadata):
                 pass
 
@@ -132,6 +160,8 @@ class BarrierTests(unittest.TestCase):
         self.connector._ced_job_requests = {}
         self.connector._ced_request_jobs = {}
         self.connector._ced_seen_metadata = None
+        self.connector._ced_engram_seed_pages = {}
+        self.connector._ced_engram_block_size = 0
         self.connector.connector_worker = NS(_connector_worker_meta=NS(completed_jobs={}))
         self.Metadata = Metadata
 
@@ -160,6 +190,52 @@ class BarrierTests(unittest.TestCase):
         self.assertEqual(c.get_finished({"aborted"})[0], set())
         c.connector_worker._connector_worker_meta.completed_jobs = {4: 1}
         self.assertEqual(c.get_finished(set())[0], {"aborted"})
+
+    def test_engram_seed_uses_layer_zero_swa_page_and_original_prompt_tokens(self):
+        c = self.connector
+        c.connector_scheduler = NS(config=NS(kv_group_configs=[None, None, NS(tokens_per_block=128)]))
+        request = NS(kv_transfer_params={"_ced_dram_load_boundary": 1024},
+                     prompt_token_ids=list(range(2048)))
+        blocks = NS(get_block_ids=lambda: [[999] * 8, [], [0] * 7 + [23]])
+        c.update_state_after_alloc(request, blocks, 1024)
+        self.assertEqual(c._ced_engram_seed_pages, {23: list(range(896, 1024))})
+        self.assertEqual(c._ced_engram_block_size, 128)
+        self.assertEqual(c.native_alloc_seen, (request, blocks, 1024))
+
+
+@unittest.skipUnless(importlib.util.find_spec("torch"), "Run mirror tests in the target CPU image")
+class EngramRestoreTests(unittest.TestCase):
+    def test_real_torch_dict_and_jit_mirrors_restore_tokens_and_image_barriers(self):
+        import numpy as np
+        import torch
+
+        path = ROOT / "patches/files/engram_hash.py"
+        tree = ast.parse(path.read_text())
+        fn = next(n for n in tree.body if isinstance(n, ast.FunctionDef)
+                  and n.name == "valid_engram_token_mask")
+        namespace = {"torch": torch, "np": np, "_ENGRAM_JIT_PAGE_CAP": 2}
+        exec(compile(ast.Module(body=[fn], type_ignores=[]), str(path), "exec"), namespace)
+        cls = compile_class(path, "PagedNgramHistory", namespace)
+        for jit in (False, True):
+            h = cls.__new__(cls)
+            h.token_map = torch.arange(32) + 1000
+            h.image_token_id, h.image_pad_token_id = 7, 8
+            h._jit_ok, h.pages = jit, {}
+            h._jit_pages, h._jit_page_present = None, None
+            h._jit_block_size, h._jit_cap_tokens = 0, 0
+            h.restore_token_pages({1: [2, 7, 8, 3]}, 4)
+            h.restore_token_pages({9: [4, 5, 6, 9]}, 4)
+            if jit:
+                self.assertEqual(h._jit_pages[1].tolist(), [1002, -1, -1, 1003])
+                self.assertEqual(h._jit_pages[9].tolist(), [1004, 1005, 1006, 1009])
+                self.assertEqual(h._jit_page_present[[1, 9]].tolist(), [1, 1])
+            else:
+                self.assertEqual(h.pages[1].tolist(), [1002, -1, -1, 1003])
+                self.assertEqual(h.pages[9].tolist(), [1004, 1005, 1006, 1009])
+            with self.assertRaises(ValueError):
+                h.restore_token_pages({0: [1, 2, 3, 4]}, 4)
+            with self.assertRaises(ValueError):
+                h.restore_token_pages({5: [1, 2]}, 4)
 
 
 class AsyncResumeTests(unittest.TestCase):

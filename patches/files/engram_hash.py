@@ -394,6 +394,36 @@ class PagedNgramHistory:
                     print(f"[ENGRAM-JIT] selftest failed, falling back to stock: {_exc}",
                           flush=True)
 
+        if os.environ.get("CED_DRAM_STRICT_REGISTER") == "1":
+            from vllm_ascend.distributed.kv_transfer.ced_dram.engram_history import register_history
+            register_history(self)
+
+    def restore_token_pages(self, pages, block_size):
+        """Restore known prefix IDs, including image barriers, before hashing a tail."""
+        if block_size <= 0 or any(page <= 0 or len(ids) != block_size
+                                  for page, ids in pages.items()):
+            raise ValueError("Invalid restored Engram token page")
+        if self._jit_ok:
+            self._jit_prepare(0, block_size)
+            required = max(pages) + 1
+            if required > self._jit_pages.shape[0]:
+                old = self._jit_pages.shape[0]
+                capacity = max(required, old * 2)
+                expanded = np.full((capacity, block_size), -1, np.int64)
+                present = np.zeros(capacity, np.uint8)
+                expanded[:old] = self._jit_pages
+                present[:old] = self._jit_page_present
+                self._jit_pages, self._jit_page_present = expanded, present
+        for page, ids in pages.items():
+            raw = torch.tensor(ids, dtype=torch.int64, device="cpu")
+            compressed = self.token_map[raw].masked_fill(
+                ~valid_engram_token_mask(raw, self.image_token_id, self.image_pad_token_id), -1)
+            if self._jit_ok:
+                self._jit_pages[page] = compressed.numpy()
+                self._jit_page_present[page] = 1
+            else:
+                self.pages[page] = compressed
+
     def update(self, input_ids, positions, request_ids, block_table, block_size):
         """All arguments are CPU tensors; page numbers come from full SWA KV."""
         if input_ids.numel() == 0:

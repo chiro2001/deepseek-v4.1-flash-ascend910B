@@ -177,13 +177,16 @@ def main():
             run(0, args.prompt_tokens + 1024, "append_prefix")
         report["verdict"] = {
             "nonempty_fingerprints": bool(reference_fp),
+            "all_effective_groups_fingerprinted": {key.split("/")[1] for key in reference_fp} ==
+                                                  {"g0", "g2", "g3", "g4", "g5", "g6"},
             "all_three_returns_loaded_dram": all(value > 0 for value in h2d),
             "all_return_payloads_equal_cold": all(comparisons),
             "h2d_bytes_each_return": h2d, "local_hit_tokens_each_return": local_at_return,
             "real_decode_text_and_ttft_verified": False,
         }
         report["ok"] = all(report["verdict"][key] for key in (
-            "nonempty_fingerprints", "all_three_returns_loaded_dram", "all_return_payloads_equal_cold",
+            "nonempty_fingerprints", "all_effective_groups_fingerprinted",
+            "all_three_returns_loaded_dram", "all_return_payloads_equal_cold",
         ))
     except Exception as exc:
         report["ok"] = False

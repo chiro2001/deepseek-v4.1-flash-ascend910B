@@ -234,3 +234,33 @@ mock 入口已补占用拒绝检查；本任务 mock 将退出，释放自有 co
   scheduler 经三份补丁应用成功，新增边界与地址混用负控后14项测试通过。
 - v8 P/API 已因上述断言退出，后续显式停止本任务 P/mock 并确认 supervisor
   退出释放锁。下一臂须重新核对资源并使用修复后的补丁与逐页诊断。
+
+### v9 三轮读回与恢复语义缺口
+
+- 【实测】每轮使用新的三个冷前缀后，目标三轮均 local=0 / external=15360 /
+  computed=1023，H2D 各375480320 B，P response 分别0.16876/0.15084/0.15028 s。
+  1/127/128/129/1023/1024/1025 各三次访问均完成，129 重复访问的零计算断言
+  未再复现。8K partial 回退冷算，17K append 完成。
+- `bench16k_v9.json.gz` 和原始 P/mock 日志已经 COS 取回归档。逐页分析显示
+  三轮 G0 的已加载前120个block全部与冷路径相等；差异仅在补算block120–126，
+  三次补算结果彼此相同。原全量判据仍为 FAIL，不能缩小为只检查DMA前缀。
+- 【校验器缺陷】旧SWA指纹包含null block 0，跳过实际的partial尾页，所以
+  v8/v9 的“SWA相等”不能作为正确性证据。新metadata从实际typed tensor shape/
+  stride验证槽位连续性，mock排除null页，按已写入的token槽位比较SWA尾部。
+  布局不可证明时明确拒绝，不推断NZ/packing；新增组覆盖判据和负控。
+- 【实测】相同token输入、独立cache_salt的纯HBM续算对照也与冷算不完全相同，
+  但其prefix的计算batch形状不同，不能据此排除语义错误或认定是舍入误差。
+  原始对照在 `v9-local-tail-control.json.gz`。
+- 【实测】有界原始页快照（rank0 block119/120，`v9-snapshot-control.json.gz`）
+  确认恢复前缀block119逐字节相等；补算block120四层BF16 long KV相对L2差异
+  为3.76%/6.27%/7.93%/5.05%，不能按普通浮点舍入放行。分析见
+  `v9-numeric-analysis.json`；原INT8 index K和FP16 scales也保留在原始产物。
+- 【实测】首次DRAM续算八rank均出现 `ENGRAM-PAGELESS`，前缀token页没有随KV
+  恢复，三行ngram历史被pad barrier替代。新增恢复逻辑：scheduler从原始请求
+  取前一完整G2/SWA token页，经worker metadata传入，worker在尾部hash前同步
+  恢复Python/JIT镜像，包括图像token barrier；不做GPU读取或capture区探针。
+  这处缺口真实存在，修复是否消除完整KV差异仍须实机验证。
+- 新代码在目标镜像CPU模式（`TORCH_DEVICE_BACKEND_AUTOLOAD=0`，未使用NPU）
+  18项测试全部通过，包含真实Torch的Python/JIT镜像扩容、token映射、图像
+  barrier、无效页拒绝和G2物理页定位。第一次CPU容器缺driver导致torch_npu
+  自动加载失败，未执行该测试；不能计为通过。修复后的实机臂尚待启动。
