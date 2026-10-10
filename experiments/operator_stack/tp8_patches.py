@@ -8,32 +8,35 @@ import activation_patches as activation
 import indexer_patches as indexer
 import overlap_patches as overlap
 import tp8_activation as generic_activation
+import formal_w4a8_prefix as prefix
 
 BANKS = {}
 
 
 def switch_mode(name):
-    assert name in ['tp8base', 'tp8core', 'tp8act', 'tp8stack', 'tp8meta', 'tp8metastack']
+    assert name in ['tp8base', 'tp8core', 'tp8act', 'tp8stack', 'tp8meta', 'tp8metastack', 'tp8prefix', 'tp8prefixroute']
+    prefix.set_arm(name)
     goal.ARM = name
     base.ARM = 'native' if name == 'tp8base' or os.getenv('STACK_REAL_WEIGHTS') == '1' else 'both'
     activation.ARM = 'baseline' if name == 'tp8base' else 'overlap'
-    indexer.set_arm('fused' if name in ('tp8stack','tp8metastack') else 'baseline')
+    indexer.set_arm('fused' if name in ('tp8stack','tp8metastack','tp8prefix','tp8prefixroute') else 'baseline')
     overlap.set_enabled(name != 'tp8base')
 
 
 @torch.inference_mode()
 def install(model):
     goal.CONFIGS['tp8base'] = set()
-    for name in ['tp8core', 'tp8act', 'tp8stack', 'tp8meta', 'tp8metastack']:
+    for name in ['tp8core', 'tp8act', 'tp8stack', 'tp8meta', 'tp8metastack', 'tp8prefix', 'tp8prefixroute']:
         goal.CONFIGS[name] = {'hcstatic', 'hcpost', 'metadata_all', 'blockmap'}
         if os.getenv('STACK_REAL_WEIGHTS') == '1':
             # Formal HC static failed the original numerical gate. Keep native
             # HC until a corrected candidate passes independent and model audit.
             goal.CONFIGS[name] -= {'hcstatic', 'hcpost'}
-    for name in ['tp8act','tp8stack','tp8metastack']:
+    for name in ['tp8act','tp8stack','tp8metastack','tp8prefix','tp8prefixroute']:
         goal.CONFIGS[name].add('activation_generic')
     goal.CONFIGS['tp8meta'].add('metadata_manyslots')
-    goal.CONFIGS['tp8metastack'].add('metadata_manyslots')
+    for name in ('tp8metastack','tp8prefix','tp8prefixroute'):
+        goal.CONFIGS[name].add('metadata_manyslots')
     goal.install(model)
     activation.install(model)
     generic_activation.install(model)
@@ -45,6 +48,7 @@ def install(model):
     slot_prepare=REGISTRY.prepare if os.getenv('STACK_METADATA_MANY_SLOTS_ENABLED')=='1' else None
     metadata_patches.install(model, slot_prepare=slot_prepare); blockmap_patches.install(model)
     indexer.install(model)
+    prefix.install()
     switch_mode(os.getenv('STACK_TP8_ARM', 'tp8base'))
 
 
@@ -54,7 +58,7 @@ def save(worker, name):
     entries = [(wrapper, wrapper.concrete_aclgraph_entries, wrapper.graph_pool)
                for wrapper in ag._acl_graph_wrappers]
     assert sum(len(value) for _, value, _ in entries) == 1
-    role = 'fused' if name in ('tp8stack','tp8metastack') else 'baseline'
+    role = 'fused' if name in ('tp8stack','tp8metastack','tp8prefix','tp8prefixroute') else 'baseline'
     refs = activation.REFS.get(activation.ARM, {'routed': [], 'shared': []})
     hc_refs = base.HC_REFS.get(base.ARM, [])
     router_refs = base.ROUTER_REFS.get(base.ARM, [])
@@ -67,6 +71,7 @@ def save(worker, name):
     from tp8_slot_batches import REGISTRY
     return {'rank': get_tensor_model_parallel_rank(), 'arm': name, 'hc_calls': len(hc_refs),
             'metadata_slot_batches': REGISTRY.status(),
+            'w4a8_prefix': prefix.status(name),
             'router_calls': len(router_refs), 'indexer': indexer.coverage(role),
             'activation_eligible_calls': {kind: len(rows) for kind, rows in refs.items()},
             'activation_selected_calls': {kind: sum(row[3] for row in rows) for kind, rows in refs.items()},
@@ -103,6 +108,7 @@ def create(worker, name):
             hc_post(*values, block=512, fma=False)
     torch.npu.synchronize()
     indexer.reset(indexer.ARM)
+    prefix.reset(name)
     base.HC_REFS[base.ARM] = []; base.ROUTER_REFS[base.ARM] = []
     activation.REFS[activation.ARM] = {'routed': [], 'shared': []}; goal.REFS[name] = {}
     generic_activation.REFS[name]={'routed':[],'shared':[]}
@@ -134,7 +140,7 @@ def audit(worker, name):
     # Run the native references with the original capture's tensors restored.
     switch(worker, name)
     result = {'indexer': indexer.audit(worker, indexer.ARM)}
-    if name in ('tp8meta','tp8metastack'):
+    if name in ('tp8meta','tp8metastack','tp8prefix','tp8prefixroute'):
         from tp8_slot_batches import REGISTRY
         result['metadata_slots'] = REGISTRY.audit()
         assert REGISTRY.counts['fused_launches']>0, 'Slot batching candidate has no actual coverage'
@@ -149,4 +155,5 @@ def audit(worker, name):
         result['activation'] = activation.audit(worker, activation.ARM)
     result['coverage'] = save(worker, name)
     result['generic_activation']=generic_activation.audit(name)
+    result['w4a8_prefix']=prefix.audit(name)
     return result

@@ -1,0 +1,181 @@
+{
+  "scope": "source budget and iteration evidence; no measured UB occupancy or double-buffer gain",
+  "records": [
+    {
+      "path": "/vllm-workspace/vllm-ascend/csrc/gmm/grouped_matmul_swiglu_quant_v2/op_kernel/grouped_matmul_swiglu_quant_v2_a8w4_msd_pre.h",
+      "sha256": "b87eda2542700e1800412f9775360552b5c6ae6e38e2afcbd77da677d60f8332",
+      "snippets": [
+        {
+          "line": 26,
+          "text": "namespace GroupedMatmulDequantSwigluQuant {\nusing namespace AscendC;\n#define BUFFER_NUM_A8W4_PRE 1\nconstexpr int TWO = 2;\nconstexpr int EIGHT = 8;\nconstexpr size_t LEN_128 = 128; // 16bit operator"
+        },
+        {
+          "line": 36,
+          "text": "    __aicore__ inline void Init(const GMAddrParams gmAddrParams,\n                                const GMMSwigluQuantV2BaseParams *__restrict gmmSwigluQuantV2BaseParamsIN);\n    __aicore__ inline void CalculateTaskInfoEachCore(uint32_t &curCoreTaskNum_, uint32_t &curCoreStartOffset_);\n    __aicore__ inline void Process(WorkSpaceSplitConfig &workspaceSplitConfig, int64_t workspaceSplitLoopIdx,\n                                   TPipe *pipe);\n    __aicore__ inline void CustomInitBuffer(TPipe *pipe);"
+        },
+        {
+          "line": 39,
+          "text": "    __aicore__ inline void Process(WorkSpaceSplitConfig &workspaceSplitConfig, int64_t workspaceSplitLoopIdx,\n                                   TPipe *pipe);\n    __aicore__ inline void CustomInitBuffer(TPipe *pipe);\n\nprivate:\n    TQue<QuePosition::VECIN, BUFFER_NUM_A8W4_PRE> vecInQueueX, vecInQueueXBak;"
+        },
+        {
+          "line": 42,
+          "text": "\nprivate:\n    TQue<QuePosition::VECIN, BUFFER_NUM_A8W4_PRE> vecInQueueX, vecInQueueXBak;\n    TQue<QuePosition::VECOUT, BUFFER_NUM_A8W4_PRE> vecOutQueueA1;\n    TQue<QuePosition::VECOUT, BUFFER_NUM_A8W4_PRE> vecOutQueueA2;\n    TQue<QuePosition::VECOUT, BUFFER_NUM_A8W4_PRE> vecOutQueueA3;"
+        },
+        {
+          "line": 43,
+          "text": "private:\n    TQue<QuePosition::VECIN, BUFFER_NUM_A8W4_PRE> vecInQueueX, vecInQueueXBak;\n    TQue<QuePosition::VECOUT, BUFFER_NUM_A8W4_PRE> vecOutQueueA1;\n    TQue<QuePosition::VECOUT, BUFFER_NUM_A8W4_PRE> vecOutQueueA2;\n    TQue<QuePosition::VECOUT, BUFFER_NUM_A8W4_PRE> vecOutQueueA3;\n    TQue<QuePosition::VECOUT, BUFFER_NUM_A8W4_PRE> vecOutQueue0F;"
+        },
+        {
+          "line": 44,
+          "text": "    TQue<QuePosition::VECIN, BUFFER_NUM_A8W4_PRE> vecInQueueX, vecInQueueXBak;\n    TQue<QuePosition::VECOUT, BUFFER_NUM_A8W4_PRE> vecOutQueueA1;\n    TQue<QuePosition::VECOUT, BUFFER_NUM_A8W4_PRE> vecOutQueueA2;\n    TQue<QuePosition::VECOUT, BUFFER_NUM_A8W4_PRE> vecOutQueueA3;\n    TQue<QuePosition::VECOUT, BUFFER_NUM_A8W4_PRE> vecOutQueue0F;\n    TQue<QuePosition::VECOUT, BUFFER_NUM_A8W4_PRE> vecOutQueueRowSum;"
+        },
+        {
+          "line": 45,
+          "text": "    TQue<QuePosition::VECOUT, BUFFER_NUM_A8W4_PRE> vecOutQueueA1;\n    TQue<QuePosition::VECOUT, BUFFER_NUM_A8W4_PRE> vecOutQueueA2;\n    TQue<QuePosition::VECOUT, BUFFER_NUM_A8W4_PRE> vecOutQueueA3;\n    TQue<QuePosition::VECOUT, BUFFER_NUM_A8W4_PRE> vecOutQueue0F;\n    TQue<QuePosition::VECOUT, BUFFER_NUM_A8W4_PRE> vecOutQueueRowSum;\n    TBuf<TPosition::VECCALC> tempBuff;"
+        },
+        {
+          "line": 46,
+          "text": "    TQue<QuePosition::VECOUT, BUFFER_NUM_A8W4_PRE> vecOutQueueA2;\n    TQue<QuePosition::VECOUT, BUFFER_NUM_A8W4_PRE> vecOutQueueA3;\n    TQue<QuePosition::VECOUT, BUFFER_NUM_A8W4_PRE> vecOutQueue0F;\n    TQue<QuePosition::VECOUT, BUFFER_NUM_A8W4_PRE> vecOutQueueRowSum;\n    TBuf<TPosition::VECCALC> tempBuff;\n    const GMMSwigluQuantV2BaseParams *__restrict gmmSwigluQuantV2BaseParams;"
+        },
+        {
+          "line": 47,
+          "text": "    TQue<QuePosition::VECOUT, BUFFER_NUM_A8W4_PRE> vecOutQueueA3;\n    TQue<QuePosition::VECOUT, BUFFER_NUM_A8W4_PRE> vecOutQueue0F;\n    TQue<QuePosition::VECOUT, BUFFER_NUM_A8W4_PRE> vecOutQueueRowSum;\n    TBuf<TPosition::VECCALC> tempBuff;\n    const GMMSwigluQuantV2BaseParams *__restrict gmmSwigluQuantV2BaseParams;\n    LocalTensor<int8_t> xTensor;"
+        },
+        {
+          "line": 70,
+          "text": "    uint32_t blockDim{0};\n    uint32_t curCoreId{0};\n    uint32_t curCoreTaskNum{0};\n    uint32_t curCoreStartOffset{0};\n    uint32_t curCoreOuterLoopNum{0};\n    uint32_t curCoreInnerTailLoopNum{0};"
+        },
+        {
+          "line": 89,
+          "text": "        groupNum = static_cast<uint32_t>(gmmSwigluQuantV2BaseParams->groupNum);\n        // M * K * 7B (1B + 0.5B + 0.5B + 2B + 4B) <= UBsize - 256B\n        blockDim = GetBlockNum() * GetTaskRation();\n    }\n}\n"
+        },
+        {
+          "line": 93,
+          "text": "}\n\n__aicore__ inline void GMMA8W4PreProcess::CustomInitBuffer(TPipe *pipe)\n{\n    pipe->InitBuffer(vecInQueueX, BUFFER_NUM_A8W4_PRE, vK * sizeof(int8_t));    // K * 1B\n    pipe->InitBuffer(vecOutQueueA1, BUFFER_NUM_A8W4_PRE, vK * sizeof(int4b_t)); // K * 0.5B"
+        },
+        {
+          "line": 95,
+          "text": "__aicore__ inline void GMMA8W4PreProcess::CustomInitBuffer(TPipe *pipe)\n{\n    pipe->InitBuffer(vecInQueueX, BUFFER_NUM_A8W4_PRE, vK * sizeof(int8_t));    // K * 1B\n    pipe->InitBuffer(vecOutQueueA1, BUFFER_NUM_A8W4_PRE, vK * sizeof(int4b_t)); // K * 0.5B\n    pipe->InitBuffer(vecOutQueueA2, BUFFER_NUM_A8W4_PRE, vK * sizeof(int4b_t)); // K * 0.5B\n    pipe->InitBuffer(vecOutQueueA3, BUFFER_NUM_A8W4_PRE, vK * SIZE_OF_HALF_2);    // K * 2B"
+        },
+        {
+          "line": 96,
+          "text": "{\n    pipe->InitBuffer(vecInQueueX, BUFFER_NUM_A8W4_PRE, vK * sizeof(int8_t));    // K * 1B\n    pipe->InitBuffer(vecOutQueueA1, BUFFER_NUM_A8W4_PRE, vK * sizeof(int4b_t)); // K * 0.5B\n    pipe->InitBuffer(vecOutQueueA2, BUFFER_NUM_A8W4_PRE, vK * sizeof(int4b_t)); // K * 0.5B\n    pipe->InitBuffer(vecOutQueueA3, BUFFER_NUM_A8W4_PRE, vK * SIZE_OF_HALF_2);    // K * 2B\n    // xLowHalfTensor, xLowHalfTensor2 and xHighFloatTensor share the same buffer"
+        },
+        {
+          "line": 97,
+          "text": "    pipe->InitBuffer(vecInQueueX, BUFFER_NUM_A8W4_PRE, vK * sizeof(int8_t));    // K * 1B\n    pipe->InitBuffer(vecOutQueueA1, BUFFER_NUM_A8W4_PRE, vK * sizeof(int4b_t)); // K * 0.5B\n    pipe->InitBuffer(vecOutQueueA2, BUFFER_NUM_A8W4_PRE, vK * sizeof(int4b_t)); // K * 0.5B\n    pipe->InitBuffer(vecOutQueueA3, BUFFER_NUM_A8W4_PRE, vK * SIZE_OF_HALF_2);    // K * 2B\n    // xLowHalfTensor, xLowHalfTensor2 and xHighFloatTensor share the same buffer\n    pipe->InitBuffer(tempBuff, vK * sizeof(float)); // K * 4B"
+        },
+        {
+          "line": 98,
+          "text": "    pipe->InitBuffer(vecOutQueueA1, BUFFER_NUM_A8W4_PRE, vK * sizeof(int4b_t)); // K * 0.5B\n    pipe->InitBuffer(vecOutQueueA2, BUFFER_NUM_A8W4_PRE, vK * sizeof(int4b_t)); // K * 0.5B\n    pipe->InitBuffer(vecOutQueueA3, BUFFER_NUM_A8W4_PRE, vK * SIZE_OF_HALF_2);    // K * 2B\n    // xLowHalfTensor, xLowHalfTensor2 and xHighFloatTensor share the same buffer\n    pipe->InitBuffer(tempBuff, vK * sizeof(float)); // K * 4B\n    constexpr int BUFFER_SIZE_256B = 128 * sizeof(int16_t);"
+        },
+        {
+          "line": 100,
+          "text": "    pipe->InitBuffer(vecOutQueueA3, BUFFER_NUM_A8W4_PRE, vK * SIZE_OF_HALF_2);    // K * 2B\n    // xLowHalfTensor, xLowHalfTensor2 and xHighFloatTensor share the same buffer\n    pipe->InitBuffer(tempBuff, vK * sizeof(float)); // K * 4B\n    constexpr int BUFFER_SIZE_256B = 128 * sizeof(int16_t);\n    pipe->InitBuffer(vecOutQueue0F, BUFFER_NUM_A8W4_PRE, BUFFER_SIZE_256B); // 256B\n}"
+        },
+        {
+          "line": 102,
+          "text": "    pipe->InitBuffer(tempBuff, vK * sizeof(float)); // K * 4B\n    constexpr int BUFFER_SIZE_256B = 128 * sizeof(int16_t);\n    pipe->InitBuffer(vecOutQueue0F, BUFFER_NUM_A8W4_PRE, BUFFER_SIZE_256B); // 256B\n}\n\n"
+        },
+        {
+          "line": 106,
+          "text": "\n\n__aicore__ inline void GMMA8W4PreProcess::CalculateTaskInfoEachCore(uint32_t &curCoreTaskNum_,\n                                                                    uint32_t &curCoreStartOffset_)\n{\n    // \u5747\u5206\u4efb\u52a1\u6570"
+        },
+        {
+          "line": 119,
+          "text": "    curCoreId = GetBlockIdx();\n    // \u6bcf\u4e2a\u6838\u5904\u7406\u7684\u4efb\u52a1\u6570\u91cf = \u662f\u5426\u4e3a\u5c3e\u6838 \uff1f\u5747\u5206\u4efb\u52a1\u6570 \uff1a(\u5747\u5206\u4efb\u52a1\u6570 - 1)\n    curCoreTaskNum_ = curCoreId < tailCoreIdx ? eachCoreTaskNum : eachCoreTaskNum - 1;\n    // \u6bcf\u4e2a\u6838\u5904\u7406\u7684\u8d77\u59cb\u504f\u79fb\u5730\u5740 = \u662f\u5426\u4e3a\u5c3e\u6838 \uff1f\u5747\u5206\u4efb\u52a1\u6570 * blockId : (\u5747\u5206\u4efb\u52a1\u6570 - 1) * blockId + \u5c3e\u6838\u8d77\u59cb\u7d22\u5f15\n    curCoreStartOffset_ =\n        curCoreId < tailCoreIdx ? eachCoreTaskNum * curCoreId : ((eachCoreTaskNum - 1) * curCoreId + tailCoreIdx);"
+        },
+        {
+          "line": 133,
+          "text": "        }\n        yGm = (workspaceSplitLoopIdx % 2 == 0 ? yGm1 : yGm2);\n        CustomInitBuffer(pipe);\n        constexpr int32_t MASK = 128;\n        xTensor = vecInQueueX.AllocTensor<int8_t>();\n        xHighI4Tensor = vecOutQueueA1.AllocTensor<int4b_t>();"
+        },
+        {
+          "line": 156,
+          "text": "        SetFlag<HardEvent::S_MTE2>(EVENT_ID0);\n        WaitFlag<HardEvent::S_MTE2>(EVENT_ID0);\n        CalculateTaskInfoEachCore(curCoreTaskNum, curCoreStartOffset);\n        SetFlag<HardEvent::V_MTE2>(EVENT_ID0); // 0\n        SetFlag<HardEvent::MTE3_V>(EVENT_ID0); // 1\n        SetFlag<HardEvent::MTE3_V>(EVENT_ID1); // 2"
+        },
+        {
+          "line": 161,
+          "text": "        SetFlag<HardEvent::MTE3_V>(EVENT_ID1); // 2\n\n        for (uint32_t xloop = 0; xloop < curCoreTaskNum; xloop++) {\n            uint64_t relStartAddr = (xloop + curCoreStartOffset) * vK;\n            uint64_t absStartAddr = workspaceSplitLoopIdx * workspaceSplitConfig.notLastTaskSize * vK + relStartAddr;\n            // \u9ad8\u56db\u4f4d\u5904\u7406\u5f00\u59cb"
+        }
+      ]
+    },
+    {
+      "path": "/vllm-workspace/vllm-ascend/csrc/gmm/grouped_matmul_swiglu_quant_v2/op_kernel/grouped_matmul_swiglu_quant_v2_a8w4_msd_post.h",
+      "sha256": "6b39b80ca4dc18eb7f99fac4c559462021012ee98a365120e77610d0a243bd07",
+      "snippets": [
+        {
+          "line": 26,
+          "text": "namespace GroupedMatmulDequantSwigluQuant {\nusing namespace AscendC;\n#define DOUBLE_BUFFER 2\nconstexpr float DEFAULT_MUL_SCALE = 16.0f;\nclass GMMA8W4PostProcess {\npublic:"
+        },
+        {
+          "line": 91,
+          "text": "{\n    if ASCEND_IS_AIV {\n        aicCoreNum = GetBlockNum();\n        aivCoreNum = aicCoreNum * 2;\n        blockIdx = GetBlockIdx();\n        gmmSwigluQuantV2BaseParams = gmmSwigluQuantV2BaseParamsIN;"
+        },
+        {
+          "line": 294,
+          "text": "    }\n    // \u7b2c\u4e09\u6b65 \u8ba1\u7b97\u603b\u6570\u636e\u91cf\n    vecConfig.outLoopNum =\n        (vecConfig.taskNum + gmmSwigluQuantV2->maxProcessRowNum - 1) / gmmSwigluQuantV2->maxProcessRowNum;\n    vecConfig.tailLoopNum = vecConfig.taskNum % gmmSwigluQuantV2->maxProcessRowNum ?\n                                vecConfig.taskNum % gmmSwigluQuantV2->maxProcessRowNum :"
+        },
+        {
+          "line": 295,
+          "text": "    // \u7b2c\u4e09\u6b65 \u8ba1\u7b97\u603b\u6570\u636e\u91cf\n    vecConfig.outLoopNum =\n        (vecConfig.taskNum + gmmSwigluQuantV2->maxProcessRowNum - 1) / gmmSwigluQuantV2->maxProcessRowNum;\n    vecConfig.tailLoopNum = vecConfig.taskNum % gmmSwigluQuantV2->maxProcessRowNum ?\n                                vecConfig.taskNum % gmmSwigluQuantV2->maxProcessRowNum :\n                                gmmSwigluQuantV2->maxProcessRowNum;"
+        },
+        {
+          "line": 296,
+          "text": "    vecConfig.outLoopNum =\n        (vecConfig.taskNum + gmmSwigluQuantV2->maxProcessRowNum - 1) / gmmSwigluQuantV2->maxProcessRowNum;\n    vecConfig.tailLoopNum = vecConfig.taskNum % gmmSwigluQuantV2->maxProcessRowNum ?\n                                vecConfig.taskNum % gmmSwigluQuantV2->maxProcessRowNum :\n                                gmmSwigluQuantV2->maxProcessRowNum;\n"
+        },
+        {
+          "line": 297,
+          "text": "        (vecConfig.taskNum + gmmSwigluQuantV2->maxProcessRowNum - 1) / gmmSwigluQuantV2->maxProcessRowNum;\n    vecConfig.tailLoopNum = vecConfig.taskNum % gmmSwigluQuantV2->maxProcessRowNum ?\n                                vecConfig.taskNum % gmmSwigluQuantV2->maxProcessRowNum :\n                                gmmSwigluQuantV2->maxProcessRowNum;\n\n    // \u7b2c\u56db\u6b65 \u7533\u8bf7\u7a7a\u95f4"
+        },
+        {
+          "line": 298,
+          "text": "    vecConfig.tailLoopNum = vecConfig.taskNum % gmmSwigluQuantV2->maxProcessRowNum ?\n                                vecConfig.taskNum % gmmSwigluQuantV2->maxProcessRowNum :\n                                gmmSwigluQuantV2->maxProcessRowNum;\n\n    // \u7b2c\u56db\u6b65 \u7533\u8bf7\u7a7a\u95f4\n    // 2 * row * n * sizeof(float) + row * n / 2 * sizeof(int8) + alignUp<row, 8> * sizeof(float) + n * sizeof(float) +"
+        },
+        {
+          "line": 303,
+          "text": "    // 2 * row * n * sizeof(float) + row * n / 2 * sizeof(int8) + alignUp<row, 8> * sizeof(float) + n * sizeof(float) +\n    // n / 2 *sizeof(float) + 64 < 191 * 1024\n    pipe->InitBuffer(mmOutQueue, 1,\n                     2 * gmmSwigluQuantV2->maxProcessRowNum * gmmSwigluQuantV2->tokenLen * sizeof(float));\n    pipe->InitBuffer(quantOutQueue, 1,\n                     gmmSwigluQuantV2->maxProcessRowNum * gmmSwigluQuantV2->tokenLen / SWIGLU_REDUCE_FACTOR *"
+        },
+        {
+          "line": 304,
+          "text": "    // n / 2 *sizeof(float) + 64 < 191 * 1024\n    pipe->InitBuffer(mmOutQueue, 1,\n                     2 * gmmSwigluQuantV2->maxProcessRowNum * gmmSwigluQuantV2->tokenLen * sizeof(float));\n    pipe->InitBuffer(quantOutQueue, 1,\n                     gmmSwigluQuantV2->maxProcessRowNum * gmmSwigluQuantV2->tokenLen / SWIGLU_REDUCE_FACTOR *\n                         sizeof(int8_t));"
+        },
+        {
+          "line": 305,
+          "text": "    pipe->InitBuffer(mmOutQueue, 1,\n                     2 * gmmSwigluQuantV2->maxProcessRowNum * gmmSwigluQuantV2->tokenLen * sizeof(float));\n    pipe->InitBuffer(quantOutQueue, 1,\n                     gmmSwigluQuantV2->maxProcessRowNum * gmmSwigluQuantV2->tokenLen / SWIGLU_REDUCE_FACTOR *\n                         sizeof(int8_t));\n    pipe->InitBuffer(quantScaleOutQueue, 1,"
+        },
+        {
+          "line": 306,
+          "text": "                     2 * gmmSwigluQuantV2->maxProcessRowNum * gmmSwigluQuantV2->tokenLen * sizeof(float));\n    pipe->InitBuffer(quantOutQueue, 1,\n                     gmmSwigluQuantV2->maxProcessRowNum * gmmSwigluQuantV2->tokenLen / SWIGLU_REDUCE_FACTOR *\n                         sizeof(int8_t));\n    pipe->InitBuffer(quantScaleOutQueue, 1,\n                     AlignUp<int32_t>(gmmSwigluQuantV2->maxProcessRowNum, ALIGN_8_ELE) * sizeof(float));"
+        },
+        {
+          "line": 308,
+          "text": "                     gmmSwigluQuantV2->maxProcessRowNum * gmmSwigluQuantV2->tokenLen / SWIGLU_REDUCE_FACTOR *\n                         sizeof(int8_t));\n    pipe->InitBuffer(quantScaleOutQueue, 1,\n                     AlignUp<int32_t>(gmmSwigluQuantV2->maxProcessRowNum, ALIGN_8_ELE) * sizeof(float));\n    pipe->InitBuffer(weightAuxiliaryMatrixInQueue, 1, gmmSwigluQuantV2->tokenLen * sizeof(float));\n    // two 32 byte buffer for reduceMax calculation in Quant."
+        },
+        {
+          "line": 309,
+          "text": "                         sizeof(int8_t));\n    pipe->InitBuffer(quantScaleOutQueue, 1,\n                     AlignUp<int32_t>(gmmSwigluQuantV2->maxProcessRowNum, ALIGN_8_ELE) * sizeof(float));\n    pipe->InitBuffer(weightAuxiliaryMatrixInQueue, 1, gmmSwigluQuantV2->tokenLen * sizeof(float));\n    // two 32 byte buffer for reduceMax calculation in Quant.\n    pipe->InitBuffer(reduceWorkspace, gmmSwigluQuantV2->tokenLen / SWIGLU_REDUCE_FACTOR * sizeof(float) +"
+        },
+        {
+          "line": 310,
+          "text": "    pipe->InitBuffer(quantScaleOutQueue, 1,\n                     AlignUp<int32_t>(gmmSwigluQuantV2->maxProcessRowNum, ALIGN_8_ELE) * sizeof(float));\n    pipe->InitBuffer(weightAuxiliaryMatrixInQueue, 1, gmmSwigluQuantV2->tokenLen * sizeof(float));\n    // two 32 byte buffer for reduceMax calculation in Quant.\n    pipe->InitBuffer(reduceWorkspace, gmmSwigluQuantV2->tokenLen / SWIGLU_REDUCE_FACTOR * sizeof(float) +\n                                          UB_BLOCK_UNIT_SIZE + UB_BLOCK_UNIT_SIZE);"
+        },
+        {
+          "line": 312,
+          "text": "    pipe->InitBuffer(weightAuxiliaryMatrixInQueue, 1, gmmSwigluQuantV2->tokenLen * sizeof(float));\n    // two 32 byte buffer for reduceMax calculation in Quant.\n    pipe->InitBuffer(reduceWorkspace, gmmSwigluQuantV2->tokenLen / SWIGLU_REDUCE_FACTOR * sizeof(float) +\n                                          UB_BLOCK_UNIT_SIZE + UB_BLOCK_UNIT_SIZE);\n}\n"
+        },
+        {
+          "line": 388,
+          "text": "            weightAuxiliaryMatrixInQueue.EnQue(weightAuxiliaryMatrixLocal);\n            PreLoadAuxiliaryMatrix(vecConfig);\n            for (uint32_t outLoopIdx = 0; outLoopIdx < vecConfig.outLoopNum; outLoopIdx++) {\n                vecConfig.innerLoopNum = outLoopIdx == (vecConfig.outLoopNum - 1) ? vecConfig.tailLoopNum :\n                                                                                    gmmSwigluQuantV2->maxProcessRowNum;\n                int32_t eventIdMTE3ToMTE2 = static_cast<int32_t>(GetTPipePtr()->FetchEventID(HardEvent::MTE3_MTE2));"
+        },
+        {
+          "line": 389,
+          "text": "            PreLoadAuxiliaryMatrix(vecConfig);\n            for (uint32_t outLoopIdx = 0; outLoopIdx < vecConfig.outLoopNum; outLoopIdx++) {\n                vecConfig.innerLoopNum = outLoopIdx == (vecConfig.outLoopNum - 1) ? vecConfig.tailLoopNum :\n                                                                                    gmmSwigluQuantV2->maxProcessRowNum;\n                int32_t eventIdMTE3ToMTE2 = static_cast<int32_t>(GetTPipePtr()->FetchEventID(HardEvent::MTE3_MTE2));\n                SetFlag<HardEvent::MTE3_MTE2>(eventIdMTE3ToMTE2);"
+        },
+        {
+          "line": 390,
+          "text": "            for (uint32_t outLoopIdx = 0; outLoopIdx < vecConfig.outLoopNum; outLoopIdx++) {\n                vecConfig.innerLoopNum = outLoopIdx == (vecConfig.outLoopNum - 1) ? vecConfig.tailLoopNum :\n                                                                                    gmmSwigluQuantV2->maxProcessRowNum;\n                int32_t eventIdMTE3ToMTE2 = static_cast<int32_t>(GetTPipePtr()->FetchEventID(HardEvent::MTE3_MTE2));\n                SetFlag<HardEvent::MTE3_MTE2>(eventIdMTE3ToMTE2);\n                WaitFlag<HardEvent::MTE3_MTE2>(eventIdMTE3ToMTE2);"
+        }
+      ]
+    }
+  ]
+}

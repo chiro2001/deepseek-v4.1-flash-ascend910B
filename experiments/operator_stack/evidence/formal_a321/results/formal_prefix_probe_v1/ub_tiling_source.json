@@ -1,0 +1,55 @@
+{
+  "scope": "static UB tiling budget formula; occupancy not measured",
+  "records": [
+    {
+      "path": "/vllm-workspace/vllm-ascend/csrc/gmm/grouped_matmul_swiglu_quant_v2/op_host/grouped_matmul_swiglu_quant_v2_tiling.cpp",
+      "sha256": "07a6646da6097aa964a5cabfe02bbb88f75288016bc876d173581d2a2abfe862",
+      "snippets": [
+        {
+          "line": 66,
+          "text": "    OP_CHECK_NULL_WITH_CONTEXT(context, platformInfoPtr);\n    auto compileInfoPtr = context->GetCompiledInfo<GMMSwigluV2CompileInfo>();\n    OP_CHECK_NULL_WITH_CONTEXT(context, compileInfoPtr);\n\n    auto ascendcPlatform = platform_ascendc::PlatformAscendC(platformInfoPtr);\n    compileInfoPtr->aicNum_ = ascendcPlatform.GetCoreNumAic();\n    compileInfoPtr->aivNum_ = ascendcPlatform.GetCoreNumAiv();\n    std::string platformRes;\n    platformInfoPtr->GetPlatformRes(\"AICoreintrinsicDtypeMap\", \"Intrinsic_data_move_l12bt\", platformRes);\n    compileInfoPtr->supportL12BtBf16 = (platformRes.find(\"bf16\") != std::string::npos);\n    ascendcPlatform.GetCoreMemSize(platform_ascendc::CoreMemType::UB, compileInfoPtr->ubSize_);\n    OP_LOGD(context->GetNodeName(), \"ubSize is %lu, aicNum is %u.\", compileInfoPtr->ubSize_, compileInfoPtr->aicNum_);\n    return GRAPH_SUCCESS;\n}"
+        },
+        {
+          "line": 70,
+          "text": "    auto ascendcPlatform = platform_ascendc::PlatformAscendC(platformInfoPtr);\n    compileInfoPtr->aicNum_ = ascendcPlatform.GetCoreNumAic();\n    compileInfoPtr->aivNum_ = ascendcPlatform.GetCoreNumAiv();\n    std::string platformRes;\n    platformInfoPtr->GetPlatformRes(\"AICoreintrinsicDtypeMap\", \"Intrinsic_data_move_l12bt\", platformRes);\n    compileInfoPtr->supportL12BtBf16 = (platformRes.find(\"bf16\") != std::string::npos);\n    ascendcPlatform.GetCoreMemSize(platform_ascendc::CoreMemType::UB, compileInfoPtr->ubSize_);\n    OP_LOGD(context->GetNodeName(), \"ubSize is %lu, aicNum is %u.\", compileInfoPtr->ubSize_, compileInfoPtr->aicNum_);\n    return GRAPH_SUCCESS;\n}\n\nIMPL_OP_OPTILING(GroupedMatmulSwigluQuantV2)\n    .Tiling(GroupedMatmulSwigluQuantV2TilingFunc)\n    .TilingParse<GMMSwigluV2CompileInfo>(TilingPrepareForGMMSwigluQuantV2);"
+        },
+        {
+          "line": 71,
+          "text": "    compileInfoPtr->aicNum_ = ascendcPlatform.GetCoreNumAic();\n    compileInfoPtr->aivNum_ = ascendcPlatform.GetCoreNumAiv();\n    std::string platformRes;\n    platformInfoPtr->GetPlatformRes(\"AICoreintrinsicDtypeMap\", \"Intrinsic_data_move_l12bt\", platformRes);\n    compileInfoPtr->supportL12BtBf16 = (platformRes.find(\"bf16\") != std::string::npos);\n    ascendcPlatform.GetCoreMemSize(platform_ascendc::CoreMemType::UB, compileInfoPtr->ubSize_);\n    OP_LOGD(context->GetNodeName(), \"ubSize is %lu, aicNum is %u.\", compileInfoPtr->ubSize_, compileInfoPtr->aicNum_);\n    return GRAPH_SUCCESS;\n}\n\nIMPL_OP_OPTILING(GroupedMatmulSwigluQuantV2)\n    .Tiling(GroupedMatmulSwigluQuantV2TilingFunc)\n    .TilingParse<GMMSwigluV2CompileInfo>(TilingPrepareForGMMSwigluQuantV2);\n} // namespace optiling"
+        }
+      ]
+    },
+    {
+      "path": "/vllm-workspace/vllm-ascend/csrc/gmm/grouped_matmul_swiglu_quant_v2/op_host/grouped_matmul_swiglu_quant_v2_base_tiling.cpp",
+      "sha256": "8e2d570efd12ddda8360fcd515c81fd50444571d47e2ed3200c10f72f7aaef97",
+      "snippets": [
+        {
+          "line": 241,
+          "text": "        quantGroupNum_ = 1;\n    }\n\n    groupNum_ = groupListTensor->GetStorageShape().GetDim(0);\n\n    if (isA8W4MSD_ || isA4W4_) {\n        maxProcessRowNum_ = CalMaxRowInUbA8W4(compileInfoPtr->ubSize_, n_);\n    } else {\n        maxProcessRowNum_ = CalMaxRowInUb(compileInfoPtr->ubSize_, n_);\n    }\n\n    blockDim_ = compileInfoPtr->aicNum_;\n    return ge::GRAPH_SUCCESS;\n}"
+        },
+        {
+          "line": 243,
+          "text": "\n    groupNum_ = groupListTensor->GetStorageShape().GetDim(0);\n\n    if (isA8W4MSD_ || isA4W4_) {\n        maxProcessRowNum_ = CalMaxRowInUbA8W4(compileInfoPtr->ubSize_, n_);\n    } else {\n        maxProcessRowNum_ = CalMaxRowInUb(compileInfoPtr->ubSize_, n_);\n    }\n\n    blockDim_ = compileInfoPtr->aicNum_;\n    return ge::GRAPH_SUCCESS;\n}\n\nint32_t GroupedMatmulSwigluQuantV2BaseTiling::FindBestSingleN(const uint32_t &aicNum, int64_t baseM, int64_t baseN) const"
+        },
+        {
+          "line": 441,
+          "text": "    tilingData_.gmmSwigluQuantV2BaseParams.set_baseM(A8W4_BASEM);\n    tilingData_.gmmSwigluQuantV2BaseParams.set_baseN(A8W4_BASEN);\n    tilingData_.gmmSwigluQuantV2BaseParams.set_quantGroupNum(quantGroupNum_);\n    tilingData_.gmmSwigluQuantV2BaseParams.set_isSingleTensor(isSingleTensor_);\n    tilingData_.gmmSwigluQuantV2BaseParams.set_groupListType(groupListType_);\n    tilingData_.gmmSwigluQuantV2BaseParams.set_smoothScaleDimNum(smoothScaleDimNum_);\n    tilingData_.gmmSwigluQuantV2.set_maxProcessRowNum(maxProcessRowNum_);\n    tilingData_.gmmSwigluQuantV2.set_groupListLen(groupNum_);\n    tilingData_.gmmSwigluQuantV2.set_tokenLen(n_);\n}\n\nvoid GroupedMatmulSwigluQuantV2BaseTiling::PrintTilingData()\n{\n    OP_LOGD(context_->GetNodeName(), \"grouped_matmul_swiglu_quant_base_tiling.\");"
+        },
+        {
+          "line": 463,
+          "text": "    OP_LOGD(context_->GetNodeName(), \"quantGroupNum: %ld\", tilingData_.gmmSwigluQuantV2BaseParams.get_quantGroupNum());\n    OP_LOGD(context_->GetNodeName(), \"isSingleTensor:%ld\", tilingData_.gmmSwigluQuantV2BaseParams.get_isSingleTensor());\n    OP_LOGD(context_->GetNodeName(), \"groupListType: %ld\", tilingData_.gmmSwigluQuantV2BaseParams.get_groupListType());\n    OP_LOGD(context_->GetNodeName(), \"get_swigluLimit: %ld\", tilingData_.gmmSwigluQuantV2BaseParams.get_swigluLimit());\n    OP_LOGD(context_->GetNodeName(), \"smoothScaleDimNum: %ld\",\n            tilingData_.gmmSwigluQuantV2BaseParams.get_smoothScaleDimNum());\n    OP_LOGD(context_->GetNodeName(), \"maxProcessRowNum:      %ld\", tilingData_.gmmSwigluQuantV2.get_maxProcessRowNum());\n    OP_LOGD(context_->GetNodeName(), \"groupListLen:          %ld\", tilingData_.gmmSwigluQuantV2.get_groupListLen());\n    OP_LOGD(context_->GetNodeName(), \"tokenLen:              %ld\", tilingData_.gmmSwigluQuantV2.get_tokenLen());\n    OP_LOGD(context_->GetNodeName(), \"USER_WORKSPACE_LIMIT:  %ld\", usrWorkspaceLimit_);\n    OP_LOGD(context_->GetNodeName(), \"workspaceSizes:        %lu\", workspaceSize_);\n    OP_LOGD(context_->GetNodeName(), \"isSplitWorkSpace:      %s\", isSplitWorkSpace_ ? \"true\" : \"false\");\n}\n"
+        }
+      ]
+    },
+    {
+      "path": "/vllm-workspace/vllm-ascend/csrc/gmm/grouped_matmul_swiglu_quant_v2/op_host/grouped_matmul_swiglu_quant_v2_fusion_tiling.cpp",
+      "sha256": "9ff6d0cea79c19795bb6dbd0bc34fbcb0c57000fae8294e3b4e07a9656dae908",
+      "snippets": [
+        {
+          "line": 108,
+          "text": "                    return ge::GRAPH_FAILED);\n        aicCoreNum_ = compileInfoPtr->aicNum_;\n        aivCoreNum_ = compileInfoPtr->aivNum_;\n    } else {\n        auto ascendcPlatform = platform_ascendc::PlatformAscendC(platformInfo);\n        aicCoreNum_ = ascendcPlatform.GetCoreNumAic();\n        aivCoreNum_ = ascendcPlatform.GetCoreNumAiv();\n    }\n\n    return ge::GRAPH_SUCCESS;\n}\n\nge::graphStatus GroupedMatmulSwigluQuantV2FusionTiling::DoOpTiling()\n{"
+        }
+      ]
+    }
+  ]
+}

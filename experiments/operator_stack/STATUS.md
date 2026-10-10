@@ -1,3 +1,5 @@
+更新v20：新增正式 `tp8prefix`（一次cumsum复用）和 `tp8prefixroute`（routing直接prefix）两bank，384/top6/48-local独立96组整数及量化行/scale/索引、6次变化输入图重放通过。v1正式作业在原生预热因wrapper关键字契约失败，候选未执行；验证私有作业父子归属后终止143，证据保留。v2修正关键字参数及加载前预检，预检通过；`/work/src_prefix_v2` 的 `formal_prefix_audit_v2` 已启动，整网精度/实际GMM消费者/性能均待完成。UB预算源码已补充，A8W4 post行预算为8.5*row*n+4*alignUp(row,8)+6*n+64，仍无UB容量occupancy或双缓冲收益。已验收API为后续试验释放，恢复记录保留。
+
 更新v19：正式 `tp8metastack＋strict` 服务 v3 客户端已退出0，GSM8K100/100、Vision23/23；8条serial、2K输入/256输出测得 `(26.292508ms/step,A=1,38.033648tok/s)`，模型/API归属通过。新组合质量已经独立验收，仍未达到19ms。首轮runner在选择记录落盘前退出，未发请求；已增加1800s有界等待，同一服务重跑通过。下一项准备试验正式W4A8的prefix group-list；尚无性能结论。已有未完成goal不能被create_goal覆盖，继续沿完整目标推进。
 
 # 两条算子线叠加与TP8目标

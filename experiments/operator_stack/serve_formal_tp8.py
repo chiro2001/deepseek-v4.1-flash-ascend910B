@@ -26,6 +26,19 @@ def verify_selection(audit_root, perf_root, arm, contract, chips):
     comparisons = [r for r in audit['pairs'] if r['arm'] == arm]
     if arm != 'tp8base':
         assert len(comparisons) >= 3 and all(r['tokens_equal'] and r['actual_routes_equal'] and r['max_logprob_delta'] < 1e-3 for r in comparisons)
+    if arm in ('tp8prefix', 'tp8prefixroute'):
+        banks = json.loads((audit_root / 'banks.json').read_text())[arm]
+        assert len(banks) == 8 and {r['rank'] for r in banks} == set(range(8))
+        for bank in banks:
+            prefix = bank['w4a8_prefix']
+            assert prefix['selected'] and prefix['consumer_snapshots'] == 80
+            assert prefix['captured_gmm_calls'] == {'apply_gmm1_act_quant': 40, 'apply_gmm2': 40}
+        requests = json.loads((audit_root / 'requests.json').read_text())
+        selected = [r for r in requests if r['arm'] == arm and r['tag'].startswith('pair-')]
+        assert len(selected) >= 3
+        for request in selected:
+            assert len(request['rank_audit']) == 8
+            assert all(r['w4a8_prefix']['passed'] for r in request['rank_audit'])
     controls = json.loads((audit_root / 'native_controls.json').read_text())
     assert len(controls) >= 3 and all(r['passed'] for r in controls)
     assert len({r['pair'] for r in perf['pairs']}) >= 10
@@ -50,7 +63,7 @@ def main():
     parser.add_argument('--output', type=Path, required=True)
     parser.add_argument('--audit-root', type=Path, required=True)
     parser.add_argument('--perf-root', type=Path, required=True)
-    parser.add_argument('--arm', choices=('tp8base','tp8core','tp8act','tp8stack','tp8meta','tp8metastack'), required=True)
+    parser.add_argument('--arm', choices=('tp8base','tp8core','tp8act','tp8stack','tp8meta','tp8metastack','tp8prefix','tp8prefixroute'), required=True)
     parser.add_argument('--port', type=int, required=True)
     parser.add_argument('--served-model', required=True)
     args = parser.parse_args()

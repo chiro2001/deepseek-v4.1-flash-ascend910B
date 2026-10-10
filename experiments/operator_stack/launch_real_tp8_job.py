@@ -30,9 +30,11 @@ def main():
     p.add_argument('--native-profile', action='store_true')
     p.add_argument('--reduction-bench', action='store_true')
     p.add_argument('--slot-bench', action='store_true')
+    p.add_argument('--prefix-bench', action='store_true')
+    p.add_argument('--prefix-evidence-job')
     p.add_argument('--vector-job')
     p.add_argument('--serve', action='store_true')
-    p.add_argument('--service-arm', choices=('tp8base','tp8core','tp8act','tp8stack','tp8meta','tp8metastack'))
+    p.add_argument('--service-arm', choices=('tp8base','tp8core','tp8act','tp8stack','tp8meta','tp8metastack','tp8prefix','tp8prefixroute'))
     p.add_argument('--audit-job')
     p.add_argument('--perf-job')
     p.add_argument('--port', type=int)
@@ -50,11 +52,12 @@ def main():
     p.add_argument('--wait-seconds', type=int, default=0)
     args = p.parse_args()
     assert args.job.replace('-', '').replace('_', '').isalnum(), args.job
+    assert not (args.slot_bench and args.prefix_bench)
     assert args.pairs > 0 and args.wait_seconds >= 0
     assert not (args.audit and args.profile)
     assert not args.cpu_diagnostic or not any((args.audit,args.profile,args.native_control,
-        args.native_profile,args.reduction_bench,args.slot_bench,args.serve,args.eager))
-    assert not args.slot_bench or not any((args.audit,args.profile,args.native_control,args.native_profile,
+        args.native_profile,args.reduction_bench,(args.slot_bench or args.prefix_bench),args.serve,args.eager))
+    assert not (args.slot_bench or args.prefix_bench) or not any((args.audit,args.profile,args.native_control,args.native_profile,
         args.reduction_bench,args.serve,args.eager,args.probe_native_ops,args.trace_attention,
         args.fp32_decode_reduction,args.isolated_pools))
     assert not args.serve or (args.service_arm and args.audit_job and args.perf_job and args.port and args.served_model and
@@ -75,7 +78,7 @@ def main():
     assert not args.isolated_pools or not args.native_control
     arms = args.arms.split(',')
     assert arms[0] == 'tp8base' and len(set(arms)) == len(arms)
-    assert set(arms) <= {'tp8base', 'tp8core', 'tp8act', 'tp8stack', 'tp8meta', 'tp8metastack'}
+    assert set(arms) <= {'tp8base', 'tp8core', 'tp8act', 'tp8stack', 'tp8meta', 'tp8metastack', 'tp8prefix', 'tp8prefixroute'}
     chips = [int(x) for x in args.chips.split(',')]
     assert len(chips) == len(set(chips)) == 8 and min(chips) >= 0
     root = Path(args.root).resolve()
@@ -141,7 +144,14 @@ def main():
             'V41_ENGRAM_ROUTE_PROBE': '0', 'NUMBA_CACHE_DIR': '/work/cache/numba',
         }
         flags['STACK_TP8_ISOLATED_POOLS'] = '1' if args.isolated_pools else '0'
-        flags['STACK_METADATA_MANY_SLOTS_ENABLED'] = '1' if (set(arms)&{'tp8meta','tp8metastack'} or args.service_arm in ('tp8meta','tp8metastack')) else '0'
+        flags['STACK_METADATA_MANY_SLOTS_ENABLED'] = '1' if (set(arms)&{'tp8meta','tp8metastack','tp8prefix','tp8prefixroute'} or args.service_arm in ('tp8meta','tp8metastack','tp8prefix','tp8prefixroute')) else '0'
+        prefix_selected=bool(set(arms)&{'tp8prefix','tp8prefixroute'} or args.service_arm in ('tp8prefix','tp8prefixroute'))
+        flags['STACK_W4A8_PREFIX_ENABLED']='1' if prefix_selected else '0'
+        if prefix_selected:
+            assert args.prefix_evidence_job and args.prefix_evidence_job.replace('_','').replace('-','').isalnum()
+            probe=json.loads((root/'results'/args.prefix_evidence_job/'prefix_probe.json').read_text())
+            assert probe['passed'] and probe['independent_cases']==96 and probe['graph_replays']==6
+            assert probe['source_sha256']==hashlib.sha256((source_host/'stack/bench_formal_prefix.py').read_bytes()).hexdigest()
         flags['STACK_FP32_DECODE_REDUCTION'] = '1' if args.fp32_decode_reduction else '0'
         if args.hccl_deterministic is not None:
             # HCCL reads this at process/communicator initialization; exporting
@@ -149,7 +159,7 @@ def main():
             flags['HCCL_DETERMINISTIC'] = args.hccl_deterministic
         if args.hccl_npu_socket_port_range is not None:
             flags['HCCL_NPU_SOCKET_PORT_RANGE'] = args.hccl_npu_socket_port_range
-        script_name = ('bench_formal_slots.py' if args.slot_bench else 'serve_formal_tp8.py' if args.serve else
+        script_name = ('bench_formal_prefix.py' if args.prefix_bench else 'bench_formal_slots.py' if args.slot_bench else 'serve_formal_tp8.py' if args.serve else
                        'bench_real_reductions.py' if args.reduction_bench else
                        'profile_formal_native.py' if args.native_profile else
                        'bench_formal_native_control.py' if args.native_control else 'bench_real_tp8_model.py')
@@ -158,15 +168,15 @@ def main():
             '--output=/work/results/' + args.job]
         if args.reduction_bench:
             command.append('--input=/work/results/' + args.vector_job)
-        elif not args.slot_bench:
+        elif not (args.slot_bench or args.prefix_bench):
             command.append('--model=' + args.model)
         if args.serve:
             command.extend(['--audit-root=/work/results/'+args.audit_job,
                             '--perf-root=/work/results/'+args.perf_job,
                             '--arm='+args.service_arm,'--port='+str(args.port),'--served-model='+args.served_model])
-        if not args.native_profile and not args.reduction_bench and not args.slot_bench and not args.serve:
+        if not args.native_profile and not args.reduction_bench and not (args.slot_bench or args.prefix_bench) and not args.serve:
             command.append('--pairs=' + str(args.pairs))
-        if not args.native_control and not args.native_profile and not args.reduction_bench and not args.slot_bench and not args.serve:
+        if not args.native_control and not args.native_profile and not args.reduction_bench and not (args.slot_bench or args.prefix_bench) and not args.serve:
             command.append('--arms=' + args.arms)
         if args.eager:
             command.append('--eager')
@@ -176,7 +186,7 @@ def main():
             command.append('--trace-attention')
         if args.fp32_decode_reduction:
             command.append('--fp32-decode-reduction')
-        if args.hccl_deterministic is not None and (args.native_control or not (args.native_profile or args.reduction_bench or args.slot_bench or args.serve)):
+        if args.hccl_deterministic is not None and (args.native_control or not (args.native_profile or args.reduction_bench or (args.slot_bench or args.prefix_bench) or args.serve)):
             command.append('--hccl-deterministic=' + args.hccl_deterministic)
         if args.reduction_evidence_job:
             command.append('--reduction-evidence=/work/results/' + args.reduction_evidence_job)
