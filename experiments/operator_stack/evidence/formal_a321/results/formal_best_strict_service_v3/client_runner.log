@@ -1,0 +1,14 @@
+Traceback (most recent call last):
+  File "/work/src_manyslots_v8/stack/run_formal_client_acceptance.py", line 106, in <module>
+    if __name__=='__main__':main()
+                            ^^^^^^
+  File "/work/src_manyslots_v8/stack/run_formal_client_acceptance.py", line 26, in main
+    selection=json.loads((args.service_root/'service_command.json').read_text())
+                         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/python3.12.13/lib/python3.12/pathlib.py", line 1027, in read_text
+    with self.open(mode='r', encoding=encoding, errors=errors) as f:
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/python3.12.13/lib/python3.12/pathlib.py", line 1013, in open
+    return io.open(self, mode, buffering, encoding, errors, newline)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+FileNotFoundError: [Errno 2] No such file or directory: '/work/results/formal_best_strict_service_v3/service_command.json'

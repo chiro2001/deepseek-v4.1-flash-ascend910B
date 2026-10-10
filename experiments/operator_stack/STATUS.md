@@ -1,9 +1,13 @@
+更新v19：正式 `tp8metastack＋strict` 服务 v3 客户端已退出0，GSM8K100/100、Vision23/23；8条serial、2K输入/256输出测得 `(26.292508ms/step,A=1,38.033648tok/s)`，模型/API归属通过。新组合质量已经独立验收，仍未达到19ms。首轮runner在选择记录落盘前退出，未发请求；已增加1800s有界等待，同一服务重跑通过。下一项准备试验正式W4A8的prefix group-list；尚无性能结论。已有未完成goal不能被create_goal覆盖，继续沿完整目标推进。
+
 # 两条算子线叠加与TP8目标
 
 目标：使用正式权重和用户已授权的空闲设备启动隔离TP8，精度/路由/输出与真实覆盖通过，端到端decode ≤约19 ms/step，同时报告A和token/s。
 已创建active goal；独立分支`feat/operator-stack-tp8-20261010`。
 
 ## 当前状态（优先于下方历史记录）
+
+最新v18：`formal_slots_indexer_perf_v1`退出0，公平参考四方案12组关闭审计配对：base30.183590/A1/33.130585，core26.840930/A1/37.256533，meta25.724235/A1/38.873848，metastack25.694245/A1/38.919221。两slot候选11/12快于core，Indexer增量只有7/12快于meta/配对中位0.025080ms，整体中位选择metastack。已起正式`formal_best_strict_service_v3`（loopback18763/独立best-v3-tp8metastack模型名），8条serial＋Vision23＋GSM100客户端正在加载/验证。不能继承旧core质量结论。19ms仍差约6.7ms，goal active，后续W4A8前缀/metadata/buffer方案仍需试验。
 
 最新v17：四bank `formal_slots_indexer_audit_v1`退出0，九个完整路由/Top5/logprob配对delta0、四原生控制通过；两个slot候选48份rank×12group整数消费者精确且有实际覆盖，Indexer检查通过。参考学完布局后停止重复登记，probe_v6 144/6重放通过。`formal_slots_indexer_perf_v1`已启动同实例四方案12组关闭审计配对＋单独CPU诊断，当前结果pending，不计审计态时延。此前meta有效结果26.234730/A1/38.117411，相对普通core增量需本次复测。客户端质量只覆盖旧core100/100和23/23；19ms及最终最优部署仍未完成，goal active。
 

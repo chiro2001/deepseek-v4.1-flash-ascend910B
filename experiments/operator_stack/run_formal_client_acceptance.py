@@ -23,14 +23,19 @@ def main():
     parser.add_argument('--encoder',required=True)
     parser.add_argument('--images',required=True)
     args=parser.parse_args()
-    selection=json.loads((args.service_root/'service_command.json').read_text())
+    deadline=time.monotonic()+1800
+    selection_path=args.service_root/'service_command.json'
+    while not selection_path.exists():
+        assert time.monotonic()<deadline,'Formal service selection receipt timed out'
+        assert not (args.service_root/'run.exit').exists(),'Formal service exited before selection receipt'
+        time.sleep(2)
+    selection=json.loads(selection_path.read_text())
     model=selection['served_model'];port=selection['port'];base=f'http://127.0.0.1:{port}'
     assert model.startswith('dsv41-a321-formal-') and selection['client_validation']=='pending'
     arm=selection['selected_arm']
     assert arm in ('tp8base','tp8core','tp8act','tp8stack','tp8meta','tp8metastack') and selection['measured']['A']==1
     out=args.service_root/'client';out.mkdir(exist_ok=True)
     assert not (out/'acceptance.json').exists(),'Do not overwrite previous acceptance'
-    deadline=time.monotonic()+1800
     while True:
         try:
             with urllib.request.urlopen(base+'/v1/models',timeout=3) as response:

@@ -1,0 +1,154 @@
+{
+  "timestamp_unix": 1791632668.5289464,
+  "container": "dsv41-real-stack-tp8-20261010-a321",
+  "container_id": "b1aa15d8800346aff8f755a049feaae148b9d6e315e92bd32dcdf1063b429eb0",
+  "image_digest": "sha256:b69e58820f929ac7a77f93774a3d96da1961f507628239e9c7d7b24066b7a8ea",
+  "chips": [
+    8,
+    9,
+    10,
+    11,
+    12,
+    13,
+    14,
+    15
+  ],
+  "resources": {
+    "0": {
+      "health": "OK",
+      "processes": [
+        {
+          "pid": 3768385,
+          "name": "VLLMWorker_DP"
+        }
+      ]
+    },
+    "1": {
+      "health": "OK",
+      "processes": [
+        {
+          "pid": 3768386,
+          "name": "VLLMWorker_DP"
+        }
+      ]
+    },
+    "2": {
+      "health": "OK",
+      "processes": []
+    },
+    "3": {
+      "health": "OK",
+      "processes": []
+    },
+    "4": {
+      "health": "OK",
+      "processes": []
+    },
+    "5": {
+      "health": "OK",
+      "processes": [
+        {
+          "pid": 38304,
+          "name": "VLLMEngineCor"
+        }
+      ]
+    },
+    "6": {
+      "health": "OK",
+      "processes": []
+    },
+    "7": {
+      "health": "OK",
+      "processes": []
+    },
+    "8": {
+      "health": "Alarm",
+      "processes": []
+    },
+    "9": {
+      "health": "Alarm",
+      "processes": []
+    },
+    "10": {
+      "health": "Alarm",
+      "processes": []
+    },
+    "11": {
+      "health": "Alarm",
+      "processes": []
+    },
+    "12": {
+      "health": "Alarm",
+      "processes": []
+    },
+    "13": {
+      "health": "Alarm",
+      "processes": []
+    },
+    "14": {
+      "health": "Alarm",
+      "processes": []
+    },
+    "15": {
+      "health": "Alarm",
+      "processes": []
+    }
+  },
+  "alarm_details": {
+    "8": "\tHealth Status                  : Alarm\n\tError Code                     : 80C98001\n\tError Information              : node type=AIC, sensor type=RAS State, event state=module error can not be fixed\n",
+    "9": "\tHealth Status                  : Alarm\n\tError Code                     : 80C98001\n\tError Information              : node type=AIC, sensor type=RAS State, event state=module error can not be fixed\n",
+    "10": "\tHealth Status                  : Alarm\n\tError Code                     : 80C98001\n\tError Information              : node type=AIC, sensor type=RAS State, event state=module error can not be fixed\n",
+    "11": "\tHealth Status                  : Alarm\n\tError Code                     : 80C98001\n\tError Information              : node type=AIC, sensor type=RAS State, event state=module error can not be fixed\n",
+    "12": "\tHealth Status                  : Alarm\n\tError Code                     : 80C98001\n\tError Information              : node type=AIC, sensor type=RAS State, event state=module error can not be fixed\n",
+    "13": "\tHealth Status                  : Alarm\n\tError Code                     : 80C98001\n\tError Information              : node type=AIC, sensor type=RAS State, event state=module error can not be fixed\n",
+    "14": "\tHealth Status                  : Alarm\n\tError Code                     : 80C98001\n\tError Information              : node type=AIC, sensor type=RAS State, event state=module error can not be fixed\n",
+    "15": "\tHealth Status                  : Alarm\n\tError Code                     : 80C98001\n\tError Information              : node type=AIC, sensor type=RAS State, event state=module error can not be fixed\n"
+  },
+  "env": {
+    "STACK_SRC_ROOT": "/work/src_manyslots_v8",
+    "LOCAL_WORLD_SIZE": "8",
+    "TASK_QUEUE_ENABLE": "1",
+    "HCCL_OP_EXPANSION_MODE": "AIV",
+    "HCCL_BUFFSIZE": "1024",
+    "ASCEND_MAX_OP_CACHE_SIZE": "-1",
+    "PYTORCH_NPU_ALLOC_CONF": "expandable_segments:True",
+    "V41_ENGRAM_HOST_RESIDENT": "1",
+    "V41_ENGRAM_REUSE_EP_GROUP": "1",
+    "V41_ENGRAM_GATE_CHUNK": "0",
+    "V41_ENGRAM_GATE_MAX_TOKENS": "4096",
+    "V41_ENGRAM_GATE_HOIST": "0",
+    "V41_ENGRAM_JIT": "1",
+    "V41_ENGRAM_DEVICE_INDEX": "1",
+    "V41_ENGRAM_DEVICE_FALLBACK": "0",
+    "V41_QLI_NO_CANDIDATE": "1",
+    "V41_MOE_COMM_ALLGATHER": "1",
+    "V41_MOE_MASK_RANGE": "1",
+    "V41_ROPE_IDXSEL": "1",
+    "V41_O_PROJ_2D": "1",
+    "V41_MOE_ZERO_INVALID": "0",
+    "V41_MOE_ZERO_NONFINITE": "0",
+    "V41_ENGRAM_ROUTE_PROBE": "0",
+    "NUMBA_CACHE_DIR": "/work/cache/numba",
+    "STACK_TP8_ISOLATED_POOLS": "0",
+    "STACK_METADATA_MANY_SLOTS_ENABLED": "1",
+    "STACK_FP32_DECODE_REDUCTION": "0",
+    "HCCL_DETERMINISTIC": "strict",
+    "HCCL_NPU_SOCKET_PORT_RANGE": "auto"
+  },
+  "argv": [
+    "bash",
+    "/work/src_manyslots_v8/stack/run_stack.sh",
+    "serve_formal_tp8.py",
+    "--physical-chips=8,9,10,11,12,13,14,15",
+    "--output=/work/results/formal_best_strict_service_v3",
+    "--model=/home/l00886679/models/out/v41-w4a8-engram-dr-vision-qrot-mtpq",
+    "--audit-root=/work/results/formal_slots_indexer_audit_v1",
+    "--perf-root=/work/results/formal_slots_indexer_perf_v1",
+    "--arm=tp8metastack",
+    "--port=18763",
+    "--served-model=dsv41-a321-formal-best-v3-tp8metastack-20261010"
+  ],
+  "script_sha256": "909f1a042265a79317861ec097bb3a40443486242910bacb6b1928d99d45698d",
+  "source_dir": "/work/src_manyslots_v8",
+  "source_sha256": "1f0aa549f4975c0bec0bdcc7a170d13ed0dd25f22b308183cd38659b78fe13a2"
+}
