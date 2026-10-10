@@ -1,0 +1,528 @@
+{
+  "audit_job": "formal_woa_model_audit_v1",
+  "run_exit": "1",
+  "formal_model_precision_passed": false,
+  "failure_scope": "Actual captured wo_a consumer; original BF16 gate retained",
+  "failure_lines": [
+    "(Worker_TP7_EP7 pid=797975) ERROR 10-10 23:02:21 [multiproc_executor.py:1018]     assert int(ulp.max())<=1,('Real consumer exceeds original BF16 gate',layer,int(ulp.max()))",
+    "(Worker_TP7_EP7 pid=797975) ERROR 10-10 23:02:21 [multiproc_executor.py:1018] AssertionError: ('Real consumer exceeds original BF16 gate', 'language_model.model.layers.0.self_attn.wo_a', 2)",
+    "(Worker_TP7_EP7 pid=797975) ERROR 10-10 23:02:21 [multiproc_executor.py:1018]     assert int(ulp.max())<=1,('Real consumer exceeds original BF16 gate',layer,int(ulp.max()))",
+    "(Worker_TP7_EP7 pid=797975) ERROR 10-10 23:02:21 [multiproc_executor.py:1018] AssertionError: ('Real consumer exceeds original BF16 gate', 'language_model.model.layers.0.self_attn.wo_a', 2)",
+    "(Worker_TP0_EP0 pid=797682) ERROR 10-10 23:02:21 [multiproc_executor.py:1018]     assert int(ulp.max())<=1,('Real consumer exceeds original BF16 gate',layer,int(ulp.max()))",
+    "(Worker_TP0_EP0 pid=797682) ERROR 10-10 23:02:21 [multiproc_executor.py:1018] AssertionError: ('Real consumer exceeds original BF16 gate', 'language_model.model.layers.0.self_attn.wo_a', 184)",
+    "(Worker_TP0_EP0 pid=797682) ERROR 10-10 23:02:21 [multiproc_executor.py:1018]     assert int(ulp.max())<=1,('Real consumer exceeds original BF16 gate',layer,int(ulp.max()))",
+    "(Worker_TP0_EP0 pid=797682) ERROR 10-10 23:02:21 [multiproc_executor.py:1018] AssertionError: ('Real consumer exceeds original BF16 gate', 'language_model.model.layers.0.self_attn.wo_a', 184)",
+    "(Worker_TP4_EP4 pid=797837) ERROR 10-10 23:02:21 [multiproc_executor.py:1018]     assert int(ulp.max())<=1,('Real consumer exceeds original BF16 gate',layer,int(ulp.max()))",
+    "(Worker_TP4_EP4 pid=797837) ERROR 10-10 23:02:21 [multiproc_executor.py:1018] AssertionError: ('Real consumer exceeds original BF16 gate', 'language_model.model.layers.2.self_attn.wo_a', 2)",
+    "(Worker_TP4_EP4 pid=797837) ERROR 10-10 23:02:21 [multiproc_executor.py:1018]     assert int(ulp.max())<=1,('Real consumer exceeds original BF16 gate',layer,int(ulp.max()))",
+    "(Worker_TP4_EP4 pid=797837) ERROR 10-10 23:02:21 [multiproc_executor.py:1018] AssertionError: ('Real consumer exceeds original BF16 gate', 'language_model.model.layers.2.self_attn.wo_a', 2)",
+    "(EngineCore pid=797650) ERROR 10-10 23:02:21 [core.py:1584] RuntimeError: Worker failed with error '('Real consumer exceeds original BF16 gate', 'language_model.model.layers.0.self_attn.wo_a', 184)', please check the stack trace above for the root cause",
+    "(Worker_TP3_EP3 pid=797791) ERROR 10-10 23:02:21 [multiproc_executor.py:1018]     assert int(ulp.max())<=1,('Real consumer exceeds original BF16 gate',layer,int(ulp.max()))",
+    "(Worker_TP3_EP3 pid=797791) ERROR 10-10 23:02:21 [multiproc_executor.py:1018] AssertionError: ('Real consumer exceeds original BF16 gate', 'language_model.model.layers.5.self_attn.wo_a', 39)",
+    "(Worker_TP3_EP3 pid=797791) ERROR 10-10 23:02:21 [multiproc_executor.py:1018]     assert int(ulp.max())<=1,('Real consumer exceeds original BF16 gate',layer,int(ulp.max()))",
+    "(Worker_TP3_EP3 pid=797791) ERROR 10-10 23:02:21 [multiproc_executor.py:1018] AssertionError: ('Real consumer exceeds original BF16 gate', 'language_model.model.layers.5.self_attn.wo_a', 39)",
+    "(Worker_TP2_EP2 pid=797745) ERROR 10-10 23:02:21 [multiproc_executor.py:1018]     assert int(ulp.max())<=1,('Real consumer exceeds original BF16 gate',layer,int(ulp.max()))",
+    "(Worker_TP2_EP2 pid=797745) ERROR 10-10 23:02:21 [multiproc_executor.py:1018] AssertionError: ('Real consumer exceeds original BF16 gate', 'language_model.model.layers.12.self_attn.wo_a', 3)",
+    "(Worker_TP2_EP2 pid=797745) ERROR 10-10 23:02:21 [multiproc_executor.py:1018]     assert int(ulp.max())<=1,('Real consumer exceeds original BF16 gate',layer,int(ulp.max()))",
+    "(Worker_TP2_EP2 pid=797745) ERROR 10-10 23:02:21 [multiproc_executor.py:1018] AssertionError: ('Real consumer exceeds original BF16 gate', 'language_model.model.layers.12.self_attn.wo_a', 3)",
+    "Exception: Call to collective_rpc method failed: Worker failed with error '('Real consumer exceeds original BF16 gate', 'language_model.model.layers.0.self_attn.wo_a', 184)', please check the stack trace above for the root cause"
+  ],
+  "banks": {
+    "tp8base": [
+      {
+        "rank": 0,
+        "woa_cube": {
+          "enabled": true,
+          "arm": "tp8base",
+          "registered_layers": 40,
+          "captured_calls": 40,
+          "selected_calls": 0,
+          "captured_unique_layers": 40,
+          "source": {
+            "torch_matmul_module": "torch",
+            "candidate_sha256": "771bce619982f9d2f3f17aef9fa465333c6a8f890b0430199276b2dac12bc9cc",
+            "kernel_file_sha256": "bbd1b31b0532be220445f0a24555faa1967270671b40344a81d1f92976ce874b"
+          }
+        }
+      },
+      {
+        "rank": 1,
+        "woa_cube": {
+          "enabled": true,
+          "arm": "tp8base",
+          "registered_layers": 40,
+          "captured_calls": 40,
+          "selected_calls": 0,
+          "captured_unique_layers": 40,
+          "source": {
+            "torch_matmul_module": "torch",
+            "candidate_sha256": "771bce619982f9d2f3f17aef9fa465333c6a8f890b0430199276b2dac12bc9cc",
+            "kernel_file_sha256": "bbd1b31b0532be220445f0a24555faa1967270671b40344a81d1f92976ce874b"
+          }
+        }
+      },
+      {
+        "rank": 2,
+        "woa_cube": {
+          "enabled": true,
+          "arm": "tp8base",
+          "registered_layers": 40,
+          "captured_calls": 40,
+          "selected_calls": 0,
+          "captured_unique_layers": 40,
+          "source": {
+            "torch_matmul_module": "torch",
+            "candidate_sha256": "771bce619982f9d2f3f17aef9fa465333c6a8f890b0430199276b2dac12bc9cc",
+            "kernel_file_sha256": "bbd1b31b0532be220445f0a24555faa1967270671b40344a81d1f92976ce874b"
+          }
+        }
+      },
+      {
+        "rank": 3,
+        "woa_cube": {
+          "enabled": true,
+          "arm": "tp8base",
+          "registered_layers": 40,
+          "captured_calls": 40,
+          "selected_calls": 0,
+          "captured_unique_layers": 40,
+          "source": {
+            "torch_matmul_module": "torch",
+            "candidate_sha256": "771bce619982f9d2f3f17aef9fa465333c6a8f890b0430199276b2dac12bc9cc",
+            "kernel_file_sha256": "bbd1b31b0532be220445f0a24555faa1967270671b40344a81d1f92976ce874b"
+          }
+        }
+      },
+      {
+        "rank": 4,
+        "woa_cube": {
+          "enabled": true,
+          "arm": "tp8base",
+          "registered_layers": 40,
+          "captured_calls": 40,
+          "selected_calls": 0,
+          "captured_unique_layers": 40,
+          "source": {
+            "torch_matmul_module": "torch",
+            "candidate_sha256": "771bce619982f9d2f3f17aef9fa465333c6a8f890b0430199276b2dac12bc9cc",
+            "kernel_file_sha256": "bbd1b31b0532be220445f0a24555faa1967270671b40344a81d1f92976ce874b"
+          }
+        }
+      },
+      {
+        "rank": 5,
+        "woa_cube": {
+          "enabled": true,
+          "arm": "tp8base",
+          "registered_layers": 40,
+          "captured_calls": 40,
+          "selected_calls": 0,
+          "captured_unique_layers": 40,
+          "source": {
+            "torch_matmul_module": "torch",
+            "candidate_sha256": "771bce619982f9d2f3f17aef9fa465333c6a8f890b0430199276b2dac12bc9cc",
+            "kernel_file_sha256": "bbd1b31b0532be220445f0a24555faa1967270671b40344a81d1f92976ce874b"
+          }
+        }
+      },
+      {
+        "rank": 6,
+        "woa_cube": {
+          "enabled": true,
+          "arm": "tp8base",
+          "registered_layers": 40,
+          "captured_calls": 40,
+          "selected_calls": 0,
+          "captured_unique_layers": 40,
+          "source": {
+            "torch_matmul_module": "torch",
+            "candidate_sha256": "771bce619982f9d2f3f17aef9fa465333c6a8f890b0430199276b2dac12bc9cc",
+            "kernel_file_sha256": "bbd1b31b0532be220445f0a24555faa1967270671b40344a81d1f92976ce874b"
+          }
+        }
+      },
+      {
+        "rank": 7,
+        "woa_cube": {
+          "enabled": true,
+          "arm": "tp8base",
+          "registered_layers": 40,
+          "captured_calls": 40,
+          "selected_calls": 0,
+          "captured_unique_layers": 40,
+          "source": {
+            "torch_matmul_module": "torch",
+            "candidate_sha256": "771bce619982f9d2f3f17aef9fa465333c6a8f890b0430199276b2dac12bc9cc",
+            "kernel_file_sha256": "bbd1b31b0532be220445f0a24555faa1967270671b40344a81d1f92976ce874b"
+          }
+        }
+      }
+    ],
+    "tp8metastack": [
+      {
+        "rank": 0,
+        "woa_cube": {
+          "enabled": true,
+          "arm": "tp8metastack",
+          "registered_layers": 40,
+          "captured_calls": 40,
+          "selected_calls": 0,
+          "captured_unique_layers": 40,
+          "source": {
+            "torch_matmul_module": "torch",
+            "candidate_sha256": "771bce619982f9d2f3f17aef9fa465333c6a8f890b0430199276b2dac12bc9cc",
+            "kernel_file_sha256": "bbd1b31b0532be220445f0a24555faa1967270671b40344a81d1f92976ce874b"
+          }
+        }
+      },
+      {
+        "rank": 1,
+        "woa_cube": {
+          "enabled": true,
+          "arm": "tp8metastack",
+          "registered_layers": 40,
+          "captured_calls": 40,
+          "selected_calls": 0,
+          "captured_unique_layers": 40,
+          "source": {
+            "torch_matmul_module": "torch",
+            "candidate_sha256": "771bce619982f9d2f3f17aef9fa465333c6a8f890b0430199276b2dac12bc9cc",
+            "kernel_file_sha256": "bbd1b31b0532be220445f0a24555faa1967270671b40344a81d1f92976ce874b"
+          }
+        }
+      },
+      {
+        "rank": 2,
+        "woa_cube": {
+          "enabled": true,
+          "arm": "tp8metastack",
+          "registered_layers": 40,
+          "captured_calls": 40,
+          "selected_calls": 0,
+          "captured_unique_layers": 40,
+          "source": {
+            "torch_matmul_module": "torch",
+            "candidate_sha256": "771bce619982f9d2f3f17aef9fa465333c6a8f890b0430199276b2dac12bc9cc",
+            "kernel_file_sha256": "bbd1b31b0532be220445f0a24555faa1967270671b40344a81d1f92976ce874b"
+          }
+        }
+      },
+      {
+        "rank": 3,
+        "woa_cube": {
+          "enabled": true,
+          "arm": "tp8metastack",
+          "registered_layers": 40,
+          "captured_calls": 40,
+          "selected_calls": 0,
+          "captured_unique_layers": 40,
+          "source": {
+            "torch_matmul_module": "torch",
+            "candidate_sha256": "771bce619982f9d2f3f17aef9fa465333c6a8f890b0430199276b2dac12bc9cc",
+            "kernel_file_sha256": "bbd1b31b0532be220445f0a24555faa1967270671b40344a81d1f92976ce874b"
+          }
+        }
+      },
+      {
+        "rank": 4,
+        "woa_cube": {
+          "enabled": true,
+          "arm": "tp8metastack",
+          "registered_layers": 40,
+          "captured_calls": 40,
+          "selected_calls": 0,
+          "captured_unique_layers": 40,
+          "source": {
+            "torch_matmul_module": "torch",
+            "candidate_sha256": "771bce619982f9d2f3f17aef9fa465333c6a8f890b0430199276b2dac12bc9cc",
+            "kernel_file_sha256": "bbd1b31b0532be220445f0a24555faa1967270671b40344a81d1f92976ce874b"
+          }
+        }
+      },
+      {
+        "rank": 5,
+        "woa_cube": {
+          "enabled": true,
+          "arm": "tp8metastack",
+          "registered_layers": 40,
+          "captured_calls": 40,
+          "selected_calls": 0,
+          "captured_unique_layers": 40,
+          "source": {
+            "torch_matmul_module": "torch",
+            "candidate_sha256": "771bce619982f9d2f3f17aef9fa465333c6a8f890b0430199276b2dac12bc9cc",
+            "kernel_file_sha256": "bbd1b31b0532be220445f0a24555faa1967270671b40344a81d1f92976ce874b"
+          }
+        }
+      },
+      {
+        "rank": 6,
+        "woa_cube": {
+          "enabled": true,
+          "arm": "tp8metastack",
+          "registered_layers": 40,
+          "captured_calls": 40,
+          "selected_calls": 0,
+          "captured_unique_layers": 40,
+          "source": {
+            "torch_matmul_module": "torch",
+            "candidate_sha256": "771bce619982f9d2f3f17aef9fa465333c6a8f890b0430199276b2dac12bc9cc",
+            "kernel_file_sha256": "bbd1b31b0532be220445f0a24555faa1967270671b40344a81d1f92976ce874b"
+          }
+        }
+      },
+      {
+        "rank": 7,
+        "woa_cube": {
+          "enabled": true,
+          "arm": "tp8metastack",
+          "registered_layers": 40,
+          "captured_calls": 40,
+          "selected_calls": 0,
+          "captured_unique_layers": 40,
+          "source": {
+            "torch_matmul_module": "torch",
+            "candidate_sha256": "771bce619982f9d2f3f17aef9fa465333c6a8f890b0430199276b2dac12bc9cc",
+            "kernel_file_sha256": "bbd1b31b0532be220445f0a24555faa1967270671b40344a81d1f92976ce874b"
+          }
+        }
+      }
+    ],
+    "tp8woa": [
+      {
+        "rank": 0,
+        "woa_cube": {
+          "enabled": true,
+          "arm": "tp8woa",
+          "registered_layers": 40,
+          "captured_calls": 40,
+          "selected_calls": 40,
+          "captured_unique_layers": 40,
+          "source": {
+            "torch_matmul_module": "torch",
+            "candidate_sha256": "771bce619982f9d2f3f17aef9fa465333c6a8f890b0430199276b2dac12bc9cc",
+            "kernel_file_sha256": "bbd1b31b0532be220445f0a24555faa1967270671b40344a81d1f92976ce874b"
+          }
+        }
+      },
+      {
+        "rank": 1,
+        "woa_cube": {
+          "enabled": true,
+          "arm": "tp8woa",
+          "registered_layers": 40,
+          "captured_calls": 40,
+          "selected_calls": 40,
+          "captured_unique_layers": 40,
+          "source": {
+            "torch_matmul_module": "torch",
+            "candidate_sha256": "771bce619982f9d2f3f17aef9fa465333c6a8f890b0430199276b2dac12bc9cc",
+            "kernel_file_sha256": "bbd1b31b0532be220445f0a24555faa1967270671b40344a81d1f92976ce874b"
+          }
+        }
+      },
+      {
+        "rank": 2,
+        "woa_cube": {
+          "enabled": true,
+          "arm": "tp8woa",
+          "registered_layers": 40,
+          "captured_calls": 40,
+          "selected_calls": 40,
+          "captured_unique_layers": 40,
+          "source": {
+            "torch_matmul_module": "torch",
+            "candidate_sha256": "771bce619982f9d2f3f17aef9fa465333c6a8f890b0430199276b2dac12bc9cc",
+            "kernel_file_sha256": "bbd1b31b0532be220445f0a24555faa1967270671b40344a81d1f92976ce874b"
+          }
+        }
+      },
+      {
+        "rank": 3,
+        "woa_cube": {
+          "enabled": true,
+          "arm": "tp8woa",
+          "registered_layers": 40,
+          "captured_calls": 40,
+          "selected_calls": 40,
+          "captured_unique_layers": 40,
+          "source": {
+            "torch_matmul_module": "torch",
+            "candidate_sha256": "771bce619982f9d2f3f17aef9fa465333c6a8f890b0430199276b2dac12bc9cc",
+            "kernel_file_sha256": "bbd1b31b0532be220445f0a24555faa1967270671b40344a81d1f92976ce874b"
+          }
+        }
+      },
+      {
+        "rank": 4,
+        "woa_cube": {
+          "enabled": true,
+          "arm": "tp8woa",
+          "registered_layers": 40,
+          "captured_calls": 40,
+          "selected_calls": 40,
+          "captured_unique_layers": 40,
+          "source": {
+            "torch_matmul_module": "torch",
+            "candidate_sha256": "771bce619982f9d2f3f17aef9fa465333c6a8f890b0430199276b2dac12bc9cc",
+            "kernel_file_sha256": "bbd1b31b0532be220445f0a24555faa1967270671b40344a81d1f92976ce874b"
+          }
+        }
+      },
+      {
+        "rank": 5,
+        "woa_cube": {
+          "enabled": true,
+          "arm": "tp8woa",
+          "registered_layers": 40,
+          "captured_calls": 40,
+          "selected_calls": 40,
+          "captured_unique_layers": 40,
+          "source": {
+            "torch_matmul_module": "torch",
+            "candidate_sha256": "771bce619982f9d2f3f17aef9fa465333c6a8f890b0430199276b2dac12bc9cc",
+            "kernel_file_sha256": "bbd1b31b0532be220445f0a24555faa1967270671b40344a81d1f92976ce874b"
+          }
+        }
+      },
+      {
+        "rank": 6,
+        "woa_cube": {
+          "enabled": true,
+          "arm": "tp8woa",
+          "registered_layers": 40,
+          "captured_calls": 40,
+          "selected_calls": 40,
+          "captured_unique_layers": 40,
+          "source": {
+            "torch_matmul_module": "torch",
+            "candidate_sha256": "771bce619982f9d2f3f17aef9fa465333c6a8f890b0430199276b2dac12bc9cc",
+            "kernel_file_sha256": "bbd1b31b0532be220445f0a24555faa1967270671b40344a81d1f92976ce874b"
+          }
+        }
+      },
+      {
+        "rank": 7,
+        "woa_cube": {
+          "enabled": true,
+          "arm": "tp8woa",
+          "registered_layers": 40,
+          "captured_calls": 40,
+          "selected_calls": 40,
+          "captured_unique_layers": 40,
+          "source": {
+            "torch_matmul_module": "torch",
+            "candidate_sha256": "771bce619982f9d2f3f17aef9fa465333c6a8f890b0430199276b2dac12bc9cc",
+            "kernel_file_sha256": "bbd1b31b0532be220445f0a24555faa1967270671b40344a81d1f92976ce874b"
+          }
+        }
+      }
+    ]
+  },
+  "native_controls": [
+    {
+      "label": "before-candidates",
+      "tokens_equal": true,
+      "reference_route_shape": [
+        2094,
+        40,
+        6
+      ],
+      "actual_route_shape": [
+        2094,
+        40,
+        6
+      ],
+      "reference_routes_valid": true,
+      "actual_routes_valid": true,
+      "routes_equal": true,
+      "prefill_differing": 0,
+      "decode_differing": 0,
+      "route_set_differing": 0,
+      "first_route_difference": null,
+      "logprob_lengths_valid": true,
+      "logprob_keys_equal": true,
+      "max_common_logprob_delta": 0.0,
+      "max_logprob_delta": 0.0,
+      "logprob_deltas_finite": true,
+      "passed": true
+    },
+    {
+      "label": "capture-tp8metastack",
+      "tokens_equal": true,
+      "reference_route_shape": [
+        2094,
+        40,
+        6
+      ],
+      "actual_route_shape": [
+        2094,
+        40,
+        6
+      ],
+      "reference_routes_valid": true,
+      "actual_routes_valid": true,
+      "routes_equal": true,
+      "prefill_differing": 0,
+      "decode_differing": 0,
+      "route_set_differing": 0,
+      "first_route_difference": null,
+      "logprob_lengths_valid": true,
+      "logprob_keys_equal": true,
+      "max_common_logprob_delta": 0.0,
+      "max_logprob_delta": 0.0,
+      "logprob_deltas_finite": true,
+      "passed": true
+    }
+  ],
+  "completed_request_tags": [
+    {
+      "arm": "tp8base",
+      "tag": "warmup",
+      "seed": 0
+    },
+    {
+      "arm": "tp8base",
+      "tag": "warmup",
+      "seed": 1
+    },
+    {
+      "arm": "tp8base",
+      "tag": "native-control-reference",
+      "seed": 0
+    },
+    {
+      "arm": "tp8base",
+      "tag": "native-control-repeat",
+      "seed": 0
+    },
+    {
+      "arm": "tp8base",
+      "tag": "native-before-tp8metastack",
+      "seed": 0
+    },
+    {
+      "arm": "tp8metastack",
+      "tag": "warmup",
+      "seed": 0
+    },
+    {
+      "arm": "tp8metastack",
+      "tag": "warmup",
+      "seed": 1
+    },
+    {
+      "arm": "tp8base",
+      "tag": "native-after-tp8metastack",
+      "seed": 0
+    },
+    {
+      "arm": "tp8base",
+      "tag": "native-before-tp8woa",
+      "seed": 0
+    }
+  ],
+  "requests_sha256": "1d77f37ad8ffc350583872b92aa06c5eade1487123787a3c7bc827b2dea398a5",
+  "performance_job_exists": false,
+  "controller_rejected": true
+}

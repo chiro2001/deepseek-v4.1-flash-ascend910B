@@ -1,3 +1,7 @@
+更新v30：MoE掩码及BF16消费者转换独立v2退出0，八EP范围×四shape×三风格96case，两输出共192次逐位一致。首版每图32调用约8.94μs未建立提交余量，不计收益；v2每图512不同输入地址、重放8次，全部窗口设备/提交比例≥2，FP32 4.392957→0.841917μs、BF16消费者5.506194→0.854939μs，两候选均64/64更快。新tp8mask继承metastack、真实layer绑定/40唯一层门/源码SHA/关键字契约通过；`/work/src_mask_model_v2` 的 `formal_moe_mask_audit_v1`已在复查空闲/授权Alarm后启动三bank异步整网审计，完整守卫后才12配对。没有新E2E或17ms声明。
+
+更新v29终态：正式单group wo_a独立probe退出0，Cube64/256和Cube128/512各96/96通过原1ULP门；Cube64/256事件20.336718→17.960176μs、64/64更快，只计独立算子。`/work/src_woa_model_v1` 的正式三bank异步审计退出1：layer0真实wo_a消费者最大184BF16 ULP，超过原1ULP门并拒绝。控制器拒绝启动12组性能作业，未部署、没有有效E2E收益。tuple配置key已修复，新ARM继承metastack、40唯一层覆盖和加载前契约保留；17ms未达到，继续优先研究逐位一致的MoE掩码融合和小M GMM调度。
+
 更新v28汇总：112份异步CSV已完成离线解析，两bank各56份微架构摘要及16份全rank时间线完成。rank0 metastack采集态图前0.839ms、主图18.819ms、图后0.270ms，图内kernel间隙1.136ms，仅诊断不可当可回收E2E。主要家族累积：规约2.982ms、MatMulV2 2.264ms、GMM1 2.109ms、HC pre2.091ms、QuantBatchMatmul1.898ms、GMM2 1.333ms；图内路径是17ms下一优先。内部配对19.334ms不替代旧客户端19.376ms，目标仍17ms。
 
 更新v28：正式异步profile_v1退出0，12组无profiler内部配对：base `(20.410658ms,A1,48.994012tok/s)`，metastack `(19.333616ms,A1,51.723382tok/s)`，未达17ms。14个窗口×8rank实际worker调用均18次、schedule推进16次、手动RPC推进0；112份CSV已离线解析。异步边界含无StepId的部分图，112份完整窗口均10步/每步80HcPre，边界行与完整窗口重叠0。分析器新增完整窗口/边界记录及相交拒绝，`formal_async_analysis_controller_v2` 继续两bank微架构/规约/关键间隙汇总；当前未做新客户端质量/性能验收。

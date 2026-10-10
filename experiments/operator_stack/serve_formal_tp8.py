@@ -28,6 +28,28 @@ def verify_selection(audit_root, perf_root, arm, contract, chips):
         assert audit['timing_scope']==perf['timing_scope']=='token-arrival elapsed/decoded tokens'
     assert arm in audit['arms'] and arm in perf['arms']
     comparisons = [r for r in audit['pairs'] if r['arm'] == arm]
+    if arm=='tp8mask':
+        banks=json.loads((audit_root/'banks.json').read_text())[arm]
+        assert len(banks)==8 and {r['rank'] for r in banks}==set(range(8))
+        assert all(r['moe_mask']['selected_calls']==40 and r['moe_mask']['unique_layers']==40 for r in banks)
+        requests=json.loads((audit_root/'requests.json').read_text())
+        selected=[r for r in requests if r['arm']==arm and r['tag'].startswith('pair-')]
+        assert len(selected)>=3
+        for request in selected:
+            assert len(request['rank_audit'])==8
+            assert all(r['moe_mask']['passed'] and r['moe_mask']['all_bitwise_equal'] and
+                       r['moe_mask']['consumer_calls']==40 for r in request['rank_audit'])
+    if arm=='tp8woa':
+        banks=json.loads((audit_root/'banks.json').read_text())[arm]
+        assert len(banks)==8 and {r['rank'] for r in banks}==set(range(8))
+        assert all(r['woa_cube']['selected_calls']==40 and r['woa_cube']['captured_unique_layers']==40 for r in banks)
+        requests=json.loads((audit_root/'requests.json').read_text())
+        selected=[r for r in requests if r['arm']==arm and r['tag'].startswith('pair-')]
+        assert len(selected)>=3
+        for request in selected:
+            assert len(request['rank_audit'])==8
+            assert all(r['woa_cube']['passed'] and r['woa_cube']['consumer_calls']==40 and
+                       r['woa_cube']['max_bf16_ulp']<=1 for r in request['rank_audit'])
     if arm != 'tp8base':
         assert len(comparisons) >= 3 and all(r['tokens_equal'] and r['actual_routes_equal'] and r['max_logprob_delta'] < 1e-3 for r in comparisons)
     if arm in ('tp8prefix', 'tp8prefixroute', 'tp8prefixup', 'tp8prefixuproute'):
@@ -68,7 +90,7 @@ def main():
     parser.add_argument('--output', type=Path, required=True)
     parser.add_argument('--audit-root', type=Path, required=True)
     parser.add_argument('--perf-root', type=Path, required=True)
-    parser.add_argument('--arm', choices=('tp8base','tp8core','tp8act','tp8stack','tp8meta','tp8metastack','tp8prefix','tp8prefixroute','tp8prefixup','tp8prefixuproute','tp8hostmeta'), required=True)
+    parser.add_argument('--arm', choices=('tp8base','tp8core','tp8act','tp8stack','tp8meta','tp8metastack','tp8prefix','tp8prefixroute','tp8prefixup','tp8prefixuproute','tp8hostmeta','tp8woa', 'tp8mask'), required=True)
     parser.add_argument('--port', type=int, required=True)
     parser.add_argument('--served-model', required=True)
     args = parser.parse_args()

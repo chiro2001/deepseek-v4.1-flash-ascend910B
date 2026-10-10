@@ -48,7 +48,7 @@ class ServingRealTP8StackWorker(RealTP8StackWorker):
 
     @torch.no_grad()
     def load_model(self, *args, **kwargs):
-        assert os.getenv('STACK_SERVE_ARM') in ('tp8base', 'tp8core', 'tp8act', 'tp8stack', 'tp8meta', 'tp8metastack', 'tp8prefix', 'tp8prefixroute', 'tp8prefixup', 'tp8prefixuproute', 'tp8hostmeta')
+        assert os.getenv('STACK_SERVE_ARM') in ('tp8base', 'tp8core', 'tp8act', 'tp8stack', 'tp8meta', 'tp8metastack', 'tp8prefix', 'tp8prefixroute', 'tp8prefixup', 'tp8prefixuproute', 'tp8hostmeta','tp8woa', 'tp8mask')
         assert os.getenv('STACK_REAL_AUDIT', '0') == '0', 'Serve without route/clone audit'
         assert self.vllm_config.speculative_config is None, 'This adapter is validated for A=1'
         # Establish the same native bank used by the comparison, then compile
