@@ -62,6 +62,6 @@ GM/L2↔UB 的流量和带宽不能代替 UB 容量占用；Cube 的 L1、L0A/B/
 - 第二轮正式权重审计：`/work/results/real_tp8_audit_v2`，已启动，等待结果。
 - 正式端到端 `(ms/step, A, token/s)`：尚无本轮有效结果。
 - 正式 TP8 API 与客户端质量：尚未完成。
-- 源码自检：现有检查除 MANIFEST 两个已改文件 hash 外通过；源码提交后从 HEAD 生成 MANIFEST，再做最终自检与推送。
+- 源码自检：源码提交后生成 MANIFEST，整包 `tools/selfcheck_pkg.sh` 全部通过；日志随证据交付。初次未提交改动时的两项 hash 差异已解决。
 
 紧凑证据位于 `experiments/operator_stack/evidence/formal_a321/`：allocation、checkpoint、8 个 rank 冒烟与正式作业 launch receipt，传输 hash 记录在 `fetch_manifest.json`。后续正式结果补入本报告；历史 tiny 与单算子数据不充当本轮整网结果。
