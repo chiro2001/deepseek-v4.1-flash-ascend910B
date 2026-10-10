@@ -121,8 +121,15 @@ def main():
     result['experimental_fp32_decode_reduction']=args.fp32_decode_reduction
     (args.output/'result.json').write_text(json.dumps(result,indent=2)+'\n')
     if args.fp32_decode_reduction:
+        result['aa_passed']=result['passed']
+        result['passed']=False
+        result['reduction_math_audit_passed']=None
+        (args.output/'result.json').write_text(json.dumps(result,indent=2)+'\n')
         math_audit=llm.collective_rpc(decode_reduction_probe.audit)
         (args.output/'decode_reduction_math_audit.json').write_text(json.dumps(math_audit,indent=2)+'\n')
+        result['reduction_math_audit_passed']=all(r['passed'] for r in math_audit)
+        result['passed']=result['aa_passed'] and result['reduction_math_audit_passed']
+        (args.output/'result.json').write_text(json.dumps(result,indent=2)+'\n')
         print('FORMAL_DECODE_REDUCTION_MATH_AUDIT_COMPLETE',json.dumps([
             {'rank':r['rank'],'passed':r['passed']} for r in math_audit]),flush=True)
         assert all(r['passed'] for r in math_audit), 'Decode FP32 reduction failed exact FP64 reference'

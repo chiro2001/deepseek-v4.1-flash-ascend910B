@@ -22,6 +22,9 @@ class RealTP8StackWorker(NPUWorker):
         if os.getenv('STACK_REAL_AUDIT') == '1':
             import route_capture_patch
             route_capture_patch.install()
+        if os.getenv('STACK_FP32_DECODE_REDUCTION') == '1':
+            import decode_reduction_probe
+            print('REAL_TP8_DECODE_REDUCTION',decode_reduction_probe.install(self),flush=True)
         result = super().load_model(*args, **kwargs)
         # Router/GMM candidates remain native: their TP1 contract is 8/top2.
         base.install_hc(self.model_runner.model)

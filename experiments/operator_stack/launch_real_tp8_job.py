@@ -25,10 +25,13 @@ def main():
     p.add_argument('--profile', action='store_true')
     p.add_argument('--native-control', action='store_true')
     p.add_argument('--native-profile', action='store_true')
+    p.add_argument('--reduction-bench', action='store_true')
+    p.add_argument('--vector-job')
     p.add_argument('--eager', action='store_true')
     p.add_argument('--probe-native-ops', action='store_true')
     p.add_argument('--trace-attention', action='store_true')
     p.add_argument('--fp32-decode-reduction', action='store_true')
+    p.add_argument('--reduction-evidence-job')
     p.add_argument('--isolated-pools', action='store_true',
                    help='Diagnostic: capture each candidate bank in a separate NPU memory pool')
     p.add_argument('--allow-alarm', action='store_true')
@@ -37,12 +40,17 @@ def main():
     assert args.job.replace('-', '').replace('_', '').isalnum(), args.job
     assert args.pairs > 0 and args.wait_seconds >= 0
     assert not (args.audit and args.profile)
+    assert not args.reduction_bench or (args.vector_job and not any((args.audit,args.profile,args.native_control,args.native_profile,args.eager,args.probe_native_ops,args.trace_attention,args.fp32_decode_reduction,args.isolated_pools)))
+    assert not args.vector_job or (args.reduction_bench and args.vector_job.replace('-', '').replace('_', '').isalnum())
     assert not args.native_profile or (not args.native_control and not args.audit and not args.profile and not args.eager and not args.isolated_pools)
     assert not args.native_control or (args.audit and not args.profile)
     assert not args.eager or args.native_control
     assert not args.probe_native_ops or (args.native_control and args.eager)
     assert not args.trace_attention or (args.native_control and args.eager and not args.probe_native_ops)
-    assert not args.fp32_decode_reduction or (args.native_control and args.eager and not args.trace_attention and not args.probe_native_ops)
+    assert not args.fp32_decode_reduction or (not any((args.native_profile,args.reduction_bench,args.trace_attention,args.probe_native_ops)) and
+        ((args.native_control and args.eager) or (not args.native_control and args.reduction_evidence_job)))
+    assert not args.reduction_evidence_job or (args.fp32_decode_reduction and
+        args.reduction_evidence_job.replace('-', '').replace('_', '').isalnum())
     assert not args.isolated_pools or not args.native_control
     arms = args.arms.split(',')
     assert arms[0] == 'tp8base' and len(set(arms)) == len(arms)
@@ -108,14 +116,19 @@ def main():
         }
         flags['STACK_TP8_ISOLATED_POOLS'] = '1' if args.isolated_pools else '0'
         flags['STACK_FP32_DECODE_REDUCTION'] = '1' if args.fp32_decode_reduction else '0'
-        script_name = ('profile_formal_native.py' if args.native_profile else
+        script_name = ('bench_real_reductions.py' if args.reduction_bench else
+                       'profile_formal_native.py' if args.native_profile else
                        'bench_formal_native_control.py' if args.native_control else 'bench_real_tp8_model.py')
         command = ['bash', '/work/src/stack/run_stack.sh', script_name,
-            '--model=' + args.model, '--physical-chips=' + args.chips,
+            '--physical-chips=' + args.chips,
             '--output=/work/results/' + args.job]
-        if not args.native_profile:
+        if args.reduction_bench:
+            command.append('--input=/work/results/' + args.vector_job)
+        else:
+            command.append('--model=' + args.model)
+        if not args.native_profile and not args.reduction_bench:
             command.append('--pairs=' + str(args.pairs))
-        if not args.native_control and not args.native_profile:
+        if not args.native_control and not args.native_profile and not args.reduction_bench:
             command.append('--arms=' + args.arms)
         if args.eager:
             command.append('--eager')
@@ -125,6 +138,8 @@ def main():
             command.append('--trace-attention')
         if args.fp32_decode_reduction:
             command.append('--fp32-decode-reduction')
+        if args.reduction_evidence_job:
+            command.append('--reduction-evidence=/work/results/' + args.reduction_evidence_job)
         if args.audit:
             command.append('--audit')
         if args.profile:

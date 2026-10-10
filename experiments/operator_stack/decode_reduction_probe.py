@@ -5,6 +5,7 @@ ORIGINALS = {}
 ENABLED = False
 RECORDS = []
 CALLS = 0
+EXPECTED_PER_STEP = 80
 
 
 def install(worker):
@@ -25,7 +26,7 @@ def install(worker):
                             value.numel() == 5120 and value.shape[-1] == 5120)
                 if not selected:
                     return original(self, value)
-                save = ENABLED and len(RECORDS) < 81
+                save = ENABLED and len(RECORDS) < EXPECTED_PER_STEP
                 local = value.clone() if save else None
                 output = original(self, value.float())
                 result = output.to(value.dtype)
@@ -49,14 +50,14 @@ def begin(worker):
     RECORDS.clear()
     CALLS = 0
     ENABLED = True
-    return {'capture': 'first 81 decode hidden-state reductions; count full request'}
+    return {'capture': 'first 80 decode hidden-state reductions; count full request'}
 
 
 def finish(worker, decode_steps):
     global ENABLED
     ENABLED = False
     torch.npu.synchronize()
-    assert len(RECORDS) == 81 and CALLS == 81 * decode_steps, (len(RECORDS), CALLS, decode_steps)
+    assert len(RECORDS) == EXPECTED_PER_STEP and CALLS == EXPECTED_PER_STEP * decode_steps, (len(RECORDS), CALLS, decode_steps)
     return {'first_decode_records': len(RECORDS), 'request_selected_calls': CALLS,
             'decode_steps': decode_steps}
 
@@ -64,7 +65,17 @@ def finish(worker, decode_steps):
 @torch.inference_mode()
 def audit(worker):
     from vllm.distributed import get_tensor_model_parallel_rank
-    assert not ENABLED and len(RECORDS) == 81
+    assert not ENABLED and len(RECORDS) == EXPECTED_PER_STEP
+    # Keep real local vectors on this host for inexpensive subsequent isolated
+    # collective experiments; no weights or >=1MB artifacts travel over SSH.
+    import os
+    from pathlib import Path
+    path = Path(os.environ['VLLM_CACHE_ROOT']).parent
+    rank = get_tensor_model_parallel_rank()
+    vectors = torch.stack([record[2].cpu() for record in RECORDS])
+    vector_file = path / f'reduction_local_vectors_rank{rank}.pt'
+    torch.save({'vectors': vectors, 'groups': [record[0].unique_name for record in RECORDS],
+                'scope': 'first real decode rank-local BF16 hidden reductions'}, vector_file)
     rows = []
     for ordinal, (group, original, local, fp32, repaired) in enumerate(RECORDS):
         # BF16 values are exactly representable in FP32; all-gather then CPU
@@ -82,6 +93,6 @@ def audit(worker):
                      'fp32_max_abs_vs_fp64': float((gathered.sum(dim=0).reshape(local.shape) - fp32.cpu().double()).abs().max()),
                      'native_bf16_differing_elements': int((reference != native).sum()),
                      'native_bf16_max_abs': float((reference.float() - native.float()).abs().max())})
-    return {'rank': get_tensor_model_parallel_rank(), 'records': rows,
+    return {'rank': rank, 'records': rows, 'vectors_file': str(vector_file),
             'passed': all(r['repaired_bitwise_equal_fp64_reference'] for r in rows),
-            'scope': 'First decode 81 real rank-local hidden reductions; exact BF16 result of FP64 rank sum'}
+            'scope': 'First decode 80 real rank-local hidden reductions; exact BF16 result of FP64 rank sum'}

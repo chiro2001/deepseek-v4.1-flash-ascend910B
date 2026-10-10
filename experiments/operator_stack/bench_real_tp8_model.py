@@ -24,11 +24,15 @@ def main():
     p.add_argument('--cpu-bind', action='store_true',
                    help='Enable NUMA binding only after validating shared-host memory migration')
     p.add_argument('--audit', action='store_true')
+    p.add_argument('--fp32-decode-reduction', action='store_true')
+    p.add_argument('--reduction-evidence', type=Path)
     p.add_argument('--profile', action='store_true',
                    help='Collect bounded per-rank metrics after unprofiled paired timing')
     p.add_argument('--profile-metrics', default='PipeUtilization,ArithmeticUtilization,Memory,MemoryL0,MemoryUB,L2Cache,ResourceConflictRatio')
     args = p.parse_args()
     assert not (args.audit and args.profile), 'Route/clone audit and profiling run separately'
+    assert (os.getenv('STACK_FP32_DECODE_REDUCTION') == '1') == args.fp32_decode_reduction
+    assert bool(args.reduction_evidence) == args.fp32_decode_reduction
     from formal_tp8_profile import METRICS
     profile_metrics = args.profile_metrics.split(',')
     assert set(profile_metrics) <= set(METRICS) and len(set(profile_metrics)) == len(profile_metrics)
@@ -47,6 +51,10 @@ def main():
     from formal_model_contract import inspect_checkpoint
     contract = inspect_checkpoint(args.model)
     (out/'checkpoint.json').write_text(json.dumps(contract, indent=2)+'\n')
+    if args.fp32_decode_reduction:
+        from reduction_evidence import verify
+        validated=verify(args.reduction_evidence,contract['config_sha256'],args.physical_chips)
+        (out/'validated_reduction_evidence.json').write_text(json.dumps(validated,indent=2)+'\n')
     import tp8_patches as patches
     from vllm import LLM, SamplingParams
     llm = LLM(model=args.model, tokenizer=args.model, load_format='auto', dtype='bfloat16',
@@ -189,6 +197,8 @@ def main():
               'safetensors_load_strategy':'lazy','multithread_loader_threads':128,
               'engram_enabled':True, 'speculative_decoding':False,
               'engram_storage':'int8', 'cpu_binding':args.cpu_bind,
+              'fp32_decode_reduction':args.fp32_decode_reduction,
+              'reduction_evidence':str(args.reduction_evidence) if args.reduction_evidence else None,
               'vision_enabled':True,'limit_mm_per_prompt':{'image':4},'request_modality':'text',
               'same_model_instance':True,'same_processes_per_rank':True,'audit':args.audit,
               'profiler':'OFF','A':1,'arms':{},'pairs':comparisons}

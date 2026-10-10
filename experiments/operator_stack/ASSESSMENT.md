@@ -2,7 +2,9 @@
 
 2026-10-10，独立集成分支`feat/operator-stack-tp8-20261010`。目标仍active，正式权重TP8精度/性能与服务尚未验收。用户已再次授权a3-21 chip8–15，启动前拒绝他人占用、复核80C98001，不reset。
 
-最新正式A/A并未对齐：生产基线同prompt请求在decode路由/Top5 logprob上不同。8rank首个decode偏离已定位到layer0 wo_b AllReduce；Q/KV、可见cache、SMLA和O投影局部乘积一致，固定局部向量归约重复也不稳定。FP32单token隐状态归约及FP64独立参考验证已启动，尚未验收。两条线的正式叠加收益仍未验收；下方TP1/dummy与设备迁移叙述为历史证据。
+原生产BF16基线的同prompt请求曾在decode路由/Top5 logprob上不同。8rank首个decode偏离已定位到layer0 wo_b AllReduce；Q/KV、可见cache、SMLA和O投影局部乘积一致，固定局部向量归约重复也不稳定。两条线的正式叠加收益仍未验收；下方TP1/dummy与设备迁移叙述为历史证据。
+
+更新：`formal_fp32_decode_reduction_v2`已退出0。三组正式eager A/A完整路由、token、Top5/logprob全部一致/delta0；8rank×80个归约输出逐位匹配FP64参考转BF16。实际守卫每步80次（40attention＋40MoE），原81计数预期已修正。图模式`formal_fp32_stack_graph_audit_v1`已启动base/core/stack，精度与正式性能还在验证；修复通过不等于已达19ms或已验收最优服务。
 
 新报告`reports/a321-attention-boundaries-microarch-20261010-v6.md`还修正profiling的通信重复事件：82次实际AllReduce/step，chip8累计2.937ms，而非164次/5.874ms。
 
