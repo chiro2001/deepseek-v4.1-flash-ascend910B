@@ -54,7 +54,7 @@ def main():
               model_loader_extra_config={'enable_multithread_load':True,'num_threads':128},
               worker_cls='real_tp8_worker.RealTP8StackWorker', tensor_parallel_size=8,
               distributed_executor_backend='mp', enable_expert_parallel=True, seed=0,
-              trust_remote_code=True, async_scheduling=False, limit_mm_per_prompt={'image': 0},
+              trust_remote_code=True, async_scheduling=False, limit_mm_per_prompt={'image': 4},
               max_model_len=8192, max_num_seqs=1, max_num_batched_tokens=2048,
               gpu_memory_utilization=.70, kv_cache_memory_bytes=4*1024**3,
               block_size=128, enable_prefix_caching=False, enable_return_routed_experts=args.audit,
@@ -171,6 +171,7 @@ def main():
               'safetensors_load_strategy':'lazy','multithread_loader_threads':128,
               'engram_enabled':True, 'speculative_decoding':False,
               'engram_storage':'int8', 'cpu_binding':args.cpu_bind,
+              'vision_enabled':True,'limit_mm_per_prompt':{'image':4},'request_modality':'text',
               'same_model_instance':True,'same_processes_per_rank':True,'audit':args.audit,
               'profiler':'OFF','A':1,'arms':{},'pairs':comparisons}
     for arm in arms:

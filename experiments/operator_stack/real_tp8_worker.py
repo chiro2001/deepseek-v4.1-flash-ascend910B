@@ -1,5 +1,6 @@
 """Formal checkpoint worker: no dummy initialization or weight randomization."""
 import os
+import json
 
 import torch
 from vllm_ascend.worker.worker import NPUWorker
@@ -30,4 +31,32 @@ class RealTP8StackWorker(NPUWorker):
     def compile_or_warm_up_model(self, *args, **kwargs):
         result = super().compile_or_warm_up_model(*args, **kwargs)
         print('REAL_TP8_EFFECTIVE', tp8_patches.save(self, os.getenv('STACK_TP8_ARM', 'tp8base')), flush=True)
+        return result
+
+
+class ServingRealTP8StackWorker(RealTP8StackWorker):
+    """API worker for an arm selected by the separate formal-model audit."""
+
+    @torch.no_grad()
+    def load_model(self, *args, **kwargs):
+        assert os.getenv('STACK_SERVE_ARM') in ('tp8base', 'tp8core', 'tp8act', 'tp8stack')
+        assert os.getenv('STACK_REAL_AUDIT', '0') == '0', 'Serve without route/clone audit'
+        assert self.vllm_config.speculative_config is None, 'This adapter is validated for A=1'
+        # Establish the same native bank used by the comparison, then compile
+        # the selected candidate from those captured layouts outside requests.
+        os.environ['STACK_REAL_WEIGHTS'] = '1'
+        os.environ['STACK_REAL_AUDIT'] = '0'
+        os.environ['STACK_TP8_ARM'] = 'tp8base'
+        return super().load_model(*args, **kwargs)
+
+    def compile_or_warm_up_model(self, *args, **kwargs):
+        config = self.vllm_config
+        assert config.parallel_config.tensor_parallel_size == 8
+        assert config.scheduler_config.max_num_seqs == 1
+        assert list(config.compilation_config.cudagraph_capture_sizes) == [1]
+        result = super().compile_or_warm_up_model(*args, **kwargs)
+        arm = os.environ['STACK_SERVE_ARM']
+        receipt = tp8_patches.save(self, arm) if arm == 'tp8base' else tp8_patches.create(self, arm)
+        tp8_patches.switch(self, arm)
+        print('REAL_TP8_SERVE_ARM', json.dumps(receipt), flush=True)
         return result
