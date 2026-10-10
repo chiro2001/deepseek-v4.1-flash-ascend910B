@@ -1,0 +1,247 @@
+{
+  "tensor_parallel_size": 8,
+  "physical_chips": [
+    8,
+    9,
+    10,
+    11,
+    12,
+    13,
+    14,
+    15
+  ],
+  "formal_weights": true,
+  "requested_load_format": "auto",
+  "model_path": "/home/l00886679/models/out/v41-w4a8-engram-dr-vision-qrot-mtpq",
+  "checkpoint_config_sha256": "40ebd329d3cb2d99d7176091afb580c182c21f48b88b63b550264a97e9c0d424",
+  "safetensors_load_strategy": "lazy",
+  "multithread_loader_threads": 128,
+  "engram_enabled": true,
+  "speculative_decoding": false,
+  "engram_storage": "int8",
+  "cpu_binding": false,
+  "fp32_decode_reduction": false,
+  "hccl_deterministic_env": "strict",
+  "reduction_evidence": null,
+  "vision_enabled": true,
+  "limit_mm_per_prompt": {
+    "image": 4
+  },
+  "request_modality": "text",
+  "same_model_instance": true,
+  "same_processes_per_rank": true,
+  "audit": false,
+  "profiler": "OFF",
+  "A": 1,
+  "arms": {
+    "tp8base": {
+      "ms_per_step": 31.14735009148717,
+      "A": 1,
+      "tokens_per_second": 32.1054599207561
+    },
+    "tp8core": {
+      "ms_per_step": 27.185700135305524,
+      "A": 1,
+      "tokens_per_second": 36.78404436975747
+    },
+    "tp8meta": {
+      "ms_per_step": 26.234730146825314,
+      "A": 1,
+      "tokens_per_second": 38.1174113247363
+    }
+  },
+  "pairs": [
+    {
+      "pair": 0,
+      "arm": "tp8core",
+      "baseline_ms": 36.59282997250557,
+      "candidate_ms": 30.17561975866556,
+      "speedup": 1.2126620849932062,
+      "tokens_equal": true
+    },
+    {
+      "pair": 0,
+      "arm": "tp8meta",
+      "baseline_ms": 36.59282997250557,
+      "candidate_ms": 27.28043030947447,
+      "speedup": 1.3413582394921724,
+      "tokens_equal": true
+    },
+    {
+      "pair": 1,
+      "arm": "tp8core",
+      "baseline_ms": 33.195179887115955,
+      "candidate_ms": 27.81346021220088,
+      "speedup": 1.193493352997276,
+      "tokens_equal": true
+    },
+    {
+      "pair": 1,
+      "arm": "tp8meta",
+      "baseline_ms": 33.195179887115955,
+      "candidate_ms": 26.499520055949688,
+      "speedup": 1.252670984871779,
+      "tokens_equal": true
+    },
+    {
+      "pair": 2,
+      "arm": "tp8core",
+      "baseline_ms": 33.11981027945876,
+      "candidate_ms": 28.062619734555483,
+      "speedup": 1.1802109208883305,
+      "tokens_equal": true
+    },
+    {
+      "pair": 2,
+      "arm": "tp8meta",
+      "baseline_ms": 33.11981027945876,
+      "candidate_ms": 26.91223006695509,
+      "speedup": 1.2306601941593023,
+      "tokens_equal": true
+    },
+    {
+      "pair": 3,
+      "arm": "tp8core",
+      "baseline_ms": 30.66053008660674,
+      "candidate_ms": 26.945000048726797,
+      "speedup": 1.1378931167623252,
+      "tokens_equal": true
+    },
+    {
+      "pair": 3,
+      "arm": "tp8meta",
+      "baseline_ms": 30.66053008660674,
+      "candidate_ms": 25.647719856351614,
+      "speedup": 1.1954485723616368,
+      "tokens_equal": true
+    },
+    {
+      "pair": 4,
+      "arm": "tp8core",
+      "baseline_ms": 30.316729564219713,
+      "candidate_ms": 26.743799913674593,
+      "speedup": 1.1335984288724137,
+      "tokens_equal": true
+    },
+    {
+      "pair": 4,
+      "arm": "tp8meta",
+      "baseline_ms": 30.316729564219713,
+      "candidate_ms": 25.679470039904118,
+      "speedup": 1.1805823686045551,
+      "tokens_equal": true
+    },
+    {
+      "pair": 5,
+      "arm": "tp8core",
+      "baseline_ms": 31.519190408289433,
+      "candidate_ms": 26.971769984811544,
+      "speedup": 1.1685992586336993,
+      "tokens_equal": true
+    },
+    {
+      "pair": 5,
+      "arm": "tp8meta",
+      "baseline_ms": 31.519190408289433,
+      "candidate_ms": 26.52689954265952,
+      "speedup": 1.1881972997862604,
+      "tokens_equal": true
+    },
+    {
+      "pair": 6,
+      "arm": "tp8core",
+      "baseline_ms": 30.54373012855649,
+      "candidate_ms": 27.136399876326323,
+      "speedup": 1.1255630911896572,
+      "tokens_equal": true
+    },
+    {
+      "pair": 6,
+      "arm": "tp8meta",
+      "baseline_ms": 30.54373012855649,
+      "candidate_ms": 26.175340171903372,
+      "speedup": 1.1668895199819467,
+      "tokens_equal": true
+    },
+    {
+      "pair": 7,
+      "arm": "tp8core",
+      "baseline_ms": 32.94751001521945,
+      "candidate_ms": 28.143970295786858,
+      "speedup": 1.170677401551681,
+      "tokens_equal": true
+    },
+    {
+      "pair": 7,
+      "arm": "tp8meta",
+      "baseline_ms": 32.94751001521945,
+      "candidate_ms": 26.294120121747255,
+      "speedup": 1.2530371757132626,
+      "tokens_equal": true
+    },
+    {
+      "pair": 8,
+      "arm": "tp8core",
+      "baseline_ms": 32.94991981238127,
+      "candidate_ms": 28.039800003170967,
+      "speedup": 1.1751125118101777,
+      "tokens_equal": true
+    },
+    {
+      "pair": 8,
+      "arm": "tp8meta",
+      "baseline_ms": 32.94991981238127,
+      "candidate_ms": 26.410560123622417,
+      "speedup": 1.2476039757638402,
+      "tokens_equal": true
+    },
+    {
+      "pair": 9,
+      "arm": "tp8core",
+      "baseline_ms": 30.291779898107052,
+      "candidate_ms": 26.801190339028835,
+      "speedup": 1.130240094373536,
+      "tokens_equal": true
+    },
+    {
+      "pair": 9,
+      "arm": "tp8meta",
+      "baseline_ms": 30.291779898107052,
+      "candidate_ms": 25.737419724464417,
+      "speedup": 1.1769548083063486,
+      "tokens_equal": true
+    },
+    {
+      "pair": 10,
+      "arm": "tp8core",
+      "baseline_ms": 30.775509774684906,
+      "candidate_ms": 26.83425974100828,
+      "speedup": 1.1468738124962539,
+      "tokens_equal": true
+    },
+    {
+      "pair": 10,
+      "arm": "tp8meta",
+      "baseline_ms": 30.775509774684906,
+      "candidate_ms": 25.787880178540945,
+      "speedup": 1.1934098328987255,
+      "tokens_equal": true
+    },
+    {
+      "pair": 11,
+      "arm": "tp8core",
+      "baseline_ms": 30.77062964439392,
+      "candidate_ms": 27.235000394284725,
+      "speedup": 1.1298193206874765,
+      "tokens_equal": true
+    },
+    {
+      "pair": 11,
+      "arm": "tp8meta",
+      "baseline_ms": 30.77062964439392,
+      "candidate_ms": 25.872169993817806,
+      "speedup": 1.1893331580515516,
+      "tokens_equal": true
+    }
+  ]
+}

@@ -5,6 +5,10 @@
 
 ## 当前状态（优先于下方历史记录）
 
+最新v17：四bank `formal_slots_indexer_audit_v1`退出0，九个完整路由/Top5/logprob配对delta0、四原生控制通过；两个slot候选48份rank×12group整数消费者精确且有实际覆盖，Indexer检查通过。参考学完布局后停止重复登记，probe_v6 144/6重放通过。`formal_slots_indexer_perf_v1`已启动同实例四方案12组关闭审计配对＋单独CPU诊断，当前结果pending，不计审计态时延。此前meta有效结果26.234730/A1/38.117411，相对普通core增量需本次复测。客户端质量只覆盖旧core100/100和23/23；19ms及最终最优部署仍未完成，goal active。
+
+最新v16：`formal_slots_batch_audit_v2`退出0，六配对/三原生控制delta0，24份rank×12group整数消费者精确且有实际合并覆盖。`formal_slots_batch_perf_v2`退出0，12组关闭审计/profiler：base31.147350/A1/32.105460、core27.185700/A1/36.784044、meta26.234730/A1/38.117411；meta12/12快于base，core有登记开销，增量需公平复测。CPU诊断15步×8rank已保存，rank0 metadata累计8.429→5.303ms/诊断步，不计可回收/E2E。新`/work/src_manyslots_v8`参考学完布局后停止重复登记，增加meta＋Indexer。probe_v6 144组/6重放退出0；四bank`formal_slots_indexer_audit_v1`运行，通过才起12组perf。W4A8源码证据确认融合GMM拒绝type2、counts模式有前缀扫描、A8W4有单缓冲队列；前缀模式/缓冲方案仍未实施。19ms/最终服务未完成，当前已验收客户端仍core100/100和23/23、26.744ms/A1/37.391tok-s。
+
 最新v15：正式slot审计v1退出1，registered_groups0/contract回退1752，覆盖门拒绝候选并阻止perf。读取当前源码后改为worker在KV初始化后绑定`model_runner.kv_cache_config.num_blocks`，保留范围约束并增加contract诊断。`formal_slots_batch_probe_v5`退出0，144整数用例/6图重放/旧字段为空→实际V1池绑定回归均通过。`formal_slots_batch_audit_v2`已启动`/work/src_manyslots_v7`正式base/core/meta，仍待整网精度及12group实际覆盖；通过后才起12组perf_v2＋单独CPU诊断。当前最佳正式core客户端仍26.744ms/A1/37.391tok-s，质量100/100和23/23已过，19ms及最终服务未完成。
 
 v14独立验证更新：`formal_slots_batch_probe_v4`退出0，INT32/INT64共144组CPU整数参考、尾部保护和6次变化输入图重放全部通过；独立事件INT32为801.356→392.164µs、INT64为945.504→458.397µs，均不计整网收益。`formal_slots_batch_audit_v1`已在同一正式实例建立base/core/meta三bank，源码`/work/src_manyslots_v6`，正在加载/审计。通过原生控制、6个配对、24份rank的12group消费者及实际覆盖后，守卫才启动12组关闭审计的perf＋单独cProfile。完整19ms目标仍active，最佳正式core质量100/100和23/23已验，但最终服务已为实验释放。

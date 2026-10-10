@@ -50,7 +50,7 @@ def main():
     parser.add_argument('--output', type=Path, required=True)
     parser.add_argument('--audit-root', type=Path, required=True)
     parser.add_argument('--perf-root', type=Path, required=True)
-    parser.add_argument('--arm', choices=('tp8base','tp8core','tp8act','tp8stack','tp8meta'), required=True)
+    parser.add_argument('--arm', choices=('tp8base','tp8core','tp8act','tp8stack','tp8meta','tp8metastack'), required=True)
     parser.add_argument('--port', type=int, required=True)
     parser.add_argument('--served-model', required=True)
     args = parser.parse_args()

@@ -1,0 +1,67 @@
+{
+  "scope": "Read-only source evidence from current formal image; no performance or numerical claim",
+  "group_list_type2_rejected_by_host": true,
+  "group_list_type0_supported": true,
+  "counts_mode_prefix_scans_present": true,
+  "single_buffer_queue_instances_present": true,
+  "candidates": [
+    "Formal W4A8 prefix group-list representation without changing per-expert arithmetic",
+    "Review actual A8W4 pre/post UB budgets and tile counts before double-buffer experiment"
+  ],
+  "source_records": [
+    {
+      "path": "/vllm-workspace/vllm-ascend/csrc/gmm/grouped_matmul_swiglu_quant_v2/op_host/grouped_matmul_swiglu_quant_v2_base_tiling.cpp",
+      "sha256": "8e2d570efd12ddda8360fcd515c81fd50444571d47e2ed3200c10f72f7aaef97",
+      "snippets": [
+        {
+          "start_line": 174,
+          "text": "                return ge::GRAPH_FAILED);\n    tilingData_.gmmSwigluQuantV2BaseParams.set_swigluLimit(swigluLimt_);\n    const int64_t *groupListTypePtr = attr->GetAttrPointer<int64_t>(ATTR_INDEX_GROUPLIST_TYPE);\n    groupListType_ = groupListTypePtr != nullptr ? *groupListTypePtr : 0;\n    OP_CHECK_IF(\n        !(groupListType_ == 0 || groupListType_ == 1),\n        OP_LOGE(context_->GetNodeName(), \"GroupListType must be 0 or 1, but actual value is %ld.\", groupListType_),\n        return ge::GRAPH_FAILED);\n"
+        }
+      ]
+    },
+    {
+      "path": "/vllm-workspace/vllm-ascend/csrc/gmm/grouped_matmul_swiglu_quant_v2/op_kernel/grouped_matmul_swiglu_quant_v2_a8w4_msd_pipeline.h",
+      "sha256": "e7398287dcc06dd2a70d7c658cd4b3839367f32f34a9c6a5a6f68a8bf0077ae9",
+      "snippets": [
+        {
+          "start_line": 138,
+          "text": "    }\n}\n\ntemplate <class mmType>\n__aicore__ inline void\nGMMSwigluQuantPipelineSchedule<mmType>::InitWorkSpaceSplitConfig(WorkSpaceSplitConfig &workspaceSplitConfig)\n{\n    if (gmmSwigluQuantV2BaseParams->groupListType == 0) {\n        workspaceSplitConfig.M = groupListGM.GetValue(gmmSwigluQuantV2->groupListLen - 1);\n    } else {\n        int64_t totalTmp = 0;\n        for (uint32_t i = 0; i < gmmSwigluQuantV2->groupListLen; i++) {\n            totalTmp += groupListGM.GetValue(i);\n        }\n        workspaceSplitConfig.M = totalTmp;\n    }\n    workspaceSplitConfig.loopCount = Ceil(workspaceSplitConfig.M, gmmSwigluQuantV2BaseParams->mLimit);\n    workspaceSplitConfig.notLastTaskSize = gmmSwigluQuantV2BaseParams->mLimit;\n    workspaceSplitConfig.lastLoopTaskSize =\n        workspaceSplitConfig.M - (workspaceSplitConfig.loopCount - 1) * gmmSwigluQuantV2BaseParams->mLimit;\n    workspaceSplitConfig.leftMatrixStartIndex = 0;"
+        },
+        {
+          "start_line": 171,
+          "text": "    workspaceSplitConfig.leftMatrixStartIndex = workspaceSplitLoopIdx * gmmSwigluQuantV2BaseParams->mLimit;\n    workspaceSplitConfig.rightMatrixExpertStartIndex = workspaceSplitConfig.rightMatrixExpertNextStartIndex;\n    workspaceSplitConfig.rightMatrixExpertEndIndex = workspaceSplitConfig.rightMatrixExpertStartIndex;\n    // \u8ba1\u7b97\u53f3\u4e13\u5bb6\u77e9\u9635\u7684\u7ec8\u6b62\u7d22\u5f15(rightMatrixExpertEndIndex) \u548c\u4e0b\u4e00\u6b21\u7684\u8d77\u59cb\u7d22\u5f15(rightMatrixExpertNextStartIndex)\n    int32_t curTaskNum = 0;\n    int32_t nextTaskNum = 0;\n    int32_t curTaskNumTmp = 0;\n    int32_t nextTaskNumTmp = 0;\n    if (gmmSwigluQuantV2BaseParams->groupListType == 1) {\n        for (uint32_t i = 0; i < workspaceSplitConfig.rightMatrixExpertEndIndex; i++) {\n            curTaskNumTmp += groupListGM.GetValue(i);\n        }\n        if (workspaceSplitConfig.rightMatrixExpertEndIndex == 0) {\n            nextTaskNumTmp = groupListGM.GetValue(0);\n        } else {\n            for (uint32_t i = 0; i < workspaceSplitConfig.rightMatrixExpertEndIndex; i++) {\n                nextTaskNumTmp += groupListGM.GetValue(i);\n            }\n        }\n    }\n    while (workspaceSplitConfig.rightMatrixExpertEndIndex < gmmSwigluQuantV2->groupListLen) {\n        if (gmmSwigluQuantV2BaseParams->groupListType == 0) {\n            curTaskNum = groupListGM.GetValue(workspaceSplitConfig.rightMatrixExpertEndIndex) -\n                         workspaceSplitConfig.leftMatrixStartIndex;\n        } else {\n            curTaskNumTmp += groupListGM.GetValue(workspaceSplitConfig.rightMatrixExpertEndIndex);\n            curTaskNum = curTaskNumTmp - workspaceSplitConfig.leftMatrixStartIndex;\n        }\n        int32_t nextTaskIdx = workspaceSplitConfig.rightMatrixExpertEndIndex >= gmmSwigluQuantV2->groupListLen - 1 ?\n                                  gmmSwigluQuantV2->groupListLen - 1 :\n                                  workspaceSplitConfig.rightMatrixExpertEndIndex + 1;\n        if (gmmSwigluQuantV2BaseParams->groupListType == 0) {\n            nextTaskNum = groupListGM.GetValue(nextTaskIdx) - workspaceSplitConfig.leftMatrixStartIndex;\n        } else {\n            if (workspaceSplitConfig.rightMatrixExpertEndIndex < gmmSwigluQuantV2->groupListLen - 1) {\n                nextTaskNumTmp += groupListGM.GetValue(nextTaskIdx);\n            }\n            nextTaskNum = nextTaskNumTmp - workspaceSplitConfig.leftMatrixStartIndex;\n        }\n        if (curTaskNum > gmmSwigluQuantV2BaseParams->mLimit) {\n            workspaceSplitConfig.rightMatrixExpertNextStartIndex = workspaceSplitConfig.rightMatrixExpertEndIndex;\n            break;\n        } else if (curTaskNum == gmmSwigluQuantV2BaseParams->mLimit &&\n                   nextTaskNum > gmmSwigluQuantV2BaseParams->mLimit) {"
+        }
+      ]
+    },
+    {
+      "path": "/vllm-workspace/vllm-ascend/csrc/gmm/grouped_matmul_swiglu_quant_v2/op_kernel/grouped_matmul_swiglu_quant_v2_a8w4_msd_mid.h",
+      "sha256": "1881d03e65258e846fe9bbfb736f4cbbcd770b84a6730319dd0c9d00abdc4087",
+      "snippets": [
+        {
+          "start_line": 176,
+          "text": "        MNConfig mnConfig;\n        mnConfig.baseM = gmmSwigluQuantV2BaseParams->baseM;\n        mnConfig.baseN = gmmSwigluQuantV2BaseParams->baseN;\n        mnConfig.singleM = gmmSwigluQuantV2BaseParams->baseM;\n        mnConfig.singleN = gmmSwigluQuantV2BaseParams->baseN;\n        mnConfig.k = gmmSwigluQuantV2BaseParams->K; // tilingData\n        mnConfig.n = gmmSwigluQuantV2BaseParams->N; // tilingData\n        mnConfig.blockDimN = Ceil(mnConfig.n, mnConfig.singleN);\n        int32_t prevSplitValue = workspaceSplitLoopIdx * workspaceSplitConfig.notLastTaskSize;\n        int32_t totalTmp = 0;\n        if (gmmSwigluQuantV2BaseParams->groupListType == 1) {\n            for (uint32_t i = 0; i < workspaceSplitConfig.rightMatrixExpertStartIndex; i++) {\n                totalTmp += groupListGM.GetValue(i);\n            }\n        }\n        for (uint32_t groupIdx = workspaceSplitConfig.rightMatrixExpertStartIndex, preCount = 0;\n             groupIdx <= workspaceSplitConfig.rightMatrixExpertEndIndex; ++groupIdx) {\n            UpdateMnConfig(mnConfig);\n            int32_t currSplitValue = 0;\n            if (gmmSwigluQuantV2BaseParams->groupListType == 0) {\n                currSplitValue = static_cast<int32_t>(groupListGM.GetValue(groupIdx));\n            } else {\n                totalTmp += static_cast<int32_t>(groupListGM.GetValue(groupIdx));\n                currSplitValue = totalTmp;\n            }\n            currSplitValue = currSplitValue > (workspaceSplitLoopIdx + 1) * gmmSwigluQuantV2BaseParams->mLimit ?\n                                 (workspaceSplitLoopIdx + 1) * gmmSwigluQuantV2BaseParams->mLimit :\n                                 currSplitValue;\n\n            int32_t splitValue = (currSplitValue - prevSplitValue) * 2; // 2: int8 has been split in 2 int4\n            prevSplitValue = currSplitValue;\n\n            SetMNConfig(splitValue, mnConfig);\n            if (mnConfig.m <= 0 || mnConfig.k <= 0 || mnConfig.n <= 0) {\n                continue;"
+        }
+      ]
+    },
+    {
+      "path": "/vllm-workspace/vllm-ascend/csrc/gmm/grouped_matmul_swiglu_quant_v2/op_kernel/grouped_matmul_swiglu_quant_v2_a8w4_msd_pre.h",
+      "sha256": "b87eda2542700e1800412f9775360552b5c6ae6e38e2afcbd77da677d60f8332",
+      "snippets": [
+        {
+          "start_line": 20,
+          "text": "#include \"kernel_operator.h\"\n\n#ifdef GMM_SWIGLU_QUANT_V2_A8W4_MSD\n\nnamespace GroupedMatmulDequantSwigluQuant {\nusing namespace AscendC;\n#define BUFFER_NUM_A8W4_PRE 1\nconstexpr int TWO = 2;\nconstexpr int EIGHT = 8;\nconstexpr size_t LEN_128 = 128; // 16bit operator\nconstexpr int DATA_BLOCK_SIZE_32 = 32;\nclass GMMA8W4PreProcess {\npublic:\n    __aicore__ inline GMMA8W4PreProcess(){};\n    __aicore__ inline void Init(const GMAddrParams gmAddrParams,\n                                const GMMSwigluQuantV2BaseParams *__restrict gmmSwigluQuantV2BaseParamsIN);\n    __aicore__ inline void CalculateTaskInfoEachCore(uint32_t &curCoreTaskNum_, uint32_t &curCoreStartOffset_);\n    __aicore__ inline void Process(WorkSpaceSplitConfig &workspaceSplitConfig, int64_t workspaceSplitLoopIdx,\n                                   TPipe *pipe);\n    __aicore__ inline void CustomInitBuffer(TPipe *pipe);\n\nprivate:\n    TQue<QuePosition::VECIN, BUFFER_NUM_A8W4_PRE> vecInQueueX, vecInQueueXBak;\n    TQue<QuePosition::VECOUT, BUFFER_NUM_A8W4_PRE> vecOutQueueA1;\n    TQue<QuePosition::VECOUT, BUFFER_NUM_A8W4_PRE> vecOutQueueA2;\n    TQue<QuePosition::VECOUT, BUFFER_NUM_A8W4_PRE> vecOutQueueA3;\n    TQue<QuePosition::VECOUT, BUFFER_NUM_A8W4_PRE> vecOutQueue0F;\n    TQue<QuePosition::VECOUT, BUFFER_NUM_A8W4_PRE> vecOutQueueRowSum;\n    TBuf<TPosition::VECCALC> tempBuff;\n    const GMMSwigluQuantV2BaseParams *__restrict gmmSwigluQuantV2BaseParams;\n    LocalTensor<int8_t> xTensor;"
+        }
+      ]
+    },
+    {
+      "path": "/vllm-workspace/vllm-ascend/csrc/gmm/grouped_matmul_swiglu_quant_v2/op_kernel/grouped_matmul_swiglu_quant_v2_a8w4_msd_post.h",
+      "sha256": "6b39b80ca4dc18eb7f99fac4c559462021012ee98a365120e77610d0a243bd07",
+      "snippets": [
+        {
+          "start_line": 263,
+          "text": "    vecConfig.startIdx =\n        blockIdx < tailCoreIdx ? eachCoreTaskNum * blockIdx : ((eachCoreTaskNum - 1) * blockIdx + tailCoreIdx);\n    vecConfig.curIdx = vecConfig.startIdx;\n    vecConfig.startOffset = vecConfig.startIdx * gmmSwigluQuantV2->tokenLen;\n    vecConfig.curOffset = vecConfig.startOffset;\n    int64_t curStartIdx = vecConfig.startIdx;\n    int64_t prevM = workspaceSplitLoopIdx * workspaceSplitConfig.notLastTaskSize;\n    int64_t totalTmp = 0;\n    if (gmmSwigluQuantV2BaseParams->groupListType == 1) {\n        for (uint32_t i = 0; i < workspaceSplitConfig.rightMatrixExpertStartIndex; i++) {\n            totalTmp += groupListGM.GetValue(i);\n        }\n    }\n    for (uint32_t groupIdx = workspaceSplitConfig.rightMatrixExpertStartIndex;\n         groupIdx <= workspaceSplitConfig.rightMatrixExpertEndIndex; groupIdx++) {\n        int64_t currM = 0;\n        if (gmmSwigluQuantV2BaseParams->groupListType == 0) {\n            currM = groupListGM.GetValue(groupIdx);\n        } else {\n            totalTmp += groupListGM.GetValue(groupIdx);\n            currM = totalTmp;\n        }\n        int64_t tempM = currM - prevM;\n        prevM = currM;\n        if (curStartIdx >= 0 && curStartIdx - tempM < 0) {\n            vecConfig.curGroupIdx = groupIdx;\n            vecConfig.nextUpdateInterVal = tempM - curStartIdx;\n        }\n        curStartIdx -= tempM;\n    }\n    // \u7b2c\u4e09\u6b65 \u8ba1\u7b97\u603b\u6570\u636e\u91cf\n    vecConfig.outLoopNum =\n        (vecConfig.taskNum + gmmSwigluQuantV2->maxProcessRowNum - 1) / gmmSwigluQuantV2->maxProcessRowNum;\n    vecConfig.tailLoopNum = vecConfig.taskNum % gmmSwigluQuantV2->maxProcessRowNum ?\n                                vecConfig.taskNum % gmmSwigluQuantV2->maxProcessRowNum :\n                                gmmSwigluQuantV2->maxProcessRowNum;\n\n    // \u7b2c\u56db\u6b65 \u7533\u8bf7\u7a7a\u95f4\n    // 2 * row * n * sizeof(float) + row * n / 2 * sizeof(int8) + alignUp<row, 8> * sizeof(float) + n * sizeof(float) +\n    // n / 2 *sizeof(float) + 64 < 191 * 1024\n    pipe->InitBuffer(mmOutQueue, 1,\n                     2 * gmmSwigluQuantV2->maxProcessRowNum * gmmSwigluQuantV2->tokenLen * sizeof(float));\n    pipe->InitBuffer(quantOutQueue, 1,\n                     gmmSwigluQuantV2->maxProcessRowNum * gmmSwigluQuantV2->tokenLen / SWIGLU_REDUCE_FACTOR *\n                         sizeof(int8_t));\n    pipe->InitBuffer(quantScaleOutQueue, 1,\n                     AlignUp<int32_t>(gmmSwigluQuantV2->maxProcessRowNum, ALIGN_8_ELE) * sizeof(float));\n    pipe->InitBuffer(weightAuxiliaryMatrixInQueue, 1, gmmSwigluQuantV2->tokenLen * sizeof(float));\n    // two 32 byte buffer for reduceMax calculation in Quant.\n    pipe->InitBuffer(reduceWorkspace, gmmSwigluQuantV2->tokenLen / SWIGLU_REDUCE_FACTOR * sizeof(float) +\n                                          UB_BLOCK_UNIT_SIZE + UB_BLOCK_UNIT_SIZE);\n}\n\n__aicore__ inline void GMMA8W4PostProcess::PreLoadAuxiliaryMatrix(VecConfig &vecConfig)"
+        }
+      ]
+    }
+  ]
+}

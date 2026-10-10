@@ -32,7 +32,7 @@ def main():
     p.add_argument('--slot-bench', action='store_true')
     p.add_argument('--vector-job')
     p.add_argument('--serve', action='store_true')
-    p.add_argument('--service-arm', choices=('tp8base','tp8core','tp8act','tp8stack','tp8meta'))
+    p.add_argument('--service-arm', choices=('tp8base','tp8core','tp8act','tp8stack','tp8meta','tp8metastack'))
     p.add_argument('--audit-job')
     p.add_argument('--perf-job')
     p.add_argument('--port', type=int)
@@ -75,7 +75,7 @@ def main():
     assert not args.isolated_pools or not args.native_control
     arms = args.arms.split(',')
     assert arms[0] == 'tp8base' and len(set(arms)) == len(arms)
-    assert set(arms) <= {'tp8base', 'tp8core', 'tp8act', 'tp8stack', 'tp8meta'}
+    assert set(arms) <= {'tp8base', 'tp8core', 'tp8act', 'tp8stack', 'tp8meta', 'tp8metastack'}
     chips = [int(x) for x in args.chips.split(',')]
     assert len(chips) == len(set(chips)) == 8 and min(chips) >= 0
     root = Path(args.root).resolve()
@@ -141,7 +141,7 @@ def main():
             'V41_ENGRAM_ROUTE_PROBE': '0', 'NUMBA_CACHE_DIR': '/work/cache/numba',
         }
         flags['STACK_TP8_ISOLATED_POOLS'] = '1' if args.isolated_pools else '0'
-        flags['STACK_METADATA_MANY_SLOTS_ENABLED'] = '1' if ('tp8meta' in arms or args.service_arm=='tp8meta') else '0'
+        flags['STACK_METADATA_MANY_SLOTS_ENABLED'] = '1' if (set(arms)&{'tp8meta','tp8metastack'} or args.service_arm in ('tp8meta','tp8metastack')) else '0'
         flags['STACK_FP32_DECODE_REDUCTION'] = '1' if args.fp32_decode_reduction else '0'
         if args.hccl_deterministic is not None:
             # HCCL reads this at process/communicator initialization; exporting

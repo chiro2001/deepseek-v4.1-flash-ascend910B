@@ -94,6 +94,13 @@ class SlotBatches:
 
     def prepare(self, builder, common, positions, n, actual_reqs, actual_tokens,
                 compressed, ratio, block_size, skip, batch_shared):
+        # The comparison arm must retain its normal preparation cost once the
+        # candidate has learned the layouts. It computes from current inputs
+        # directly; candidate-only registry checks are unnecessary on this path.
+        if not goal.enabled('metadata_manyslots') and len(self.targets)==self.expected_groups:
+            self.counts['fallback:arm_after_learning']+=1
+            return native_prepare_slots(builder,common,positions,n,actual_reqs,actual_tokens,
+                                        compressed,ratio,block_size,skip)
         def fallback(reason):
             self.counts['fallback:'+reason] += 1
             return native_prepare_slots(builder,common,positions,n,actual_reqs,actual_tokens,

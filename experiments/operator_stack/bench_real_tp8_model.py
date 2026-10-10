@@ -49,7 +49,7 @@ def main():
     assert args.pairs > 0
     arms = args.arms.split(',')
     assert arms[0] == 'tp8base' and len(set(arms)) == len(arms)
-    assert set(arms) <= {'tp8base','tp8core','tp8act','tp8stack','tp8meta'}
+    assert set(arms) <= {'tp8base','tp8core','tp8act','tp8stack','tp8meta','tp8metastack'}
     os.environ['OPT_BLOCKMAP_VERIFY'] = '1' if args.audit else '0'
     out = Path(args.output); out.mkdir(parents=True, exist_ok=True)
     os.environ['VLLM_CACHE_ROOT'] = str(out / 'cache')
