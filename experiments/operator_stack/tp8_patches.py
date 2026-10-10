@@ -14,28 +14,28 @@ BANKS = {}
 
 
 def switch_mode(name):
-    assert name in ['tp8base', 'tp8core', 'tp8act', 'tp8stack', 'tp8meta', 'tp8metastack', 'tp8prefix', 'tp8prefixroute']
+    assert name in ['tp8base', 'tp8core', 'tp8act', 'tp8stack', 'tp8meta', 'tp8metastack', 'tp8prefix', 'tp8prefixroute', 'tp8prefixup', 'tp8prefixuproute']
     prefix.set_arm(name)
     goal.ARM = name
     base.ARM = 'native' if name == 'tp8base' or os.getenv('STACK_REAL_WEIGHTS') == '1' else 'both'
     activation.ARM = 'baseline' if name == 'tp8base' else 'overlap'
-    indexer.set_arm('fused' if name in ('tp8stack','tp8metastack','tp8prefix','tp8prefixroute') else 'baseline')
+    indexer.set_arm('fused' if name in ('tp8stack','tp8metastack','tp8prefix','tp8prefixroute','tp8prefixup','tp8prefixuproute') else 'baseline')
     overlap.set_enabled(name != 'tp8base')
 
 
 @torch.inference_mode()
 def install(model):
     goal.CONFIGS['tp8base'] = set()
-    for name in ['tp8core', 'tp8act', 'tp8stack', 'tp8meta', 'tp8metastack', 'tp8prefix', 'tp8prefixroute']:
+    for name in ['tp8core', 'tp8act', 'tp8stack', 'tp8meta', 'tp8metastack', 'tp8prefix', 'tp8prefixroute', 'tp8prefixup', 'tp8prefixuproute']:
         goal.CONFIGS[name] = {'hcstatic', 'hcpost', 'metadata_all', 'blockmap'}
         if os.getenv('STACK_REAL_WEIGHTS') == '1':
             # Formal HC static failed the original numerical gate. Keep native
             # HC until a corrected candidate passes independent and model audit.
             goal.CONFIGS[name] -= {'hcstatic', 'hcpost'}
-    for name in ['tp8act','tp8stack','tp8metastack','tp8prefix','tp8prefixroute']:
+    for name in ['tp8act','tp8stack','tp8metastack','tp8prefix','tp8prefixroute','tp8prefixup','tp8prefixuproute']:
         goal.CONFIGS[name].add('activation_generic')
     goal.CONFIGS['tp8meta'].add('metadata_manyslots')
-    for name in ('tp8metastack','tp8prefix','tp8prefixroute'):
+    for name in ('tp8metastack','tp8prefix','tp8prefixroute','tp8prefixup','tp8prefixuproute'):
         goal.CONFIGS[name].add('metadata_manyslots')
     goal.install(model)
     activation.install(model)
@@ -58,7 +58,7 @@ def save(worker, name):
     entries = [(wrapper, wrapper.concrete_aclgraph_entries, wrapper.graph_pool)
                for wrapper in ag._acl_graph_wrappers]
     assert sum(len(value) for _, value, _ in entries) == 1
-    role = 'fused' if name in ('tp8stack','tp8metastack','tp8prefix','tp8prefixroute') else 'baseline'
+    role = 'fused' if name in ('tp8stack','tp8metastack','tp8prefix','tp8prefixroute','tp8prefixup','tp8prefixuproute') else 'baseline'
     refs = activation.REFS.get(activation.ARM, {'routed': [], 'shared': []})
     hc_refs = base.HC_REFS.get(base.ARM, [])
     router_refs = base.ROUTER_REFS.get(base.ARM, [])
@@ -140,7 +140,7 @@ def audit(worker, name):
     # Run the native references with the original capture's tensors restored.
     switch(worker, name)
     result = {'indexer': indexer.audit(worker, indexer.ARM)}
-    if name in ('tp8meta','tp8metastack','tp8prefix','tp8prefixroute'):
+    if name in ('tp8meta','tp8metastack','tp8prefix','tp8prefixroute','tp8prefixup','tp8prefixuproute'):
         from tp8_slot_batches import REGISTRY
         result['metadata_slots'] = REGISTRY.audit()
         assert REGISTRY.counts['fused_launches']>0, 'Slot batching candidate has no actual coverage'

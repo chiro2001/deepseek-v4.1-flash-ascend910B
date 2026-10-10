@@ -18,6 +18,7 @@ def main():
     p.add_argument('--model', required=True)
     p.add_argument('--chips', required=True)
     p.add_argument('--profile', action='store_true')
+    p.add_argument('--arms', default='tp8base,tp8metastack,tp8prefix,tp8prefixroute')
     args = p.parse_args()
     for name in (args.audit_job, args.perf_job, args.probe_job):
         assert name.replace('_', '').replace('-', '').isalnum()
@@ -33,18 +34,22 @@ def main():
     assert result['audit'] and result['formal_weights'] and result['tensor_parallel_size'] == 8
     assert result['model_path'] == args.model and result['hccl_deterministic_env'] == 'strict'
     assert not result['fp32_decode_reduction'] and not result['speculative_decoding']
-    arms = ['tp8base', 'tp8metastack', 'tp8prefix', 'tp8prefixroute']
+    arms = args.arms.split(',')
+    assert arms[0]=='tp8base' and arms[1]=='tp8metastack' and len(arms)==4 and len(set(arms))==4
     assert set(result['arms']) == set(arms)
     for arm in arms[1:]:
         pairs = [r for r in result['pairs'] if r['arm'] == arm]
         assert len(pairs) >= 3
         assert all(r['tokens_equal'] and r['actual_routes_equal'] and r['max_logprob_delta'] < 1e-3 for r in pairs)
+    if set(arms)&{'tp8prefixup','tp8prefixuproute'}:
+        probe=json.loads((audit_root/'formal_up_prefix_probe.json').read_text())
+        assert len(probe)==8 and all(r['passed'] and r['layers']==40 for r in probe)
     controls = json.loads((audit_root/'native_controls.json').read_text())
     assert len(controls) >= 4 and all(r['passed'] for r in controls)
     banks = json.loads((audit_root/'banks.json').read_text())
     requests = json.loads((audit_root/'requests.json').read_text())
     checked = {}
-    for arm in ('tp8prefix', 'tp8prefixroute'):
+    for arm in arms[2:]:
         assert len(banks[arm]) == 8
         for bank in banks[arm]:
             assert bank['w4a8_prefix']['selected'] and bank['w4a8_prefix']['consumer_snapshots'] == 80

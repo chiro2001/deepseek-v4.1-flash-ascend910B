@@ -12,11 +12,13 @@ import textwrap
 import torch
 
 ARM = 'tp8base'
-PREFIX_ARMS = ('tp8prefix', 'tp8prefixroute')
+PREFIX_ARMS = ('tp8prefix', 'tp8prefixroute', 'tp8prefixup', 'tp8prefixuproute')
+UP_ARMS = ('tp8prefixup', 'tp8prefixuproute')
 REFS = {}
 COVERAGE = {}
 SOURCE = {}
 FORCE_NATIVE = False
+CURRENT_STAGE = None
 INSTALLED = False
 
 
@@ -59,7 +61,11 @@ def install():
         if not eligible:
             return original_dispatch(self, inp)
         assert self.num_experts_local == 48 and self.top_k == 6
-        if ARM == 'tp8prefixroute':
+        if ARM == 'tp8prefixup':
+            # Preserve the native counts for down-GMM; create the up prefix
+            # inside that hook without mutating the shared compute input.
+            return original_dispatch(self, inp)
+        if ARM in ('tp8prefixroute', 'tp8prefixuproute'):
             output = direct_dispatch(self, inp)
         else:
             output = original_dispatch(self, inp)
@@ -71,7 +77,7 @@ def install():
 
     def convert(self, mlp_compute_input):
         inp = mlp_compute_input
-        if ARM not in PREFIX_ARMS or FORCE_NATIVE:
+        if ARM not in PREFIX_ARMS or FORCE_NATIVE or (ARM in UP_ARMS and CURRENT_STAGE == 'apply_gmm2'):
             return original_convert(self, inp)
         # The dispatcher computes one dynamic prefix reused by both GMMs.
         assert inp.group_list_type == 0 and inp.group_list.shape == (48,)
@@ -86,9 +92,13 @@ def install():
 
         def bind(method, kind):
             def wrapped(self, mlp_compute_input, *args, **kwargs):
+                global CURRENT_STAGE
                 inp = mlp_compute_input
                 selected = ARM in PREFIX_ARMS and not FORCE_NATIVE
-                snapshot = selected and capturing() and os.getenv('STACK_REAL_AUDIT') == '1'
+                if selected and ARM == 'tp8prefixup' and kind == 'apply_gmm1_act_quant':
+                    assert inp.group_list_type == 1
+                    inp = dataclasses.replace(inp, group_list=inp.group_list.cumsum(0), group_list_type=0)
+                snapshot = (selected or ARM == 'tp8base') and capturing() and os.getenv('STACK_REAL_AUDIT') == '1'
                 if selected and capturing():
                     counts = COVERAGE.setdefault(ARM, {})
                     counts[kind] = counts.get(kind, 0) + 1
@@ -98,7 +108,12 @@ def install():
                         dynamic_scale=inp.dynamic_scale.clone() if inp.dynamic_scale is not None else None)
                     saved_args = tuple(value.clone() for value in args)
                     saved_kwargs = {key: value.clone() for key, value in kwargs.items()}
-                output = method(self, inp, *args, **kwargs)
+                previous_stage = CURRENT_STAGE
+                CURRENT_STAGE = kind
+                try:
+                    output = method(self, inp, *args, **kwargs)
+                finally:
+                    CURRENT_STAGE = previous_stage
                 if snapshot:
                     outputs = output if isinstance(output, tuple) else (output,)
                     REFS.setdefault(ARM, []).append((self, method, kind, saved, saved_args, saved_kwargs,
@@ -125,8 +140,11 @@ def reset(name):
 
 def status(name):
     return {'enabled': INSTALLED, 'selected': name in PREFIX_ARMS,
-            'representation': 'routing prefix' if name == 'tp8prefixroute' else
+            'representation': 'native routing counts; prefix for up-GMM only' if name == 'tp8prefixup' else
+                'routing prefix; restore down-GMM counts' if name == 'tp8prefixuproute' else
+                'routing prefix' if name == 'tp8prefixroute' else
                 'one cumsum prefix' if name == 'tp8prefix' else 'native counts',
+            'down_gmm_prefix_selected': name in ('tp8prefix', 'tp8prefixroute'),
             'captured_gmm_calls': COVERAGE.get(name, {}),
             'consumer_snapshots': len(REFS.get(name, [])), 'source': SOURCE}
 
@@ -142,7 +160,8 @@ def audit(name):
     assert len(rows) == 80, len(rows)
     result = []
     for owner, method, stage, inp, args, kwargs, outputs in rows:
-        prefix = inp.group_list.cpu()
+        group = inp.group_list.cpu()
+        prefix = group if inp.group_list_type == 0 else group.cumsum(0)
         count = torch.cat([prefix[:1], torch.diff(prefix)])
         assert prefix.shape == (48,) and (count >= 0).all()
         saved = dataclasses.replace(inp,
@@ -181,3 +200,37 @@ def audit(name):
             'output_dtypes': [str(t.dtype) for t in outputs], 'bitwise_equal': True,
             'compared_rows': valid_rows, 'scope': 'all active consumer rows; routing capacity tail excluded'})
     return {**status(name), 'native_counts_consumer_comparisons': result, 'passed': True}
+
+
+@torch.inference_mode()
+def probe_native_up(worker):
+    """Use live formal weights and actual last-decode inputs before bank capture."""
+    global ARM
+    from vllm.distributed import get_tensor_model_parallel_rank
+    rows = REFS.get('tp8base', [])
+    up = [row for row in rows if row[2] == 'apply_gmm1_act_quant']
+    assert len(up) == 40, len(up)
+    previous = ARM
+    result = []
+    try:
+        ARM = 'tp8prefixup'
+        for owner, method, stage, inp, args, kwargs, outputs in up:
+            assert inp.group_list_type == 1
+            counts = inp.group_list.cpu()
+            prefix = counts.cumsum(0)
+            candidate_input = dataclasses.replace(inp, hidden_states=inp.hidden_states.clone(),
+                group_list=inp.group_list.cumsum(0), group_list_type=0)
+            actual = method(owner, candidate_input, *(value.clone() for value in args),
+                            **{key: value.clone() for key, value in kwargs.items()})
+            actual = actual if isinstance(actual, tuple) else (actual,)
+            valid = int(prefix[-1])
+            assert len(actual) == len(outputs)
+            for value, expected in zip(actual, outputs):
+                assert value.dtype == expected.dtype and value.shape == expected.shape
+                assert torch.equal(value[:valid].cpu(), expected[:valid].cpu()), (stage, valid)
+            result.append({'local_tokens': valid, 'active_experts': int((counts > 0).sum()),
+                'output_dtypes': [str(value.dtype) for value in actual], 'bitwise_equal': True})
+    finally:
+        ARM = previous
+    return {'rank': get_tensor_model_parallel_rank(), 'passed': True, 'layers': len(result),
+            'scope': 'actual formal up-GMM INT8 and scale consumer inputs/weights, outside capture', 'rows': result}

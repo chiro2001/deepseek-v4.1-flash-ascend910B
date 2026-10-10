@@ -49,7 +49,7 @@ def main():
     assert args.pairs > 0
     arms = args.arms.split(',')
     assert arms[0] == 'tp8base' and len(set(arms)) == len(arms)
-    assert set(arms) <= {'tp8base','tp8core','tp8act','tp8stack','tp8meta','tp8metastack','tp8prefix','tp8prefixroute'}
+    assert set(arms) <= {'tp8base','tp8core','tp8act','tp8stack','tp8meta','tp8metastack','tp8prefix','tp8prefixroute','tp8prefixup','tp8prefixuproute'}
     os.environ['OPT_BLOCKMAP_VERIFY'] = '1' if args.audit else '0'
     out = Path(args.output); out.mkdir(parents=True, exist_ok=True)
     os.environ['VLLM_CACHE_ROOT'] = str(out / 'cache')
@@ -178,6 +178,12 @@ def main():
     if args.audit:
         native_reference = request('tp8base','native-control-reference',0)
         check_native(native_reference,request('tp8base','native-control-repeat',0),'before-candidates')
+    if args.audit and set(arms)&{'tp8prefixup','tp8prefixuproute'}:
+        import formal_w4a8_prefix
+        up_probe = llm.collective_rpc(formal_w4a8_prefix.probe_native_up)
+        (out/'formal_up_prefix_probe.json').write_text(json.dumps(up_probe,indent=2)+'\n')
+        assert len(up_probe)==8 and all(r['passed'] and r['layers']==40 for r in up_probe)
+        print('REAL_UP_PREFIX_PROBE_PASSED',json.dumps({'ranks':8,'layers_per_rank':40}),flush=True)
     # Establish a valid native request before compiling candidate banks. All
     # variants remain in these same eight workers and use the same checkpoint.
     for arm in arms[1:]:

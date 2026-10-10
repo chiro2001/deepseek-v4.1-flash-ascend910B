@@ -1,0 +1,150 @@
+{
+  "tensor_parallel_size": 8,
+  "physical_chips": [
+    8,
+    9,
+    10,
+    11,
+    12,
+    13,
+    14,
+    15
+  ],
+  "formal_weights": true,
+  "requested_load_format": "auto",
+  "model_path": "/home/l00886679/models/out/v41-w4a8-engram-dr-vision-qrot-mtpq",
+  "checkpoint_config_sha256": "40ebd329d3cb2d99d7176091afb580c182c21f48b88b63b550264a97e9c0d424",
+  "safetensors_load_strategy": "lazy",
+  "multithread_loader_threads": 128,
+  "engram_enabled": true,
+  "speculative_decoding": false,
+  "engram_storage": "int8",
+  "cpu_binding": false,
+  "fp32_decode_reduction": false,
+  "hccl_deterministic_env": "strict",
+  "reduction_evidence": null,
+  "vision_enabled": true,
+  "limit_mm_per_prompt": {
+    "image": 4
+  },
+  "request_modality": "text",
+  "same_model_instance": true,
+  "same_processes_per_rank": true,
+  "audit": true,
+  "profiler": "OFF",
+  "A": 1,
+  "arms": {
+    "tp8base": {
+      "ms_per_step": 31.960519962012768,
+      "A": 1,
+      "tokens_per_second": 31.288602350292404
+    },
+    "tp8metastack": {
+      "ms_per_step": 28.776830062270164,
+      "A": 1,
+      "tokens_per_second": 34.750179148853455
+    },
+    "tp8prefixup": {
+      "ms_per_step": 30.404570046812296,
+      "A": 1,
+      "tokens_per_second": 32.889792503572764
+    },
+    "tp8prefixuproute": {
+      "ms_per_step": 29.316804837435484,
+      "A": 1,
+      "tokens_per_second": 34.11012917489121
+    }
+  },
+  "pairs": [
+    {
+      "pair": 0,
+      "arm": "tp8metastack",
+      "baseline_ms": 31.645384849980474,
+      "candidate_ms": 28.789760312065482,
+      "speedup": 1.0991888958769216,
+      "tokens_equal": true,
+      "actual_routes_equal": true,
+      "max_logprob_delta": 0.0
+    },
+    {
+      "pair": 0,
+      "arm": "tp8prefixup",
+      "baseline_ms": 31.645384849980474,
+      "candidate_ms": 30.36878490820527,
+      "speedup": 1.0420365828146876,
+      "tokens_equal": true,
+      "actual_routes_equal": true,
+      "max_logprob_delta": 0.0
+    },
+    {
+      "pair": 0,
+      "arm": "tp8prefixuproute",
+      "baseline_ms": 31.645384849980474,
+      "candidate_ms": 29.316804837435484,
+      "speedup": 1.0794281650219795,
+      "tokens_equal": true,
+      "actual_routes_equal": true,
+      "max_logprob_delta": 0.0
+    },
+    {
+      "pair": 1,
+      "arm": "tp8metastack",
+      "baseline_ms": 33.835350070148706,
+      "candidate_ms": 28.629360254853964,
+      "speedup": 1.1818409412208954,
+      "tokens_equal": true,
+      "actual_routes_equal": true,
+      "max_logprob_delta": 0.0
+    },
+    {
+      "pair": 1,
+      "arm": "tp8prefixup",
+      "baseline_ms": 33.835350070148706,
+      "candidate_ms": 30.404570046812296,
+      "speedup": 1.112837643092937,
+      "tokens_equal": true,
+      "actual_routes_equal": true,
+      "max_logprob_delta": 0.0
+    },
+    {
+      "pair": 1,
+      "arm": "tp8prefixuproute",
+      "baseline_ms": 33.835350070148706,
+      "candidate_ms": 29.1655701585114,
+      "speedup": 1.1601127591971496,
+      "tokens_equal": true,
+      "actual_routes_equal": true,
+      "max_logprob_delta": 0.0
+    },
+    {
+      "pair": 2,
+      "arm": "tp8metastack",
+      "baseline_ms": 31.960519962012768,
+      "candidate_ms": 28.776830062270164,
+      "speedup": 1.1106337943704507,
+      "tokens_equal": true,
+      "actual_routes_equal": true,
+      "max_logprob_delta": 0.0
+    },
+    {
+      "pair": 2,
+      "arm": "tp8prefixup",
+      "baseline_ms": 31.960519962012768,
+      "candidate_ms": 30.455169966444373,
+      "speedup": 1.0494283892431726,
+      "tokens_equal": true,
+      "actual_routes_equal": true,
+      "max_logprob_delta": 0.0
+    },
+    {
+      "pair": 2,
+      "arm": "tp8prefixuproute",
+      "baseline_ms": 31.960519962012768,
+      "candidate_ms": 30.60530498623848,
+      "speedup": 1.044280394408213,
+      "tokens_equal": true,
+      "actual_routes_equal": true,
+      "max_logprob_delta": 0.0
+    }
+  ]
+}

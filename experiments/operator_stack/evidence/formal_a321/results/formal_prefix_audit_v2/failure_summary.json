@@ -1,0 +1,88 @@
+{
+  "run_exit": 1,
+  "failed_during": "capture tp8prefix before completed candidate bank; no paired candidate result",
+  "native_controls": [
+    {
+      "label": "before-candidates",
+      "tokens_equal": true,
+      "reference_route_shape": [
+        2094,
+        40,
+        6
+      ],
+      "actual_route_shape": [
+        2094,
+        40,
+        6
+      ],
+      "reference_routes_valid": true,
+      "actual_routes_valid": true,
+      "routes_equal": true,
+      "prefill_differing": 0,
+      "decode_differing": 0,
+      "route_set_differing": 0,
+      "first_route_difference": null,
+      "logprob_lengths_valid": true,
+      "logprob_keys_equal": true,
+      "max_common_logprob_delta": 0.0,
+      "max_logprob_delta": 0.0,
+      "logprob_deltas_finite": true,
+      "passed": true
+    },
+    {
+      "label": "capture-tp8metastack",
+      "tokens_equal": true,
+      "reference_route_shape": [
+        2094,
+        40,
+        6
+      ],
+      "actual_route_shape": [
+        2094,
+        40,
+        6
+      ],
+      "reference_routes_valid": true,
+      "actual_routes_valid": true,
+      "routes_equal": true,
+      "prefill_differing": 0,
+      "decode_differing": 0,
+      "route_set_differing": 0,
+      "first_route_difference": null,
+      "logprob_lengths_valid": true,
+      "logprob_keys_equal": true,
+      "max_common_logprob_delta": 0.0,
+      "max_logprob_delta": 0.0,
+      "logprob_deltas_finite": true,
+      "passed": true
+    }
+  ],
+  "error_code": 507015,
+  "fault_physical_chip": 8,
+  "fault_core_type": "AIV",
+  "fault_core_id": 21,
+  "fault_module": "MTE",
+  "fault_error": "invalid GM access or cross-device memory timeout",
+  "kernel": "GroupedMatmul_a0be48d01b162435398ed52e1b6182d4_69325233410",
+  "symbol_offset": "mix_aiv+0x4d74",
+  "plog_says_not_hccl": true,
+  "source_log_sha256": "e12340b3fe538e4c38aa0488314b9e7b95173c279d4fb40ba6398592ef47d3e4",
+  "source_log_bytes": 223510,
+  "selected_lines": [
+    "REAL_TP8_NATIVE_CONTROL {\"label\": \"before-candidates\", \"tokens_equal\": true, \"reference_route_shape\": [2094, 40, 6], \"actual_route_shape\": [2094, 40, 6], \"reference_routes_valid\": true, \"actual_routes_valid\": true, \"routes_equal\": true, \"prefill_differing\": 0, \"decode_differing\": 0, \"route_set_differing\": 0, \"first_route_difference\": null, \"logprob_lengths_valid\": true, \"logprob_keys_equal\": true, \"max_common_logprob_delta\": 0.0, \"max_logprob_delta\": 0.0, \"logprob_deltas_finite\": true, \"passed\": true}",
+    "REAL_TP8_NATIVE_CONTROL {\"label\": \"capture-tp8metastack\", \"tokens_equal\": true, \"reference_route_shape\": [2094, 40, 6], \"actual_route_shape\": [2094, 40, 6], \"reference_routes_valid\": true, \"actual_routes_valid\": true, \"routes_equal\": true, \"prefill_differing\": 0, \"decode_differing\": 0, \"route_set_differing\": 0, \"first_route_difference\": null, \"logprob_lengths_valid\": true, \"logprob_keys_equal\": true, \"max_common_logprob_delta\": 0.0, \"max_logprob_delta\": 0.0, \"logprob_deltas_finite\": true, \"passed\": true}",
+    "(Worker_TP0_EP0 pid=355270) ERROR 10-10 13:58:17 [multiproc_executor.py:1018] RuntimeError: npuSynchronizeDevice:../torch_npu/csrc/core/npu/NPUStream.cpp:714 NPU function error: AclrtSynchronizeDeviceWithTimeout, error code is 507015",
+    "(Worker_TP0_EP0 pid=355270) ERROR 10-10 13:58:17 [multiproc_executor.py:1018] The extend info: errcode:(0x800000, 0, 0) errorStr: MTE accesses an invalid GM address or the cross-device memory access times out. fixp_error0 info: 0x6000033, fixp_error1 info: 0x7a, fsmId:0, tslot:3, thread:0, ctxid:0, blk:20, sublk:1, subErrType:4.",
+    "(Worker_TP0_EP0 pid=355270) ERROR 10-10 13:58:17 [multiproc_executor.py:1018] RuntimeError: NPUModelRunner failed, error is npuSynchronizeDevice:../torch_npu/csrc/core/npu/NPUStream.cpp:714 NPU function error: AclrtSynchronizeDeviceWithTimeout, error code is 507015",
+    "(Worker_TP0_EP0 pid=355270) ERROR 10-10 13:58:17 [multiproc_executor.py:1018] RuntimeError: NPUModelRunner init failed, error is NPUModelRunner failed, error is npuSynchronizeDevice:../torch_npu/csrc/core/npu/NPUStream.cpp:714 NPU function error: AclrtSynchronizeDeviceWithTimeout, error code is 507015",
+    "(EngineCore pid=355243) ERROR 10-10 13:58:17 [core.py:1584] RuntimeError: Worker failed with error 'NPUModelRunner init failed, error is NPUModelRunner failed, error is npuSynchronizeDevice:../torch_npu/csrc/core/npu/NPUStream.cpp:714 NPU function error: AclrtSynchronizeDeviceWithTimeout, error code is 507015",
+    "(EngineCore pid=355243) ERROR 10-10 13:58:17 [core.py:1584] The extend info: errcode:(0x800000, 0, 0) errorStr: MTE accesses an invalid GM address or the cross-device memory access times out. fixp_error0 info: 0x6000033, fixp_error1 info: 0x7a, fsmId:0, tslot:3, thread:0, ctxid:0, blk:20, sublk:1, subErrType:4.",
+    "Exception: Call to collective_rpc method failed: Worker failed with error 'NPUModelRunner init failed, error is NPUModelRunner failed, error is npuSynchronizeDevice:../torch_npu/csrc/core/npu/NPUStream.cpp:714 NPU function error: AclrtSynchronizeDeviceWithTimeout, error code is 507015",
+    "The extend info: errcode:(0x800000, 0, 0) errorStr: MTE accesses an invalid GM address or the cross-device memory access times out. fixp_error0 info: 0x6000033, fixp_error1 info: 0x7a, fsmId:0, tslot:3, thread:0, ctxid:0, blk:20, sublk:1, subErrType:4.",
+    "(Worker_TP0_EP0 pid=355270) RuntimeError: npuSynchronizeDevice:../torch_npu/csrc/core/npu/NPUStream.cpp:714 NPU function error: AclrtSynchronizeDeviceWithTimeout, error code is 507015",
+    "[rank0]:[W1010 13:58:17.491518680 NPUStream.cpp:734] Warning: NPU warning, error code is 507015[Error]: "
+  ],
+  "precision_claim": false,
+  "performance_claim": false,
+  "next_candidate": "Prefix only for up-GMM; native counts for down-GMM"
+}
