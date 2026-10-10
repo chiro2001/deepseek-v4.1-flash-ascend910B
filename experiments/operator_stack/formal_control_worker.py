@@ -1,4 +1,5 @@
 """Production model worker for A/A control, without operator bank patches."""
+import os
 import torch
 from vllm_ascend.worker.worker import NPUWorker
 
@@ -12,4 +13,8 @@ class FormalControlWorker(NPUWorker):
         assert self.vllm_config.load_config.load_format != 'dummy'
         import route_capture_patch
         route_capture_patch.install()
+        if os.getenv('STACK_FP32_DECODE_REDUCTION') == '1':
+            import decode_reduction_probe
+            receipt = decode_reduction_probe.install(self)
+            print('FORMAL_DECODE_REDUCTION_INSTALLED', receipt, flush=True)
         return super().load_model(*args, **kwargs)

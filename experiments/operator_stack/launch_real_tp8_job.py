@@ -28,6 +28,7 @@ def main():
     p.add_argument('--eager', action='store_true')
     p.add_argument('--probe-native-ops', action='store_true')
     p.add_argument('--trace-attention', action='store_true')
+    p.add_argument('--fp32-decode-reduction', action='store_true')
     p.add_argument('--isolated-pools', action='store_true',
                    help='Diagnostic: capture each candidate bank in a separate NPU memory pool')
     p.add_argument('--allow-alarm', action='store_true')
@@ -41,6 +42,7 @@ def main():
     assert not args.eager or args.native_control
     assert not args.probe_native_ops or (args.native_control and args.eager)
     assert not args.trace_attention or (args.native_control and args.eager and not args.probe_native_ops)
+    assert not args.fp32_decode_reduction or (args.native_control and args.eager and not args.trace_attention and not args.probe_native_ops)
     assert not args.isolated_pools or not args.native_control
     arms = args.arms.split(',')
     assert arms[0] == 'tp8base' and len(set(arms)) == len(arms)
@@ -105,6 +107,7 @@ def main():
             'V41_ENGRAM_ROUTE_PROBE': '0', 'NUMBA_CACHE_DIR': '/work/cache/numba',
         }
         flags['STACK_TP8_ISOLATED_POOLS'] = '1' if args.isolated_pools else '0'
+        flags['STACK_FP32_DECODE_REDUCTION'] = '1' if args.fp32_decode_reduction else '0'
         script_name = ('profile_formal_native.py' if args.native_profile else
                        'bench_formal_native_control.py' if args.native_control else 'bench_real_tp8_model.py')
         command = ['bash', '/work/src/stack/run_stack.sh', script_name,
@@ -120,6 +123,8 @@ def main():
             command.append('--probe-native-ops')
         if args.trace_attention:
             command.append('--trace-attention')
+        if args.fp32_decode_reduction:
+            command.append('--fp32-decode-reduction')
         if args.audit:
             command.append('--audit')
         if args.profile:

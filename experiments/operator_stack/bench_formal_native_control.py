@@ -20,12 +20,15 @@ def main():
     p.add_argument('--eager', action='store_true')
     p.add_argument('--probe-native-ops', action='store_true')
     p.add_argument('--trace-attention', action='store_true')
+    p.add_argument('--fp32-decode-reduction', action='store_true')
     args = p.parse_args()
     assert os.getenv('TINY_PERF_RANDOM_VALIDATION') != '1'
     assert os.environ['STACK_PHYSICAL_CHIPS'] == args.physical_chips
     assert len(set(args.physical_chips.split(','))) == 8 and args.pairs >= 2
     assert not args.probe_native_ops or args.eager
     assert not args.trace_attention or (args.eager and not args.probe_native_ops)
+    assert not args.fp32_decode_reduction or (args.eager and not args.trace_attention and not args.probe_native_ops)
+    assert (os.getenv('STACK_FP32_DECODE_REDUCTION') == '1') == args.fp32_decode_reduction
     args.output.mkdir(parents=True, exist_ok=True)
     os.environ['VLLM_CACHE_ROOT'] = str(args.output/'cache')
     from formal_model_contract import inspect_checkpoint
@@ -95,7 +98,13 @@ def main():
             {'rank':r['rank'],'first_difference':r['first_difference']} for r in boundaries]),flush=True)
         assert result['passed'],'Formal production A/A failed original route/logprob gate'
         return
+    if args.fp32_decode_reduction:
+        import decode_reduction_probe
+        llm.collective_rpc(decode_reduction_probe.begin)
     reference = full_request(0,'reference')
+    if args.fp32_decode_reduction:
+        coverage=llm.collective_rpc(decode_reduction_probe.finish,args=(46,))
+        (args.output/'decode_reduction_coverage.json').write_text(json.dumps(coverage,indent=2)+'\n')
     comparisons = []
     from formal_comparison import compare_requests
     for i in range(args.pairs):
@@ -109,7 +118,14 @@ def main():
         'operator_bank_patches_installed':False,'one_native_graph_only':not args.eager,
         'checkpoint_config_sha256':contract['config_sha256'],'comparisons':comparisons,
         'passed':all(r['passed'] for r in comparisons),'performance_claim':None}
+    result['experimental_fp32_decode_reduction']=args.fp32_decode_reduction
     (args.output/'result.json').write_text(json.dumps(result,indent=2)+'\n')
+    if args.fp32_decode_reduction:
+        math_audit=llm.collective_rpc(decode_reduction_probe.audit)
+        (args.output/'decode_reduction_math_audit.json').write_text(json.dumps(math_audit,indent=2)+'\n')
+        print('FORMAL_DECODE_REDUCTION_MATH_AUDIT_COMPLETE',json.dumps([
+            {'rank':r['rank'],'passed':r['passed']} for r in math_audit]),flush=True)
+        assert all(r['passed'] for r in math_audit), 'Decode FP32 reduction failed exact FP64 reference'
     if args.probe_native_ops:
         from native_repeatability_probe import (install,repeat,disable_engram_subgraph,
                                                begin_capture,finish_capture,compare_captures)

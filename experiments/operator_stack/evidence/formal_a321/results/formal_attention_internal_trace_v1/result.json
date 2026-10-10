@@ -1,0 +1,1616 @@
+{
+  "formal_weights": true,
+  "physical_chips": "8,9,10,11,12,13,14,15",
+  "eager": true,
+  "operator_bank_patches_installed": false,
+  "attention_trace": [
+    {
+      "rank": 0,
+      "boundaries": [
+        {
+          "stage": "norm_input",
+          "equal": true,
+          "shape": [
+            1,
+            5120
+          ],
+          "dtype": "torch.bfloat16",
+          "differing_elements": 0,
+          "max_abs": 0.0
+        },
+        {
+          "stage": "norm_output",
+          "equal": true,
+          "shape": [
+            1,
+            5120
+          ],
+          "dtype": "torch.bfloat16",
+          "differing_elements": 0,
+          "max_abs": 0.0
+        },
+        {
+          "stage": "project_q",
+          "equal": true,
+          "shape": [
+            1,
+            8,
+            512
+          ],
+          "dtype": "torch.bfloat16",
+          "differing_elements": 0,
+          "max_abs": 0.0
+        },
+        {
+          "stage": "project_qr",
+          "equal": true,
+          "shape": [
+            1,
+            1280
+          ],
+          "dtype": "torch.bfloat16",
+          "differing_elements": 0,
+          "max_abs": 0.0
+        },
+        {
+          "stage": "project_kv",
+          "equal": true,
+          "shape": [
+            1,
+            512
+          ],
+          "dtype": "torch.bfloat16",
+          "differing_elements": 0,
+          "max_abs": 0.0
+        },
+        {
+          "stage": "core_q",
+          "equal": true,
+          "shape": [
+            1,
+            8,
+            512
+          ],
+          "dtype": "torch.bfloat16",
+          "differing_elements": 0,
+          "max_abs": 0.0
+        },
+        {
+          "stage": "core_cache_visible",
+          "equal": true,
+          "shape": [
+            128,
+            1,
+            512
+          ],
+          "dtype": "torch.bfloat16",
+          "differing_elements": 0,
+          "max_abs": 0.0
+        },
+        {
+          "stage": "core_seq_lens",
+          "equal": true,
+          "shape": [
+            1
+          ],
+          "dtype": "torch.int32",
+          "differing_elements": 0,
+          "max_abs": 0.0
+        },
+        {
+          "stage": "core_query_start",
+          "equal": true,
+          "shape": [
+            2
+          ],
+          "dtype": "torch.int32",
+          "differing_elements": 0,
+          "max_abs": 0.0
+        },
+        {
+          "stage": "core_metadata",
+          "equal": true,
+          "shape": [
+            1024
+          ],
+          "dtype": "torch.int32",
+          "differing_elements": 0,
+          "max_abs": 0.0
+        },
+        {
+          "stage": "core_output",
+          "equal": true,
+          "shape": [
+            1,
+            8,
+            512
+          ],
+          "dtype": "torch.bfloat16",
+          "differing_elements": 0,
+          "max_abs": 0.0
+        },
+        {
+          "stage": "oproj_input",
+          "equal": true,
+          "shape": [
+            1,
+            8,
+            512
+          ],
+          "dtype": "torch.bfloat16",
+          "differing_elements": 0,
+          "max_abs": 0.0
+        },
+        {
+          "stage": "wo_b_input",
+          "equal": true,
+          "shape": [
+            1,
+            1024
+          ],
+          "dtype": "torch.bfloat16",
+          "differing_elements": 0,
+          "max_abs": 0.0
+        },
+        {
+          "stage": "wo_b_local",
+          "equal": true,
+          "shape": [
+            1,
+            5120
+          ],
+          "dtype": "torch.bfloat16",
+          "differing_elements": 0,
+          "max_abs": 0.0
+        },
+        {
+          "stage": "wo_b_output",
+          "equal": false,
+          "shape": [
+            1,
+            5120
+          ],
+          "dtype": "torch.bfloat16",
+          "differing_elements": 2954,
+          "max_abs": 0.015625
+        },
+        {
+          "stage": "oproj_output",
+          "equal": false,
+          "shape": [
+            1,
+            5120
+          ],
+          "dtype": "torch.bfloat16",
+          "differing_elements": 2954,
+          "max_abs": 0.015625
+        }
+      ],
+      "first_difference": {
+        "stage": "wo_b_output",
+        "equal": false,
+        "shape": [
+          1,
+          5120
+        ],
+        "dtype": "torch.bfloat16",
+        "differing_elements": 2954,
+        "max_abs": 0.015625
+      },
+      "scope": "Cross-request boundaries; metadata is compared raw, cache in visible logical order"
+    },
+    {
+      "rank": 1,
+      "boundaries": [
+        {
+          "stage": "norm_input",
+          "equal": true,
+          "shape": [
+            1,
+            5120
+          ],
+          "dtype": "torch.bfloat16",
+          "differing_elements": 0,
+          "max_abs": 0.0
+        },
+        {
+          "stage": "norm_output",
+          "equal": true,
+          "shape": [
+            1,
+            5120
+          ],
+          "dtype": "torch.bfloat16",
+          "differing_elements": 0,
+          "max_abs": 0.0
+        },
+        {
+          "stage": "project_q",
+          "equal": true,
+          "shape": [
+            1,
+            8,
+            512
+          ],
+          "dtype": "torch.bfloat16",
+          "differing_elements": 0,
+          "max_abs": 0.0
+        },
+        {
+          "stage": "project_qr",
+          "equal": true,
+          "shape": [
+            1,
+            1280
+          ],
+          "dtype": "torch.bfloat16",
+          "differing_elements": 0,
+          "max_abs": 0.0
+        },
+        {
+          "stage": "project_kv",
+          "equal": true,
+          "shape": [
+            1,
+            512
+          ],
+          "dtype": "torch.bfloat16",
+          "differing_elements": 0,
+          "max_abs": 0.0
+        },
+        {
+          "stage": "core_q",
+          "equal": true,
+          "shape": [
+            1,
+            8,
+            512
+          ],
+          "dtype": "torch.bfloat16",
+          "differing_elements": 0,
+          "max_abs": 0.0
+        },
+        {
+          "stage": "core_cache_visible",
+          "equal": true,
+          "shape": [
+            128,
+            1,
+            512
+          ],
+          "dtype": "torch.bfloat16",
+          "differing_elements": 0,
+          "max_abs": 0.0
+        },
+        {
+          "stage": "core_seq_lens",
+          "equal": true,
+          "shape": [
+            1
+          ],
+          "dtype": "torch.int32",
+          "differing_elements": 0,
+          "max_abs": 0.0
+        },
+        {
+          "stage": "core_query_start",
+          "equal": true,
+          "shape": [
+            2
+          ],
+          "dtype": "torch.int32",
+          "differing_elements": 0,
+          "max_abs": 0.0
+        },
+        {
+          "stage": "core_metadata",
+          "equal": true,
+          "shape": [
+            1024
+          ],
+          "dtype": "torch.int32",
+          "differing_elements": 0,
+          "max_abs": 0.0
+        },
+        {
+          "stage": "core_output",
+          "equal": true,
+          "shape": [
+            1,
+            8,
+            512
+          ],
+          "dtype": "torch.bfloat16",
+          "differing_elements": 0,
+          "max_abs": 0.0
+        },
+        {
+          "stage": "oproj_input",
+          "equal": true,
+          "shape": [
+            1,
+            8,
+            512
+          ],
+          "dtype": "torch.bfloat16",
+          "differing_elements": 0,
+          "max_abs": 0.0
+        },
+        {
+          "stage": "wo_b_input",
+          "equal": true,
+          "shape": [
+            1,
+            1024
+          ],
+          "dtype": "torch.bfloat16",
+          "differing_elements": 0,
+          "max_abs": 0.0
+        },
+        {
+          "stage": "wo_b_local",
+          "equal": true,
+          "shape": [
+            1,
+            5120
+          ],
+          "dtype": "torch.bfloat16",
+          "differing_elements": 0,
+          "max_abs": 0.0
+        },
+        {
+          "stage": "wo_b_output",
+          "equal": false,
+          "shape": [
+            1,
+            5120
+          ],
+          "dtype": "torch.bfloat16",
+          "differing_elements": 3009,
+          "max_abs": 0.015625
+        },
+        {
+          "stage": "oproj_output",
+          "equal": false,
+          "shape": [
+            1,
+            5120
+          ],
+          "dtype": "torch.bfloat16",
+          "differing_elements": 3009,
+          "max_abs": 0.015625
+        }
+      ],
+      "first_difference": {
+        "stage": "wo_b_output",
+        "equal": false,
+        "shape": [
+          1,
+          5120
+        ],
+        "dtype": "torch.bfloat16",
+        "differing_elements": 3009,
+        "max_abs": 0.015625
+      },
+      "scope": "Cross-request boundaries; metadata is compared raw, cache in visible logical order"
+    },
+    {
+      "rank": 2,
+      "boundaries": [
+        {
+          "stage": "norm_input",
+          "equal": true,
+          "shape": [
+            1,
+            5120
+          ],
+          "dtype": "torch.bfloat16",
+          "differing_elements": 0,
+          "max_abs": 0.0
+        },
+        {
+          "stage": "norm_output",
+          "equal": true,
+          "shape": [
+            1,
+            5120
+          ],
+          "dtype": "torch.bfloat16",
+          "differing_elements": 0,
+          "max_abs": 0.0
+        },
+        {
+          "stage": "project_q",
+          "equal": true,
+          "shape": [
+            1,
+            8,
+            512
+          ],
+          "dtype": "torch.bfloat16",
+          "differing_elements": 0,
+          "max_abs": 0.0
+        },
+        {
+          "stage": "project_qr",
+          "equal": true,
+          "shape": [
+            1,
+            1280
+          ],
+          "dtype": "torch.bfloat16",
+          "differing_elements": 0,
+          "max_abs": 0.0
+        },
+        {
+          "stage": "project_kv",
+          "equal": true,
+          "shape": [
+            1,
+            512
+          ],
+          "dtype": "torch.bfloat16",
+          "differing_elements": 0,
+          "max_abs": 0.0
+        },
+        {
+          "stage": "core_q",
+          "equal": true,
+          "shape": [
+            1,
+            8,
+            512
+          ],
+          "dtype": "torch.bfloat16",
+          "differing_elements": 0,
+          "max_abs": 0.0
+        },
+        {
+          "stage": "core_cache_visible",
+          "equal": true,
+          "shape": [
+            128,
+            1,
+            512
+          ],
+          "dtype": "torch.bfloat16",
+          "differing_elements": 0,
+          "max_abs": 0.0
+        },
+        {
+          "stage": "core_seq_lens",
+          "equal": true,
+          "shape": [
+            1
+          ],
+          "dtype": "torch.int32",
+          "differing_elements": 0,
+          "max_abs": 0.0
+        },
+        {
+          "stage": "core_query_start",
+          "equal": true,
+          "shape": [
+            2
+          ],
+          "dtype": "torch.int32",
+          "differing_elements": 0,
+          "max_abs": 0.0
+        },
+        {
+          "stage": "core_metadata",
+          "equal": true,
+          "shape": [
+            1024
+          ],
+          "dtype": "torch.int32",
+          "differing_elements": 0,
+          "max_abs": 0.0
+        },
+        {
+          "stage": "core_output",
+          "equal": true,
+          "shape": [
+            1,
+            8,
+            512
+          ],
+          "dtype": "torch.bfloat16",
+          "differing_elements": 0,
+          "max_abs": 0.0
+        },
+        {
+          "stage": "oproj_input",
+          "equal": true,
+          "shape": [
+            1,
+            8,
+            512
+          ],
+          "dtype": "torch.bfloat16",
+          "differing_elements": 0,
+          "max_abs": 0.0
+        },
+        {
+          "stage": "wo_b_input",
+          "equal": true,
+          "shape": [
+            1,
+            1024
+          ],
+          "dtype": "torch.bfloat16",
+          "differing_elements": 0,
+          "max_abs": 0.0
+        },
+        {
+          "stage": "wo_b_local",
+          "equal": true,
+          "shape": [
+            1,
+            5120
+          ],
+          "dtype": "torch.bfloat16",
+          "differing_elements": 0,
+          "max_abs": 0.0
+        },
+        {
+          "stage": "wo_b_output",
+          "equal": false,
+          "shape": [
+            1,
+            5120
+          ],
+          "dtype": "torch.bfloat16",
+          "differing_elements": 2944,
+          "max_abs": 0.015625
+        },
+        {
+          "stage": "oproj_output",
+          "equal": false,
+          "shape": [
+            1,
+            5120
+          ],
+          "dtype": "torch.bfloat16",
+          "differing_elements": 2944,
+          "max_abs": 0.015625
+        }
+      ],
+      "first_difference": {
+        "stage": "wo_b_output",
+        "equal": false,
+        "shape": [
+          1,
+          5120
+        ],
+        "dtype": "torch.bfloat16",
+        "differing_elements": 2944,
+        "max_abs": 0.015625
+      },
+      "scope": "Cross-request boundaries; metadata is compared raw, cache in visible logical order"
+    },
+    {
+      "rank": 3,
+      "boundaries": [
+        {
+          "stage": "norm_input",
+          "equal": true,
+          "shape": [
+            1,
+            5120
+          ],
+          "dtype": "torch.bfloat16",
+          "differing_elements": 0,
+          "max_abs": 0.0
+        },
+        {
+          "stage": "norm_output",
+          "equal": true,
+          "shape": [
+            1,
+            5120
+          ],
+          "dtype": "torch.bfloat16",
+          "differing_elements": 0,
+          "max_abs": 0.0
+        },
+        {
+          "stage": "project_q",
+          "equal": true,
+          "shape": [
+            1,
+            8,
+            512
+          ],
+          "dtype": "torch.bfloat16",
+          "differing_elements": 0,
+          "max_abs": 0.0
+        },
+        {
+          "stage": "project_qr",
+          "equal": true,
+          "shape": [
+            1,
+            1280
+          ],
+          "dtype": "torch.bfloat16",
+          "differing_elements": 0,
+          "max_abs": 0.0
+        },
+        {
+          "stage": "project_kv",
+          "equal": true,
+          "shape": [
+            1,
+            512
+          ],
+          "dtype": "torch.bfloat16",
+          "differing_elements": 0,
+          "max_abs": 0.0
+        },
+        {
+          "stage": "core_q",
+          "equal": true,
+          "shape": [
+            1,
+            8,
+            512
+          ],
+          "dtype": "torch.bfloat16",
+          "differing_elements": 0,
+          "max_abs": 0.0
+        },
+        {
+          "stage": "core_cache_visible",
+          "equal": true,
+          "shape": [
+            128,
+            1,
+            512
+          ],
+          "dtype": "torch.bfloat16",
+          "differing_elements": 0,
+          "max_abs": 0.0
+        },
+        {
+          "stage": "core_seq_lens",
+          "equal": true,
+          "shape": [
+            1
+          ],
+          "dtype": "torch.int32",
+          "differing_elements": 0,
+          "max_abs": 0.0
+        },
+        {
+          "stage": "core_query_start",
+          "equal": true,
+          "shape": [
+            2
+          ],
+          "dtype": "torch.int32",
+          "differing_elements": 0,
+          "max_abs": 0.0
+        },
+        {
+          "stage": "core_metadata",
+          "equal": true,
+          "shape": [
+            1024
+          ],
+          "dtype": "torch.int32",
+          "differing_elements": 0,
+          "max_abs": 0.0
+        },
+        {
+          "stage": "core_output",
+          "equal": true,
+          "shape": [
+            1,
+            8,
+            512
+          ],
+          "dtype": "torch.bfloat16",
+          "differing_elements": 0,
+          "max_abs": 0.0
+        },
+        {
+          "stage": "oproj_input",
+          "equal": true,
+          "shape": [
+            1,
+            8,
+            512
+          ],
+          "dtype": "torch.bfloat16",
+          "differing_elements": 0,
+          "max_abs": 0.0
+        },
+        {
+          "stage": "wo_b_input",
+          "equal": true,
+          "shape": [
+            1,
+            1024
+          ],
+          "dtype": "torch.bfloat16",
+          "differing_elements": 0,
+          "max_abs": 0.0
+        },
+        {
+          "stage": "wo_b_local",
+          "equal": true,
+          "shape": [
+            1,
+            5120
+          ],
+          "dtype": "torch.bfloat16",
+          "differing_elements": 0,
+          "max_abs": 0.0
+        },
+        {
+          "stage": "wo_b_output",
+          "equal": false,
+          "shape": [
+            1,
+            5120
+          ],
+          "dtype": "torch.bfloat16",
+          "differing_elements": 2914,
+          "max_abs": 0.015625
+        },
+        {
+          "stage": "oproj_output",
+          "equal": false,
+          "shape": [
+            1,
+            5120
+          ],
+          "dtype": "torch.bfloat16",
+          "differing_elements": 2914,
+          "max_abs": 0.015625
+        }
+      ],
+      "first_difference": {
+        "stage": "wo_b_output",
+        "equal": false,
+        "shape": [
+          1,
+          5120
+        ],
+        "dtype": "torch.bfloat16",
+        "differing_elements": 2914,
+        "max_abs": 0.015625
+      },
+      "scope": "Cross-request boundaries; metadata is compared raw, cache in visible logical order"
+    },
+    {
+      "rank": 4,
+      "boundaries": [
+        {
+          "stage": "norm_input",
+          "equal": true,
+          "shape": [
+            1,
+            5120
+          ],
+          "dtype": "torch.bfloat16",
+          "differing_elements": 0,
+          "max_abs": 0.0
+        },
+        {
+          "stage": "norm_output",
+          "equal": true,
+          "shape": [
+            1,
+            5120
+          ],
+          "dtype": "torch.bfloat16",
+          "differing_elements": 0,
+          "max_abs": 0.0
+        },
+        {
+          "stage": "project_q",
+          "equal": true,
+          "shape": [
+            1,
+            8,
+            512
+          ],
+          "dtype": "torch.bfloat16",
+          "differing_elements": 0,
+          "max_abs": 0.0
+        },
+        {
+          "stage": "project_qr",
+          "equal": true,
+          "shape": [
+            1,
+            1280
+          ],
+          "dtype": "torch.bfloat16",
+          "differing_elements": 0,
+          "max_abs": 0.0
+        },
+        {
+          "stage": "project_kv",
+          "equal": true,
+          "shape": [
+            1,
+            512
+          ],
+          "dtype": "torch.bfloat16",
+          "differing_elements": 0,
+          "max_abs": 0.0
+        },
+        {
+          "stage": "core_q",
+          "equal": true,
+          "shape": [
+            1,
+            8,
+            512
+          ],
+          "dtype": "torch.bfloat16",
+          "differing_elements": 0,
+          "max_abs": 0.0
+        },
+        {
+          "stage": "core_cache_visible",
+          "equal": true,
+          "shape": [
+            128,
+            1,
+            512
+          ],
+          "dtype": "torch.bfloat16",
+          "differing_elements": 0,
+          "max_abs": 0.0
+        },
+        {
+          "stage": "core_seq_lens",
+          "equal": true,
+          "shape": [
+            1
+          ],
+          "dtype": "torch.int32",
+          "differing_elements": 0,
+          "max_abs": 0.0
+        },
+        {
+          "stage": "core_query_start",
+          "equal": true,
+          "shape": [
+            2
+          ],
+          "dtype": "torch.int32",
+          "differing_elements": 0,
+          "max_abs": 0.0
+        },
+        {
+          "stage": "core_metadata",
+          "equal": true,
+          "shape": [
+            1024
+          ],
+          "dtype": "torch.int32",
+          "differing_elements": 0,
+          "max_abs": 0.0
+        },
+        {
+          "stage": "core_output",
+          "equal": true,
+          "shape": [
+            1,
+            8,
+            512
+          ],
+          "dtype": "torch.bfloat16",
+          "differing_elements": 0,
+          "max_abs": 0.0
+        },
+        {
+          "stage": "oproj_input",
+          "equal": true,
+          "shape": [
+            1,
+            8,
+            512
+          ],
+          "dtype": "torch.bfloat16",
+          "differing_elements": 0,
+          "max_abs": 0.0
+        },
+        {
+          "stage": "wo_b_input",
+          "equal": true,
+          "shape": [
+            1,
+            1024
+          ],
+          "dtype": "torch.bfloat16",
+          "differing_elements": 0,
+          "max_abs": 0.0
+        },
+        {
+          "stage": "wo_b_local",
+          "equal": true,
+          "shape": [
+            1,
+            5120
+          ],
+          "dtype": "torch.bfloat16",
+          "differing_elements": 0,
+          "max_abs": 0.0
+        },
+        {
+          "stage": "wo_b_output",
+          "equal": false,
+          "shape": [
+            1,
+            5120
+          ],
+          "dtype": "torch.bfloat16",
+          "differing_elements": 2909,
+          "max_abs": 0.015625
+        },
+        {
+          "stage": "oproj_output",
+          "equal": false,
+          "shape": [
+            1,
+            5120
+          ],
+          "dtype": "torch.bfloat16",
+          "differing_elements": 2909,
+          "max_abs": 0.015625
+        }
+      ],
+      "first_difference": {
+        "stage": "wo_b_output",
+        "equal": false,
+        "shape": [
+          1,
+          5120
+        ],
+        "dtype": "torch.bfloat16",
+        "differing_elements": 2909,
+        "max_abs": 0.015625
+      },
+      "scope": "Cross-request boundaries; metadata is compared raw, cache in visible logical order"
+    },
+    {
+      "rank": 5,
+      "boundaries": [
+        {
+          "stage": "norm_input",
+          "equal": true,
+          "shape": [
+            1,
+            5120
+          ],
+          "dtype": "torch.bfloat16",
+          "differing_elements": 0,
+          "max_abs": 0.0
+        },
+        {
+          "stage": "norm_output",
+          "equal": true,
+          "shape": [
+            1,
+            5120
+          ],
+          "dtype": "torch.bfloat16",
+          "differing_elements": 0,
+          "max_abs": 0.0
+        },
+        {
+          "stage": "project_q",
+          "equal": true,
+          "shape": [
+            1,
+            8,
+            512
+          ],
+          "dtype": "torch.bfloat16",
+          "differing_elements": 0,
+          "max_abs": 0.0
+        },
+        {
+          "stage": "project_qr",
+          "equal": true,
+          "shape": [
+            1,
+            1280
+          ],
+          "dtype": "torch.bfloat16",
+          "differing_elements": 0,
+          "max_abs": 0.0
+        },
+        {
+          "stage": "project_kv",
+          "equal": true,
+          "shape": [
+            1,
+            512
+          ],
+          "dtype": "torch.bfloat16",
+          "differing_elements": 0,
+          "max_abs": 0.0
+        },
+        {
+          "stage": "core_q",
+          "equal": true,
+          "shape": [
+            1,
+            8,
+            512
+          ],
+          "dtype": "torch.bfloat16",
+          "differing_elements": 0,
+          "max_abs": 0.0
+        },
+        {
+          "stage": "core_cache_visible",
+          "equal": true,
+          "shape": [
+            128,
+            1,
+            512
+          ],
+          "dtype": "torch.bfloat16",
+          "differing_elements": 0,
+          "max_abs": 0.0
+        },
+        {
+          "stage": "core_seq_lens",
+          "equal": true,
+          "shape": [
+            1
+          ],
+          "dtype": "torch.int32",
+          "differing_elements": 0,
+          "max_abs": 0.0
+        },
+        {
+          "stage": "core_query_start",
+          "equal": true,
+          "shape": [
+            2
+          ],
+          "dtype": "torch.int32",
+          "differing_elements": 0,
+          "max_abs": 0.0
+        },
+        {
+          "stage": "core_metadata",
+          "equal": true,
+          "shape": [
+            1024
+          ],
+          "dtype": "torch.int32",
+          "differing_elements": 0,
+          "max_abs": 0.0
+        },
+        {
+          "stage": "core_output",
+          "equal": true,
+          "shape": [
+            1,
+            8,
+            512
+          ],
+          "dtype": "torch.bfloat16",
+          "differing_elements": 0,
+          "max_abs": 0.0
+        },
+        {
+          "stage": "oproj_input",
+          "equal": true,
+          "shape": [
+            1,
+            8,
+            512
+          ],
+          "dtype": "torch.bfloat16",
+          "differing_elements": 0,
+          "max_abs": 0.0
+        },
+        {
+          "stage": "wo_b_input",
+          "equal": true,
+          "shape": [
+            1,
+            1024
+          ],
+          "dtype": "torch.bfloat16",
+          "differing_elements": 0,
+          "max_abs": 0.0
+        },
+        {
+          "stage": "wo_b_local",
+          "equal": true,
+          "shape": [
+            1,
+            5120
+          ],
+          "dtype": "torch.bfloat16",
+          "differing_elements": 0,
+          "max_abs": 0.0
+        },
+        {
+          "stage": "wo_b_output",
+          "equal": false,
+          "shape": [
+            1,
+            5120
+          ],
+          "dtype": "torch.bfloat16",
+          "differing_elements": 2847,
+          "max_abs": 0.015625
+        },
+        {
+          "stage": "oproj_output",
+          "equal": false,
+          "shape": [
+            1,
+            5120
+          ],
+          "dtype": "torch.bfloat16",
+          "differing_elements": 2847,
+          "max_abs": 0.015625
+        }
+      ],
+      "first_difference": {
+        "stage": "wo_b_output",
+        "equal": false,
+        "shape": [
+          1,
+          5120
+        ],
+        "dtype": "torch.bfloat16",
+        "differing_elements": 2847,
+        "max_abs": 0.015625
+      },
+      "scope": "Cross-request boundaries; metadata is compared raw, cache in visible logical order"
+    },
+    {
+      "rank": 6,
+      "boundaries": [
+        {
+          "stage": "norm_input",
+          "equal": true,
+          "shape": [
+            1,
+            5120
+          ],
+          "dtype": "torch.bfloat16",
+          "differing_elements": 0,
+          "max_abs": 0.0
+        },
+        {
+          "stage": "norm_output",
+          "equal": true,
+          "shape": [
+            1,
+            5120
+          ],
+          "dtype": "torch.bfloat16",
+          "differing_elements": 0,
+          "max_abs": 0.0
+        },
+        {
+          "stage": "project_q",
+          "equal": true,
+          "shape": [
+            1,
+            8,
+            512
+          ],
+          "dtype": "torch.bfloat16",
+          "differing_elements": 0,
+          "max_abs": 0.0
+        },
+        {
+          "stage": "project_qr",
+          "equal": true,
+          "shape": [
+            1,
+            1280
+          ],
+          "dtype": "torch.bfloat16",
+          "differing_elements": 0,
+          "max_abs": 0.0
+        },
+        {
+          "stage": "project_kv",
+          "equal": true,
+          "shape": [
+            1,
+            512
+          ],
+          "dtype": "torch.bfloat16",
+          "differing_elements": 0,
+          "max_abs": 0.0
+        },
+        {
+          "stage": "core_q",
+          "equal": true,
+          "shape": [
+            1,
+            8,
+            512
+          ],
+          "dtype": "torch.bfloat16",
+          "differing_elements": 0,
+          "max_abs": 0.0
+        },
+        {
+          "stage": "core_cache_visible",
+          "equal": true,
+          "shape": [
+            128,
+            1,
+            512
+          ],
+          "dtype": "torch.bfloat16",
+          "differing_elements": 0,
+          "max_abs": 0.0
+        },
+        {
+          "stage": "core_seq_lens",
+          "equal": true,
+          "shape": [
+            1
+          ],
+          "dtype": "torch.int32",
+          "differing_elements": 0,
+          "max_abs": 0.0
+        },
+        {
+          "stage": "core_query_start",
+          "equal": true,
+          "shape": [
+            2
+          ],
+          "dtype": "torch.int32",
+          "differing_elements": 0,
+          "max_abs": 0.0
+        },
+        {
+          "stage": "core_metadata",
+          "equal": true,
+          "shape": [
+            1024
+          ],
+          "dtype": "torch.int32",
+          "differing_elements": 0,
+          "max_abs": 0.0
+        },
+        {
+          "stage": "core_output",
+          "equal": true,
+          "shape": [
+            1,
+            8,
+            512
+          ],
+          "dtype": "torch.bfloat16",
+          "differing_elements": 0,
+          "max_abs": 0.0
+        },
+        {
+          "stage": "oproj_input",
+          "equal": true,
+          "shape": [
+            1,
+            8,
+            512
+          ],
+          "dtype": "torch.bfloat16",
+          "differing_elements": 0,
+          "max_abs": 0.0
+        },
+        {
+          "stage": "wo_b_input",
+          "equal": true,
+          "shape": [
+            1,
+            1024
+          ],
+          "dtype": "torch.bfloat16",
+          "differing_elements": 0,
+          "max_abs": 0.0
+        },
+        {
+          "stage": "wo_b_local",
+          "equal": true,
+          "shape": [
+            1,
+            5120
+          ],
+          "dtype": "torch.bfloat16",
+          "differing_elements": 0,
+          "max_abs": 0.0
+        },
+        {
+          "stage": "wo_b_output",
+          "equal": false,
+          "shape": [
+            1,
+            5120
+          ],
+          "dtype": "torch.bfloat16",
+          "differing_elements": 2994,
+          "max_abs": 0.015625
+        },
+        {
+          "stage": "oproj_output",
+          "equal": false,
+          "shape": [
+            1,
+            5120
+          ],
+          "dtype": "torch.bfloat16",
+          "differing_elements": 2994,
+          "max_abs": 0.015625
+        }
+      ],
+      "first_difference": {
+        "stage": "wo_b_output",
+        "equal": false,
+        "shape": [
+          1,
+          5120
+        ],
+        "dtype": "torch.bfloat16",
+        "differing_elements": 2994,
+        "max_abs": 0.015625
+      },
+      "scope": "Cross-request boundaries; metadata is compared raw, cache in visible logical order"
+    },
+    {
+      "rank": 7,
+      "boundaries": [
+        {
+          "stage": "norm_input",
+          "equal": true,
+          "shape": [
+            1,
+            5120
+          ],
+          "dtype": "torch.bfloat16",
+          "differing_elements": 0,
+          "max_abs": 0.0
+        },
+        {
+          "stage": "norm_output",
+          "equal": true,
+          "shape": [
+            1,
+            5120
+          ],
+          "dtype": "torch.bfloat16",
+          "differing_elements": 0,
+          "max_abs": 0.0
+        },
+        {
+          "stage": "project_q",
+          "equal": true,
+          "shape": [
+            1,
+            8,
+            512
+          ],
+          "dtype": "torch.bfloat16",
+          "differing_elements": 0,
+          "max_abs": 0.0
+        },
+        {
+          "stage": "project_qr",
+          "equal": true,
+          "shape": [
+            1,
+            1280
+          ],
+          "dtype": "torch.bfloat16",
+          "differing_elements": 0,
+          "max_abs": 0.0
+        },
+        {
+          "stage": "project_kv",
+          "equal": true,
+          "shape": [
+            1,
+            512
+          ],
+          "dtype": "torch.bfloat16",
+          "differing_elements": 0,
+          "max_abs": 0.0
+        },
+        {
+          "stage": "core_q",
+          "equal": true,
+          "shape": [
+            1,
+            8,
+            512
+          ],
+          "dtype": "torch.bfloat16",
+          "differing_elements": 0,
+          "max_abs": 0.0
+        },
+        {
+          "stage": "core_cache_visible",
+          "equal": true,
+          "shape": [
+            128,
+            1,
+            512
+          ],
+          "dtype": "torch.bfloat16",
+          "differing_elements": 0,
+          "max_abs": 0.0
+        },
+        {
+          "stage": "core_seq_lens",
+          "equal": true,
+          "shape": [
+            1
+          ],
+          "dtype": "torch.int32",
+          "differing_elements": 0,
+          "max_abs": 0.0
+        },
+        {
+          "stage": "core_query_start",
+          "equal": true,
+          "shape": [
+            2
+          ],
+          "dtype": "torch.int32",
+          "differing_elements": 0,
+          "max_abs": 0.0
+        },
+        {
+          "stage": "core_metadata",
+          "equal": true,
+          "shape": [
+            1024
+          ],
+          "dtype": "torch.int32",
+          "differing_elements": 0,
+          "max_abs": 0.0
+        },
+        {
+          "stage": "core_output",
+          "equal": true,
+          "shape": [
+            1,
+            8,
+            512
+          ],
+          "dtype": "torch.bfloat16",
+          "differing_elements": 0,
+          "max_abs": 0.0
+        },
+        {
+          "stage": "oproj_input",
+          "equal": true,
+          "shape": [
+            1,
+            8,
+            512
+          ],
+          "dtype": "torch.bfloat16",
+          "differing_elements": 0,
+          "max_abs": 0.0
+        },
+        {
+          "stage": "wo_b_input",
+          "equal": true,
+          "shape": [
+            1,
+            1024
+          ],
+          "dtype": "torch.bfloat16",
+          "differing_elements": 0,
+          "max_abs": 0.0
+        },
+        {
+          "stage": "wo_b_local",
+          "equal": true,
+          "shape": [
+            1,
+            5120
+          ],
+          "dtype": "torch.bfloat16",
+          "differing_elements": 0,
+          "max_abs": 0.0
+        },
+        {
+          "stage": "wo_b_output",
+          "equal": false,
+          "shape": [
+            1,
+            5120
+          ],
+          "dtype": "torch.bfloat16",
+          "differing_elements": 3029,
+          "max_abs": 0.015625
+        },
+        {
+          "stage": "oproj_output",
+          "equal": false,
+          "shape": [
+            1,
+            5120
+          ],
+          "dtype": "torch.bfloat16",
+          "differing_elements": 3029,
+          "max_abs": 0.015625
+        }
+      ],
+      "first_difference": {
+        "stage": "wo_b_output",
+        "equal": false,
+        "shape": [
+          1,
+          5120
+        ],
+        "dtype": "torch.bfloat16",
+        "differing_elements": 3029,
+        "max_abs": 0.015625
+      },
+      "scope": "Cross-request boundaries; metadata is compared raw, cache in visible logical order"
+    }
+  ],
+  "comparison": {
+    "label": "attention-trace",
+    "tokens_equal": true,
+    "reference_route_shape": [
+      2094,
+      40,
+      6
+    ],
+    "actual_route_shape": [
+      2094,
+      40,
+      6
+    ],
+    "reference_routes_valid": true,
+    "actual_routes_valid": true,
+    "routes_equal": false,
+    "prefill_differing": 0,
+    "decode_differing": 1333,
+    "route_set_differing": 827,
+    "first_route_difference": {
+      "token": 2048,
+      "layer": 8,
+      "reference": [
+        128,
+        29,
+        171,
+        290,
+        381,
+        118
+      ],
+      "actual": [
+        128,
+        29,
+        171,
+        290,
+        381,
+        299
+      ]
+    },
+    "logprob_lengths_valid": true,
+    "logprob_keys_equal": false,
+    "max_common_logprob_delta": 0.7499990463256836,
+    "max_logprob_delta": null,
+    "logprob_deltas_finite": true,
+    "passed": false
+  },
+  "passed": false,
+  "performance_claim": null
+}

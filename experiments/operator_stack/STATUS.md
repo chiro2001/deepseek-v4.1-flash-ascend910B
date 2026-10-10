@@ -9,11 +9,11 @@
 
 原生无候选bank的graph/eager/Engram子图关闭A/A均未通过完整路由与Top5 logprob门槛。最新`formal_attention_boundary_trace_v1`在8rank都发现layer0注意力输出进入HC post之前已不同，residual/post/comb一致；固定输入的HC pre80、HC post80、router40每rank重复5次全部稳定，共1600份真实输入。
 
-`formal_attention_internal_trace_v1`已启动，拆Q/KV、可见cache、SMLA、O投影与AllReduce，并重复固定rank局部向量的归约。结果未出，不指定根因。
+`formal_attention_internal_trace_v1`已完成：8rank的归一化、Q/KV、可见cache、SMLA、O投影局部乘积均一致，首个偏离在wo_b AllReduce输出；固定局部向量重复10次，每rank后9次都与首轮不同，max abs0.0234375–0.03125。已启动实验`formal_fp32_decode_reduction_v1`，保留局部BF16边界，以FP32归约后转回BF16，并用真实rank向量的CPU FP64和作逐位参考；尚未验收修复或性能。
 
 正式七组×8rank的56CSV已完成shape分析：每步原始2356行包含重复通信逻辑事件，去重后2273执行记录；实际AllReduce82次/step，chip8累计2.937ms，不能当E2E。O投影小M的MTE2高、GMM Scalar高分开研究。正式HC/HcPost保持原生、TP1 selected-GMM/router禁用、BF16激活覆盖0；Indexer独立精度通过不替代整网。
 
-最新报告：`reports/a321-attention-boundaries-microarch-20261010-v6.md`。没有有效正式TP8性能或最优服务验收，19ms目标保持active。
+最新报告：`reports/a321-allreduce-root-cause-20261010-v7.md`；微架构统计修正见v6。没有有效正式TP8性能或最优服务验收，19ms目标保持active。
 
 ## 历史记录
 
