@@ -5,6 +5,12 @@
 
 ## 当前状态（优先于下方历史记录）
 
+客户端更新v13：core API v1归属验证及8条serial性能成功`(27.412337ms/step,A=1,36.479925tok/s)`。视觉23例被HTTP400缺chat template拒绝，不计为模型精度失败；启动入口已补生产deepseek_v41 tokenizer/parser，官方encoder文本预检一致。仅SIGTERM本任务API后重新检查无占用/Alarm，已启动`formal_core_strict_service_v2`（loopback18762，独立front-v2模型名）及串行验收runner。官方GSM8K train7473/test1319 JSONL已就绪，v2客户端pending。v12描述的是客户端结果落盘前的状态。
+
+2026-10-10更新：用户提醒的变量为`HCCL_DETERMINISTIC`（启动参数`HCCL_DET`），当前strict原生/叠加精度全delta0。`formal_strict_profile_v2`退出0，七组×两臂×八rank的112份CSV全部离线解析；新增时间线分析显示chip8 core采集态gap主要在主图前（7.283ms），主图内部1.162ms，仅为诊断、不能当可回收收益。微架构wo_a MTE2 0.872；GMM up Scalar0.600；没有UB occupancy或双缓冲收益证据。新增报告v12。
+
+`formal_core_strict_service_v1`已经过无占用/授权Alarm检查而启动，正式core、strict、auto端口、loopback18761、独立模型名。客户端runner已安排服务归属核验→8条serial性能→视觉23例→GSM8K100，结果pending；GSM8K支持官方JSONL以保持相同8-shot和test顺序。当前正式最快仍为`(26.622860ms/step,A=1,37.561704tok/s)`，19ms未达到，Goal保持active。以下保留历史进展，旧的“尚未起服/解析待完成”描述不代表当前状态。
+
 用户已再次授权a3-21 physical chip8–15继续，仍为80C98001 Alarm；正式TP8已加载运行，不reset、不停止其他租户。生产容器为`dsv41-real-stack-tp8-20261010-a321`。
 
 原生无候选bank的graph/eager/Engram子图关闭A/A均未通过完整路由与Top5 logprob门槛。最新`formal_attention_boundary_trace_v1`在8rank都发现layer0注意力输出进入HC post之前已不同，residual/post/comb一致；固定输入的HC pre80、HC post80、router40每rank重复5次全部稳定，共1600份真实输入。

@@ -2,7 +2,7 @@
 """精度评测（官方 encoder 路径）：GSM8K / C-Eval，经 /v1/completions，带断点续跑。
 用法: acc_eval.py --task gsm8k --limit 200 --mode chat --out x.json --tag w4a8 --conc 4
 """
-import argparse, json, os, re, sys, threading, time, urllib.request
+import argparse, hashlib, json, os, re, sys, threading, time, urllib.request
 
 # P4: P2 host-tier build crashes (ERR00100/AI-core fault) when multiple long
 # prefills are scheduled in the same batch.  Serialize request submission until
@@ -153,10 +153,21 @@ def extract_choice(text):
     m = re.findall(r"\b([ABCD])\b", t)
     return m[-1] if m else ""
 
-def load_gsm8k(limit):
-    from datasets import load_dataset
-    ds = load_dataset("openai/gsm8k", "main", split="test")
-    tr = load_dataset("openai/gsm8k", "main", split="train")
+def load_gsm8k(limit, data_dir=None):
+    if data_dir:
+        def read_split(split):
+            path = os.path.join(data_dir, split + '.jsonl')
+            with open(path, encoding='utf-8') as stream:
+                rows = [json.loads(line) for line in stream if line.strip()]
+            assert rows and all(isinstance(r.get('question'), str) and
+                                isinstance(r.get('answer'), str) for r in rows), path
+            return rows
+        ds, tr = read_split('test'), read_split('train')
+        assert len(tr) >= 8 and len(ds) >= limit, 'Incomplete GSM8K JSONL split'
+    else:
+        from datasets import load_dataset
+        ds = load_dataset("openai/gsm8k", "main", split="test")
+        tr = load_dataset("openai/gsm8k", "main", split="train")
     shots = [{"q": tr[i]["question"], "a": tr[i]["answer"]} for i in range(8)]
     items = []
     for i in range(min(limit, len(ds))):
@@ -195,6 +206,7 @@ ap.add_argument("--base-url", default="http://127.0.0.1:8001")
 # [v4] `--base` 是 `--base-url` 的别名（本包的 tests/t_gsm8k.py 用 `--base`）。
 ap.add_argument("--base", dest="base_url", help="--base-url 的别名")
 ap.add_argument("--model", default='deepseek-v41', help='Exact served model name')
+ap.add_argument("--gsm8k-data-dir", help='Official train.jsonl/test.jsonl; same 8-shot order, no datasets dependency')
 ap.add_argument("--enc-dir", help="官方 encoding 目录（覆盖环境变量 ENC_DIR 与默认猜测）")
 ap.add_argument("--conc", type=int, default=4)
 ap.add_argument("--mode", default="chat", choices=["chat", "thinking"])
@@ -210,7 +222,8 @@ SERIALIZE_PREFILL = bool(a.serialize_prefill)
 if a.enc_dir:
     sys.path.insert(0, a.enc_dir)
 
-items = load_gsm8k(a.limit) if a.task == "gsm8k" else load_ceval(a.limit)
+assert not a.gsm8k_data_dir or a.task == 'gsm8k'
+items = load_gsm8k(a.limit, a.gsm8k_data_dir) if a.task == "gsm8k" else load_ceval(a.limit)
 extractor = extract_gsm8k if a.task == "gsm8k" else extract_choice
 for it in items:
     it["full_prompt"] = build_prompt(it["prompt"], a.mode, a.effort)
@@ -275,5 +288,10 @@ summary = {"tag": a.tag, "task": a.task, "mode": a.mode, "n": len(results), "cor
            "acc": round(ok / len(results) * 100, 2) if results else 0,
            "empty": empty, "errors": sum(1 for r in results if r["err"]),
            "seconds": round(time.time() - t0, 1)}
+if a.gsm8k_data_dir:
+    summary['gsm8k_jsonl_sha256'] = {
+        split: hashlib.sha256(open(os.path.join(a.gsm8k_data_dir, split+'.jsonl'), 'rb').read()).hexdigest()
+        for split in ('train', 'test')}
+summary['served_model'] = EVAL_MODEL
 json.dump({"summary": summary, "results": results}, open(a.out, "w"), ensure_ascii=False, indent=1)
 print(f"== {a.tag} {a.task}/{a.mode}: {ok}/{len(results)} = {summary['acc']}% (空={empty}, {summary['seconds']}s) ==")

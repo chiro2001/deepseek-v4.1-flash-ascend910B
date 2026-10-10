@@ -21,7 +21,7 @@ def main():
         if csv.exists() and csv.stat().st_size>100:
             return {'path':str(path),'skipped_existing':True,'csv_present':True}
         relative=path.relative_to(args.root/'prof')
-        log=logdir/('__'.join(relative.parts[:2])+'.log')
+        log=logdir/('__'.join(relative.parts)+'.log')
         code='import torch_npu; torch_npu.profiler.profiler.analyse('+repr(str(path))+', max_process_number=1, export_type="text")'
         with log.open('w') as stream:
             proc=subprocess.run([sys.executable,'-u','-c',code],stdout=stream,stderr=subprocess.STDOUT)

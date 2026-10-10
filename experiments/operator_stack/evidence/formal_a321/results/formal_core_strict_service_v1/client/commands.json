@@ -1,0 +1,47 @@
+[
+  {
+    "label": "bench8",
+    "argv": [
+      "/usr/local/python3.12.13/bin/python",
+      "tools/bench_concurrency.py",
+      "--base-url",
+      "http://127.0.0.1:18761",
+      "--model",
+      "dsv41-a321-formal-core-strict-20261010",
+      "--require-model",
+      "--concurrency",
+      "1",
+      "--prompt-count",
+      "8",
+      "--prompt-tokens",
+      "2048",
+      "--output-tokens",
+      "256",
+      "--repeats",
+      "1",
+      "--json-out",
+      "/work/results/formal_core_strict_service_v1/client/bench8.json",
+      "--label",
+      "formal-core-strict-a321"
+    ],
+    "returncode": 0,
+    "log_sha256": "6b1583c8aa554d727951ad77699d121167e3acbba43a053719e17f77a6519b57"
+  },
+  {
+    "label": "vision",
+    "argv": [
+      "/usr/local/python3.12.13/bin/python",
+      "tests/t_vision.py",
+      "--server",
+      "http://127.0.0.1:18761",
+      "--model",
+      "dsv41-a321-formal-core-strict-20261010",
+      "--images-dir",
+      "/home/l00886679/models/DeepSeek-V4.1-Flash/inference/examples/images",
+      "--out",
+      "/work/results/formal_core_strict_service_v1/client/vision.json"
+    ],
+    "returncode": 1,
+    "log_sha256": "8e70e72b85a3bea2bd07f010e3b7c45b54f144804f6e38def80824db73f6d0ff"
+  }
+]
