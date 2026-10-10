@@ -26,7 +26,8 @@ def main():
     selection=json.loads((args.service_root/'service_command.json').read_text())
     model=selection['served_model'];port=selection['port'];base=f'http://127.0.0.1:{port}'
     assert model.startswith('dsv41-a321-formal-') and selection['client_validation']=='pending'
-    assert selection['selected_arm']=='tp8core' and selection['measured']['A']==1
+    arm=selection['selected_arm']
+    assert arm in ('tp8base','tp8core','tp8act','tp8stack','tp8meta') and selection['measured']['A']==1
     out=args.service_root/'client';out.mkdir(exist_ok=True)
     assert not (out/'acceptance.json').exists(),'Do not overwrite previous acceptance'
     deadline=time.monotonic()+1800
@@ -68,7 +69,7 @@ def main():
     run('bench8',[python,'tools/bench_concurrency.py','--base-url',base,'--model',model,
         '--require-model','--concurrency','1','--prompt-count','8','--prompt-tokens','2048',
         '--output-tokens','256','--repeats','1','--json-out',str(out/'bench8.json'),
-        '--label','formal-core-strict-a321'])
+        '--label',f'formal-{arm}-strict-a321'])
     bench=json.loads((out/'bench8.json').read_text())
     assert bench['model']==model and len(bench['rows'])==1
     timing=bench['rows'][0]
@@ -89,7 +90,7 @@ def main():
     run('gsm100',[python,'tests/acc_eval.py','--task','gsm8k','--limit','100',
         '--base-url',base,'--model',model,'--conc','1','--mode','chat','--max-tokens','512',
         '--enc-dir',args.encoder,'--gsm8k-data-dir',str(args.data_root),
-        '--out',str(out/'gsm100.json'),'--tag','formal-core-strict-a321'])
+        '--out',str(out/'gsm100.json'),'--tag',f'formal-{arm}-strict-a321'])
     gsm=json.loads((out/'gsm100.json').read_text())['summary']
     vision=json.loads((out/'vision.json').read_text())
     report={'ownership_validated':True,'commands':receipts,'gsm_summary':gsm,'vision':vision,

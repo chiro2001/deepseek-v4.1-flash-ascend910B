@@ -15,7 +15,7 @@ COUNTS = {}
 SOURCE_SHA256 = None
 
 
-def install(model):
+def install(model, slot_prepare=None):
     global SOURCE_SHA256
     from vllm_ascend.attention import dsa_v41 as vendor
     cls = vendor.DeepseekV41MetadataBuilder
@@ -40,7 +40,7 @@ def install(model):
     fused_source = static_source[:left] + (
         '            prepared_slots = _goal20_prepare_slots(self, common, positions, num_input_tokens,\n'
         '                num_actual_reqs, num_actual_tokens, compressed, ratio, spec.storage_block_size,\n'
-        '                kwargs.get("skip_ring_state_update", False))\n'
+        '                kwargs.get("skip_ring_state_update", False), batch_shared)\n'
     ) + static_source[right:]
     ring_start = '        def build_c2_metadata() -> None:\n'
     ring_end = '        compressor_group = self._publish_task(\n'
@@ -52,7 +52,7 @@ def install(model):
         '                num_actual_reqs, num_actual_tokens, num_input_tokens,\n'
         '                kwargs.get("skip_ring_state_update", False), full_source_cos, full_source_sin)\n\n'
     ) + fused_source[right:]
-    namespace = dict(original.__globals__, _goal20_prepare_slots=prepare_slots,
+    namespace = dict(original.__globals__, _goal20_prepare_slots=slot_prepare or prepare_slots,
                      _goal20_prepare_ring=prepare_ring)
     exec(compile(static_source, '<goal20_metadata_static>', 'exec'), namespace)
     static_build = namespace['build']

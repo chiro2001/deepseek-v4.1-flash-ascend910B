@@ -24,6 +24,7 @@ def main():
     p.add_argument('--cpu-bind', action='store_true',
                    help='Enable NUMA binding only after validating shared-host memory migration')
     p.add_argument('--audit', action='store_true')
+    p.add_argument('--cpu-diagnostic',action='store_true')
     p.add_argument('--fp32-decode-reduction', action='store_true')
     p.add_argument('--hccl-deterministic', choices=('false','true','strict'))
     p.add_argument('--reduction-evidence', type=Path)
@@ -32,6 +33,7 @@ def main():
     p.add_argument('--profile-metrics', default='PipeUtilization,ArithmeticUtilization,Memory,MemoryL0,MemoryUB,L2Cache,ResourceConflictRatio')
     args = p.parse_args()
     assert not (args.audit and args.profile), 'Route/clone audit and profiling run separately'
+    assert not args.cpu_diagnostic or not (args.audit or args.profile)
     assert (os.getenv('STACK_FP32_DECODE_REDUCTION') == '1') == args.fp32_decode_reduction
     assert bool(args.reduction_evidence) == args.fp32_decode_reduction
     if args.hccl_deterministic is not None:
@@ -47,7 +49,7 @@ def main():
     assert args.pairs > 0
     arms = args.arms.split(',')
     assert arms[0] == 'tp8base' and len(set(arms)) == len(arms)
-    assert set(arms) <= {'tp8base','tp8core','tp8act','tp8stack'}
+    assert set(arms) <= {'tp8base','tp8core','tp8act','tp8stack','tp8meta'}
     os.environ['OPT_BLOCKMAP_VERIFY'] = '1' if args.audit else '0'
     out = Path(args.output); out.mkdir(parents=True, exist_ok=True)
     os.environ['VLLM_CACHE_ROOT'] = str(out / 'cache')
@@ -93,7 +95,7 @@ def main():
     assert all(len(prompt) == 2048 for prompt in prompts)
     (out/'prompts.json').write_text(json.dumps(prompts)+'\n')
 
-    def request(arm, tag, seed, metric=None):
+    def request(arm, tag, seed, metric=None, cpu_probe=False):
         nonlocal counter
         llm.collective_rpc(patches.switch, args=(arm,)); counter += 1
         count = 47 + seed % 2 if args.audit else 48
@@ -103,8 +105,12 @@ def main():
                            detokenize=False, logprobs=5 if args.audit else None))
         times = []; final = None
         profiling = False
+        cpu_profiling=False
         try:
             while engine.has_unfinished_requests():
+                if cpu_probe and len(times)==9:
+                    from formal_cpu_diagnostic import start as start_cpu_profile
+                    llm.collective_rpc(start_cpu_profile);cpu_profiling=True
                 if metric and len(times) == 9:
                     from formal_tp8_profile import configure
                     receipt = llm.collective_rpc(configure, args=(metric, str(out/'prof'/arm/metric), 5, 10))
@@ -112,6 +118,11 @@ def main():
                     llm.start_profile(); profiling = True
                 start = time.perf_counter(); outputs = engine.step()
                 times.append((time.perf_counter()-start)*1000)
+                if cpu_profiling and len(times)==24:
+                    from formal_cpu_diagnostic import stop as stop_cpu_profile
+                    cpu_rows=llm.collective_rpc(stop_cpu_profile);cpu_profiling=False
+                    assert len(cpu_rows)==8 and {r['rank'] for r in cpu_rows}==set(range(8))
+                    (out/f'cpu_diagnostic_{arm}.json').write_text(json.dumps(cpu_rows,indent=2)+'\n')
                 if profiling:
                     from formal_tp8_profile import advance
                     llm.collective_rpc(advance)
@@ -121,11 +132,14 @@ def main():
                     if value.finished: final = value
         finally:
             if profiling: llm.stop_profile()
+            if cpu_profiling:
+                from formal_cpu_diagnostic import stop as stop_cpu_profile
+                llm.collective_rpc(stop_cpu_profile)
         assert final is not None and len(final.outputs[0].token_ids) == count
         output = final.outputs[0]
         record = {'arm': arm, 'tag': tag, 'seed': seed, 'step_ms': times,
                   'decode_median_ms': statistics.median(times[9:]), 'token_ids': output.token_ids,
-                  'text':tokenizer.decode(output.token_ids), 'profile_metric':metric}
+                  'text':tokenizer.decode(output.token_ids), 'profile_metric':metric,'cpu_diagnostic':cpu_probe}
         if args.audit:
             import numpy as np
             routes = output.routed_experts
@@ -217,6 +231,9 @@ def main():
                 request(arm, 'profile-'+metric, 0, metric)
         print('REAL_TP8_PROFILE_COMPLETE', json.dumps({'metrics':profile_metrics,
               'ranks':8,'warmup':5,'active':10,'timing_result_excludes_profile':True}),flush=True)
+    if args.cpu_diagnostic:
+        for arm in dict.fromkeys([arms[1] if len(arms)>1 else arms[0],arms[-1]]):
+            request(arm,'cpu-diagnostic',0,cpu_probe=True)
 
 
 if __name__ == '__main__': main()

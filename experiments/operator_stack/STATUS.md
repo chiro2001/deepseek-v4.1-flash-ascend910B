@@ -5,6 +5,10 @@
 
 ## 当前状态（优先于下方历史记录）
 
+v14独立验证更新：`formal_slots_batch_probe_v4`退出0，INT32/INT64共144组CPU整数参考、尾部保护和6次变化输入图重放全部通过；独立事件INT32为801.356→392.164µs、INT64为945.504→458.397µs，均不计整网收益。`formal_slots_batch_audit_v1`已在同一正式实例建立base/core/meta三bank，源码`/work/src_manyslots_v6`，正在加载/审计。通过原生控制、6个配对、24份rank的12group消费者及实际覆盖后，守卫才启动12组关闭审计的perf＋单独cProfile。完整19ms目标仍active，最佳正式core质量100/100和23/23已验，但最终服务已为实验释放。
+
+更新v14：`formal_core_strict_service_v2`客户端退出0，GSM8K100/100、Vision23/23，8条serial性能`(26.744123ms/step,A=1,37.391393tok/s)`，归属已核对；随后仅SIGTERM本任务API以继续实验。新的完整19ms goal已重新创建active。新增`tp8meta`实验候选，将12group slot坐标转换合并一次发射，保留独立输出与每步动态值；默认已验收core不开启。v1 Ascend标量offset store编译失败已修正；v2/v3近INT32上界差异定位到旧core helper与CPU整数参考不符，候选与CPU相符。v4在`/work/src_manyslots_v6`运行，两种dtype全144组CPU参考及6次重放通过才启动正式审计；INT32已72组/3重放通过，独立事件801→392µs不计E2E。正式19ms及最终最佳部署未完成。
+
 客户端更新v13：core API v1归属验证及8条serial性能成功`(27.412337ms/step,A=1,36.479925tok/s)`。视觉23例被HTTP400缺chat template拒绝，不计为模型精度失败；启动入口已补生产deepseek_v41 tokenizer/parser，官方encoder文本预检一致。仅SIGTERM本任务API后重新检查无占用/Alarm，已启动`formal_core_strict_service_v2`（loopback18762，独立front-v2模型名）及串行验收runner。官方GSM8K train7473/test1319 JSONL已就绪，v2客户端pending。v12描述的是客户端结果落盘前的状态。
 
 2026-10-10更新：用户提醒的变量为`HCCL_DETERMINISTIC`（启动参数`HCCL_DET`），当前strict原生/叠加精度全delta0。`formal_strict_profile_v2`退出0，七组×两臂×八rank的112份CSV全部离线解析；新增时间线分析显示chip8 core采集态gap主要在主图前（7.283ms），主图内部1.162ms，仅为诊断、不能当可回收收益。微架构wo_a MTE2 0.872；GMM up Scalar0.600；没有UB occupancy或双缓冲收益证据。新增报告v12。

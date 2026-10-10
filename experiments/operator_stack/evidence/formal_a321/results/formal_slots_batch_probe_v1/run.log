@@ -1,0 +1,47 @@
+[W1010 09:57:35.296221620 NPUCachingAllocator.cpp:202] Warning: The current CANN and HDK(driver) versions require processing for 32 padding size, with memory allocation. (function operator())
+loc("/work/src_manyslots_v2/stack/tp8_slot_batches.py":39:22): error: expected result type with offset = 0 instead of 1
+Traceback (most recent call last):
+  File "/usr/local/python3.12.13/lib/python3.12/site-packages/triton/compiler/compiler.py", line 289, in compile
+    next_module = compile_ir(module, metadata)
+                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/python3.12.13/lib/python3.12/site-packages/triton/backends/ascend/compiler.py", line 1218, in <lambda>
+    stages["ttadapter"] = lambda src, metadata: ttir_to_linalg(
+                                                ^^^^^^^^^^^^^^^
+  File "/usr/local/python3.12.13/lib/python3.12/site-packages/triton/backends/ascend/compiler.py", line 247, in ttir_to_linalg
+    pm.run(mod)
+RuntimeError: PassManager::run failed
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "/work/src_manyslots_v2/stack/bench_formal_slots.py", line 96, in <module>
+    if __name__=='__main__':main()
+                            ^^^^^^
+  File "/usr/local/python3.12.13/lib/python3.12/site-packages/torch/utils/_contextlib.py", line 124, in decorate_context
+    return func(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^
+  File "/work/src_manyslots_v2/stack/bench_formal_slots.py", line 47, in main
+    registry.prepare(b,c,pos,1,actual_reqs,actual_tokens,compressed,ratio,bs,skip,batch)
+  File "/work/src_manyslots_v2/stack/tp8_slot_batches.py", line 113, in prepare
+    many_slot_kernel[(self.expected_groups,)](self.descriptors,positions,common.query_start_loc,
+  File "/usr/local/python3.12.13/lib/python3.12/site-packages/triton/runtime/jit.py", line 333, in <lambda>
+    return lambda *args, **kwargs: self.run(grid=grid, warmup=False, *args, **kwargs)
+                                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/python3.12.13/lib/python3.12/site-packages/triton/runtime/jit.py", line 622, in run
+    kernel = self._do_compile(key, signature, device, backend, target, constants, options, configs[0], warmup)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/python3.12.13/lib/python3.12/site-packages/triton/runtime/jit.py", line 787, in _do_compile
+    kernel = self.compile(src, target=target, options=options.__dict__)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/python3.12.13/lib/python3.12/site-packages/triton/compiler/compiler.py", line 303, in compile
+    raise MLIRCompilationError(stage_name, error_detail) from e
+triton.compiler.errors.MLIRCompilationError: 
+///------------------[ERROR][Triton][BEG]------------------
+[ConvertTritonIRToLinalgIR] encounters error:
+PassManager::run failed
+
+[INFO]: The compiled kernel cache is in /root/.triton/cache/n6oOei_qfsZRWm0ak5N2TUE_FiRzfBoYk02k8mWYLNM
+
+///------------------[ERROR][Triton][END]------------------
+
+[ERROR] 2026-10-10-09:57:55 (PID:264633, Device:0, RankID:-1) ERR99999 UNKNOWN applicaiton exception

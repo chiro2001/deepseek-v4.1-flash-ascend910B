@@ -16,19 +16,23 @@ def main():
     p = argparse.ArgumentParser(allow_abbrev=False)
     p.add_argument('--root', required=True)
     p.add_argument('--container', required=True)
+    p.add_argument('--source-dir', default='/work/src',
+                   help='Private immutable source snapshot inside the task mount')
     p.add_argument('--job', required=True)
     p.add_argument('--model', required=True)
     p.add_argument('--chips', required=True)
     p.add_argument('--pairs', type=int, default=3)
     p.add_argument('--arms', default='tp8base,tp8core,tp8act,tp8stack')
     p.add_argument('--audit', action='store_true')
+    p.add_argument('--cpu-diagnostic',action='store_true')
     p.add_argument('--profile', action='store_true')
     p.add_argument('--native-control', action='store_true')
     p.add_argument('--native-profile', action='store_true')
     p.add_argument('--reduction-bench', action='store_true')
+    p.add_argument('--slot-bench', action='store_true')
     p.add_argument('--vector-job')
     p.add_argument('--serve', action='store_true')
-    p.add_argument('--service-arm', choices=('tp8base','tp8core','tp8act','tp8stack'))
+    p.add_argument('--service-arm', choices=('tp8base','tp8core','tp8act','tp8stack','tp8meta'))
     p.add_argument('--audit-job')
     p.add_argument('--perf-job')
     p.add_argument('--port', type=int)
@@ -48,6 +52,11 @@ def main():
     assert args.job.replace('-', '').replace('_', '').isalnum(), args.job
     assert args.pairs > 0 and args.wait_seconds >= 0
     assert not (args.audit and args.profile)
+    assert not args.cpu_diagnostic or not any((args.audit,args.profile,args.native_control,
+        args.native_profile,args.reduction_bench,args.slot_bench,args.serve,args.eager))
+    assert not args.slot_bench or not any((args.audit,args.profile,args.native_control,args.native_profile,
+        args.reduction_bench,args.serve,args.eager,args.probe_native_ops,args.trace_attention,
+        args.fp32_decode_reduction,args.isolated_pools))
     assert not args.serve or (args.service_arm and args.audit_job and args.perf_job and args.port and args.served_model and
         args.hccl_deterministic=='strict' and not any((args.audit,args.profile,args.native_control,args.native_profile,args.reduction_bench,args.eager,args.probe_native_ops,args.trace_attention,args.fp32_decode_reduction,args.isolated_pools)))
     for name in (args.audit_job,args.perf_job):
@@ -66,10 +75,14 @@ def main():
     assert not args.isolated_pools or not args.native_control
     arms = args.arms.split(',')
     assert arms[0] == 'tp8base' and len(set(arms)) == len(arms)
-    assert set(arms) <= {'tp8base', 'tp8core', 'tp8act', 'tp8stack'}
+    assert set(arms) <= {'tp8base', 'tp8core', 'tp8act', 'tp8stack', 'tp8meta'}
     chips = [int(x) for x in args.chips.split(',')]
     assert len(chips) == len(set(chips)) == 8 and min(chips) >= 0
     root = Path(args.root).resolve()
+    source_dir=Path(args.source_dir)
+    assert source_dir.is_absolute() and '..' not in source_dir.parts and source_dir.is_relative_to('/work')
+    source_host=(root/source_dir.relative_to('/work')).resolve()
+    assert source_host.is_relative_to(root) and (source_host/'stack/run_stack.sh').is_file()
     config = json.loads(subprocess.check_output(['docker', 'inspect', args.container], text=True))[0]
     container_env = dict(item.split('=', 1) for item in config['Config']['Env'])
     assert config['State']['Running']
@@ -113,6 +126,7 @@ def main():
                 assert codes == ['80C98001'], ('Unexpected Alarm', chip, details)
                 alarm_details[chip] = details
         flags = {
+            'STACK_SRC_ROOT': str(source_dir),
             'LOCAL_WORLD_SIZE': '8', 'TASK_QUEUE_ENABLE': '1',
             'HCCL_OP_EXPANSION_MODE': 'AIV', 'HCCL_BUFFSIZE': '1024',
             'ASCEND_MAX_OP_CACHE_SIZE': '-1',
@@ -127,6 +141,7 @@ def main():
             'V41_ENGRAM_ROUTE_PROBE': '0', 'NUMBA_CACHE_DIR': '/work/cache/numba',
         }
         flags['STACK_TP8_ISOLATED_POOLS'] = '1' if args.isolated_pools else '0'
+        flags['STACK_METADATA_MANY_SLOTS_ENABLED'] = '1' if ('tp8meta' in arms or args.service_arm=='tp8meta') else '0'
         flags['STACK_FP32_DECODE_REDUCTION'] = '1' if args.fp32_decode_reduction else '0'
         if args.hccl_deterministic is not None:
             # HCCL reads this at process/communicator initialization; exporting
@@ -134,24 +149,24 @@ def main():
             flags['HCCL_DETERMINISTIC'] = args.hccl_deterministic
         if args.hccl_npu_socket_port_range is not None:
             flags['HCCL_NPU_SOCKET_PORT_RANGE'] = args.hccl_npu_socket_port_range
-        script_name = ('serve_formal_tp8.py' if args.serve else
+        script_name = ('bench_formal_slots.py' if args.slot_bench else 'serve_formal_tp8.py' if args.serve else
                        'bench_real_reductions.py' if args.reduction_bench else
                        'profile_formal_native.py' if args.native_profile else
                        'bench_formal_native_control.py' if args.native_control else 'bench_real_tp8_model.py')
-        command = ['bash', '/work/src/stack/run_stack.sh', script_name,
+        command = ['bash', str(source_dir/'stack/run_stack.sh'), script_name,
             '--physical-chips=' + args.chips,
             '--output=/work/results/' + args.job]
         if args.reduction_bench:
             command.append('--input=/work/results/' + args.vector_job)
-        else:
+        elif not args.slot_bench:
             command.append('--model=' + args.model)
         if args.serve:
             command.extend(['--audit-root=/work/results/'+args.audit_job,
                             '--perf-root=/work/results/'+args.perf_job,
                             '--arm='+args.service_arm,'--port='+str(args.port),'--served-model='+args.served_model])
-        if not args.native_profile and not args.reduction_bench and not args.serve:
+        if not args.native_profile and not args.reduction_bench and not args.slot_bench and not args.serve:
             command.append('--pairs=' + str(args.pairs))
-        if not args.native_control and not args.native_profile and not args.reduction_bench and not args.serve:
+        if not args.native_control and not args.native_profile and not args.reduction_bench and not args.slot_bench and not args.serve:
             command.append('--arms=' + args.arms)
         if args.eager:
             command.append('--eager')
@@ -161,7 +176,7 @@ def main():
             command.append('--trace-attention')
         if args.fp32_decode_reduction:
             command.append('--fp32-decode-reduction')
-        if args.hccl_deterministic is not None and (args.native_control or not (args.native_profile or args.reduction_bench or args.serve)):
+        if args.hccl_deterministic is not None and (args.native_control or not (args.native_profile or args.reduction_bench or args.slot_bench or args.serve)):
             command.append('--hccl-deterministic=' + args.hccl_deterministic)
         if args.reduction_evidence_job:
             command.append('--reduction-evidence=/work/results/' + args.reduction_evidence_job)
@@ -169,6 +184,8 @@ def main():
             command.append('--audit')
         if args.profile:
             command.append('--profile')
+        if args.cpu_diagnostic:
+            command.append('--cpu-diagnostic')
         job_path = '/work/results/' + args.job
         body = '#!/usr/bin/env bash\nset -uo pipefail\numask 022\nmkdir -p /work/cache/numba\n'
         body += '\n'.join('export ' + k + '=' + shlex.quote(v) for k, v in flags.items()) + '\n'
@@ -184,7 +201,8 @@ def main():
             'chips': chips, 'resources': parsed, 'alarm_details': alarm_details,
             'env': flags, 'argv': command,
             'script_sha256': hashlib.sha256(body.encode()).hexdigest(),
-            'source_sha256': hashlib.sha256((root / 'src/stack' / script_name).read_bytes()).hexdigest()}
+            'source_dir':str(source_dir),
+            'source_sha256': hashlib.sha256((source_host / 'stack' / script_name).read_bytes()).hexdigest()}
         (out / 'resource_prelaunch.txt').write_text(raw)
         subprocess.run(['docker', 'exec', '-d', args.container, 'bash', '/work/' + script.name], check=True)
         (out / 'launched.json').write_text(json.dumps(receipt, indent=2) + '\n')

@@ -1,0 +1,22 @@
+[W1010 10:28:56.688787540 NPUCachingAllocator.cpp:202] Warning: The current CANN and HDK(driver) versions require processing for 32 padding size, with memory allocation. (function operator())
+SLOT_COORDINATE_MISMATCH {"slot_dtype": "torch.int32", "raw": 2147483520, "position": 511, "actual_reqs": 1, "actual_tokens": 1, "skip": false, "group": 5, "actual": [[16777215, 2]], "expected": [[16777215, 0]], "descriptors": [[20623359215104, 20623359214592, 0, 0, 0], [20623359216128, 20623359215616, 6, 1, 1], [20623359217152, 20623359216640, 7, 1, 1], [20623359218176, 20623359217664, 8, 0, 0], [20623359219200, 20623359218688, 0, 1, 1], [20623359220224, 20623359219712, 6, 1, 1], [20623359221248, 20623359220736, 7, 0, 0], [20623359222272, 20623359221760, 8, 1, 1], [20623359223296, 20623359222784, 0, 1, 1], [20623359224320, 20623359223808, 6, 0, 0], [20623359225344, 20623359224832, 7, 1, 1], [20623359226368, 20623359225856, 8, 1, 1]], "group_inputs": [2147483520, 2147483521, 2147483522, 2147483523, 2147483524, 2147483525, 2147483526, 2147483527, 2147483528, 2147483529, 2147483530, 2147483531]}
+Traceback (most recent call last):
+  File "/work/src_manyslots_v5/stack/bench_formal_slots.py", line 115, in <module>
+    if __name__=='__main__':main()
+                            ^^^^^^
+  File "/work/src_manyslots_v5/stack/bench_formal_slots.py", line 105, in main
+    variants=[run_dtype(dtype) for dtype in (torch.int32,torch.int64)]
+              ^^^^^^^^^^^^^^^^
+  File "/usr/local/python3.12.13/lib/python3.12/site-packages/torch/utils/_contextlib.py", line 124, in decorate_context
+    return func(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^
+  File "/work/src_manyslots_v5/stack/bench_formal_slots.py", line 51, in run_dtype
+    torch.testing.assert_close(b._slot_mapping_2d[:1],gold,rtol=0,atol=0)
+  File "/usr/local/python3.12.13/lib/python3.12/site-packages/torch/testing/_comparison.py", line 1600, in assert_close
+    raise error_metas[0].to_error(msg)
+AssertionError: Tensor-likes are not equal!
+
+Mismatched elements: 1 / 2 (50.0%)
+Greatest absolute difference: 2 at index (0, 1)
+Greatest relative difference: inf at index (0, 1)
+[ERROR] 2026-10-10-10:28:58 (PID:270788, Device:0, RankID:-1) ERR99999 UNKNOWN applicaiton exception

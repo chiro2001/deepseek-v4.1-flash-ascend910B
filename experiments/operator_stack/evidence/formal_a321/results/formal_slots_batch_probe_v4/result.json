@@ -1,0 +1,1631 @@
+{
+  "scope": "Independent coordinate conversion; not model E2E",
+  "formal_int32_contract_tested": true,
+  "all_exact": true,
+  "mathematical_cases": 144,
+  "changed_input_graph_replays": 6,
+  "performance_claim": null,
+  "variants": [
+    {
+      "scope": "Independent 12-group batch1 coordinate conversion; not model E2E",
+      "physical_chip": 8,
+      "slot_dtype": "torch.int32",
+      "positions_dtype": "torch.int64",
+      "mathematical_cases": 72,
+      "all_exact": true,
+      "all_output_tails_unchanged": true,
+      "changed_input_graph_replays": 3,
+      "registry": {
+        "counts": {
+          "fallback:arm": 864,
+          "descriptor_builds": 1,
+          "fused_launches": 877,
+          "reused_group_output": 9647
+        },
+        "registered_groups": 12,
+        "expected_groups": 12,
+        "dynamic_values_cached": false
+      },
+      "samples": [
+        {
+          "trial": 0,
+          "arm": "native_12_launches",
+          "device_event_us": 802.9112243652344,
+          "host_fenced_us": 807.7978994697332
+        },
+        {
+          "trial": 0,
+          "arm": "fused_1_launch",
+          "device_event_us": 395.90179443359375,
+          "host_fenced_us": 397.2285985946655
+        },
+        {
+          "trial": 1,
+          "arm": "fused_1_launch",
+          "device_event_us": 387.6268005371094,
+          "host_fenced_us": 388.8918971642852
+        },
+        {
+          "trial": 1,
+          "arm": "native_12_launches",
+          "device_event_us": 811.3390350341797,
+          "host_fenced_us": 812.7258019521832
+        },
+        {
+          "trial": 2,
+          "arm": "native_12_launches",
+          "device_event_us": 807.0564270019531,
+          "host_fenced_us": 808.5869019851089
+        },
+        {
+          "trial": 2,
+          "arm": "fused_1_launch",
+          "device_event_us": 395.0828170776367,
+          "host_fenced_us": 396.326701156795
+        },
+        {
+          "trial": 3,
+          "arm": "fused_1_launch",
+          "device_event_us": 393.6996078491211,
+          "host_fenced_us": 395.0196970254183
+        },
+        {
+          "trial": 3,
+          "arm": "native_12_launches",
+          "device_event_us": 823.1981658935547,
+          "host_fenced_us": 824.5088998228312
+        },
+        {
+          "trial": 4,
+          "arm": "native_12_launches",
+          "device_event_us": 799.8001861572266,
+          "host_fenced_us": 801.0529028251767
+        },
+        {
+          "trial": 4,
+          "arm": "fused_1_launch",
+          "device_event_us": 390.6288146972656,
+          "host_fenced_us": 391.88480004668236
+        },
+        {
+          "trial": 5,
+          "arm": "fused_1_launch",
+          "device_event_us": 385.73341369628906,
+          "host_fenced_us": 386.9283013045788
+        },
+        {
+          "trial": 5,
+          "arm": "native_12_launches",
+          "device_event_us": 794.56298828125,
+          "host_fenced_us": 795.9575019776821
+        },
+        {
+          "trial": 6,
+          "arm": "native_12_launches",
+          "device_event_us": 799.5379638671875,
+          "host_fenced_us": 801.1164981871843
+        },
+        {
+          "trial": 6,
+          "arm": "fused_1_launch",
+          "device_event_us": 386.1553955078125,
+          "host_fenced_us": 387.24320009350777
+        },
+        {
+          "trial": 7,
+          "arm": "fused_1_launch",
+          "device_event_us": 414.6937942504883,
+          "host_fenced_us": 416.071699000895
+        },
+        {
+          "trial": 7,
+          "arm": "native_12_launches",
+          "device_event_us": 794.9613952636719,
+          "host_fenced_us": 796.433798968792
+        }
+      ],
+      "medians": {
+        "native_12_launches": {
+          "device_event_us": 801.3557052612305,
+          "host_fenced_us": 804.4571988284588
+        },
+        "fused_1_launch": {
+          "device_event_us": 392.16421127319336,
+          "host_fenced_us": 393.4522485360503
+        }
+      },
+      "performance_claim": null,
+      "cases": [
+        {
+          "raw": -1,
+          "position": 0,
+          "actual_reqs": 0,
+          "actual_tokens": 0,
+          "skip": false,
+          "groups": 12,
+          "exact": true
+        },
+        {
+          "raw": -1,
+          "position": 0,
+          "actual_reqs": 0,
+          "actual_tokens": 0,
+          "skip": true,
+          "groups": 12,
+          "exact": true
+        },
+        {
+          "raw": -1,
+          "position": 0,
+          "actual_reqs": 0,
+          "actual_tokens": 1,
+          "skip": false,
+          "groups": 12,
+          "exact": true
+        },
+        {
+          "raw": -1,
+          "position": 0,
+          "actual_reqs": 0,
+          "actual_tokens": 1,
+          "skip": true,
+          "groups": 12,
+          "exact": true
+        },
+        {
+          "raw": -1,
+          "position": 0,
+          "actual_reqs": 1,
+          "actual_tokens": 0,
+          "skip": false,
+          "groups": 12,
+          "exact": true
+        },
+        {
+          "raw": -1,
+          "position": 0,
+          "actual_reqs": 1,
+          "actual_tokens": 0,
+          "skip": true,
+          "groups": 12,
+          "exact": true
+        },
+        {
+          "raw": -1,
+          "position": 0,
+          "actual_reqs": 1,
+          "actual_tokens": 1,
+          "skip": false,
+          "groups": 12,
+          "exact": true
+        },
+        {
+          "raw": -1,
+          "position": 0,
+          "actual_reqs": 1,
+          "actual_tokens": 1,
+          "skip": true,
+          "groups": 12,
+          "exact": true
+        },
+        {
+          "raw": 0,
+          "position": 0,
+          "actual_reqs": 0,
+          "actual_tokens": 0,
+          "skip": false,
+          "groups": 12,
+          "exact": true
+        },
+        {
+          "raw": 0,
+          "position": 0,
+          "actual_reqs": 0,
+          "actual_tokens": 0,
+          "skip": true,
+          "groups": 12,
+          "exact": true
+        },
+        {
+          "raw": 0,
+          "position": 0,
+          "actual_reqs": 0,
+          "actual_tokens": 1,
+          "skip": false,
+          "groups": 12,
+          "exact": true
+        },
+        {
+          "raw": 0,
+          "position": 0,
+          "actual_reqs": 0,
+          "actual_tokens": 1,
+          "skip": true,
+          "groups": 12,
+          "exact": true
+        },
+        {
+          "raw": 0,
+          "position": 0,
+          "actual_reqs": 1,
+          "actual_tokens": 0,
+          "skip": false,
+          "groups": 12,
+          "exact": true
+        },
+        {
+          "raw": 0,
+          "position": 0,
+          "actual_reqs": 1,
+          "actual_tokens": 0,
+          "skip": true,
+          "groups": 12,
+          "exact": true
+        },
+        {
+          "raw": 0,
+          "position": 0,
+          "actual_reqs": 1,
+          "actual_tokens": 1,
+          "skip": false,
+          "groups": 12,
+          "exact": true
+        },
+        {
+          "raw": 0,
+          "position": 0,
+          "actual_reqs": 1,
+          "actual_tokens": 1,
+          "skip": true,
+          "groups": 12,
+          "exact": true
+        },
+        {
+          "raw": 1,
+          "position": 1,
+          "actual_reqs": 0,
+          "actual_tokens": 0,
+          "skip": false,
+          "groups": 12,
+          "exact": true
+        },
+        {
+          "raw": 1,
+          "position": 1,
+          "actual_reqs": 0,
+          "actual_tokens": 0,
+          "skip": true,
+          "groups": 12,
+          "exact": true
+        },
+        {
+          "raw": 1,
+          "position": 1,
+          "actual_reqs": 0,
+          "actual_tokens": 1,
+          "skip": false,
+          "groups": 12,
+          "exact": true
+        },
+        {
+          "raw": 1,
+          "position": 1,
+          "actual_reqs": 0,
+          "actual_tokens": 1,
+          "skip": true,
+          "groups": 12,
+          "exact": true
+        },
+        {
+          "raw": 1,
+          "position": 1,
+          "actual_reqs": 1,
+          "actual_tokens": 0,
+          "skip": false,
+          "groups": 12,
+          "exact": true
+        },
+        {
+          "raw": 1,
+          "position": 1,
+          "actual_reqs": 1,
+          "actual_tokens": 0,
+          "skip": true,
+          "groups": 12,
+          "exact": true
+        },
+        {
+          "raw": 1,
+          "position": 1,
+          "actual_reqs": 1,
+          "actual_tokens": 1,
+          "skip": false,
+          "groups": 12,
+          "exact": true
+        },
+        {
+          "raw": 1,
+          "position": 1,
+          "actual_reqs": 1,
+          "actual_tokens": 1,
+          "skip": true,
+          "groups": 12,
+          "exact": true
+        },
+        {
+          "raw": 127,
+          "position": 127,
+          "actual_reqs": 0,
+          "actual_tokens": 0,
+          "skip": false,
+          "groups": 12,
+          "exact": true
+        },
+        {
+          "raw": 127,
+          "position": 127,
+          "actual_reqs": 0,
+          "actual_tokens": 0,
+          "skip": true,
+          "groups": 12,
+          "exact": true
+        },
+        {
+          "raw": 127,
+          "position": 127,
+          "actual_reqs": 0,
+          "actual_tokens": 1,
+          "skip": false,
+          "groups": 12,
+          "exact": true
+        },
+        {
+          "raw": 127,
+          "position": 127,
+          "actual_reqs": 0,
+          "actual_tokens": 1,
+          "skip": true,
+          "groups": 12,
+          "exact": true
+        },
+        {
+          "raw": 127,
+          "position": 127,
+          "actual_reqs": 1,
+          "actual_tokens": 0,
+          "skip": false,
+          "groups": 12,
+          "exact": true
+        },
+        {
+          "raw": 127,
+          "position": 127,
+          "actual_reqs": 1,
+          "actual_tokens": 0,
+          "skip": true,
+          "groups": 12,
+          "exact": true
+        },
+        {
+          "raw": 127,
+          "position": 127,
+          "actual_reqs": 1,
+          "actual_tokens": 1,
+          "skip": false,
+          "groups": 12,
+          "exact": true
+        },
+        {
+          "raw": 127,
+          "position": 127,
+          "actual_reqs": 1,
+          "actual_tokens": 1,
+          "skip": true,
+          "groups": 12,
+          "exact": true
+        },
+        {
+          "raw": 128,
+          "position": 128,
+          "actual_reqs": 0,
+          "actual_tokens": 0,
+          "skip": false,
+          "groups": 12,
+          "exact": true
+        },
+        {
+          "raw": 128,
+          "position": 128,
+          "actual_reqs": 0,
+          "actual_tokens": 0,
+          "skip": true,
+          "groups": 12,
+          "exact": true
+        },
+        {
+          "raw": 128,
+          "position": 128,
+          "actual_reqs": 0,
+          "actual_tokens": 1,
+          "skip": false,
+          "groups": 12,
+          "exact": true
+        },
+        {
+          "raw": 128,
+          "position": 128,
+          "actual_reqs": 0,
+          "actual_tokens": 1,
+          "skip": true,
+          "groups": 12,
+          "exact": true
+        },
+        {
+          "raw": 128,
+          "position": 128,
+          "actual_reqs": 1,
+          "actual_tokens": 0,
+          "skip": false,
+          "groups": 12,
+          "exact": true
+        },
+        {
+          "raw": 128,
+          "position": 128,
+          "actual_reqs": 1,
+          "actual_tokens": 0,
+          "skip": true,
+          "groups": 12,
+          "exact": true
+        },
+        {
+          "raw": 128,
+          "position": 128,
+          "actual_reqs": 1,
+          "actual_tokens": 1,
+          "skip": false,
+          "groups": 12,
+          "exact": true
+        },
+        {
+          "raw": 128,
+          "position": 128,
+          "actual_reqs": 1,
+          "actual_tokens": 1,
+          "skip": true,
+          "groups": 12,
+          "exact": true
+        },
+        {
+          "raw": 129,
+          "position": 129,
+          "actual_reqs": 0,
+          "actual_tokens": 0,
+          "skip": false,
+          "groups": 12,
+          "exact": true
+        },
+        {
+          "raw": 129,
+          "position": 129,
+          "actual_reqs": 0,
+          "actual_tokens": 0,
+          "skip": true,
+          "groups": 12,
+          "exact": true
+        },
+        {
+          "raw": 129,
+          "position": 129,
+          "actual_reqs": 0,
+          "actual_tokens": 1,
+          "skip": false,
+          "groups": 12,
+          "exact": true
+        },
+        {
+          "raw": 129,
+          "position": 129,
+          "actual_reqs": 0,
+          "actual_tokens": 1,
+          "skip": true,
+          "groups": 12,
+          "exact": true
+        },
+        {
+          "raw": 129,
+          "position": 129,
+          "actual_reqs": 1,
+          "actual_tokens": 0,
+          "skip": false,
+          "groups": 12,
+          "exact": true
+        },
+        {
+          "raw": 129,
+          "position": 129,
+          "actual_reqs": 1,
+          "actual_tokens": 0,
+          "skip": true,
+          "groups": 12,
+          "exact": true
+        },
+        {
+          "raw": 129,
+          "position": 129,
+          "actual_reqs": 1,
+          "actual_tokens": 1,
+          "skip": false,
+          "groups": 12,
+          "exact": true
+        },
+        {
+          "raw": 129,
+          "position": 129,
+          "actual_reqs": 1,
+          "actual_tokens": 1,
+          "skip": true,
+          "groups": 12,
+          "exact": true
+        },
+        {
+          "raw": 255,
+          "position": 255,
+          "actual_reqs": 0,
+          "actual_tokens": 0,
+          "skip": false,
+          "groups": 12,
+          "exact": true
+        },
+        {
+          "raw": 255,
+          "position": 255,
+          "actual_reqs": 0,
+          "actual_tokens": 0,
+          "skip": true,
+          "groups": 12,
+          "exact": true
+        },
+        {
+          "raw": 255,
+          "position": 255,
+          "actual_reqs": 0,
+          "actual_tokens": 1,
+          "skip": false,
+          "groups": 12,
+          "exact": true
+        },
+        {
+          "raw": 255,
+          "position": 255,
+          "actual_reqs": 0,
+          "actual_tokens": 1,
+          "skip": true,
+          "groups": 12,
+          "exact": true
+        },
+        {
+          "raw": 255,
+          "position": 255,
+          "actual_reqs": 1,
+          "actual_tokens": 0,
+          "skip": false,
+          "groups": 12,
+          "exact": true
+        },
+        {
+          "raw": 255,
+          "position": 255,
+          "actual_reqs": 1,
+          "actual_tokens": 0,
+          "skip": true,
+          "groups": 12,
+          "exact": true
+        },
+        {
+          "raw": 255,
+          "position": 255,
+          "actual_reqs": 1,
+          "actual_tokens": 1,
+          "skip": false,
+          "groups": 12,
+          "exact": true
+        },
+        {
+          "raw": 255,
+          "position": 255,
+          "actual_reqs": 1,
+          "actual_tokens": 1,
+          "skip": true,
+          "groups": 12,
+          "exact": true
+        },
+        {
+          "raw": 256,
+          "position": 256,
+          "actual_reqs": 0,
+          "actual_tokens": 0,
+          "skip": false,
+          "groups": 12,
+          "exact": true
+        },
+        {
+          "raw": 256,
+          "position": 256,
+          "actual_reqs": 0,
+          "actual_tokens": 0,
+          "skip": true,
+          "groups": 12,
+          "exact": true
+        },
+        {
+          "raw": 256,
+          "position": 256,
+          "actual_reqs": 0,
+          "actual_tokens": 1,
+          "skip": false,
+          "groups": 12,
+          "exact": true
+        },
+        {
+          "raw": 256,
+          "position": 256,
+          "actual_reqs": 0,
+          "actual_tokens": 1,
+          "skip": true,
+          "groups": 12,
+          "exact": true
+        },
+        {
+          "raw": 256,
+          "position": 256,
+          "actual_reqs": 1,
+          "actual_tokens": 0,
+          "skip": false,
+          "groups": 12,
+          "exact": true
+        },
+        {
+          "raw": 256,
+          "position": 256,
+          "actual_reqs": 1,
+          "actual_tokens": 0,
+          "skip": true,
+          "groups": 12,
+          "exact": true
+        },
+        {
+          "raw": 256,
+          "position": 256,
+          "actual_reqs": 1,
+          "actual_tokens": 1,
+          "skip": false,
+          "groups": 12,
+          "exact": true
+        },
+        {
+          "raw": 256,
+          "position": 256,
+          "actual_reqs": 1,
+          "actual_tokens": 1,
+          "skip": true,
+          "groups": 12,
+          "exact": true
+        },
+        {
+          "raw": 2147483520,
+          "position": 511,
+          "actual_reqs": 0,
+          "actual_tokens": 0,
+          "skip": false,
+          "groups": 12,
+          "exact": true
+        },
+        {
+          "raw": 2147483520,
+          "position": 511,
+          "actual_reqs": 0,
+          "actual_tokens": 0,
+          "skip": true,
+          "groups": 12,
+          "exact": true
+        },
+        {
+          "raw": 2147483520,
+          "position": 511,
+          "actual_reqs": 0,
+          "actual_tokens": 1,
+          "skip": false,
+          "groups": 12,
+          "exact": true
+        },
+        {
+          "raw": 2147483520,
+          "position": 511,
+          "actual_reqs": 0,
+          "actual_tokens": 1,
+          "skip": true,
+          "groups": 12,
+          "exact": true
+        },
+        {
+          "raw": 2147483520,
+          "position": 511,
+          "actual_reqs": 1,
+          "actual_tokens": 0,
+          "skip": false,
+          "groups": 12,
+          "exact": true
+        },
+        {
+          "raw": 2147483520,
+          "position": 511,
+          "actual_reqs": 1,
+          "actual_tokens": 0,
+          "skip": true,
+          "groups": 12,
+          "exact": true
+        },
+        {
+          "raw": 2147483520,
+          "position": 511,
+          "actual_reqs": 1,
+          "actual_tokens": 1,
+          "skip": false,
+          "groups": 12,
+          "exact": true
+        },
+        {
+          "raw": 2147483520,
+          "position": 511,
+          "actual_reqs": 1,
+          "actual_tokens": 1,
+          "skip": true,
+          "groups": 12,
+          "exact": true
+        }
+      ],
+      "integer_reference": "CPU exact floor/remainder; no floating-point conversion",
+      "existing_reference_discrepancies_outside_formal_pool_range": [
+        {
+          "dtype": "torch.int32",
+          "raw": 2147483525,
+          "position": 511,
+          "group": 5,
+          "native": [
+            [
+              16777215,
+              0
+            ]
+          ],
+          "cpu_integer_reference": [
+            [
+              16777215,
+              2
+            ]
+          ]
+        },
+        {
+          "dtype": "torch.int32",
+          "raw": 2147483527,
+          "position": 511,
+          "group": 7,
+          "native": [
+            [
+              4194303,
+              192
+            ]
+          ],
+          "cpu_integer_reference": [
+            [
+              4194303,
+              195
+            ]
+          ]
+        },
+        {
+          "dtype": "torch.int32",
+          "raw": 2147483531,
+          "position": 511,
+          "group": 11,
+          "native": [
+            [
+              4194303,
+              192
+            ]
+          ],
+          "cpu_integer_reference": [
+            [
+              4194303,
+              197
+            ]
+          ]
+        }
+      ],
+      "existing_reference_matches_below_2pow24": true
+    },
+    {
+      "scope": "Independent 12-group batch1 coordinate conversion; not model E2E",
+      "physical_chip": 8,
+      "slot_dtype": "torch.int64",
+      "positions_dtype": "torch.int64",
+      "mathematical_cases": 72,
+      "all_exact": true,
+      "all_output_tails_unchanged": true,
+      "changed_input_graph_replays": 3,
+      "registry": {
+        "counts": {
+          "fallback:arm": 864,
+          "descriptor_builds": 1,
+          "fused_launches": 877,
+          "reused_group_output": 9647
+        },
+        "registered_groups": 12,
+        "expected_groups": 12,
+        "dynamic_values_cached": false
+      },
+      "samples": [
+        {
+          "trial": 0,
+          "arm": "native_12_launches",
+          "device_event_us": 992.8282165527344,
+          "host_fenced_us": 995.0212994590402
+        },
+        {
+          "trial": 0,
+          "arm": "fused_1_launch",
+          "device_event_us": 429.71038818359375,
+          "host_fenced_us": 431.27269949764013
+        },
+        {
+          "trial": 1,
+          "arm": "fused_1_launch",
+          "device_event_us": 431.82579040527344,
+          "host_fenced_us": 434.01720002293587
+        },
+        {
+          "trial": 1,
+          "arm": "native_12_launches",
+          "device_event_us": 961.3690185546875,
+          "host_fenced_us": 963.2669994607568
+        },
+        {
+          "trial": 2,
+          "arm": "native_12_launches",
+          "device_event_us": 960.9764099121094,
+          "host_fenced_us": 962.9013016819954
+        },
+        {
+          "trial": 2,
+          "arm": "fused_1_launch",
+          "device_event_us": 456.1635971069336,
+          "host_fenced_us": 457.9707980155945
+        },
+        {
+          "trial": 3,
+          "arm": "fused_1_launch",
+          "device_event_us": 496.78260803222656,
+          "host_fenced_us": 498.5389020293951
+        },
+        {
+          "trial": 3,
+          "arm": "native_12_launches",
+          "device_event_us": 926.7282104492188,
+          "host_fenced_us": 928.5095008090138
+        },
+        {
+          "trial": 4,
+          "arm": "native_12_launches",
+          "device_event_us": 941.9979858398438,
+          "host_fenced_us": 943.7212999910116
+        },
+        {
+          "trial": 4,
+          "arm": "fused_1_launch",
+          "device_event_us": 476.52599334716797,
+          "host_fenced_us": 478.4440016373992
+        },
+        {
+          "trial": 5,
+          "arm": "fused_1_launch",
+          "device_event_us": 456.57520294189453,
+          "host_fenced_us": 458.0659978091717
+        },
+        {
+          "trial": 5,
+          "arm": "native_12_launches",
+          "device_event_us": 923.3525848388672,
+          "host_fenced_us": 925.1058008521795
+        },
+        {
+          "trial": 6,
+          "arm": "native_12_launches",
+          "device_event_us": 949.0103912353516,
+          "host_fenced_us": 950.7251996546984
+        },
+        {
+          "trial": 6,
+          "arm": "fused_1_launch",
+          "device_event_us": 468.406982421875,
+          "host_fenced_us": 470.20339872688055
+        },
+        {
+          "trial": 7,
+          "arm": "fused_1_launch",
+          "device_event_us": 460.21839141845703,
+          "host_fenced_us": 462.33810018748045
+        },
+        {
+          "trial": 7,
+          "arm": "native_12_launches",
+          "device_event_us": 914.3708038330078,
+          "host_fenced_us": 916.5558964014053
+        }
+      ],
+      "medians": {
+        "native_12_launches": {
+          "device_event_us": 945.5041885375977,
+          "host_fenced_us": 947.223249822855
+        },
+        "fused_1_launch": {
+          "device_event_us": 458.3967971801758,
+          "host_fenced_us": 460.20204899832606
+        }
+      },
+      "performance_claim": null,
+      "cases": [
+        {
+          "raw": -1,
+          "position": 0,
+          "actual_reqs": 0,
+          "actual_tokens": 0,
+          "skip": false,
+          "groups": 12,
+          "exact": true
+        },
+        {
+          "raw": -1,
+          "position": 0,
+          "actual_reqs": 0,
+          "actual_tokens": 0,
+          "skip": true,
+          "groups": 12,
+          "exact": true
+        },
+        {
+          "raw": -1,
+          "position": 0,
+          "actual_reqs": 0,
+          "actual_tokens": 1,
+          "skip": false,
+          "groups": 12,
+          "exact": true
+        },
+        {
+          "raw": -1,
+          "position": 0,
+          "actual_reqs": 0,
+          "actual_tokens": 1,
+          "skip": true,
+          "groups": 12,
+          "exact": true
+        },
+        {
+          "raw": -1,
+          "position": 0,
+          "actual_reqs": 1,
+          "actual_tokens": 0,
+          "skip": false,
+          "groups": 12,
+          "exact": true
+        },
+        {
+          "raw": -1,
+          "position": 0,
+          "actual_reqs": 1,
+          "actual_tokens": 0,
+          "skip": true,
+          "groups": 12,
+          "exact": true
+        },
+        {
+          "raw": -1,
+          "position": 0,
+          "actual_reqs": 1,
+          "actual_tokens": 1,
+          "skip": false,
+          "groups": 12,
+          "exact": true
+        },
+        {
+          "raw": -1,
+          "position": 0,
+          "actual_reqs": 1,
+          "actual_tokens": 1,
+          "skip": true,
+          "groups": 12,
+          "exact": true
+        },
+        {
+          "raw": 0,
+          "position": 0,
+          "actual_reqs": 0,
+          "actual_tokens": 0,
+          "skip": false,
+          "groups": 12,
+          "exact": true
+        },
+        {
+          "raw": 0,
+          "position": 0,
+          "actual_reqs": 0,
+          "actual_tokens": 0,
+          "skip": true,
+          "groups": 12,
+          "exact": true
+        },
+        {
+          "raw": 0,
+          "position": 0,
+          "actual_reqs": 0,
+          "actual_tokens": 1,
+          "skip": false,
+          "groups": 12,
+          "exact": true
+        },
+        {
+          "raw": 0,
+          "position": 0,
+          "actual_reqs": 0,
+          "actual_tokens": 1,
+          "skip": true,
+          "groups": 12,
+          "exact": true
+        },
+        {
+          "raw": 0,
+          "position": 0,
+          "actual_reqs": 1,
+          "actual_tokens": 0,
+          "skip": false,
+          "groups": 12,
+          "exact": true
+        },
+        {
+          "raw": 0,
+          "position": 0,
+          "actual_reqs": 1,
+          "actual_tokens": 0,
+          "skip": true,
+          "groups": 12,
+          "exact": true
+        },
+        {
+          "raw": 0,
+          "position": 0,
+          "actual_reqs": 1,
+          "actual_tokens": 1,
+          "skip": false,
+          "groups": 12,
+          "exact": true
+        },
+        {
+          "raw": 0,
+          "position": 0,
+          "actual_reqs": 1,
+          "actual_tokens": 1,
+          "skip": true,
+          "groups": 12,
+          "exact": true
+        },
+        {
+          "raw": 1,
+          "position": 1,
+          "actual_reqs": 0,
+          "actual_tokens": 0,
+          "skip": false,
+          "groups": 12,
+          "exact": true
+        },
+        {
+          "raw": 1,
+          "position": 1,
+          "actual_reqs": 0,
+          "actual_tokens": 0,
+          "skip": true,
+          "groups": 12,
+          "exact": true
+        },
+        {
+          "raw": 1,
+          "position": 1,
+          "actual_reqs": 0,
+          "actual_tokens": 1,
+          "skip": false,
+          "groups": 12,
+          "exact": true
+        },
+        {
+          "raw": 1,
+          "position": 1,
+          "actual_reqs": 0,
+          "actual_tokens": 1,
+          "skip": true,
+          "groups": 12,
+          "exact": true
+        },
+        {
+          "raw": 1,
+          "position": 1,
+          "actual_reqs": 1,
+          "actual_tokens": 0,
+          "skip": false,
+          "groups": 12,
+          "exact": true
+        },
+        {
+          "raw": 1,
+          "position": 1,
+          "actual_reqs": 1,
+          "actual_tokens": 0,
+          "skip": true,
+          "groups": 12,
+          "exact": true
+        },
+        {
+          "raw": 1,
+          "position": 1,
+          "actual_reqs": 1,
+          "actual_tokens": 1,
+          "skip": false,
+          "groups": 12,
+          "exact": true
+        },
+        {
+          "raw": 1,
+          "position": 1,
+          "actual_reqs": 1,
+          "actual_tokens": 1,
+          "skip": true,
+          "groups": 12,
+          "exact": true
+        },
+        {
+          "raw": 127,
+          "position": 127,
+          "actual_reqs": 0,
+          "actual_tokens": 0,
+          "skip": false,
+          "groups": 12,
+          "exact": true
+        },
+        {
+          "raw": 127,
+          "position": 127,
+          "actual_reqs": 0,
+          "actual_tokens": 0,
+          "skip": true,
+          "groups": 12,
+          "exact": true
+        },
+        {
+          "raw": 127,
+          "position": 127,
+          "actual_reqs": 0,
+          "actual_tokens": 1,
+          "skip": false,
+          "groups": 12,
+          "exact": true
+        },
+        {
+          "raw": 127,
+          "position": 127,
+          "actual_reqs": 0,
+          "actual_tokens": 1,
+          "skip": true,
+          "groups": 12,
+          "exact": true
+        },
+        {
+          "raw": 127,
+          "position": 127,
+          "actual_reqs": 1,
+          "actual_tokens": 0,
+          "skip": false,
+          "groups": 12,
+          "exact": true
+        },
+        {
+          "raw": 127,
+          "position": 127,
+          "actual_reqs": 1,
+          "actual_tokens": 0,
+          "skip": true,
+          "groups": 12,
+          "exact": true
+        },
+        {
+          "raw": 127,
+          "position": 127,
+          "actual_reqs": 1,
+          "actual_tokens": 1,
+          "skip": false,
+          "groups": 12,
+          "exact": true
+        },
+        {
+          "raw": 127,
+          "position": 127,
+          "actual_reqs": 1,
+          "actual_tokens": 1,
+          "skip": true,
+          "groups": 12,
+          "exact": true
+        },
+        {
+          "raw": 128,
+          "position": 128,
+          "actual_reqs": 0,
+          "actual_tokens": 0,
+          "skip": false,
+          "groups": 12,
+          "exact": true
+        },
+        {
+          "raw": 128,
+          "position": 128,
+          "actual_reqs": 0,
+          "actual_tokens": 0,
+          "skip": true,
+          "groups": 12,
+          "exact": true
+        },
+        {
+          "raw": 128,
+          "position": 128,
+          "actual_reqs": 0,
+          "actual_tokens": 1,
+          "skip": false,
+          "groups": 12,
+          "exact": true
+        },
+        {
+          "raw": 128,
+          "position": 128,
+          "actual_reqs": 0,
+          "actual_tokens": 1,
+          "skip": true,
+          "groups": 12,
+          "exact": true
+        },
+        {
+          "raw": 128,
+          "position": 128,
+          "actual_reqs": 1,
+          "actual_tokens": 0,
+          "skip": false,
+          "groups": 12,
+          "exact": true
+        },
+        {
+          "raw": 128,
+          "position": 128,
+          "actual_reqs": 1,
+          "actual_tokens": 0,
+          "skip": true,
+          "groups": 12,
+          "exact": true
+        },
+        {
+          "raw": 128,
+          "position": 128,
+          "actual_reqs": 1,
+          "actual_tokens": 1,
+          "skip": false,
+          "groups": 12,
+          "exact": true
+        },
+        {
+          "raw": 128,
+          "position": 128,
+          "actual_reqs": 1,
+          "actual_tokens": 1,
+          "skip": true,
+          "groups": 12,
+          "exact": true
+        },
+        {
+          "raw": 129,
+          "position": 129,
+          "actual_reqs": 0,
+          "actual_tokens": 0,
+          "skip": false,
+          "groups": 12,
+          "exact": true
+        },
+        {
+          "raw": 129,
+          "position": 129,
+          "actual_reqs": 0,
+          "actual_tokens": 0,
+          "skip": true,
+          "groups": 12,
+          "exact": true
+        },
+        {
+          "raw": 129,
+          "position": 129,
+          "actual_reqs": 0,
+          "actual_tokens": 1,
+          "skip": false,
+          "groups": 12,
+          "exact": true
+        },
+        {
+          "raw": 129,
+          "position": 129,
+          "actual_reqs": 0,
+          "actual_tokens": 1,
+          "skip": true,
+          "groups": 12,
+          "exact": true
+        },
+        {
+          "raw": 129,
+          "position": 129,
+          "actual_reqs": 1,
+          "actual_tokens": 0,
+          "skip": false,
+          "groups": 12,
+          "exact": true
+        },
+        {
+          "raw": 129,
+          "position": 129,
+          "actual_reqs": 1,
+          "actual_tokens": 0,
+          "skip": true,
+          "groups": 12,
+          "exact": true
+        },
+        {
+          "raw": 129,
+          "position": 129,
+          "actual_reqs": 1,
+          "actual_tokens": 1,
+          "skip": false,
+          "groups": 12,
+          "exact": true
+        },
+        {
+          "raw": 129,
+          "position": 129,
+          "actual_reqs": 1,
+          "actual_tokens": 1,
+          "skip": true,
+          "groups": 12,
+          "exact": true
+        },
+        {
+          "raw": 255,
+          "position": 255,
+          "actual_reqs": 0,
+          "actual_tokens": 0,
+          "skip": false,
+          "groups": 12,
+          "exact": true
+        },
+        {
+          "raw": 255,
+          "position": 255,
+          "actual_reqs": 0,
+          "actual_tokens": 0,
+          "skip": true,
+          "groups": 12,
+          "exact": true
+        },
+        {
+          "raw": 255,
+          "position": 255,
+          "actual_reqs": 0,
+          "actual_tokens": 1,
+          "skip": false,
+          "groups": 12,
+          "exact": true
+        },
+        {
+          "raw": 255,
+          "position": 255,
+          "actual_reqs": 0,
+          "actual_tokens": 1,
+          "skip": true,
+          "groups": 12,
+          "exact": true
+        },
+        {
+          "raw": 255,
+          "position": 255,
+          "actual_reqs": 1,
+          "actual_tokens": 0,
+          "skip": false,
+          "groups": 12,
+          "exact": true
+        },
+        {
+          "raw": 255,
+          "position": 255,
+          "actual_reqs": 1,
+          "actual_tokens": 0,
+          "skip": true,
+          "groups": 12,
+          "exact": true
+        },
+        {
+          "raw": 255,
+          "position": 255,
+          "actual_reqs": 1,
+          "actual_tokens": 1,
+          "skip": false,
+          "groups": 12,
+          "exact": true
+        },
+        {
+          "raw": 255,
+          "position": 255,
+          "actual_reqs": 1,
+          "actual_tokens": 1,
+          "skip": true,
+          "groups": 12,
+          "exact": true
+        },
+        {
+          "raw": 256,
+          "position": 256,
+          "actual_reqs": 0,
+          "actual_tokens": 0,
+          "skip": false,
+          "groups": 12,
+          "exact": true
+        },
+        {
+          "raw": 256,
+          "position": 256,
+          "actual_reqs": 0,
+          "actual_tokens": 0,
+          "skip": true,
+          "groups": 12,
+          "exact": true
+        },
+        {
+          "raw": 256,
+          "position": 256,
+          "actual_reqs": 0,
+          "actual_tokens": 1,
+          "skip": false,
+          "groups": 12,
+          "exact": true
+        },
+        {
+          "raw": 256,
+          "position": 256,
+          "actual_reqs": 0,
+          "actual_tokens": 1,
+          "skip": true,
+          "groups": 12,
+          "exact": true
+        },
+        {
+          "raw": 256,
+          "position": 256,
+          "actual_reqs": 1,
+          "actual_tokens": 0,
+          "skip": false,
+          "groups": 12,
+          "exact": true
+        },
+        {
+          "raw": 256,
+          "position": 256,
+          "actual_reqs": 1,
+          "actual_tokens": 0,
+          "skip": true,
+          "groups": 12,
+          "exact": true
+        },
+        {
+          "raw": 256,
+          "position": 256,
+          "actual_reqs": 1,
+          "actual_tokens": 1,
+          "skip": false,
+          "groups": 12,
+          "exact": true
+        },
+        {
+          "raw": 256,
+          "position": 256,
+          "actual_reqs": 1,
+          "actual_tokens": 1,
+          "skip": true,
+          "groups": 12,
+          "exact": true
+        },
+        {
+          "raw": 2147483775,
+          "position": 511,
+          "actual_reqs": 0,
+          "actual_tokens": 0,
+          "skip": false,
+          "groups": 12,
+          "exact": true
+        },
+        {
+          "raw": 2147483775,
+          "position": 511,
+          "actual_reqs": 0,
+          "actual_tokens": 0,
+          "skip": true,
+          "groups": 12,
+          "exact": true
+        },
+        {
+          "raw": 2147483775,
+          "position": 511,
+          "actual_reqs": 0,
+          "actual_tokens": 1,
+          "skip": false,
+          "groups": 12,
+          "exact": true
+        },
+        {
+          "raw": 2147483775,
+          "position": 511,
+          "actual_reqs": 0,
+          "actual_tokens": 1,
+          "skip": true,
+          "groups": 12,
+          "exact": true
+        },
+        {
+          "raw": 2147483775,
+          "position": 511,
+          "actual_reqs": 1,
+          "actual_tokens": 0,
+          "skip": false,
+          "groups": 12,
+          "exact": true
+        },
+        {
+          "raw": 2147483775,
+          "position": 511,
+          "actual_reqs": 1,
+          "actual_tokens": 0,
+          "skip": true,
+          "groups": 12,
+          "exact": true
+        },
+        {
+          "raw": 2147483775,
+          "position": 511,
+          "actual_reqs": 1,
+          "actual_tokens": 1,
+          "skip": false,
+          "groups": 12,
+          "exact": true
+        },
+        {
+          "raw": 2147483775,
+          "position": 511,
+          "actual_reqs": 1,
+          "actual_tokens": 1,
+          "skip": true,
+          "groups": 12,
+          "exact": true
+        }
+      ],
+      "integer_reference": "CPU exact floor/remainder; no floating-point conversion",
+      "existing_reference_discrepancies_outside_formal_pool_range": [],
+      "existing_reference_matches_below_2pow24": true
+    }
+  ]
+}

@@ -13,7 +13,7 @@ BANKS = {}
 
 
 def switch_mode(name):
-    assert name in ['tp8base', 'tp8core', 'tp8act', 'tp8stack']
+    assert name in ['tp8base', 'tp8core', 'tp8act', 'tp8stack', 'tp8meta']
     goal.ARM = name
     base.ARM = 'native' if name == 'tp8base' or os.getenv('STACK_REAL_WEIGHTS') == '1' else 'both'
     activation.ARM = 'baseline' if name == 'tp8base' else 'overlap'
@@ -24,7 +24,7 @@ def switch_mode(name):
 @torch.inference_mode()
 def install(model):
     goal.CONFIGS['tp8base'] = set()
-    for name in ['tp8core', 'tp8act', 'tp8stack']:
+    for name in ['tp8core', 'tp8act', 'tp8stack', 'tp8meta']:
         goal.CONFIGS[name] = {'hcstatic', 'hcpost', 'metadata_all', 'blockmap'}
         if os.getenv('STACK_REAL_WEIGHTS') == '1':
             # Formal HC static failed the original numerical gate. Keep native
@@ -32,6 +32,7 @@ def install(model):
             goal.CONFIGS[name] -= {'hcstatic', 'hcpost'}
     for name in ['tp8act','tp8stack']:
         goal.CONFIGS[name].add('activation_generic')
+    goal.CONFIGS['tp8meta'].add('metadata_manyslots')
     goal.install(model)
     activation.install(model)
     generic_activation.install(model)
@@ -39,7 +40,9 @@ def install(model):
     import metadata_patches, blockmap_patches
     # These installers inherit only the four compatible core features.
     goal.CONFIGS['gmmact'] = set(goal.CONFIGS['tp8core'])
-    metadata_patches.install(model); blockmap_patches.install(model)
+    from tp8_slot_batches import REGISTRY
+    slot_prepare=REGISTRY.prepare if os.getenv('STACK_METADATA_MANY_SLOTS_ENABLED')=='1' else None
+    metadata_patches.install(model, slot_prepare=slot_prepare); blockmap_patches.install(model)
     indexer.install(model)
     switch_mode(os.getenv('STACK_TP8_ARM', 'tp8base'))
 
@@ -60,7 +63,9 @@ def save(worker, name):
     generic_refs=generic_activation.REFS.get(name,{'routed':[],'shared':[]})
     BANKS[name] = (entries, ag._graph_params, hc_refs, router_refs, refs, index_refs,
                    goal.REFS.get(name, {}),generic_refs)
+    from tp8_slot_batches import REGISTRY
     return {'rank': get_tensor_model_parallel_rank(), 'arm': name, 'hc_calls': len(hc_refs),
+            'metadata_slot_batches': REGISTRY.status(),
             'router_calls': len(router_refs), 'indexer': indexer.coverage(role),
             'activation_eligible_calls': {kind: len(rows) for kind, rows in refs.items()},
             'activation_selected_calls': {kind: sum(row[3] for row in rows) for kind, rows in refs.items()},
@@ -128,6 +133,10 @@ def audit(worker, name):
     # Run the native references with the original capture's tensors restored.
     switch(worker, name)
     result = {'indexer': indexer.audit(worker, indexer.ARM)}
+    if name == 'tp8meta':
+        from tp8_slot_batches import REGISTRY
+        result['metadata_slots'] = REGISTRY.audit()
+        assert REGISTRY.counts['fused_launches']>0, 'Slot batching candidate has no actual coverage'
     if os.getenv('STACK_REAL_WEIGHTS') == '1':
         result['hc'] = {'candidate_calls': 0, 'path': 'native; formal static candidate failed original numerical gate'}
         result['router'] = {'candidate_calls': 0, 'path': 'native 384-expert top6; TP1 specializations disabled'}

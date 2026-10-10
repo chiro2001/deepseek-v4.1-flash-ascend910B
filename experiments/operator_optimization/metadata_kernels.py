@@ -30,7 +30,7 @@ def slot_mapping_kernel(slots, positions, query_start, output,
 
 
 def prepare_slots(builder, common, positions, n, actual_reqs, actual_tokens,
-                  compressed, ratio, block_size, skip):
+                  compressed, ratio, block_size, skip, batch_shared=None):
     assert ratio in (1, 2) and block_size > 0
     slots = common.slot_mapping
     assert slots.is_contiguous() and builder._slot_mapping_2d.is_contiguous()

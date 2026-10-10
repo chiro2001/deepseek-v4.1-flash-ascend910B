@@ -1,0 +1,21 @@
+[W1010 10:22:42.499370310 NPUCachingAllocator.cpp:202] Warning: The current CANN and HDK(driver) versions require processing for 32 padding size, with memory allocation. (function operator())
+Traceback (most recent call last):
+  File "/work/src_manyslots_v4/stack/bench_formal_slots.py", line 108, in <module>
+    if __name__=='__main__':main()
+                            ^^^^^^
+  File "/work/src_manyslots_v4/stack/bench_formal_slots.py", line 98, in main
+    variants=[run_dtype(dtype) for dtype in (torch.int32,torch.int64)]
+              ^^^^^^^^^^^^^^^^
+  File "/usr/local/python3.12.13/lib/python3.12/site-packages/torch/utils/_contextlib.py", line 124, in decorate_context
+    return func(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^
+  File "/work/src_manyslots_v4/stack/bench_formal_slots.py", line 44, in run_dtype
+    torch.testing.assert_close(b._slot_mapping_2d[:1],gold,rtol=0,atol=0)
+  File "/usr/local/python3.12.13/lib/python3.12/site-packages/torch/testing/_comparison.py", line 1600, in assert_close
+    raise error_metas[0].to_error(msg)
+AssertionError: Tensor-likes are not equal!
+
+Mismatched elements: 1 / 2 (50.0%)
+Greatest absolute difference: 2 at index (0, 1)
+Greatest relative difference: inf at index (0, 1)
+[ERROR] 2026-10-10-10:25:26 (PID:265433, Device:0, RankID:-1) ERR99999 UNKNOWN applicaiton exception
