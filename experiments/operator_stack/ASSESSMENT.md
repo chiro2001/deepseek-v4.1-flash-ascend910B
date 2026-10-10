@@ -1,6 +1,10 @@
 # 两条算子线的组合判断
 
-2026-10-10，独立集成分支`feat/operator-stack-tp8-20261010`。目标仍active，正式权重TP8精度/性能与服务尚未验收。用户最新要求正式权重、避开问题设备，后续以此为准。
+2026-10-10，独立集成分支`feat/operator-stack-tp8-20261010`。目标仍active，正式权重TP8精度/性能与服务尚未验收。用户已再次授权a3-21 chip8–15，启动前拒绝他人占用、复核80C98001，不reset。
+
+最新正式A/A并未对齐：原生实现的同prompt请求在decode路由/Top5 logprob上不同。8rank首个decode偏离在layer0注意力输出、HC post之前；固定输入HC pre/HC post/router全部稳定。Q/KV、SMLA、O投影与AllReduce追踪已启动。两条线的正式叠加收益仍未验收；下方TP1/dummy与设备迁移叙述为历史证据。
+
+新报告`reports/a321-attention-boundaries-microarch-20261010-v6.md`还修正profiling的通信重复事件：82次实际AllReduce/step，chip8累计2.937ms，而非164次/5.874ms。
 
 上游950迁移线的最终有效增量只有Indexer INT8后处理。它融合K源层的RMSNorm、尾64维RoPE、INT8量化与K/FP16-scale cache写入，保持两个BF16舍入边界及原生Div(127,max)→Mul→RINT。其他五方向已有拒绝证据，本轮不重复筛选。
 

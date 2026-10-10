@@ -1,7 +1,21 @@
 # 两条算子线叠加与TP8目标
 
-目标：使用正式权重和健康空闲设备启动隔离TP8，精度/路由/输出与真实覆盖通过，端到端decode ≤约19 ms/step，同时报告A和token/s。
+目标：使用正式权重和用户已授权的空闲设备启动隔离TP8，精度/路由/输出与真实覆盖通过，端到端decode ≤约19 ms/step，同时报告A和token/s。
 已创建active goal；独立分支`feat/operator-stack-tp8-20261010`。
+
+## 当前状态（优先于下方历史记录）
+
+用户已再次授权a3-21 physical chip8–15继续，仍为80C98001 Alarm；正式TP8已加载运行，不reset、不停止其他租户。生产容器为`dsv41-real-stack-tp8-20261010-a321`。
+
+原生无候选bank的graph/eager/Engram子图关闭A/A均未通过完整路由与Top5 logprob门槛。最新`formal_attention_boundary_trace_v1`在8rank都发现layer0注意力输出进入HC post之前已不同，residual/post/comb一致；固定输入的HC pre80、HC post80、router40每rank重复5次全部稳定，共1600份真实输入。
+
+`formal_attention_internal_trace_v1`已启动，拆Q/KV、可见cache、SMLA、O投影与AllReduce，并重复固定rank局部向量的归约。结果未出，不指定根因。
+
+正式七组×8rank的56CSV已完成shape分析：每步原始2356行包含重复通信逻辑事件，去重后2273执行记录；实际AllReduce82次/step，chip8累计2.937ms，不能当E2E。O投影小M的MTE2高、GMM Scalar高分开研究。正式HC/HcPost保持原生、TP1 selected-GMM/router禁用、BF16激活覆盖0；Indexer独立精度通过不替代整网。
+
+最新报告：`reports/a321-attention-boundaries-microarch-20261010-v6.md`。没有有效正式TP8性能或最优服务验收，19ms目标保持active。
+
+## 历史记录
 
 两条线：
 

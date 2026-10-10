@@ -19,11 +19,13 @@ def main():
     p.add_argument('--audit', action='store_true', required=True)
     p.add_argument('--eager', action='store_true')
     p.add_argument('--probe-native-ops', action='store_true')
+    p.add_argument('--trace-attention', action='store_true')
     args = p.parse_args()
     assert os.getenv('TINY_PERF_RANDOM_VALIDATION') != '1'
     assert os.environ['STACK_PHYSICAL_CHIPS'] == args.physical_chips
     assert len(set(args.physical_chips.split(','))) == 8 and args.pairs >= 2
     assert not args.probe_native_ops or args.eager
+    assert not args.trace_attention or (args.eager and not args.probe_native_ops)
     args.output.mkdir(parents=True, exist_ok=True)
     os.environ['VLLM_CACHE_ROOT'] = str(args.output/'cache')
     from formal_model_contract import inspect_checkpoint
@@ -67,6 +69,32 @@ def main():
         print('FORMAL_NATIVE_CONTROL_REQUEST',tag,flush=True)
         return row
     full_request(0,'warmup-0'); full_request(1,'warmup-1')
+    if args.trace_attention:
+        from native_repeatability_probe import disable_engram_subgraph
+        from attention_boundary_probe import install,begin,finish,compare,repeat_allreduce
+        from formal_comparison import compare_requests
+        disabled=llm.collective_rpc(disable_engram_subgraph)
+        (args.output/'engram_subgraph_disabled.json').write_text(json.dumps(disabled,indent=2)+'\n')
+        installed=llm.collective_rpc(install)
+        (args.output/'attention_probe_install.json').write_text(json.dumps(installed,indent=2)+'\n')
+        traced=[]
+        for tag in ('attention-reference','attention-repeat'):
+            llm.collective_rpc(begin,args=(tag,))
+            traced.append(full_request(0,tag))
+            llm.collective_rpc(finish,args=(tag,))
+        boundaries=llm.collective_rpc(compare,args=('attention-reference','attention-repeat'))
+        (args.output/'attention_boundaries.json').write_text(json.dumps(boundaries,indent=2)+'\n')
+        repeated=llm.collective_rpc(repeat_allreduce,args=('attention-reference',10))
+        (args.output/'allreduce_repeatability.json').write_text(json.dumps(repeated,indent=2)+'\n')
+        comparison=compare_requests(*traced,'attention-trace')
+        result={'formal_weights':True,'physical_chips':args.physical_chips,'eager':True,
+                'operator_bank_patches_installed':False,'attention_trace':boundaries,
+                'comparison':comparison,'passed':comparison['passed'],'performance_claim':None}
+        (args.output/'result.json').write_text(json.dumps(result,indent=2)+'\n')
+        print('FORMAL_ATTENTION_BOUNDARIES_COMPLETE',json.dumps([
+            {'rank':r['rank'],'first_difference':r['first_difference']} for r in boundaries]),flush=True)
+        assert result['passed'],'Formal production A/A failed original route/logprob gate'
+        return
     reference = full_request(0,'reference')
     comparisons = []
     from formal_comparison import compare_requests
