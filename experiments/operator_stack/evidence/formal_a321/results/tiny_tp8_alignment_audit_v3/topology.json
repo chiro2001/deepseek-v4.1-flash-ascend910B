@@ -1,0 +1,778 @@
+[
+  {
+    "rank": 0,
+    "layers": 8,
+    "hidden_size": 5120,
+    "global_experts": 384,
+    "topk": 6,
+    "tp": 8,
+    "local_experts": 48,
+    "compression_ratios": [
+      0,
+      0,
+      2,
+      2,
+      2,
+      1,
+      1,
+      1
+    ],
+    "engram_layer_ids": [
+      1,
+      4
+    ],
+    "engram_hash_seed_source_layers": [
+      1,
+      14
+    ],
+    "cache_groups": 5,
+    "cache_specs": [
+      "UniformTypeKVCacheSpecs",
+      "UniformTypeKVCacheSpecs",
+      "UniformTypeKVCacheSpecs",
+      "UniformTypeKVCacheSpecs",
+      "UniformTypeKVCacheSpecs"
+    ],
+    "cache_planner_original_sha256": "328f2d755ec7a6cdcd7f0976d7f606e44d2aca0fd81941e9c91cc1bc943384ab",
+    "quant_methods": {
+      "UnquantizedEmbeddingMethod": {
+        "count": 2,
+        "examples": [
+          "language_model.model.embed_tokens",
+          "language_model.lm_head"
+        ]
+      },
+      "AscendLinearMethod": {
+        "count": 44,
+        "examples": [
+          "language_model.model.layers.0.self_attn.wq_a",
+          "language_model.model.layers.0.self_attn.wq_b"
+        ]
+      },
+      "AscendUnquantizedLinearMethod": {
+        "count": 28,
+        "examples": [
+          "language_model.model.layers.0.self_attn.wo_a",
+          "language_model.model.layers.0.self_attn.wo_b"
+        ]
+      },
+      "AscendFusedMoEMethod": {
+        "count": 8,
+        "examples": [
+          "language_model.model.layers.0.mlp.experts.routed_experts",
+          "language_model.model.layers.1.mlp.experts.routed_experts"
+        ]
+      }
+    },
+    "quant_schemes": {
+      "UnquantizedEmbeddingMethod": {
+        "count": 2,
+        "examples": [
+          "language_model.model.embed_tokens",
+          "language_model.lm_head"
+        ]
+      },
+      "AscendW8A8DynamicLinearMethod": {
+        "count": 44,
+        "examples": [
+          "language_model.model.layers.0.self_attn.wq_a",
+          "language_model.model.layers.0.self_attn.wq_b"
+        ]
+      },
+      "AscendUnquantizedLinearMethod": {
+        "count": 28,
+        "examples": [
+          "language_model.model.layers.0.self_attn.wo_a",
+          "language_model.model.layers.0.self_attn.wo_b"
+        ]
+      },
+      "AscendW4A8DynamicFusedMoEMethod": {
+        "count": 8,
+        "examples": [
+          "language_model.model.layers.0.mlp.experts.routed_experts",
+          "language_model.model.layers.1.mlp.experts.routed_experts"
+        ]
+      }
+    },
+    "async_scheduling": false
+  },
+  {
+    "rank": 1,
+    "layers": 8,
+    "hidden_size": 5120,
+    "global_experts": 384,
+    "topk": 6,
+    "tp": 8,
+    "local_experts": 48,
+    "compression_ratios": [
+      0,
+      0,
+      2,
+      2,
+      2,
+      1,
+      1,
+      1
+    ],
+    "engram_layer_ids": [
+      1,
+      4
+    ],
+    "engram_hash_seed_source_layers": [
+      1,
+      14
+    ],
+    "cache_groups": 5,
+    "cache_specs": [
+      "UniformTypeKVCacheSpecs",
+      "UniformTypeKVCacheSpecs",
+      "UniformTypeKVCacheSpecs",
+      "UniformTypeKVCacheSpecs",
+      "UniformTypeKVCacheSpecs"
+    ],
+    "cache_planner_original_sha256": "328f2d755ec7a6cdcd7f0976d7f606e44d2aca0fd81941e9c91cc1bc943384ab",
+    "quant_methods": {
+      "UnquantizedEmbeddingMethod": {
+        "count": 2,
+        "examples": [
+          "language_model.model.embed_tokens",
+          "language_model.lm_head"
+        ]
+      },
+      "AscendLinearMethod": {
+        "count": 44,
+        "examples": [
+          "language_model.model.layers.0.self_attn.wq_a",
+          "language_model.model.layers.0.self_attn.wq_b"
+        ]
+      },
+      "AscendUnquantizedLinearMethod": {
+        "count": 28,
+        "examples": [
+          "language_model.model.layers.0.self_attn.wo_a",
+          "language_model.model.layers.0.self_attn.wo_b"
+        ]
+      },
+      "AscendFusedMoEMethod": {
+        "count": 8,
+        "examples": [
+          "language_model.model.layers.0.mlp.experts.routed_experts",
+          "language_model.model.layers.1.mlp.experts.routed_experts"
+        ]
+      }
+    },
+    "quant_schemes": {
+      "UnquantizedEmbeddingMethod": {
+        "count": 2,
+        "examples": [
+          "language_model.model.embed_tokens",
+          "language_model.lm_head"
+        ]
+      },
+      "AscendW8A8DynamicLinearMethod": {
+        "count": 44,
+        "examples": [
+          "language_model.model.layers.0.self_attn.wq_a",
+          "language_model.model.layers.0.self_attn.wq_b"
+        ]
+      },
+      "AscendUnquantizedLinearMethod": {
+        "count": 28,
+        "examples": [
+          "language_model.model.layers.0.self_attn.wo_a",
+          "language_model.model.layers.0.self_attn.wo_b"
+        ]
+      },
+      "AscendW4A8DynamicFusedMoEMethod": {
+        "count": 8,
+        "examples": [
+          "language_model.model.layers.0.mlp.experts.routed_experts",
+          "language_model.model.layers.1.mlp.experts.routed_experts"
+        ]
+      }
+    },
+    "async_scheduling": false
+  },
+  {
+    "rank": 2,
+    "layers": 8,
+    "hidden_size": 5120,
+    "global_experts": 384,
+    "topk": 6,
+    "tp": 8,
+    "local_experts": 48,
+    "compression_ratios": [
+      0,
+      0,
+      2,
+      2,
+      2,
+      1,
+      1,
+      1
+    ],
+    "engram_layer_ids": [
+      1,
+      4
+    ],
+    "engram_hash_seed_source_layers": [
+      1,
+      14
+    ],
+    "cache_groups": 5,
+    "cache_specs": [
+      "UniformTypeKVCacheSpecs",
+      "UniformTypeKVCacheSpecs",
+      "UniformTypeKVCacheSpecs",
+      "UniformTypeKVCacheSpecs",
+      "UniformTypeKVCacheSpecs"
+    ],
+    "cache_planner_original_sha256": "328f2d755ec7a6cdcd7f0976d7f606e44d2aca0fd81941e9c91cc1bc943384ab",
+    "quant_methods": {
+      "UnquantizedEmbeddingMethod": {
+        "count": 2,
+        "examples": [
+          "language_model.model.embed_tokens",
+          "language_model.lm_head"
+        ]
+      },
+      "AscendLinearMethod": {
+        "count": 44,
+        "examples": [
+          "language_model.model.layers.0.self_attn.wq_a",
+          "language_model.model.layers.0.self_attn.wq_b"
+        ]
+      },
+      "AscendUnquantizedLinearMethod": {
+        "count": 28,
+        "examples": [
+          "language_model.model.layers.0.self_attn.wo_a",
+          "language_model.model.layers.0.self_attn.wo_b"
+        ]
+      },
+      "AscendFusedMoEMethod": {
+        "count": 8,
+        "examples": [
+          "language_model.model.layers.0.mlp.experts.routed_experts",
+          "language_model.model.layers.1.mlp.experts.routed_experts"
+        ]
+      }
+    },
+    "quant_schemes": {
+      "UnquantizedEmbeddingMethod": {
+        "count": 2,
+        "examples": [
+          "language_model.model.embed_tokens",
+          "language_model.lm_head"
+        ]
+      },
+      "AscendW8A8DynamicLinearMethod": {
+        "count": 44,
+        "examples": [
+          "language_model.model.layers.0.self_attn.wq_a",
+          "language_model.model.layers.0.self_attn.wq_b"
+        ]
+      },
+      "AscendUnquantizedLinearMethod": {
+        "count": 28,
+        "examples": [
+          "language_model.model.layers.0.self_attn.wo_a",
+          "language_model.model.layers.0.self_attn.wo_b"
+        ]
+      },
+      "AscendW4A8DynamicFusedMoEMethod": {
+        "count": 8,
+        "examples": [
+          "language_model.model.layers.0.mlp.experts.routed_experts",
+          "language_model.model.layers.1.mlp.experts.routed_experts"
+        ]
+      }
+    },
+    "async_scheduling": false
+  },
+  {
+    "rank": 3,
+    "layers": 8,
+    "hidden_size": 5120,
+    "global_experts": 384,
+    "topk": 6,
+    "tp": 8,
+    "local_experts": 48,
+    "compression_ratios": [
+      0,
+      0,
+      2,
+      2,
+      2,
+      1,
+      1,
+      1
+    ],
+    "engram_layer_ids": [
+      1,
+      4
+    ],
+    "engram_hash_seed_source_layers": [
+      1,
+      14
+    ],
+    "cache_groups": 5,
+    "cache_specs": [
+      "UniformTypeKVCacheSpecs",
+      "UniformTypeKVCacheSpecs",
+      "UniformTypeKVCacheSpecs",
+      "UniformTypeKVCacheSpecs",
+      "UniformTypeKVCacheSpecs"
+    ],
+    "cache_planner_original_sha256": "328f2d755ec7a6cdcd7f0976d7f606e44d2aca0fd81941e9c91cc1bc943384ab",
+    "quant_methods": {
+      "UnquantizedEmbeddingMethod": {
+        "count": 2,
+        "examples": [
+          "language_model.model.embed_tokens",
+          "language_model.lm_head"
+        ]
+      },
+      "AscendLinearMethod": {
+        "count": 44,
+        "examples": [
+          "language_model.model.layers.0.self_attn.wq_a",
+          "language_model.model.layers.0.self_attn.wq_b"
+        ]
+      },
+      "AscendUnquantizedLinearMethod": {
+        "count": 28,
+        "examples": [
+          "language_model.model.layers.0.self_attn.wo_a",
+          "language_model.model.layers.0.self_attn.wo_b"
+        ]
+      },
+      "AscendFusedMoEMethod": {
+        "count": 8,
+        "examples": [
+          "language_model.model.layers.0.mlp.experts.routed_experts",
+          "language_model.model.layers.1.mlp.experts.routed_experts"
+        ]
+      }
+    },
+    "quant_schemes": {
+      "UnquantizedEmbeddingMethod": {
+        "count": 2,
+        "examples": [
+          "language_model.model.embed_tokens",
+          "language_model.lm_head"
+        ]
+      },
+      "AscendW8A8DynamicLinearMethod": {
+        "count": 44,
+        "examples": [
+          "language_model.model.layers.0.self_attn.wq_a",
+          "language_model.model.layers.0.self_attn.wq_b"
+        ]
+      },
+      "AscendUnquantizedLinearMethod": {
+        "count": 28,
+        "examples": [
+          "language_model.model.layers.0.self_attn.wo_a",
+          "language_model.model.layers.0.self_attn.wo_b"
+        ]
+      },
+      "AscendW4A8DynamicFusedMoEMethod": {
+        "count": 8,
+        "examples": [
+          "language_model.model.layers.0.mlp.experts.routed_experts",
+          "language_model.model.layers.1.mlp.experts.routed_experts"
+        ]
+      }
+    },
+    "async_scheduling": false
+  },
+  {
+    "rank": 4,
+    "layers": 8,
+    "hidden_size": 5120,
+    "global_experts": 384,
+    "topk": 6,
+    "tp": 8,
+    "local_experts": 48,
+    "compression_ratios": [
+      0,
+      0,
+      2,
+      2,
+      2,
+      1,
+      1,
+      1
+    ],
+    "engram_layer_ids": [
+      1,
+      4
+    ],
+    "engram_hash_seed_source_layers": [
+      1,
+      14
+    ],
+    "cache_groups": 5,
+    "cache_specs": [
+      "UniformTypeKVCacheSpecs",
+      "UniformTypeKVCacheSpecs",
+      "UniformTypeKVCacheSpecs",
+      "UniformTypeKVCacheSpecs",
+      "UniformTypeKVCacheSpecs"
+    ],
+    "cache_planner_original_sha256": "328f2d755ec7a6cdcd7f0976d7f606e44d2aca0fd81941e9c91cc1bc943384ab",
+    "quant_methods": {
+      "UnquantizedEmbeddingMethod": {
+        "count": 2,
+        "examples": [
+          "language_model.model.embed_tokens",
+          "language_model.lm_head"
+        ]
+      },
+      "AscendLinearMethod": {
+        "count": 44,
+        "examples": [
+          "language_model.model.layers.0.self_attn.wq_a",
+          "language_model.model.layers.0.self_attn.wq_b"
+        ]
+      },
+      "AscendUnquantizedLinearMethod": {
+        "count": 28,
+        "examples": [
+          "language_model.model.layers.0.self_attn.wo_a",
+          "language_model.model.layers.0.self_attn.wo_b"
+        ]
+      },
+      "AscendFusedMoEMethod": {
+        "count": 8,
+        "examples": [
+          "language_model.model.layers.0.mlp.experts.routed_experts",
+          "language_model.model.layers.1.mlp.experts.routed_experts"
+        ]
+      }
+    },
+    "quant_schemes": {
+      "UnquantizedEmbeddingMethod": {
+        "count": 2,
+        "examples": [
+          "language_model.model.embed_tokens",
+          "language_model.lm_head"
+        ]
+      },
+      "AscendW8A8DynamicLinearMethod": {
+        "count": 44,
+        "examples": [
+          "language_model.model.layers.0.self_attn.wq_a",
+          "language_model.model.layers.0.self_attn.wq_b"
+        ]
+      },
+      "AscendUnquantizedLinearMethod": {
+        "count": 28,
+        "examples": [
+          "language_model.model.layers.0.self_attn.wo_a",
+          "language_model.model.layers.0.self_attn.wo_b"
+        ]
+      },
+      "AscendW4A8DynamicFusedMoEMethod": {
+        "count": 8,
+        "examples": [
+          "language_model.model.layers.0.mlp.experts.routed_experts",
+          "language_model.model.layers.1.mlp.experts.routed_experts"
+        ]
+      }
+    },
+    "async_scheduling": false
+  },
+  {
+    "rank": 5,
+    "layers": 8,
+    "hidden_size": 5120,
+    "global_experts": 384,
+    "topk": 6,
+    "tp": 8,
+    "local_experts": 48,
+    "compression_ratios": [
+      0,
+      0,
+      2,
+      2,
+      2,
+      1,
+      1,
+      1
+    ],
+    "engram_layer_ids": [
+      1,
+      4
+    ],
+    "engram_hash_seed_source_layers": [
+      1,
+      14
+    ],
+    "cache_groups": 5,
+    "cache_specs": [
+      "UniformTypeKVCacheSpecs",
+      "UniformTypeKVCacheSpecs",
+      "UniformTypeKVCacheSpecs",
+      "UniformTypeKVCacheSpecs",
+      "UniformTypeKVCacheSpecs"
+    ],
+    "cache_planner_original_sha256": "328f2d755ec7a6cdcd7f0976d7f606e44d2aca0fd81941e9c91cc1bc943384ab",
+    "quant_methods": {
+      "UnquantizedEmbeddingMethod": {
+        "count": 2,
+        "examples": [
+          "language_model.model.embed_tokens",
+          "language_model.lm_head"
+        ]
+      },
+      "AscendLinearMethod": {
+        "count": 44,
+        "examples": [
+          "language_model.model.layers.0.self_attn.wq_a",
+          "language_model.model.layers.0.self_attn.wq_b"
+        ]
+      },
+      "AscendUnquantizedLinearMethod": {
+        "count": 28,
+        "examples": [
+          "language_model.model.layers.0.self_attn.wo_a",
+          "language_model.model.layers.0.self_attn.wo_b"
+        ]
+      },
+      "AscendFusedMoEMethod": {
+        "count": 8,
+        "examples": [
+          "language_model.model.layers.0.mlp.experts.routed_experts",
+          "language_model.model.layers.1.mlp.experts.routed_experts"
+        ]
+      }
+    },
+    "quant_schemes": {
+      "UnquantizedEmbeddingMethod": {
+        "count": 2,
+        "examples": [
+          "language_model.model.embed_tokens",
+          "language_model.lm_head"
+        ]
+      },
+      "AscendW8A8DynamicLinearMethod": {
+        "count": 44,
+        "examples": [
+          "language_model.model.layers.0.self_attn.wq_a",
+          "language_model.model.layers.0.self_attn.wq_b"
+        ]
+      },
+      "AscendUnquantizedLinearMethod": {
+        "count": 28,
+        "examples": [
+          "language_model.model.layers.0.self_attn.wo_a",
+          "language_model.model.layers.0.self_attn.wo_b"
+        ]
+      },
+      "AscendW4A8DynamicFusedMoEMethod": {
+        "count": 8,
+        "examples": [
+          "language_model.model.layers.0.mlp.experts.routed_experts",
+          "language_model.model.layers.1.mlp.experts.routed_experts"
+        ]
+      }
+    },
+    "async_scheduling": false
+  },
+  {
+    "rank": 6,
+    "layers": 8,
+    "hidden_size": 5120,
+    "global_experts": 384,
+    "topk": 6,
+    "tp": 8,
+    "local_experts": 48,
+    "compression_ratios": [
+      0,
+      0,
+      2,
+      2,
+      2,
+      1,
+      1,
+      1
+    ],
+    "engram_layer_ids": [
+      1,
+      4
+    ],
+    "engram_hash_seed_source_layers": [
+      1,
+      14
+    ],
+    "cache_groups": 5,
+    "cache_specs": [
+      "UniformTypeKVCacheSpecs",
+      "UniformTypeKVCacheSpecs",
+      "UniformTypeKVCacheSpecs",
+      "UniformTypeKVCacheSpecs",
+      "UniformTypeKVCacheSpecs"
+    ],
+    "cache_planner_original_sha256": "328f2d755ec7a6cdcd7f0976d7f606e44d2aca0fd81941e9c91cc1bc943384ab",
+    "quant_methods": {
+      "UnquantizedEmbeddingMethod": {
+        "count": 2,
+        "examples": [
+          "language_model.model.embed_tokens",
+          "language_model.lm_head"
+        ]
+      },
+      "AscendLinearMethod": {
+        "count": 44,
+        "examples": [
+          "language_model.model.layers.0.self_attn.wq_a",
+          "language_model.model.layers.0.self_attn.wq_b"
+        ]
+      },
+      "AscendUnquantizedLinearMethod": {
+        "count": 28,
+        "examples": [
+          "language_model.model.layers.0.self_attn.wo_a",
+          "language_model.model.layers.0.self_attn.wo_b"
+        ]
+      },
+      "AscendFusedMoEMethod": {
+        "count": 8,
+        "examples": [
+          "language_model.model.layers.0.mlp.experts.routed_experts",
+          "language_model.model.layers.1.mlp.experts.routed_experts"
+        ]
+      }
+    },
+    "quant_schemes": {
+      "UnquantizedEmbeddingMethod": {
+        "count": 2,
+        "examples": [
+          "language_model.model.embed_tokens",
+          "language_model.lm_head"
+        ]
+      },
+      "AscendW8A8DynamicLinearMethod": {
+        "count": 44,
+        "examples": [
+          "language_model.model.layers.0.self_attn.wq_a",
+          "language_model.model.layers.0.self_attn.wq_b"
+        ]
+      },
+      "AscendUnquantizedLinearMethod": {
+        "count": 28,
+        "examples": [
+          "language_model.model.layers.0.self_attn.wo_a",
+          "language_model.model.layers.0.self_attn.wo_b"
+        ]
+      },
+      "AscendW4A8DynamicFusedMoEMethod": {
+        "count": 8,
+        "examples": [
+          "language_model.model.layers.0.mlp.experts.routed_experts",
+          "language_model.model.layers.1.mlp.experts.routed_experts"
+        ]
+      }
+    },
+    "async_scheduling": false
+  },
+  {
+    "rank": 7,
+    "layers": 8,
+    "hidden_size": 5120,
+    "global_experts": 384,
+    "topk": 6,
+    "tp": 8,
+    "local_experts": 48,
+    "compression_ratios": [
+      0,
+      0,
+      2,
+      2,
+      2,
+      1,
+      1,
+      1
+    ],
+    "engram_layer_ids": [
+      1,
+      4
+    ],
+    "engram_hash_seed_source_layers": [
+      1,
+      14
+    ],
+    "cache_groups": 5,
+    "cache_specs": [
+      "UniformTypeKVCacheSpecs",
+      "UniformTypeKVCacheSpecs",
+      "UniformTypeKVCacheSpecs",
+      "UniformTypeKVCacheSpecs",
+      "UniformTypeKVCacheSpecs"
+    ],
+    "cache_planner_original_sha256": "328f2d755ec7a6cdcd7f0976d7f606e44d2aca0fd81941e9c91cc1bc943384ab",
+    "quant_methods": {
+      "UnquantizedEmbeddingMethod": {
+        "count": 2,
+        "examples": [
+          "language_model.model.embed_tokens",
+          "language_model.lm_head"
+        ]
+      },
+      "AscendLinearMethod": {
+        "count": 44,
+        "examples": [
+          "language_model.model.layers.0.self_attn.wq_a",
+          "language_model.model.layers.0.self_attn.wq_b"
+        ]
+      },
+      "AscendUnquantizedLinearMethod": {
+        "count": 28,
+        "examples": [
+          "language_model.model.layers.0.self_attn.wo_a",
+          "language_model.model.layers.0.self_attn.wo_b"
+        ]
+      },
+      "AscendFusedMoEMethod": {
+        "count": 8,
+        "examples": [
+          "language_model.model.layers.0.mlp.experts.routed_experts",
+          "language_model.model.layers.1.mlp.experts.routed_experts"
+        ]
+      }
+    },
+    "quant_schemes": {
+      "UnquantizedEmbeddingMethod": {
+        "count": 2,
+        "examples": [
+          "language_model.model.embed_tokens",
+          "language_model.lm_head"
+        ]
+      },
+      "AscendW8A8DynamicLinearMethod": {
+        "count": 44,
+        "examples": [
+          "language_model.model.layers.0.self_attn.wq_a",
+          "language_model.model.layers.0.self_attn.wq_b"
+        ]
+      },
+      "AscendUnquantizedLinearMethod": {
+        "count": 28,
+        "examples": [
+          "language_model.model.layers.0.self_attn.wo_a",
+          "language_model.model.layers.0.self_attn.wo_b"
+        ]
+      },
+      "AscendW4A8DynamicFusedMoEMethod": {
+        "count": 8,
+        "examples": [
+          "language_model.model.layers.0.mlp.experts.routed_experts",
+          "language_model.model.layers.1.mlp.experts.routed_experts"
+        ]
+      }
+    },
+    "async_scheduling": false
+  }
+]

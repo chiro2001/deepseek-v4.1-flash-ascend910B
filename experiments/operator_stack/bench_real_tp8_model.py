@@ -35,7 +35,7 @@ def main():
     p.add_argument('--profile-metrics', default='PipeUtilization,ArithmeticUtilization,Memory,MemoryL0,MemoryUB,L2Cache,ResourceConflictRatio')
     args = p.parse_args()
     assert not args.sync_reference or (args.audit and args.async_scheduling)
-    assert not args.async_scheduling or not (args.profile or args.cpu_diagnostic)
+    assert not args.async_scheduling or not args.cpu_diagnostic
     sync_references = {}
     if args.sync_reference:
         assert (args.sync_reference/'run.exit').read_text().strip()=='0'
@@ -119,18 +119,20 @@ def main():
             SamplingParams(temperature=0, max_tokens=count, ignore_eos=True,
                            detokenize=False, logprobs=5 if args.audit else None))
         times = []; final = None; arrivals=[]; observed_tokens=0
-        profiling = False
+        profiling = False; profile_started = False; profile_start_tokens = 0
         cpu_profiling=False
         try:
             while engine.has_unfinished_requests():
                 if cpu_probe and len(times)==9:
                     from formal_cpu_diagnostic import start as start_cpu_profile
                     llm.collective_rpc(start_cpu_profile);cpu_profiling=True
-                if metric and len(times) == 9:
+                if metric and not profile_started and (observed_tokens >= 9 if args.async_scheduling else len(times) == 9):
+                    assert not args.async_scheduling or observed_tokens <= count-20, 'Too few remaining tokens for a complete real-step profile'
                     from formal_tp8_profile import configure
-                    receipt = llm.collective_rpc(configure, args=(metric, str(out/'prof'/arm/metric), 5, 10))
+                    receipt = llm.collective_rpc(configure, args=(metric, str(out/'prof'/arm/metric), 5, 10, args.async_scheduling))
                     (out/f'profile_receipt_{arm}_{metric}.json').write_text(json.dumps(receipt,indent=2)+'\n')
-                    llm.start_profile(); profiling = True
+                    llm.start_profile(); profiling = profile_started = True
+                    profile_start_tokens = observed_tokens
                 start = time.perf_counter(); outputs = engine.step()
                 times.append((time.perf_counter()-start)*1000)
                 for value in outputs:
@@ -145,10 +147,17 @@ def main():
                     assert len(cpu_rows)==8 and {r['rank'] for r in cpu_rows}==set(range(8))
                     (out/f'cpu_diagnostic_{arm}.json').write_text(json.dumps(cpu_rows,indent=2)+'\n')
                 if profiling:
-                    from formal_tp8_profile import advance
-                    llm.collective_rpc(advance)
-                    if len(times) == 24:
+                    if not args.async_scheduling:
+                        from formal_tp8_profile import advance
+                        llm.collective_rpc(advance)
+                    finished_window = observed_tokens >= profile_start_tokens+20 if args.async_scheduling else len(times) == 24
+                    if finished_window:
                         llm.stop_profile(); profiling = False
+                        from formal_tp8_profile import step_receipt
+                        steps = llm.collective_rpc(step_receipt)
+                        assert len(steps)==8 and {r['rank'] for r in steps}==set(range(8))
+                        assert all(r['complete'] for r in steps), ('Incomplete real model-step profile',steps)
+                        (out/f'profile_steps_{arm}_{metric}.json').write_text(json.dumps(steps,indent=2)+'\n')
                 for value in outputs:
                     if value.finished: final = value
         finally:
@@ -157,6 +166,7 @@ def main():
                 from formal_cpu_diagnostic import stop as stop_cpu_profile
                 llm.collective_rpc(stop_cpu_profile)
         assert final is not None and len(final.outputs[0].token_ids) == count
+        assert not metric or (profile_started and not profiling), 'Profile window did not complete inside the request'
         output = final.outputs[0]
         decode_ms=statistics.median(times[9:])
         timing_scope='Synchronous engine.step median after first nine calls'

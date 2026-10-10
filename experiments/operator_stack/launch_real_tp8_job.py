@@ -66,8 +66,9 @@ def main():
     assert not (args.slot_bench and args.prefix_bench)
     assert args.pairs > 0 and args.wait_seconds >= 0
     assert not (args.audit and args.profile)
-    assert not args.async_scheduling or not any((args.serve,args.profile,args.cpu_diagnostic,
+    assert not args.async_scheduling or not any((args.serve,args.cpu_diagnostic,
         args.native_control,args.native_profile,args.reduction_bench,args.slot_bench,args.prefix_bench,args.eager))
+    assert not (args.tiny_profile and args.async_scheduling and args.profile), 'Tiny collector has a separate synchronous profile contract'
     assert not args.sync_reference_job or (args.async_scheduling and args.audit and
         args.sync_reference_job.replace('_','').replace('-','').isalnum())
     assert not args.cpu_diagnostic or not any((args.audit,args.profile,args.native_control,

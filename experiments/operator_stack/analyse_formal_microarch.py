@@ -93,7 +93,7 @@ def summarize(path, rank, metric):
     return result, rows
 
 
-def communication_timeline(rank_rows):
+def communication_timeline(rank_rows, expected_allreduces=82):
     # These are calibrated tool timestamps, not proof of the actual arrival
     # instant. Do not call start spread a pure network wait or add envelopes.
     streams = {}
@@ -102,11 +102,11 @@ def communication_timeline(rank_rows):
             selected = sorted((r for r in rows if r['Step Id'] == step and
                                r['Type'] == 'hcom_allReduce_' and r['Name'] == 'AivKernel'),
                               key=lambda r: float(r['Start Time(us)']))
-            assert len(selected) == 82, (rank, step, len(selected))
+            assert len(selected) == expected_allreduces, (rank, step, len(selected), expected_allreduces)
             streams[rank, step] = selected
     steps = sorted({s for _, s in streams}, key=int)
     aligned = []
-    for ordinal in range(82):
+    for ordinal in range(expected_allreduces):
         starts, ends, durations = [], [], []
         for step in steps:
             group = [streams[rank, step][ordinal] for rank in range(8)]
@@ -120,13 +120,17 @@ def communication_timeline(rank_rows):
                         'end_spread_us': distribution(ends), 'duration_us': distribution(durations)})
     return {'scope': 'AivKernel ordered by calibrated start timestamp within each profiler step; '
                      'start spread includes launch/arrival/clock effects; no pure wait attribution',
-            'allreduce_executions_per_step': 82, 'ordinals': aligned}
+            'allreduce_executions_per_step': expected_allreduces, 'ordinals': aligned}
 
 
 def main():
     parser = argparse.ArgumentParser(allow_abbrev=False)
     parser.add_argument('--root', type=Path, required=True)
+    parser.add_argument('--layers', type=int, choices=(8,40), default=40)
     args = parser.parse_args()
+    if args.layers==8:
+        diagnostic=json.loads((args.root/'result.json').read_text())
+        assert diagnostic['diagnostic_only'] and diagnostic['layers']==8 and not diagnostic['formal_weights']
     paths = sorted((args.root / 'prof').rglob('kernel_details.csv'))
     assert len(paths) == 56, len(paths)
     results, pipe_rows = [], {}
@@ -143,7 +147,7 @@ def main():
     report = {'scope': 'Diagnostic collection; sums may overlap and are not E2E timing. '
                        'Block Num is launch configuration, not measured active-core occupancy. '
                        'Raw counter means use profiler task/core normalization.',
-              'precision_validated': False, 'performance_claim': None, 'records': results}
+              'precision_validated': False, 'performance_claim': None, 'layers':args.layers, 'records': results}
     output = args.root / 'shape_microarch.json'
     output.write_text(json.dumps(report, indent=2) + '\n')
     compact = dict(report)
@@ -153,7 +157,7 @@ def main():
     summary.write_text(json.dumps(compact, indent=2) + '\n')
     assert summary.stat().st_size < 1000000, 'Keep full report remotely or use COS'
     timeline = args.root / 'communication_timeline.json'
-    timeline.write_text(json.dumps(communication_timeline(pipe_rows), indent=2) + '\n')
+    timeline.write_text(json.dumps(communication_timeline(pipe_rows,2*args.layers+2), indent=2) + '\n')
     print(json.dumps({'records': len(results), 'shape_bytes': output.stat().st_size,
                       'summary_bytes': summary.stat().st_size,
                       'timeline_bytes': timeline.stat().st_size}))

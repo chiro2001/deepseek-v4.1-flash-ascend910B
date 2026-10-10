@@ -1,0 +1,40 @@
+{
+  "argv": [
+    "/home/l00886679/miniforge3/bin/python3",
+    "/home/l00886679/projects/dsv41-real-stack-tp8-20261010/src_tiny_align_v7/stack/launch_real_tp8_job.py",
+    "--root",
+    "/home/l00886679/projects/dsv41-real-stack-tp8-20261010",
+    "--container",
+    "dsv41-real-stack-tp8-20261010-a321",
+    "--source-dir",
+    "/work/src_tiny_align_v7",
+    "--job",
+    "tiny_tp8_profile_v2",
+    "--model",
+    "/work/tiny_tp8_8layer_v1",
+    "--chips",
+    "8,9,10,11,12,13,14,15",
+    "--tiny-profile",
+    "--tiny-reference-job",
+    "formal_hostmeta_audit_v1",
+    "--arms",
+    "tp8base",
+    "--pairs",
+    "6",
+    "--profile",
+    "--hccl-deterministic",
+    "strict",
+    "--hccl-npu-socket-port-range",
+    "auto",
+    "--allow-alarm",
+    "--wait-seconds",
+    "60"
+  ],
+  "audit_gate": {
+    "passed": true,
+    "audit_result_sha256": "133a08a4d6a9d7b528f254207b534f798350dbe6432d0052570c6312f7781ecc",
+    "diagnostic_only": true,
+    "formal_17ms_claim": false,
+    "scope": "Tiny native A/A and first-four-layer formal prefill routes; no full-model quality equivalence"
+  }
+}

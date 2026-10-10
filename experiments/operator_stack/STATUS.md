@@ -1,3 +1,7 @@
+更新v27终态：tiny无审计perf/profile_v2退出0，六组同步八层诊断 `(12.898705ms,A1,77.527163tok/s)`；56份CSV/JSON已验收，每份10step/160个HcPre，18次规约/step。精确层数分析修正已保留正式默认82次规约。完整40层 `formal_async_profile_v1` 已在 `/work/src_async_profile_v3` 启动，实际runner748485存活：12组base/metastack异步配对后七组×两bank×八rank采集，step clock由实际worker推进；当前尚无新正式性能/17ms声明。
+
+更新v27：真实8层tiny审计v3退出0，七次正式前三套输入前四层prefill路由逐位相同；三组完整八层原生A/A路由/token/Top5/logprob全一致，delta0；每rank八个W4A8内层scheme确认。构造/加载/预热421.855秒，五cache组与正式十二组不同，不能外推整网时延。审计态13.536ms含路由/Top5观测，不作为性能结果。守卫已启动 `tiny_tp8_profile_v2` 六组无审计计时＋七组八rank采集。准备异步正式profiling：框架内置WorkerProfiler.step推进真实execute_model，停止用前端轮询/RPC次数代表异步步数，CPU驱动预检待终态。17ms仍未达到。
+
 更新v26：tiny审计v2已完成加载/图编译，随后在量化诊断误检查外层包装器类名处退出1，未运行路由比较；profile守卫正确拒绝继续。源码证明AscendFusedMoEMethod.quant_method才是真实scheme，已改为验证八个AscendW4A8DynamicFusedMoEMethod内层对象并归档包装器/内层计数。`/work/src_tiny_align_v7` 的 `tiny_tp8_alignment_audit_v3` 已启动；`tiny_profile_controller_v2` 通过完整tiny审计后才启动 `tiny_tp8_profile_v2`。17ms目标仍未达到。
 
 2026-10-11最新目标：用户将正式客户端目标提高为 **≤17ms/step**，完整要求见 [ACTIVE_OBJECTIVE.md](ACTIVE_OBJECTIVE.md)。历史19ms均不是当前完成门槛。当前goal工具拒绝覆盖未完成goal，旧goal仍active，后续按17ms推进。
