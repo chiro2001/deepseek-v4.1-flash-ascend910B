@@ -8,7 +8,9 @@
 
 生产代码在 `experts.is_internal_router` 为true时，把输入交给 `FusedMoEFactory`，外层gate的forward没有被调用。内部实现使用 `F.linear(hidden_states_fp32, gate.weight_fp32)`，或在另一版本分支使用临时转换到FP32的权重。
 
-原探针以外层gate.weight的地址匹配，不能保证对应内部FP32权重或临时Tensor的地址。因此已在内部专家模块进入/退出时跟踪归属，再对实际F.linear调用记录输入与输出。原生callable保持原样，重复测试仍调用它，不引入新的路由算法。每rank的80次HC、40次router覆盖门槛保持不变。这项修正尚未完成上板验证，不能据此宣布路由稳定。
+原探针以外层gate.weight的地址匹配，不能保证对应内部FP32权重或临时Tensor的地址。因此已在内部专家模块进入/退出时跟踪归属，再对实际F.linear调用记录输入与输出。原生callable保持原样，重复测试仍调用它，不引入新的路由算法。每rank的80次HC、40次router覆盖门槛保持不变。
+
+第三轮 `formal_native_eager_probe_v3` 已完成上板验证：8rank全部达到80次HC、40次router覆盖，共960份真实输入，每份重复5次。全部重复输出与彼此及实际forward输出一致，最大重复绝对差为0。整网原A/A仍失败；该结果说明这些固定输入的原生HC和路由投影稳定，不证明跨请求输入、TopK选择、通信或cache状态稳定。
 
 第二轮记录和失败退出码位于 `evidence/formal_a321/results/formal_native_eager_probe_v2/`。HC固定输入稳定仅说明这些输入的原生计算稳定，不证明不同请求中HC输入相同。
 
