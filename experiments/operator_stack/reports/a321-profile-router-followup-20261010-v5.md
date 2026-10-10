@@ -18,7 +18,15 @@
 
 每个指标独立发请求，先执行9步，再做5步profiler warmup与10步active；8rank各用独立目录。采集PipeUtilization、ArithmeticUtilization、Memory、MemoryL0、MemoryUB、L2Cache、ResourceConflictRatio以及CPU/NPU时间线。结果要核实每rank实际Device ID、窗口步数、非空CSV、字段和缺失值，再统计原生HC、路由、GMM、attention、Engram、HCCL与图间隙。
 
-`formal_native_profile_v1` 已在启动前8chip空闲时实际启动，正在加载正式模型；尚无本轮可验收的计数CSV。累计kernel时间不能当成端到端step；路径带宽不能当作UB容量或整芯片HBM利用率；NA和工具失败不写为0。UB双缓冲仍需由多tile工作集和关键路径上的MTE证据决定。
+`formal_native_profile_v1` 已完成采集。Torch worker是daemon进程，在线解析被工具拒绝；原始数据仍完整保存。首次对多层父目录调用analyse未发现数据，改为逐个 `_ascend_pt` 目录在独立非daemon子进程中解析，限制并发4。56个CSV全部验证通过：7组×8rank，每文件10个有效步，实际Device ID为8–15，时长有限且非负。PipeUtilization中每rank均为2356 task/step。
+
+实际字段包含MTE1/MTE2/MTE3与Scalar/Vector/Cube占比、L1/主存/L2/UB路径带宽、L0A/B/C带宽、L2命中/未命中计数和Vector资源冲突。完整跨rank和逐算子计数解读仍在继续；本轮没有UB容量occupancy。
+
+首个rank的采集态kernel累计热点如下，**允许重叠，不等于端到端时间**：AllReduce为164次、5874.002μs/step；MatMulV2为98次、2273.656μs；GroupedMatmulSwigluQuantV2为40次、2087.794μs；HcPre为80次、2046.924μs；QuantBatchMatmulV3为208次、1967.117μs；GroupedMatmul为40次、1394.558μs。通信等待与rank到达偏差需进一步区分，不能单凭AllReduce时长判为通信带宽瓶颈。
+
+Cast为193次、278.634μs/step，主要包含79次单元素INT32→INT64和40次 `[1,6]` FLOAT→BF16；未发现384×5120路由权重Cast，不能据此宣布缓存该权重会有收益。实际路由MatMulV3为 `[1,5120]×[384,5120]` 的FP32输入，每步40次，后接40次MoeGatingTopKHash。
+
+累计kernel时间不能当成端到端step；Profiler控制RPC影响CPU/图间隙。路径带宽不能当作UB容量或整芯片HBM利用率；NA和工具失败不写为0。UB双缓冲仍需由多tile工作集和关键路径上的MTE证据决定。
 
 ## 后续验收
 

@@ -1,0 +1,194 @@
+{
+  "device": 8,
+  "steps": 10,
+  "tasks_per_step": 2356.0,
+  "top_types": [
+    {
+      "type": "hcom_allReduce_",
+      "calls_per_step": 164.0,
+      "sum_kernel_us_per_step": 5874.001800000011
+    },
+    {
+      "type": "MatMulV2",
+      "calls_per_step": 98.0,
+      "sum_kernel_us_per_step": 2273.656499999999
+    },
+    {
+      "type": "GroupedMatmulSwigluQuantV2",
+      "calls_per_step": 40.0,
+      "sum_kernel_us_per_step": 2087.7940999999987
+    },
+    {
+      "type": "HcPre",
+      "calls_per_step": 80.0,
+      "sum_kernel_us_per_step": 2046.9237999999991
+    },
+    {
+      "type": "QuantBatchMatmulV3",
+      "calls_per_step": 208.0,
+      "sum_kernel_us_per_step": 1967.1173999999992
+    },
+    {
+      "type": "GroupedMatmul",
+      "calls_per_step": 40.0,
+      "sum_kernel_us_per_step": 1394.5576999999996
+    },
+    {
+      "type": "SparseFlashMla",
+      "calls_per_step": 40.0,
+      "sum_kernel_us_per_step": 1270.739
+    },
+    {
+      "type": "MatMulV3",
+      "calls_per_step": 46.0,
+      "sum_kernel_us_per_step": 621.3589000000003
+    },
+    {
+      "type": "HcPost",
+      "calls_per_step": 80.0,
+      "sum_kernel_us_per_step": 509.16769999999985
+    },
+    {
+      "type": "RmsNorm",
+      "calls_per_step": 129.0,
+      "sum_kernel_us_per_step": 485.52429999999885
+    },
+    {
+      "type": "MoeInitRoutingV3",
+      "calls_per_step": 40.0,
+      "sum_kernel_us_per_step": 440.1854
+    },
+    {
+      "type": "DynamicQuant",
+      "calls_per_step": 172.0,
+      "sum_kernel_us_per_step": 356.37719999999524
+    },
+    {
+      "type": "InplacePartialRotaryMul",
+      "calls_per_step": 136.0,
+      "sum_kernel_us_per_step": 343.15620000000297
+    },
+    {
+      "type": "Cast",
+      "calls_per_step": 193.0,
+      "sum_kernel_us_per_step": 278.6338999999969
+    },
+    {
+      "type": "QuantLightningIndexerV2",
+      "calls_per_step": 8.0,
+      "sum_kernel_us_per_step": 266.82469999999995
+    },
+    {
+      "type": "SparseFlashMlaMetadata",
+      "calls_per_step": 3.0,
+      "sum_kernel_us_per_step": 225.07409999999996
+    },
+    {
+      "type": "MaskedFill",
+      "calls_per_step": 48.0,
+      "sum_kernel_us_per_step": 195.21989999999988
+    },
+    {
+      "type": "ScatterNdUpdateSk",
+      "calls_per_step": 52.0,
+      "sum_kernel_us_per_step": 187.66469999999995
+    },
+    {
+      "type": "QuantLightningIndexerV2Metadata",
+      "calls_per_step": 2.0,
+      "sum_kernel_us_per_step": 135.56490000000002
+    },
+    {
+      "type": "MoeGatingTopKHash",
+      "calls_per_step": 40.0,
+      "sum_kernel_us_per_step": 124.82390000000025
+    }
+  ],
+  "cast_shapes": [
+    {
+      "shape": "\"1\"",
+      "input_dtype": "INT32",
+      "output_dtype": "INT64",
+      "calls_per_step": 79.0,
+      "sum_kernel_us_per_step": 92.53599999999992
+    },
+    {
+      "shape": "\"1,6\"",
+      "input_dtype": "FLOAT",
+      "output_dtype": "DT_BF16",
+      "calls_per_step": 40.0,
+      "sum_kernel_us_per_step": 46.34300000000003
+    },
+    {
+      "shape": "\"1,4,5120\"",
+      "input_dtype": "DT_BF16",
+      "output_dtype": "FLOAT",
+      "calls_per_step": 7.0,
+      "sum_kernel_us_per_step": 23.60759999999999
+    },
+    {
+      "shape": "\"1\"",
+      "input_dtype": "INT64",
+      "output_dtype": "INT32",
+      "calls_per_step": 15.0,
+      "sum_kernel_us_per_step": 20.353199999999994
+    },
+    {
+      "shape": "\"4,5120\"",
+      "input_dtype": "DT_BF16",
+      "output_dtype": "FLOAT",
+      "calls_per_step": 4.0,
+      "sum_kernel_us_per_step": 17.1658
+    },
+    {
+      "shape": "\"1,32\"",
+      "input_dtype": "FLOAT",
+      "output_dtype": "FLOAT16",
+      "calls_per_step": 8.0,
+      "sum_kernel_us_per_step": 9.575900000000004
+    },
+    {
+      "shape": "\"1,32\"",
+      "input_dtype": "DT_BF16",
+      "output_dtype": "FLOAT",
+      "calls_per_step": 8.0,
+      "sum_kernel_us_per_step": 9.489599999999998
+    },
+    {
+      "shape": "\"1,5120\"",
+      "input_dtype": "DT_BF16",
+      "output_dtype": "FLOAT",
+      "calls_per_step": 5.0,
+      "sum_kernel_us_per_step": 8.603699999999996
+    },
+    {
+      "shape": "\"1,4,5120\"",
+      "input_dtype": "FLOAT",
+      "output_dtype": "DT_BF16",
+      "calls_per_step": 2.0,
+      "sum_kernel_us_per_step": 7.867900000000001
+    },
+    {
+      "shape": "\"1,129280\"",
+      "input_dtype": "DT_BF16",
+      "output_dtype": "FLOAT",
+      "calls_per_step": 1.0,
+      "sum_kernel_us_per_step": 7.2179
+    },
+    {
+      "shape": "\"1,1\"",
+      "input_dtype": "FLOAT",
+      "output_dtype": "FLOAT16",
+      "calls_per_step": 4.0,
+      "sum_kernel_us_per_step": 4.809799999999999
+    },
+    {
+      "shape": "\"1\"",
+      "input_dtype": "BOOL",
+      "output_dtype": "INT64",
+      "calls_per_step": 4.0,
+      "sum_kernel_us_per_step": 4.7699
+    }
+  ],
+  "scope": "One profiled rank; kernel sums overlap and are not end-to-end latency"
+}
