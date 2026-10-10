@@ -24,11 +24,14 @@ def main():
     p.add_argument('--pairs', type=int, default=3)
     p.add_argument('--arms', default='tp8base,tp8core,tp8act,tp8stack')
     p.add_argument('--audit', action='store_true')
+    p.add_argument('--async-scheduling',action='store_true')
+    p.add_argument('--sync-reference-job')
     p.add_argument('--cpu-diagnostic',action='store_true')
     p.add_argument('--profile', action='store_true')
     p.add_argument('--native-control', action='store_true')
     p.add_argument('--native-profile', action='store_true')
     p.add_argument('--reduction-bench', action='store_true')
+    p.add_argument('--reduction-inner-repeats',type=int,default=1)
     p.add_argument('--slot-bench', action='store_true')
     p.add_argument('--prefix-bench', action='store_true')
     p.add_argument('--prefix-evidence-job')
@@ -55,6 +58,10 @@ def main():
     assert not (args.slot_bench and args.prefix_bench)
     assert args.pairs > 0 and args.wait_seconds >= 0
     assert not (args.audit and args.profile)
+    assert not args.async_scheduling or not any((args.serve,args.profile,args.cpu_diagnostic,
+        args.native_control,args.native_profile,args.reduction_bench,args.slot_bench,args.prefix_bench,args.eager))
+    assert not args.sync_reference_job or (args.async_scheduling and args.audit and
+        args.sync_reference_job.replace('_','').replace('-','').isalnum())
     assert not args.cpu_diagnostic or not any((args.audit,args.profile,args.native_control,
         args.native_profile,args.reduction_bench,(args.slot_bench or args.prefix_bench),args.serve,args.eager))
     assert not (args.slot_bench or args.prefix_bench) or not any((args.audit,args.profile,args.native_control,args.native_profile,
@@ -66,6 +73,7 @@ def main():
         assert not name or (args.serve and name.replace('-', '').replace('_', '').isalnum())
     assert not args.reduction_bench or (args.vector_job and not any((args.audit,args.profile,args.native_control,args.native_profile,args.eager,args.probe_native_ops,args.trace_attention,args.fp32_decode_reduction,args.isolated_pools)))
     assert not args.vector_job or (args.reduction_bench and args.vector_job.replace('-', '').replace('_', '').isalnum())
+    assert 1<=args.reduction_inner_repeats<=256 and (args.reduction_bench or args.reduction_inner_repeats==1)
     assert not args.native_profile or (not args.native_control and not args.audit and not args.profile and not args.eager and not args.isolated_pools)
     assert not args.native_control or (args.audit and not args.profile)
     assert not args.eager or args.native_control
@@ -168,6 +176,7 @@ def main():
             '--output=/work/results/' + args.job]
         if args.reduction_bench:
             command.append('--input=/work/results/' + args.vector_job)
+            command.append('--inner-repeats='+str(args.reduction_inner_repeats))
         elif not (args.slot_bench or args.prefix_bench):
             command.append('--model=' + args.model)
         if args.serve:
@@ -192,6 +201,10 @@ def main():
             command.append('--reduction-evidence=/work/results/' + args.reduction_evidence_job)
         if args.audit:
             command.append('--audit')
+        if args.async_scheduling:
+            command.append('--async-scheduling')
+        if args.sync_reference_job:
+            command.append('--sync-reference=/work/results/'+args.sync_reference_job)
         if args.profile:
             command.append('--profile')
         if args.cpu_diagnostic:

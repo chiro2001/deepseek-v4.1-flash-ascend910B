@@ -1,0 +1,115 @@
+{
+  "tensor_parallel_size": 8,
+  "physical_chips": [
+    8,
+    9,
+    10,
+    11,
+    12,
+    13,
+    14,
+    15
+  ],
+  "formal_weights": true,
+  "requested_load_format": "auto",
+  "model_path": "/home/l00886679/models/out/v41-w4a8-engram-dr-vision-qrot-mtpq",
+  "checkpoint_config_sha256": "40ebd329d3cb2d99d7176091afb580c182c21f48b88b63b550264a97e9c0d424",
+  "safetensors_load_strategy": "lazy",
+  "multithread_loader_threads": 128,
+  "engram_enabled": true,
+  "speculative_decoding": false,
+  "engram_storage": "int8",
+  "cpu_binding": false,
+  "fp32_decode_reduction": false,
+  "hccl_deterministic_env": "strict",
+  "reduction_evidence": null,
+  "vision_enabled": true,
+  "limit_mm_per_prompt": {
+    "image": 4
+  },
+  "request_modality": "text",
+  "same_model_instance": true,
+  "same_processes_per_rank": true,
+  "audit": true,
+  "profiler": "OFF",
+  "A": 1,
+  "arms": {
+    "tp8base": {
+      "ms_per_step": 31.506599858403206,
+      "A": 1,
+      "tokens_per_second": 31.739381732532063
+    },
+    "tp8metastack": {
+      "ms_per_step": 28.708949917927384,
+      "A": 1,
+      "tokens_per_second": 34.83234332355525
+    },
+    "tp8hostmeta": {
+      "ms_per_step": 28.708240250125527,
+      "A": 1,
+      "tokens_per_second": 34.833204379207025
+    }
+  },
+  "pairs": [
+    {
+      "pair": 0,
+      "arm": "tp8metastack",
+      "baseline_ms": 31.355350045487285,
+      "candidate_ms": 28.708949917927384,
+      "speedup": 1.092180317814667,
+      "tokens_equal": true,
+      "actual_routes_equal": true,
+      "max_logprob_delta": 0.0
+    },
+    {
+      "pair": 0,
+      "arm": "tp8hostmeta",
+      "baseline_ms": 31.355350045487285,
+      "candidate_ms": 28.88713008724153,
+      "speedup": 1.085443585111831,
+      "tokens_equal": true,
+      "actual_routes_equal": true,
+      "max_logprob_delta": 0.0
+    },
+    {
+      "pair": 1,
+      "arm": "tp8metastack",
+      "baseline_ms": 31.517900060862303,
+      "candidate_ms": 29.08371016383171,
+      "speedup": 1.0836959893809468,
+      "tokens_equal": true,
+      "actual_routes_equal": true,
+      "max_logprob_delta": 0.0
+    },
+    {
+      "pair": 1,
+      "arm": "tp8hostmeta",
+      "baseline_ms": 31.517900060862303,
+      "candidate_ms": 28.69156002998352,
+      "speedup": 1.0985077154370544,
+      "tokens_equal": true,
+      "actual_routes_equal": true,
+      "max_logprob_delta": 0.0
+    },
+    {
+      "pair": 2,
+      "arm": "tp8metastack",
+      "baseline_ms": 31.506599858403206,
+      "candidate_ms": 28.6943051032722,
+      "speedup": 1.0980088120276628,
+      "tokens_equal": true,
+      "actual_routes_equal": true,
+      "max_logprob_delta": 0.0
+    },
+    {
+      "pair": 2,
+      "arm": "tp8hostmeta",
+      "baseline_ms": 31.506599858403206,
+      "candidate_ms": 28.708240250125527,
+      "speedup": 1.097475832161654,
+      "tokens_equal": true,
+      "actual_routes_equal": true,
+      "max_logprob_delta": 0.0
+    }
+  ]
+}

@@ -49,6 +49,12 @@ def worker(rank, args, port):
     reference_buffer = torch.empty((8 * 80, 5120), dtype=torch.bfloat16, device=vectors.device)
     dist.all_gather_into_tensor(reference_buffer, vectors)
     reference = reference_buffer.cpu().double().reshape(8, 80, 5120).sum(dim=0).to(torch.bfloat16)
+    native_reference = []
+    for index in range(80):
+        value = vectors[index].clone()
+        dist.all_reduce(value)
+        native_reference.append(value.cpu())
+    native_reference = torch.stack(native_reference)
     gathered = torch.empty((8, 5120), dtype=torch.bfloat16, device=vectors.device)
     output = torch.empty(5120, dtype=torch.bfloat16, device=vectors.device)
     methods = [('native_bf16', None, None), ('native_fp32', None, None)]
@@ -77,6 +83,7 @@ def worker(rank, args, port):
             actual = [x.cpu() for x in observed]
             audit.append({'input': index, 'repeat_equal': all(torch.equal(actual[0], x) for x in actual),
                           'fp64_reference_equal': all(torch.equal(reference[index], x) for x in actual),
+                          'native_reference_equal': all(torch.equal(native_reference[index], x) for x in actual),
                           'max_abs_vs_reference': max(float((reference[index].float() - x.float()).abs().max()) for x in actual),
                           'differing_elements': max(int((reference[index] != x).sum()) for x in actual)})
         (args.output / f'rank{rank}_{name}_audit.json').write_text(json.dumps({
@@ -89,7 +96,10 @@ def worker(rank, args, port):
         dist.barrier()
         graph = torch.npu.NPUGraph()
         with torch.npu.graph(graph):
-            graph_output = operation(vectors[0])
+            # Capture repeated operations inside one graph to amortize Python
+            # graph.replay latency. Keep all native output allocations alive.
+            graph_outputs = [operation(vectors[0]) for _ in range(args.inner_repeats)]
+            graph_output = graph_outputs[-1]
         torch.npu.synchronize()
         graph_observed = []
         for _ in range(3):
@@ -98,9 +108,11 @@ def worker(rank, args, port):
             graph_observed.append(graph_output.cpu().clone())
         graph_equal = all(torch.equal(graph_observed[0], x) for x in graph_observed)
         graph_reference_equal = all(torch.equal(reference[0], x) for x in graph_observed)
+        graph_native_equal = all(torch.equal(native_reference[0], x) for x in graph_observed)
         (args.output / f'rank{rank}_{name}_graph_audit.json').write_text(json.dumps({
             'rank': rank, 'method': name, 'repeat_equal': graph_equal,
             'fp64_reference_equal': graph_reference_equal,
+            'native_reference_equal': graph_native_equal,
             'scope': 'Three graph replays on the first saved attention reduction vector'}, indent=2) + '\n')
         for _ in range(10): graph.replay()
         torch.npu.synchronize()
@@ -113,11 +125,14 @@ def worker(rank, args, port):
             for _ in range(100): graph.replay()
             end.record()
             end.synchronize()
-            timings.append(start.elapsed_time(end) * 1000 / 100)
+            timings.append(start.elapsed_time(end) * 1000 / (100*args.inner_repeats))
         receipts.append({'method': name, 'audit': audit,
                          'passed': all(r['repeat_equal'] and r['fp64_reference_equal'] for r in audit) and graph_equal and graph_reference_equal,
                          'graph_repeat_equal': graph_equal,
                          'graph_fp64_reference_equal': graph_reference_equal,
+                         'native_reference_passed': all(r['repeat_equal'] and r['native_reference_equal'] for r in audit) and graph_equal and graph_native_equal,
+                         'graph_native_reference_equal': graph_native_equal,
+                         'inner_repeats': args.inner_repeats,
                          'event_us_per_collective': timings,
                          'event_median_us': statistics.median(timings)})
         # Keep the captured output alive until all replays finish.
@@ -136,8 +151,10 @@ def main():
     parser.add_argument('--input', required=True, type=Path)
     parser.add_argument('--output', required=True, type=Path)
     parser.add_argument('--physical-chips', required=True)
+    parser.add_argument('--inner-repeats', type=int, default=1)
     args = parser.parse_args()
     assert args.physical_chips == os.environ['STACK_PHYSICAL_CHIPS'] == '8,9,10,11,12,13,14,15'
+    assert 1<=args.inner_repeats<=256
     assert len(list(args.input.glob('reduction_local_vectors_rank*.pt'))) == 8
     args.output.mkdir(parents=True, exist_ok=True)
     with socket.socket() as listener:

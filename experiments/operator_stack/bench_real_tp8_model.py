@@ -24,6 +24,8 @@ def main():
     p.add_argument('--cpu-bind', action='store_true',
                    help='Enable NUMA binding only after validating shared-host memory migration')
     p.add_argument('--audit', action='store_true')
+    p.add_argument('--async-scheduling', action='store_true')
+    p.add_argument('--sync-reference', type=Path)
     p.add_argument('--cpu-diagnostic',action='store_true')
     p.add_argument('--fp32-decode-reduction', action='store_true')
     p.add_argument('--hccl-deterministic', choices=('false','true','strict'))
@@ -32,6 +34,18 @@ def main():
                    help='Collect bounded per-rank metrics after unprofiled paired timing')
     p.add_argument('--profile-metrics', default='PipeUtilization,ArithmeticUtilization,Memory,MemoryL0,MemoryUB,L2Cache,ResourceConflictRatio')
     args = p.parse_args()
+    assert not args.sync_reference or (args.audit and args.async_scheduling)
+    assert not args.async_scheduling or not (args.profile or args.cpu_diagnostic)
+    sync_references = {}
+    if args.sync_reference:
+        assert (args.sync_reference/'run.exit').read_text().strip()=='0'
+        reference_result=json.loads((args.sync_reference/'result.json').read_text())
+        assert reference_result['audit'] and reference_result['model_path']==args.model
+        assert reference_result['hccl_deterministic_env']=='strict'
+        assert not reference_result.get('async_scheduling',False)
+        for row in json.loads((args.sync_reference/'requests.json').read_text()):
+            if row['tag'].startswith('pair-'):
+                sync_references[row['arm'],row['seed']]=row
     assert not (args.audit and args.profile), 'Route/clone audit and profiling run separately'
     assert not args.cpu_diagnostic or not (args.audit or args.profile)
     assert (os.getenv('STACK_FP32_DECODE_REDUCTION') == '1') == args.fp32_decode_reduction
@@ -67,7 +81,7 @@ def main():
               model_loader_extra_config={'enable_multithread_load':True,'num_threads':128},
               worker_cls='real_tp8_worker.RealTP8StackWorker', tensor_parallel_size=8,
               distributed_executor_backend='mp', enable_expert_parallel=True, seed=0,
-              trust_remote_code=True, async_scheduling=False, limit_mm_per_prompt={'image': 4},
+              trust_remote_code=True, async_scheduling=args.async_scheduling, limit_mm_per_prompt={'image': 4},
               max_model_len=8192, max_num_seqs=1, max_num_batched_tokens=2048,
               gpu_memory_utilization=.70, kv_cache_memory_bytes=4*1024**3,
               block_size=128, enable_prefix_caching=False, enable_return_routed_experts=args.audit,
@@ -79,6 +93,7 @@ def main():
                   'ascend_compilation_config': {'enable_npugraph_ex': True, 'enable_static_kernel': True},
                   'multistream_dsv4_dsa_overlap': False})
     banks = {}
+    assert bool(llm.llm_engine.vllm_config.scheduler_config.async_scheduling)==args.async_scheduling
     banks[arms[0]] = llm.collective_rpc(patches.save, args=(arms[0],))
     def record_banks():
         for rows in banks.values():
@@ -103,7 +118,7 @@ def main():
         engine.add_request(f'stack8-{counter}', {'prompt_token_ids': prompt},
             SamplingParams(temperature=0, max_tokens=count, ignore_eos=True,
                            detokenize=False, logprobs=5 if args.audit else None))
-        times = []; final = None
+        times = []; final = None; arrivals=[]; observed_tokens=0
         profiling = False
         cpu_profiling=False
         try:
@@ -118,6 +133,12 @@ def main():
                     llm.start_profile(); profiling = True
                 start = time.perf_counter(); outputs = engine.step()
                 times.append((time.perf_counter()-start)*1000)
+                for value in outputs:
+                    if value.outputs:
+                        total=len(value.outputs[0].token_ids)
+                        if total>observed_tokens:
+                            arrivals.append((total,time.perf_counter()))
+                            observed_tokens=total
                 if cpu_profiling and len(times)==24:
                     from formal_cpu_diagnostic import stop as stop_cpu_profile
                     cpu_rows=llm.collective_rpc(stop_cpu_profile);cpu_profiling=False
@@ -137,8 +158,20 @@ def main():
                 llm.collective_rpc(stop_cpu_profile)
         assert final is not None and len(final.outputs[0].token_ids) == count
         output = final.outputs[0]
+        decode_ms=statistics.median(times[9:])
+        timing_scope='Synchronous engine.step median after first nine calls'
+        if args.async_scheduling:
+            # Async engine calls can drain multiple already-produced outputs.
+            # Count token arrivals, never CPU polling calls, as decode steps.
+            warm=next((row for row in arrivals if row[0]>=9),None)
+            assert warm and arrivals[-1][0]==count and count-warm[0]>=20, arrivals
+            decode_ms=(arrivals[-1][1]-warm[1])*1000/(count-warm[0])
+            timing_scope='Frontend token-arrival elapsed/actual decode tokens after warmup; A=1'
         record = {'arm': arm, 'tag': tag, 'seed': seed, 'step_ms': times,
-                  'decode_median_ms': statistics.median(times[9:]), 'token_ids': output.token_ids,
+                  'decode_measurement_ms':decode_ms,
+                  'decode_median_ms':None if args.async_scheduling else decode_ms,
+                  'decode_mean_ms':decode_ms if args.async_scheduling else None, 'timing_scope':timing_scope,
+                  'token_arrival_counts':[row[0] for row in arrivals], 'token_ids': output.token_ids,
                   'text':tokenizer.decode(output.token_ids), 'profile_metric':metric,'cpu_diagnostic':cpu_probe}
         if args.audit:
             import numpy as np
@@ -159,6 +192,13 @@ def main():
             record['rank_audit'] = llm.collective_rpc(patches.audit, args=(arm,))
             import route_capture_patch
             record['route_capture_status'] = llm.collective_rpc(route_capture_patch.status)
+            if args.sync_reference:
+                from formal_comparison import compare_requests
+                reference=sync_references.get((arm,seed))
+                assert reference is not None,(arm,seed,'missing synchronous precision reference')
+                comparison=compare_requests(reference,record,f'sync-vs-async-{counter}-{arm}')
+                (out/f'sync_reference_comparison_{counter}_{arm}.json').write_text(json.dumps(comparison,indent=2)+'\n')
+                assert comparison['passed'],comparison
         records.append(record)
         (out/'requests.json').write_text(json.dumps(records, indent=2)+'\n')
         print('REAL_TP8_REQUEST', json.dumps({k:v for k,v in record.items() if k not in ['step_ms','routes','token_ids','logprobs','rank_audit','route_capture_status']}), flush=True)
@@ -201,9 +241,9 @@ def main():
         for arm in arms[1:]:
             ref = rows[arms[0]]; actual = rows[arm]
             assert ref['token_ids'] == actual['token_ids'], (pair, arm, 'token')
-            comparison = {'pair':pair,'arm':arm,'baseline_ms':ref['decode_median_ms'],
-                          'candidate_ms':actual['decode_median_ms'],
-                          'speedup':ref['decode_median_ms']/actual['decode_median_ms'],'tokens_equal':True}
+            comparison = {'pair':pair,'arm':arm,'baseline_ms':ref['decode_measurement_ms'],
+                          'candidate_ms':actual['decode_measurement_ms'],
+                          'speedup':ref['decode_measurement_ms']/actual['decode_measurement_ms'],'tokens_equal':True}
             if args.audit:
                 from formal_comparison import compare_requests
                 diagnostic=compare_requests(ref,actual,f'pair-{pair}-{arm}')
@@ -220,6 +260,8 @@ def main():
               'safetensors_load_strategy':'lazy','multithread_loader_threads':128,
               'engram_enabled':True, 'speculative_decoding':False,
               'engram_storage':'int8', 'cpu_binding':args.cpu_bind,
+              'async_scheduling':args.async_scheduling,
+              'timing_scope':'token-arrival elapsed/decoded tokens' if args.async_scheduling else 'engine.step median',
               'fp32_decode_reduction':args.fp32_decode_reduction,
               'hccl_deterministic_env':os.getenv('HCCL_DETERMINISTIC'),
               'reduction_evidence':str(args.reduction_evidence) if args.reduction_evidence else None,
@@ -227,7 +269,7 @@ def main():
               'same_model_instance':True,'same_processes_per_rank':True,'audit':args.audit,
               'profiler':'OFF','A':1,'arms':{},'pairs':comparisons}
     for arm in arms:
-        ms=statistics.median(r['decode_median_ms'] for r in records if r['arm']==arm and r['tag'].startswith('pair-'))
+        ms=statistics.median(r['decode_measurement_ms'] for r in records if r['arm']==arm and r['tag'].startswith('pair-'))
         result['arms'][arm]={'ms_per_step':ms,'A':1,'tokens_per_second':1000/ms}
     (out/'result.json').write_text(json.dumps(result, indent=2)+'\n')
     print('REAL_TP8_COMPLETE', json.dumps(result), flush=True)
