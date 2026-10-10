@@ -83,7 +83,8 @@ def main():
         'passed':all(r['passed'] for r in comparisons),'performance_claim':None}
     (args.output/'result.json').write_text(json.dumps(result,indent=2)+'\n')
     if args.probe_native_ops:
-        from native_repeatability_probe import install,repeat,disable_engram_subgraph
+        from native_repeatability_probe import (install,repeat,disable_engram_subgraph,
+                                               begin_capture,finish_capture,compare_captures)
         disabled=llm.collective_rpc(disable_engram_subgraph)
         (args.output/'engram_subgraph_disabled.json').write_text(json.dumps(disabled,indent=2)+'\n')
         graph_off_ref=full_request(0,'engram-subgraph-off-reference')
@@ -102,6 +103,14 @@ def main():
         print('FORMAL_NATIVE_OPERATOR_PROBE_COMPLETE',json.dumps({'ranks':len(probe),
               'records':sum(len(r['records']) for r in probe)}),flush=True)
         assert all(r['expected_coverage_reached'] for r in probe), 'Native operator probe coverage incomplete'
+        for tag in ('trace-reference','trace-repeat'):
+            llm.collective_rpc(begin_capture,args=(tag,))
+            full_request(0,tag)
+            llm.collective_rpc(finish_capture,args=(tag,))
+        trace=llm.collective_rpc(compare_captures,args=('trace-reference','trace-repeat'))
+        (args.output/'cross_request_trace.json').write_text(json.dumps(trace,indent=2)+'\n')
+        print('FORMAL_CROSS_REQUEST_TRACE_COMPLETE',json.dumps([
+            {'rank':r['rank'],'first_difference':r['first_difference']} for r in trace]),flush=True)
     assert result['passed'], 'Formal production A/A failed original route/logprob gate'
 
 

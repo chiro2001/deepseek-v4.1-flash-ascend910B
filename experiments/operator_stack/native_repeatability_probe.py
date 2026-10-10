@@ -6,11 +6,68 @@ RECORDS = []
 NAMES = {}
 SEEN = set()
 ORIGINALS = {}
+POST_ORIGINALS = {}
 ENABLED = False
 ENGRAM_GRAPHS = []
 ROUTER_WEIGHTS = {}
 ROUTER_OWNER_STACK = []
 ROUTER_OWNER_HANDLES = []
+SNAPSHOTS = {}
+
+
+def begin_capture(worker,tag):
+    global ENABLED
+    torch.npu.synchronize()
+    assert tag not in SNAPSHOTS and not ROUTER_OWNER_STACK
+    RECORDS.clear();SEEN.clear();ENABLED=True
+    return {'tag':tag,'scope':'first real decode of the next request'}
+
+
+def finish_capture(worker,tag):
+    global ENABLED
+    ENABLED=False;torch.npu.synchronize()
+    counts={kind:sum(r[0]==kind for r in RECORDS) for kind in ('hc','hcpost','router')}
+    assert counts=={'hc':80,'hcpost':80,'router':40},counts
+    SNAPSHOTS[tag]=list(RECORDS)
+    return {'tag':tag,'coverage':counts}
+
+
+@torch.inference_mode()
+def compare_captures(worker,reference_tag,actual_tag):
+    a=SNAPSHOTS[reference_tag];b=SNAPSHOTS[actual_tag]
+    assert len(a)==len(b)==200
+    result=[];post_phases={}
+    def compare(x,y):
+        if x is None or y is None:return {'equal':x is y}
+        assert x.shape==y.shape and x.dtype==y.dtype
+        return {'equal':torch.equal(x,y),'shape':list(x.shape),'dtype':str(x.dtype),
+                'differing_elements':int((x!=y).sum().item()),
+                'max_abs':float((x.float()-y.float()).abs().max().item())}
+    for index,(left,right) in enumerate(zip(a,b)):
+        kind,name,module,_,_,args,outputs=left
+        assert right[:2]==left[:2],(index,left[:2],right[:2])
+        actual_args=right[5];actual_outputs=right[6]
+        row={'index':index,'kind':kind,'module':name,'input':compare(args[0],actual_args[0]),
+             'outputs':[compare(x,y) for x,y in zip(outputs,actual_outputs)]}
+        if kind=='hc':
+            row['phase']='attention' if args[1].data_ptr()==module.hc_attn_fn.data_ptr() else 'ffn'
+            row['pre_mix']=compare(args[-1],actual_args[-1])
+        elif kind=='hcpost':
+            ordinal=post_phases.get(name,0);post_phases[name]=ordinal+1
+            row['phase']='attention' if ordinal==0 else 'ffn'
+            row['residual']=compare(args[1],actual_args[1])
+            row['post']=compare(args[2],actual_args[2])
+            row['comb']=compare(args[3],actual_args[3])
+        else:
+            row['weight']=compare(args[1],actual_args[1])
+        result.append(row)
+    from vllm.distributed import get_tensor_model_parallel_rank
+    first=next((r for r in result if not r['input']['equal'] or
+                any(not x['equal'] for x in r['outputs']) or
+                any(not r.get(k,{'equal':True})['equal'] for k in ('pre_mix','weight','residual','post','comb'))),None)
+    return {'rank':get_tensor_model_parallel_rank(),'reference':reference_tag,'actual':actual_tag,
+            'records':result,'first_difference':first,
+            'scope':'First decode tensors from two same-prompt requests; diagnostic clones perturb timing'}
 
 
 def disable_engram_subgraph(worker):
@@ -50,6 +107,21 @@ def install(worker):
     model = worker.model_runner.model
     for name,module in model.named_modules():
         NAMES[id(module)] = name
+        if hasattr(module,'hc_post') and getattr(module,'hc_mult',None)==4:
+            cls=type(module)
+            if cls not in POST_ORIGINALS:
+                original_post=cls.hc_post;POST_ORIGINALS[cls]=original_post
+                def bind_post(original):
+                    def wrapped(self,x,residual,post,comb):
+                        # There are two post calls per decoder layer.
+                        ordinal=sum(r[0]=='hcpost' and r[2] is self for r in RECORDS)
+                        selected=eligible(x) and ordinal<2
+                        saved=tuple(v.clone() for v in (x,residual,post,comb)) if selected else None
+                        output=original(self,x,residual,post,comb)
+                        if selected:RECORDS.append(('hcpost',NAMES[id(self)],self,original,None,saved,tensors(output)))
+                        return output
+                    return wrapped
+                cls.hc_post=bind_post(original_post)
         if getattr(module,'is_internal_router',False):
             def bind_owner(name):
                 def before(module,inputs):
@@ -132,6 +204,8 @@ def repeat(worker,repeats=5):
                     if mix is not None: mix.copy_(args[-1])
                     output = (original(module,x,*args[1:4],mix) if has_mix
                               else original(module,x,*args[1:4]))
+                elif kind=='hcpost':
+                    output=original(module,x,*args[1:])
                 else:
                     output = original(x,*args[1:])
             output = tensors(output)
@@ -146,7 +220,7 @@ def repeat(worker,repeats=5):
                        'identical_input_repeats_equal':equal,
                        'repeats_equal_observed_forward':observed_equal,'max_repeat_abs':max_abs})
     from vllm.distributed import get_tensor_model_parallel_rank
-    counts = {kind:sum(r['kind']==kind for r in result) for kind in ('hc','router')}
+    counts = {kind:sum(r['kind']==kind for r in result) for kind in ('hc','hcpost','router')}
     return {'rank':get_tensor_model_parallel_rank(),'records':result,'coverage':counts,
-            'expected_coverage_reached':counts=={'hc':80,'router':40},
+            'expected_coverage_reached':counts=={'hc':80,'hcpost':80,'router':40},
             'scope':'native HC/router only; cannot prove whole-model stability or timing'}
