@@ -50,13 +50,15 @@ def topology_receipt(worker):
     from vllm.distributed import get_tensor_model_parallel_rank
     cfg = worker.vllm_config
     text = cfg.model_config.hf_text_config
-    methods = {}
+    methods, schemes = {}, {}
     for name, module in worker.model_runner.model.named_modules():
         method = getattr(module, 'quant_method', None)
         if method is not None:
             kind = type(method).__name__
             methods.setdefault(kind, []).append(name)
-    assert any('W4A8' in name for name in methods), methods
+            scheme = getattr(method, 'quant_method', method)
+            schemes.setdefault(type(scheme).__name__, []).append(name)
+    assert len(schemes.get('AscendW4A8DynamicFusedMoEMethod', [])) == 8, schemes
     groups = worker.model_runner.kv_cache_config.kv_cache_groups
     from vllm_ascend.core import deepseek_v41 as cache
     assert getattr(cache, 'TINY_CACHE_PLAN_SOURCE_SHA256', None)
@@ -71,4 +73,5 @@ def topology_receipt(worker):
             'cache_specs': [type(group.kv_cache_spec).__name__ for group in groups],
             'cache_planner_original_sha256': cache.TINY_CACHE_PLAN_SOURCE_SHA256,
             'quant_methods': {k: {'count': len(v), 'examples': v[:2]} for k, v in methods.items()},
+            'quant_schemes': {k: {'count': len(v), 'examples': v[:2]} for k, v in schemes.items()},
             'async_scheduling': bool(cfg.scheduler_config.async_scheduling)}

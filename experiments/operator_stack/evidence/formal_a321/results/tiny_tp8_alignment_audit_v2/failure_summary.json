@@ -1,0 +1,9 @@
+{
+  "exit": "1",
+  "phase": "post-load/post-compile quantization receipt before requests",
+  "failure": "Quant wrapper class checked instead of wrapper.quant_method scheme",
+  "no_numeric_comparison_executed": true,
+  "error_line": "(Worker_TP1_EP1 pid=515596) ERROR 10-10 20:24:25 [multiproc_executor.py:1018] AssertionError: {'UnquantizedEmbeddingMethod': ['language_model.model.embed_tokens', 'language_model.lm_head'], 'AscendLinearMethod': ['language_model.model.layers.0.self_attn.wq_a', 'language_model.model.layers.0.self_attn.wq_b', 'language_model.model.layers.0.self_attn.wkv', 'language_model.model.layers.0.mlp.shared_experts.gate_up_proj', 'language_model.model.layers.0.mlp.shared_experts.down_proj', 'language_model.model.layers.1.self_attn.wq_a', 'language_model.model.layers.1.self_attn.wq_b', 'language_model.model.layers.1.self_attn.wkv', 'language_model.model.layers.1.mlp.shared_experts.gate_up_proj', 'language_model.model.layers.1.mlp.shared_experts.down_proj', 'language_model.model.layers.2.self_attn.wq_a', 'language_model.model.layers.2.self_attn.wq_b', 'language_model.model.layers.2.self_attn.wkv', 'lan",
+  "run_log_sha256": "b4b2c480d27f5ba349128be77497547914dc2457d2b09e9448649ce1c4779346",
+  "fix": "Check eight AscendW4A8DynamicFusedMoEMethod delegate objects; keep wrapper and scheme receipts"
+}
