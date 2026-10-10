@@ -1,0 +1,19 @@
+{
+  "checkpoint_config_sha256": "40ebd329d3cb2d99d7176091afb580c182c21f48b88b63b550264a97e9c0d424",
+  "model": "/home/l00886679/models/out/v41-w4a8-engram-dr-vision-qrot-mtpq",
+  "weights": "unaltered formal checkpoint tensors",
+  "inputs": "synthetic; not observed full-model activations",
+  "device": 0,
+  "visible_physical_chips": "14,15",
+  "section": "indexer",
+  "status": "failed",
+  "hc_cases": [],
+  "indexer_cases": [],
+  "tensor_sha256": {
+    "layers.14.attn.indexer.wk.weight": "71dac78e35ef5acea69a13509ee71f174b1f0e5452bc6d0fca442fa17a73ce70",
+    "layers.14.attn.indexer.k_norm.weight": "6d9726b93430b03e87b51d5a93f4583d18e1e72a3f2e3b7eb153e4d533e2009a"
+  },
+  "error": "call aclnnInplacePartialRotaryMul failed, detail:[PID: 1826] 2026-10-09-23:47:28.528.615 Execution_Error(EZ1008): Failed to execute operator InplacePartialRotaryMul_28. Reason: Failed to execute tiling function.\n        Solution: 1.If the tiling function does not exist, check whether the tiling function is registered successfully. 2.If the tiling function fails to be executed, check the implementation logic of the tiling function.\nTraceBack (most recent call last):\n        dimNumR1:2 dimNumR2 2,  r1 r2 dim must be4[FUNC:CheckInput][FILE:inplace_partial_rotary_mul_a3_tiling.cpp][LINE:283]\n        CheckInputShapes is failed[FUNC:DoTiling][FILE:inplace_partial_rotary_mul_a3_tiling.cpp][LINE:530]\n        Tiling4InplacePartialRotaryMul do tiling failed.[FUNC:Tiling4InplacePartialRotaryMul][FILE:inplace_partial_rotary_mul_a3_tiling.cpp][LINE:585]\n        Failed to execute operator InplacePartialRotaryMul_28. Reason: Failed to execute tiling function.\n        Check NnopbaseExecutorDoTiling(executor) failed\n        Check NnopbaseExecutorTilingAndUpdateBinInfo(executor) failed\n        Check NnopbaseExecutorMatchCache(executor) failed\n        Check NnopbaseRunForWorkspace(*executor, workspaceSize) failed\n",
+  "hc_case_count": 0,
+  "indexer_case_count": 0
+}

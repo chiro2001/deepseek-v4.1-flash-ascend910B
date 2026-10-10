@@ -1,0 +1,46 @@
+{
+  "case": {
+    "tensor": "layers.15.hc_ffn_fn",
+    "magnitude": 100.0,
+    "pre_mix": false
+  },
+  "pre_max_abs": 1.1920928955078125e-07,
+  "variants": [
+    {
+      "pre_source": "native",
+      "sum_order": "sequential",
+      "different_bf16_elements": 0,
+      "max_abs": 0.0
+    },
+    {
+      "pre_source": "native",
+      "sum_order": "tree01_23",
+      "different_bf16_elements": 0,
+      "max_abs": 0.0
+    },
+    {
+      "pre_source": "native",
+      "sum_order": "tree02_13",
+      "different_bf16_elements": 0,
+      "max_abs": 0.0
+    },
+    {
+      "pre_source": "candidate",
+      "sum_order": "sequential",
+      "different_bf16_elements": 1,
+      "max_abs": 0.25
+    },
+    {
+      "pre_source": "candidate",
+      "sum_order": "tree01_23",
+      "different_bf16_elements": 1,
+      "max_abs": 0.25
+    },
+    {
+      "pre_source": "candidate",
+      "sum_order": "tree02_13",
+      "different_bf16_elements": 1,
+      "max_abs": 0.25
+    }
+  ]
+}

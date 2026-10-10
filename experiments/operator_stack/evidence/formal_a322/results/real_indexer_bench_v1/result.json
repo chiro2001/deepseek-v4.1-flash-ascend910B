@@ -1,0 +1,66 @@
+{
+  "weight": "layers.14.attn.indexer.wk.weight",
+  "checkpoint_config_sha256": "40ebd329d3cb2d99d7176091afb580c182c21f48b88b63b550264a97e9c0d424",
+  "inputs": "synthetic latent projected by unaltered formal BF16 weight",
+  "scope": "single Indexer postprocessing graph events; excludes projection and full TP8",
+  "shape": [
+    1,
+    128
+  ],
+  "dtype": "bfloat16",
+  "precision": "functional/cache bitwise equal",
+  "profiler_during_timing": "OFF",
+  "pairs": [
+    {
+      "pair": 0,
+      "native_us": 19.168899536132812,
+      "fused_us": 14.815239906311035,
+      "speedup": 1.293863592986246
+    },
+    {
+      "pair": 1,
+      "fused_us": 14.248459815979004,
+      "native_us": 17.94536018371582,
+      "speedup": 1.2594596479537326
+    },
+    {
+      "pair": 2,
+      "native_us": 17.92926025390625,
+      "fused_us": 14.233320236206055,
+      "speedup": 1.259668155874034
+    },
+    {
+      "pair": 3,
+      "fused_us": 14.331839561462402,
+      "native_us": 17.884519577026367,
+      "speedup": 1.2478872304094824
+    },
+    {
+      "pair": 4,
+      "native_us": 17.933639526367188,
+      "fused_us": 14.32129955291748,
+      "speedup": 1.2522354874361814
+    },
+    {
+      "pair": 5,
+      "fused_us": 14.280980110168457,
+      "native_us": 17.885780334472656,
+      "speedup": 1.2524196656318765
+    },
+    {
+      "pair": 6,
+      "native_us": 17.922019958496094,
+      "fused_us": 14.171339988708496,
+      "speedup": 1.2646665715998686
+    },
+    {
+      "pair": 7,
+      "fused_us": 14.366419792175293,
+      "native_us": 17.892160415649414,
+      "speedup": 1.2454153974669753
+    }
+  ],
+  "native_median_us": 17.925640106201172,
+  "fused_median_us": 14.301139831542969,
+  "paired_speedup_median": 1.2559396567928045
+}
