@@ -62,6 +62,7 @@ class ServingRealTP8StackWorker(RealTP8StackWorker):
         config = self.vllm_config
         assert config.parallel_config.tensor_parallel_size == 8
         assert config.scheduler_config.max_num_seqs == 1
+        assert bool(config.scheduler_config.async_scheduling)==(os.getenv('STACK_SERVE_ASYNC','0')=='1')
         assert list(config.compilation_config.cudagraph_capture_sizes) == [1]
         result = super().compile_or_warm_up_model(*args, **kwargs)
         arm = os.environ['STACK_SERVE_ARM']

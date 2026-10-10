@@ -24,6 +24,8 @@ def main():
     p.add_argument('--pairs', type=int, default=3)
     p.add_argument('--arms', default='tp8base,tp8core,tp8act,tp8stack')
     p.add_argument('--audit', action='store_true')
+    p.add_argument('--tiny-profile', action='store_true', help='Reduced native TP8 diagnostic; cannot serve or claim formal quality')
+    p.add_argument('--tiny-reference-job')
     p.add_argument('--async-scheduling',action='store_true')
     p.add_argument('--sync-reference-job')
     p.add_argument('--cpu-diagnostic',action='store_true')
@@ -54,6 +56,12 @@ def main():
     p.add_argument('--allow-alarm', action='store_true')
     p.add_argument('--wait-seconds', type=int, default=0)
     args = p.parse_args()
+    assert not args.tiny_profile or (args.tiny_reference_job and args.arms=='tp8base' and
+        args.hccl_deterministic=='strict' and not any((args.serve,args.native_control,
+        args.native_profile,args.reduction_bench,args.slot_bench,args.prefix_bench,
+        args.cpu_diagnostic,args.fp32_decode_reduction,args.probe_native_ops,
+        args.trace_attention,args.isolated_pools,args.eager,args.sync_reference_job)))
+    assert not args.tiny_reference_job or (args.tiny_profile and args.tiny_reference_job.replace('_','').replace('-','').isalnum())
     assert args.job.replace('-', '').replace('_', '').isalnum(), args.job
     assert not (args.slot_bench and args.prefix_bench)
     assert args.pairs > 0 and args.wait_seconds >= 0
@@ -151,6 +159,7 @@ def main():
             'V41_MOE_ZERO_INVALID': '0', 'V41_MOE_ZERO_NONFINITE': '0',
             'V41_ENGRAM_ROUTE_PROBE': '0', 'NUMBA_CACHE_DIR': '/work/cache/numba',
         }
+        flags['STACK_TINY_PROFILE']='1' if args.tiny_profile else '0'
         flags['STACK_TP8_ISOLATED_POOLS'] = '1' if args.isolated_pools else '0'
         flags['STACK_METADATA_MANY_SLOTS_ENABLED'] = '1' if (set(arms)&{'tp8meta','tp8metastack','tp8prefix','tp8prefixroute','tp8prefixup','tp8prefixuproute','tp8hostmeta'} or args.service_arm in ('tp8meta','tp8metastack','tp8prefix','tp8prefixroute','tp8prefixup','tp8prefixuproute','tp8hostmeta')) else '0'
         prefix_selected=bool(set(arms)&{'tp8prefix','tp8prefixroute','tp8prefixup','tp8prefixuproute'} or args.service_arm in ('tp8prefix','tp8prefixroute','tp8prefixup','tp8prefixuproute'))
@@ -167,7 +176,7 @@ def main():
             flags['HCCL_DETERMINISTIC'] = args.hccl_deterministic
         if args.hccl_npu_socket_port_range is not None:
             flags['HCCL_NPU_SOCKET_PORT_RANGE'] = args.hccl_npu_socket_port_range
-        script_name = ('bench_formal_prefix.py' if args.prefix_bench else 'bench_formal_slots.py' if args.slot_bench else 'serve_formal_tp8.py' if args.serve else
+        script_name = ('bench_tiny_tp8.py' if args.tiny_profile else 'bench_formal_prefix.py' if args.prefix_bench else 'bench_formal_slots.py' if args.slot_bench else 'serve_formal_tp8.py' if args.serve else
                        'bench_real_reductions.py' if args.reduction_bench else
                        'profile_formal_native.py' if args.native_profile else
                        'bench_formal_native_control.py' if args.native_control else 'bench_real_tp8_model.py')
@@ -185,8 +194,10 @@ def main():
                             '--arm='+args.service_arm,'--port='+str(args.port),'--served-model='+args.served_model])
         if not args.native_profile and not args.reduction_bench and not (args.slot_bench or args.prefix_bench) and not args.serve:
             command.append('--pairs=' + str(args.pairs))
-        if not args.native_control and not args.native_profile and not args.reduction_bench and not (args.slot_bench or args.prefix_bench) and not args.serve:
+        if not args.tiny_profile and not args.native_control and not args.native_profile and not args.reduction_bench and not (args.slot_bench or args.prefix_bench) and not args.serve:
             command.append('--arms=' + args.arms)
+        if args.tiny_profile:
+            command.append('--reference-root=/work/results/'+args.tiny_reference_job)
         if args.eager:
             command.append('--eager')
         if args.probe_native_ops:

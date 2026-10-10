@@ -3,7 +3,7 @@ import math
 import numpy as np
 
 
-def compare_requests(reference, actual, label, prompt_len=2048):
+def compare_requests(reference, actual, label, prompt_len=2048, layers=40):
     # Validate the original values; narrowing first could turn 65536 into a
     # seemingly valid expert ID and hide corrupted route exports.
     a = np.asarray(reference['routes'])
@@ -11,7 +11,7 @@ def compare_requests(reference, actual, label, prompt_len=2048):
     tokens_equal = reference['token_ids'] == actual['token_ids']
     def valid(routes, row):
         return (np.issubdtype(routes.dtype, np.integer)
-                and routes.shape == (prompt_len + len(row['token_ids']) - 1, 40, 6)
+                and routes.shape == (prompt_len + len(row['token_ids']) - 1, layers, 6)
                 and bool(np.all((routes >= 0) & (routes < 384)))
                 and bool(np.all(np.diff(np.sort(routes, axis=-1), axis=-1) > 0)))
     result = {'label':label, 'tokens_equal':tokens_equal,

@@ -22,7 +22,9 @@ def main():
     parser.add_argument('--data-root',required=True,type=Path)
     parser.add_argument('--encoder',required=True)
     parser.add_argument('--images',required=True)
+    parser.add_argument('--target-ms',type=float,default=17.0)
     args=parser.parse_args()
+    assert math.isfinite(args.target_ms) and args.target_ms>0
     deadline=time.monotonic()+1800
     selection_path=args.service_root/'service_command.json'
     while not selection_path.exists():
@@ -85,7 +87,8 @@ def main():
         'A':1,'tokens_per_second':timing['per_stream_med'],'samples':8,
         'raw_accept_length':timing['accept_len'],'speculative_decoding':False,
         'scope':'Client decode single-stream median; 2K input, 256 output; profiler/audit off',
-        'passed_19ms':1000/timing['per_stream_med']<=19},indent=2)+'\n')
+        'target_ms_per_step':args.target_ms,
+        'passed_target':1000/timing['per_stream_med']<=args.target_ms},indent=2)+'\n')
     run('vision',[python,'tests/t_vision.py','--server',base,'--model',model,
         '--images-dir',args.images,'--out',str(out/'vision.json')])
     deadline=time.monotonic()+240
@@ -99,9 +102,11 @@ def main():
     gsm=json.loads((out/'gsm100.json').read_text())['summary']
     vision=json.loads((out/'vision.json').read_text())
     report={'ownership_validated':True,'commands':receipts,'gsm_summary':gsm,'vision':vision,
-            'client_quality_passed':gsm['n']==100 and gsm['correct']>=98 and
-                gsm['empty']==gsm['errors']==0 and vision['threshold_19_of_23'],
-            'target_19ms_claim':False,'bench_result':str(out/'bench8.json'),
+            'client_quality_passed':gsm['n']==100 and gsm['correct']==100 and
+                gsm['empty']==gsm['errors']==0 and vision['cases']==vision['pass_n']==23,
+            'target_ms_per_step':args.target_ms,
+            'performance_target_passed':1000/timing['per_stream_med']<=args.target_ms,
+            'bench_result':str(out/'bench8.json'),
             'timing_requires_separate_review':True}
     (out/'acceptance.json').write_text(json.dumps(report,indent=2)+'\n')
     print('FORMAL_CLIENT_ACCEPTANCE',json.dumps(report),flush=True)

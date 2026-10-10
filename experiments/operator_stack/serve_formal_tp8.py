@@ -22,6 +22,10 @@ def verify_selection(audit_root, perf_root, arm, contract, chips):
         assert not result['fp32_decode_reduction'] and not result['speculative_decoding']
         assert result['profiler'] == 'OFF' and result['same_model_instance'] and result['same_processes_per_rank']
     assert audit['audit'] and not perf['audit']
+    async_scheduling=bool(perf.get('async_scheduling',False))
+    assert bool(audit.get('async_scheduling',False))==async_scheduling
+    if async_scheduling:
+        assert audit['timing_scope']==perf['timing_scope']=='token-arrival elapsed/decoded tokens'
     assert arm in audit['arms'] and arm in perf['arms']
     comparisons = [r for r in audit['pairs'] if r['arm'] == arm]
     if arm != 'tp8base':
@@ -50,6 +54,7 @@ def verify_selection(audit_root, perf_root, arm, contract, chips):
     best = min(perf['arms'], key=lambda name: perf['arms'][name]['ms_per_step'])
     assert arm == best, ('Requested arm is not the measured best', arm, best)
     return {'selected_arm': arm, 'measured': perf['arms'][arm],
+            'async_scheduling':async_scheduling,
             'audit_root': str(audit_root), 'perf_root': str(perf_root),
             'audit_result_sha256': hashlib.sha256((audit_root / 'result.json').read_bytes()).hexdigest(),
             'perf_result_sha256': hashlib.sha256((perf_root / 'result.json').read_bytes()).hexdigest(),
@@ -81,6 +86,7 @@ def main():
     (args.output / 'selection.json').write_text(json.dumps(receipt,indent=2)+'\n')
     os.environ.update(STACK_REAL_WEIGHTS='1', STACK_REAL_AUDIT='0',
                       STACK_SERVE_ARM=args.arm, STACK_TP8_ARM='tp8base',
+                      STACK_SERVE_ASYNC='1' if receipt['async_scheduling'] else '0',
                       OPT_BLOCKMAP_VERIFY='0', VLLM_ENABLE_V1_MULTIPROCESSING='1',
                       VLLM_WORKER_MULTIPROC_METHOD='spawn', VLLM_ALLOW_INSECURE_SERIALIZATION='1',
                       VLLM_DISABLE_COMPILE_CACHE='1', VLLM_CACHE_ROOT=str(args.output/'cache'))
@@ -94,7 +100,8 @@ def main():
         '--model-loader-extra-config',json.dumps({'enable_multithread_load':True,'num_threads':128}),
         '--worker-cls','real_tp8_worker.ServingRealTP8StackWorker',
         '--tensor-parallel-size','8','--enable-expert-parallel','--distributed-executor-backend','mp',
-        '--seed','0','--trust-remote-code','--no-async-scheduling',
+        '--seed','0','--trust-remote-code',
+        '--async-scheduling' if receipt['async_scheduling'] else '--no-async-scheduling',
         '--max-model-len','8192','--max-num-seqs','1','--max-num-batched-tokens','2048',
         '--gpu-memory-utilization','0.70','--kv-cache-memory-bytes',str(4*1024**3),
         '--block-size','128','--no-enable-prefix-caching',
