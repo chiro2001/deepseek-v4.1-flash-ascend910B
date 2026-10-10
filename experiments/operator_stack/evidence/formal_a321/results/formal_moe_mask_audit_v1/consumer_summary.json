@@ -1,0 +1,2748 @@
+{
+  "passed": true,
+  "paired_requests": 3,
+  "rank_consumer_reports": 24,
+  "total_consumer_calls": 960,
+  "all_bitwise_equal": true,
+  "native_controls": [
+    {
+      "label": "before-candidates",
+      "tokens_equal": true,
+      "reference_route_shape": [
+        2094,
+        40,
+        6
+      ],
+      "actual_route_shape": [
+        2094,
+        40,
+        6
+      ],
+      "reference_routes_valid": true,
+      "actual_routes_valid": true,
+      "routes_equal": true,
+      "prefill_differing": 0,
+      "decode_differing": 0,
+      "route_set_differing": 0,
+      "first_route_difference": null,
+      "logprob_lengths_valid": true,
+      "logprob_keys_equal": true,
+      "max_common_logprob_delta": 0.0,
+      "max_logprob_delta": 0.0,
+      "logprob_deltas_finite": true,
+      "passed": true
+    },
+    {
+      "label": "capture-tp8metastack",
+      "tokens_equal": true,
+      "reference_route_shape": [
+        2094,
+        40,
+        6
+      ],
+      "actual_route_shape": [
+        2094,
+        40,
+        6
+      ],
+      "reference_routes_valid": true,
+      "actual_routes_valid": true,
+      "routes_equal": true,
+      "prefill_differing": 0,
+      "decode_differing": 0,
+      "route_set_differing": 0,
+      "first_route_difference": null,
+      "logprob_lengths_valid": true,
+      "logprob_keys_equal": true,
+      "max_common_logprob_delta": 0.0,
+      "max_logprob_delta": 0.0,
+      "logprob_deltas_finite": true,
+      "passed": true
+    },
+    {
+      "label": "capture-tp8mask",
+      "tokens_equal": true,
+      "reference_route_shape": [
+        2094,
+        40,
+        6
+      ],
+      "actual_route_shape": [
+        2094,
+        40,
+        6
+      ],
+      "reference_routes_valid": true,
+      "actual_routes_valid": true,
+      "routes_equal": true,
+      "prefill_differing": 0,
+      "decode_differing": 0,
+      "route_set_differing": 0,
+      "first_route_difference": null,
+      "logprob_lengths_valid": true,
+      "logprob_keys_equal": true,
+      "max_common_logprob_delta": 0.0,
+      "max_logprob_delta": 0.0,
+      "logprob_deltas_finite": true,
+      "passed": true
+    }
+  ],
+  "comparisons": [
+    {
+      "pair": 0,
+      "arm": "tp8metastack",
+      "baseline_ms": 21.47941921200407,
+      "candidate_ms": 26.79128447351487,
+      "speedup": 0.8017315942144557,
+      "tokens_equal": true,
+      "actual_routes_equal": true,
+      "max_logprob_delta": 0.0
+    },
+    {
+      "pair": 0,
+      "arm": "tp8mask",
+      "baseline_ms": 21.47941921200407,
+      "candidate_ms": 26.486862634651754,
+      "speedup": 0.8109461474649461,
+      "tokens_equal": true,
+      "actual_routes_equal": true,
+      "max_logprob_delta": 0.0
+    },
+    {
+      "pair": 1,
+      "arm": "tp8metastack",
+      "baseline_ms": 21.458528720988678,
+      "candidate_ms": 26.49142178826225,
+      "speedup": 0.8100180085651902,
+      "tokens_equal": true,
+      "actual_routes_equal": true,
+      "max_logprob_delta": 0.0
+    },
+    {
+      "pair": 1,
+      "arm": "tp8mask",
+      "baseline_ms": 21.458528720988678,
+      "candidate_ms": 26.327926414803816,
+      "speedup": 0.8150481881065595,
+      "tokens_equal": true,
+      "actual_routes_equal": true,
+      "max_logprob_delta": 0.0
+    },
+    {
+      "pair": 2,
+      "arm": "tp8metastack",
+      "baseline_ms": 21.490891831681918,
+      "candidate_ms": 26.207845265928068,
+      "speedup": 0.8200175029124389,
+      "tokens_equal": true,
+      "actual_routes_equal": true,
+      "max_logprob_delta": 0.0
+    },
+    {
+      "pair": 2,
+      "arm": "tp8mask",
+      "baseline_ms": 21.490891831681918,
+      "candidate_ms": 25.928008946050937,
+      "speedup": 0.828867803786961,
+      "tokens_equal": true,
+      "actual_routes_equal": true,
+      "max_logprob_delta": 0.0
+    }
+  ],
+  "rank_summaries": [
+    {
+      "tag": "pair-0",
+      "rank": 0,
+      "moe_mask": {
+        "passed": true,
+        "consumer_calls": 40,
+        "unique_layers": 40,
+        "all_bitwise_equal": true,
+        "scope": "Actual probabilities consumed by native BF16 token-unpermute; full routing/token/logprob gates separate"
+      },
+      "metadata_slots_exact": true,
+      "indexer": {
+        "k_source_calls": 4,
+        "fused_post_calls": 4,
+        "cache_layouts": [
+          {
+            "k_shape": [
+              7939,
+              64,
+              1,
+              128
+            ],
+            "k_stride": [
+              131072,
+              128,
+              128,
+              1
+            ],
+            "scale_stride": [
+              65536,
+              1,
+              1,
+              1
+            ],
+            "cos_dtype": "torch.float32"
+          },
+          {
+            "k_shape": [
+              7939,
+              64,
+              1,
+              128
+            ],
+            "k_stride": [
+              131072,
+              128,
+              128,
+              1
+            ],
+            "scale_stride": [
+              65536,
+              1,
+              1,
+              1
+            ],
+            "cos_dtype": "torch.float32"
+          },
+          {
+            "k_shape": [
+              7939,
+              64,
+              1,
+              128
+            ],
+            "k_stride": [
+              131072,
+              128,
+              128,
+              1
+            ],
+            "scale_stride": [
+              65536,
+              1,
+              1,
+              1
+            ],
+            "cos_dtype": "torch.float32"
+          },
+          {
+            "k_shape": [
+              7939,
+              128,
+              1,
+              128
+            ],
+            "k_stride": [
+              147712,
+              128,
+              128,
+              1
+            ],
+            "scale_stride": [
+              73856,
+              1,
+              1,
+              1
+            ],
+            "cos_dtype": "torch.float32"
+          }
+        ],
+        "functional_bitwise_equal": true,
+        "captured_cache_bitwise_equal": true,
+        "consumer_point_snapshots": true,
+        "valid_rows": 4,
+        "max_abs": 0.0,
+        "min_projected_std": 0.30479714274406433
+      }
+    },
+    {
+      "tag": "pair-0",
+      "rank": 1,
+      "moe_mask": {
+        "passed": true,
+        "consumer_calls": 40,
+        "unique_layers": 40,
+        "all_bitwise_equal": true,
+        "scope": "Actual probabilities consumed by native BF16 token-unpermute; full routing/token/logprob gates separate"
+      },
+      "metadata_slots_exact": true,
+      "indexer": {
+        "k_source_calls": 4,
+        "fused_post_calls": 4,
+        "cache_layouts": [
+          {
+            "k_shape": [
+              7939,
+              64,
+              1,
+              128
+            ],
+            "k_stride": [
+              131072,
+              128,
+              128,
+              1
+            ],
+            "scale_stride": [
+              65536,
+              1,
+              1,
+              1
+            ],
+            "cos_dtype": "torch.float32"
+          },
+          {
+            "k_shape": [
+              7939,
+              64,
+              1,
+              128
+            ],
+            "k_stride": [
+              131072,
+              128,
+              128,
+              1
+            ],
+            "scale_stride": [
+              65536,
+              1,
+              1,
+              1
+            ],
+            "cos_dtype": "torch.float32"
+          },
+          {
+            "k_shape": [
+              7939,
+              64,
+              1,
+              128
+            ],
+            "k_stride": [
+              131072,
+              128,
+              128,
+              1
+            ],
+            "scale_stride": [
+              65536,
+              1,
+              1,
+              1
+            ],
+            "cos_dtype": "torch.float32"
+          },
+          {
+            "k_shape": [
+              7939,
+              128,
+              1,
+              128
+            ],
+            "k_stride": [
+              147712,
+              128,
+              128,
+              1
+            ],
+            "scale_stride": [
+              73856,
+              1,
+              1,
+              1
+            ],
+            "cos_dtype": "torch.float32"
+          }
+        ],
+        "functional_bitwise_equal": true,
+        "captured_cache_bitwise_equal": true,
+        "consumer_point_snapshots": true,
+        "valid_rows": 4,
+        "max_abs": 0.0,
+        "min_projected_std": 0.30479714274406433
+      }
+    },
+    {
+      "tag": "pair-0",
+      "rank": 2,
+      "moe_mask": {
+        "passed": true,
+        "consumer_calls": 40,
+        "unique_layers": 40,
+        "all_bitwise_equal": true,
+        "scope": "Actual probabilities consumed by native BF16 token-unpermute; full routing/token/logprob gates separate"
+      },
+      "metadata_slots_exact": true,
+      "indexer": {
+        "k_source_calls": 4,
+        "fused_post_calls": 4,
+        "cache_layouts": [
+          {
+            "k_shape": [
+              7939,
+              64,
+              1,
+              128
+            ],
+            "k_stride": [
+              131072,
+              128,
+              128,
+              1
+            ],
+            "scale_stride": [
+              65536,
+              1,
+              1,
+              1
+            ],
+            "cos_dtype": "torch.float32"
+          },
+          {
+            "k_shape": [
+              7939,
+              64,
+              1,
+              128
+            ],
+            "k_stride": [
+              131072,
+              128,
+              128,
+              1
+            ],
+            "scale_stride": [
+              65536,
+              1,
+              1,
+              1
+            ],
+            "cos_dtype": "torch.float32"
+          },
+          {
+            "k_shape": [
+              7939,
+              64,
+              1,
+              128
+            ],
+            "k_stride": [
+              131072,
+              128,
+              128,
+              1
+            ],
+            "scale_stride": [
+              65536,
+              1,
+              1,
+              1
+            ],
+            "cos_dtype": "torch.float32"
+          },
+          {
+            "k_shape": [
+              7939,
+              128,
+              1,
+              128
+            ],
+            "k_stride": [
+              147712,
+              128,
+              128,
+              1
+            ],
+            "scale_stride": [
+              73856,
+              1,
+              1,
+              1
+            ],
+            "cos_dtype": "torch.float32"
+          }
+        ],
+        "functional_bitwise_equal": true,
+        "captured_cache_bitwise_equal": true,
+        "consumer_point_snapshots": true,
+        "valid_rows": 4,
+        "max_abs": 0.0,
+        "min_projected_std": 0.30479714274406433
+      }
+    },
+    {
+      "tag": "pair-0",
+      "rank": 3,
+      "moe_mask": {
+        "passed": true,
+        "consumer_calls": 40,
+        "unique_layers": 40,
+        "all_bitwise_equal": true,
+        "scope": "Actual probabilities consumed by native BF16 token-unpermute; full routing/token/logprob gates separate"
+      },
+      "metadata_slots_exact": true,
+      "indexer": {
+        "k_source_calls": 4,
+        "fused_post_calls": 4,
+        "cache_layouts": [
+          {
+            "k_shape": [
+              7939,
+              64,
+              1,
+              128
+            ],
+            "k_stride": [
+              131072,
+              128,
+              128,
+              1
+            ],
+            "scale_stride": [
+              65536,
+              1,
+              1,
+              1
+            ],
+            "cos_dtype": "torch.float32"
+          },
+          {
+            "k_shape": [
+              7939,
+              64,
+              1,
+              128
+            ],
+            "k_stride": [
+              131072,
+              128,
+              128,
+              1
+            ],
+            "scale_stride": [
+              65536,
+              1,
+              1,
+              1
+            ],
+            "cos_dtype": "torch.float32"
+          },
+          {
+            "k_shape": [
+              7939,
+              64,
+              1,
+              128
+            ],
+            "k_stride": [
+              131072,
+              128,
+              128,
+              1
+            ],
+            "scale_stride": [
+              65536,
+              1,
+              1,
+              1
+            ],
+            "cos_dtype": "torch.float32"
+          },
+          {
+            "k_shape": [
+              7939,
+              128,
+              1,
+              128
+            ],
+            "k_stride": [
+              147712,
+              128,
+              128,
+              1
+            ],
+            "scale_stride": [
+              73856,
+              1,
+              1,
+              1
+            ],
+            "cos_dtype": "torch.float32"
+          }
+        ],
+        "functional_bitwise_equal": true,
+        "captured_cache_bitwise_equal": true,
+        "consumer_point_snapshots": true,
+        "valid_rows": 4,
+        "max_abs": 0.0,
+        "min_projected_std": 0.30479714274406433
+      }
+    },
+    {
+      "tag": "pair-0",
+      "rank": 4,
+      "moe_mask": {
+        "passed": true,
+        "consumer_calls": 40,
+        "unique_layers": 40,
+        "all_bitwise_equal": true,
+        "scope": "Actual probabilities consumed by native BF16 token-unpermute; full routing/token/logprob gates separate"
+      },
+      "metadata_slots_exact": true,
+      "indexer": {
+        "k_source_calls": 4,
+        "fused_post_calls": 4,
+        "cache_layouts": [
+          {
+            "k_shape": [
+              7939,
+              64,
+              1,
+              128
+            ],
+            "k_stride": [
+              131072,
+              128,
+              128,
+              1
+            ],
+            "scale_stride": [
+              65536,
+              1,
+              1,
+              1
+            ],
+            "cos_dtype": "torch.float32"
+          },
+          {
+            "k_shape": [
+              7939,
+              64,
+              1,
+              128
+            ],
+            "k_stride": [
+              131072,
+              128,
+              128,
+              1
+            ],
+            "scale_stride": [
+              65536,
+              1,
+              1,
+              1
+            ],
+            "cos_dtype": "torch.float32"
+          },
+          {
+            "k_shape": [
+              7939,
+              64,
+              1,
+              128
+            ],
+            "k_stride": [
+              131072,
+              128,
+              128,
+              1
+            ],
+            "scale_stride": [
+              65536,
+              1,
+              1,
+              1
+            ],
+            "cos_dtype": "torch.float32"
+          },
+          {
+            "k_shape": [
+              7939,
+              128,
+              1,
+              128
+            ],
+            "k_stride": [
+              147712,
+              128,
+              128,
+              1
+            ],
+            "scale_stride": [
+              73856,
+              1,
+              1,
+              1
+            ],
+            "cos_dtype": "torch.float32"
+          }
+        ],
+        "functional_bitwise_equal": true,
+        "captured_cache_bitwise_equal": true,
+        "consumer_point_snapshots": true,
+        "valid_rows": 4,
+        "max_abs": 0.0,
+        "min_projected_std": 0.30479714274406433
+      }
+    },
+    {
+      "tag": "pair-0",
+      "rank": 5,
+      "moe_mask": {
+        "passed": true,
+        "consumer_calls": 40,
+        "unique_layers": 40,
+        "all_bitwise_equal": true,
+        "scope": "Actual probabilities consumed by native BF16 token-unpermute; full routing/token/logprob gates separate"
+      },
+      "metadata_slots_exact": true,
+      "indexer": {
+        "k_source_calls": 4,
+        "fused_post_calls": 4,
+        "cache_layouts": [
+          {
+            "k_shape": [
+              7939,
+              64,
+              1,
+              128
+            ],
+            "k_stride": [
+              131072,
+              128,
+              128,
+              1
+            ],
+            "scale_stride": [
+              65536,
+              1,
+              1,
+              1
+            ],
+            "cos_dtype": "torch.float32"
+          },
+          {
+            "k_shape": [
+              7939,
+              64,
+              1,
+              128
+            ],
+            "k_stride": [
+              131072,
+              128,
+              128,
+              1
+            ],
+            "scale_stride": [
+              65536,
+              1,
+              1,
+              1
+            ],
+            "cos_dtype": "torch.float32"
+          },
+          {
+            "k_shape": [
+              7939,
+              64,
+              1,
+              128
+            ],
+            "k_stride": [
+              131072,
+              128,
+              128,
+              1
+            ],
+            "scale_stride": [
+              65536,
+              1,
+              1,
+              1
+            ],
+            "cos_dtype": "torch.float32"
+          },
+          {
+            "k_shape": [
+              7939,
+              128,
+              1,
+              128
+            ],
+            "k_stride": [
+              147712,
+              128,
+              128,
+              1
+            ],
+            "scale_stride": [
+              73856,
+              1,
+              1,
+              1
+            ],
+            "cos_dtype": "torch.float32"
+          }
+        ],
+        "functional_bitwise_equal": true,
+        "captured_cache_bitwise_equal": true,
+        "consumer_point_snapshots": true,
+        "valid_rows": 4,
+        "max_abs": 0.0,
+        "min_projected_std": 0.30479714274406433
+      }
+    },
+    {
+      "tag": "pair-0",
+      "rank": 6,
+      "moe_mask": {
+        "passed": true,
+        "consumer_calls": 40,
+        "unique_layers": 40,
+        "all_bitwise_equal": true,
+        "scope": "Actual probabilities consumed by native BF16 token-unpermute; full routing/token/logprob gates separate"
+      },
+      "metadata_slots_exact": true,
+      "indexer": {
+        "k_source_calls": 4,
+        "fused_post_calls": 4,
+        "cache_layouts": [
+          {
+            "k_shape": [
+              7939,
+              64,
+              1,
+              128
+            ],
+            "k_stride": [
+              131072,
+              128,
+              128,
+              1
+            ],
+            "scale_stride": [
+              65536,
+              1,
+              1,
+              1
+            ],
+            "cos_dtype": "torch.float32"
+          },
+          {
+            "k_shape": [
+              7939,
+              64,
+              1,
+              128
+            ],
+            "k_stride": [
+              131072,
+              128,
+              128,
+              1
+            ],
+            "scale_stride": [
+              65536,
+              1,
+              1,
+              1
+            ],
+            "cos_dtype": "torch.float32"
+          },
+          {
+            "k_shape": [
+              7939,
+              64,
+              1,
+              128
+            ],
+            "k_stride": [
+              131072,
+              128,
+              128,
+              1
+            ],
+            "scale_stride": [
+              65536,
+              1,
+              1,
+              1
+            ],
+            "cos_dtype": "torch.float32"
+          },
+          {
+            "k_shape": [
+              7939,
+              128,
+              1,
+              128
+            ],
+            "k_stride": [
+              147712,
+              128,
+              128,
+              1
+            ],
+            "scale_stride": [
+              73856,
+              1,
+              1,
+              1
+            ],
+            "cos_dtype": "torch.float32"
+          }
+        ],
+        "functional_bitwise_equal": true,
+        "captured_cache_bitwise_equal": true,
+        "consumer_point_snapshots": true,
+        "valid_rows": 4,
+        "max_abs": 0.0,
+        "min_projected_std": 0.30479714274406433
+      }
+    },
+    {
+      "tag": "pair-0",
+      "rank": 7,
+      "moe_mask": {
+        "passed": true,
+        "consumer_calls": 40,
+        "unique_layers": 40,
+        "all_bitwise_equal": true,
+        "scope": "Actual probabilities consumed by native BF16 token-unpermute; full routing/token/logprob gates separate"
+      },
+      "metadata_slots_exact": true,
+      "indexer": {
+        "k_source_calls": 4,
+        "fused_post_calls": 4,
+        "cache_layouts": [
+          {
+            "k_shape": [
+              7939,
+              64,
+              1,
+              128
+            ],
+            "k_stride": [
+              131072,
+              128,
+              128,
+              1
+            ],
+            "scale_stride": [
+              65536,
+              1,
+              1,
+              1
+            ],
+            "cos_dtype": "torch.float32"
+          },
+          {
+            "k_shape": [
+              7939,
+              64,
+              1,
+              128
+            ],
+            "k_stride": [
+              131072,
+              128,
+              128,
+              1
+            ],
+            "scale_stride": [
+              65536,
+              1,
+              1,
+              1
+            ],
+            "cos_dtype": "torch.float32"
+          },
+          {
+            "k_shape": [
+              7939,
+              64,
+              1,
+              128
+            ],
+            "k_stride": [
+              131072,
+              128,
+              128,
+              1
+            ],
+            "scale_stride": [
+              65536,
+              1,
+              1,
+              1
+            ],
+            "cos_dtype": "torch.float32"
+          },
+          {
+            "k_shape": [
+              7939,
+              128,
+              1,
+              128
+            ],
+            "k_stride": [
+              147712,
+              128,
+              128,
+              1
+            ],
+            "scale_stride": [
+              73856,
+              1,
+              1,
+              1
+            ],
+            "cos_dtype": "torch.float32"
+          }
+        ],
+        "functional_bitwise_equal": true,
+        "captured_cache_bitwise_equal": true,
+        "consumer_point_snapshots": true,
+        "valid_rows": 4,
+        "max_abs": 0.0,
+        "min_projected_std": 0.30479714274406433
+      }
+    },
+    {
+      "tag": "pair-1",
+      "rank": 0,
+      "moe_mask": {
+        "passed": true,
+        "consumer_calls": 40,
+        "unique_layers": 40,
+        "all_bitwise_equal": true,
+        "scope": "Actual probabilities consumed by native BF16 token-unpermute; full routing/token/logprob gates separate"
+      },
+      "metadata_slots_exact": true,
+      "indexer": {
+        "k_source_calls": 4,
+        "fused_post_calls": 4,
+        "cache_layouts": [
+          {
+            "k_shape": [
+              7939,
+              64,
+              1,
+              128
+            ],
+            "k_stride": [
+              131072,
+              128,
+              128,
+              1
+            ],
+            "scale_stride": [
+              65536,
+              1,
+              1,
+              1
+            ],
+            "cos_dtype": "torch.float32"
+          },
+          {
+            "k_shape": [
+              7939,
+              64,
+              1,
+              128
+            ],
+            "k_stride": [
+              131072,
+              128,
+              128,
+              1
+            ],
+            "scale_stride": [
+              65536,
+              1,
+              1,
+              1
+            ],
+            "cos_dtype": "torch.float32"
+          },
+          {
+            "k_shape": [
+              7939,
+              64,
+              1,
+              128
+            ],
+            "k_stride": [
+              131072,
+              128,
+              128,
+              1
+            ],
+            "scale_stride": [
+              65536,
+              1,
+              1,
+              1
+            ],
+            "cos_dtype": "torch.float32"
+          },
+          {
+            "k_shape": [
+              7939,
+              128,
+              1,
+              128
+            ],
+            "k_stride": [
+              147712,
+              128,
+              128,
+              1
+            ],
+            "scale_stride": [
+              73856,
+              1,
+              1,
+              1
+            ],
+            "cos_dtype": "torch.float32"
+          }
+        ],
+        "functional_bitwise_equal": true,
+        "captured_cache_bitwise_equal": true,
+        "consumer_point_snapshots": true,
+        "valid_rows": 1,
+        "max_abs": 0.0,
+        "min_projected_std": 0.40984541177749634
+      }
+    },
+    {
+      "tag": "pair-1",
+      "rank": 1,
+      "moe_mask": {
+        "passed": true,
+        "consumer_calls": 40,
+        "unique_layers": 40,
+        "all_bitwise_equal": true,
+        "scope": "Actual probabilities consumed by native BF16 token-unpermute; full routing/token/logprob gates separate"
+      },
+      "metadata_slots_exact": true,
+      "indexer": {
+        "k_source_calls": 4,
+        "fused_post_calls": 4,
+        "cache_layouts": [
+          {
+            "k_shape": [
+              7939,
+              64,
+              1,
+              128
+            ],
+            "k_stride": [
+              131072,
+              128,
+              128,
+              1
+            ],
+            "scale_stride": [
+              65536,
+              1,
+              1,
+              1
+            ],
+            "cos_dtype": "torch.float32"
+          },
+          {
+            "k_shape": [
+              7939,
+              64,
+              1,
+              128
+            ],
+            "k_stride": [
+              131072,
+              128,
+              128,
+              1
+            ],
+            "scale_stride": [
+              65536,
+              1,
+              1,
+              1
+            ],
+            "cos_dtype": "torch.float32"
+          },
+          {
+            "k_shape": [
+              7939,
+              64,
+              1,
+              128
+            ],
+            "k_stride": [
+              131072,
+              128,
+              128,
+              1
+            ],
+            "scale_stride": [
+              65536,
+              1,
+              1,
+              1
+            ],
+            "cos_dtype": "torch.float32"
+          },
+          {
+            "k_shape": [
+              7939,
+              128,
+              1,
+              128
+            ],
+            "k_stride": [
+              147712,
+              128,
+              128,
+              1
+            ],
+            "scale_stride": [
+              73856,
+              1,
+              1,
+              1
+            ],
+            "cos_dtype": "torch.float32"
+          }
+        ],
+        "functional_bitwise_equal": true,
+        "captured_cache_bitwise_equal": true,
+        "consumer_point_snapshots": true,
+        "valid_rows": 1,
+        "max_abs": 0.0,
+        "min_projected_std": 0.40984541177749634
+      }
+    },
+    {
+      "tag": "pair-1",
+      "rank": 2,
+      "moe_mask": {
+        "passed": true,
+        "consumer_calls": 40,
+        "unique_layers": 40,
+        "all_bitwise_equal": true,
+        "scope": "Actual probabilities consumed by native BF16 token-unpermute; full routing/token/logprob gates separate"
+      },
+      "metadata_slots_exact": true,
+      "indexer": {
+        "k_source_calls": 4,
+        "fused_post_calls": 4,
+        "cache_layouts": [
+          {
+            "k_shape": [
+              7939,
+              64,
+              1,
+              128
+            ],
+            "k_stride": [
+              131072,
+              128,
+              128,
+              1
+            ],
+            "scale_stride": [
+              65536,
+              1,
+              1,
+              1
+            ],
+            "cos_dtype": "torch.float32"
+          },
+          {
+            "k_shape": [
+              7939,
+              64,
+              1,
+              128
+            ],
+            "k_stride": [
+              131072,
+              128,
+              128,
+              1
+            ],
+            "scale_stride": [
+              65536,
+              1,
+              1,
+              1
+            ],
+            "cos_dtype": "torch.float32"
+          },
+          {
+            "k_shape": [
+              7939,
+              64,
+              1,
+              128
+            ],
+            "k_stride": [
+              131072,
+              128,
+              128,
+              1
+            ],
+            "scale_stride": [
+              65536,
+              1,
+              1,
+              1
+            ],
+            "cos_dtype": "torch.float32"
+          },
+          {
+            "k_shape": [
+              7939,
+              128,
+              1,
+              128
+            ],
+            "k_stride": [
+              147712,
+              128,
+              128,
+              1
+            ],
+            "scale_stride": [
+              73856,
+              1,
+              1,
+              1
+            ],
+            "cos_dtype": "torch.float32"
+          }
+        ],
+        "functional_bitwise_equal": true,
+        "captured_cache_bitwise_equal": true,
+        "consumer_point_snapshots": true,
+        "valid_rows": 1,
+        "max_abs": 0.0,
+        "min_projected_std": 0.40984541177749634
+      }
+    },
+    {
+      "tag": "pair-1",
+      "rank": 3,
+      "moe_mask": {
+        "passed": true,
+        "consumer_calls": 40,
+        "unique_layers": 40,
+        "all_bitwise_equal": true,
+        "scope": "Actual probabilities consumed by native BF16 token-unpermute; full routing/token/logprob gates separate"
+      },
+      "metadata_slots_exact": true,
+      "indexer": {
+        "k_source_calls": 4,
+        "fused_post_calls": 4,
+        "cache_layouts": [
+          {
+            "k_shape": [
+              7939,
+              64,
+              1,
+              128
+            ],
+            "k_stride": [
+              131072,
+              128,
+              128,
+              1
+            ],
+            "scale_stride": [
+              65536,
+              1,
+              1,
+              1
+            ],
+            "cos_dtype": "torch.float32"
+          },
+          {
+            "k_shape": [
+              7939,
+              64,
+              1,
+              128
+            ],
+            "k_stride": [
+              131072,
+              128,
+              128,
+              1
+            ],
+            "scale_stride": [
+              65536,
+              1,
+              1,
+              1
+            ],
+            "cos_dtype": "torch.float32"
+          },
+          {
+            "k_shape": [
+              7939,
+              64,
+              1,
+              128
+            ],
+            "k_stride": [
+              131072,
+              128,
+              128,
+              1
+            ],
+            "scale_stride": [
+              65536,
+              1,
+              1,
+              1
+            ],
+            "cos_dtype": "torch.float32"
+          },
+          {
+            "k_shape": [
+              7939,
+              128,
+              1,
+              128
+            ],
+            "k_stride": [
+              147712,
+              128,
+              128,
+              1
+            ],
+            "scale_stride": [
+              73856,
+              1,
+              1,
+              1
+            ],
+            "cos_dtype": "torch.float32"
+          }
+        ],
+        "functional_bitwise_equal": true,
+        "captured_cache_bitwise_equal": true,
+        "consumer_point_snapshots": true,
+        "valid_rows": 1,
+        "max_abs": 0.0,
+        "min_projected_std": 0.40984541177749634
+      }
+    },
+    {
+      "tag": "pair-1",
+      "rank": 4,
+      "moe_mask": {
+        "passed": true,
+        "consumer_calls": 40,
+        "unique_layers": 40,
+        "all_bitwise_equal": true,
+        "scope": "Actual probabilities consumed by native BF16 token-unpermute; full routing/token/logprob gates separate"
+      },
+      "metadata_slots_exact": true,
+      "indexer": {
+        "k_source_calls": 4,
+        "fused_post_calls": 4,
+        "cache_layouts": [
+          {
+            "k_shape": [
+              7939,
+              64,
+              1,
+              128
+            ],
+            "k_stride": [
+              131072,
+              128,
+              128,
+              1
+            ],
+            "scale_stride": [
+              65536,
+              1,
+              1,
+              1
+            ],
+            "cos_dtype": "torch.float32"
+          },
+          {
+            "k_shape": [
+              7939,
+              64,
+              1,
+              128
+            ],
+            "k_stride": [
+              131072,
+              128,
+              128,
+              1
+            ],
+            "scale_stride": [
+              65536,
+              1,
+              1,
+              1
+            ],
+            "cos_dtype": "torch.float32"
+          },
+          {
+            "k_shape": [
+              7939,
+              64,
+              1,
+              128
+            ],
+            "k_stride": [
+              131072,
+              128,
+              128,
+              1
+            ],
+            "scale_stride": [
+              65536,
+              1,
+              1,
+              1
+            ],
+            "cos_dtype": "torch.float32"
+          },
+          {
+            "k_shape": [
+              7939,
+              128,
+              1,
+              128
+            ],
+            "k_stride": [
+              147712,
+              128,
+              128,
+              1
+            ],
+            "scale_stride": [
+              73856,
+              1,
+              1,
+              1
+            ],
+            "cos_dtype": "torch.float32"
+          }
+        ],
+        "functional_bitwise_equal": true,
+        "captured_cache_bitwise_equal": true,
+        "consumer_point_snapshots": true,
+        "valid_rows": 1,
+        "max_abs": 0.0,
+        "min_projected_std": 0.40984541177749634
+      }
+    },
+    {
+      "tag": "pair-1",
+      "rank": 5,
+      "moe_mask": {
+        "passed": true,
+        "consumer_calls": 40,
+        "unique_layers": 40,
+        "all_bitwise_equal": true,
+        "scope": "Actual probabilities consumed by native BF16 token-unpermute; full routing/token/logprob gates separate"
+      },
+      "metadata_slots_exact": true,
+      "indexer": {
+        "k_source_calls": 4,
+        "fused_post_calls": 4,
+        "cache_layouts": [
+          {
+            "k_shape": [
+              7939,
+              64,
+              1,
+              128
+            ],
+            "k_stride": [
+              131072,
+              128,
+              128,
+              1
+            ],
+            "scale_stride": [
+              65536,
+              1,
+              1,
+              1
+            ],
+            "cos_dtype": "torch.float32"
+          },
+          {
+            "k_shape": [
+              7939,
+              64,
+              1,
+              128
+            ],
+            "k_stride": [
+              131072,
+              128,
+              128,
+              1
+            ],
+            "scale_stride": [
+              65536,
+              1,
+              1,
+              1
+            ],
+            "cos_dtype": "torch.float32"
+          },
+          {
+            "k_shape": [
+              7939,
+              64,
+              1,
+              128
+            ],
+            "k_stride": [
+              131072,
+              128,
+              128,
+              1
+            ],
+            "scale_stride": [
+              65536,
+              1,
+              1,
+              1
+            ],
+            "cos_dtype": "torch.float32"
+          },
+          {
+            "k_shape": [
+              7939,
+              128,
+              1,
+              128
+            ],
+            "k_stride": [
+              147712,
+              128,
+              128,
+              1
+            ],
+            "scale_stride": [
+              73856,
+              1,
+              1,
+              1
+            ],
+            "cos_dtype": "torch.float32"
+          }
+        ],
+        "functional_bitwise_equal": true,
+        "captured_cache_bitwise_equal": true,
+        "consumer_point_snapshots": true,
+        "valid_rows": 1,
+        "max_abs": 0.0,
+        "min_projected_std": 0.40984541177749634
+      }
+    },
+    {
+      "tag": "pair-1",
+      "rank": 6,
+      "moe_mask": {
+        "passed": true,
+        "consumer_calls": 40,
+        "unique_layers": 40,
+        "all_bitwise_equal": true,
+        "scope": "Actual probabilities consumed by native BF16 token-unpermute; full routing/token/logprob gates separate"
+      },
+      "metadata_slots_exact": true,
+      "indexer": {
+        "k_source_calls": 4,
+        "fused_post_calls": 4,
+        "cache_layouts": [
+          {
+            "k_shape": [
+              7939,
+              64,
+              1,
+              128
+            ],
+            "k_stride": [
+              131072,
+              128,
+              128,
+              1
+            ],
+            "scale_stride": [
+              65536,
+              1,
+              1,
+              1
+            ],
+            "cos_dtype": "torch.float32"
+          },
+          {
+            "k_shape": [
+              7939,
+              64,
+              1,
+              128
+            ],
+            "k_stride": [
+              131072,
+              128,
+              128,
+              1
+            ],
+            "scale_stride": [
+              65536,
+              1,
+              1,
+              1
+            ],
+            "cos_dtype": "torch.float32"
+          },
+          {
+            "k_shape": [
+              7939,
+              64,
+              1,
+              128
+            ],
+            "k_stride": [
+              131072,
+              128,
+              128,
+              1
+            ],
+            "scale_stride": [
+              65536,
+              1,
+              1,
+              1
+            ],
+            "cos_dtype": "torch.float32"
+          },
+          {
+            "k_shape": [
+              7939,
+              128,
+              1,
+              128
+            ],
+            "k_stride": [
+              147712,
+              128,
+              128,
+              1
+            ],
+            "scale_stride": [
+              73856,
+              1,
+              1,
+              1
+            ],
+            "cos_dtype": "torch.float32"
+          }
+        ],
+        "functional_bitwise_equal": true,
+        "captured_cache_bitwise_equal": true,
+        "consumer_point_snapshots": true,
+        "valid_rows": 1,
+        "max_abs": 0.0,
+        "min_projected_std": 0.40984541177749634
+      }
+    },
+    {
+      "tag": "pair-1",
+      "rank": 7,
+      "moe_mask": {
+        "passed": true,
+        "consumer_calls": 40,
+        "unique_layers": 40,
+        "all_bitwise_equal": true,
+        "scope": "Actual probabilities consumed by native BF16 token-unpermute; full routing/token/logprob gates separate"
+      },
+      "metadata_slots_exact": true,
+      "indexer": {
+        "k_source_calls": 4,
+        "fused_post_calls": 4,
+        "cache_layouts": [
+          {
+            "k_shape": [
+              7939,
+              64,
+              1,
+              128
+            ],
+            "k_stride": [
+              131072,
+              128,
+              128,
+              1
+            ],
+            "scale_stride": [
+              65536,
+              1,
+              1,
+              1
+            ],
+            "cos_dtype": "torch.float32"
+          },
+          {
+            "k_shape": [
+              7939,
+              64,
+              1,
+              128
+            ],
+            "k_stride": [
+              131072,
+              128,
+              128,
+              1
+            ],
+            "scale_stride": [
+              65536,
+              1,
+              1,
+              1
+            ],
+            "cos_dtype": "torch.float32"
+          },
+          {
+            "k_shape": [
+              7939,
+              64,
+              1,
+              128
+            ],
+            "k_stride": [
+              131072,
+              128,
+              128,
+              1
+            ],
+            "scale_stride": [
+              65536,
+              1,
+              1,
+              1
+            ],
+            "cos_dtype": "torch.float32"
+          },
+          {
+            "k_shape": [
+              7939,
+              128,
+              1,
+              128
+            ],
+            "k_stride": [
+              147712,
+              128,
+              128,
+              1
+            ],
+            "scale_stride": [
+              73856,
+              1,
+              1,
+              1
+            ],
+            "cos_dtype": "torch.float32"
+          }
+        ],
+        "functional_bitwise_equal": true,
+        "captured_cache_bitwise_equal": true,
+        "consumer_point_snapshots": true,
+        "valid_rows": 1,
+        "max_abs": 0.0,
+        "min_projected_std": 0.40984541177749634
+      }
+    },
+    {
+      "tag": "pair-2",
+      "rank": 0,
+      "moe_mask": {
+        "passed": true,
+        "consumer_calls": 40,
+        "unique_layers": 40,
+        "all_bitwise_equal": true,
+        "scope": "Actual probabilities consumed by native BF16 token-unpermute; full routing/token/logprob gates separate"
+      },
+      "metadata_slots_exact": true,
+      "indexer": {
+        "k_source_calls": 4,
+        "fused_post_calls": 4,
+        "cache_layouts": [
+          {
+            "k_shape": [
+              7939,
+              64,
+              1,
+              128
+            ],
+            "k_stride": [
+              131072,
+              128,
+              128,
+              1
+            ],
+            "scale_stride": [
+              65536,
+              1,
+              1,
+              1
+            ],
+            "cos_dtype": "torch.float32"
+          },
+          {
+            "k_shape": [
+              7939,
+              64,
+              1,
+              128
+            ],
+            "k_stride": [
+              131072,
+              128,
+              128,
+              1
+            ],
+            "scale_stride": [
+              65536,
+              1,
+              1,
+              1
+            ],
+            "cos_dtype": "torch.float32"
+          },
+          {
+            "k_shape": [
+              7939,
+              64,
+              1,
+              128
+            ],
+            "k_stride": [
+              131072,
+              128,
+              128,
+              1
+            ],
+            "scale_stride": [
+              65536,
+              1,
+              1,
+              1
+            ],
+            "cos_dtype": "torch.float32"
+          },
+          {
+            "k_shape": [
+              7939,
+              128,
+              1,
+              128
+            ],
+            "k_stride": [
+              147712,
+              128,
+              128,
+              1
+            ],
+            "scale_stride": [
+              73856,
+              1,
+              1,
+              1
+            ],
+            "cos_dtype": "torch.float32"
+          }
+        ],
+        "functional_bitwise_equal": true,
+        "captured_cache_bitwise_equal": true,
+        "consumer_point_snapshots": true,
+        "valid_rows": 4,
+        "max_abs": 0.0,
+        "min_projected_std": 0.30009007453918457
+      }
+    },
+    {
+      "tag": "pair-2",
+      "rank": 1,
+      "moe_mask": {
+        "passed": true,
+        "consumer_calls": 40,
+        "unique_layers": 40,
+        "all_bitwise_equal": true,
+        "scope": "Actual probabilities consumed by native BF16 token-unpermute; full routing/token/logprob gates separate"
+      },
+      "metadata_slots_exact": true,
+      "indexer": {
+        "k_source_calls": 4,
+        "fused_post_calls": 4,
+        "cache_layouts": [
+          {
+            "k_shape": [
+              7939,
+              64,
+              1,
+              128
+            ],
+            "k_stride": [
+              131072,
+              128,
+              128,
+              1
+            ],
+            "scale_stride": [
+              65536,
+              1,
+              1,
+              1
+            ],
+            "cos_dtype": "torch.float32"
+          },
+          {
+            "k_shape": [
+              7939,
+              64,
+              1,
+              128
+            ],
+            "k_stride": [
+              131072,
+              128,
+              128,
+              1
+            ],
+            "scale_stride": [
+              65536,
+              1,
+              1,
+              1
+            ],
+            "cos_dtype": "torch.float32"
+          },
+          {
+            "k_shape": [
+              7939,
+              64,
+              1,
+              128
+            ],
+            "k_stride": [
+              131072,
+              128,
+              128,
+              1
+            ],
+            "scale_stride": [
+              65536,
+              1,
+              1,
+              1
+            ],
+            "cos_dtype": "torch.float32"
+          },
+          {
+            "k_shape": [
+              7939,
+              128,
+              1,
+              128
+            ],
+            "k_stride": [
+              147712,
+              128,
+              128,
+              1
+            ],
+            "scale_stride": [
+              73856,
+              1,
+              1,
+              1
+            ],
+            "cos_dtype": "torch.float32"
+          }
+        ],
+        "functional_bitwise_equal": true,
+        "captured_cache_bitwise_equal": true,
+        "consumer_point_snapshots": true,
+        "valid_rows": 4,
+        "max_abs": 0.0,
+        "min_projected_std": 0.30009007453918457
+      }
+    },
+    {
+      "tag": "pair-2",
+      "rank": 2,
+      "moe_mask": {
+        "passed": true,
+        "consumer_calls": 40,
+        "unique_layers": 40,
+        "all_bitwise_equal": true,
+        "scope": "Actual probabilities consumed by native BF16 token-unpermute; full routing/token/logprob gates separate"
+      },
+      "metadata_slots_exact": true,
+      "indexer": {
+        "k_source_calls": 4,
+        "fused_post_calls": 4,
+        "cache_layouts": [
+          {
+            "k_shape": [
+              7939,
+              64,
+              1,
+              128
+            ],
+            "k_stride": [
+              131072,
+              128,
+              128,
+              1
+            ],
+            "scale_stride": [
+              65536,
+              1,
+              1,
+              1
+            ],
+            "cos_dtype": "torch.float32"
+          },
+          {
+            "k_shape": [
+              7939,
+              64,
+              1,
+              128
+            ],
+            "k_stride": [
+              131072,
+              128,
+              128,
+              1
+            ],
+            "scale_stride": [
+              65536,
+              1,
+              1,
+              1
+            ],
+            "cos_dtype": "torch.float32"
+          },
+          {
+            "k_shape": [
+              7939,
+              64,
+              1,
+              128
+            ],
+            "k_stride": [
+              131072,
+              128,
+              128,
+              1
+            ],
+            "scale_stride": [
+              65536,
+              1,
+              1,
+              1
+            ],
+            "cos_dtype": "torch.float32"
+          },
+          {
+            "k_shape": [
+              7939,
+              128,
+              1,
+              128
+            ],
+            "k_stride": [
+              147712,
+              128,
+              128,
+              1
+            ],
+            "scale_stride": [
+              73856,
+              1,
+              1,
+              1
+            ],
+            "cos_dtype": "torch.float32"
+          }
+        ],
+        "functional_bitwise_equal": true,
+        "captured_cache_bitwise_equal": true,
+        "consumer_point_snapshots": true,
+        "valid_rows": 4,
+        "max_abs": 0.0,
+        "min_projected_std": 0.30009007453918457
+      }
+    },
+    {
+      "tag": "pair-2",
+      "rank": 3,
+      "moe_mask": {
+        "passed": true,
+        "consumer_calls": 40,
+        "unique_layers": 40,
+        "all_bitwise_equal": true,
+        "scope": "Actual probabilities consumed by native BF16 token-unpermute; full routing/token/logprob gates separate"
+      },
+      "metadata_slots_exact": true,
+      "indexer": {
+        "k_source_calls": 4,
+        "fused_post_calls": 4,
+        "cache_layouts": [
+          {
+            "k_shape": [
+              7939,
+              64,
+              1,
+              128
+            ],
+            "k_stride": [
+              131072,
+              128,
+              128,
+              1
+            ],
+            "scale_stride": [
+              65536,
+              1,
+              1,
+              1
+            ],
+            "cos_dtype": "torch.float32"
+          },
+          {
+            "k_shape": [
+              7939,
+              64,
+              1,
+              128
+            ],
+            "k_stride": [
+              131072,
+              128,
+              128,
+              1
+            ],
+            "scale_stride": [
+              65536,
+              1,
+              1,
+              1
+            ],
+            "cos_dtype": "torch.float32"
+          },
+          {
+            "k_shape": [
+              7939,
+              64,
+              1,
+              128
+            ],
+            "k_stride": [
+              131072,
+              128,
+              128,
+              1
+            ],
+            "scale_stride": [
+              65536,
+              1,
+              1,
+              1
+            ],
+            "cos_dtype": "torch.float32"
+          },
+          {
+            "k_shape": [
+              7939,
+              128,
+              1,
+              128
+            ],
+            "k_stride": [
+              147712,
+              128,
+              128,
+              1
+            ],
+            "scale_stride": [
+              73856,
+              1,
+              1,
+              1
+            ],
+            "cos_dtype": "torch.float32"
+          }
+        ],
+        "functional_bitwise_equal": true,
+        "captured_cache_bitwise_equal": true,
+        "consumer_point_snapshots": true,
+        "valid_rows": 4,
+        "max_abs": 0.0,
+        "min_projected_std": 0.30009007453918457
+      }
+    },
+    {
+      "tag": "pair-2",
+      "rank": 4,
+      "moe_mask": {
+        "passed": true,
+        "consumer_calls": 40,
+        "unique_layers": 40,
+        "all_bitwise_equal": true,
+        "scope": "Actual probabilities consumed by native BF16 token-unpermute; full routing/token/logprob gates separate"
+      },
+      "metadata_slots_exact": true,
+      "indexer": {
+        "k_source_calls": 4,
+        "fused_post_calls": 4,
+        "cache_layouts": [
+          {
+            "k_shape": [
+              7939,
+              64,
+              1,
+              128
+            ],
+            "k_stride": [
+              131072,
+              128,
+              128,
+              1
+            ],
+            "scale_stride": [
+              65536,
+              1,
+              1,
+              1
+            ],
+            "cos_dtype": "torch.float32"
+          },
+          {
+            "k_shape": [
+              7939,
+              64,
+              1,
+              128
+            ],
+            "k_stride": [
+              131072,
+              128,
+              128,
+              1
+            ],
+            "scale_stride": [
+              65536,
+              1,
+              1,
+              1
+            ],
+            "cos_dtype": "torch.float32"
+          },
+          {
+            "k_shape": [
+              7939,
+              64,
+              1,
+              128
+            ],
+            "k_stride": [
+              131072,
+              128,
+              128,
+              1
+            ],
+            "scale_stride": [
+              65536,
+              1,
+              1,
+              1
+            ],
+            "cos_dtype": "torch.float32"
+          },
+          {
+            "k_shape": [
+              7939,
+              128,
+              1,
+              128
+            ],
+            "k_stride": [
+              147712,
+              128,
+              128,
+              1
+            ],
+            "scale_stride": [
+              73856,
+              1,
+              1,
+              1
+            ],
+            "cos_dtype": "torch.float32"
+          }
+        ],
+        "functional_bitwise_equal": true,
+        "captured_cache_bitwise_equal": true,
+        "consumer_point_snapshots": true,
+        "valid_rows": 4,
+        "max_abs": 0.0,
+        "min_projected_std": 0.30009007453918457
+      }
+    },
+    {
+      "tag": "pair-2",
+      "rank": 5,
+      "moe_mask": {
+        "passed": true,
+        "consumer_calls": 40,
+        "unique_layers": 40,
+        "all_bitwise_equal": true,
+        "scope": "Actual probabilities consumed by native BF16 token-unpermute; full routing/token/logprob gates separate"
+      },
+      "metadata_slots_exact": true,
+      "indexer": {
+        "k_source_calls": 4,
+        "fused_post_calls": 4,
+        "cache_layouts": [
+          {
+            "k_shape": [
+              7939,
+              64,
+              1,
+              128
+            ],
+            "k_stride": [
+              131072,
+              128,
+              128,
+              1
+            ],
+            "scale_stride": [
+              65536,
+              1,
+              1,
+              1
+            ],
+            "cos_dtype": "torch.float32"
+          },
+          {
+            "k_shape": [
+              7939,
+              64,
+              1,
+              128
+            ],
+            "k_stride": [
+              131072,
+              128,
+              128,
+              1
+            ],
+            "scale_stride": [
+              65536,
+              1,
+              1,
+              1
+            ],
+            "cos_dtype": "torch.float32"
+          },
+          {
+            "k_shape": [
+              7939,
+              64,
+              1,
+              128
+            ],
+            "k_stride": [
+              131072,
+              128,
+              128,
+              1
+            ],
+            "scale_stride": [
+              65536,
+              1,
+              1,
+              1
+            ],
+            "cos_dtype": "torch.float32"
+          },
+          {
+            "k_shape": [
+              7939,
+              128,
+              1,
+              128
+            ],
+            "k_stride": [
+              147712,
+              128,
+              128,
+              1
+            ],
+            "scale_stride": [
+              73856,
+              1,
+              1,
+              1
+            ],
+            "cos_dtype": "torch.float32"
+          }
+        ],
+        "functional_bitwise_equal": true,
+        "captured_cache_bitwise_equal": true,
+        "consumer_point_snapshots": true,
+        "valid_rows": 4,
+        "max_abs": 0.0,
+        "min_projected_std": 0.30009007453918457
+      }
+    },
+    {
+      "tag": "pair-2",
+      "rank": 6,
+      "moe_mask": {
+        "passed": true,
+        "consumer_calls": 40,
+        "unique_layers": 40,
+        "all_bitwise_equal": true,
+        "scope": "Actual probabilities consumed by native BF16 token-unpermute; full routing/token/logprob gates separate"
+      },
+      "metadata_slots_exact": true,
+      "indexer": {
+        "k_source_calls": 4,
+        "fused_post_calls": 4,
+        "cache_layouts": [
+          {
+            "k_shape": [
+              7939,
+              64,
+              1,
+              128
+            ],
+            "k_stride": [
+              131072,
+              128,
+              128,
+              1
+            ],
+            "scale_stride": [
+              65536,
+              1,
+              1,
+              1
+            ],
+            "cos_dtype": "torch.float32"
+          },
+          {
+            "k_shape": [
+              7939,
+              64,
+              1,
+              128
+            ],
+            "k_stride": [
+              131072,
+              128,
+              128,
+              1
+            ],
+            "scale_stride": [
+              65536,
+              1,
+              1,
+              1
+            ],
+            "cos_dtype": "torch.float32"
+          },
+          {
+            "k_shape": [
+              7939,
+              64,
+              1,
+              128
+            ],
+            "k_stride": [
+              131072,
+              128,
+              128,
+              1
+            ],
+            "scale_stride": [
+              65536,
+              1,
+              1,
+              1
+            ],
+            "cos_dtype": "torch.float32"
+          },
+          {
+            "k_shape": [
+              7939,
+              128,
+              1,
+              128
+            ],
+            "k_stride": [
+              147712,
+              128,
+              128,
+              1
+            ],
+            "scale_stride": [
+              73856,
+              1,
+              1,
+              1
+            ],
+            "cos_dtype": "torch.float32"
+          }
+        ],
+        "functional_bitwise_equal": true,
+        "captured_cache_bitwise_equal": true,
+        "consumer_point_snapshots": true,
+        "valid_rows": 4,
+        "max_abs": 0.0,
+        "min_projected_std": 0.30009007453918457
+      }
+    },
+    {
+      "tag": "pair-2",
+      "rank": 7,
+      "moe_mask": {
+        "passed": true,
+        "consumer_calls": 40,
+        "unique_layers": 40,
+        "all_bitwise_equal": true,
+        "scope": "Actual probabilities consumed by native BF16 token-unpermute; full routing/token/logprob gates separate"
+      },
+      "metadata_slots_exact": true,
+      "indexer": {
+        "k_source_calls": 4,
+        "fused_post_calls": 4,
+        "cache_layouts": [
+          {
+            "k_shape": [
+              7939,
+              64,
+              1,
+              128
+            ],
+            "k_stride": [
+              131072,
+              128,
+              128,
+              1
+            ],
+            "scale_stride": [
+              65536,
+              1,
+              1,
+              1
+            ],
+            "cos_dtype": "torch.float32"
+          },
+          {
+            "k_shape": [
+              7939,
+              64,
+              1,
+              128
+            ],
+            "k_stride": [
+              131072,
+              128,
+              128,
+              1
+            ],
+            "scale_stride": [
+              65536,
+              1,
+              1,
+              1
+            ],
+            "cos_dtype": "torch.float32"
+          },
+          {
+            "k_shape": [
+              7939,
+              64,
+              1,
+              128
+            ],
+            "k_stride": [
+              131072,
+              128,
+              128,
+              1
+            ],
+            "scale_stride": [
+              65536,
+              1,
+              1,
+              1
+            ],
+            "cos_dtype": "torch.float32"
+          },
+          {
+            "k_shape": [
+              7939,
+              128,
+              1,
+              128
+            ],
+            "k_stride": [
+              147712,
+              128,
+              128,
+              1
+            ],
+            "scale_stride": [
+              73856,
+              1,
+              1,
+              1
+            ],
+            "cos_dtype": "torch.float32"
+          }
+        ],
+        "functional_bitwise_equal": true,
+        "captured_cache_bitwise_equal": true,
+        "consumer_point_snapshots": true,
+        "valid_rows": 4,
+        "max_abs": 0.0,
+        "min_projected_std": 0.30009007453918457
+      }
+    }
+  ],
+  "requests_sha256": "69397b812fdcff62bcdb7f0549f923bf4fc5cfa631e3d069fcfdecabbf47d227",
+  "scope": "Complete formal routes/token/Top5/logprob plus actual40-layer probabilities and cache consumers; audit timing is excluded from performance"
+}

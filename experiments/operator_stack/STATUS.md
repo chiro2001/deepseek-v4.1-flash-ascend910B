@@ -1,3 +1,5 @@
+更新v31：正式掩码审计退出0，三A/A控制/六路由、token、Top5/logprob比较delta0；24份rank/960次40层概率消费者逐位一致，Indexer/cache通过。12组无审计/profiler异步配对退出0：base `(20.393742ms,A1,49.034650tok/s)`、metastack `(19.372919ms,A1,51.618446tok/s)`、mask `(19.228652ms,A1,52.005725tok/s)`；mask对meta配对中位节省0.149769ms、12/12更快。delivery守卫已起 `formal_best_async_service_v6` 私有18766/独立mask模型名，加载后自动8请求/Vision23/GSM100/17ms验收。客户端pending，17ms未达到；v29/v30源码与独立证据已在ecdff09完成自检、双push。
+
 更新v30：MoE掩码及BF16消费者转换独立v2退出0，八EP范围×四shape×三风格96case，两输出共192次逐位一致。首版每图32调用约8.94μs未建立提交余量，不计收益；v2每图512不同输入地址、重放8次，全部窗口设备/提交比例≥2，FP32 4.392957→0.841917μs、BF16消费者5.506194→0.854939μs，两候选均64/64更快。新tp8mask继承metastack、真实layer绑定/40唯一层门/源码SHA/关键字契约通过；`/work/src_mask_model_v2` 的 `formal_moe_mask_audit_v1`已在复查空闲/授权Alarm后启动三bank异步整网审计，完整守卫后才12配对。没有新E2E或17ms声明。
 
 更新v29终态：正式单group wo_a独立probe退出0，Cube64/256和Cube128/512各96/96通过原1ULP门；Cube64/256事件20.336718→17.960176μs、64/64更快，只计独立算子。`/work/src_woa_model_v1` 的正式三bank异步审计退出1：layer0真实wo_a消费者最大184BF16 ULP，超过原1ULP门并拒绝。控制器拒绝启动12组性能作业，未部署、没有有效E2E收益。tuple配置key已修复，新ARM继承metastack、40唯一层覆盖和加载前契约保留；17ms未达到，继续优先研究逐位一致的MoE掩码融合和小M GMM调度。
