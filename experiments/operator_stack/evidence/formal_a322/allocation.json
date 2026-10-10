@@ -1,0 +1,207 @@
+{
+  "host": "host22",
+  "timestamp_unix": 1791588957.4756026,
+  "chips": [
+    14,
+    15
+  ],
+  "resources": {
+    "0": {
+      "health": "OK",
+      "processes": [
+        {
+          "pid": 3185010,
+          "name": "python"
+        }
+      ]
+    },
+    "1": {
+      "health": "OK",
+      "processes": [
+        {
+          "pid": 1727688,
+          "name": "python"
+        }
+      ]
+    },
+    "2": {
+      "health": "OK",
+      "processes": [
+        {
+          "pid": 3223618,
+          "name": "python"
+        }
+      ]
+    },
+    "3": {
+      "health": "OK",
+      "processes": [
+        {
+          "pid": 3493365,
+          "name": "python"
+        }
+      ]
+    },
+    "4": {
+      "health": "OK",
+      "processes": [
+        {
+          "pid": 2845840,
+          "name": "python"
+        }
+      ]
+    },
+    "5": {
+      "health": "OK",
+      "processes": [
+        {
+          "pid": 3553220,
+          "name": "python"
+        },
+        {
+          "pid": 3552199,
+          "name": "python"
+        },
+        {
+          "pid": 3552627,
+          "name": "python"
+        }
+      ]
+    },
+    "6": {
+      "health": "OK",
+      "processes": [
+        {
+          "pid": 2624823,
+          "name": "python"
+        }
+      ]
+    },
+    "7": {
+      "health": "OK",
+      "processes": [
+        {
+          "pid": 2913491,
+          "name": "python"
+        }
+      ]
+    },
+    "8": {
+      "health": "OK",
+      "processes": [
+        {
+          "pid": 3606915,
+          "name": "python"
+        }
+      ]
+    },
+    "9": {
+      "health": "OK",
+      "processes": [
+        {
+          "pid": 3607014,
+          "name": "python"
+        }
+      ]
+    },
+    "10": {
+      "health": "OK",
+      "processes": []
+    },
+    "11": {
+      "health": "OK",
+      "processes": []
+    },
+    "12": {
+      "health": "OK",
+      "processes": [
+        {
+          "pid": 3638391,
+          "name": "python"
+        }
+      ]
+    },
+    "13": {
+      "health": "OK",
+      "processes": [
+        {
+          "pid": 3654071,
+          "name": "python"
+        }
+      ]
+    },
+    "14": {
+      "health": "OK",
+      "processes": []
+    },
+    "15": {
+      "health": "OK",
+      "processes": []
+    }
+  },
+  "name": "dsv41-real-operator-probe-20261010-v3",
+  "image": "quay.nju.edu.cn/ascend/vllm-ascend:deepseek-v4.1-flash-a3",
+  "image_digest": "sha256:1f2c08195c5b119aa9a107861fa2efa5d2b93b161f1ae91cb5358923a78cbcef",
+  "container_id": "8fd451a80237c3806d4dd6b2c30cc39f66f74774f4e307a77209bf7bbb38186c",
+  "command": [
+    "docker",
+    "run",
+    "-d",
+    "--name",
+    "dsv41-real-operator-probe-20261010-v3",
+    "--network",
+    "host",
+    "--shm-size",
+    "16g",
+    "--ulimit",
+    "memlock=-1",
+    "--label",
+    "task=dsv41-real-operator-probe-20261010-v3",
+    "--label",
+    "chips=14,15",
+    "--device",
+    "/dev/davinci14",
+    "--device",
+    "/dev/davinci15",
+    "--device",
+    "/dev/davinci_manager",
+    "--device",
+    "/dev/devmm_svm",
+    "--device",
+    "/dev/hisi_hdc",
+    "-v",
+    "/usr/local/Ascend/driver:/usr/local/Ascend/driver:ro",
+    "-v",
+    "/usr/local/dcmi:/usr/local/dcmi:ro",
+    "-v",
+    "/usr/local/bin/npu-smi:/usr/local/bin/npu-smi:ro",
+    "-v",
+    "/etc/ascend_install.info:/etc/ascend_install.info:ro",
+    "-v",
+    "/etc/hccn.conf:/etc/hccn.conf:ro",
+    "-v",
+    "/home/l00886679/projects/dsv41/models/out/engram-int8:/home/l00886679/projects/dsv41/models/out/engram-int8:ro",
+    "-v",
+    "/home/l00886679/projects/dsv41/models/out/v41-w4a8-dspark:/home/l00886679/projects/dsv41/models/out/v41-w4a8-dspark:ro",
+    "-v",
+    "/home/l00886679/projects/dsv41/models/out/v41-w4a8-dspark/optional:/home/l00886679/projects/dsv41/models/out/v41-w4a8-dspark/optional:ro",
+    "-v",
+    "/home/l00886679/projects/dsv41-real-operator-probe-20261010:/work",
+    "-v",
+    "/home/l00886679/models:/home/l00886679/models:ro",
+    "-e",
+    "ASCEND_RT_VISIBLE_DEVICES=0,1",
+    "-e",
+    "STACK_EXPECTED_CHIPS=0,1",
+    "-e",
+    "STACK_PHYSICAL_CHIPS=14,15",
+    "-e",
+    "HCCL_CONNECT_TIMEOUT=120",
+    "--entrypoint",
+    "/bin/bash",
+    "quay.nju.edu.cn/ascend/vllm-ascend:deepseek-v4.1-flash-a3",
+    "-lc",
+    "sleep infinity"
+  ],
+  "claim": "isolated operator probe; not a TP8 deployment"
+}

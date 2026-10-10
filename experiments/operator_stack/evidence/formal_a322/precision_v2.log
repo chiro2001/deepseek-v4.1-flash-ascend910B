@@ -1,0 +1,21 @@
+INFO 10-09 23:40:34 [__init__.py:52] Available plugins for group vllm.platform_plugins:
+INFO 10-09 23:40:34 [__init__.py:54] - ascend -> vllm_ascend:register
+INFO 10-09 23:40:34 [__init__.py:57] All plugins in this group will be loaded. Set `VLLM_PLUGINS` to control which plugins to load.
+INFO 10-09 23:40:34 [__init__.py:237] Platform plugin ascend is activated
+INFO 10-09 23:40:34 [platform.py:70] Breakable CUDAGraph on Ascend is opt-in; using VLLM_USE_BREAKABLE_CUDAGRAPH=0.
+[W1009 23:40:34.140522560 NPUCachingAllocator.cpp:202] Warning: The current CANN and HDK(driver) versions require processing for 32 padding size, with memory allocation. (function operator())
+REAL_OPERATOR_PRECISION {"checkpoint_config_sha256": "40ebd329d3cb2d99d7176091afb580c182c21f48b88b63b550264a97e9c0d424", "model": "/home/l00886679/models/out/v41-w4a8-engram-dr-vision-qrot-mtpq", "weights": "unaltered formal checkpoint tensors", "inputs": "synthetic; not observed full-model activations", "device": 0, "visible_physical_chips": "14,15", "status": "failed", "error": "aclnnHcPre or aclnnHcPreGetWorkspaceSize not in libopapi.so, or libopapi.sonot found.", "hc_case_count": 0, "indexer_case_count": 0}
+Traceback (most recent call last):
+  File "/work/src/stack/verify_real_operators.py", line 129, in <module>
+    main()
+  File "/usr/local/python3.12.13/lib/python3.12/site-packages/torch/utils/_contextlib.py", line 124, in decorate_context
+    return func(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^
+  File "/work/src/stack/verify_real_operators.py", line 69, in main
+    reference = torch.ops._C_ascend.npu_hc_pre_v2(x, fn, scale, bias, mix,
+                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/python3.12.13/lib/python3.12/site-packages/torch/_ops.py", line 1209, in __call__
+    return self._op(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^
+RuntimeError: aclnnHcPre or aclnnHcPreGetWorkspaceSize not in libopapi.so, or libopapi.sonot found.
+[ERROR] 2026-10-09-23:40:35 (PID:1046, Device:0, RankID:-1) ERR99999 UNKNOWN applicaiton exception

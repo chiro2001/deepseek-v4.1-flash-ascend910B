@@ -1,0 +1,35 @@
+INFO 10-09 23:47:27 [__init__.py:52] Available plugins for group vllm.platform_plugins:
+INFO 10-09 23:47:27 [__init__.py:54] - ascend -> vllm_ascend:register
+INFO 10-09 23:47:27 [__init__.py:57] All plugins in this group will be loaded. Set `VLLM_PLUGINS` to control which plugins to load.
+INFO 10-09 23:47:27 [__init__.py:237] Platform plugin ascend is activated
+INFO 10-09 23:47:27 [platform.py:70] Breakable CUDAGraph on Ascend is opt-in; using VLLM_USE_BREAKABLE_CUDAGRAPH=0.
+[W1009 23:47:28.904814800 NPUCachingAllocator.cpp:202] Warning: The current CANN and HDK(driver) versions require processing for 32 padding size, with memory allocation. (function operator())
+[W1009 23:47:28.173070270 TensorFactories.cpp:423] Warning: Cannot create tensor with interal format while allow_internel_format=False, tensor will be created with base format. (function operator())
+REAL_OPERATOR_PRECISION {"checkpoint_config_sha256": "40ebd329d3cb2d99d7176091afb580c182c21f48b88b63b550264a97e9c0d424", "model": "/home/l00886679/models/out/v41-w4a8-engram-dr-vision-qrot-mtpq", "weights": "unaltered formal checkpoint tensors", "inputs": "synthetic; not observed full-model activations", "device": 0, "visible_physical_chips": "14,15", "section": "indexer", "status": "failed", "error": "call aclnnInplacePartialRotaryMul failed, detail:[PID: 1826] 2026-10-09-23:47:28.528.615 Execution_Error(EZ1008): Failed to execute operator InplacePartialRotaryMul_28. Reason: Failed to execute tiling function.\n        Solution: 1.If the tiling function does not exist, check whether the tiling function is registered successfully. 2.If the tiling function fails to be executed, check the implementation logic of the tiling function.\nTraceBack (most recent call last):\n        dimNumR1:2 dimNumR2 2,  r1 r2 dim must be4[FUNC:CheckInput][FILE:inplace_partial_rotary_mul_a3_tiling.cpp][LINE:283]\n        CheckInputShapes is failed[FUNC:DoTiling][FILE:inplace_partial_rotary_mul_a3_tiling.cpp][LINE:530]\n        Tiling4InplacePartialRotaryMul do tiling failed.[FUNC:Tiling4InplacePartialRotaryMul][FILE:inplace_partial_rotary_mul_a3_tiling.cpp][LINE:585]\n        Failed to execute operator InplacePartialRotaryMul_28. Reason: Failed to execute tiling function.\n        Check NnopbaseExecutorDoTiling(executor) failed\n        Check NnopbaseExecutorTilingAndUpdateBinInfo(executor) failed\n        Check NnopbaseExecutorMatchCache(executor) failed\n        Check NnopbaseRunForWorkspace(*executor, workspaceSize) failed\n", "hc_case_count": 0, "indexer_case_count": 0}
+Traceback (most recent call last):
+  File "/work/src/stack/verify_real_operators.py", line 137, in <module>
+    main()
+  File "/usr/local/python3.12.13/lib/python3.12/site-packages/torch/utils/_contextlib.py", line 124, in decorate_context
+    return func(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^
+  File "/work/src/stack/verify_real_operators.py", line 104, in main
+    quant, scale = native_post(module, projected, coordinates, cos, sin,
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/work/src/up950/indexer_patches.py", line 18, in native_post
+    torch.ops._C_ascend.inplace_partial_rotary_mul(
+  File "/usr/local/python3.12.13/lib/python3.12/site-packages/torch/_ops.py", line 1209, in __call__
+    return self._op(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^
+RuntimeError: call aclnnInplacePartialRotaryMul failed, detail:[PID: 1826] 2026-10-09-23:47:28.528.615 Execution_Error(EZ1008): Failed to execute operator InplacePartialRotaryMul_28. Reason: Failed to execute tiling function.
+        Solution: 1.If the tiling function does not exist, check whether the tiling function is registered successfully. 2.If the tiling function fails to be executed, check the implementation logic of the tiling function.
+TraceBack (most recent call last):
+        dimNumR1:2 dimNumR2 2,  r1 r2 dim must be4[FUNC:CheckInput][FILE:inplace_partial_rotary_mul_a3_tiling.cpp][LINE:283]
+        CheckInputShapes is failed[FUNC:DoTiling][FILE:inplace_partial_rotary_mul_a3_tiling.cpp][LINE:530]
+        Tiling4InplacePartialRotaryMul do tiling failed.[FUNC:Tiling4InplacePartialRotaryMul][FILE:inplace_partial_rotary_mul_a3_tiling.cpp][LINE:585]
+        Failed to execute operator InplacePartialRotaryMul_28. Reason: Failed to execute tiling function.
+        Check NnopbaseExecutorDoTiling(executor) failed
+        Check NnopbaseExecutorTilingAndUpdateBinInfo(executor) failed
+        Check NnopbaseExecutorMatchCache(executor) failed
+        Check NnopbaseRunForWorkspace(*executor, workspaceSize) failed
+
+[ERROR] 2026-10-09-23:47:29 (PID:1826, Device:0, RankID:-1) ERR99999 UNKNOWN applicaiton exception

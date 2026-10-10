@@ -1,0 +1,42 @@
+DEVICE_SMOKE {"physical_chip": 15, "rank": 1, "distributed": true, "visible_devices": "14,15", "status": "failed", "device_count": 0, "error": "{'physical_chip': 15, 'rank': 1, 'distributed': True, 'visible_devices': '14,15', 'status': 'started', 'device_count': 0}", "traceback": "Traceback (most recent call last):\n  File \"/work/src/stack/device_smoke.py\", line 31, in main\n    assert result['device_count'] == len(chips), result\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nAssertionError: {'physical_chip': 15, 'rank': 1, 'distributed': True, 'visible_devices': '14,15', 'status': 'started', 'device_count': 0}\n"}
+DEVICE_SMOKE {"physical_chip": 14, "rank": 0, "distributed": true, "visible_devices": "14,15", "status": "failed", "device_count": 0, "error": "{'physical_chip': 14, 'rank': 0, 'distributed': True, 'visible_devices': '14,15', 'status': 'started', 'device_count': 0}", "traceback": "Traceback (most recent call last):\n  File \"/work/src/stack/device_smoke.py\", line 31, in main\n    assert result['device_count'] == len(chips), result\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nAssertionError: {'physical_chip': 14, 'rank': 0, 'distributed': True, 'visible_devices': '14,15', 'status': 'started', 'device_count': 0}\n"}
+E1009 23:33:52.473000 85 site-packages/torch/distributed/elastic/multiprocessing/api.py:984] failed (exitcode: 1) local_rank: 0 (pid: 406) of binary: /usr/local/python3.12.13/bin/python3
+Traceback (most recent call last):
+  File "/usr/local/python3.12.13/bin/torchrun", line 6, in <module>
+    sys.exit(main())
+             ^^^^^^
+  File "/usr/local/python3.12.13/lib/python3.12/site-packages/torch/distributed/elastic/multiprocessing/errors/__init__.py", line 362, in wrapper
+    return f(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^
+  File "/usr/local/python3.12.13/lib/python3.12/site-packages/torch/distributed/run.py", line 991, in main
+    run(args)
+  File "/usr/local/python3.12.13/lib/python3.12/site-packages/torch/distributed/run.py", line 982, in run
+    elastic_launch(
+  File "/usr/local/python3.12.13/lib/python3.12/site-packages/torch/distributed/launcher/api.py", line 170, in __call__
+    return launch_agent(self._config, self._entrypoint, list(args))
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/python3.12.13/lib/python3.12/site-packages/torch/distributed/launcher/api.py", line 317, in launch_agent
+    raise ChildFailedError(
+torch.distributed.elastic.multiprocessing.errors.ChildFailedError: 
+============================================================
+/work/src/stack/device_smoke.py FAILED
+------------------------------------------------------------
+Failures:
+[1]:
+  time      : 2026-10-09_23:33:52
+  host      : host22
+  rank      : 1 (local_rank: 1)
+  exitcode  : 1 (pid: 407)
+  error_file: <N/A>
+  traceback : To enable traceback see: https://pytorch.org/docs/stable/elastic/errors.html
+------------------------------------------------------------
+Root Cause (first observed failure):
+[0]:
+  time      : 2026-10-09_23:33:52
+  host      : host22
+  rank      : 0 (local_rank: 0)
+  exitcode  : 1 (pid: 406)
+  error_file: <N/A>
+  traceback : To enable traceback see: https://pytorch.org/docs/stable/elastic/errors.html
+============================================================
+[ERROR] 2026-10-09-23:33:52 (PID:85, Device:-1, RankID:-1) ERR99999 UNKNOWN applicaiton exception

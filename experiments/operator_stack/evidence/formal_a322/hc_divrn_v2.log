@@ -1,0 +1,38 @@
+INFO 10-09 23:56:56 [__init__.py:52] Available plugins for group vllm.platform_plugins:
+INFO 10-09 23:56:56 [__init__.py:54] - ascend -> vllm_ascend:register
+INFO 10-09 23:56:56 [__init__.py:57] All plugins in this group will be loaded. Set `VLLM_PLUGINS` to control which plugins to load.
+INFO 10-09 23:56:56 [__init__.py:237] Platform plugin ascend is activated
+INFO 10-09 23:56:56 [platform.py:70] Breakable CUDAGraph on Ascend is opt-in; using VLLM_USE_BREAKABLE_CUDAGRAPH=0.
+[W1009 23:56:57.164849080 NPUCachingAllocator.cpp:202] Warning: The current CANN and HDK(driver) versions require processing for 32 padding size, with memory allocation. (function operator())
+REAL_HC_WEIGHT_PASSED layers.0.hc_attn_fn
+REAL_HC_WEIGHT_PASSED layers.0.hc_ffn_fn
+REAL_HC_WEIGHT_PASSED layers.1.hc_attn_fn
+REAL_HC_WEIGHT_PASSED layers.1.hc_ffn_fn
+REAL_HC_WEIGHT_PASSED layers.10.hc_attn_fn
+REAL_HC_WEIGHT_PASSED layers.10.hc_ffn_fn
+REAL_HC_WEIGHT_PASSED layers.11.hc_attn_fn
+REAL_HC_WEIGHT_PASSED layers.11.hc_ffn_fn
+REAL_HC_WEIGHT_PASSED layers.12.hc_attn_fn
+REAL_HC_WEIGHT_PASSED layers.12.hc_ffn_fn
+REAL_HC_WEIGHT_PASSED layers.13.hc_attn_fn
+REAL_HC_WEIGHT_PASSED layers.13.hc_ffn_fn
+REAL_HC_WEIGHT_PASSED layers.14.hc_attn_fn
+REAL_HC_WEIGHT_PASSED layers.14.hc_ffn_fn
+REAL_HC_WEIGHT_PASSED layers.15.hc_attn_fn
+REAL_OPERATOR_PRECISION {"checkpoint_config_sha256": "40ebd329d3cb2d99d7176091afb580c182c21f48b88b63b550264a97e9c0d424", "model": "/home/l00886679/models/out/v41-w4a8-engram-dr-vision-qrot-mtpq", "weights": "unaltered formal checkpoint tensors", "inputs": "synthetic; not observed full-model activations", "device": 0, "visible_physical_chips": "14,15", "section": "hc", "hc_candidate": "divrn", "status": "failed", "current_case": {"tensor": "layers.15.hc_ffn_fn", "magnitude": 100.0, "pre_mix": false}, "error": "Tensor-likes are not close!\n\nMismatched elements: 1 / 5120 (0.0%)\nGreatest absolute difference: 0.25 at index (0, 4015) (up to 0.004 allowed)\nGreatest relative difference: 0.005181347019970417 at index (0, 4015) (up to 0.004 allowed)", "hc_case_count": 94, "indexer_case_count": 0}
+Traceback (most recent call last):
+  File "/work/src/stack/verify_real_operators.py", line 151, in <module>
+    main()
+  File "/usr/local/python3.12.13/lib/python3.12/site-packages/torch/utils/_contextlib.py", line 124, in decorate_context
+    return func(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^
+  File "/work/src/stack/verify_real_operators.py", line 84, in main
+    torch.testing.assert_close(actual.float(), expected.float(),
+  File "/usr/local/python3.12.13/lib/python3.12/site-packages/torch/testing/_comparison.py", line 1600, in assert_close
+    raise error_metas[0].to_error(msg)
+AssertionError: Tensor-likes are not close!
+
+Mismatched elements: 1 / 5120 (0.0%)
+Greatest absolute difference: 0.25 at index (0, 4015) (up to 0.004 allowed)
+Greatest relative difference: 0.005181347019970417 at index (0, 4015) (up to 0.004 allowed)
+[ERROR] 2026-10-09-23:57:07 (PID:3200, Device:0, RankID:-1) ERR99999 UNKNOWN applicaiton exception

@@ -12,6 +12,7 @@ def main():
     p.add_argument('--container', required=True)
     p.add_argument('--remote-root', required=True)
     p.add_argument('--destination', required=True)
+    p.add_argument('--host', default='a3-21')
     p.add_argument('--ssh-control-path', default='/home/chiro/.ssh/cm/goal20-final-a3-21')
     args = p.parse_args()
     root = Path(__file__).resolve().parent
@@ -29,7 +30,7 @@ def main():
             archive.add(source, arcname=str(destination))
     assert bundle.stat().st_size < 1000000, 'Use COS for >=1 MB'
     opts = ['-o', 'BatchMode=yes', '-o', 'ConnectTimeout=30', '-o', 'ControlPath=' + args.ssh_control_path]
-    subprocess.run(['scp', '-q', *opts, str(bundle), 'a3-21:' + args.remote_root + '/operator_stack_source.tgz'], check=True)
+    subprocess.run(['scp', '-q', *opts, str(bundle), args.host + ':' + args.remote_root + '/operator_stack_source.tgz'], check=True)
     code = f"""import tarfile
 from pathlib import Path
 out=Path({args.destination!r});out.mkdir(parents=True,exist_ok=True)
@@ -37,7 +38,7 @@ with tarfile.open('/work/operator_stack_source.tgz') as archive:archive.extracta
 print('STACK_SOURCE_SYNCED',str(out))
 """
     command = shlex.join(['docker', 'exec', '-i', args.container, 'python', '-'])
-    subprocess.run(['ssh', *opts, 'a3-21', command], input=code, text=True, check=True)
+    subprocess.run(['ssh', *opts, args.host, command], input=code, text=True, check=True)
 
 
 if __name__ == '__main__': main()

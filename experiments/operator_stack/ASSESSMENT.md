@@ -1,6 +1,6 @@
 # 两条算子线的组合判断
 
-2026-10-10，独立集成分支`feat/operator-stack-tp8-20261010`。目标仍active，TP8精度/性能与服务尚未全部验收。
+2026-10-10，独立集成分支`feat/operator-stack-tp8-20261010`。目标仍active，正式权重TP8精度/性能与服务尚未验收。用户最新要求正式权重、避开问题设备，后续以此为准。
 
 上游950迁移线的最终有效增量只有Indexer INT8后处理。它融合K源层的RMSNorm、尾64维RoPE、INT8量化与K/FP16-scale cache写入，保持两个BF16舍入边界及原生Div(127,max)→Mul→RINT。其他五方向已有拒绝证据，本轮不重复筛选。
 
@@ -22,8 +22,7 @@ Indexer的functional INT8/FP32 scale及消费者点INT8/FP16 cache逐位通过�
 
 ## TP8适配状态
 
-用户授权a3-21 chip8–15。8个chip虽均有80C98001 RAS Alarm，但Vector、Cube和HCCL AllReduce均精确通过；未重置设备。
-隔离TP8容器已运行完整模型，并成功捕获native/core/stack的8rank图bank。
+历史dummy prototype使用a3-21 chip8–15。它们有80C98001 RAS Alarm，基础冒烟曾通过；用户最新要求避开问题设备，因此这8个chip全部排除，旧容器已停止。历史prototype捕获图的结果只保留为tiny证据，不计正式模型验收。
 
 实际覆盖显示：每rank HC80/router40、core HcPost80、stack Indexer4；原TP1激活shape守卫在TP8均未选择，TP1 selected-GMM/路由特化显式禁用。因此不能把TP1的全部收益直接移到TP8。
 后续需要按实际shared/routed形状适配激活，并分别验证；目前尚未声称这一项成功。
@@ -31,4 +30,12 @@ Indexer的functional INT8/FP32 scale及消费者点INT8/FP16 cache逐位通过�
 首次TP8审计请求的路由回传只有256/2048个prefill token有有效top2（10240/81920个token-layer对），decode有效；安装态single-DP capturer没有复原TP8/SP的全路由。
 这是审计数据完整性问题，尚不能判定模型精度通过。正在使用真实跨rank ID gather修正观测，所有route范围/唯一性/token/logprob/cache门槛保留，正式性能不开此观测路径。
 
-下一步：完成TP8原生/核心/Indexer叠加的真实路由与cache审计，适配缺失的有效激活形状，关闭审计做同worker配对和客户端端到端验收，达到≤约19ms/step后交付最优TP8服务。
+正式checkpoint为`v41-w4a8-engram-dr-vision-qrot-mtpq`：40层/5120 hidden/384专家top6、W4A8_DYNAMIC，Engram层1/14。a3-22正式权重90个分片与辅助软链闭包均通过预检查；Indexer wk分配为BF16、k_norm checkpoint为F32但按原模型BF16参数加载。
+
+a3-22的chip14/15已通过Vector、Cube与2rank HCCL，私有容器只透传这两个节点，ACL逻辑编号为0/1。正在用正式HC/Indexer参数做独立数值核验，输入为合成数据，不计整网精度通过。当前没有同机健康空闲8chip组合。
+
+下一步：获得健康空闲8chip后，使用正式权重、Engram开启，完成native/core/stack同worker图bank的真实top6路由、cache、token/logprobs审计；关闭审计做配对墙钟和客户端端到端验收，达到≤约19ms/step后交付最优TP8服务。
+
+最新核验：原Indexer融合用真实参数在两个cache page累计128例逐位通过；单系数变体也通过128例，但相对原融合配对中位0.999512，未采用。HC static、顺序求和和Div-RN均在同一个BF16舍入边界用例失败，正式入口保留原生HC。正式激活形状96例通过原1ULP门槛，实际整网覆盖仍待验证。
+
+a3-22最新空闲chip为8/9/10/11/14/15，共6个，仍不足单机TP8。详细数据与优化原理见`reports/formal-weights-device-migration-20261010-v1.md`。

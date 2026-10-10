@@ -1,0 +1,133 @@
+{
+  "image": "local/dsv41-operator-stack-real:20261010-production",
+  "image_digest": "sha256:85d2d8b484a55f928729154f4e4f90eb4395dc143df5d95e10228d9f368a113d",
+  "files": [
+    {
+      "source": "scripts/build_image.sh",
+      "target": "/opt/dsv41/scripts/build_image.sh",
+      "sha256": "5c6799f5ba30bbde4161b308ea8d41bcaadb95bd8801447fcc939a6d318dac58"
+    },
+    {
+      "source": "scripts/run_test.sh",
+      "target": "/opt/dsv41/scripts/run_test.sh",
+      "sha256": "9e470e45c239fa691ecb7326c0f932610c9f93fe88061266b2a73d620510ec0b"
+    },
+    {
+      "source": "scripts/serve_a2.sh",
+      "target": "/opt/dsv41/scripts/serve_a2.sh",
+      "sha256": "48bdd8c1fae6b3f7353af398605ee4ecd84aeff122b9a73b53f4d0d2461435bf"
+    },
+    {
+      "source": "scripts/serve_a3.sh",
+      "target": "/opt/dsv41/scripts/serve_a3.sh",
+      "sha256": "45f7e66fd38e94748b9a28340ff6c2155eaa16ad37a14887b34bebb6b8f33470"
+    },
+    {
+      "source": "scripts/serve_a3_ced_pd.sh",
+      "target": "/opt/dsv41/scripts/serve_a3_ced_pd.sh",
+      "sha256": "867b2a0220b2aed53ca69a62181a60b4bfce5f384e0404bdd21352fa81b0c0a5"
+    },
+    {
+      "source": "scripts/serve_a3_ced_single.sh",
+      "target": "/opt/dsv41/scripts/serve_a3_ced_single.sh",
+      "sha256": "c6b7d331bd993439a362d45d38c1ec93f42222e66f0442753b152c1f185ba147"
+    },
+    {
+      "source": "scripts/serve_a3_pd.sh",
+      "target": "/opt/dsv41/scripts/serve_a3_pd.sh",
+      "sha256": "ec36dea59f370e1f54a8c1292687ca3cec3295ca5df2e2b53d8329217ecea0c3"
+    },
+    {
+      "source": "scripts/serve_a3_pd_proxy.sh",
+      "target": "/opt/dsv41/scripts/serve_a3_pd_proxy.sh",
+      "sha256": "b39854a57c5c46bc1caa8c5f5a1862f4b32e82c2b101e3009a2a9fea0d9e3a3a"
+    },
+    {
+      "source": "scripts/serve_v2.sh",
+      "target": "/opt/dsv41/scripts/serve_v2.sh",
+      "sha256": "c12c4253e9c82eea0d4937cbb7349c08e4360852dc1c758e626645b2af50f4f3"
+    },
+    {
+      "source": "patches/files/v41_decode_guard.py",
+      "target": "/opt/dsv41/guards/v41_decode_guard.py",
+      "sha256": "40287e09f7e3855983fb5efac2376134270adac8267d9a1d7ca310342f6a0abb"
+    },
+    {
+      "source": "patches/admission_gate.patch",
+      "target": "/opt/dsv41/admission_gate.patch",
+      "sha256": "9ce42b021589fd1acf79e5370f64fddebb977f5caeb6a757d58d620474291ea3"
+    },
+    {
+      "source": "patches/files/engram_hbm.py",
+      "target": "/vllm-workspace/vllm-ascend/vllm_ascend/models/deepseek_v41/engram_hbm.py",
+      "sha256": "b422e9899204b7a55af05832073bdea41e24cdc14900ea739c1dcd82822c77ae"
+    },
+    {
+      "source": "patches/files/engram_hash.py",
+      "target": "/vllm-workspace/vllm-ascend/vllm_ascend/models/deepseek_v41/engram_hash.py",
+      "sha256": "acf1aa4a9a75eef5ebe6dbf69bbeb8dd9195797c739ecc46751e3a79776ff4a8"
+    },
+    {
+      "source": "patches/files/engram_device_index.py",
+      "target": "/vllm-workspace/vllm-ascend/vllm_ascend/models/deepseek_v41/engram_device_index.py",
+      "sha256": "4c9a29e3e37c0170ab8b349dc4996aaf0d488ad375b7dc400589d9cc906ca7f4"
+    },
+    {
+      "source": "patches/files/engram_graph.py",
+      "target": "/vllm-workspace/vllm-ascend/vllm_ascend/models/deepseek_v41/engram_graph.py",
+      "sha256": "14c14f0b24e2ba96caf424a187035e24947d81b28bba8de9bbc7eab6c886e962"
+    },
+    {
+      "source": "patches/files/engram_jit_kernel.py",
+      "target": "/vllm-workspace/vllm-ascend/vllm_ascend/models/deepseek_v41/engram_jit_kernel.py",
+      "sha256": "1394bbe7e9752a0bcf3cc177f3ff3baf10c9c1d6847569855f5d5ed5237f38cf"
+    },
+    {
+      "source": "patches/files/engram_plan_kernel.py",
+      "target": "/vllm-workspace/vllm-ascend/vllm_ascend/models/deepseek_v41/engram_plan_kernel.py",
+      "sha256": "87fd738eeb8c69d363d01105de1bb7067acc714e8d8e98739f146b6c547e8117"
+    },
+    {
+      "source": "patches/files/engram_gate.py",
+      "target": "/vllm-workspace/vllm-ascend/vllm_ascend/models/deepseek_v41/engram_gate.py",
+      "sha256": "955e40b94e933aabddb37035ec295e701bdfe3c12fef586a6b7ba775a05e90a2"
+    },
+    {
+      "source": "patches/files/model.py",
+      "target": "/vllm-workspace/vllm-ascend/vllm_ascend/models/deepseek_v41/model.py",
+      "sha256": "11ddc71dd178061113f2b206758a9e3a6b85925949fe3a816af38311bf3ed607"
+    },
+    {
+      "source": "patches/files/ascend_forward_context.py",
+      "target": "/vllm-workspace/vllm-ascend/vllm_ascend/ascend_forward_context.py",
+      "sha256": "eb8442f593c11d666743c18b0936e64a302e53b2d0972c691706b179efb3bdee"
+    },
+    {
+      "source": "patches/files/rope_dsv4.py",
+      "target": "/vllm-workspace/vllm-ascend/vllm_ascend/ops/rope_dsv4.py",
+      "sha256": "25151bcf62e49e1c1db780718eb7c29322c51767bf15693b46fe7b34ed3ba981"
+    },
+    {
+      "source": "patches/files/block_table.py",
+      "target": "/vllm-workspace/vllm-ascend/vllm_ascend/worker/block_table.py",
+      "sha256": "f92dea34393f4264999ff94038e68e28c7cf98d577c11c49e45c3609dbc0e286"
+    },
+    {
+      "source": "patches/files/dsa_v1.py",
+      "target": "/vllm-workspace/vllm-ascend/vllm_ascend/attention/dsa_v1.py",
+      "sha256": "f2633fd764203b14beff046a8029b48f4585d57df38914895be1cd432f41612c"
+    },
+    {
+      "source": "patches/files/token_dispatcher_moemask.py",
+      "target": "/vllm-workspace/vllm-ascend/vllm_ascend/ops/fused_moe/token_dispatcher.py",
+      "sha256": "37f96f834b98e257b5b82eaab607c451199b191c9c01078f61213c4e592fc9b8"
+    },
+    {
+      "source": "patches/files/patch_cudagraph.py",
+      "target": "/vllm-workspace/vllm-ascend/vllm_ascend/patch/worker/patch_cudagraph.py",
+      "sha256": "b85d998e22a523fd5da354033a080d7ebb7759e59f75d2d788b3089c9be272cb"
+    }
+  ],
+  "payloads_byte_identical": true,
+  "weight_loading_performed": false
+}

@@ -1,10 +1,12 @@
-"""Adapt the proven row-wise clamp/SwiGLU to actual TP8 decode shapes."""
+"""Guarded BF16 row-wise clamp/SwiGLU for audited TP8 decode shapes."""
+import os
 import torch
 import torch_npu
 import goal20_patches as goal
 from clamped_swiglu import clamped_swiglu
 
 REFS = {}
+NATIVE_SHARED = {}
 
 
 def remember(kind, x, params, output, selected):
@@ -31,20 +33,18 @@ def routed_fake(x, limit):
 
 
 @torch.library.custom_op('stack8::shared_act', mutates_args=())
-def shared(x: torch.Tensor, limit: float, alpha: float, beta: float) -> torch.Tensor:
+def shared(x: torch.Tensor, limit: float, alpha: float, beta: float, owner: int) -> torch.Tensor:
     selected = goal.enabled('activation_generic') and 0 < x.shape[0] <= 16
     if selected:
         output = clamped_swiglu(x, limit, alpha=alpha, beta=beta, staged_rounding=True)
     else:
-        gate, up = x.chunk(2, -1)
-        gate = gate.clamp(max=limit); up = up.clamp(min=-limit, max=limit)
-        output = gate * torch.sigmoid(alpha * gate) * (up + beta)
+        output = NATIVE_SHARED[owner](x)
     remember('shared', x, (limit, alpha, beta), output, selected)
     return output
 
 
 @shared.register_fake
-def shared_fake(x, limit, alpha, beta):
+def shared_fake(x, limit, alpha, beta, owner):
     return torch.empty((*x.shape[:-1], x.shape[-1]//2), device=x.device, dtype=x.dtype)
 
 
@@ -53,9 +53,12 @@ def install(model):
     from vllm.model_executor.layers.activation import SiluAndMulWithClamp
     from vllm_ascend.ops.fused_moe import moe_mlp
     original = moe_mlp._unified_apply_activation
+    formal = os.getenv('STACK_REAL_WEIGHTS') == '1'
+    routed_width = 4608 if formal else 512
+    shared_widths = [576] if formal else [64, 512]
     def dispatch(inp, hidden, quant_method):
         if (inp.activation == MoEActivation.SILU and inp.swiglu_limit > 0 and
-                hidden.dtype == torch.bfloat16 and hidden.ndim == 2 and hidden.shape[-1] == 512 and
+                hidden.dtype == torch.bfloat16 and hidden.ndim == 2 and hidden.shape[-1] == routed_width and
                 hidden.is_contiguous() and torch_npu.get_npu_format(hidden) == 2):
             return routed(hidden, float(inp.swiglu_limit))
         return original(inp, hidden, quant_method)
@@ -63,11 +66,12 @@ def install(model):
     for module in model.modules():
         if not isinstance(module, SiluAndMulWithClamp): continue
         original_forward = module._forward_method
+        NATIVE_SHARED[id(module)] = original_forward
         def bind(layer, fallback):
             def forward(x):
-                if (x.ndim == 2 and x.shape[-1] in [64, 512] and x.dtype == torch.bfloat16
+                if (x.ndim == 2 and x.shape[-1] in shared_widths and x.dtype == torch.bfloat16
                         and x.is_contiguous() and torch_npu.get_npu_format(x) == 2):
-                    return shared(x, layer.swiglu_limit, layer.alpha, layer.beta)
+                    return shared(x, layer.swiglu_limit, layer.alpha, layer.beta, id(layer))
                 return fallback(x)
             return forward
         module._forward_method = bind(module, original_forward)

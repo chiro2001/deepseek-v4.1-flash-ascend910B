@@ -1,0 +1,12 @@
+INFO 10-09 23:54:18 [__init__.py:52] Available plugins for group vllm.platform_plugins:
+INFO 10-09 23:54:18 [__init__.py:54] - ascend -> vllm_ascend:register
+INFO 10-09 23:54:18 [__init__.py:57] All plugins in this group will be loaded. Set `VLLM_PLUGINS` to control which plugins to load.
+INFO 10-09 23:54:18 [__init__.py:237] Platform plugin ascend is activated
+INFO 10-09 23:54:18 [platform.py:70] Breakable CUDAGraph on Ascend is opt-in; using VLLM_USE_BREAKABLE_CUDAGRAPH=0.
+[W1009 23:54:18.819917540 NPUCachingAllocator.cpp:202] Warning: The current CANN and HDK(driver) versions require processing for 32 padding size, with memory allocation. (function operator())
+[W1009 23:54:19.081302660 TensorFactories.cpp:423] Warning: Cannot create tensor with interal format while allow_internel_format=False, tensor will be created with base format. (function operator())
+REAL_INDEXER_WEIGHT_PASSED layers.14.attn.indexer.wk.weight
+REAL_INDEXER_WEIGHT_PASSED layers.2.attn.indexer.wk.weight
+REAL_INDEXER_WEIGHT_PASSED layers.20.attn.indexer.wk.weight
+REAL_INDEXER_WEIGHT_PASSED layers.8.attn.indexer.wk.weight
+REAL_OPERATOR_PRECISION {"checkpoint_config_sha256": "40ebd329d3cb2d99d7176091afb580c182c21f48b88b63b550264a97e9c0d424", "model": "/home/l00886679/models/out/v41-w4a8-engram-dr-vision-qrot-mtpq", "weights": "unaltered formal checkpoint tensors", "inputs": "synthetic; not observed full-model activations", "device": 0, "visible_physical_chips": "14,15", "section": "indexer", "hc_candidate": "static", "status": "passed", "hc_case_count": 0, "indexer_case_count": 64}

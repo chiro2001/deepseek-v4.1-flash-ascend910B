@@ -27,6 +27,7 @@ def main():
     parser.add_argument('source',type=Path)
     parser.add_argument('--output-dir',required=True,type=Path)
     parser.add_argument('--date',default='2026-10-09')
+    parser.add_argument('--context',default='a3-21 chip4 · 本轮工作与优化原理')
     args=parser.parse_args()
     source=args.source.read_text(encoding='utf-8')
     converter=markdown.Markdown(extensions=['tables','fenced_code','toc','sane_lists'],
@@ -41,7 +42,7 @@ def main():
     document=f'''<!doctype html>
 <html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>{title}</title><style>{STYLE}</style></head><body>
-<header>{html.escape(args.date)} · a3-21 chip4 · 本轮工作与优化原理<br>
+<header>{html.escape(args.date)} · {html.escape(args.context)}<br>
 <a href="{html.escape(md.name)}">下载 Markdown 源文件</a><a href="http://117.72.247.67:18080/">links-server</a></header>
 <div class="layout"><nav aria-label="报告目录"><strong>报告目录</strong>{converter.toc}</nav>
 <main>{body}<footer>静态阅读版，无外部脚本或字体依赖；时序示意与硬件实测已在正文中分别说明。</footer></main></div>

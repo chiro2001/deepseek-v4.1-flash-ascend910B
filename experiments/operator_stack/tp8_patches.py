@@ -15,7 +15,7 @@ BANKS = {}
 def switch_mode(name):
     assert name in ['tp8base', 'tp8core', 'tp8act', 'tp8stack']
     goal.ARM = name
-    base.ARM = 'native' if name == 'tp8base' else 'both'
+    base.ARM = 'native' if name == 'tp8base' or os.getenv('STACK_REAL_WEIGHTS') == '1' else 'both'
     activation.ARM = 'baseline' if name == 'tp8base' else 'overlap'
     indexer.set_arm('fused' if name == 'tp8stack' else 'baseline')
     overlap.set_enabled(name != 'tp8base')
@@ -26,6 +26,10 @@ def install(model):
     goal.CONFIGS['tp8base'] = set()
     for name in ['tp8core', 'tp8act', 'tp8stack']:
         goal.CONFIGS[name] = {'hcstatic', 'hcpost', 'metadata_all', 'blockmap'}
+        if os.getenv('STACK_REAL_WEIGHTS') == '1':
+            # Formal HC static failed the original numerical gate. Keep native
+            # HC until a corrected candidate passes independent and model audit.
+            goal.CONFIGS[name] -= {'hcstatic', 'hcpost'}
     for name in ['tp8act','tp8stack']:
         goal.CONFIGS[name].add('activation_generic')
     goal.install(model)
@@ -49,7 +53,8 @@ def save(worker, name):
     refs = activation.REFS.get(activation.ARM, {'routed': [], 'shared': []})
     hc_refs = base.HC_REFS.get(base.ARM, [])
     router_refs = base.ROUTER_REFS.get(base.ARM, [])
-    assert len(hc_refs) == 80 and len(router_refs) == 40, (name, len(hc_refs), len(router_refs))
+    expected_router = 0 if os.getenv('STACK_REAL_WEIGHTS') == '1' else 40
+    assert len(hc_refs) == 80 and len(router_refs) == expected_router, (name, len(hc_refs), len(router_refs))
     index_refs = indexer.REFS[role]
     generic_refs=generic_activation.REFS.get(name,{'routed':[],'shared':[]})
     BANKS[name] = (entries, ag._graph_params, hc_refs, router_refs, refs, index_refs,
@@ -78,6 +83,16 @@ def create(worker, name):
             else:clamped_swiglu(x,params[0],alpha=params[1],beta=params[2],staged_rounding=True)
     torch.npu.synchronize()
     switch_mode(name)
+    # Precompile compatible HC kernels outside graph capture, on actual
+    # captured layouts. Static weights have already been cached at install.
+    if os.getenv('STACK_REAL_WEIGHTS') != '1':
+        for x, fn, scale, bias, mix, _ in BANKS['tp8base'][2]:
+            goal.compute_hc(x, fn, scale, bias, mix)
+    from short_ops import hc_post
+    if goal.enabled('hcpost'):
+        for values, _, _ in BANKS['tp8base'][6].get('hcpost', []):
+            hc_post(*values, block=512, fma=False)
+    torch.npu.synchronize()
     indexer.reset(indexer.ARM)
     base.HC_REFS[base.ARM] = []; base.ROUTER_REFS[base.ARM] = []
     activation.REFS[activation.ARM] = {'routed': [], 'shared': []}; goal.REFS[name] = {}
@@ -104,8 +119,13 @@ def switch(worker, name):
 def audit(worker, name):
     # Run the native references with the original capture's tensors restored.
     switch(worker, name)
-    result = {'indexer': indexer.audit(worker, indexer.ARM),
-              'hc': base.audit_hc(worker, base.ARM), 'router': base.audit_router(worker, base.ARM)}
+    result = {'indexer': indexer.audit(worker, indexer.ARM)}
+    if os.getenv('STACK_REAL_WEIGHTS') == '1':
+        result['hc'] = {'candidate_calls': 0, 'path': 'native; formal static candidate failed original numerical gate'}
+        result['router'] = {'candidate_calls': 0, 'path': 'native 384-expert top6; TP1 specializations disabled'}
+    else:
+        result['hc'] = base.audit_hc(worker, base.ARM)
+        result['router'] = base.audit_router(worker, base.ARM)
     refs = activation.REFS[activation.ARM]
     if refs['routed'] and refs['shared']:
         result['activation'] = activation.audit(worker, activation.ARM)

@@ -55,7 +55,8 @@ def install(model):
         else:
             native_post(self,projected,slots,cos,sin,key_cache,scale_cache)
         if get_forward_context().capturing:
-            snapshot = os.getenv('TINY_PERF_RANDOM_VALIDATION') == '1'
+            snapshot = (os.getenv('TINY_PERF_RANDOM_VALIDATION') == '1'
+                        or os.getenv('STACK_REAL_AUDIT') == '1')
             saved = (projected,slots,cos,sin)
             written = None
             if snapshot:

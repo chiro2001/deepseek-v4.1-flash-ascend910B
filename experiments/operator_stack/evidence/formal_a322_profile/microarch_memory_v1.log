@@ -1,0 +1,61 @@
+[WARN]  The option "--application" will be deprecated in future version. It is recommended to specify <app> [arguments] instead.
+=================================================================
+                   >>>>>   MindStudio   <<<<<
+    THE END-TO-END TOOLCHAIN TO UNLEASH HUAWEI ASCEND COMPUTE
+=================================================================
+
+[W1010 00:21:57.165980220 FunctionLoader.cpp:48] Warning: LD_PRELOAD detected, FunctionLoader prefers RTLD_DEFAULT for symbol resolution. (function operator())
+[W1010 00:22:03.066285530 FunctionLoader.cpp:48] Warning: LD_PRELOAD detected, FunctionLoader prefers RTLD_DEFAULT for symbol resolution. (function operator())
+INFO 10-10 00:22:07 [__init__.py:52] Available plugins for group vllm.platform_plugins:
+INFO 10-10 00:22:07 [__init__.py:54] - ascend -> vllm_ascend:register
+INFO 10-10 00:22:07 [__init__.py:57] All plugins in this group will be loaded. Set `VLLM_PLUGINS` to control which plugins to load.
+INFO 10-10 00:22:07 [__init__.py:237] Platform plugin ascend is activated
+INFO 10-10 00:22:07 [platform.py:70] Breakable CUDAGraph on Ascend is opt-in; using VLLM_USE_BREAKABLE_CUDAGRAPH=0.
+[WARN]  Currently, the root permission is used, which is unrecommended. Please ensure the security of the execution environment and programs.
+[INFO]  Op profiling analysis start.
+[INFO]  Running device task: DeviceProf
+[W1010 00:22:08.570037020 NPUCachingAllocator.cpp:202] Warning: The current CANN and HDK(driver) versions require processing for 32 padding size, with memory allocation. (function operator())
+[INFO]  Kernel Cast_9f288b80370c6545ffe8cef142d37f5c_high_performance_210000000 skipped: not selected via --kernel-name.
+[INFO]  Kernel MatMulV2_ND_ND_FP16_FP16_false_true_all_98433 skipped: not selected via --kernel-name.
+[INFO]  Kernel BroadcastTo_41dadce325b0f810d03359af2a38990b_high_performance_210000000 skipped: not selected via --kernel-name.
+[INFO]  Kernel RepeatInterleave_7a09f5b7af4126487a7f726a9aac7548_high_performance__kernel0 skipped: not selected via --kernel-name.
+[INFO]  Kernel Cos_5c5e58e043224cccf51a06108010ae13_high_performance_210000000 skipped: not selected via --kernel-name.
+[INFO]  Kernel Cast_9f288b80370c6545ffe8cef142d37f5c_high_performance_210000000 skipped: not selected via --kernel-name.
+[INFO]  Kernel Sin_5c5e58e043224cccf51a06108010ae13_high_performance_210000000 skipped: not selected via --kernel-name.
+[INFO]  Kernel Cast_9f288b80370c6545ffe8cef142d37f5c_high_performance_210000000 skipped: not selected via --kernel-name.
+[INFO]  Kernel ZerosLike_2060cf8d69781f9a7462e2f67555909f_high_performance_210000000 skipped: not selected via --kernel-name.
+[INFO]  Kernel ZerosLike_d2db1a80c523e7e59a032c95969880af_high_performance_210000000 skipped: not selected via --kernel-name.
+[INFO]  Kernel Fill_f2e41efad1a938074b5e381afcc7acf3_high_performance_223000000 skipped: not selected via --kernel-name.
+[INFO] <ProfData> Start profiling on device 14, kernel: post_kernel
+[INFO] <WarmUp> Warm Up enabled. times:5
+REAL_INDEXER_REPLAY_COMPLETE layers.14.attn.indexer.wk.weight (1, 128)
+[INFO]  Profiling running finished. All task success.
+[INFO]  Start analyze kernel on device: device14, kernel: post_kernel, name is: 0
+[INFO]  Save profiling data with metric [PipeUtilization] success.
+[INFO]  Save profiling data with metric [ArithmeticUtilization] success.
+[INFO]  Save profiling data with metric [L2Cache] success.
+[INFO]  Save profiling data with metric [Memory] success.
+[INFO]  Save profiling data with metric [ResourceConflictRatio] success.
+[INFO]  Save profiling data with metric [MemoryL0] success.
+[INFO]  Save profiling data with metric [MemoryUB] success.
+[INFO]  Performance Summary Report:
+
+	1) MTE2 bandwidth utilization lower than 80% when active.
+	2) MTE3 bandwidth utilization lower than 80% when active.
+	3) aivector compute usage lower than 20%.
+
+[INFO]  Operator Basic Information:
+
+	Op Name: post_kernel
+	Op Type: vector
+	Task Duration(us): 6.860137
+	Block Dim: 1
+	Mix Block Dim: 
+	Device Id: 14
+	Pid: 985
+	Current Freq: 1800
+	Rated Freq: 1800
+
+[INFO]  Profiling results saved in /work/results/indexer_microarch_memory_v1/OPPROF_20261010002147_KSLGPMQOVLHBKEYK
+[INFO]  Profiling data parse finished.
+[INFO]  Op profiling finish. Welcome to next use.
