@@ -1,0 +1,75 @@
+[selfcheck] 包根: /home/chiro/projects/dsv41/operator-stack-tp8
+  镜像 tag: build=v9 serve=v9 run_test=v9
+  [32mOK[0m    镜像 tag 三处一致：v9
+  [32mOK[0m    scripts/build_image.sh（存在 + 语法通过）
+  [32mOK[0m    scripts/serve_a2.sh（存在 + 语法通过）
+  [32mOK[0m    scripts/run_test.sh（存在 + 语法通过）
+  [32mOK[0m    tools/model_mount_args.sh（存在 + 语法通过）
+  [32mOK[0m    tools/check_model_dir.sh（存在 + 语法通过）
+  [32mOK[0m    tools/preflight_a2.sh（存在 + 语法通过）
+  [32mOK[0m    tools/negative_control.sh（存在 + 语法通过）
+  [32mOK[0m    tools/check_checksums.sh（存在 + 语法通过）
+  [32mOK[0m    tools/verify_baked_tree.sh（存在 + 语法通过）
+  [32mOK[0m    build_scripts/00_ensure_pgo.sh（存在 + 语法通过）
+  [32mOK[0m    tests/t_quote.sh（存在 + 语法通过）
+  [32mOK[0m    tests/multibatch/multibatch_session.sh（存在 + 语法通过）
+  [32mOK[0m    tests/t_vision.py（Python 语法通过）
+  [32mOK[0m    tests/t_gsm8k.py（Python 语法通过）
+  [32mOK[0m    tests/acc_eval.py（Python 语法通过）
+  [32mOK[0m    tests/vision_accuracy_check.py（Python 语法通过）
+  [32mOK[0m    tests/p15_stream_curve_filefiller.py（Python 语法通过）
+  [32mOK[0m    tests/multibatch/multibatch_gate.py（Python 语法通过）
+  [32mOK[0m    tools/check_dockerfile.py（Python 语法通过）
+  [32mOK[0m    tools/fisher_recheck.py（Python 语法通过）
+  [32mOK[0m    tools/steep_summary.py（Python 语法通过）
+  [32mOK[0m    tools/check_checksums.py（Python 语法通过）
+  [32mOK[0m    data/hongloumeng.txt
+  [32mOK[0m    data/suffix_quote.txt
+  [32mOK[0m    serve_a2.sh 用的是 MODEL_MOUNTS（不再单层挂载）
+  [32mOK[0m    Dockerfile 续行链合法（4 条 RUN）
+  [32mOK[0m    起服脚本 docker run 续行链合法（1 处）
+  [33mWARN[0m  350 个 .sh 缺执行位（不影响——脚本都用 bash 调用）
+  [32mOK[0m    MANIFEST.sha256 自校验通过（2983 项）
+  [32mOK[0m    校验和一致性：Dockerfile 落位表（15 项）/ patches/files / MD5SUMS 三方一致
+  [32mOK[0m    A3 新机部署件在位：tools/deploy_a3.sh
+  [32mOK[0m    A3 新机部署件在位：docs/A3-DEPLOY.md
+  [32mOK[0m    HCCL 诊断助手在位且语法通过：tools/diag_a3_hccl.sh
+  [32mOK[0m    安全停机脚本在位且语法通过：tools/stop_a3_safe.sh
+  [32mOK[0m    安全停机脚本沙箱自测：17 条全过（正常停 / 卡住现场 / 只诊断不许动手 / sudo 不可用 / D 状态）
+  [32mOK[0m    run_test prefill batch 守护：7 条全过（默认 8192 / 真透传 / 与模板一致 / KV 门槛自洽 / 负控）
+  [32mOK[0m    KV32 池守卫作用域：16 条全过（非 CED 不 pin / CED+PD 仍 pin / 显式超界钳位 / off 完全不干预 / 起服后复核 / 内置负控）
+  [32mOK[0m    镜像层工具链在位：tools/build_a3_tp8_image.sh
+  [32mOK[0m    镜像层工具链在位：tools/package_image_kits.sh
+  [32mOK[0m    镜像层工具链在位：docs/A3-IMAGE-KIT.md
+  [32mOK[0m    build_a3_tp8_image.sh 语法通过
+  [32mOK[0m    可编译：tools/make_image_patch_kit.py
+  [32mOK[0m    可编译：tools/mount_list_pairs.py
+  [32mOK[0m    可编译：tools/kit_tools/fs_manifest.py
+  [32mOK[0m    负控：孤立 -v 被判 FAIL
+  [32mOK[0m    负控：重复目标被判 FAIL
+  [32mOK[0m    正控：正常清单判 OK
+  [32mOK[0m    长上下文档位在位且可编译：tools/ctx_agent_probe.py
+  [32mOK[0m    长上下文档位在位且可编译：tools/_fake_vllm.py
+  [32mOK[0m    长上下文档位在位且可编译：tools/_check_probe_json.py
+  [32mOK[0m    A2 复现手册在位且非空：docs/CTX-AGENT-REPRO.md
+  [32mOK[0m    长上下文探针沙箱自测：24 条全过（干净必过 / 乱码必抓 / 工具参数逐字 / 无 tokenize 回退 / 连不上 rc=2）
+  [32mOK[0m    A3 部署器沙箱自测：30 条全过（镜像缺失 / 模型断链 / 选卡不足 / 干跑判据 / 起服不吞 rc）
+  [32mOK[0m    起服脚本沙箱自测：36 个用例全过（未定义变量 / PROFILE 透传 / 门拦截）
+  [32mOK[0m    BAT_TOKENS 默认一致：模板=8192 包装=8192
+  [32mOK[0m    shadow 生成物回归：13 条全过（int8 去重 / 成对完整 / 目标唯一 / 校验器负控）
+  [32mOK[0m    卸载池池满缺陷离线自检：24 项全过（过淘汰折算 / 可控失败 / 半批回滚）
+  [32mOK[0m    卸载池自检负控：修复前夹具被抓（md5 0184ff73…，8 条 FAIL）
+  [32mOK[0m    GATE 守卫：非法对 rc=64 / 派生的 MAX=8192 / 显式合法对放行 / GATE_CHUNK=0 也派生
+  [32mOK[0m    SPEC_MODE 三档：41 项全过（on/off/dynamic + 矛盾组合 fail-closed + 交付面一致）
+  [32mOK[0m    SPEC_MODE 自检负控：改动前夹具被抓（md5 9c7a97ba…，25 条 FAIL）
+  [32mOK[0m    issue 跟进修复回归：28 条全过（no_proxy / say-mkdir / KV 门槛口径 / bench --model / http_code 拼接）
+  [32mOK[0m    证据收集器沙箱自测：27 条全过（指定 log 位置 / 自动取最新 / 负例 rc=64）
+  [32mOK[0m    decode 护栏接线：serve_v2.sh 注册 + serve_a2.sh 挂载/env，角色门齐
+  [32mOK[0m    decode 护栏离线用例：8 passed（拦住新形状 / 放行 P→D 转发 / 不误伤探针）
+  [32mOK[0m    CED 交付默认值：12 项全过（默认解析 + 非法组合负控 + 两种交付面一致）
+  [32mOK[0m    dynamic-spec 逻辑自测：32 项全过（query_len 集合 / num_reqs 反推 / 缺图降级 / 多 ql 建图 / schedule 转换 + 负控）
+  [32mOK[0m    dynamic-spec 接线：开关 + serve_v2 拼装 + 挂载 + 运行期补丁 + env 透传，六处齐
+  [32mOK[0m    runner 补丁 sha 门 = bd250a59…（base 67035d97… + prompt-tail 之后）
+  [32mOK[0m    dynamic-spec 已登记进打包与逐文件校验链（4 处）
+
+[selfcheck] 全部通过 ✅  可以开始：bash scripts/build_image.sh
