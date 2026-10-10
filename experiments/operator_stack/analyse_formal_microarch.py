@@ -47,12 +47,37 @@ def execution_rows(rows):
     return kept, excluded
 
 
-def summarize(path, rank, metric):
+def complete_step_rows(rows, expected_hc=80):
+    tagged=[r for r in rows if r['Step Id'].strip()]
+    boundary=[r for r in rows if not r['Step Id'].strip()]
+    assert tagged and all(r['Step Id'].strip().isdigit() for r in tagged)
+    steps={r['Step Id'] for r in tagged}
+    assert len(steps)==10,steps
+    hc=Counter(r['Step Id'] for r in tagged if r['Type']=='HcPre')
+    assert set(hc)==steps and set(hc.values())=={expected_hc},dict(hc)
+    begin=min(float(r['Start Time(us)']) for r in tagged)
+    end=max(float(r['Start Time(us)'])+float(r['Duration(us)']) for r in tagged)
+    before=after=0
+    for row in boundary:
+        start,duration=number(row['Start Time(us)']),number(row['Duration(us)'])
+        assert start is not None and duration is not None and duration>=0
+        stop=start+duration
+        assert stop<=begin or start>=end, ('Untagged task overlaps complete decode window',row)
+        before+=stop<=begin
+        after+=start>=end
+    return tagged,{'excluded_untagged_rows':len(boundary),'before_complete_window':before,
+                   'after_complete_window':after,'types':dict(Counter(r['Type'] for r in boundary)),
+                   'complete_steps':len(steps),'hc_calls_per_step':expected_hc,
+                   'overlap_with_complete_window':0}
+
+
+def summarize(path, rank, metric, expected_hc=80):
     with path.open() as stream:
         reader = csv.DictReader(stream)
         fields = reader.fieldnames
         raw = list(reader)
-    rows, excluded = execution_rows(raw)
+    all_rows, excluded = execution_rows(raw)
+    rows, boundary = complete_step_rows(all_rows,expected_hc)
     steps = sorted({r['Step Id'] for r in rows}, key=int)
     assert len(steps) == 10, (path, steps)
     assert {int(r['Device_id']) for r in rows} == {rank + 8}, path
@@ -83,6 +108,7 @@ def summarize(path, rank, metric):
     result = {'metric': metric, 'rank': rank, 'device_id': rank + 8,
               'csv_sha256': hashlib.sha256(path.read_bytes()).hexdigest(),
               'raw_rows': len(raw), 'execution_rows': len(rows),
+              'boundary_rows':boundary,
               'removed_exact_hccl_envelopes': dict(Counter(r['Type'] for r in excluded)),
               'steps': steps,
               'types': [{'type': kind, 'calls_per_step': len(values) / len(steps),
@@ -139,7 +165,7 @@ def main():
         match = re.search(r'formal_tp8_rank(\d+)_chip(\d+)', str(path))
         assert match and int(match[2]) == int(match[1]) + 8, path
         rank = int(match[1])
-        result, rows = summarize(path, rank, metric)
+        result, rows = summarize(path, rank, metric,2*args.layers)
         results.append(result)
         if metric == 'PipeUtilization':
             pipe_rows[rank] = rows

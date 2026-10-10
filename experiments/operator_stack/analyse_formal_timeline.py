@@ -12,7 +12,7 @@ import json
 from pathlib import Path
 import re
 
-from analyse_formal_microarch import distribution, execution_rows, number
+from analyse_formal_microarch import complete_step_rows, distribution, execution_rows, number
 
 
 def bounds(row):
@@ -50,7 +50,8 @@ def task_receipt(row, origin):
 
 def analyse(path, arm, rank):
     with path.open() as stream:
-        rows, excluded = execution_rows(list(csv.DictReader(stream)))
+        all_rows, excluded = execution_rows(list(csv.DictReader(stream)))
+    rows,boundary=complete_step_rows(all_rows)
     assert {int(row['Device_id']) for row in rows} == {rank+8}
     steps = sorted({r['Step Id'] for r in rows}, key=int)
     assert len(steps) == 10
@@ -133,7 +134,7 @@ def analyse(path, arm, rank):
     return {'arm':arm,'rank':rank,'device_id':rank+8,'steps':steps,
             'source_csv_sha256':hashlib.sha256(path.read_bytes()).hexdigest(),
             'source_trace_sha256':hashlib.sha256(trace_path.read_bytes()).hexdigest(),
-            'execution_rows':len(rows),'removed_hccl_envelopes':len(excluded),
+            'execution_rows':len(rows),'removed_hccl_envelopes':len(excluded),'boundary_rows':boundary,
             'task_types':dict(task_types),'window':window,
             **{key:distribution(r[key] for r in window) for key in ('span_us','union_us','gap_us')},
             'phase_means':{name:{key:distribution(r['phases'][name][key] for r in window)
@@ -160,9 +161,13 @@ def write_report(report, root):
 def main():
     parser=argparse.ArgumentParser(allow_abbrev=False)
     parser.add_argument('--root',required=True,type=Path)
+    parser.add_argument('--arms',default='tp8base,tp8core')
     args=parser.parse_args()
+    arms=args.arms.split(',')
+    assert len(arms)==len(set(arms)) and len(arms)>=1
+    assert set(arms)<= {'tp8base','tp8core','tp8metastack','tp8hostmeta'}
     records=[]
-    for arm in ('tp8base','tp8core'):
+    for arm in arms:
         paths=sorted((args.root/'prof'/arm/'PipeUtilization').rglob('kernel_details.csv'))
         assert len(paths)==8
         for path in paths:
@@ -173,7 +178,7 @@ def main():
             'not E2E. Other tasks may fill kernel gaps. CPU inclusive overlap and '
             'HCCL starts do not establish causality or recoverable latency. '
             'Main graph ID is inferred from all 80 HcPre anchors in each step.',
-            'performance_claim':None,'records':records}
+            'performance_claim':None,'arms':arms,'records':records}
     write_report(report,args.root)
 
 

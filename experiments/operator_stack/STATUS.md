@@ -1,3 +1,7 @@
+更新v28汇总：112份异步CSV已完成离线解析，两bank各56份微架构摘要及16份全rank时间线完成。rank0 metastack采集态图前0.839ms、主图18.819ms、图后0.270ms，图内kernel间隙1.136ms，仅诊断不可当可回收E2E。主要家族累积：规约2.982ms、MatMulV2 2.264ms、GMM1 2.109ms、HC pre2.091ms、QuantBatchMatmul1.898ms、GMM2 1.333ms；图内路径是17ms下一优先。内部配对19.334ms不替代旧客户端19.376ms，目标仍17ms。
+
+更新v28：正式异步profile_v1退出0，12组无profiler内部配对：base `(20.410658ms,A1,48.994012tok/s)`，metastack `(19.333616ms,A1,51.723382tok/s)`，未达17ms。14个窗口×8rank实际worker调用均18次、schedule推进16次、手动RPC推进0；112份CSV已离线解析。异步边界含无StepId的部分图，112份完整窗口均10步/每步80HcPre，边界行与完整窗口重叠0。分析器新增完整窗口/边界记录及相交拒绝，`formal_async_analysis_controller_v2` 继续两bank微架构/规约/关键间隙汇总；当前未做新客户端质量/性能验收。
+
 更新v27终态：tiny无审计perf/profile_v2退出0，六组同步八层诊断 `(12.898705ms,A1,77.527163tok/s)`；56份CSV/JSON已验收，每份10step/160个HcPre，18次规约/step。精确层数分析修正已保留正式默认82次规约。完整40层 `formal_async_profile_v1` 已在 `/work/src_async_profile_v3` 启动，实际runner748485存活：12组base/metastack异步配对后七组×两bank×八rank采集，step clock由实际worker推进；当前尚无新正式性能/17ms声明。
 
 更新v27：真实8层tiny审计v3退出0，七次正式前三套输入前四层prefill路由逐位相同；三组完整八层原生A/A路由/token/Top5/logprob全一致，delta0；每rank八个W4A8内层scheme确认。构造/加载/预热421.855秒，五cache组与正式十二组不同，不能外推整网时延。审计态13.536ms含路由/Top5观测，不作为性能结果。守卫已启动 `tiny_tp8_profile_v2` 六组无审计计时＋七组八rank采集。准备异步正式profiling：框架内置WorkerProfiler.step推进真实execute_model，停止用前端轮询/RPC次数代表异步步数，CPU驱动预检待终态。17ms仍未达到。
