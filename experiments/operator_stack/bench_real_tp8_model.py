@@ -20,14 +20,27 @@ def main():
     p.add_argument('--model', required=True)
     p.add_argument('--physical-chips', required=True)
     p.add_argument('--pairs', type=int, default=10)
+    p.add_argument('--arms', default='tp8base,tp8core,tp8act,tp8stack')
+    p.add_argument('--cpu-bind', action='store_true',
+                   help='Enable NUMA binding only after validating shared-host memory migration')
     p.add_argument('--audit', action='store_true')
+    p.add_argument('--profile', action='store_true',
+                   help='Collect bounded per-rank metrics after unprofiled paired timing')
+    p.add_argument('--profile-metrics', default='PipeUtilization,ArithmeticUtilization,Memory,MemoryL0,MemoryUB,L2Cache,ResourceConflictRatio')
     args = p.parse_args()
+    assert not (args.audit and args.profile), 'Route/clone audit and profiling run separately'
+    from formal_tp8_profile import METRICS
+    profile_metrics = args.profile_metrics.split(',')
+    assert set(profile_metrics) <= set(METRICS) and len(set(profile_metrics)) == len(profile_metrics)
     assert os.getenv('TINY_PERF_RANDOM_VALIDATION') != '1'
     os.environ['STACK_REAL_AUDIT'] = '1' if args.audit else '0'
     chips = [int(x) for x in args.physical_chips.split(',')]
     assert len(chips) == len(set(chips)) == 8 and min(chips) >= 0
     assert os.getenv('STACK_PHYSICAL_CHIPS', os.environ['ASCEND_RT_VISIBLE_DEVICES']) == args.physical_chips
     assert args.pairs > 0
+    arms = args.arms.split(',')
+    assert arms[0] == 'tp8base' and len(set(arms)) == len(arms)
+    assert set(arms) <= {'tp8base','tp8core','tp8act','tp8stack'}
     os.environ['OPT_BLOCKMAP_VERIFY'] = '1' if args.audit else '0'
     out = Path(args.output); out.mkdir(parents=True, exist_ok=True)
     os.environ['VLLM_CACHE_ROOT'] = str(out / 'cache')
@@ -37,22 +50,28 @@ def main():
     import tp8_patches as patches
     from vllm import LLM, SamplingParams
     llm = LLM(model=args.model, tokenizer=args.model, load_format='auto', dtype='bfloat16',
+              safetensors_load_strategy='lazy',
+              model_loader_extra_config={'enable_multithread_load':True,'num_threads':128},
               worker_cls='real_tp8_worker.RealTP8StackWorker', tensor_parallel_size=8,
               distributed_executor_backend='mp', enable_expert_parallel=True, seed=0,
               trust_remote_code=True, async_scheduling=False, limit_mm_per_prompt={'image': 0},
               max_model_len=8192, max_num_seqs=1, max_num_batched_tokens=2048,
               gpu_memory_utilization=.70, kv_cache_memory_bytes=4*1024**3,
               block_size=128, enable_prefix_caching=False, enable_return_routed_experts=args.audit,
+              profiler_config={'profiler':'torch','torch_profiler_dir':str(out/'prof'),
+                               'torch_profiler_with_stack':False} if args.profile else None,
               compilation_config={'cudagraph_mode': 'FULL_DECODE_ONLY', 'cudagraph_capture_sizes': [1]},
-              additional_config={'enable_engram': True, 'enable_cpu_binding': True,
+              additional_config={'enable_engram': True, 'engram_storage':'int8',
+                  'enable_cpu_binding': args.cpu_bind,
                   'ascend_compilation_config': {'enable_npugraph_ex': True, 'enable_static_kernel': True},
                   'multistream_dsv4_dsa_overlap': False})
-    arms = ['tp8base', 'tp8core', 'tp8act', 'tp8stack']; banks = {}
+    banks = {}
     banks[arms[0]] = llm.collective_rpc(patches.save, args=(arms[0],))
-    for arm in arms[1:]: banks[arm] = llm.collective_rpc(patches.create, args=(arm,))
-    for rows in banks.values():
-        assert len(rows) == 8 and {r['rank'] for r in rows} == set(range(8)), rows
-    (out/'banks.json').write_text(json.dumps(banks, indent=2)+'\n')
+    def record_banks():
+        for rows in banks.values():
+            assert len(rows) == 8 and {r['rank'] for r in rows} == set(range(8)), rows
+        (out/'banks.json').write_text(json.dumps(banks, indent=2)+'\n')
+    record_banks()
     engine = llm.llm_engine; records = []; counter = 0
     tokenizer = llm.get_tokenizer()
     topics = ['请分析延迟受限计算的优化原理，给出判断依据。',
@@ -63,7 +82,7 @@ def main():
     assert all(len(prompt) == 2048 for prompt in prompts)
     (out/'prompts.json').write_text(json.dumps(prompts)+'\n')
 
-    def request(arm, tag, seed):
+    def request(arm, tag, seed, metric=None):
         nonlocal counter
         llm.collective_rpc(patches.switch, args=(arm,)); counter += 1
         count = 47 + seed % 2 if args.audit else 48
@@ -72,15 +91,30 @@ def main():
             SamplingParams(temperature=0, max_tokens=count, ignore_eos=True,
                            detokenize=False, logprobs=5 if args.audit else None))
         times = []; final = None
-        while engine.has_unfinished_requests():
-            start = time.perf_counter(); outputs = engine.step()
-            times.append((time.perf_counter()-start)*1000)
-            for value in outputs:
-                if value.finished: final = value
+        profiling = False
+        try:
+            while engine.has_unfinished_requests():
+                if metric and len(times) == 9:
+                    from formal_tp8_profile import configure
+                    receipt = llm.collective_rpc(configure, args=(metric, str(out/'prof'/arm/metric), 5, 10))
+                    (out/f'profile_receipt_{arm}_{metric}.json').write_text(json.dumps(receipt,indent=2)+'\n')
+                    llm.start_profile(); profiling = True
+                start = time.perf_counter(); outputs = engine.step()
+                times.append((time.perf_counter()-start)*1000)
+                if profiling:
+                    from formal_tp8_profile import advance
+                    llm.collective_rpc(advance)
+                    if len(times) == 24:
+                        llm.stop_profile(); profiling = False
+                for value in outputs:
+                    if value.finished: final = value
+        finally:
+            if profiling: llm.stop_profile()
         assert final is not None and len(final.outputs[0].token_ids) == count
         output = final.outputs[0]
         record = {'arm': arm, 'tag': tag, 'seed': seed, 'step_ms': times,
-                  'decode_median_ms': statistics.median(times[9:]), 'token_ids': output.token_ids, 'text':tokenizer.decode(output.token_ids)}
+                  'decode_median_ms': statistics.median(times[9:]), 'token_ids': output.token_ids,
+                  'text':tokenizer.decode(output.token_ids), 'profile_metric':metric}
         if args.audit:
             import numpy as np
             routes = output.routed_experts
@@ -105,7 +139,14 @@ def main():
         print('REAL_TP8_REQUEST', json.dumps({k:v for k,v in record.items() if k not in ['step_ms','routes','token_ids','logprobs','rank_audit']}), flush=True)
         return record
 
-    for arm in arms:
+    request('tp8base', 'warmup', 0); request('tp8base', 'warmup', 1)
+    print('REAL_TP8_NATIVE_READY', json.dumps({'formal_weights':True,'engram':True,
+        'tp':8,'physical_chips':chips,'audit':args.audit}), flush=True)
+    # Establish a valid native request before compiling candidate banks. All
+    # variants remain in these same eight workers and use the same checkpoint.
+    for arm in arms[1:]:
+        banks[arm] = llm.collective_rpc(patches.create, args=(arm,))
+        record_banks()
         request(arm, 'warmup', 0); request(arm, 'warmup', 1)
     comparisons = []
     for pair in range(args.pairs):
@@ -127,7 +168,9 @@ def main():
         (out/'comparisons.json').write_text(json.dumps(comparisons, indent=2)+'\n')
     result = {'tensor_parallel_size':8,'physical_chips':chips, 'formal_weights':True, 'requested_load_format':'auto',
               'model_path':args.model, 'checkpoint_config_sha256':contract['config_sha256'],
+              'safetensors_load_strategy':'lazy','multithread_loader_threads':128,
               'engram_enabled':True, 'speculative_decoding':False,
+              'engram_storage':'int8', 'cpu_binding':args.cpu_bind,
               'same_model_instance':True,'same_processes_per_rank':True,'audit':args.audit,
               'profiler':'OFF','A':1,'arms':{},'pairs':comparisons}
     for arm in arms:
@@ -135,6 +178,12 @@ def main():
         result['arms'][arm]={'ms_per_step':ms,'A':1,'tokens_per_second':1000/ms}
     (out/'result.json').write_text(json.dumps(result, indent=2)+'\n')
     print('REAL_TP8_COMPLETE', json.dumps(result), flush=True)
+    if args.profile:
+        for arm in dict.fromkeys([arms[0], arms[-1]]):
+            for metric in profile_metrics:
+                request(arm, 'profile-'+metric, 0, metric)
+        print('REAL_TP8_PROFILE_COMPLETE', json.dumps({'metrics':profile_metrics,
+              'ranks':8,'warmup':5,'active':10,'timing_result_excludes_profile':True}),flush=True)
 
 
 if __name__ == '__main__': main()
