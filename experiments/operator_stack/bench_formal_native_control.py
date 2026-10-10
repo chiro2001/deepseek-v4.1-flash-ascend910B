@@ -18,10 +18,12 @@ def main():
     p.add_argument('--pairs', type=int, default=3)
     p.add_argument('--audit', action='store_true', required=True)
     p.add_argument('--eager', action='store_true')
+    p.add_argument('--probe-native-ops', action='store_true')
     args = p.parse_args()
     assert os.getenv('TINY_PERF_RANDOM_VALIDATION') != '1'
     assert os.environ['STACK_PHYSICAL_CHIPS'] == args.physical_chips
     assert len(set(args.physical_chips.split(','))) == 8 and args.pairs >= 2
+    assert not args.probe_native_ops or args.eager
     args.output.mkdir(parents=True, exist_ok=True)
     os.environ['VLLM_CACHE_ROOT'] = str(args.output/'cache')
     from formal_model_contract import inspect_checkpoint
@@ -80,6 +82,25 @@ def main():
         'checkpoint_config_sha256':contract['config_sha256'],'comparisons':comparisons,
         'passed':all(r['passed'] for r in comparisons),'performance_claim':None}
     (args.output/'result.json').write_text(json.dumps(result,indent=2)+'\n')
+    if args.probe_native_ops:
+        from native_repeatability_probe import install,repeat,disable_engram_subgraph
+        disabled=llm.collective_rpc(disable_engram_subgraph)
+        (args.output/'engram_subgraph_disabled.json').write_text(json.dumps(disabled,indent=2)+'\n')
+        graph_off_ref=full_request(0,'engram-subgraph-off-reference')
+        graph_off=[]
+        for i in range(args.pairs):
+            actual=full_request(0,'engram-subgraph-off-repeat-'+str(i))
+            diagnostic=compare_requests(graph_off_ref,actual,'engram-subgraph-off-'+str(i))
+            graph_off.append(diagnostic)
+            (args.output/'engram_subgraph_off_comparisons.json').write_text(json.dumps(graph_off,indent=2)+'\n')
+            print('FORMAL_ENGRAM_SUBGRAPH_OFF_COMPARISON',json.dumps(diagnostic),flush=True)
+        installed=llm.collective_rpc(install)
+        (args.output/'native_probe_install.json').write_text(json.dumps(installed,indent=2)+'\n')
+        full_request(0,'native-operator-probe')
+        probe=llm.collective_rpc(repeat,args=(5,))
+        (args.output/'native_operator_repeatability.json').write_text(json.dumps(probe,indent=2)+'\n')
+        print('FORMAL_NATIVE_OPERATOR_PROBE_COMPLETE',json.dumps({'ranks':len(probe),
+              'records':sum(len(r['records']) for r in probe)}),flush=True)
     assert result['passed'], 'Formal production A/A failed original route/logprob gate'
 
 
