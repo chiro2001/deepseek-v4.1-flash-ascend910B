@@ -101,6 +101,7 @@ def main():
         (args.output/'native_operator_repeatability.json').write_text(json.dumps(probe,indent=2)+'\n')
         print('FORMAL_NATIVE_OPERATOR_PROBE_COMPLETE',json.dumps({'ranks':len(probe),
               'records':sum(len(r['records']) for r in probe)}),flush=True)
+        assert all(r['expected_coverage_reached'] for r in probe), 'Native operator probe coverage incomplete'
     assert result['passed'], 'Formal production A/A failed original route/logprob gate'
 
 

@@ -5,10 +5,10 @@ import torch
 RECORDS = []
 NAMES = {}
 SEEN = set()
-HANDLES = []
 ORIGINALS = {}
 ENABLED = False
 ENGRAM_GRAPHS = []
+ROUTER_WEIGHTS = {}
 
 
 def disable_engram_subgraph(worker):
@@ -70,22 +70,27 @@ def install(worker):
                 cls.hc_pre = bind(original,has_mix)
         weight = getattr(module,'weight',None)
         if isinstance(weight,torch.Tensor) and tuple(weight.shape) == (384,5120):
-            pending = {}
-            def bind_hooks(name,pending):
-                def before(module,inputs):
-                    key = ('router',id(module))
-                    if inputs and eligible(inputs[0]) and key not in SEEN:
-                        pending['input'] = inputs[0].clone()
-                        SEEN.add(key)
-                def after(module,inputs,out):
-                    x = pending.pop('input',None)
-                    if x is not None:
-                        RECORDS.append(('router',name,module,None,None,(x,),tensors(out)))
-                return before,after
-            before,after = bind_hooks(name,pending)
-            HANDLES.extend([module.register_forward_pre_hook(before),module.register_forward_hook(after)])
+            ROUTER_WEIGHTS[weight.data_ptr()] = (name,module)
+    # Production MoE calls F.linear(input, self.gate.weight), bypassing the
+    # gate module's forward hooks. Observe that exact call and retain its
+    # native callable for replay rather than introducing a different path.
+    import torch.nn.functional as functional
+    original_linear = functional.linear
+    def linear(x,weight,bias=None):
+        owner = ROUTER_WEIGHTS.get(weight.data_ptr())
+        key = ('router',weight.data_ptr())
+        selected = owner is not None and eligible(x) and key not in SEEN
+        saved = x.clone() if selected else None
+        output = original_linear(x,weight,bias)
+        if selected:
+            SEEN.add(key)
+            name,module = owner
+            RECORDS.append(('router',name,module,original_linear,None,
+                            (saved,weight,bias),tensors(output)))
+        return output
+    functional.linear = linear
     ENABLED = True
-    return {'native_hc_classes':len(ORIGINALS),'router_hooks':len(HANDLES)//2,
+    return {'native_hc_classes':len(ORIGINALS),'router_weights':len(ROUTER_WEIGHTS),
             'scope':'eager first decode; retain actual inputs, no D2H during model forward'}
 
 
@@ -110,7 +115,7 @@ def repeat(worker,repeats=5):
                     output = (original(module,x,*args[1:4],mix) if has_mix
                               else original(module,x,*args[1:4]))
                 else:
-                    output = module(x)
+                    output = original(x,*args[1:])
             output = tensors(output)
             if reference is None: reference = output
             assert len(output)==len(reference)==len(observed)
@@ -123,5 +128,7 @@ def repeat(worker,repeats=5):
                        'identical_input_repeats_equal':equal,
                        'repeats_equal_observed_forward':observed_equal,'max_repeat_abs':max_abs})
     from vllm.distributed import get_tensor_model_parallel_rank
-    return {'rank':get_tensor_model_parallel_rank(),'records':result,
+    counts = {kind:sum(r['kind']==kind for r in result) for kind in ('hc','router')}
+    return {'rank':get_tensor_model_parallel_rank(),'records':result,'coverage':counts,
+            'expected_coverage_reached':counts=={'hc':80,'router':40},
             'scope':'native HC/router only; cannot prove whole-model stability or timing'}

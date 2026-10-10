@@ -1,0 +1,709 @@
+INFO 10-10 05:03:31 [__init__.py:52] Available plugins for group vllm.platform_plugins:
+INFO 10-10 05:03:31 [__init__.py:54] - ascend -> vllm_ascend:register
+INFO 10-10 05:03:31 [__init__.py:57] All plugins in this group will be loaded. Set `VLLM_PLUGINS` to control which plugins to load.
+INFO 10-10 05:03:31 [__init__.py:237] Platform plugin ascend is activated
+INFO 10-10 05:03:31 [platform.py:70] Breakable CUDAGraph on Ascend is opt-in; using VLLM_USE_BREAKABLE_CUDAGRAPH=0.
+2026-10-10 05:03:37,384 - 22064 - ServiceProfiler - INFO - VLLM_USE_V1 not set, auto-detected via vLLM 0.27.1+empty: default 1
+INFO 10-10 05:03:38 [__init__.py:112] Registered model loader `<class 'vllm_ascend.model_loader.netloader.netloader.ModelNetLoaderElastic'>` with load format `netloader`
+INFO 10-10 05:03:38 [__init__.py:112] Registered model loader `<class 'vllm_ascend.model_loader.rfork.rfork_loader.RForkModelLoader'>` with load format `rfork`
+INFO 10-10 05:03:38 [api_utils.py:273] non-default args: {'enable_return_routed_experts': True, 'tokenizer': '/home/l00886679/models/out/v41-w4a8-engram-dr-vision-qrot-mtpq', 'trust_remote_code': True, 'safetensors_load_strategy': 'lazy', 'dtype': 'bfloat16', 'max_model_len': 8192, 'distributed_executor_backend': 'mp', 'tensor_parallel_size': 8, 'enable_expert_parallel': True, 'block_size': 128, 'enable_prefix_caching': False, 'gpu_memory_utilization': 0.7, 'kv_cache_memory_bytes': 4294967296, 'max_num_batched_tokens': 2048, 'max_num_seqs': 1, 'disable_log_stats': True, 'enforce_eager': True, 'limit_mm_per_prompt': {'image': 4}, 'model_loader_extra_config': {'enable_multithread_load': True, 'num_threads': 128}, 'compilation_config': {'mode': None, 'debug_dump_path': None, 'cache_dir': '', 'compile_cache_save_format': 'binary', 'backend': 'vllm_ascend.compilation.compiler_interface.AscendCompiler', 'custom_ops': [], 'ir_enable_torch_wrap': None, 'splitting_ops': None, 'compile_mm_encoder': False, 'cudagraph_mm_encoder': False, 'encoder_cudagraph_token_budgets': [], 'encoder_cudagraph_max_vision_items_per_batch': 0, 'encoder_cudagraph_max_frames_per_batch': None, 'compile_sizes': None, 'compile_ranges_endpoints': None, 'inductor_compile_config': {'enable_auto_functionalized_v2': False, 'size_asserts': False, 'alignment_asserts': False, 'scalar_asserts': False, 'combo_kernels': True, 'benchmark_combo_kernel': True}, 'inductor_passes': {}, 'cudagraph_mode': <CUDAGraphMode.NONE: 0>, 'cudagraph_num_of_warmups': 0, 'cudagraph_capture_sizes': [], 'cudagraph_copy_inputs': False, 'cudagraph_specialize_lora': True, 'use_inductor_graph_partition': None, 'pass_config': {}, 'max_cudagraph_capture_size': None, 'dynamic_shapes_config': {'type': <DynamicShapesType.BACKED: 'backed'>, 'evaluate_guards': False, 'assume_32_bit_indexing': False}, 'local_cache_dir': None, 'fast_moe_cold_start': None, 'static_all_moe_layers': []}, 'worker_cls': 'formal_control_worker.FormalControlWorker', 'additional_config': {'enable_engram': True, 'engram_storage': 'int8', 'enable_cpu_binding': False, 'ascend_compilation_config': {'enable_npugraph_ex': True, 'enable_static_kernel': False}, 'multistream_dsv4_dsa_overlap': False}, 'async_scheduling': False, 'model': '/home/l00886679/models/out/v41-w4a8-engram-dr-vision-qrot-mtpq'}
+[transformers] Unrecognized keys in `rope_parameters` for 'rope_type'='default': {'beta_fast', 'original_max_position_embeddings', 'beta_slow', 'factor'}
+[transformers] Unrecognized keys in `rope_parameters` for 'rope_type'='default': {'beta_fast', 'original_max_position_embeddings', 'beta_slow', 'factor'}
+INFO 10-10 05:03:52 [model.py:645] Resolved architecture: DeepseekV41ForCausalLM
+INFO 10-10 05:03:53 [model.py:2214] Downcasting torch.float32 to torch.bfloat16.
+INFO 10-10 05:03:53 [model.py:1883] Using max model len 8192
+[transformers] Unrecognized keys in `rope_parameters` for 'rope_type'='default': {'beta_fast', 'original_max_position_embeddings', 'beta_slow', 'factor'}
+[transformers] Unrecognized keys in `rope_parameters` for 'rope_type'='default': {'beta_fast', 'original_max_position_embeddings', 'beta_slow', 'factor'}
+INFO 10-10 05:03:54 [scheduler.py:242] Chunked prefill is enabled with max_num_batched_tokens=2048.
+WARNING 10-10 05:03:55 [vllm.py:1194] Enforce eager set, disabling torch.compile and CUDAGraphs. This is equivalent to setting -cc.mode=none -cc.cudagraph_mode=none
+WARNING 10-10 05:03:55 [vllm.py:1247] Inductor compilation was disabled by user settings, optimizations settings that are only active during inductor compilation will be ignored.
+INFO 10-10 05:03:55 [kernel.py:306] Final IR op priority after setting platform defaults: IrOpPriorityConfig(rms_norm=['native'], fused_add_rms_norm=['native'])
+INFO 10-10 05:03:55 [vllm.py:1426] Cudagraph is disabled under eager mode
+WARNING 10-10 05:03:55 [platform.py:651] GPU-specific parameter is not supported on Ascend. parameter=disable_cascade_attn, value=True, action: resetting to False.
+INFO 10-10 05:03:55 [platform.py:863] The timeout interval of the HCCL operator is 1836s. Timeout in seconds for execute_model RPC calls in multiprocessing must be greater than 1836s, Set VLLM_EXECUTE_MODEL_TIMEOUT_SECONDS=3000
+INFO 10-10 05:03:55 [ascend_config.py:161] Dynamic EPLB is False
+INFO 10-10 05:03:55 [ascend_config.py:162] The number of redundant experts is 0
+INFO 10-10 05:03:55 [platform.py:1090] Compilation disabled, using eager mode by default
+INFO 10-10 05:03:55 [platform.py:1167] FlashComm1 is disabled. Using flashinfer_all2allv as the all2all backend.
+INFO 10-10 05:03:55 [platform.py:1356] Set PYTORCH_NPU_ALLOC_CONF=expandable_segments:True
+INFO 10-10 05:03:55 [compilation.py:329] Enabled custom fusions: norm_quant, act_quant
+[transformers] Unrecognized keys in `rope_parameters` for 'rope_type'='default': {'beta_fast', 'original_max_position_embeddings', 'beta_slow', 'factor'}
+[transformers] Unrecognized keys in `rope_parameters` for 'rope_type'='default': {'beta_fast', 'original_max_position_embeddings', 'beta_slow', 'factor'}
+INFO 10-10 05:04:01 [__init__.py:52] Available plugins for group vllm.platform_plugins:
+INFO 10-10 05:04:01 [__init__.py:54] - ascend -> vllm_ascend:register
+INFO 10-10 05:04:01 [__init__.py:57] All plugins in this group will be loaded. Set `VLLM_PLUGINS` to control which plugins to load.
+INFO 10-10 05:04:01 [__init__.py:237] Platform plugin ascend is activated
+INFO 10-10 05:04:01 [platform.py:70] Breakable CUDAGraph on Ascend is opt-in; using VLLM_USE_BREAKABLE_CUDAGRAPH=0.
+(EngineCore pid=22219) 2026-10-10 05:04:08,120 - 22219 - ServiceProfiler - INFO - VLLM_USE_V1 not set, auto-detected via vLLM 0.27.1+empty: default 1
+(EngineCore pid=22219) INFO 10-10 05:04:08 [__init__.py:112] Registered model loader `<class 'vllm_ascend.model_loader.netloader.netloader.ModelNetLoaderElastic'>` with load format `netloader`
+(EngineCore pid=22219) INFO 10-10 05:04:08 [__init__.py:112] Registered model loader `<class 'vllm_ascend.model_loader.rfork.rfork_loader.RForkModelLoader'>` with load format `rfork`
+(EngineCore pid=22219) INFO 10-10 05:04:08 [core.py:121] Initializing a V1 LLM engine (v0.27.1) with config: model='/home/l00886679/models/out/v41-w4a8-engram-dr-vision-qrot-mtpq', speculative_config=None, tokenizer='/home/l00886679/models/out/v41-w4a8-engram-dr-vision-qrot-mtpq', skip_tokenizer_init=False, tokenizer_mode=auto, revision=None, tokenizer_revision=None, trust_remote_code=True, dtype=torch.bfloat16, max_seq_len=8192, download_dir=None, load_format=auto, tensor_parallel_size=8, pipeline_parallel_size=1, data_parallel_size=1, decode_context_parallel_size=1, dcp_comm_backend=ag_rs, disable_custom_all_reduce=True, quantization=ascend, quantization_config=None, enforce_eager=True, enable_return_routed_experts=True, kv_cache_dtype=bfloat16, device_config=npu, structured_outputs_config=StructuredOutputsConfig(backend='auto', disable_any_whitespace=False, disable_additional_properties=False, reasoning_parser='', reasoning_parser_plugin='', enable_in_reasoning=False), observability_config=ObservabilityConfig(show_hidden_metrics_for_version=None, otlp_traces_endpoint=None, collect_detailed_traces=None, kv_cache_metrics=False, kv_cache_metrics_sample=0.01, cudagraph_metrics=False, enable_layerwise_nvtx_tracing=False, enable_mfu_metrics=False, enable_mm_processor_stats=False, enable_logging_iteration_details=False, jit_monitor_mode='warn', jit_monitor_verbose=False), seed=0, served_model_name=/home/l00886679/models/out/v41-w4a8-engram-dr-vision-qrot-mtpq, enable_prefix_caching=False, enable_chunked_prefill=True, pooler_config=None, compilation_config={'mode': <CompilationMode.NONE: 0>, 'debug_dump_path': None, 'cache_dir': '', 'compile_cache_save_format': 'binary', 'backend': 'vllm_ascend.compilation.compiler_interface.AscendCompiler', 'custom_ops': ['all'], 'ir_enable_torch_wrap': False, 'splitting_ops': [], 'compile_mm_encoder': False, 'cudagraph_mm_encoder': False, 'encoder_cudagraph_token_budgets': [], 'encoder_cudagraph_max_vision_items_per_batch': 0, 'encoder_cudagraph_max_frames_per_batch': None, 'compile_sizes': [], 'compile_ranges_endpoints': [2048], 'inductor_compile_config': {'enable_auto_functionalized_v2': False, 'size_asserts': False, 'alignment_asserts': False, 'scalar_asserts': False, 'combo_kernels': True, 'benchmark_combo_kernel': True}, 'inductor_passes': {}, 'cudagraph_mode': <CUDAGraphMode.NONE: 0>, 'cudagraph_num_of_warmups': 1, 'cudagraph_capture_sizes': [], 'cudagraph_copy_inputs': False, 'cudagraph_specialize_lora': True, 'use_inductor_graph_partition': False, 'pass_config': {'fuse_norm_quant': True, 'fuse_act_quant': True, 'fuse_attn_quant': False, 'enable_sp': False, 'fuse_gemm_comms': False, 'fuse_allreduce_rms': False, 'enable_qk_norm_rope_fusion': False, 'fuse_rope_kvcache_cat_mla': False, 'fuse_act_padding': False, 'fuse_qk_norm_rope_kvcache': False}, 'max_cudagraph_capture_size': 0, 'dynamic_shapes_config': {'type': <DynamicShapesType.BACKED: 'backed'>, 'evaluate_guards': False, 'assume_32_bit_indexing': False}, 'local_cache_dir': None, 'fast_moe_cold_start': True, 'static_all_moe_layers': []}, kernel_config=KernelConfig(ir_op_priority=IrOpPriorityConfig(rms_norm=['native'], fused_add_rms_norm=['native']), enable_flashinfer_autotune=True, enable_cutedsl_warmup=True, enable_jit_warmup=True, enable_bf16x3_router_gemm=False, moe_backend='auto', linear_backend='auto')
+(EngineCore pid=22219) INFO 10-10 05:04:08 [multiproc_executor.py:140] DP group leader: node_rank=0, node_rank_within_dp=0, master_addr=127.0.0.1, mq_connect_ip=192.168.45.21 (local), world_size=8, local_world_size=8
+INFO 10-10 05:04:13 [__init__.py:52] Available plugins for group vllm.platform_plugins:
+INFO 10-10 05:04:13 [__init__.py:54] - ascend -> vllm_ascend:register
+INFO 10-10 05:04:13 [__init__.py:57] All plugins in this group will be loaded. Set `VLLM_PLUGINS` to control which plugins to load.
+INFO 10-10 05:04:13 [__init__.py:237] Platform plugin ascend is activated
+INFO 10-10 05:04:13 [platform.py:70] Breakable CUDAGraph on Ascend is opt-in; using VLLM_USE_BREAKABLE_CUDAGRAPH=0.
+2026-10-10 05:04:19,917 - 22246 - ServiceProfiler - INFO - VLLM_USE_V1 not set, auto-detected via vLLM 0.27.1+empty: default 1
+INFO 10-10 05:04:20 [__init__.py:112] Registered model loader `<class 'vllm_ascend.model_loader.netloader.netloader.ModelNetLoaderElastic'>` with load format `netloader`
+INFO 10-10 05:04:21 [__init__.py:112] Registered model loader `<class 'vllm_ascend.model_loader.rfork.rfork_loader.RForkModelLoader'>` with load format `rfork`
+[transformers] Unrecognized keys in `rope_parameters` for 'rope_type'='default': {'original_max_position_embeddings', 'beta_fast', 'factor', 'beta_slow'}
+[transformers] Unrecognized keys in `rope_parameters` for 'rope_type'='default': {'original_max_position_embeddings', 'beta_fast', 'factor', 'beta_slow'}
+WARNING 10-10 05:04:23 [patch_triton.py:332] NPU Triton causal_conv1d_update is unavailable (cannot import name 'causal_conv1d_update_npu' from 'vllm_ascend.ops.triton.mamba.causal_conv1d' (/vllm-workspace/vllm-ascend/vllm_ascend/ops/triton/mamba/causal_conv1d.py)); falling back to the PyTorch implementation, which syncs per request and therefore stalls ACL graph capture at decode-FULL.
+INFO 10-10 05:04:23 [__init__.py:52] Available plugins for group vllm.platform_plugins:
+INFO 10-10 05:04:23 [__init__.py:54] - ascend -> vllm_ascend:register
+INFO 10-10 05:04:23 [__init__.py:57] All plugins in this group will be loaded. Set `VLLM_PLUGINS` to control which plugins to load.
+INFO 10-10 05:04:23 [__init__.py:237] Platform plugin ascend is activated
+INFO 10-10 05:04:23 [ascend_config.py:161] Dynamic EPLB is False
+INFO 10-10 05:04:23 [ascend_config.py:162] The number of redundant experts is 0
+INFO 10-10 05:04:23 [platform.py:70] Breakable CUDAGraph on Ascend is opt-in; using VLLM_USE_BREAKABLE_CUDAGRAPH=0.
+(Worker pid=22246) INFO 10-10 05:04:25 [parallel_state.py:1640] world_size=8 rank=0 local_rank=0 distributed_init_method=tcp://127.0.0.1:57055 backend=hccl
+2026-10-10 05:04:30,138 - 22265 - ServiceProfiler - INFO - VLLM_USE_V1 not set, auto-detected via vLLM 0.27.1+empty: default 1
+INFO 10-10 05:04:31 [__init__.py:112] Registered model loader `<class 'vllm_ascend.model_loader.netloader.netloader.ModelNetLoaderElastic'>` with load format `netloader`
+INFO 10-10 05:04:31 [__init__.py:112] Registered model loader `<class 'vllm_ascend.model_loader.rfork.rfork_loader.RForkModelLoader'>` with load format `rfork`
+[transformers] Unrecognized keys in `rope_parameters` for 'rope_type'='default': {'factor', 'beta_slow', 'original_max_position_embeddings', 'beta_fast'}
+[transformers] Unrecognized keys in `rope_parameters` for 'rope_type'='default': {'factor', 'beta_slow', 'original_max_position_embeddings', 'beta_fast'}
+WARNING 10-10 05:04:33 [patch_triton.py:332] NPU Triton causal_conv1d_update is unavailable (cannot import name 'causal_conv1d_update_npu' from 'vllm_ascend.ops.triton.mamba.causal_conv1d' (/vllm-workspace/vllm-ascend/vllm_ascend/ops/triton/mamba/causal_conv1d.py)); falling back to the PyTorch implementation, which syncs per request and therefore stalls ACL graph capture at decode-FULL.
+INFO 10-10 05:04:34 [__init__.py:52] Available plugins for group vllm.platform_plugins:
+INFO 10-10 05:04:34 [__init__.py:54] - ascend -> vllm_ascend:register
+INFO 10-10 05:04:34 [__init__.py:57] All plugins in this group will be loaded. Set `VLLM_PLUGINS` to control which plugins to load.
+INFO 10-10 05:04:34 [__init__.py:237] Platform plugin ascend is activated
+INFO 10-10 05:04:34 [ascend_config.py:161] Dynamic EPLB is False
+INFO 10-10 05:04:34 [ascend_config.py:162] The number of redundant experts is 0
+INFO 10-10 05:04:34 [platform.py:70] Breakable CUDAGraph on Ascend is opt-in; using VLLM_USE_BREAKABLE_CUDAGRAPH=0.
+(Worker pid=22265) INFO 10-10 05:04:35 [parallel_state.py:1640] world_size=8 rank=1 local_rank=1 distributed_init_method=tcp://127.0.0.1:57055 backend=hccl
+2026-10-10 05:04:40,397 - 22314 - ServiceProfiler - INFO - VLLM_USE_V1 not set, auto-detected via vLLM 0.27.1+empty: default 1
+INFO 10-10 05:04:41 [__init__.py:112] Registered model loader `<class 'vllm_ascend.model_loader.netloader.netloader.ModelNetLoaderElastic'>` with load format `netloader`
+INFO 10-10 05:04:41 [__init__.py:112] Registered model loader `<class 'vllm_ascend.model_loader.rfork.rfork_loader.RForkModelLoader'>` with load format `rfork`
+[transformers] Unrecognized keys in `rope_parameters` for 'rope_type'='default': {'beta_fast', 'factor', 'beta_slow', 'original_max_position_embeddings'}
+[transformers] Unrecognized keys in `rope_parameters` for 'rope_type'='default': {'beta_fast', 'factor', 'beta_slow', 'original_max_position_embeddings'}
+WARNING 10-10 05:04:44 [patch_triton.py:332] NPU Triton causal_conv1d_update is unavailable (cannot import name 'causal_conv1d_update_npu' from 'vllm_ascend.ops.triton.mamba.causal_conv1d' (/vllm-workspace/vllm-ascend/vllm_ascend/ops/triton/mamba/causal_conv1d.py)); falling back to the PyTorch implementation, which syncs per request and therefore stalls ACL graph capture at decode-FULL.
+INFO 10-10 05:04:44 [ascend_config.py:161] Dynamic EPLB is False
+INFO 10-10 05:04:44 [ascend_config.py:162] The number of redundant experts is 0
+INFO 10-10 05:04:44 [__init__.py:52] Available plugins for group vllm.platform_plugins:
+INFO 10-10 05:04:44 [__init__.py:54] - ascend -> vllm_ascend:register
+INFO 10-10 05:04:44 [__init__.py:57] All plugins in this group will be loaded. Set `VLLM_PLUGINS` to control which plugins to load.
+INFO 10-10 05:04:44 [__init__.py:237] Platform plugin ascend is activated
+INFO 10-10 05:04:44 [platform.py:70] Breakable CUDAGraph on Ascend is opt-in; using VLLM_USE_BREAKABLE_CUDAGRAPH=0.
+(Worker pid=22314) INFO 10-10 05:04:45 [parallel_state.py:1640] world_size=8 rank=2 local_rank=2 distributed_init_method=tcp://127.0.0.1:57055 backend=hccl
+2026-10-10 05:04:50,801 - 22360 - ServiceProfiler - INFO - VLLM_USE_V1 not set, auto-detected via vLLM 0.27.1+empty: default 1
+INFO 10-10 05:04:51 [__init__.py:112] Registered model loader `<class 'vllm_ascend.model_loader.netloader.netloader.ModelNetLoaderElastic'>` with load format `netloader`
+INFO 10-10 05:04:51 [__init__.py:112] Registered model loader `<class 'vllm_ascend.model_loader.rfork.rfork_loader.RForkModelLoader'>` with load format `rfork`
+[transformers] Unrecognized keys in `rope_parameters` for 'rope_type'='default': {'beta_slow', 'factor', 'beta_fast', 'original_max_position_embeddings'}
+[transformers] Unrecognized keys in `rope_parameters` for 'rope_type'='default': {'beta_slow', 'factor', 'beta_fast', 'original_max_position_embeddings'}
+WARNING 10-10 05:04:54 [patch_triton.py:332] NPU Triton causal_conv1d_update is unavailable (cannot import name 'causal_conv1d_update_npu' from 'vllm_ascend.ops.triton.mamba.causal_conv1d' (/vllm-workspace/vllm-ascend/vllm_ascend/ops/triton/mamba/causal_conv1d.py)); falling back to the PyTorch implementation, which syncs per request and therefore stalls ACL graph capture at decode-FULL.
+INFO 10-10 05:04:54 [__init__.py:52] Available plugins for group vllm.platform_plugins:
+INFO 10-10 05:04:54 [__init__.py:54] - ascend -> vllm_ascend:register
+INFO 10-10 05:04:54 [__init__.py:57] All plugins in this group will be loaded. Set `VLLM_PLUGINS` to control which plugins to load.
+INFO 10-10 05:04:54 [__init__.py:237] Platform plugin ascend is activated
+INFO 10-10 05:04:54 [ascend_config.py:161] Dynamic EPLB is False
+INFO 10-10 05:04:54 [ascend_config.py:162] The number of redundant experts is 0
+INFO 10-10 05:04:54 [platform.py:70] Breakable CUDAGraph on Ascend is opt-in; using VLLM_USE_BREAKABLE_CUDAGRAPH=0.
+(Worker pid=22360) INFO 10-10 05:04:56 [parallel_state.py:1640] world_size=8 rank=3 local_rank=3 distributed_init_method=tcp://127.0.0.1:57055 backend=hccl
+2026-10-10 05:05:01,096 - 22406 - ServiceProfiler - INFO - VLLM_USE_V1 not set, auto-detected via vLLM 0.27.1+empty: default 1
+INFO 10-10 05:05:01 [__init__.py:112] Registered model loader `<class 'vllm_ascend.model_loader.netloader.netloader.ModelNetLoaderElastic'>` with load format `netloader`
+INFO 10-10 05:05:02 [__init__.py:112] Registered model loader `<class 'vllm_ascend.model_loader.rfork.rfork_loader.RForkModelLoader'>` with load format `rfork`
+[transformers] Unrecognized keys in `rope_parameters` for 'rope_type'='default': {'original_max_position_embeddings', 'beta_fast', 'factor', 'beta_slow'}
+[transformers] Unrecognized keys in `rope_parameters` for 'rope_type'='default': {'original_max_position_embeddings', 'beta_fast', 'factor', 'beta_slow'}
+WARNING 10-10 05:05:04 [patch_triton.py:332] NPU Triton causal_conv1d_update is unavailable (cannot import name 'causal_conv1d_update_npu' from 'vllm_ascend.ops.triton.mamba.causal_conv1d' (/vllm-workspace/vllm-ascend/vllm_ascend/ops/triton/mamba/causal_conv1d.py)); falling back to the PyTorch implementation, which syncs per request and therefore stalls ACL graph capture at decode-FULL.
+INFO 10-10 05:05:05 [ascend_config.py:161] Dynamic EPLB is False
+INFO 10-10 05:05:05 [ascend_config.py:162] The number of redundant experts is 0
+INFO 10-10 05:05:05 [__init__.py:52] Available plugins for group vllm.platform_plugins:
+INFO 10-10 05:05:05 [__init__.py:54] - ascend -> vllm_ascend:register
+INFO 10-10 05:05:05 [__init__.py:57] All plugins in this group will be loaded. Set `VLLM_PLUGINS` to control which plugins to load.
+INFO 10-10 05:05:05 [__init__.py:237] Platform plugin ascend is activated
+INFO 10-10 05:05:05 [platform.py:70] Breakable CUDAGraph on Ascend is opt-in; using VLLM_USE_BREAKABLE_CUDAGRAPH=0.
+(Worker pid=22406) INFO 10-10 05:05:06 [parallel_state.py:1640] world_size=8 rank=4 local_rank=4 distributed_init_method=tcp://127.0.0.1:57055 backend=hccl
+2026-10-10 05:05:11,566 - 22452 - ServiceProfiler - INFO - VLLM_USE_V1 not set, auto-detected via vLLM 0.27.1+empty: default 1
+INFO 10-10 05:05:12 [__init__.py:112] Registered model loader `<class 'vllm_ascend.model_loader.netloader.netloader.ModelNetLoaderElastic'>` with load format `netloader`
+INFO 10-10 05:05:12 [__init__.py:112] Registered model loader `<class 'vllm_ascend.model_loader.rfork.rfork_loader.RForkModelLoader'>` with load format `rfork`
+[transformers] Unrecognized keys in `rope_parameters` for 'rope_type'='default': {'beta_slow', 'beta_fast', 'original_max_position_embeddings', 'factor'}
+[transformers] Unrecognized keys in `rope_parameters` for 'rope_type'='default': {'beta_slow', 'beta_fast', 'original_max_position_embeddings', 'factor'}
+WARNING 10-10 05:05:15 [patch_triton.py:332] NPU Triton causal_conv1d_update is unavailable (cannot import name 'causal_conv1d_update_npu' from 'vllm_ascend.ops.triton.mamba.causal_conv1d' (/vllm-workspace/vllm-ascend/vllm_ascend/ops/triton/mamba/causal_conv1d.py)); falling back to the PyTorch implementation, which syncs per request and therefore stalls ACL graph capture at decode-FULL.
+INFO 10-10 05:05:15 [__init__.py:52] Available plugins for group vllm.platform_plugins:
+INFO 10-10 05:05:15 [__init__.py:54] - ascend -> vllm_ascend:register
+INFO 10-10 05:05:15 [__init__.py:57] All plugins in this group will be loaded. Set `VLLM_PLUGINS` to control which plugins to load.
+INFO 10-10 05:05:15 [__init__.py:237] Platform plugin ascend is activated
+INFO 10-10 05:05:15 [ascend_config.py:161] Dynamic EPLB is False
+INFO 10-10 05:05:15 [ascend_config.py:162] The number of redundant experts is 0
+INFO 10-10 05:05:15 [platform.py:70] Breakable CUDAGraph on Ascend is opt-in; using VLLM_USE_BREAKABLE_CUDAGRAPH=0.
+(Worker pid=22452) INFO 10-10 05:05:17 [parallel_state.py:1640] world_size=8 rank=5 local_rank=5 distributed_init_method=tcp://127.0.0.1:57055 backend=hccl
+2026-10-10 05:05:21,887 - 22498 - ServiceProfiler - INFO - VLLM_USE_V1 not set, auto-detected via vLLM 0.27.1+empty: default 1
+INFO 10-10 05:05:22 [__init__.py:112] Registered model loader `<class 'vllm_ascend.model_loader.netloader.netloader.ModelNetLoaderElastic'>` with load format `netloader`
+INFO 10-10 05:05:22 [__init__.py:112] Registered model loader `<class 'vllm_ascend.model_loader.rfork.rfork_loader.RForkModelLoader'>` with load format `rfork`
+[transformers] Unrecognized keys in `rope_parameters` for 'rope_type'='default': {'beta_slow', 'beta_fast', 'original_max_position_embeddings', 'factor'}
+[transformers] Unrecognized keys in `rope_parameters` for 'rope_type'='default': {'beta_slow', 'beta_fast', 'original_max_position_embeddings', 'factor'}
+WARNING 10-10 05:05:25 [patch_triton.py:332] NPU Triton causal_conv1d_update is unavailable (cannot import name 'causal_conv1d_update_npu' from 'vllm_ascend.ops.triton.mamba.causal_conv1d' (/vllm-workspace/vllm-ascend/vllm_ascend/ops/triton/mamba/causal_conv1d.py)); falling back to the PyTorch implementation, which syncs per request and therefore stalls ACL graph capture at decode-FULL.
+INFO 10-10 05:05:25 [ascend_config.py:161] Dynamic EPLB is False
+INFO 10-10 05:05:25 [ascend_config.py:162] The number of redundant experts is 0
+INFO 10-10 05:05:25 [__init__.py:52] Available plugins for group vllm.platform_plugins:
+INFO 10-10 05:05:25 [__init__.py:54] - ascend -> vllm_ascend:register
+INFO 10-10 05:05:25 [__init__.py:57] All plugins in this group will be loaded. Set `VLLM_PLUGINS` to control which plugins to load.
+INFO 10-10 05:05:25 [__init__.py:237] Platform plugin ascend is activated
+INFO 10-10 05:05:25 [platform.py:70] Breakable CUDAGraph on Ascend is opt-in; using VLLM_USE_BREAKABLE_CUDAGRAPH=0.
+(Worker pid=22498) INFO 10-10 05:05:27 [parallel_state.py:1640] world_size=8 rank=6 local_rank=6 distributed_init_method=tcp://127.0.0.1:57055 backend=hccl
+2026-10-10 05:05:32,225 - 22544 - ServiceProfiler - INFO - VLLM_USE_V1 not set, auto-detected via vLLM 0.27.1+empty: default 1
+INFO 10-10 05:05:33 [__init__.py:112] Registered model loader `<class 'vllm_ascend.model_loader.netloader.netloader.ModelNetLoaderElastic'>` with load format `netloader`
+INFO 10-10 05:05:33 [__init__.py:112] Registered model loader `<class 'vllm_ascend.model_loader.rfork.rfork_loader.RForkModelLoader'>` with load format `rfork`
+[transformers] Unrecognized keys in `rope_parameters` for 'rope_type'='default': {'beta_fast', 'beta_slow', 'original_max_position_embeddings', 'factor'}
+[transformers] Unrecognized keys in `rope_parameters` for 'rope_type'='default': {'beta_fast', 'beta_slow', 'original_max_position_embeddings', 'factor'}
+WARNING 10-10 05:05:35 [patch_triton.py:332] NPU Triton causal_conv1d_update is unavailable (cannot import name 'causal_conv1d_update_npu' from 'vllm_ascend.ops.triton.mamba.causal_conv1d' (/vllm-workspace/vllm-ascend/vllm_ascend/ops/triton/mamba/causal_conv1d.py)); falling back to the PyTorch implementation, which syncs per request and therefore stalls ACL graph capture at decode-FULL.
+INFO 10-10 05:05:36 [ascend_config.py:161] Dynamic EPLB is False
+INFO 10-10 05:05:36 [ascend_config.py:162] The number of redundant experts is 0
+(Worker pid=22544) INFO 10-10 05:05:37 [parallel_state.py:1640] world_size=8 rank=7 local_rank=7 distributed_init_method=tcp://127.0.0.1:57055 backend=hccl
+[Gloo] Rank 0 is connected to 7 peer ranks. Expected number of connected peer ranks is : 7
+[Gloo] Rank 1 is connected to 7 peer ranks. Expected number of connected peer ranks is : 7
+[Gloo] Rank 3 is connected to 7 peer ranks. Expected number of connected peer ranks is : 7
+[Gloo] Rank 2 is connected to 7 peer ranks. Expected number of connected peer ranks is : 7
+[Gloo] Rank 4 is connected to 7 peer ranks. Expected number of connected peer ranks is : 7
+[Gloo] Rank 5 is connected to 7 peer ranks. Expected number of connected peer ranks is : 7
+[Gloo] Rank 7 is connected to 7 peer ranks. Expected number of connected peer ranks is : 7
+[Gloo] Rank 6 is connected to 7 peer ranks. Expected number of connected peer ranks is : 7
+[Gloo] Rank 0 is connected to 7 peer ranks. Expected number of connected peer ranks is : 7
+[Gloo] Rank 7 is connected to 7 peer ranks. Expected number of connected peer ranks is : 7
+[Gloo] Rank 1 is connected to 7 peer ranks. Expected number of connected peer ranks is : 7
+[Gloo] Rank 6 is connected to 7 peer ranks. Expected number of connected peer ranks is : 7
+[Gloo] Rank 2 is connected to 7 peer ranks. Expected number of connected peer ranks is : 7
+[Gloo] Rank 4 is connected to 7 peer ranks. Expected number of connected peer ranks is : 7
+[Gloo] Rank 3 is connected to 7 peer ranks. Expected number of connected peer ranks is : 7
+[Gloo] Rank 5 is connected to 7 peer ranks. Expected number of connected peer ranks is : 7
+[Gloo] Rank 0 is connected to 0 peer ranks. Expected number of connected peer ranks is : 0
+[Gloo] Rank 0 is connected to 0 peer ranks. Expected number of connected peer ranks is : 0
+[Gloo] Rank 0 is connected to 0 peer ranks. Expected number of connected peer ranks is : 0
+[Gloo] Rank 0 is connected to 0 peer ranks. Expected number of connected peer ranks is : 0
+[Gloo] Rank 0 is connected to 0 peer ranks. Expected number of connected peer ranks is : 0
+[Gloo] Rank 0 is connected to 0 peer ranks. Expected number of connected peer ranks is : 0
+[Gloo] Rank 0 is connected to 0 peer ranks. Expected number of connected peer ranks is : 0
+[Gloo] Rank 0 is connected to 0 peer ranks. Expected number of connected peer ranks is : 0
+[Gloo] Rank 0 is connected to 0 peer ranks. Expected number of connected peer ranks is : 0
+[Gloo] Rank 0 is connected to 0 peer ranks. Expected number of connected peer ranks is : 0
+[Gloo] Rank 0 is connected to 0 peer ranks. Expected number of connected peer ranks is : 0
+[Gloo] Rank 0 is connected to 0 peer ranks. Expected number of connected peer ranks is : 0
+[Gloo] Rank 0 is connected to 0 peer ranks. Expected number of connected peer ranks is : 0
+[Gloo] Rank 0 is connected to 0 peer ranks. Expected number of connected peer ranks is : 0
+[Gloo] Rank 0 is connected to 0 peer ranks. Expected number of connected peer ranks is : 0
+[Gloo] Rank 0 is connected to 0 peer ranks. Expected number of connected peer ranks is : 0
+[Gloo] Rank 0 is connected to 0 peer ranks. Expected number of connected peer ranks is : 0
+[Gloo] Rank 0 is connected to 0 peer ranks. Expected number of connected peer ranks is : 0
+[Gloo] Rank 0 is connected to 0 peer ranks. Expected number of connected peer ranks is : 0
+[Gloo] Rank 0 is connected to 0 peer ranks. Expected number of connected peer ranks is : 0
+[Gloo] Rank 0 is connected to 0 peer ranks. Expected number of connected peer ranks is : 0
+[Gloo] Rank 0 is connected to 0 peer ranks. Expected number of connected peer ranks is : 0
+[Gloo] Rank 0 is connected to 0 peer ranks. Expected number of connected peer ranks is : 0
+[Gloo] Rank 0 is connected to 0 peer ranks. Expected number of connected peer ranks is : 0
+[Gloo] Rank 0 is connected to 0 peer ranks. Expected number of connected peer ranks is : 0
+[Gloo] Rank 0 is connected to 0 peer ranks. Expected number of connected peer ranks is : 0
+[Gloo] Rank 0 is connected to 0 peer ranks. Expected number of connected peer ranks is : 0
+[Gloo] Rank 0 is connected to 0 peer ranks. Expected number of connected peer ranks is : 0
+[Gloo] Rank 0 is connected to 0 peer ranks. Expected number of connected peer ranks is : 0
+[Gloo] Rank 0 is connected to 0 peer ranks. Expected number of connected peer ranks is : 0
+[Gloo] Rank 0 is connected to 0 peer ranks. Expected number of connected peer ranks is : 0
+[Gloo] Rank 0 is connected to 0 peer ranks. Expected number of connected peer ranks is : 0
+[Gloo] Rank 5 is connected to 7 peer ranks. Expected number of connected peer ranks is : 7
+[Gloo] Rank 3 is connected to 7 peer ranks. Expected number of connected peer ranks is : 7
+[Gloo] Rank 6 is connected to 7 peer ranks. Expected number of connected peer ranks is : 7
+[Gloo] Rank 0 is connected to 7 peer ranks. Expected number of connected peer ranks is : 7
+[Gloo] Rank 1 is connected to 7 peer ranks. Expected number of connected peer ranks is : 7
+[Gloo] Rank 4 is connected to 7 peer ranks. Expected number of connected peer ranks is : 7
+[Gloo] Rank 2 is connected to 7 peer ranks. Expected number of connected peer ranks is : 7
+[Gloo] Rank 7 is connected to 7 peer ranks. Expected number of connected peer ranks is : 7
+(Worker pid=22246) INFO 10-10 05:05:38 [parallel_state.py:1977] rank 0 in world size 8 is assigned as DP rank 0, PP rank 0, PCP rank 0, TP rank 0, EP rank 0, EPLB rank N/A
+[Gloo] Rank 5 is connected to 7 peer ranks. Expected number of connected peer ranks is : 7
+[Gloo] Rank 2 is connected to 7 peer ranks. Expected number of connected peer ranks is : 7
+[Gloo] Rank 1 is connected to 7 peer ranks. Expected number of connected peer ranks is : 7
+[Gloo] Rank 3 is connected to 7 peer ranks. Expected number of connected peer ranks is : 7
+[Gloo] Rank 0 is connected to 7 peer ranks. Expected number of connected peer ranks is : 7
+[Gloo] Rank 4 is connected to 7 peer ranks. Expected number of connected peer ranks is : 7
+[Gloo] Rank 7 is connected to 7 peer ranks. Expected number of connected peer ranks is : 7
+[Gloo] Rank 6 is connected to 7 peer ranks. Expected number of connected peer ranks is : 7
+[rank5]:[W1010 05:05:38.916719770 NPUCachingAllocator.cpp:202] Warning: The current CANN and HDK(driver) versions require processing for 32 padding size, with memory allocation. (function operator())
+[rank1]:[W1010 05:05:38.916738060 NPUCachingAllocator.cpp:202] Warning: The current CANN and HDK(driver) versions require processing for 32 padding size, with memory allocation. (function operator())
+[rank6]:[W1010 05:05:38.916744540 NPUCachingAllocator.cpp:202] Warning: The current CANN and HDK(driver) versions require processing for 32 padding size, with memory allocation. (function operator())
+[rank7]:[W1010 05:05:38.916744200 NPUCachingAllocator.cpp:202] Warning: The current CANN and HDK(driver) versions require processing for 32 padding size, with memory allocation. (function operator())
+[rank0]:[W1010 05:05:38.916931820 NPUCachingAllocator.cpp:202] Warning: The current CANN and HDK(driver) versions require processing for 32 padding size, with memory allocation. (function operator())
+[rank3]:[W1010 05:05:38.917972540 NPUCachingAllocator.cpp:202] Warning: The current CANN and HDK(driver) versions require processing for 32 padding size, with memory allocation. (function operator())
+[rank2]:[W1010 05:05:38.931404710 NPUCachingAllocator.cpp:202] Warning: The current CANN and HDK(driver) versions require processing for 32 padding size, with memory allocation. (function operator())
+[rank4]:[W1010 05:05:38.931404690 NPUCachingAllocator.cpp:202] Warning: The current CANN and HDK(driver) versions require processing for 32 padding size, with memory allocation. (function operator())
+(Worker pid=22265) INFO 10-10 05:05:38 [platform.py:1379] FA3 will not be enabled when rl_config.enable_training_consistency is false. Note that Ascend NPU will use its registered plugin backend instead.
+(Worker pid=22452) INFO 10-10 05:05:38 [platform.py:1379] FA3 will not be enabled when rl_config.enable_training_consistency is false. Note that Ascend NPU will use its registered plugin backend instead.
+(Worker pid=22246) INFO 10-10 05:05:38 [platform.py:1379] FA3 will not be enabled when rl_config.enable_training_consistency is false. Note that Ascend NPU will use its registered plugin backend instead.
+(Worker pid=22360) INFO 10-10 05:05:38 [platform.py:1379] FA3 will not be enabled when rl_config.enable_training_consistency is false. Note that Ascend NPU will use its registered plugin backend instead.
+(Worker pid=22544) INFO 10-10 05:05:38 [platform.py:1379] FA3 will not be enabled when rl_config.enable_training_consistency is false. Note that Ascend NPU will use its registered plugin backend instead.
+(Worker pid=22498) INFO 10-10 05:05:38 [platform.py:1379] FA3 will not be enabled when rl_config.enable_training_consistency is false. Note that Ascend NPU will use its registered plugin backend instead.
+(Worker_TP1_EP1 pid=22265) AUDIT_ROUTE_CAPTURE_PATCH 676bf0689dd7e31e444e7c8f9d75272df681931a795f8b23184228a3aa748315
+(Worker_TP5_EP5 pid=22452) AUDIT_ROUTE_CAPTURE_PATCH 676bf0689dd7e31e444e7c8f9d75272df681931a795f8b23184228a3aa748315
+(Worker_TP5_EP5 pid=22452) INFO 10-10 05:05:38 [model_runner_v1.py:4005] Starting to load model /home/l00886679/models/out/v41-w4a8-engram-dr-vision-qrot-mtpq...
+(Worker_TP1_EP1 pid=22265) INFO 10-10 05:05:38 [model_runner_v1.py:4005] Starting to load model /home/l00886679/models/out/v41-w4a8-engram-dr-vision-qrot-mtpq...
+(Worker_TP7_EP7 pid=22544) AUDIT_ROUTE_CAPTURE_PATCH 676bf0689dd7e31e444e7c8f9d75272df681931a795f8b23184228a3aa748315
+(Worker_TP6_EP6 pid=22498) AUDIT_ROUTE_CAPTURE_PATCH 676bf0689dd7e31e444e7c8f9d75272df681931a795f8b23184228a3aa748315
+(Worker_TP3_EP3 pid=22360) AUDIT_ROUTE_CAPTURE_PATCH 676bf0689dd7e31e444e7c8f9d75272df681931a795f8b23184228a3aa748315
+(Worker_TP6_EP6 pid=22498) INFO 10-10 05:05:38 [model_runner_v1.py:4005] Starting to load model /home/l00886679/models/out/v41-w4a8-engram-dr-vision-qrot-mtpq...
+(Worker_TP7_EP7 pid=22544) INFO 10-10 05:05:38 [model_runner_v1.py:4005] Starting to load model /home/l00886679/models/out/v41-w4a8-engram-dr-vision-qrot-mtpq...
+(Worker_TP3_EP3 pid=22360) INFO 10-10 05:05:38 [model_runner_v1.py:4005] Starting to load model /home/l00886679/models/out/v41-w4a8-engram-dr-vision-qrot-mtpq...
+(Worker_TP0_EP0 pid=22246) AUDIT_ROUTE_CAPTURE_PATCH 676bf0689dd7e31e444e7c8f9d75272df681931a795f8b23184228a3aa748315
+(Worker_TP0_EP0 pid=22246) INFO 10-10 05:05:38 [model_runner_v1.py:4005] Starting to load model /home/l00886679/models/out/v41-w4a8-engram-dr-vision-qrot-mtpq...
+(Worker pid=22406) INFO 10-10 05:05:38 [platform.py:1379] FA3 will not be enabled when rl_config.enable_training_consistency is false. Note that Ascend NPU will use its registered plugin backend instead.
+(Worker pid=22314) INFO 10-10 05:05:38 [platform.py:1379] FA3 will not be enabled when rl_config.enable_training_consistency is false. Note that Ascend NPU will use its registered plugin backend instead.
+(Worker_TP2_EP2 pid=22314) AUDIT_ROUTE_CAPTURE_PATCH 676bf0689dd7e31e444e7c8f9d75272df681931a795f8b23184228a3aa748315
+(Worker_TP4_EP4 pid=22406) AUDIT_ROUTE_CAPTURE_PATCH 676bf0689dd7e31e444e7c8f9d75272df681931a795f8b23184228a3aa748315
+(Worker_TP2_EP2 pid=22314) INFO 10-10 05:05:38 [model_runner_v1.py:4005] Starting to load model /home/l00886679/models/out/v41-w4a8-engram-dr-vision-qrot-mtpq...
+(Worker_TP4_EP4 pid=22406) INFO 10-10 05:05:38 [model_runner_v1.py:4005] Starting to load model /home/l00886679/models/out/v41-w4a8-engram-dr-vision-qrot-mtpq...
+(Worker_TP0_EP0 pid=22246) INFO 10-10 05:05:38 [interface.py:414] Using default backend AttentionBackendEnum.TORCH_SDPA for vit attention
+(Worker_TP0_EP0 pid=22246) INFO 10-10 05:05:38 [mm_encoder_attention.py:375] Using AttentionBackendEnum.TORCH_SDPA for MMEncoderAttention.
+(Worker_TP0_EP0 pid=22246) INFO 10-10 05:05:39 [modelslim_config.py:615] Using the vLLM Ascend modelslim Quantization now!
+(Worker_TP0_EP0 pid=22246) INFO 10-10 05:05:40 [expert_map_manager.py:245] [EP Rank 0/8] Expert parallelism is enabled. Expert placement strategy: linear. Local/global number of experts: 48/384. Experts local to global index map: 0->0, 1->1, 2->2, 3->3, 4->4, 5->5, 6->6, 7->7, 8->8, 9->9, 10->10, 11->11, 12->12, 13->13, 14->14, 15->15, 16->16, 17->17, 18->18, 19->19, 20->20, 21->21, 22->22, 23->23, 24->24, 25->25, 26->26, 27->27, 28->28, 29->29, 30->30, 31->31, 32->32, 33->33, 34->34, 35->35, 36->36, 37->37, 38->38, 39->39, 40->40, 41->41, 42->42, 43->43, 44->44, 45->45, 46->46, 47->47.
+(Worker_TP3_EP3 pid=22360) [transformers] Unrecognized keys in `rope_parameters` for 'rope_type'='default': {'beta_slow', 'factor', 'beta_fast', 'original_max_position_embeddings'}
+(Worker_TP7_EP7 pid=22544) [transformers] Unrecognized keys in `rope_parameters` for 'rope_type'='default': {'beta_fast', 'beta_slow', 'original_max_position_embeddings', 'factor'}
+(Worker_TP0_EP0 pid=22246) [transformers] Unrecognized keys in `rope_parameters` for 'rope_type'='default': {'original_max_position_embeddings', 'beta_fast', 'factor', 'beta_slow'}
+(Worker_TP2_EP2 pid=22314) [transformers] Unrecognized keys in `rope_parameters` for 'rope_type'='default': {'beta_fast', 'factor', 'beta_slow', 'original_max_position_embeddings'}
+(Worker_TP4_EP4 pid=22406) [transformers] Unrecognized keys in `rope_parameters` for 'rope_type'='default': {'original_max_position_embeddings', 'beta_fast', 'factor', 'beta_slow'}
+(Worker_TP5_EP5 pid=22452) [transformers] Unrecognized keys in `rope_parameters` for 'rope_type'='default': {'beta_slow', 'beta_fast', 'original_max_position_embeddings', 'factor'}
+(Worker_TP6_EP6 pid=22498) [transformers] Unrecognized keys in `rope_parameters` for 'rope_type'='default': {'beta_slow', 'beta_fast', 'original_max_position_embeddings', 'factor'}
+(Worker_TP1_EP1 pid=22265) [transformers] Unrecognized keys in `rope_parameters` for 'rope_type'='default': {'factor', 'beta_slow', 'original_max_position_embeddings', 'beta_fast'}
+(Worker_TP3_EP3 pid=22360) [transformers] Unrecognized keys in `rope_parameters` for 'rope_type'='default': {'beta_slow', 'factor', 'beta_fast', 'original_max_position_embeddings'}
+(Worker_TP7_EP7 pid=22544) [transformers] Unrecognized keys in `rope_parameters` for 'rope_type'='default': {'beta_fast', 'beta_slow', 'original_max_position_embeddings', 'factor'}
+(Worker_TP0_EP0 pid=22246) [transformers] Unrecognized keys in `rope_parameters` for 'rope_type'='default': {'original_max_position_embeddings', 'beta_fast', 'factor', 'beta_slow'}
+(Worker_TP2_EP2 pid=22314) [transformers] Unrecognized keys in `rope_parameters` for 'rope_type'='default': {'beta_fast', 'factor', 'beta_slow', 'original_max_position_embeddings'}
+(Worker_TP4_EP4 pid=22406) [transformers] Unrecognized keys in `rope_parameters` for 'rope_type'='default': {'original_max_position_embeddings', 'beta_fast', 'factor', 'beta_slow'}
+(Worker_TP5_EP5 pid=22452) [transformers] Unrecognized keys in `rope_parameters` for 'rope_type'='default': {'beta_slow', 'beta_fast', 'original_max_position_embeddings', 'factor'}
+(Worker_TP6_EP6 pid=22498) [transformers] Unrecognized keys in `rope_parameters` for 'rope_type'='default': {'beta_slow', 'beta_fast', 'original_max_position_embeddings', 'factor'}
+(Worker_TP1_EP1 pid=22265) [transformers] Unrecognized keys in `rope_parameters` for 'rope_type'='default': {'factor', 'beta_slow', 'original_max_position_embeddings', 'beta_fast'}
+(Worker_TP0_EP0 pid=22246) [DEVICE-INDEX] Engram 表已映射为设备可寻址：L1=384006168行, L14=384016682行（每张 256B/行，HBM 占用 0）
+(Worker_TP0_EP0 pid=22246) Multi-thread loading shards:   0% Completed | 0/86 [00:00<?, ?it/s]
+(Worker_TP0_EP0 pid=22246) Multi-thread loading shards:   1% Completed | 1/86 [00:00<00:53,  1.57it/s]
+(Worker_TP0_EP0 pid=22246) Multi-thread loading shards:   3% Completed | 3/86 [00:04<01:57,  1.42s/it]
+(Worker_TP0_EP0 pid=22246) Multi-thread loading shards:   5% Completed | 4/86 [00:07<03:07,  2.28s/it]
+(Worker_TP0_EP0 pid=22246) Multi-thread loading shards:   6% Completed | 5/86 [00:09<02:53,  2.14s/it]
+(Worker_TP0_EP0 pid=22246) Multi-thread loading shards:   7% Completed | 6/86 [00:11<02:46,  2.08s/it]
+(Worker_TP0_EP0 pid=22246) Multi-thread loading shards:   8% Completed | 7/86 [00:13<02:39,  2.02s/it]
+(Worker_TP0_EP0 pid=22246) Multi-thread loading shards:   9% Completed | 8/86 [00:18<03:34,  2.75s/it]
+(Worker_TP0_EP0 pid=22246) Multi-thread loading shards:  10% Completed | 9/86 [00:20<03:36,  2.81s/it]
+(Worker_TP0_EP0 pid=22246) Multi-thread loading shards:  12% Completed | 10/86 [00:21<02:38,  2.08s/it]
+(Worker_TP0_EP0 pid=22246) Multi-thread loading shards:  14% Completed | 12/86 [00:21<01:24,  1.14s/it]
+(Worker_TP0_EP0 pid=22246) Multi-thread loading shards:  16% Completed | 14/86 [00:21<00:51,  1.39it/s]
+(Worker_TP0_EP0 pid=22246) Multi-thread loading shards:  19% Completed | 16/86 [00:21<00:34,  2.01it/s]
+(Worker_TP0_EP0 pid=22246) Multi-thread loading shards:  20% Completed | 17/86 [00:22<00:29,  2.37it/s]
+(Worker_TP0_EP0 pid=22246) Multi-thread loading shards:  21% Completed | 18/86 [00:22<00:25,  2.65it/s]
+(Worker_TP0_EP0 pid=22246) Multi-thread loading shards:  24% Completed | 21/86 [00:22<00:20,  3.20it/s]
+(Worker_TP0_EP0 pid=22246) Multi-thread loading shards:  27% Completed | 23/86 [00:23<00:21,  2.95it/s]
+(Worker_TP0_EP0 pid=22246) Multi-thread loading shards:  28% Completed | 24/86 [00:24<00:27,  2.25it/s]
+(Worker_TP0_EP0 pid=22246) Multi-thread loading shards:  29% Completed | 25/86 [00:25<00:30,  2.01it/s]
+(Worker_TP0_EP0 pid=22246) Multi-thread loading shards:  30% Completed | 26/86 [00:25<00:30,  1.95it/s]
+(Worker_TP0_EP0 pid=22246) Multi-thread loading shards:  31% Completed | 27/86 [00:26<00:31,  1.89it/s]
+(Worker_TP0_EP0 pid=22246) Multi-thread loading shards:  33% Completed | 28/86 [00:26<00:28,  2.00it/s]
+(Worker_TP0_EP0 pid=22246) Multi-thread loading shards:  34% Completed | 29/86 [00:27<00:27,  2.08it/s]
+(Worker_TP0_EP0 pid=22246) Multi-thread loading shards:  35% Completed | 30/86 [00:27<00:25,  2.16it/s]
+(Worker_TP0_EP0 pid=22246) Multi-thread loading shards:  36% Completed | 31/86 [00:28<00:30,  1.82it/s]
+(Worker_TP0_EP0 pid=22246) Multi-thread loading shards:  37% Completed | 32/86 [00:29<00:29,  1.83it/s]
+(Worker_TP0_EP0 pid=22246) Multi-thread loading shards:  38% Completed | 33/86 [00:29<00:26,  1.97it/s]
+(Worker_TP0_EP0 pid=22246) Multi-thread loading shards:  40% Completed | 34/86 [00:29<00:25,  2.06it/s]
+(Worker_TP0_EP0 pid=22246) Multi-thread loading shards:  41% Completed | 35/86 [00:30<00:23,  2.17it/s]
+(Worker_TP0_EP0 pid=22246) Multi-thread loading shards:  42% Completed | 36/86 [00:30<00:22,  2.23it/s]
+(Worker_TP0_EP0 pid=22246) Multi-thread loading shards:  43% Completed | 37/86 [00:31<00:21,  2.31it/s]
+(Worker_TP0_EP0 pid=22246) Multi-thread loading shards:  44% Completed | 38/86 [00:31<00:24,  1.95it/s]
+(Worker_TP0_EP0 pid=22246) Multi-thread loading shards:  45% Completed | 39/86 [00:32<00:23,  1.97it/s]
+(Worker_TP0_EP0 pid=22246) Multi-thread loading shards:  47% Completed | 40/86 [00:32<00:21,  2.12it/s]
+(Worker_TP0_EP0 pid=22246) Multi-thread loading shards:  48% Completed | 41/86 [00:33<00:20,  2.19it/s]
+(Worker_TP0_EP0 pid=22246) Multi-thread loading shards:  49% Completed | 42/86 [00:33<00:19,  2.26it/s]
+(Worker_TP0_EP0 pid=22246) Multi-thread loading shards:  50% Completed | 43/86 [00:33<00:18,  2.34it/s]
+(Worker_TP0_EP0 pid=22246) Multi-thread loading shards:  51% Completed | 44/86 [00:34<00:18,  2.33it/s]
+(Worker_TP0_EP0 pid=22246) Multi-thread loading shards:  52% Completed | 45/86 [00:34<00:16,  2.42it/s]
+(Worker_TP0_EP0 pid=22246) Multi-thread loading shards:  53% Completed | 46/86 [00:35<00:16,  2.41it/s]
+(Worker_TP0_EP0 pid=22246) Multi-thread loading shards:  55% Completed | 47/86 [00:35<00:16,  2.40it/s]
+(Worker_TP0_EP0 pid=22246) Multi-thread loading shards:  56% Completed | 48/86 [00:36<00:19,  1.92it/s]
+(Worker_TP0_EP0 pid=22246) Multi-thread loading shards:  57% Completed | 49/86 [00:36<00:19,  1.85it/s]
+(Worker_TP0_EP0 pid=22246) Multi-thread loading shards:  58% Completed | 50/86 [00:37<00:17,  2.00it/s]
+(Worker_TP0_EP0 pid=22246) Multi-thread loading shards:  59% Completed | 51/86 [00:37<00:16,  2.10it/s]
+(Worker_TP0_EP0 pid=22246) Multi-thread loading shards:  60% Completed | 52/86 [00:38<00:15,  2.22it/s]
+(Worker_TP0_EP0 pid=22246) Multi-thread loading shards:  62% Completed | 53/86 [00:38<00:14,  2.27it/s]
+(Worker_TP0_EP0 pid=22246) Multi-thread loading shards:  63% Completed | 54/86 [00:39<00:17,  1.86it/s]
+(Worker_TP0_EP0 pid=22246) Multi-thread loading shards:  64% Completed | 55/86 [00:39<00:17,  1.82it/s]
+(Worker_TP0_EP0 pid=22246) Multi-thread loading shards:  65% Completed | 56/86 [00:40<00:14,  2.00it/s]
+(Worker_TP0_EP0 pid=22246) Multi-thread loading shards:  66% Completed | 57/86 [00:40<00:13,  2.08it/s]
+(Worker_TP0_EP0 pid=22246) Multi-thread loading shards:  67% Completed | 58/86 [00:41<00:13,  2.14it/s]
+(Worker_TP0_EP0 pid=22246) Multi-thread loading shards:  69% Completed | 59/86 [00:41<00:12,  2.22it/s]
+(Worker_TP0_EP0 pid=22246) Multi-thread loading shards:  70% Completed | 60/86 [00:42<00:11,  2.25it/s]
+(Worker_TP0_EP0 pid=22246) Multi-thread loading shards:  71% Completed | 61/86 [00:42<00:10,  2.29it/s]
+(Worker_TP0_EP0 pid=22246) Multi-thread loading shards:  72% Completed | 62/86 [00:42<00:10,  2.35it/s]
+(Worker_TP0_EP0 pid=22246) Multi-thread loading shards:  73% Completed | 63/86 [00:43<00:09,  2.43it/s]
+(Worker_TP0_EP0 pid=22246) Multi-thread loading shards:  74% Completed | 64/86 [00:43<00:08,  2.45it/s]
+(Worker_TP0_EP0 pid=22246) Multi-thread loading shards:  76% Completed | 65/86 [00:44<00:08,  2.47it/s]
+(Worker_TP0_EP0 pid=22246) Multi-thread loading shards:  77% Completed | 66/86 [00:44<00:08,  2.48it/s]
+(Worker_TP0_EP0 pid=22246) Multi-thread loading shards:  78% Completed | 67/86 [00:44<00:07,  2.45it/s]
+(Worker_TP0_EP0 pid=22246) Multi-thread loading shards:  79% Completed | 68/86 [00:45<00:07,  2.41it/s]
+(Worker_TP0_EP0 pid=22246) Multi-thread loading shards:  80% Completed | 69/86 [00:45<00:06,  2.45it/s]
+(Worker_TP0_EP0 pid=22246) Multi-thread loading shards:  81% Completed | 70/86 [00:46<00:06,  2.48it/s]
+(Worker_TP0_EP0 pid=22246) Multi-thread loading shards:  83% Completed | 71/86 [00:46<00:06,  2.49it/s]
+(Worker_TP0_EP0 pid=22246) Multi-thread loading shards:  84% Completed | 72/86 [00:46<00:05,  2.47it/s]
+(Worker_TP0_EP0 pid=22246) Multi-thread loading shards:  85% Completed | 73/86 [00:47<00:05,  2.48it/s]
+(Worker_TP0_EP0 pid=22246) Multi-thread loading shards:  86% Completed | 74/86 [00:47<00:04,  2.46it/s]
+(Worker_TP2_EP2 pid=22314) INFO 10-10 05:10:54 [model_runner_v1.py:4092] Loading model weights took 37.3568 GB
+(Worker_TP2_EP2 pid=22314) INFO 10-10 05:10:54 [model_runner_v1.py:4145] Model runner load_model total time: 316.06 seconds
+(Worker_TP0_EP0 pid=22246) Multi-thread loading shards:  87% Completed | 75/86 [00:48<00:04,  2.44it/s]
+(Worker_TP0_EP0 pid=22246) Multi-thread loading shards:  88% Completed | 76/86 [00:48<00:05,  1.90it/s]
+(Worker_TP0_EP0 pid=22246) Multi-thread loading shards:  90% Completed | 77/86 [00:49<00:04,  2.08it/s]
+(Worker_TP0_EP0 pid=22246) Multi-thread loading shards:  91% Completed | 78/86 [00:49<00:03,  2.19it/s]
+(Worker_TP0_EP0 pid=22246) Multi-thread loading shards:  92% Completed | 79/86 [00:50<00:03,  2.24it/s]
+(Worker_TP0_EP0 pid=22246) Multi-thread loading shards:  93% Completed | 80/86 [00:50<00:02,  2.05it/s]
+(Worker_TP0_EP0 pid=22246) Multi-thread loading shards:  94% Completed | 81/86 [00:51<00:02,  2.19it/s]
+(Worker_TP0_EP0 pid=22246) Multi-thread loading shards:  95% Completed | 82/86 [00:51<00:01,  2.30it/s]
+(Worker_TP0_EP0 pid=22246) Multi-thread loading shards:  97% Completed | 83/86 [00:51<00:01,  2.38it/s]
+(Worker_TP0_EP0 pid=22246) Multi-thread loading shards:  98% Completed | 84/86 [00:52<00:00,  2.40it/s]
+(Worker_TP0_EP0 pid=22246) Multi-thread loading shards:  99% Completed | 85/86 [00:52<00:00,  2.45it/s]
+(Worker_TP0_EP0 pid=22246) Multi-thread loading shards: 100% Completed | 86/86 [00:53<00:00,  2.44it/s]
+(Worker_TP0_EP0 pid=22246) Multi-thread loading shards: 100% Completed | 86/86 [00:53<00:00,  1.62it/s]
+(Worker_TP0_EP0 pid=22246) 
+(Worker_TP0_EP0 pid=22246) INFO 10-10 05:10:59 [default_loader.py:430] Loading weights took 53.15 seconds
+(Worker_TP1_EP1 pid=22265) INFO 10-10 05:11:00 [model_runner_v1.py:4092] Loading model weights took 37.3568 GB
+(Worker_TP1_EP1 pid=22265) INFO 10-10 05:11:00 [model_runner_v1.py:4145] Model runner load_model total time: 322.40 seconds
+(Worker_TP0_EP0 pid=22246) INFO 10-10 05:11:06 [model_runner_v1.py:4092] Loading model weights took 37.3568 GB
+(Worker_TP0_EP0 pid=22246) INFO 10-10 05:11:06 [model_runner_v1.py:4145] Model runner load_model total time: 328.40 seconds
+(Worker_TP5_EP5 pid=22452) INFO 10-10 05:11:10 [model_runner_v1.py:4092] Loading model weights took 37.3568 GB
+(Worker_TP5_EP5 pid=22452) INFO 10-10 05:11:10 [model_runner_v1.py:4145] Model runner load_model total time: 332.56 seconds
+(Worker_TP4_EP4 pid=22406) INFO 10-10 05:11:19 [model_runner_v1.py:4092] Loading model weights took 37.3568 GB
+(Worker_TP4_EP4 pid=22406) INFO 10-10 05:11:19 [model_runner_v1.py:4145] Model runner load_model total time: 340.76 seconds
+(Worker_TP7_EP7 pid=22544) INFO 10-10 05:11:19 [model_runner_v1.py:4092] Loading model weights took 37.3568 GB
+(Worker_TP7_EP7 pid=22544) INFO 10-10 05:11:19 [model_runner_v1.py:4145] Model runner load_model total time: 341.48 seconds
+(Worker_TP6_EP6 pid=22498) INFO 10-10 05:11:21 [model_runner_v1.py:4092] Loading model weights took 37.3568 GB
+(Worker_TP6_EP6 pid=22498) INFO 10-10 05:11:21 [model_runner_v1.py:4145] Model runner load_model total time: 342.70 seconds
+(Worker_TP3_EP3 pid=22360) INFO 10-10 05:11:21 [model_runner_v1.py:4092] Loading model weights took 37.3568 GB
+(Worker_TP3_EP3 pid=22360) INFO 10-10 05:11:21 [model_runner_v1.py:4145] Model runner load_model total time: 342.74 seconds
+(Worker_TP0_EP0 pid=22246) INFO 10-10 05:11:21 [gpu_model_runner.py:6465] Encoder cache will be initialized with a budget of 2048 tokens, and profiled with 1 image items of the maximum feature size.
+(Worker_TP2_EP2 pid=22314) INFO 10-10 05:11:24 [worker.py:557] Initial free memory 60.88 GiB, reserved 4.00 GiB for KV Cache as specified by kv_cache_memory_bytes, skipping memory profiling. This does not respect the gpu_memory_utilization config. Only use kv_cache_memory_bytes when you want manual control of KV cache memory size. If OOM'ed, check the difference of initial free memory between the current run and the previous run where kv_cache_memory_bytes is suggested and update it correspondingly.
+(Worker_TP4_EP4 pid=22406) INFO 10-10 05:11:24 [worker.py:557] Initial free memory 60.87 GiB, reserved 4.00 GiB for KV Cache as specified by kv_cache_memory_bytes, skipping memory profiling. This does not respect the gpu_memory_utilization config. Only use kv_cache_memory_bytes when you want manual control of KV cache memory size. If OOM'ed, check the difference of initial free memory between the current run and the previous run where kv_cache_memory_bytes is suggested and update it correspondingly.
+(Worker_TP7_EP7 pid=22544) INFO 10-10 05:11:24 [worker.py:557] Initial free memory 61.12 GiB, reserved 4.00 GiB for KV Cache as specified by kv_cache_memory_bytes, skipping memory profiling. This does not respect the gpu_memory_utilization config. Only use kv_cache_memory_bytes when you want manual control of KV cache memory size. If OOM'ed, check the difference of initial free memory between the current run and the previous run where kv_cache_memory_bytes is suggested and update it correspondingly.
+(Worker_TP3_EP3 pid=22360) INFO 10-10 05:11:24 [worker.py:557] Initial free memory 61.11 GiB, reserved 4.00 GiB for KV Cache as specified by kv_cache_memory_bytes, skipping memory profiling. This does not respect the gpu_memory_utilization config. Only use kv_cache_memory_bytes when you want manual control of KV cache memory size. If OOM'ed, check the difference of initial free memory between the current run and the previous run where kv_cache_memory_bytes is suggested and update it correspondingly.
+(Worker_TP1_EP1 pid=22265) INFO 10-10 05:11:24 [worker.py:557] Initial free memory 61.13 GiB, reserved 4.00 GiB for KV Cache as specified by kv_cache_memory_bytes, skipping memory profiling. This does not respect the gpu_memory_utilization config. Only use kv_cache_memory_bytes when you want manual control of KV cache memory size. If OOM'ed, check the difference of initial free memory between the current run and the previous run where kv_cache_memory_bytes is suggested and update it correspondingly.
+(Worker_TP5_EP5 pid=22452) INFO 10-10 05:11:24 [worker.py:557] Initial free memory 61.12 GiB, reserved 4.00 GiB for KV Cache as specified by kv_cache_memory_bytes, skipping memory profiling. This does not respect the gpu_memory_utilization config. Only use kv_cache_memory_bytes when you want manual control of KV cache memory size. If OOM'ed, check the difference of initial free memory between the current run and the previous run where kv_cache_memory_bytes is suggested and update it correspondingly.
+(Worker_TP0_EP0 pid=22246) INFO 10-10 05:11:24 [worker.py:557] Initial free memory 60.87 GiB, reserved 4.00 GiB for KV Cache as specified by kv_cache_memory_bytes, skipping memory profiling. This does not respect the gpu_memory_utilization config. Only use kv_cache_memory_bytes when you want manual control of KV cache memory size. If OOM'ed, check the difference of initial free memory between the current run and the previous run where kv_cache_memory_bytes is suggested and update it correspondingly.
+(Worker_TP6_EP6 pid=22498) INFO 10-10 05:11:24 [worker.py:557] Initial free memory 60.88 GiB, reserved 4.00 GiB for KV Cache as specified by kv_cache_memory_bytes, skipping memory profiling. This does not respect the gpu_memory_utilization config. Only use kv_cache_memory_bytes when you want manual control of KV cache memory size. If OOM'ed, check the difference of initial free memory between the current run and the previous run where kv_cache_memory_bytes is suggested and update it correspondingly.
+(EngineCore pid=22219) INFO 10-10 05:11:24 [kv_cache_utils.py:2235] GPU KV cache size: 265,420 tokens
+(EngineCore pid=22219) INFO 10-10 05:11:24 [kv_cache_utils.py:2236] Maximum concurrency for 8,192 tokens per request: 32.40x
+(Worker_TP7_EP7 pid=22544) INFO 10-10 05:11:25 [gpu_model_runner.py:7698] Initializing routed experts capturer, enable_return_routed_experts: True
+(Worker_TP7_EP7 pid=22544) INFO 10-10 05:11:25 [routed_experts_capturer.py:94] RoutedExpertsCapturer: allocating buffer with max_tokens=2048, num_layers=40, num_experts_per_tok=6 (hf_config.model_type=deepseek_v41_text)
+(Worker_TP5_EP5 pid=22452) INFO 10-10 05:11:25 [gpu_model_runner.py:7698] Initializing routed experts capturer, enable_return_routed_experts: True
+(Worker_TP5_EP5 pid=22452) INFO 10-10 05:11:25 [routed_experts_capturer.py:94] RoutedExpertsCapturer: allocating buffer with max_tokens=2048, num_layers=40, num_experts_per_tok=6 (hf_config.model_type=deepseek_v41_text)
+(Worker_TP4_EP4 pid=22406) INFO 10-10 05:11:25 [gpu_model_runner.py:7698] Initializing routed experts capturer, enable_return_routed_experts: True
+(Worker_TP4_EP4 pid=22406) INFO 10-10 05:11:25 [routed_experts_capturer.py:94] RoutedExpertsCapturer: allocating buffer with max_tokens=2048, num_layers=40, num_experts_per_tok=6 (hf_config.model_type=deepseek_v41_text)
+(Worker_TP6_EP6 pid=22498) INFO 10-10 05:11:25 [gpu_model_runner.py:7698] Initializing routed experts capturer, enable_return_routed_experts: True
+(Worker_TP6_EP6 pid=22498) INFO 10-10 05:11:25 [routed_experts_capturer.py:94] RoutedExpertsCapturer: allocating buffer with max_tokens=2048, num_layers=40, num_experts_per_tok=6 (hf_config.model_type=deepseek_v41_text)
+(Worker_TP0_EP0 pid=22246) INFO 10-10 05:11:25 [gpu_model_runner.py:7698] Initializing routed experts capturer, enable_return_routed_experts: True
+(Worker_TP0_EP0 pid=22246) INFO 10-10 05:11:25 [routed_experts_capturer.py:94] RoutedExpertsCapturer: allocating buffer with max_tokens=2048, num_layers=40, num_experts_per_tok=6 (hf_config.model_type=deepseek_v41_text)
+(Worker_TP1_EP1 pid=22265) INFO 10-10 05:11:25 [gpu_model_runner.py:7698] Initializing routed experts capturer, enable_return_routed_experts: True
+(Worker_TP1_EP1 pid=22265) INFO 10-10 05:11:25 [routed_experts_capturer.py:94] RoutedExpertsCapturer: allocating buffer with max_tokens=2048, num_layers=40, num_experts_per_tok=6 (hf_config.model_type=deepseek_v41_text)
+(Worker_TP3_EP3 pid=22360) INFO 10-10 05:11:25 [gpu_model_runner.py:7698] Initializing routed experts capturer, enable_return_routed_experts: True
+(Worker_TP3_EP3 pid=22360) INFO 10-10 05:11:25 [routed_experts_capturer.py:94] RoutedExpertsCapturer: allocating buffer with max_tokens=2048, num_layers=40, num_experts_per_tok=6 (hf_config.model_type=deepseek_v41_text)
+(Worker_TP2_EP2 pid=22314) INFO 10-10 05:11:25 [gpu_model_runner.py:7698] Initializing routed experts capturer, enable_return_routed_experts: True
+(Worker_TP2_EP2 pid=22314) INFO 10-10 05:11:25 [routed_experts_capturer.py:94] RoutedExpertsCapturer: allocating buffer with max_tokens=2048, num_layers=40, num_experts_per_tok=6 (hf_config.model_type=deepseek_v41_text)
+(Worker_TP4_EP4 pid=22406) INFO 10-10 05:11:25 [kernel_warmup.py:44] Starting Triton kernel warmup.
+(Worker_TP3_EP3 pid=22360) INFO 10-10 05:11:25 [kernel_warmup.py:44] Starting Triton kernel warmup.
+(Worker_TP5_EP5 pid=22452) INFO 10-10 05:11:25 [kernel_warmup.py:44] Starting Triton kernel warmup.
+(Worker_TP1_EP1 pid=22265) INFO 10-10 05:11:25 [kernel_warmup.py:44] Starting Triton kernel warmup.
+(Worker_TP7_EP7 pid=22544) INFO 10-10 05:11:25 [kernel_warmup.py:44] Starting Triton kernel warmup.
+(Worker_TP6_EP6 pid=22498) INFO 10-10 05:11:25 [kernel_warmup.py:44] Starting Triton kernel warmup.
+(Worker_TP4_EP4 pid=22406) INFO 10-10 05:11:25 [kernel_warmup.py:36] rejection_sampler Triton warmup complete in 0.000s.
+(Worker_TP5_EP5 pid=22452) INFO 10-10 05:11:25 [kernel_warmup.py:36] rejection_sampler Triton warmup complete in 0.000s.
+(Worker_TP3_EP3 pid=22360) INFO 10-10 05:11:25 [kernel_warmup.py:36] rejection_sampler Triton warmup complete in 0.000s.
+(Worker_TP1_EP1 pid=22265) INFO 10-10 05:11:25 [kernel_warmup.py:36] rejection_sampler Triton warmup complete in 0.000s.
+(Worker_TP7_EP7 pid=22544) INFO 10-10 05:11:25 [kernel_warmup.py:36] rejection_sampler Triton warmup complete in 0.000s.
+(Worker_TP6_EP6 pid=22498) INFO 10-10 05:11:25 [kernel_warmup.py:36] rejection_sampler Triton warmup complete in 0.000s.
+(Worker_TP2_EP2 pid=22314) INFO 10-10 05:11:25 [kernel_warmup.py:44] Starting Triton kernel warmup.
+(Worker_TP0_EP0 pid=22246) INFO 10-10 05:11:25 [kernel_warmup.py:44] Starting Triton kernel warmup.
+(Worker_TP2_EP2 pid=22314) INFO 10-10 05:11:25 [kernel_warmup.py:36] rejection_sampler Triton warmup complete in 0.000s.
+(Worker_TP0_EP0 pid=22246) INFO 10-10 05:11:25 [kernel_warmup.py:36] rejection_sampler Triton warmup complete in 0.000s.
+(Worker_TP3_EP3 pid=22360) INFO 10-10 05:11:25 [kernel_warmup.py:36] penalties Triton warmup complete in 0.188s.
+(Worker_TP7_EP7 pid=22544) INFO 10-10 05:11:25 [kernel_warmup.py:36] penalties Triton warmup complete in 0.188s.
+(Worker_TP1_EP1 pid=22265) INFO 10-10 05:11:25 [kernel_warmup.py:36] penalties Triton warmup complete in 0.188s.
+(Worker_TP3_EP3 pid=22360) INFO 10-10 05:11:25 [kernel_warmup.py:36] rms Triton warmup complete in 0.000s.
+(Worker_TP1_EP1 pid=22265) INFO 10-10 05:11:25 [kernel_warmup.py:36] rms Triton warmup complete in 0.000s.
+(Worker_TP7_EP7 pid=22544) INFO 10-10 05:11:25 [kernel_warmup.py:36] rms Triton warmup complete in 0.000s.
+(Worker_TP5_EP5 pid=22452) INFO 10-10 05:11:25 [kernel_warmup.py:36] penalties Triton warmup complete in 0.190s.
+(Worker_TP5_EP5 pid=22452) INFO 10-10 05:11:25 [kernel_warmup.py:36] rms Triton warmup complete in 0.000s.
+(Worker_TP4_EP4 pid=22406) INFO 10-10 05:11:25 [kernel_warmup.py:36] penalties Triton warmup complete in 0.200s.
+(Worker_TP0_EP0 pid=22246) INFO 10-10 05:11:25 [kernel_warmup.py:36] penalties Triton warmup complete in 0.200s.
+(Worker_TP4_EP4 pid=22406) INFO 10-10 05:11:25 [kernel_warmup.py:36] rms Triton warmup complete in 0.000s.
+(Worker_TP0_EP0 pid=22246) INFO 10-10 05:11:25 [kernel_warmup.py:36] rms Triton warmup complete in 0.000s.
+(Worker_TP6_EP6 pid=22498) INFO 10-10 05:11:25 [kernel_warmup.py:36] penalties Triton warmup complete in 0.201s.
+(Worker_TP6_EP6 pid=22498) INFO 10-10 05:11:25 [kernel_warmup.py:36] rms Triton warmup complete in 0.000s.
+(Worker_TP7_EP7 pid=22544) INFO 10-10 05:11:25 [kernel_warmup.py:36] deepseek_v41_indexer Triton warmup complete in 0.026s.
+(Worker_TP1_EP1 pid=22265) INFO 10-10 05:11:25 [kernel_warmup.py:36] deepseek_v41_indexer Triton warmup complete in 0.026s.
+(Worker_TP7_EP7 pid=22544) INFO 10-10 05:11:25 [kernel_warmup.py:53] Triton kernel warmup finished in 0.214s.
+(Worker_TP1_EP1 pid=22265) INFO 10-10 05:11:25 [kernel_warmup.py:53] Triton kernel warmup finished in 0.214s.
+(Worker_TP3_EP3 pid=22360) INFO 10-10 05:11:25 [kernel_warmup.py:36] deepseek_v41_indexer Triton warmup complete in 0.026s.
+(Worker_TP3_EP3 pid=22360) INFO 10-10 05:11:25 [kernel_warmup.py:53] Triton kernel warmup finished in 0.214s.
+(Worker_TP5_EP5 pid=22452) INFO 10-10 05:11:25 [kernel_warmup.py:36] deepseek_v41_indexer Triton warmup complete in 0.026s.
+(Worker_TP5_EP5 pid=22452) INFO 10-10 05:11:25 [kernel_warmup.py:53] Triton kernel warmup finished in 0.216s.
+(Worker_TP2_EP2 pid=22314) INFO 10-10 05:11:25 [kernel_warmup.py:36] penalties Triton warmup complete in 0.222s.
+(Worker_TP2_EP2 pid=22314) INFO 10-10 05:11:25 [kernel_warmup.py:36] rms Triton warmup complete in 0.000s.
+(Worker_TP0_EP0 pid=22246) INFO 10-10 05:11:25 [kernel_warmup.py:36] deepseek_v41_indexer Triton warmup complete in 0.026s.
+(Worker_TP4_EP4 pid=22406) INFO 10-10 05:11:25 [kernel_warmup.py:36] deepseek_v41_indexer Triton warmup complete in 0.026s.
+(Worker_TP0_EP0 pid=22246) INFO 10-10 05:11:25 [kernel_warmup.py:53] Triton kernel warmup finished in 0.227s.
+(Worker_TP4_EP4 pid=22406) INFO 10-10 05:11:25 [kernel_warmup.py:53] Triton kernel warmup finished in 0.227s.
+(Worker_TP6_EP6 pid=22498) INFO 10-10 05:11:25 [kernel_warmup.py:36] deepseek_v41_indexer Triton warmup complete in 0.027s.
+(Worker_TP6_EP6 pid=22498) INFO 10-10 05:11:25 [kernel_warmup.py:53] Triton kernel warmup finished in 0.229s.
+(Worker_TP2_EP2 pid=22314) INFO 10-10 05:11:25 [kernel_warmup.py:36] deepseek_v41_indexer Triton warmup complete in 0.026s.
+(Worker_TP2_EP2 pid=22314) INFO 10-10 05:11:25 [kernel_warmup.py:53] Triton kernel warmup finished in 0.249s.
+(EngineCore pid=22219) INFO 10-10 05:11:25 [core.py:355] init engine (profile, create kv cache, warmup model) took 4.42 s
+(EngineCore pid=22219) [transformers] Unrecognized keys in `rope_parameters` for 'rope_type'='default': {'beta_fast', 'beta_slow', 'factor', 'original_max_position_embeddings'}
+(EngineCore pid=22219) [transformers] Unrecognized keys in `rope_parameters` for 'rope_type'='default': {'beta_fast', 'beta_slow', 'factor', 'original_max_position_embeddings'}
+(EngineCore pid=22219) INFO 10-10 05:11:26 [routed_experts_capturer.py:298] RoutedExpertsManager CPU buffer: 0.49 GB (slots=1016192, layers=40, top_k=6, dtype=uint16)
+(EngineCore pid=22219) INFO 10-10 05:11:26 [ascend_config.py:161] Dynamic EPLB is False
+(EngineCore pid=22219) INFO 10-10 05:11:26 [ascend_config.py:162] The number of redundant experts is 0
+(EngineCore pid=22219) WARNING 10-10 05:11:27 [serial_utils.py:79] Allowing insecure serialization using pickle due to VLLM_ALLOW_INSECURE_SERIALIZATION=1
+(EngineCore pid=22219) WARNING 10-10 05:11:27 [vllm.py:1194] Enforce eager set, disabling torch.compile and CUDAGraphs. This is equivalent to setting -cc.mode=none -cc.cudagraph_mode=none
+(EngineCore pid=22219) WARNING 10-10 05:11:27 [vllm.py:1247] Inductor compilation was disabled by user settings, optimizations settings that are only active during inductor compilation will be ignored.
+WARNING 10-10 05:11:27 [serial_utils.py:79] Allowing insecure serialization using pickle due to VLLM_ALLOW_INSECURE_SERIALIZATION=1
+(EngineCore pid=22219) INFO 10-10 05:11:27 [kernel.py:306] Final IR op priority after setting platform defaults: IrOpPriorityConfig(rms_norm=['native'], fused_add_rms_norm=['native'])
+(EngineCore pid=22219) INFO 10-10 05:11:27 [vllm.py:1426] Cudagraph is disabled under eager mode
+(EngineCore pid=22219) INFO 10-10 05:11:27 [platform.py:863] The timeout interval of the HCCL operator is 1836s. Timeout in seconds for execute_model RPC calls in multiprocessing must be greater than 1836s, Set VLLM_EXECUTE_MODEL_TIMEOUT_SECONDS=3000
+(EngineCore pid=22219) INFO 10-10 05:11:27 [platform.py:1090] Compilation disabled, using eager mode by default
+(EngineCore pid=22219) INFO 10-10 05:11:27 [platform.py:1167] FlashComm1 is disabled. Using flashinfer_all2allv as the all2all backend.
+(EngineCore pid=22219) INFO 10-10 05:11:27 [utils.py:1221] Block size is set to 128 if prefix cache or chunked prefill is enabled.
+(EngineCore pid=22219) INFO 10-10 05:11:27 [platform.py:1356] Set PYTORCH_NPU_ALLOC_CONF=expandable_segments:True
+(EngineCore pid=22219) INFO 10-10 05:11:27 [compilation.py:329] Enabled custom fusions: norm_quant, act_quant
+[transformers] Unrecognized keys in `rope_parameters` for 'rope_type'='default': {'beta_fast', 'original_max_position_embeddings', 'beta_slow', 'factor'}
+[transformers] Unrecognized keys in `rope_parameters` for 'rope_type'='default': {'beta_fast', 'original_max_position_embeddings', 'beta_slow', 'factor'}
+[transformers] Unrecognized keys in `rope_parameters` for 'rope_type'='default': {'beta_fast', 'original_max_position_embeddings', 'beta_slow', 'factor'}
+[transformers] Unrecognized keys in `rope_parameters` for 'rope_type'='default': {'beta_fast', 'original_max_position_embeddings', 'beta_slow', 'factor'}
+INFO 10-10 05:11:28 [hf.py:540] Detected the chat template content format to be 'string'. You can set `--chat-template-content-format` to override this.
+INFO 10-10 05:11:30 [base.py:235] Multi-modal warmup completed in 1.858s
+INFO 10-10 05:11:30 [base.py:235] Readonly multi-modal warmup completed in 0.033s
+(Worker_TP7_EP7 pid=22544) [bneck] mode=stock steps=20 dec=18 hp=149.422 pad=0.127 route=5.698 total=5.905 n=1 padded=1 max=2048 lookup=(2048, 6144) fake=0 mirror=0/0 | graphs=1 replays=18 captures=1 eager_fallbacks=1 ptr_mismatch=0 keys=[(1, 1, 64)] last_fallback='n=2048 exceeds max_tokens=192'
+(Worker_TP5_EP5 pid=22452) [bneck] mode=stock steps=20 dec=18 hp=149.644 pad=0.126 route=5.824 total=6.029 n=1 padded=1 max=2048 lookup=(2048, 6144) fake=0 mirror=0/0 | graphs=1 replays=18 captures=1 eager_fallbacks=1 ptr_mismatch=0 keys=[(1, 1, 64)] last_fallback='n=2048 exceeds max_tokens=192'
+(Worker_TP1_EP1 pid=22265) [bneck] mode=stock steps=20 dec=18 hp=149.657 pad=0.126 route=5.928 total=6.139 n=1 padded=1 max=2048 lookup=(2048, 6144) fake=0 mirror=0/0 | graphs=1 replays=18 captures=1 eager_fallbacks=1 ptr_mismatch=0 keys=[(1, 1, 64)] last_fallback='n=2048 exceeds max_tokens=192'
+(Worker_TP6_EP6 pid=22498) [bneck] mode=stock steps=20 dec=18 hp=149.437 pad=0.126 route=5.556 total=5.769 n=1 padded=1 max=2048 lookup=(2048, 6144) fake=0 mirror=0/0 | graphs=1 replays=18 captures=1 eager_fallbacks=1 ptr_mismatch=0 keys=[(1, 1, 64)] last_fallback='n=2048 exceeds max_tokens=192'
+(Worker_TP0_EP0 pid=22246) [bneck] mode=stock steps=20 dec=18 hp=149.628 pad=0.129 route=5.941 total=6.149 n=1 padded=1 max=2048 lookup=(2048, 6144) fake=0 mirror=0/0 | graphs=1 replays=18 captures=1 eager_fallbacks=1 ptr_mismatch=0 keys=[(1, 1, 64)] last_fallback='n=2048 exceeds max_tokens=192'
+(Worker_TP4_EP4 pid=22406) [bneck] mode=stock steps=20 dec=18 hp=149.576 pad=0.133 route=5.302 total=5.518 n=1 padded=1 max=2048 lookup=(2048, 6144) fake=0 mirror=0/0 | graphs=1 replays=18 captures=1 eager_fallbacks=1 ptr_mismatch=0 keys=[(1, 1, 64)] last_fallback='n=2048 exceeds max_tokens=192'
+(Worker_TP3_EP3 pid=22360) [bneck] mode=stock steps=20 dec=18 hp=149.687 pad=0.126 route=5.695 total=5.900 n=1 padded=1 max=2048 lookup=(2048, 6144) fake=0 mirror=0/0 | graphs=1 replays=18 captures=1 eager_fallbacks=1 ptr_mismatch=0 keys=[(1, 1, 64)] last_fallback='n=2048 exceeds max_tokens=192'
+(Worker_TP2_EP2 pid=22314) [bneck] mode=stock steps=20 dec=18 hp=148.092 pad=0.140 route=3.824 total=4.050 n=1 padded=1 max=2048 lookup=(2048, 6144) fake=0 mirror=0/0 | graphs=1 replays=18 captures=1 eager_fallbacks=1 ptr_mismatch=0 keys=[(1, 1, 64)] last_fallback='n=2048 exceeds max_tokens=192'
+(Worker_TP5_EP5 pid=22452) [bneck] mode=stock steps=40 dec=20 hp=152.974 pad=0.122 route=0.072 total=0.272 n=1 padded=1 max=2048 lookup=(2048, 6144) fake=0 mirror=0/0 | graphs=1 replays=38 captures=1 eager_fallbacks=1 ptr_mismatch=0 keys=[(1, 1, 64)] last_fallback='n=2048 exceeds max_tokens=192'
+(Worker_TP1_EP1 pid=22265) [bneck] mode=stock steps=40 dec=20 hp=152.969 pad=0.127 route=0.064 total=0.270 n=1 padded=1 max=2048 lookup=(2048, 6144) fake=0 mirror=0/0 | graphs=1 replays=38 captures=1 eager_fallbacks=1 ptr_mismatch=0 keys=[(1, 1, 64)] last_fallback='n=2048 exceeds max_tokens=192'
+(Worker_TP7_EP7 pid=22544) [bneck] mode=stock steps=40 dec=20 hp=152.977 pad=0.126 route=0.070 total=0.273 n=1 padded=1 max=2048 lookup=(2048, 6144) fake=0 mirror=0/0 | graphs=1 replays=38 captures=1 eager_fallbacks=1 ptr_mismatch=0 keys=[(1, 1, 64)] last_fallback='n=2048 exceeds max_tokens=192'
+(Worker_TP4_EP4 pid=22406) [bneck] mode=stock steps=40 dec=20 hp=152.959 pad=0.127 route=0.064 total=0.264 n=1 padded=1 max=2048 lookup=(2048, 6144) fake=0 mirror=0/0 | graphs=1 replays=38 captures=1 eager_fallbacks=1 ptr_mismatch=0 keys=[(1, 1, 64)] last_fallback='n=2048 exceeds max_tokens=192'
+(Worker_TP3_EP3 pid=22360) [bneck] mode=stock steps=40 dec=20 hp=152.953 pad=0.128 route=0.069 total=0.275 n=1 padded=1 max=2048 lookup=(2048, 6144) fake=0 mirror=0/0 | graphs=1 replays=38 captures=1 eager_fallbacks=1 ptr_mismatch=0 keys=[(1, 1, 64)] last_fallback='n=2048 exceeds max_tokens=192'
+(Worker_TP2_EP2 pid=22314) [bneck] mode=stock steps=40 dec=20 hp=152.915 pad=0.130 route=0.066 total=0.278 n=1 padded=1 max=2048 lookup=(2048, 6144) fake=0 mirror=0/0 | graphs=1 replays=38 captures=1 eager_fallbacks=1 ptr_mismatch=0 keys=[(1, 1, 64)] last_fallback='n=2048 exceeds max_tokens=192'
+(Worker_TP6_EP6 pid=22498) [bneck] mode=stock steps=40 dec=20 hp=152.989 pad=0.124 route=0.071 total=0.280 n=1 padded=1 max=2048 lookup=(2048, 6144) fake=0 mirror=0/0 | graphs=1 replays=38 captures=1 eager_fallbacks=1 ptr_mismatch=0 keys=[(1, 1, 64)] last_fallback='n=2048 exceeds max_tokens=192'
+(Worker_TP0_EP0 pid=22246) [bneck] mode=stock steps=40 dec=20 hp=153.011 pad=0.124 route=0.064 total=0.261 n=1 padded=1 max=2048 lookup=(2048, 6144) fake=0 mirror=0/0 | graphs=1 replays=38 captures=1 eager_fallbacks=1 ptr_mismatch=0 keys=[(1, 1, 64)] last_fallback='n=2048 exceeds max_tokens=192'
+FORMAL_NATIVE_CONTROL_REQUEST warmup-0
+(Worker_TP3_EP3 pid=22360) [bneck] mode=stock steps=60 dec=19 hp=167.129 pad=0.125 route=0.072 total=0.276 n=1 padded=1 max=2048 lookup=(2048, 6144) fake=0 mirror=0/0 | graphs=1 replays=57 captures=1 eager_fallbacks=2 ptr_mismatch=0 keys=[(1, 1, 64)] last_fallback='n=2048 exceeds max_tokens=192'
+(Worker_TP2_EP2 pid=22314) [bneck] mode=stock steps=60 dec=19 hp=167.121 pad=0.130 route=0.065 total=0.277 n=1 padded=1 max=2048 lookup=(2048, 6144) fake=0 mirror=0/0 | graphs=1 replays=57 captures=1 eager_fallbacks=2 ptr_mismatch=0 keys=[(1, 1, 64)] last_fallback='n=2048 exceeds max_tokens=192'
+(Worker_TP0_EP0 pid=22246) [bneck] mode=stock steps=60 dec=19 hp=167.094 pad=0.129 route=0.067 total=0.275 n=1 padded=1 max=2048 lookup=(2048, 6144) fake=0 mirror=0/0 | graphs=1 replays=57 captures=1 eager_fallbacks=2 ptr_mismatch=0 keys=[(1, 1, 64)] last_fallback='n=2048 exceeds max_tokens=192'
+(Worker_TP7_EP7 pid=22544) [bneck] mode=stock steps=60 dec=19 hp=167.170 pad=0.128 route=0.073 total=0.280 n=1 padded=1 max=2048 lookup=(2048, 6144) fake=0 mirror=0/0 | graphs=1 replays=57 captures=1 eager_fallbacks=2 ptr_mismatch=0 keys=[(1, 1, 64)] last_fallback='n=2048 exceeds max_tokens=192'
+(Worker_TP4_EP4 pid=22406) [bneck] mode=stock steps=60 dec=19 hp=167.177 pad=0.124 route=0.065 total=0.260 n=1 padded=1 max=2048 lookup=(2048, 6144) fake=0 mirror=0/0 | graphs=1 replays=57 captures=1 eager_fallbacks=2 ptr_mismatch=0 keys=[(1, 1, 64)] last_fallback='n=2048 exceeds max_tokens=192'
+(Worker_TP5_EP5 pid=22452) [bneck] mode=stock steps=60 dec=19 hp=167.094 pad=0.125 route=0.071 total=0.275 n=1 padded=1 max=2048 lookup=(2048, 6144) fake=0 mirror=0/0 | graphs=1 replays=57 captures=1 eager_fallbacks=2 ptr_mismatch=0 keys=[(1, 1, 64)] last_fallback='n=2048 exceeds max_tokens=192'
+(Worker_TP6_EP6 pid=22498) [bneck] mode=stock steps=60 dec=19 hp=167.317 pad=0.124 route=0.072 total=0.280 n=1 padded=1 max=2048 lookup=(2048, 6144) fake=0 mirror=0/0 | graphs=1 replays=57 captures=1 eager_fallbacks=2 ptr_mismatch=0 keys=[(1, 1, 64)] last_fallback='n=2048 exceeds max_tokens=192'
+(Worker_TP1_EP1 pid=22265) [bneck] mode=stock steps=60 dec=19 hp=167.343 pad=0.126 route=0.066 total=0.271 n=1 padded=1 max=2048 lookup=(2048, 6144) fake=0 mirror=0/0 | graphs=1 replays=57 captures=1 eager_fallbacks=2 ptr_mismatch=0 keys=[(1, 1, 64)] last_fallback='n=2048 exceeds max_tokens=192'
+(Worker_TP7_EP7 pid=22544) [bneck] mode=stock steps=80 dec=20 hp=164.920 pad=0.126 route=0.074 total=0.279 n=1 padded=1 max=2048 lookup=(2048, 6144) fake=0 mirror=0/0 | graphs=1 replays=77 captures=1 eager_fallbacks=2 ptr_mismatch=0 keys=[(1, 1, 64)] last_fallback='n=2048 exceeds max_tokens=192'
+(Worker_TP5_EP5 pid=22452) [bneck] mode=stock steps=80 dec=20 hp=164.912 pad=0.125 route=0.071 total=0.275 n=1 padded=1 max=2048 lookup=(2048, 6144) fake=0 mirror=0/0 | graphs=1 replays=77 captures=1 eager_fallbacks=2 ptr_mismatch=0 keys=[(1, 1, 64)] last_fallback='n=2048 exceeds max_tokens=192'
+(Worker_TP3_EP3 pid=22360) [bneck] mode=stock steps=80 dec=20 hp=164.937 pad=0.127 route=0.069 total=0.275 n=1 padded=1 max=2048 lookup=(2048, 6144) fake=0 mirror=0/0 | graphs=1 replays=77 captures=1 eager_fallbacks=2 ptr_mismatch=0 keys=[(1, 1, 64)] last_fallback='n=2048 exceeds max_tokens=192'
+(Worker_TP2_EP2 pid=22314) [bneck] mode=stock steps=80 dec=20 hp=164.932 pad=0.128 route=0.067 total=0.276 n=1 padded=1 max=2048 lookup=(2048, 6144) fake=0 mirror=0/0 | graphs=1 replays=77 captures=1 eager_fallbacks=2 ptr_mismatch=0 keys=[(1, 1, 64)] last_fallback='n=2048 exceeds max_tokens=192'
+(Worker_TP1_EP1 pid=22265) [bneck] mode=stock steps=80 dec=20 hp=164.763 pad=0.125 route=0.068 total=0.271 n=1 padded=1 max=2048 lookup=(2048, 6144) fake=0 mirror=0/0 | graphs=1 replays=77 captures=1 eager_fallbacks=2 ptr_mismatch=0 keys=[(1, 1, 64)] last_fallback='n=2048 exceeds max_tokens=192'
+(Worker_TP6_EP6 pid=22498) [bneck] mode=stock steps=80 dec=20 hp=164.778 pad=0.120 route=0.072 total=0.274 n=1 padded=1 max=2048 lookup=(2048, 6144) fake=0 mirror=0/0 | graphs=1 replays=77 captures=1 eager_fallbacks=2 ptr_mismatch=0 keys=[(1, 1, 64)] last_fallback='n=2048 exceeds max_tokens=192'
+(Worker_TP0_EP0 pid=22246) [bneck] mode=stock steps=80 dec=20 hp=164.935 pad=0.127 route=0.069 total=0.273 n=1 padded=1 max=2048 lookup=(2048, 6144) fake=0 mirror=0/0 | graphs=1 replays=77 captures=1 eager_fallbacks=2 ptr_mismatch=0 keys=[(1, 1, 64)] last_fallback='n=2048 exceeds max_tokens=192'
+(Worker_TP4_EP4 pid=22406) [bneck] mode=stock steps=80 dec=20 hp=164.922 pad=0.125 route=0.069 total=0.269 n=1 padded=1 max=2048 lookup=(2048, 6144) fake=0 mirror=0/0 | graphs=1 replays=77 captures=1 eager_fallbacks=2 ptr_mismatch=0 keys=[(1, 1, 64)] last_fallback='n=2048 exceeds max_tokens=192'
+FORMAL_NATIVE_CONTROL_REQUEST warmup-1
+(Worker_TP7_EP7 pid=22544) [bneck] mode=stock steps=100 dec=19 hp=174.597 pad=0.124 route=0.073 total=0.279 n=1 padded=1 max=2048 lookup=(2048, 6144) fake=0 mirror=0/0 | graphs=1 replays=96 captures=1 eager_fallbacks=3 ptr_mismatch=0 keys=[(1, 1, 64)] last_fallback='n=2048 exceeds max_tokens=192'
+(Worker_TP5_EP5 pid=22452) [bneck] mode=stock steps=100 dec=19 hp=174.595 pad=0.124 route=0.069 total=0.269 n=1 padded=1 max=2048 lookup=(2048, 6144) fake=0 mirror=0/0 | graphs=1 replays=96 captures=1 eager_fallbacks=3 ptr_mismatch=0 keys=[(1, 1, 64)] last_fallback='n=2048 exceeds max_tokens=192'
+(Worker_TP3_EP3 pid=22360) [bneck] mode=stock steps=100 dec=19 hp=174.595 pad=0.124 route=0.069 total=0.270 n=1 padded=1 max=2048 lookup=(2048, 6144) fake=0 mirror=0/0 | graphs=1 replays=96 captures=1 eager_fallbacks=3 ptr_mismatch=0 keys=[(1, 1, 64)] last_fallback='n=2048 exceeds max_tokens=192'
+(Worker_TP0_EP0 pid=22246) [bneck] mode=stock steps=100 dec=19 hp=174.594 pad=0.126 route=0.065 total=0.265 n=1 padded=1 max=2048 lookup=(2048, 6144) fake=0 mirror=0/0 | graphs=1 replays=96 captures=1 eager_fallbacks=3 ptr_mismatch=0 keys=[(1, 1, 64)] last_fallback='n=2048 exceeds max_tokens=192'
+(Worker_TP2_EP2 pid=22314) [bneck] mode=stock steps=100 dec=19 hp=174.639 pad=0.128 route=0.064 total=0.271 n=1 padded=1 max=2048 lookup=(2048, 6144) fake=0 mirror=0/0 | graphs=1 replays=96 captures=1 eager_fallbacks=3 ptr_mismatch=0 keys=[(1, 1, 64)] last_fallback='n=2048 exceeds max_tokens=192'
+(Worker_TP1_EP1 pid=22265) [bneck] mode=stock steps=100 dec=19 hp=174.610 pad=0.123 route=0.065 total=0.266 n=1 padded=1 max=2048 lookup=(2048, 6144) fake=0 mirror=0/0 | graphs=1 replays=96 captures=1 eager_fallbacks=3 ptr_mismatch=0 keys=[(1, 1, 64)] last_fallback='n=2048 exceeds max_tokens=192'
+(Worker_TP6_EP6 pid=22498) [bneck] mode=stock steps=100 dec=19 hp=174.666 pad=0.126 route=0.081 total=0.304 n=1 padded=1 max=2048 lookup=(2048, 6144) fake=0 mirror=0/0 | graphs=1 replays=96 captures=1 eager_fallbacks=3 ptr_mismatch=0 keys=[(1, 1, 64)] last_fallback='n=2048 exceeds max_tokens=192'
+(Worker_TP4_EP4 pid=22406) [bneck] mode=stock steps=100 dec=19 hp=174.703 pad=0.126 route=0.062 total=0.259 n=1 padded=1 max=2048 lookup=(2048, 6144) fake=0 mirror=0/0 | graphs=1 replays=96 captures=1 eager_fallbacks=3 ptr_mismatch=0 keys=[(1, 1, 64)] last_fallback='n=2048 exceeds max_tokens=192'
+(Worker_TP6_EP6 pid=22498) [bneck] mode=stock steps=120 dec=20 hp=164.303 pad=0.123 route=0.076 total=0.283 n=1 padded=1 max=2048 lookup=(2048, 6144) fake=0 mirror=0/0 | graphs=1 replays=116 captures=1 eager_fallbacks=3 ptr_mismatch=0 keys=[(1, 1, 64)] last_fallback='n=2048 exceeds max_tokens=192'
+(Worker_TP3_EP3 pid=22360) [bneck] mode=stock steps=120 dec=20 hp=164.345 pad=0.127 route=0.070 total=0.275 n=1 padded=1 max=2048 lookup=(2048, 6144) fake=0 mirror=0/0 | graphs=1 replays=116 captures=1 eager_fallbacks=3 ptr_mismatch=0 keys=[(1, 1, 64)] last_fallback='n=2048 exceeds max_tokens=192'
+(Worker_TP7_EP7 pid=22544) [bneck] mode=stock steps=120 dec=20 hp=164.354 pad=0.130 route=0.071 total=0.281 n=1 padded=1 max=2048 lookup=(2048, 6144) fake=0 mirror=0/0 | graphs=1 replays=116 captures=1 eager_fallbacks=3 ptr_mismatch=0 keys=[(1, 1, 64)] last_fallback='n=2048 exceeds max_tokens=192'
+(Worker_TP5_EP5 pid=22452) [bneck] mode=stock steps=120 dec=20 hp=164.353 pad=0.127 route=0.071 total=0.277 n=1 padded=1 max=2048 lookup=(2048, 6144) fake=0 mirror=0/0 | graphs=1 replays=116 captures=1 eager_fallbacks=3 ptr_mismatch=0 keys=[(1, 1, 64)] last_fallback='n=2048 exceeds max_tokens=192'
+(Worker_TP4_EP4 pid=22406) [bneck] mode=stock steps=120 dec=20 hp=164.222 pad=0.124 route=0.062 total=0.255 n=1 padded=1 max=2048 lookup=(2048, 6144) fake=0 mirror=0/0 | graphs=1 replays=116 captures=1 eager_fallbacks=3 ptr_mismatch=0 keys=[(1, 1, 64)] last_fallback='n=2048 exceeds max_tokens=192'
+(Worker_TP0_EP0 pid=22246) [bneck] mode=stock steps=120 dec=20 hp=164.344 pad=0.123 route=0.064 total=0.259 n=1 padded=1 max=2048 lookup=(2048, 6144) fake=0 mirror=0/0 | graphs=1 replays=116 captures=1 eager_fallbacks=3 ptr_mismatch=0 keys=[(1, 1, 64)] last_fallback='n=2048 exceeds max_tokens=192'
+(Worker_TP1_EP1 pid=22265) [bneck] mode=stock steps=120 dec=20 hp=164.346 pad=0.136 route=0.066 total=0.282 n=1 padded=1 max=2048 lookup=(2048, 6144) fake=0 mirror=0/0 | graphs=1 replays=116 captures=1 eager_fallbacks=3 ptr_mismatch=0 keys=[(1, 1, 64)] last_fallback='n=2048 exceeds max_tokens=192'
+(Worker_TP2_EP2 pid=22314) [bneck] mode=stock steps=120 dec=20 hp=164.348 pad=0.126 route=0.067 total=0.274 n=1 padded=1 max=2048 lookup=(2048, 6144) fake=0 mirror=0/0 | graphs=1 replays=116 captures=1 eager_fallbacks=3 ptr_mismatch=0 keys=[(1, 1, 64)] last_fallback='n=2048 exceeds max_tokens=192'
+(Worker_TP0_EP0 pid=22246) [bneck] mode=stock steps=140 dec=20 hp=167.681 pad=0.125 route=0.067 total=0.265 n=1 padded=1 max=2048 lookup=(2048, 6144) fake=0 mirror=0/0 | graphs=1 replays=136 captures=1 eager_fallbacks=3 ptr_mismatch=0 keys=[(1, 1, 64)] last_fallback='n=2048 exceeds max_tokens=192'
+(Worker_TP5_EP5 pid=22452) [bneck] mode=stock steps=140 dec=20 hp=167.686 pad=0.125 route=0.073 total=0.277 n=1 padded=1 max=2048 lookup=(2048, 6144) fake=0 mirror=0/0 | graphs=1 replays=136 captures=1 eager_fallbacks=3 ptr_mismatch=0 keys=[(1, 1, 64)] last_fallback='n=2048 exceeds max_tokens=192'
+(Worker_TP7_EP7 pid=22544) [bneck] mode=stock steps=140 dec=20 hp=167.686 pad=0.127 route=0.073 total=0.281 n=1 padded=1 max=2048 lookup=(2048, 6144) fake=0 mirror=0/0 | graphs=1 replays=136 captures=1 eager_fallbacks=3 ptr_mismatch=0 keys=[(1, 1, 64)] last_fallback='n=2048 exceeds max_tokens=192'
+(Worker_TP1_EP1 pid=22265) [bneck] mode=stock steps=140 dec=20 hp=167.680 pad=0.125 route=0.067 total=0.273 n=1 padded=1 max=2048 lookup=(2048, 6144) fake=0 mirror=0/0 | graphs=1 replays=136 captures=1 eager_fallbacks=3 ptr_mismatch=0 keys=[(1, 1, 64)] last_fallback='n=2048 exceeds max_tokens=192'
+(Worker_TP4_EP4 pid=22406) [bneck] mode=stock steps=140 dec=20 hp=167.688 pad=0.124 route=0.064 total=0.261 n=1 padded=1 max=2048 lookup=(2048, 6144) fake=0 mirror=0/0 | graphs=1 replays=136 captures=1 eager_fallbacks=3 ptr_mismatch=0 keys=[(1, 1, 64)] last_fallback='n=2048 exceeds max_tokens=192'
+(Worker_TP6_EP6 pid=22498) [bneck] mode=stock steps=140 dec=20 hp=167.691 pad=0.122 route=0.073 total=0.277 n=1 padded=1 max=2048 lookup=(2048, 6144) fake=0 mirror=0/0 | graphs=1 replays=136 captures=1 eager_fallbacks=3 ptr_mismatch=0 keys=[(1, 1, 64)] last_fallback='n=2048 exceeds max_tokens=192'
+(Worker_TP3_EP3 pid=22360) [bneck] mode=stock steps=140 dec=20 hp=167.695 pad=0.126 route=0.071 total=0.276 n=1 padded=1 max=2048 lookup=(2048, 6144) fake=0 mirror=0/0 | graphs=1 replays=136 captures=1 eager_fallbacks=3 ptr_mismatch=0 keys=[(1, 1, 64)] last_fallback='n=2048 exceeds max_tokens=192'
+(Worker_TP2_EP2 pid=22314) [bneck] mode=stock steps=140 dec=20 hp=167.692 pad=0.129 route=0.065 total=0.273 n=1 padded=1 max=2048 lookup=(2048, 6144) fake=0 mirror=0/0 | graphs=1 replays=136 captures=1 eager_fallbacks=3 ptr_mismatch=0 keys=[(1, 1, 64)] last_fallback='n=2048 exceeds max_tokens=192'
+FORMAL_NATIVE_CONTROL_REQUEST reference
+(Worker_TP0_EP0 pid=22246) [bneck] mode=stock steps=160 dec=19 hp=182.689 pad=0.123 route=0.061 total=0.255 n=1 padded=1 max=2048 lookup=(2048, 6144) fake=0 mirror=0/0 | graphs=1 replays=155 captures=1 eager_fallbacks=4 ptr_mismatch=0 keys=[(1, 1, 64)] last_fallback='n=2048 exceeds max_tokens=192'
+(Worker_TP7_EP7 pid=22544) [bneck] mode=stock steps=160 dec=19 hp=182.725 pad=0.127 route=0.076 total=0.287 n=1 padded=1 max=2048 lookup=(2048, 6144) fake=0 mirror=0/0 | graphs=1 replays=155 captures=1 eager_fallbacks=4 ptr_mismatch=0 keys=[(1, 1, 64)] last_fallback='n=2048 exceeds max_tokens=192'
+(Worker_TP4_EP4 pid=22406) [bneck] mode=stock steps=160 dec=19 hp=182.717 pad=0.126 route=0.064 total=0.260 n=1 padded=1 max=2048 lookup=(2048, 6144) fake=0 mirror=0/0 | graphs=1 replays=155 captures=1 eager_fallbacks=4 ptr_mismatch=0 keys=[(1, 1, 64)] last_fallback='n=2048 exceeds max_tokens=192'
+(Worker_TP6_EP6 pid=22498) [bneck] mode=stock steps=160 dec=19 hp=182.722 pad=0.129 route=0.073 total=0.281 n=1 padded=1 max=2048 lookup=(2048, 6144) fake=0 mirror=0/0 | graphs=1 replays=155 captures=1 eager_fallbacks=4 ptr_mismatch=0 keys=[(1, 1, 64)] last_fallback='n=2048 exceeds max_tokens=192'
+(Worker_TP5_EP5 pid=22452) [bneck] mode=stock steps=160 dec=19 hp=182.730 pad=0.126 route=0.070 total=0.280 n=1 padded=1 max=2048 lookup=(2048, 6144) fake=0 mirror=0/0 | graphs=1 replays=155 captures=1 eager_fallbacks=4 ptr_mismatch=0 keys=[(1, 1, 64)] last_fallback='n=2048 exceeds max_tokens=192'
+(Worker_TP2_EP2 pid=22314) [bneck] mode=stock steps=160 dec=19 hp=182.712 pad=0.131 route=0.066 total=0.277 n=1 padded=1 max=2048 lookup=(2048, 6144) fake=0 mirror=0/0 | graphs=1 replays=155 captures=1 eager_fallbacks=4 ptr_mismatch=0 keys=[(1, 1, 64)] last_fallback='n=2048 exceeds max_tokens=192'
+(Worker_TP3_EP3 pid=22360) [bneck] mode=stock steps=160 dec=19 hp=182.727 pad=0.131 route=0.066 total=0.276 n=1 padded=1 max=2048 lookup=(2048, 6144) fake=0 mirror=0/0 | graphs=1 replays=155 captures=1 eager_fallbacks=4 ptr_mismatch=0 keys=[(1, 1, 64)] last_fallback='n=2048 exceeds max_tokens=192'
+(Worker_TP1_EP1 pid=22265) [bneck] mode=stock steps=160 dec=19 hp=182.735 pad=0.126 route=0.065 total=0.274 n=1 padded=1 max=2048 lookup=(2048, 6144) fake=0 mirror=0/0 | graphs=1 replays=155 captures=1 eager_fallbacks=4 ptr_mismatch=0 keys=[(1, 1, 64)] last_fallback='n=2048 exceeds max_tokens=192'
+(Worker_TP0_EP0 pid=22246) [bneck] mode=stock steps=180 dec=20 hp=177.531 pad=0.123 route=0.066 total=0.260 n=1 padded=1 max=2048 lookup=(2048, 6144) fake=0 mirror=0/0 | graphs=1 replays=175 captures=1 eager_fallbacks=4 ptr_mismatch=0 keys=[(1, 1, 64)] last_fallback='n=2048 exceeds max_tokens=192'
+(Worker_TP6_EP6 pid=22498) [bneck] mode=stock steps=180 dec=20 hp=177.526 pad=0.122 route=0.074 total=0.277 n=1 padded=1 max=2048 lookup=(2048, 6144) fake=0 mirror=0/0 | graphs=1 replays=175 captures=1 eager_fallbacks=4 ptr_mismatch=0 keys=[(1, 1, 64)] last_fallback='n=2048 exceeds max_tokens=192'
+(Worker_TP5_EP5 pid=22452) [bneck] mode=stock steps=180 dec=20 hp=177.525 pad=0.125 route=0.070 total=0.274 n=1 padded=1 max=2048 lookup=(2048, 6144) fake=0 mirror=0/0 | graphs=1 replays=175 captures=1 eager_fallbacks=4 ptr_mismatch=0 keys=[(1, 1, 64)] last_fallback='n=2048 exceeds max_tokens=192'
+(Worker_TP2_EP2 pid=22314) [bneck] mode=stock steps=180 dec=20 hp=177.522 pad=0.124 route=0.067 total=0.273 n=1 padded=1 max=2048 lookup=(2048, 6144) fake=0 mirror=0/0 | graphs=1 replays=175 captures=1 eager_fallbacks=4 ptr_mismatch=0 keys=[(1, 1, 64)] last_fallback='n=2048 exceeds max_tokens=192'
+(Worker_TP3_EP3 pid=22360) [bneck] mode=stock steps=180 dec=20 hp=177.522 pad=0.124 route=0.067 total=0.270 n=1 padded=1 max=2048 lookup=(2048, 6144) fake=0 mirror=0/0 | graphs=1 replays=175 captures=1 eager_fallbacks=4 ptr_mismatch=0 keys=[(1, 1, 64)] last_fallback='n=2048 exceeds max_tokens=192'
+(Worker_TP1_EP1 pid=22265) [bneck] mode=stock steps=180 dec=20 hp=177.516 pad=0.125 route=0.064 total=0.271 n=1 padded=1 max=2048 lookup=(2048, 6144) fake=0 mirror=0/0 | graphs=1 replays=175 captures=1 eager_fallbacks=4 ptr_mismatch=0 keys=[(1, 1, 64)] last_fallback='n=2048 exceeds max_tokens=192'
+(Worker_TP7_EP7 pid=22544) [bneck] mode=stock steps=180 dec=20 hp=177.537 pad=0.126 route=0.079 total=0.286 n=1 padded=1 max=2048 lookup=(2048, 6144) fake=0 mirror=0/0 | graphs=1 replays=175 captures=1 eager_fallbacks=4 ptr_mismatch=0 keys=[(1, 1, 64)] last_fallback='n=2048 exceeds max_tokens=192'
+(Worker_TP4_EP4 pid=22406) [bneck] mode=stock steps=180 dec=20 hp=177.543 pad=0.126 route=0.065 total=0.280 n=1 padded=1 max=2048 lookup=(2048, 6144) fake=0 mirror=0/0 | graphs=1 replays=175 captures=1 eager_fallbacks=4 ptr_mismatch=0 keys=[(1, 1, 64)] last_fallback='n=2048 exceeds max_tokens=192'
+FORMAL_NATIVE_CONTROL_REQUEST repeat-0
+FORMAL_NATIVE_CONTROL_COMPARISON {"label": "repeat-0", "tokens_equal": true, "reference_route_shape": [2094, 40, 6], "actual_route_shape": [2094, 40, 6], "reference_routes_valid": true, "actual_routes_valid": true, "routes_equal": false, "prefill_differing": 0, "decode_differing": 1429, "route_set_differing": 897, "first_route_difference": {"token": 2048, "layer": 1, "reference": [124, 335, 137, 227, 111, 338], "actual": [124, 137, 335, 227, 111, 338]}, "logprob_lengths_valid": true, "logprob_keys_equal": false, "max_common_logprob_delta": 1.249983787536621, "max_logprob_delta": null, "logprob_deltas_finite": true, "passed": false, "repeat": 0}
+(Worker_TP6_EP6 pid=22498) [bneck] mode=stock steps=200 dec=19 hp=202.946 pad=0.125 route=0.076 total=0.284 n=1 padded=1 max=2048 lookup=(2048, 6144) fake=0 mirror=0/0 | graphs=1 replays=194 captures=1 eager_fallbacks=5 ptr_mismatch=0 keys=[(1, 1, 64)] last_fallback='n=2048 exceeds max_tokens=192'
+(Worker_TP0_EP0 pid=22246) [bneck] mode=stock steps=200 dec=19 hp=202.945 pad=0.124 route=0.071 total=0.268 n=1 padded=1 max=2048 lookup=(2048, 6144) fake=0 mirror=0/0 | graphs=1 replays=194 captures=1 eager_fallbacks=5 ptr_mismatch=0 keys=[(1, 1, 64)] last_fallback='n=2048 exceeds max_tokens=192'
+(Worker_TP4_EP4 pid=22406) [bneck] mode=stock steps=200 dec=19 hp=202.972 pad=0.129 route=0.065 total=0.268 n=1 padded=1 max=2048 lookup=(2048, 6144) fake=0 mirror=0/0 | graphs=1 replays=194 captures=1 eager_fallbacks=5 ptr_mismatch=0 keys=[(1, 1, 64)] last_fallback='n=2048 exceeds max_tokens=192'
+(Worker_TP1_EP1 pid=22265) [bneck] mode=stock steps=200 dec=19 hp=202.970 pad=0.127 route=0.070 total=0.292 n=1 padded=1 max=2048 lookup=(2048, 6144) fake=0 mirror=0/0 | graphs=1 replays=194 captures=1 eager_fallbacks=5 ptr_mismatch=0 keys=[(1, 1, 64)] last_fallback='n=2048 exceeds max_tokens=192'
+(Worker_TP5_EP5 pid=22452) [bneck] mode=stock steps=200 dec=19 hp=202.981 pad=0.124 route=0.078 total=0.285 n=1 padded=1 max=2048 lookup=(2048, 6144) fake=0 mirror=0/0 | graphs=1 replays=194 captures=1 eager_fallbacks=5 ptr_mismatch=0 keys=[(1, 1, 64)] last_fallback='n=2048 exceeds max_tokens=192'
+(Worker_TP7_EP7 pid=22544) [bneck] mode=stock steps=200 dec=19 hp=202.965 pad=0.126 route=0.078 total=0.285 n=1 padded=1 max=2048 lookup=(2048, 6144) fake=0 mirror=0/0 | graphs=1 replays=194 captures=1 eager_fallbacks=5 ptr_mismatch=0 keys=[(1, 1, 64)] last_fallback='n=2048 exceeds max_tokens=192'
+(Worker_TP2_EP2 pid=22314) [bneck] mode=stock steps=200 dec=19 hp=203.021 pad=0.128 route=0.068 total=0.276 n=1 padded=1 max=2048 lookup=(2048, 6144) fake=0 mirror=0/0 | graphs=1 replays=194 captures=1 eager_fallbacks=5 ptr_mismatch=0 keys=[(1, 1, 64)] last_fallback='n=2048 exceeds max_tokens=192'
+(Worker_TP3_EP3 pid=22360) [bneck] mode=stock steps=200 dec=19 hp=203.073 pad=0.126 route=0.070 total=0.276 n=1 padded=1 max=2048 lookup=(2048, 6144) fake=0 mirror=0/0 | graphs=1 replays=194 captures=1 eager_fallbacks=5 ptr_mismatch=0 keys=[(1, 1, 64)] last_fallback='n=2048 exceeds max_tokens=192'
+(Worker_TP0_EP0 pid=22246) [bneck] mode=stock steps=220 dec=20 hp=184.479 pad=0.124 route=0.066 total=0.260 n=1 padded=1 max=2048 lookup=(2048, 6144) fake=0 mirror=0/0 | graphs=1 replays=214 captures=1 eager_fallbacks=5 ptr_mismatch=0 keys=[(1, 1, 64)] last_fallback='n=2048 exceeds max_tokens=192'
+(Worker_TP3_EP3 pid=22360) [bneck] mode=stock steps=220 dec=20 hp=184.369 pad=0.123 route=0.068 total=0.272 n=1 padded=1 max=2048 lookup=(2048, 6144) fake=0 mirror=0/0 | graphs=1 replays=214 captures=1 eager_fallbacks=5 ptr_mismatch=0 keys=[(1, 1, 64)] last_fallback='n=2048 exceeds max_tokens=192'
+(Worker_TP5_EP5 pid=22452) [bneck] mode=stock steps=220 dec=20 hp=184.471 pad=0.123 route=0.075 total=0.282 n=1 padded=1 max=2048 lookup=(2048, 6144) fake=0 mirror=0/0 | graphs=1 replays=214 captures=1 eager_fallbacks=5 ptr_mismatch=0 keys=[(1, 1, 64)] last_fallback='n=2048 exceeds max_tokens=192'
+(Worker_TP1_EP1 pid=22265) [bneck] mode=stock steps=220 dec=20 hp=184.478 pad=0.123 route=0.068 total=0.273 n=1 padded=1 max=2048 lookup=(2048, 6144) fake=0 mirror=0/0 | graphs=1 replays=214 captures=1 eager_fallbacks=5 ptr_mismatch=0 keys=[(1, 1, 64)] last_fallback='n=2048 exceeds max_tokens=192'
+(Worker_TP2_EP2 pid=22314) [bneck] mode=stock steps=220 dec=20 hp=184.413 pad=0.127 route=0.066 total=0.274 n=1 padded=1 max=2048 lookup=(2048, 6144) fake=0 mirror=0/0 | graphs=1 replays=214 captures=1 eager_fallbacks=5 ptr_mismatch=0 keys=[(1, 1, 64)] last_fallback='n=2048 exceeds max_tokens=192'
+(Worker_TP7_EP7 pid=22544) [bneck] mode=stock steps=220 dec=20 hp=184.477 pad=0.126 route=0.077 total=0.286 n=1 padded=1 max=2048 lookup=(2048, 6144) fake=0 mirror=0/0 | graphs=1 replays=214 captures=1 eager_fallbacks=5 ptr_mismatch=0 keys=[(1, 1, 64)] last_fallback='n=2048 exceeds max_tokens=192'
+(Worker_TP4_EP4 pid=22406) [bneck] mode=stock steps=220 dec=20 hp=184.496 pad=0.129 route=0.065 total=0.266 n=1 padded=1 max=2048 lookup=(2048, 6144) fake=0 mirror=0/0 | graphs=1 replays=214 captures=1 eager_fallbacks=5 ptr_mismatch=0 keys=[(1, 1, 64)] last_fallback='n=2048 exceeds max_tokens=192'
+(Worker_TP6_EP6 pid=22498) [bneck] mode=stock steps=220 dec=20 hp=184.521 pad=0.123 route=0.077 total=0.286 n=1 padded=1 max=2048 lookup=(2048, 6144) fake=0 mirror=0/0 | graphs=1 replays=214 captures=1 eager_fallbacks=5 ptr_mismatch=0 keys=[(1, 1, 64)] last_fallback='n=2048 exceeds max_tokens=192'
+FORMAL_NATIVE_CONTROL_REQUEST repeat-1
+FORMAL_NATIVE_CONTROL_COMPARISON {"label": "repeat-1", "tokens_equal": true, "reference_route_shape": [2094, 40, 6], "actual_route_shape": [2094, 40, 6], "reference_routes_valid": true, "actual_routes_valid": true, "routes_equal": false, "prefill_differing": 0, "decode_differing": 1358, "route_set_differing": 847, "first_route_difference": {"token": 2048, "layer": 7, "reference": [102, 170, 119, 241, 177, 207], "actual": [102, 170, 241, 119, 207, 177]}, "logprob_lengths_valid": true, "logprob_keys_equal": false, "max_common_logprob_delta": 0.49997806549072266, "max_logprob_delta": null, "logprob_deltas_finite": true, "passed": false, "repeat": 1}
+(Worker_TP6_EP6 pid=22498) [bneck] mode=stock steps=240 dec=19 hp=213.383 pad=0.121 route=0.074 total=0.278 n=1 padded=1 max=2048 lookup=(2048, 6144) fake=0 mirror=0/0 | graphs=1 replays=233 captures=1 eager_fallbacks=6 ptr_mismatch=0 keys=[(1, 1, 64)] last_fallback='n=2048 exceeds max_tokens=192'
+(Worker_TP0_EP0 pid=22246) [bneck] mode=stock steps=240 dec=19 hp=213.458 pad=0.124 route=0.072 total=0.271 n=1 padded=1 max=2048 lookup=(2048, 6144) fake=0 mirror=0/0 | graphs=1 replays=233 captures=1 eager_fallbacks=6 ptr_mismatch=0 keys=[(1, 1, 64)] last_fallback='n=2048 exceeds max_tokens=192'
+(Worker_TP2_EP2 pid=22314) [bneck] mode=stock steps=240 dec=19 hp=213.492 pad=0.126 route=0.067 total=0.275 n=1 padded=1 max=2048 lookup=(2048, 6144) fake=0 mirror=0/0 | graphs=1 replays=233 captures=1 eager_fallbacks=6 ptr_mismatch=0 keys=[(1, 1, 64)] last_fallback='n=2048 exceeds max_tokens=192'
+(Worker_TP3_EP3 pid=22360) [bneck] mode=stock steps=240 dec=19 hp=213.504 pad=0.125 route=0.071 total=0.288 n=1 padded=1 max=2048 lookup=(2048, 6144) fake=0 mirror=0/0 | graphs=1 replays=233 captures=1 eager_fallbacks=6 ptr_mismatch=0 keys=[(1, 1, 64)] last_fallback='n=2048 exceeds max_tokens=192'
+(Worker_TP4_EP4 pid=22406) [bneck] mode=stock steps=240 dec=19 hp=213.436 pad=0.129 route=0.067 total=0.274 n=1 padded=1 max=2048 lookup=(2048, 6144) fake=0 mirror=0/0 | graphs=1 replays=233 captures=1 eager_fallbacks=6 ptr_mismatch=0 keys=[(1, 1, 64)] last_fallback='n=2048 exceeds max_tokens=192'
+(Worker_TP7_EP7 pid=22544) [bneck] mode=stock steps=240 dec=19 hp=213.496 pad=0.127 route=0.071 total=0.282 n=1 padded=1 max=2048 lookup=(2048, 6144) fake=0 mirror=0/0 | graphs=1 replays=233 captures=1 eager_fallbacks=6 ptr_mismatch=0 keys=[(1, 1, 64)] last_fallback='n=2048 exceeds max_tokens=192'
+(Worker_TP5_EP5 pid=22452) [bneck] mode=stock steps=240 dec=19 hp=213.621 pad=0.125 route=0.077 total=0.285 n=1 padded=1 max=2048 lookup=(2048, 6144) fake=0 mirror=0/0 | graphs=1 replays=233 captures=1 eager_fallbacks=6 ptr_mismatch=0 keys=[(1, 1, 64)] last_fallback='n=2048 exceeds max_tokens=192'
+(Worker_TP1_EP1 pid=22265) [bneck] mode=stock steps=240 dec=19 hp=213.611 pad=0.128 route=0.070 total=0.279 n=1 padded=1 max=2048 lookup=(2048, 6144) fake=0 mirror=0/0 | graphs=1 replays=233 captures=1 eager_fallbacks=6 ptr_mismatch=0 keys=[(1, 1, 64)] last_fallback='n=2048 exceeds max_tokens=192'
+(Worker_TP7_EP7 pid=22544) [bneck] mode=stock steps=260 dec=20 hp=194.076 pad=0.125 route=0.075 total=0.284 n=1 padded=1 max=2048 lookup=(2048, 6144) fake=0 mirror=0/0 | graphs=1 replays=253 captures=1 eager_fallbacks=6 ptr_mismatch=0 keys=[(1, 1, 64)] last_fallback='n=2048 exceeds max_tokens=192'
+(Worker_TP4_EP4 pid=22406) [bneck] mode=stock steps=260 dec=20 hp=194.081 pad=0.128 route=0.066 total=0.266 n=1 padded=1 max=2048 lookup=(2048, 6144) fake=0 mirror=0/0 | graphs=1 replays=253 captures=1 eager_fallbacks=6 ptr_mismatch=0 keys=[(1, 1, 64)] last_fallback='n=2048 exceeds max_tokens=192'
+(Worker_TP5_EP5 pid=22452) [bneck] mode=stock steps=260 dec=20 hp=193.991 pad=0.124 route=0.072 total=0.279 n=1 padded=1 max=2048 lookup=(2048, 6144) fake=0 mirror=0/0 | graphs=1 replays=253 captures=1 eager_fallbacks=6 ptr_mismatch=0 keys=[(1, 1, 64)] last_fallback='n=2048 exceeds max_tokens=192'
+(Worker_TP1_EP1 pid=22265) [bneck] mode=stock steps=260 dec=20 hp=193.979 pad=0.124 route=0.070 total=0.276 n=1 padded=1 max=2048 lookup=(2048, 6144) fake=0 mirror=0/0 | graphs=1 replays=253 captures=1 eager_fallbacks=6 ptr_mismatch=0 keys=[(1, 1, 64)] last_fallback='n=2048 exceeds max_tokens=192'
+(Worker_TP2_EP2 pid=22314) [bneck] mode=stock steps=260 dec=20 hp=194.086 pad=0.128 route=0.067 total=0.275 n=1 padded=1 max=2048 lookup=(2048, 6144) fake=0 mirror=0/0 | graphs=1 replays=253 captures=1 eager_fallbacks=6 ptr_mismatch=0 keys=[(1, 1, 64)] last_fallback='n=2048 exceeds max_tokens=192'
+(Worker_TP3_EP3 pid=22360) [bneck] mode=stock steps=260 dec=20 hp=194.090 pad=0.122 route=0.071 total=0.273 n=1 padded=1 max=2048 lookup=(2048, 6144) fake=0 mirror=0/0 | graphs=1 replays=253 captures=1 eager_fallbacks=6 ptr_mismatch=0 keys=[(1, 1, 64)] last_fallback='n=2048 exceeds max_tokens=192'
+(Worker_TP6_EP6 pid=22498) [bneck] mode=stock steps=260 dec=20 hp=194.098 pad=0.122 route=0.076 total=0.279 n=1 padded=1 max=2048 lookup=(2048, 6144) fake=0 mirror=0/0 | graphs=1 replays=253 captures=1 eager_fallbacks=6 ptr_mismatch=0 keys=[(1, 1, 64)] last_fallback='n=2048 exceeds max_tokens=192'
+(Worker_TP0_EP0 pid=22246) [bneck] mode=stock steps=260 dec=20 hp=194.102 pad=0.121 route=0.066 total=0.257 n=1 padded=1 max=2048 lookup=(2048, 6144) fake=0 mirror=0/0 | graphs=1 replays=253 captures=1 eager_fallbacks=6 ptr_mismatch=0 keys=[(1, 1, 64)] last_fallback='n=2048 exceeds max_tokens=192'
+(Worker_TP7_EP7 pid=22544) [bneck] mode=stock steps=280 dec=20 hp=201.439 pad=0.125 route=0.080 total=0.289 n=1 padded=1 max=2048 lookup=(2048, 6144) fake=0 mirror=0/0 | graphs=1 replays=273 captures=1 eager_fallbacks=6 ptr_mismatch=0 keys=[(1, 1, 64)] last_fallback='n=2048 exceeds max_tokens=192'
+(Worker_TP2_EP2 pid=22314) [bneck] mode=stock steps=280 dec=20 hp=201.434 pad=0.128 route=0.069 total=0.280 n=1 padded=1 max=2048 lookup=(2048, 6144) fake=0 mirror=0/0 | graphs=1 replays=273 captures=1 eager_fallbacks=6 ptr_mismatch=0 keys=[(1, 1, 64)] last_fallback='n=2048 exceeds max_tokens=192'
+(Worker_TP3_EP3 pid=22360) [bneck] mode=stock steps=280 dec=20 hp=201.430 pad=0.124 route=0.072 total=0.278 n=1 padded=1 max=2048 lookup=(2048, 6144) fake=0 mirror=0/0 | graphs=1 replays=273 captures=1 eager_fallbacks=6 ptr_mismatch=0 keys=[(1, 1, 64)] last_fallback='n=2048 exceeds max_tokens=192'
+(Worker_TP0_EP0 pid=22246) [bneck] mode=stock steps=280 dec=20 hp=201.423 pad=0.121 route=0.071 total=0.264 n=1 padded=1 max=2048 lookup=(2048, 6144) fake=0 mirror=0/0 | graphs=1 replays=273 captures=1 eager_fallbacks=6 ptr_mismatch=0 keys=[(1, 1, 64)] last_fallback='n=2048 exceeds max_tokens=192'
+(Worker_TP1_EP1 pid=22265) [bneck] mode=stock steps=280 dec=20 hp=201.444 pad=0.124 route=0.071 total=0.280 n=1 padded=1 max=2048 lookup=(2048, 6144) fake=0 mirror=0/0 | graphs=1 replays=273 captures=1 eager_fallbacks=6 ptr_mismatch=0 keys=[(1, 1, 64)] last_fallback='n=2048 exceeds max_tokens=192'
+(Worker_TP6_EP6 pid=22498) [bneck] mode=stock steps=280 dec=20 hp=201.438 pad=0.121 route=0.076 total=0.280 n=1 padded=1 max=2048 lookup=(2048, 6144) fake=0 mirror=0/0 | graphs=1 replays=273 captures=1 eager_fallbacks=6 ptr_mismatch=0 keys=[(1, 1, 64)] last_fallback='n=2048 exceeds max_tokens=192'
+(Worker_TP4_EP4 pid=22406) [bneck] mode=stock steps=280 dec=20 hp=201.448 pad=0.122 route=0.064 total=0.262 n=1 padded=1 max=2048 lookup=(2048, 6144) fake=0 mirror=0/0 | graphs=1 replays=273 captures=1 eager_fallbacks=6 ptr_mismatch=0 keys=[(1, 1, 64)] last_fallback='n=2048 exceeds max_tokens=192'
+(Worker_TP5_EP5 pid=22452) [bneck] mode=stock steps=280 dec=20 hp=201.477 pad=0.132 route=0.072 total=0.289 n=1 padded=1 max=2048 lookup=(2048, 6144) fake=0 mirror=0/0 | graphs=1 replays=273 captures=1 eager_fallbacks=6 ptr_mismatch=0 keys=[(1, 1, 64)] last_fallback='n=2048 exceeds max_tokens=192'
+FORMAL_NATIVE_CONTROL_REQUEST repeat-2
+FORMAL_NATIVE_CONTROL_COMPARISON {"label": "repeat-2", "tokens_equal": true, "reference_route_shape": [2094, 40, 6], "actual_route_shape": [2094, 40, 6], "reference_routes_valid": true, "actual_routes_valid": true, "routes_equal": false, "prefill_differing": 0, "decode_differing": 1352, "route_set_differing": 884, "first_route_difference": {"token": 2048, "layer": 10, "reference": [50, 265, 321, 118, 330, 110], "actual": [50, 265, 321, 118, 110, 330]}, "logprob_lengths_valid": true, "logprob_keys_equal": false, "max_common_logprob_delta": 0.8125181198120117, "max_logprob_delta": null, "logprob_deltas_finite": true, "passed": false, "repeat": 2}
+(Worker_TP0_EP0 pid=22246) [bneck] mode=stock steps=300 dec=19 hp=231.067 pad=0.122 route=1.902 total=2.102 n=1 padded=1 max=2048 lookup=(2048, 6144) fake=0 mirror=0/0
+(Worker_TP4_EP4 pid=22406) [bneck] mode=stock steps=300 dec=19 hp=231.078 pad=0.121 route=1.946 total=2.142 n=1 padded=1 max=2048 lookup=(2048, 6144) fake=0 mirror=0/0
+(Worker_TP3_EP3 pid=22360) [bneck] mode=stock steps=300 dec=19 hp=231.099 pad=0.123 route=1.872 total=2.091 n=1 padded=1 max=2048 lookup=(2048, 6144) fake=0 mirror=0/0
+(Worker_TP2_EP2 pid=22314) [bneck] mode=stock steps=300 dec=19 hp=231.101 pad=0.120 route=1.926 total=2.129 n=1 padded=1 max=2048 lookup=(2048, 6144) fake=0 mirror=0/0
+(Worker_TP7_EP7 pid=22544) [bneck] mode=stock steps=300 dec=19 hp=231.072 pad=0.120 route=1.877 total=2.084 n=1 padded=1 max=2048 lookup=(2048, 6144) fake=0 mirror=0/0
+(Worker_TP6_EP6 pid=22498) [bneck] mode=stock steps=300 dec=19 hp=231.114 pad=0.117 route=1.867 total=2.071 n=1 padded=1 max=2048 lookup=(2048, 6144) fake=0 mirror=0/0
+(Worker_TP1_EP1 pid=22265) [bneck] mode=stock steps=300 dec=19 hp=231.112 pad=0.120 route=1.848 total=2.054 n=1 padded=1 max=2048 lookup=(2048, 6144) fake=0 mirror=0/0
+(Worker_TP5_EP5 pid=22452) [bneck] mode=stock steps=300 dec=19 hp=231.074 pad=0.137 route=1.705 total=1.930 n=1 padded=1 max=2048 lookup=(2048, 6144) fake=0 mirror=0/0
+(Worker_TP0_EP0 pid=22246) [bneck] mode=stock steps=320 dec=20 hp=201.340 pad=0.118 route=2.095 total=2.290 n=1 padded=1 max=2048 lookup=(2048, 6144) fake=0 mirror=0/0
+(Worker_TP3_EP3 pid=22360) [bneck] mode=stock steps=320 dec=20 hp=201.334 pad=0.120 route=2.064 total=2.264 n=1 padded=1 max=2048 lookup=(2048, 6144) fake=0 mirror=0/0
+(Worker_TP1_EP1 pid=22265) [bneck] mode=stock steps=320 dec=20 hp=201.320 pad=0.119 route=1.968 total=2.173 n=1 padded=1 max=2048 lookup=(2048, 6144) fake=0 mirror=0/0
+(Worker_TP4_EP4 pid=22406) [bneck] mode=stock steps=320 dec=20 hp=201.338 pad=0.125 route=1.847 total=2.049 n=1 padded=1 max=2048 lookup=(2048, 6144) fake=0 mirror=0/0
+(Worker_TP2_EP2 pid=22314) [bneck] mode=stock steps=320 dec=20 hp=201.337 pad=0.120 route=2.022 total=2.222 n=1 padded=1 max=2048 lookup=(2048, 6144) fake=0 mirror=0/0
+(Worker_TP7_EP7 pid=22544) [bneck] mode=stock steps=320 dec=20 hp=201.336 pad=0.120 route=2.122 total=2.327 n=1 padded=1 max=2048 lookup=(2048, 6144) fake=0 mirror=0/0
+(Worker_TP6_EP6 pid=22498) [bneck] mode=stock steps=320 dec=20 hp=201.348 pad=0.119 route=2.123 total=2.327 n=1 padded=1 max=2048 lookup=(2048, 6144) fake=0 mirror=0/0
+(Worker_TP5_EP5 pid=22452) [bneck] mode=stock steps=320 dec=20 hp=201.339 pad=0.132 route=1.894 total=2.113 n=1 padded=1 max=2048 lookup=(2048, 6144) fake=0 mirror=0/0
+FORMAL_NATIVE_CONTROL_REQUEST engram-subgraph-off-reference
+(Worker_TP0_EP0 pid=22246) [bneck] mode=stock steps=340 dec=19 hp=225.486 pad=0.117 route=2.142 total=2.339 n=1 padded=1 max=2048 lookup=(2048, 6144) fake=0 mirror=0/0
+(Worker_TP4_EP4 pid=22406) [bneck] mode=stock steps=340 dec=19 hp=225.487 pad=0.123 route=2.076 total=2.275 n=1 padded=1 max=2048 lookup=(2048, 6144) fake=0 mirror=0/0
+(Worker_TP6_EP6 pid=22498) [bneck] mode=stock steps=340 dec=19 hp=225.535 pad=0.118 route=1.917 total=2.121 n=1 padded=1 max=2048 lookup=(2048, 6144) fake=0 mirror=0/0
+(Worker_TP3_EP3 pid=22360) [bneck] mode=stock steps=340 dec=19 hp=225.537 pad=0.118 route=1.979 total=2.181 n=1 padded=1 max=2048 lookup=(2048, 6144) fake=0 mirror=0/0
+(Worker_TP1_EP1 pid=22265) [bneck] mode=stock steps=340 dec=19 hp=225.549 pad=0.119 route=2.071 total=2.279 n=1 padded=1 max=2048 lookup=(2048, 6144) fake=0 mirror=0/0
+(Worker_TP7_EP7 pid=22544) [bneck] mode=stock steps=340 dec=19 hp=225.557 pad=0.120 route=2.034 total=2.242 n=1 padded=1 max=2048 lookup=(2048, 6144) fake=0 mirror=0/0
+(Worker_TP2_EP2 pid=22314) [bneck] mode=stock steps=340 dec=19 hp=225.550 pad=0.121 route=2.017 total=2.222 n=1 padded=1 max=2048 lookup=(2048, 6144) fake=0 mirror=0/0
+(Worker_TP5_EP5 pid=22452) [bneck] mode=stock steps=340 dec=19 hp=225.531 pad=0.135 route=1.954 total=2.174 n=1 padded=1 max=2048 lookup=(2048, 6144) fake=0 mirror=0/0
+(Worker_TP0_EP0 pid=22246) [bneck] mode=stock steps=360 dec=20 hp=211.008 pad=0.119 route=2.559 total=2.751 n=1 padded=1 max=2048 lookup=(2048, 6144) fake=0 mirror=0/0
+(Worker_TP7_EP7 pid=22544) [bneck] mode=stock steps=360 dec=20 hp=211.003 pad=0.120 route=2.566 total=2.772 n=1 padded=1 max=2048 lookup=(2048, 6144) fake=0 mirror=0/0
+(Worker_TP2_EP2 pid=22314) [bneck] mode=stock steps=360 dec=20 hp=211.002 pad=0.121 route=2.429 total=2.633 n=1 padded=1 max=2048 lookup=(2048, 6144) fake=0 mirror=0/0
+(Worker_TP3_EP3 pid=22360) [bneck] mode=stock steps=360 dec=20 hp=211.010 pad=0.119 route=2.466 total=2.666 n=1 padded=1 max=2048 lookup=(2048, 6144) fake=0 mirror=0/0
+(Worker_TP4_EP4 pid=22406) [bneck] mode=stock steps=360 dec=20 hp=211.017 pad=0.121 route=2.454 total=2.650 n=1 padded=1 max=2048 lookup=(2048, 6144) fake=0 mirror=0/0
+(Worker_TP1_EP1 pid=22265) [bneck] mode=stock steps=360 dec=20 hp=211.014 pad=0.130 route=1.919 total=2.142 n=1 padded=1 max=2048 lookup=(2048, 6144) fake=0 mirror=0/0
+(Worker_TP6_EP6 pid=22498) [bneck] mode=stock steps=360 dec=20 hp=211.027 pad=0.117 route=2.362 total=2.566 n=1 padded=1 max=2048 lookup=(2048, 6144) fake=0 mirror=0/0
+(Worker_TP5_EP5 pid=22452) [bneck] mode=stock steps=360 dec=20 hp=211.027 pad=0.132 route=2.246 total=2.467 n=1 padded=1 max=2048 lookup=(2048, 6144) fake=0 mirror=0/0
+FORMAL_NATIVE_CONTROL_REQUEST engram-subgraph-off-repeat-0
+FORMAL_ENGRAM_SUBGRAPH_OFF_COMPARISON {"label": "engram-subgraph-off-0", "tokens_equal": true, "reference_route_shape": [2094, 40, 6], "actual_route_shape": [2094, 40, 6], "reference_routes_valid": true, "actual_routes_valid": true, "routes_equal": false, "prefill_differing": 0, "decode_differing": 1274, "route_set_differing": 757, "first_route_difference": {"token": 2048, "layer": 4, "reference": [13, 337, 297, 50, 367, 3], "actual": [13, 337, 297, 50, 3, 367]}, "logprob_lengths_valid": true, "logprob_keys_equal": false, "max_common_logprob_delta": 0.7500019073486328, "max_logprob_delta": null, "logprob_deltas_finite": true, "passed": false}
+(Worker_TP0_EP0 pid=22246) [bneck] mode=stock steps=380 dec=19 hp=237.105 pad=0.118 route=2.259 total=2.453 n=1 padded=1 max=2048 lookup=(2048, 6144) fake=0 mirror=0/0
+(Worker_TP2_EP2 pid=22314) [bneck] mode=stock steps=380 dec=19 hp=237.148 pad=0.127 route=1.952 total=2.163 n=1 padded=1 max=2048 lookup=(2048, 6144) fake=0 mirror=0/0
+(Worker_TP7_EP7 pid=22544) [bneck] mode=stock steps=380 dec=19 hp=237.145 pad=0.123 route=1.923 total=2.135 n=1 padded=1 max=2048 lookup=(2048, 6144) fake=0 mirror=0/0
+(Worker_TP3_EP3 pid=22360) [bneck] mode=stock steps=380 dec=19 hp=237.155 pad=0.123 route=2.188 total=2.392 n=1 padded=1 max=2048 lookup=(2048, 6144) fake=0 mirror=0/0
+(Worker_TP1_EP1 pid=22265) [bneck] mode=stock steps=380 dec=19 hp=237.137 pad=0.121 route=2.018 total=2.223 n=1 padded=1 max=2048 lookup=(2048, 6144) fake=0 mirror=0/0
+(Worker_TP4_EP4 pid=22406) [bneck] mode=stock steps=380 dec=19 hp=237.096 pad=0.124 route=2.069 total=2.269 n=1 padded=1 max=2048 lookup=(2048, 6144) fake=0 mirror=0/0
+(Worker_TP6_EP6 pid=22498) [bneck] mode=stock steps=380 dec=19 hp=237.174 pad=0.118 route=2.061 total=2.266 n=1 padded=1 max=2048 lookup=(2048, 6144) fake=0 mirror=0/0
+(Worker_TP5_EP5 pid=22452) [bneck] mode=stock steps=380 dec=19 hp=237.167 pad=0.128 route=2.086 total=2.301 n=1 padded=1 max=2048 lookup=(2048, 6144) fake=0 mirror=0/0
+(Worker_TP7_EP7 pid=22544) [bneck] mode=stock steps=400 dec=20 hp=196.719 pad=0.120 route=2.123 total=2.328 n=1 padded=1 max=2048 lookup=(2048, 6144) fake=0 mirror=0/0
+(Worker_TP3_EP3 pid=22360) [bneck] mode=stock steps=400 dec=20 hp=196.713 pad=0.167 route=2.090 total=2.339 n=1 padded=1 max=2048 lookup=(2048, 6144) fake=0 mirror=0/0
+(Worker_TP2_EP2 pid=22314) [bneck] mode=stock steps=400 dec=20 hp=196.723 pad=0.121 route=2.044 total=2.248 n=1 padded=1 max=2048 lookup=(2048, 6144) fake=0 mirror=0/0
+(Worker_TP6_EP6 pid=22498) [bneck] mode=stock steps=400 dec=20 hp=196.694 pad=0.118 route=2.068 total=2.270 n=1 padded=1 max=2048 lookup=(2048, 6144) fake=0 mirror=0/0
+(Worker_TP0_EP0 pid=22246) [bneck] mode=stock steps=400 dec=20 hp=196.727 pad=0.118 route=2.327 total=2.518 n=1 padded=1 max=2048 lookup=(2048, 6144) fake=0 mirror=0/0
+(Worker_TP4_EP4 pid=22406) [bneck] mode=stock steps=400 dec=20 hp=196.753 pad=0.122 route=2.167 total=2.362 n=1 padded=1 max=2048 lookup=(2048, 6144) fake=0 mirror=0/0
+(Worker_TP5_EP5 pid=22452) [bneck] mode=stock steps=400 dec=20 hp=196.723 pad=0.135 route=1.927 total=2.153 n=1 padded=1 max=2048 lookup=(2048, 6144) fake=0 mirror=0/0
+(Worker_TP1_EP1 pid=22265) [bneck] mode=stock steps=400 dec=20 hp=196.783 pad=0.118 route=2.024 total=2.226 n=1 padded=1 max=2048 lookup=(2048, 6144) fake=0 mirror=0/0
+(Worker_TP0_EP0 pid=22246) [bneck] mode=stock steps=420 dec=20 hp=198.893 pad=0.117 route=2.166 total=2.362 n=1 padded=1 max=2048 lookup=(2048, 6144) fake=0 mirror=0/0
+(Worker_TP4_EP4 pid=22406) [bneck] mode=stock steps=420 dec=20 hp=198.865 pad=0.122 route=1.956 total=2.155 n=1 padded=1 max=2048 lookup=(2048, 6144) fake=0 mirror=0/0
+(Worker_TP2_EP2 pid=22314) [bneck] mode=stock steps=420 dec=20 hp=198.899 pad=0.119 route=1.981 total=2.183 n=1 padded=1 max=2048 lookup=(2048, 6144) fake=0 mirror=0/0
+(Worker_TP3_EP3 pid=22360) [bneck] mode=stock steps=420 dec=20 hp=198.901 pad=0.119 route=2.035 total=2.236 n=1 padded=1 max=2048 lookup=(2048, 6144) fake=0 mirror=0/0
+(Worker_TP1_EP1 pid=22265) [bneck] mode=stock steps=420 dec=20 hp=198.831 pad=0.117 route=2.038 total=2.240 n=1 padded=1 max=2048 lookup=(2048, 6144) fake=0 mirror=0/0
+(Worker_TP7_EP7 pid=22544) [bneck] mode=stock steps=420 dec=20 hp=198.915 pad=0.117 route=1.983 total=2.185 n=1 padded=1 max=2048 lookup=(2048, 6144) fake=0 mirror=0/0
+(Worker_TP6_EP6 pid=22498) [bneck] mode=stock steps=420 dec=20 hp=198.915 pad=0.117 route=1.964 total=2.166 n=1 padded=1 max=2048 lookup=(2048, 6144) fake=0 mirror=0/0
+(Worker_TP5_EP5 pid=22452) [bneck] mode=stock steps=420 dec=20 hp=198.902 pad=0.134 route=1.870 total=2.095 n=1 padded=1 max=2048 lookup=(2048, 6144) fake=0 mirror=0/0
+FORMAL_NATIVE_CONTROL_REQUEST engram-subgraph-off-repeat-1
+FORMAL_ENGRAM_SUBGRAPH_OFF_COMPARISON {"label": "engram-subgraph-off-1", "tokens_equal": true, "reference_route_shape": [2094, 40, 6], "actual_route_shape": [2094, 40, 6], "reference_routes_valid": true, "actual_routes_valid": true, "routes_equal": false, "prefill_differing": 0, "decode_differing": 1336, "route_set_differing": 856, "first_route_difference": {"token": 2048, "layer": 3, "reference": [269, 172, 221, 242, 153, 331], "actual": [269, 172, 242, 221, 153, 331]}, "logprob_lengths_valid": true, "logprob_keys_equal": false, "max_common_logprob_delta": 0.7499666213989258, "max_logprob_delta": null, "logprob_deltas_finite": true, "passed": false}
+(Worker_TP0_EP0 pid=22246) [bneck] mode=stock steps=440 dec=19 hp=236.819 pad=0.115 route=2.076 total=2.263 n=1 padded=1 max=2048 lookup=(2048, 6144) fake=0 mirror=0/0
+(Worker_TP1_EP1 pid=22265) [bneck] mode=stock steps=440 dec=19 hp=236.952 pad=0.118 route=1.877 total=2.080 n=1 padded=1 max=2048 lookup=(2048, 6144) fake=0 mirror=0/0
+(Worker_TP7_EP7 pid=22544) [bneck] mode=stock steps=440 dec=19 hp=237.009 pad=0.119 route=1.878 total=2.081 n=1 padded=1 max=2048 lookup=(2048, 6144) fake=0 mirror=0/0
+(Worker_TP5_EP5 pid=22452) [bneck] mode=stock steps=440 dec=19 hp=237.032 pad=0.125 route=1.813 total=2.026 n=1 padded=1 max=2048 lookup=(2048, 6144) fake=0 mirror=0/0
+(Worker_TP3_EP3 pid=22360) [bneck] mode=stock steps=440 dec=19 hp=236.962 pad=0.119 route=1.837 total=2.040 n=1 padded=1 max=2048 lookup=(2048, 6144) fake=0 mirror=0/0
+(Worker_TP4_EP4 pid=22406) [bneck] mode=stock steps=440 dec=19 hp=236.856 pad=0.119 route=1.897 total=2.088 n=1 padded=1 max=2048 lookup=(2048, 6144) fake=0 mirror=0/0
+(Worker_TP6_EP6 pid=22498) [bneck] mode=stock steps=440 dec=19 hp=236.937 pad=0.117 route=1.908 total=2.107 n=1 padded=1 max=2048 lookup=(2048, 6144) fake=0 mirror=0/0
+(Worker_TP2_EP2 pid=22314) [bneck] mode=stock steps=440 dec=19 hp=237.006 pad=0.120 route=1.838 total=2.043 n=1 padded=1 max=2048 lookup=(2048, 6144) fake=0 mirror=0/0
+(Worker_TP6_EP6 pid=22498) [bneck] mode=stock steps=460 dec=20 hp=203.474 pad=0.116 route=2.063 total=2.263 n=1 padded=1 max=2048 lookup=(2048, 6144) fake=0 mirror=0/0
+(Worker_TP4_EP4 pid=22406) [bneck] mode=stock steps=460 dec=20 hp=203.474 pad=0.119 route=2.076 total=2.270 n=1 padded=1 max=2048 lookup=(2048, 6144) fake=0 mirror=0/0
+(Worker_TP0_EP0 pid=22246) [bneck] mode=stock steps=460 dec=20 hp=203.497 pad=0.117 route=2.168 total=2.359 n=1 padded=1 max=2048 lookup=(2048, 6144) fake=0 mirror=0/0
+(Worker_TP1_EP1 pid=22265) [bneck] mode=stock steps=460 dec=20 hp=203.473 pad=0.122 route=1.890 total=2.101 n=1 padded=1 max=2048 lookup=(2048, 6144) fake=0 mirror=0/0
+(Worker_TP7_EP7 pid=22544) [bneck] mode=stock steps=460 dec=20 hp=203.443 pad=0.117 route=2.050 total=2.254 n=1 padded=1 max=2048 lookup=(2048, 6144) fake=0 mirror=0/0
+(Worker_TP3_EP3 pid=22360) [bneck] mode=stock steps=460 dec=20 hp=203.472 pad=0.119 route=2.052 total=2.254 n=1 padded=1 max=2048 lookup=(2048, 6144) fake=0 mirror=0/0
+(Worker_TP5_EP5 pid=22452) [bneck] mode=stock steps=460 dec=20 hp=203.473 pad=0.124 route=1.985 total=2.196 n=1 padded=1 max=2048 lookup=(2048, 6144) fake=0 mirror=0/0
+(Worker_TP2_EP2 pid=22314) [bneck] mode=stock steps=460 dec=20 hp=203.425 pad=0.128 route=1.856 total=2.067 n=1 padded=1 max=2048 lookup=(2048, 6144) fake=0 mirror=0/0
+FORMAL_NATIVE_CONTROL_REQUEST engram-subgraph-off-repeat-2
+FORMAL_ENGRAM_SUBGRAPH_OFF_COMPARISON {"label": "engram-subgraph-off-2", "tokens_equal": true, "reference_route_shape": [2094, 40, 6], "actual_route_shape": [2094, 40, 6], "reference_routes_valid": true, "actual_routes_valid": true, "routes_equal": false, "prefill_differing": 0, "decode_differing": 1360, "route_set_differing": 851, "first_route_difference": {"token": 2048, "layer": 1, "reference": [124, 335, 137, 227, 111, 338], "actual": [124, 137, 335, 227, 111, 338]}, "logprob_lengths_valid": true, "logprob_keys_equal": false, "max_common_logprob_delta": 0.9999847412109375, "max_logprob_delta": null, "logprob_deltas_finite": true, "passed": false}
+(Worker_TP4_EP4 pid=22406) [bneck] mode=stock steps=480 dec=19 hp=238.761 pad=0.118 route=2.044 total=2.236 n=1 padded=1 max=2048 lookup=(2048, 6144) fake=0 mirror=0/0
+(Worker_TP0_EP0 pid=22246) [bneck] mode=stock steps=480 dec=19 hp=238.773 pad=0.117 route=2.106 total=2.294 n=1 padded=1 max=2048 lookup=(2048, 6144) fake=0 mirror=0/0
+(Worker_TP7_EP7 pid=22544) [bneck] mode=stock steps=480 dec=19 hp=238.803 pad=0.119 route=1.950 total=2.155 n=1 padded=1 max=2048 lookup=(2048, 6144) fake=0 mirror=0/0
+(Worker_TP3_EP3 pid=22360) [bneck] mode=stock steps=480 dec=19 hp=238.742 pad=0.126 route=1.860 total=2.070 n=1 padded=1 max=2048 lookup=(2048, 6144) fake=0 mirror=0/0
+(Worker_TP6_EP6 pid=22498) [bneck] mode=stock steps=480 dec=19 hp=238.783 pad=0.117 route=1.946 total=2.150 n=1 padded=1 max=2048 lookup=(2048, 6144) fake=0 mirror=0/0
+(Worker_TP5_EP5 pid=22452) [bneck] mode=stock steps=480 dec=19 hp=238.807 pad=0.125 route=1.856 total=2.068 n=1 padded=1 max=2048 lookup=(2048, 6144) fake=0 mirror=0/0
+(Worker_TP2_EP2 pid=22314) [bneck] mode=stock steps=480 dec=19 hp=238.799 pad=0.141 route=1.925 total=2.148 n=1 padded=1 max=2048 lookup=(2048, 6144) fake=0 mirror=0/0
+(Worker_TP1_EP1 pid=22265) [bneck] mode=stock steps=480 dec=19 hp=238.825 pad=0.117 route=1.891 total=2.095 n=1 padded=1 max=2048 lookup=(2048, 6144) fake=0 mirror=0/0
+(Worker_TP7_EP7 pid=22544) [bneck] mode=stock steps=500 dec=20 hp=200.802 pad=0.119 route=1.889 total=2.093 n=1 padded=1 max=2048 lookup=(2048, 6144) fake=0 mirror=0/0
+(Worker_TP3_EP3 pid=22360) [bneck] mode=stock steps=500 dec=20 hp=200.804 pad=0.121 route=1.837 total=2.039 n=1 padded=1 max=2048 lookup=(2048, 6144) fake=0 mirror=0/0
+(Worker_TP4_EP4 pid=22406) [bneck] mode=stock steps=500 dec=20 hp=200.816 pad=0.116 route=1.930 total=2.123 n=1 padded=1 max=2048 lookup=(2048, 6144) fake=0 mirror=0/0
+(Worker_TP5_EP5 pid=22452) [bneck] mode=stock steps=500 dec=20 hp=200.805 pad=0.133 route=1.933 total=2.152 n=1 padded=1 max=2048 lookup=(2048, 6144) fake=0 mirror=0/0
+(Worker_TP0_EP0 pid=22246) [bneck] mode=stock steps=500 dec=20 hp=200.812 pad=0.118 route=1.937 total=2.127 n=1 padded=1 max=2048 lookup=(2048, 6144) fake=0 mirror=0/0
+(Worker_TP6_EP6 pid=22498) [bneck] mode=stock steps=500 dec=20 hp=200.812 pad=0.116 route=1.884 total=2.087 n=1 padded=1 max=2048 lookup=(2048, 6144) fake=0 mirror=0/0
+(Worker_TP1_EP1 pid=22265) [bneck] mode=stock steps=500 dec=20 hp=200.797 pad=0.123 route=1.893 total=2.102 n=1 padded=1 max=2048 lookup=(2048, 6144) fake=0 mirror=0/0
+(Worker_TP2_EP2 pid=22314) [bneck] mode=stock steps=500 dec=20 hp=200.814 pad=0.130 route=1.815 total=2.028 n=1 padded=1 max=2048 lookup=(2048, 6144) fake=0 mirror=0/0
+FORMAL_NATIVE_CONTROL_REQUEST native-operator-probe
+FORMAL_NATIVE_OPERATOR_PROBE_COMPLETE {"ranks": 8, "records": 640}
+Traceback (most recent call last):
+  File "/work/src/stack/bench_formal_native_control.py", line 107, in <module>
+    if __name__ == '__main__': main()
+                               ^^^^^^
+  File "/work/src/stack/bench_formal_native_control.py", line 104, in main
+    assert result['passed'], 'Formal production A/A failed original route/logprob gate'
+           ~~~~~~^^^^^^^^^^
+AssertionError: Formal production A/A failed original route/logprob gate
+[ERROR] 2026-10-10-05:13:15 (PID:22064, Device:-1, RankID:-1) ERR99999 UNKNOWN applicaiton exception
+INFO 10-10 05:13:15 [utils.py:612] [shutdown] Process manager: send sigterm to process EngineCore
+(EngineCore pid=22219) INFO 10-10 05:13:15 [core.py:1332] [shutdown] EngineCore: trigger received signal=SIGTERM
+(EngineCore pid=22219) INFO 10-10 05:13:15 [core.py:1468] [shutdown] EngineCore: start mode=abort timeout=0s
+(EngineCore pid=22219) INFO 10-10 05:13:15 [core.py:1499] [shutdown] EngineCore: request processing complete; starting resource teardown
+(EngineCore pid=22219) INFO 10-10 05:13:15 [core.py:1345] [shutdown] EngineCore: exiting busy loop
+(EngineCore pid=22219) INFO 10-10 05:13:15 [multiproc_executor.py:440] [shutdown] Executor: waiting for worker exit count=8
+(Worker_TP0_EP0 pid=22246) INFO 10-10 05:13:15 [multiproc_executor.py:804] Parent process exited, terminating worker queues
+WARNING 10-10 05:13:20 [utils.py:632] [shutdown] Process manager: force killing remaining processes count=1
+WARNING 10-10 05:13:20 [utils.py:637] [shutdown] Process manager: force killing remaining process EngineCore pid 22219
+(EngineCore pid=22219) WARNING 10-10 05:13:20 [multiproc_executor.py:452] [shutdown] Executor: workers still running after grace period; sending SIGTERM count=8
+/usr/local/python3.12.13/lib/python3.12/multiprocessing/resource_tracker.py:279: UserWarning: resource_tracker: There appear to be 1 leaked shared_memory objects to clean up at shutdown
+  warnings.warn('resource_tracker: There appear to be %d '
