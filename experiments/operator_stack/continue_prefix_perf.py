@@ -35,7 +35,7 @@ def main():
     assert result['model_path'] == args.model and result['hccl_deterministic_env'] == 'strict'
     assert not result['fp32_decode_reduction'] and not result['speculative_decoding']
     arms = args.arms.split(',')
-    assert arms[0]=='tp8base' and arms[1]=='tp8metastack' and len(arms)==4 and len(set(arms))==4
+    assert arms[0]=='tp8base' and arms[1]=='tp8metastack' and len(arms) in (3,4) and len(set(arms))==len(arms)
     assert set(result['arms']) == set(arms)
     for arm in arms[1:]:
         pairs = [r for r in result['pairs'] if r['arm'] == arm]
@@ -45,12 +45,22 @@ def main():
         probe=json.loads((audit_root/'formal_up_prefix_probe.json').read_text())
         assert len(probe)==8 and all(r['passed'] and r['layers']==40 for r in probe)
     controls = json.loads((audit_root/'native_controls.json').read_text())
-    assert len(controls) >= 4 and all(r['passed'] for r in controls)
+    assert len(controls) >= len(arms) and all(r['passed'] for r in controls)
     banks = json.loads((audit_root/'banks.json').read_text())
     requests = json.loads((audit_root/'requests.json').read_text())
     checked = {}
     for arm in arms[2:]:
         assert len(banks[arm]) == 8
+        if arm == 'tp8hostmeta':
+            assert all(r['metadata_build']['spec_static_build_calls'].get(arm,0)>0 for r in banks[arm])
+            selected = [r for r in requests if r['arm']==arm and r['tag'].startswith('pair-')]
+            assert len(selected)>=3
+            for request in selected:
+                assert len(request['rank_audit'])==8
+                assert all(r['metadata_build']['spec_static_build_calls'].get(arm,0)>0 and
+                           r['metadata_slots']['all_exact'] for r in request['rank_audit'])
+            checked[arm]={'paired_requests':len(selected),'ranks_per_request':8,'metadata_static_coverage':True}
+            continue
         for bank in banks[arm]:
             assert bank['w4a8_prefix']['selected'] and bank['w4a8_prefix']['consumer_snapshots'] == 80
             assert bank['w4a8_prefix']['captured_gmm_calls'] == {'apply_gmm1_act_quant': 40, 'apply_gmm2': 40}

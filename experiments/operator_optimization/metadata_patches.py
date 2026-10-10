@@ -12,6 +12,7 @@ import goal20_patches as goal
 from metadata_kernels import prepare_slots, prepare_ring
 
 COUNTS = {}
+SPEC_COUNTS = {}
 SOURCE_SHA256 = None
 
 
@@ -60,6 +61,33 @@ def install(model, slot_prepare=None):
     fused_build = namespace['build']
     exec(compile(ring_source, '<goal20_metadata_ring>', 'exec'), namespace)
     ring_build = namespace['build']
+    spec_start = '    spec = self.kv_cache_spec\n'
+    spec_end = '    num_reqs = int(getattr(common, "num_reqs", common.seq_lens.shape[0]))\n'
+    assert ring_source.count(spec_start) == ring_source.count(spec_end) == 1
+    left, right = ring_source.index(spec_start), ring_source.index(spec_end)
+    spec_source = ring_source[:left] + (
+        '    common = common_attn_metadata\n'
+        '    (spec, is_compressor_state, ratio, cache_kind, compressed, plane_ratio,\n'
+        '     operator_ratio, storage_block_size, slot_key, smla_key, qli_key) = self._goal20_spec_static\n'
+    ) + ring_source[right:]
+    for anchor in (
+        '        compressed = cache_kind in {"long_kv", "index_k"}\n',
+        '        plane_ratio = ratio if compressed else 1\n',
+        '        operator_ratio = 0 if cache_kind == "swa" else ratio\n',
+    ):
+        # dedented method body uses four spaces for these assignments.
+        anchor = anchor[4:]
+        assert spec_source.count(anchor) == 1, anchor
+        spec_source = spec_source.replace(anchor, '')
+    slot_key_anchor = '        slot_key = f"slot:c{ratio}:b{spec.storage_block_size}"\n'
+    assert spec_source.count(slot_key_anchor) == 1
+    spec_source = spec_source.replace(slot_key_anchor, '')
+    spec_source = spec_source.replace('spec.storage_block_size', 'storage_block_size')
+    for before, after in (('f"smla:c{operator_ratio}"', 'smla_key'), ('f"qli:c{ratio}"', 'qli_key')):
+        assert spec_source.count(before) == 1, before
+        spec_source = spec_source.replace(before, after)
+    exec(compile(spec_source, '<goal20_metadata_spec_static>', 'exec'), namespace)
+    spec_build = namespace['build']
     old_init = cls.__init__
 
     def initialize(self, *args, **kwargs):
@@ -71,10 +99,38 @@ def install(model, slot_prepare=None):
             int(get(config, 'num_attention_heads')) // self.vllm_config.parallel_config.tensor_parallel_size,
             int(get(config, 'head_dim')), int(get(config, 'index_topk')),
             int(get(config, 'index_n_heads')), int(get(config, 'index_head_dim')))
+        spec = self.kv_cache_spec
+        compressor = isinstance(spec, vendor.DeepseekV41CompressorStateSpec)
+        ratio = getattr(spec, 'compress_ratio', 1)
+        if isinstance(spec, vendor.DeepseekV41SWASpec):
+            kind = 'swa'
+        elif isinstance(spec, vendor.DeepseekV41FullSpec):
+            kind = 'long_kv'
+        elif isinstance(spec, vendor.DeepseekV41IndexerSpec):
+            kind = 'index_k'
+        elif compressor:
+            kind = 'compressor_state'
+        else:
+            raise TypeError(f'Unsupported V4.1 cache spec: {type(spec).__name__}')
+        compressed = kind in ('long_kv', 'index_k')
+        operator_ratio = 0 if kind == 'swa' else ratio
+        # Compressor metadata still publishes its storage block size even
+        # though it has no token-slot conversion or slot-sharing key.
+        block = spec.storage_block_size
+        self._goal20_spec_static = (spec, compressor, ratio, kind, compressed,
+            ratio if compressed else 1, operator_ratio, block,
+            None if compressor else f'slot:c{ratio}:b{block}',
+            f'smla:c{operator_ratio}', f'qli:c{ratio}')
 
     def build(self, *args, **kwargs):
         arm = goal.ARM
         COUNTS[arm] = COUNTS.get(arm, 0) + 1
+        if goal.enabled('metadata_spec') and self._supports_device_ops:
+            # The cache-spec object belongs to the initialized model. A new
+            # spec must take the existing ring builder, never an older tuple.
+            if self._goal20_spec_static[0] is self.kv_cache_spec:
+                SPEC_COUNTS[arm] = SPEC_COUNTS.get(arm, 0) + 1
+                return spec_build(self, *args, **kwargs)
         if arm == 'mdstatic':
             return static_build(self, *args, **kwargs)
         if arm == 'mdslots' and self._supports_device_ops:
@@ -92,4 +148,5 @@ def install(model, slot_prepare=None):
 
 def stats(worker):
     return {'build_calls': dict(COUNTS), 'vendor_build_sha256': SOURCE_SHA256,
+            'spec_static_build_calls': dict(SPEC_COUNTS),
             'dynamic_values_cached_across_steps': False, 'slot_buffers': 'group-local persistent'}

@@ -1,0 +1,834 @@
+{
+  "scope": "task/core normalized diagnostic counters; not global occupancy or E2E; shape groups mix layers/effective local token counts",
+  "records": [
+    {
+      "arm": "tp8base",
+      "rank": 0,
+      "metric": "ArithmeticUtilization",
+      "type": "GroupedMatmulSwigluQuantV2",
+      "input_shapes": "\"6,5120;6;48;48,72,320,16,64;48,4608;48,4608\"",
+      "calls_per_step": 40.0,
+      "task_duration_us": {
+        "count": 400,
+        "mean": 52.6604725,
+        "min": 27.42,
+        "median": 60.199,
+        "p95": 80.079,
+        "max": 96.118
+      },
+      "sum_execution_us_per_step": 2106.4188999999997,
+      "counters": {
+        "aicore_time(us)": 45.4399625,
+        "aic_mac_int8_ratio": 0.0135725,
+        "aiv_time(us)": 48.3070025,
+        "aiv_vec_fp32_ratio": 7.5e-06
+      },
+      "source_sha256": "669a3565d70078b9fdaee62071cf758e700d9da8292824727260249afd4c7813"
+    },
+    {
+      "arm": "tp8base",
+      "rank": 0,
+      "metric": "ArithmeticUtilization",
+      "type": "GroupedMatmul",
+      "input_shapes": "\"6,2304;48,2304,5120;48,5120;48,1,5120;;;;48;6\"",
+      "calls_per_step": 40.0,
+      "task_duration_us": {
+        "count": 400,
+        "mean": 33.12705,
+        "min": 26.32,
+        "median": 32.479,
+        "p95": 41.339,
+        "max": 51.739
+      },
+      "sum_execution_us_per_step": 1325.0819999999999,
+      "counters": {
+        "aicore_time(us)": 24.125435,
+        "aic_mac_int8_ratio": 0.015265,
+        "aiv_time(us)": 29.1111625,
+        "aiv_vec_fp32_ratio": 9.25e-05,
+        "aiv_vec_misc_ratio": 0.00048
+      },
+      "source_sha256": "669a3565d70078b9fdaee62071cf758e700d9da8292824727260249afd4c7813"
+    },
+    {
+      "arm": "tp8base",
+      "rank": 0,
+      "metric": "L2Cache",
+      "type": "GroupedMatmulSwigluQuantV2",
+      "input_shapes": "\"6,5120;6;48;48,72,320,16,64;48,4608;48,4608\"",
+      "calls_per_step": 40.0,
+      "task_duration_us": {
+        "count": 400,
+        "mean": 52.676925,
+        "min": 27.539,
+        "median": 60.039,
+        "p95": 80.338,
+        "max": 96.538
+      },
+      "sum_execution_us_per_step": 2107.077,
+      "counters": {
+        "aicore_time(us)": 45.4198425,
+        "aic_write_cache_hit": 1606.7,
+        "aic_write_cache_miss_allocate": 6.55,
+        "aic_r0_read_cache_hit": 1995.2425,
+        "aic_r0_read_cache_miss_allocate": 121.38,
+        "aic_r1_read_cache_hit": 1995.795,
+        "aic_r1_read_cache_miss_allocate": 121.505,
+        "aiv_time(us)": 48.2762625,
+        "aiv_write_cache_hit": 56.9625,
+        "aiv_write_cache_miss_allocate": 4.0375,
+        "aiv_r0_read_cache_hit": 2407.72,
+        "aiv_r0_read_cache_miss_allocate": 64.22,
+        "aiv_r1_read_cache_hit": 2406.91,
+        "aiv_r1_read_cache_miss_allocate": 64.225
+      },
+      "source_sha256": "669a3565d70078b9fdaee62071cf758e700d9da8292824727260249afd4c7813"
+    },
+    {
+      "arm": "tp8base",
+      "rank": 0,
+      "metric": "L2Cache",
+      "type": "GroupedMatmul",
+      "input_shapes": "\"6,2304;48,2304,5120;48,5120;48,1,5120;;;;48;6\"",
+      "calls_per_step": 40.0,
+      "task_duration_us": {
+        "count": 400,
+        "mean": 33.142345,
+        "min": 26.64,
+        "median": 32.5595,
+        "p95": 41.66,
+        "max": 51.259
+      },
+      "sum_execution_us_per_step": 1325.6938,
+      "counters": {
+        "aicore_time(us)": 24.1260425,
+        "aic_write_cache_hit": 1645.7,
+        "aic_write_cache_miss_allocate": 3.3,
+        "aic_r0_read_cache_hit": 845.0375,
+        "aic_r0_read_cache_miss_allocate": 131.565,
+        "aic_r1_read_cache_hit": 846.25,
+        "aic_r1_read_cache_miss_allocate": 131.44,
+        "aiv_time(us)": 29.128665,
+        "aiv_write_cache_hit": 55.6975,
+        "aiv_write_cache_miss_allocate": 14.24,
+        "aiv_r0_read_cache_hit": 1748.7725,
+        "aiv_r0_read_cache_miss_allocate": 67.48,
+        "aiv_r1_read_cache_hit": 1749.4075,
+        "aiv_r1_read_cache_miss_allocate": 67.1525
+      },
+      "source_sha256": "669a3565d70078b9fdaee62071cf758e700d9da8292824727260249afd4c7813"
+    },
+    {
+      "arm": "tp8base",
+      "rank": 0,
+      "metric": "Memory",
+      "type": "GroupedMatmulSwigluQuantV2",
+      "input_shapes": "\"6,5120;6;48;48,72,320,16,64;48,4608;48,4608\"",
+      "calls_per_step": 40.0,
+      "task_duration_us": {
+        "count": 400,
+        "mean": 52.68876,
+        "min": 27.559,
+        "median": 60.169,
+        "p95": 80.639,
+        "max": 96.719
+      },
+      "sum_execution_us_per_step": 2107.5504,
+      "counters": {
+        "aicore_time(us)": 45.49693,
+        "aic_l1_read_bw(GB/s)": 53.4158225,
+        "aic_l1_write_bw(GB/s)": 3.390895,
+        "aic_main_mem_read_bw(GB/s)": 0.1226375,
+        "aic_main_mem_write_bw(GB/s)": 0.0133375,
+        "aiv_time(us)": 48.35816,
+        "aiv_ub_read_bw(GB/s)": 0.0495425,
+        "aiv_ub_write_bw(GB/s)": 0.0614275,
+        "aiv_main_mem_read_bw(GB/s)": 0.0159525,
+        "aiv_main_mem_write_bw(GB/s)": 0.0008075000000000001
+      },
+      "source_sha256": "669a3565d70078b9fdaee62071cf758e700d9da8292824727260249afd4c7813"
+    },
+    {
+      "arm": "tp8base",
+      "rank": 0,
+      "metric": "Memory",
+      "type": "GroupedMatmul",
+      "input_shapes": "\"6,2304;48,2304,5120;48,5120;48,1,5120;;;;48;6\"",
+      "calls_per_step": 40.0,
+      "task_duration_us": {
+        "count": 400,
+        "mean": 33.1328275,
+        "min": 26.62,
+        "median": 32.589,
+        "p95": 41.219,
+        "max": 51.759
+      },
+      "sum_execution_us_per_step": 1325.3130999999998,
+      "counters": {
+        "aicore_time(us)": 24.146245,
+        "aic_l1_read_bw(GB/s)": 61.6173125,
+        "aic_l1_write_bw(GB/s)": 3.8891,
+        "aic_main_mem_read_bw(GB/s)": 0.131625,
+        "aic_main_mem_write_bw(GB/s)": 0.02286,
+        "aiv_time(us)": 29.0300725,
+        "aiv_ub_read_bw(GB/s)": 0.085725,
+        "aiv_ub_write_bw(GB/s)": 0.1182125,
+        "aiv_main_mem_read_bw(GB/s)": 0.017595,
+        "aiv_main_mem_write_bw(GB/s)": 0.0008925000000000001
+      },
+      "source_sha256": "669a3565d70078b9fdaee62071cf758e700d9da8292824727260249afd4c7813"
+    },
+    {
+      "arm": "tp8base",
+      "rank": 0,
+      "metric": "MemoryL0",
+      "type": "GroupedMatmulSwigluQuantV2",
+      "input_shapes": "\"6,5120;6;48;48,72,320,16,64;48,4608;48,4608\"",
+      "calls_per_step": 40.0,
+      "task_duration_us": {
+        "count": 400,
+        "mean": 52.6985625,
+        "min": 27.48,
+        "median": 59.9885,
+        "p95": 80.078,
+        "max": 95.778
+      },
+      "sum_execution_us_per_step": 2107.9425,
+      "counters": {
+        "aicore_time(us)": 45.455595,
+        "aic_l0a_read_bw(GB/s)": 1.5452525,
+        "aic_l0a_write_bw(GB/s)": 0.7726525,
+        "aic_l0b_read_bw(GB/s)": 6.1810875,
+        "aic_l0b_write_bw(GB/s)": 12.3621875,
+        "aic_l0c_read_bw_cube(GB/s)": 2.936015,
+        "aic_l0c_write_bw_cube(GB/s)": 3.09055,
+        "aiv_time(us)": 48.2481975
+      },
+      "source_sha256": "669a3565d70078b9fdaee62071cf758e700d9da8292824727260249afd4c7813"
+    },
+    {
+      "arm": "tp8base",
+      "rank": 0,
+      "metric": "MemoryL0",
+      "type": "GroupedMatmul",
+      "input_shapes": "\"6,2304;48,2304,5120;48,5120;48,1,5120;;;;48;6\"",
+      "calls_per_step": 40.0,
+      "task_duration_us": {
+        "count": 400,
+        "mean": 33.1187175,
+        "min": 26.519,
+        "median": 32.55,
+        "p95": 41.119,
+        "max": 51.079
+      },
+      "sum_execution_us_per_step": 1324.7486999999999,
+      "counters": {
+        "aicore_time(us)": 24.1356375,
+        "aic_l0a_read_bw(GB/s)": 1.7477975,
+        "aic_l0a_write_bw(GB/s)": 0.436955,
+        "aic_l0b_read_bw(GB/s)": 6.9912,
+        "aic_l0b_write_bw(GB/s)": 13.9823275,
+        "aic_l0c_read_bw_cube(GB/s)": 6.60278,
+        "aic_l0c_write_bw_cube(GB/s)": 6.9912,
+        "aiv_time(us)": 29.114935
+      },
+      "source_sha256": "669a3565d70078b9fdaee62071cf758e700d9da8292824727260249afd4c7813"
+    },
+    {
+      "arm": "tp8base",
+      "rank": 0,
+      "metric": "MemoryUB",
+      "type": "GroupedMatmulSwigluQuantV2",
+      "input_shapes": "\"6,5120;6;48;48,72,320,16,64;48,4608;48,4608\"",
+      "calls_per_step": 40.0,
+      "task_duration_us": {
+        "count": 400,
+        "mean": 52.71291,
+        "min": 27.46,
+        "median": 60.3485,
+        "p95": 80.038,
+        "max": 95.519
+      },
+      "sum_execution_us_per_step": 2108.5164,
+      "counters": {
+        "aicore_time(us)": 45.5624675,
+        "aiv_time(us)": 48.448935,
+        "aiv_ub_read_bw_vector(GB/s)": 0.012065000000000001,
+        "aiv_ub_write_bw_vector(GB/s)": 0.009995,
+        "aiv_ub_read_bw_scalar(GB/s)": 0.0067599999999999995
+      },
+      "source_sha256": "669a3565d70078b9fdaee62071cf758e700d9da8292824727260249afd4c7813"
+    },
+    {
+      "arm": "tp8base",
+      "rank": 0,
+      "metric": "MemoryUB",
+      "type": "GroupedMatmul",
+      "input_shapes": "\"6,2304;48,2304,5120;48,5120;48,1,5120;;;;48;6\"",
+      "calls_per_step": 40.0,
+      "task_duration_us": {
+        "count": 400,
+        "mean": 33.11672,
+        "min": 26.299,
+        "median": 32.5595,
+        "p95": 41.119,
+        "max": 51.798
+      },
+      "sum_execution_us_per_step": 1324.6688,
+      "counters": {
+        "aicore_time(us)": 24.110865,
+        "aiv_time(us)": 29.014755,
+        "aiv_ub_read_bw_vector(GB/s)": 0.019915,
+        "aiv_ub_write_bw_vector(GB/s)": 0.0169575,
+        "aiv_ub_read_bw_scalar(GB/s)": 0.0008925000000000001,
+        "aiv_ub_write_bw_scalar(GB/s)": 0.00068
+      },
+      "source_sha256": "669a3565d70078b9fdaee62071cf758e700d9da8292824727260249afd4c7813"
+    },
+    {
+      "arm": "tp8base",
+      "rank": 0,
+      "metric": "PipeUtilization",
+      "type": "GroupedMatmulSwigluQuantV2",
+      "input_shapes": "\"6,5120;6;48;48,72,320,16,64;48,4608;48,4608\"",
+      "calls_per_step": 40.0,
+      "task_duration_us": {
+        "count": 400,
+        "mean": 52.6406725,
+        "min": 27.38,
+        "median": 60.059,
+        "p95": 79.939,
+        "max": 95.258
+      },
+      "sum_execution_us_per_step": 2105.6269,
+      "counters": {
+        "aicore_time(us)": 45.4229875,
+        "aic_mac_time(us)": 0.816945,
+        "aic_mac_ratio": 0.01359,
+        "aic_scalar_time(us)": 26.5273325,
+        "aic_scalar_ratio": 0.62179,
+        "aic_mte1_time(us)": 4.550825,
+        "aic_mte1_ratio": 0.075405,
+        "aic_mte2_time(us)": 5.5732675,
+        "aic_mte2_ratio": 0.0921725,
+        "aic_fixpipe_time(us)": 0.85924,
+        "aic_fixpipe_ratio": 0.014015,
+        "aic_icache_miss_rate": 0.0939425,
+        "aiv_time(us)": 48.2737425,
+        "aiv_vec_time(us)": 0.0890625,
+        "aiv_vec_ratio": 0.0015725000000000001,
+        "aiv_scalar_time(us)": 10.797255,
+        "aiv_scalar_ratio": 0.240785,
+        "aiv_mte2_time(us)": 9.9414825,
+        "aiv_mte2_ratio": 0.2361375,
+        "aiv_mte3_time(us)": 0.019465,
+        "aiv_mte3_ratio": 0.0002175,
+        "aiv_icache_miss_rate": 0.1239025,
+        "cube_utilization(%)": 91.038495
+      },
+      "source_sha256": "669a3565d70078b9fdaee62071cf758e700d9da8292824727260249afd4c7813"
+    },
+    {
+      "arm": "tp8base",
+      "rank": 0,
+      "metric": "PipeUtilization",
+      "type": "GroupedMatmul",
+      "input_shapes": "\"6,2304;48,2304,5120;48,5120;48,1,5120;;;;48;6\"",
+      "calls_per_step": 40.0,
+      "task_duration_us": {
+        "count": 400,
+        "mean": 33.1212875,
+        "min": 26.7,
+        "median": 32.539,
+        "p95": 41.079,
+        "max": 51.539
+      },
+      "sum_execution_us_per_step": 1324.8515,
+      "counters": {
+        "aicore_time(us)": 24.14562,
+        "aic_mac_time(us)": 0.408675,
+        "aic_mac_ratio": 0.0153,
+        "aic_scalar_time(us)": 12.90327,
+        "aic_scalar_ratio": 0.5270775,
+        "aic_mte1_time(us)": 2.3680975,
+        "aic_mte1_ratio": 0.08859500000000001,
+        "aic_mte2_time(us)": 3.760775,
+        "aic_mte2_ratio": 0.1402325,
+        "aic_fixpipe_time(us)": 0.3487475,
+        "aic_fixpipe_ratio": 0.013,
+        "aic_icache_miss_rate": 0.086365,
+        "aiv_time(us)": 29.1216775,
+        "aiv_vec_time(us)": 0.15262,
+        "aiv_vec_ratio": 0.005285,
+        "aiv_scalar_time(us)": 15.203545,
+        "aiv_scalar_ratio": 0.5181075,
+        "aiv_mte2_time(us)": 1.4082075,
+        "aiv_mte2_ratio": 0.0455975,
+        "aiv_mte3_time(us)": 0.0394275,
+        "aiv_mte3_ratio": 0.0012575,
+        "aiv_icache_miss_rate": 0.0764575,
+        "cube_utilization(%)": 72.6409025
+      },
+      "source_sha256": "669a3565d70078b9fdaee62071cf758e700d9da8292824727260249afd4c7813"
+    },
+    {
+      "arm": "tp8base",
+      "rank": 0,
+      "metric": "ResourceConflictRatio",
+      "type": "GroupedMatmulSwigluQuantV2",
+      "input_shapes": "\"6,5120;6;48;48,72,320,16,64;48,4608;48,4608\"",
+      "calls_per_step": 40.0,
+      "task_duration_us": {
+        "count": 400,
+        "mean": 52.7082675,
+        "min": 27.48,
+        "median": 60.399,
+        "p95": 80.198,
+        "max": 96.398
+      },
+      "sum_execution_us_per_step": 2108.3307,
+      "counters": {
+        "aicore_time(us)": 45.47397,
+        "aiv_time(us)": 48.2943975
+      },
+      "source_sha256": "669a3565d70078b9fdaee62071cf758e700d9da8292824727260249afd4c7813"
+    },
+    {
+      "arm": "tp8base",
+      "rank": 0,
+      "metric": "ResourceConflictRatio",
+      "type": "GroupedMatmul",
+      "input_shapes": "\"6,2304;48,2304,5120;48,5120;48,1,5120;;;;48;6\"",
+      "calls_per_step": 40.0,
+      "task_duration_us": {
+        "count": 400,
+        "mean": 33.11204,
+        "min": 26.72,
+        "median": 32.5595,
+        "p95": 41.34,
+        "max": 51.559
+      },
+      "sum_execution_us_per_step": 1324.4816,
+      "counters": {
+        "aicore_time(us)": 24.132929999999998,
+        "aiv_time(us)": 29.1248975
+      },
+      "source_sha256": "669a3565d70078b9fdaee62071cf758e700d9da8292824727260249afd4c7813"
+    },
+    {
+      "arm": "tp8prefixuproute",
+      "rank": 0,
+      "metric": "ArithmeticUtilization",
+      "type": "GroupedMatmulSwigluQuantV2",
+      "input_shapes": "\"6,5120;6;48;48,72,320,16,64;48,4608;48,4608\"",
+      "calls_per_step": 40.0,
+      "task_duration_us": {
+        "count": 400,
+        "mean": 51.1314675,
+        "min": 21.66,
+        "median": 61.229,
+        "p95": 78.179,
+        "max": 89.018
+      },
+      "sum_execution_us_per_step": 2045.2586999999999,
+      "counters": {
+        "aicore_time(us)": 42.9466625,
+        "aic_mac_int8_ratio": 0.01355,
+        "aiv_time(us)": 46.386195,
+        "aiv_vec_fp32_ratio": 1e-05
+      },
+      "source_sha256": "bcf6ebe41da1954f71ff9406b5f8ba4624891a330d830d72cb00d9cffc93cf53"
+    },
+    {
+      "arm": "tp8prefixuproute",
+      "rank": 0,
+      "metric": "ArithmeticUtilization",
+      "type": "GroupedMatmul",
+      "input_shapes": "\"6,2304;48,2304,5120;48,5120;48,1,5120;;;;48;6\"",
+      "calls_per_step": 40.0,
+      "task_duration_us": {
+        "count": 400,
+        "mean": 32.727695,
+        "min": 25.619,
+        "median": 31.8395,
+        "p95": 40.399,
+        "max": 46.979
+      },
+      "sum_execution_us_per_step": 1309.1078,
+      "counters": {
+        "aicore_time(us)": 23.7171525,
+        "aic_mac_int8_ratio": 0.015615,
+        "aiv_time(us)": 28.7152175,
+        "aiv_vec_fp32_ratio": 7.500000000000001e-05,
+        "aiv_vec_misc_ratio": 0.0004825
+      },
+      "source_sha256": "bcf6ebe41da1954f71ff9406b5f8ba4624891a330d830d72cb00d9cffc93cf53"
+    },
+    {
+      "arm": "tp8prefixuproute",
+      "rank": 0,
+      "metric": "L2Cache",
+      "type": "GroupedMatmulSwigluQuantV2",
+      "input_shapes": "\"6,5120;6;48;48,72,320,16,64;48,4608;48,4608\"",
+      "calls_per_step": 40.0,
+      "task_duration_us": {
+        "count": 400,
+        "mean": 51.1610325,
+        "min": 21.62,
+        "median": 61.149,
+        "p95": 78.498,
+        "max": 90.758
+      },
+      "sum_execution_us_per_step": 2046.4413,
+      "counters": {
+        "aicore_time(us)": 42.90765,
+        "aic_write_cache_hit": 1606.86,
+        "aic_write_cache_miss_allocate": 6.48,
+        "aic_r0_read_cache_hit": 2031.3475,
+        "aic_r0_read_cache_miss_allocate": 121.5925,
+        "aic_r1_read_cache_hit": 2032.2125,
+        "aic_r1_read_cache_miss_allocate": 122.0075,
+        "aiv_time(us)": 46.341185,
+        "aiv_write_cache_hit": 57.0225,
+        "aiv_write_cache_miss_allocate": 4.0175,
+        "aiv_r0_read_cache_hit": 2458.2875,
+        "aiv_r0_read_cache_miss_allocate": 64.3175,
+        "aiv_r1_read_cache_hit": 2457.2575,
+        "aiv_r1_read_cache_miss_allocate": 64.52
+      },
+      "source_sha256": "bcf6ebe41da1954f71ff9406b5f8ba4624891a330d830d72cb00d9cffc93cf53"
+    },
+    {
+      "arm": "tp8prefixuproute",
+      "rank": 0,
+      "metric": "L2Cache",
+      "type": "GroupedMatmul",
+      "input_shapes": "\"6,2304;48,2304,5120;48,5120;48,1,5120;;;;48;6\"",
+      "calls_per_step": 40.0,
+      "task_duration_us": {
+        "count": 400,
+        "mean": 32.68739,
+        "min": 25.459,
+        "median": 31.889000000000003,
+        "p95": 40.339,
+        "max": 47.499
+      },
+      "sum_execution_us_per_step": 1307.4956,
+      "counters": {
+        "aicore_time(us)": 23.7197975,
+        "aic_write_cache_hit": 1646.085,
+        "aic_write_cache_miss_allocate": 3.315,
+        "aic_r0_read_cache_hit": 864.705,
+        "aic_r0_read_cache_miss_allocate": 132.425,
+        "aic_r1_read_cache_hit": 864.545,
+        "aic_r1_read_cache_miss_allocate": 132.1475,
+        "aiv_time(us)": 28.659735,
+        "aiv_write_cache_hit": 55.6625,
+        "aiv_write_cache_miss_allocate": 14.34,
+        "aiv_r0_read_cache_hit": 1760.135,
+        "aiv_r0_read_cache_miss_allocate": 67.7325,
+        "aiv_r1_read_cache_hit": 1761.0975,
+        "aiv_r1_read_cache_miss_allocate": 67.74
+      },
+      "source_sha256": "bcf6ebe41da1954f71ff9406b5f8ba4624891a330d830d72cb00d9cffc93cf53"
+    },
+    {
+      "arm": "tp8prefixuproute",
+      "rank": 0,
+      "metric": "Memory",
+      "type": "GroupedMatmulSwigluQuantV2",
+      "input_shapes": "\"6,5120;6;48;48,72,320,16,64;48,4608;48,4608\"",
+      "calls_per_step": 40.0,
+      "task_duration_us": {
+        "count": 400,
+        "mean": 51.1225775,
+        "min": 21.76,
+        "median": 61.1785,
+        "p95": 78.439,
+        "max": 89.319
+      },
+      "sum_execution_us_per_step": 2044.9031,
+      "counters": {
+        "aicore_time(us)": 42.9482075,
+        "aic_l1_read_bw(GB/s)": 53.7712725,
+        "aic_l1_write_bw(GB/s)": 3.41283,
+        "aic_main_mem_read_bw(GB/s)": 0.126305,
+        "aic_main_mem_write_bw(GB/s)": 0.015519999999999999,
+        "aiv_time(us)": 46.381815,
+        "aiv_ub_read_bw(GB/s)": 0.0495975,
+        "aiv_ub_write_bw(GB/s)": 0.062815,
+        "aiv_main_mem_read_bw(GB/s)": 0.0177425,
+        "aiv_main_mem_write_bw(GB/s)": 0.0009675
+      },
+      "source_sha256": "bcf6ebe41da1954f71ff9406b5f8ba4624891a330d830d72cb00d9cffc93cf53"
+    },
+    {
+      "arm": "tp8prefixuproute",
+      "rank": 0,
+      "metric": "Memory",
+      "type": "GroupedMatmul",
+      "input_shapes": "\"6,2304;48,2304,5120;48,5120;48,1,5120;;;;48;6\"",
+      "calls_per_step": 40.0,
+      "task_duration_us": {
+        "count": 400,
+        "mean": 32.7133025,
+        "min": 25.519,
+        "median": 31.9295,
+        "p95": 40.499,
+        "max": 47.319
+      },
+      "sum_execution_us_per_step": 1308.5321,
+      "counters": {
+        "aicore_time(us)": 23.705435,
+        "aic_l1_read_bw(GB/s)": 62.93811,
+        "aic_l1_write_bw(GB/s)": 3.9725075,
+        "aic_main_mem_read_bw(GB/s)": 0.134895,
+        "aic_main_mem_write_bw(GB/s)": 0.0232975,
+        "aiv_time(us)": 28.706685,
+        "aiv_ub_read_bw(GB/s)": 0.087175,
+        "aiv_ub_write_bw(GB/s)": 0.1201375,
+        "aiv_main_mem_read_bw(GB/s)": 0.0179925,
+        "aiv_main_mem_write_bw(GB/s)": 0.0009275
+      },
+      "source_sha256": "bcf6ebe41da1954f71ff9406b5f8ba4624891a330d830d72cb00d9cffc93cf53"
+    },
+    {
+      "arm": "tp8prefixuproute",
+      "rank": 0,
+      "metric": "MemoryL0",
+      "type": "GroupedMatmulSwigluQuantV2",
+      "input_shapes": "\"6,5120;6;48;48,72,320,16,64;48,4608;48,4608\"",
+      "calls_per_step": 40.0,
+      "task_duration_us": {
+        "count": 400,
+        "mean": 51.07041,
+        "min": 21.759,
+        "median": 61.279,
+        "p95": 78.499,
+        "max": 89.038
+      },
+      "sum_execution_us_per_step": 2042.8164000000002,
+      "counters": {
+        "aicore_time(us)": 42.8992325,
+        "aic_l0a_read_bw(GB/s)": 1.5404075,
+        "aic_l0a_write_bw(GB/s)": 0.7702225,
+        "aic_l0b_read_bw(GB/s)": 6.161665,
+        "aic_l0b_write_bw(GB/s)": 12.32334,
+        "aic_l0c_read_bw_cube(GB/s)": 2.9268025,
+        "aic_l0c_write_bw_cube(GB/s)": 3.080835,
+        "aiv_time(us)": 46.3325125
+      },
+      "source_sha256": "bcf6ebe41da1954f71ff9406b5f8ba4624891a330d830d72cb00d9cffc93cf53"
+    },
+    {
+      "arm": "tp8prefixuproute",
+      "rank": 0,
+      "metric": "MemoryL0",
+      "type": "GroupedMatmul",
+      "input_shapes": "\"6,2304;48,2304,5120;48,5120;48,1,5120;;;;48;6\"",
+      "calls_per_step": 40.0,
+      "task_duration_us": {
+        "count": 400,
+        "mean": 32.66017,
+        "min": 25.479,
+        "median": 31.829,
+        "p95": 40.359,
+        "max": 46.5
+      },
+      "sum_execution_us_per_step": 1306.4068,
+      "counters": {
+        "aicore_time(us)": 23.682165,
+        "aic_l0a_read_bw(GB/s)": 1.778135,
+        "aic_l0a_write_bw(GB/s)": 0.444525,
+        "aic_l0b_read_bw(GB/s)": 7.1125475,
+        "aic_l0b_write_bw(GB/s)": 14.225115,
+        "aic_l0c_read_bw_cube(GB/s)": 6.717405,
+        "aic_l0c_write_bw_cube(GB/s)": 7.1125475,
+        "aiv_time(us)": 28.6827875
+      },
+      "source_sha256": "bcf6ebe41da1954f71ff9406b5f8ba4624891a330d830d72cb00d9cffc93cf53"
+    },
+    {
+      "arm": "tp8prefixuproute",
+      "rank": 0,
+      "metric": "MemoryUB",
+      "type": "GroupedMatmulSwigluQuantV2",
+      "input_shapes": "\"6,5120;6;48;48,72,320,16,64;48,4608;48,4608\"",
+      "calls_per_step": 40.0,
+      "task_duration_us": {
+        "count": 400,
+        "mean": 51.1404225,
+        "min": 22.019,
+        "median": 61.2685,
+        "p95": 78.279,
+        "max": 90.798
+      },
+      "sum_execution_us_per_step": 2045.6169000000002,
+      "counters": {
+        "aicore_time(us)": 43.0236925,
+        "aiv_time(us)": 46.45388,
+        "aiv_ub_read_bw_vector(GB/s)": 0.012055,
+        "aiv_ub_write_bw_vector(GB/s)": 0.0100075,
+        "aiv_ub_read_bw_scalar(GB/s)": 0.007465
+      },
+      "source_sha256": "bcf6ebe41da1954f71ff9406b5f8ba4624891a330d830d72cb00d9cffc93cf53"
+    },
+    {
+      "arm": "tp8prefixuproute",
+      "rank": 0,
+      "metric": "MemoryUB",
+      "type": "GroupedMatmul",
+      "input_shapes": "\"6,2304;48,2304,5120;48,5120;48,1,5120;;;;48;6\"",
+      "calls_per_step": 40.0,
+      "task_duration_us": {
+        "count": 400,
+        "mean": 32.69462,
+        "min": 25.62,
+        "median": 31.789499999999997,
+        "p95": 40.599,
+        "max": 46.659
+      },
+      "sum_execution_us_per_step": 1307.7848,
+      "counters": {
+        "aicore_time(us)": 23.71227,
+        "aiv_time(us)": 28.70797,
+        "aiv_ub_read_bw_vector(GB/s)": 0.0201325,
+        "aiv_ub_write_bw_vector(GB/s)": 0.0171625,
+        "aiv_ub_read_bw_scalar(GB/s)": 0.0009225,
+        "aiv_ub_write_bw_scalar(GB/s)": 0.0007275000000000001
+      },
+      "source_sha256": "bcf6ebe41da1954f71ff9406b5f8ba4624891a330d830d72cb00d9cffc93cf53"
+    },
+    {
+      "arm": "tp8prefixuproute",
+      "rank": 0,
+      "metric": "PipeUtilization",
+      "type": "GroupedMatmulSwigluQuantV2",
+      "input_shapes": "\"6,5120;6;48;48,72,320,16,64;48,4608;48,4608\"",
+      "calls_per_step": 40.0,
+      "task_duration_us": {
+        "count": 400,
+        "mean": 51.159495,
+        "min": 21.839,
+        "median": 61.2485,
+        "p95": 78.099,
+        "max": 89.038
+      },
+      "sum_execution_us_per_step": 2046.3798,
+      "counters": {
+        "aicore_time(us)": 42.919485,
+        "aic_mac_time(us)": 0.819445,
+        "aic_mac_ratio": 0.01351,
+        "aic_scalar_time(us)": 23.758365,
+        "aic_scalar_ratio": 0.58364,
+        "aic_mte1_time(us)": 4.564425,
+        "aic_mte1_ratio": 0.0752625,
+        "aic_mte2_time(us)": 5.5120425,
+        "aic_mte2_ratio": 0.09091,
+        "aic_fixpipe_time(us)": 0.8586374999999999,
+        "aic_fixpipe_ratio": 0.01396,
+        "aic_icache_miss_rate": 0.12194,
+        "aiv_time(us)": 46.3437075,
+        "aiv_vec_time(us)": 0.08915,
+        "aiv_vec_ratio": 0.0015825000000000001,
+        "aiv_scalar_time(us)": 8.9944375,
+        "aiv_scalar_ratio": 0.198705,
+        "aiv_mte2_time(us)": 10.1323225,
+        "aiv_mte2_ratio": 0.26430750000000003,
+        "aiv_mte3_time(us)": 0.0144175,
+        "aiv_mte3_ratio": 0.000125,
+        "aiv_icache_miss_rate": 0.1743325,
+        "cube_utilization(%)": 87.8352375
+      },
+      "source_sha256": "bcf6ebe41da1954f71ff9406b5f8ba4624891a330d830d72cb00d9cffc93cf53"
+    },
+    {
+      "arm": "tp8prefixuproute",
+      "rank": 0,
+      "metric": "PipeUtilization",
+      "type": "GroupedMatmul",
+      "input_shapes": "\"6,2304;48,2304,5120;48,5120;48,1,5120;;;;48;6\"",
+      "calls_per_step": 40.0,
+      "task_duration_us": {
+        "count": 400,
+        "mean": 32.7682325,
+        "min": 25.46,
+        "median": 31.9095,
+        "p95": 40.779,
+        "max": 47.119
+      },
+      "sum_execution_us_per_step": 1310.7293,
+      "counters": {
+        "aicore_time(us)": 23.763525,
+        "aic_mac_time(us)": 0.4099225,
+        "aic_mac_ratio": 0.015582499999999999,
+        "aic_scalar_time(us)": 12.7681575,
+        "aic_scalar_ratio": 0.5311775,
+        "aic_mte1_time(us)": 2.3738825,
+        "aic_mte1_ratio": 0.0901375,
+        "aic_mte2_time(us)": 3.7556075,
+        "aic_mte2_ratio": 0.1424125,
+        "aic_fixpipe_time(us)": 0.350375,
+        "aic_fixpipe_ratio": 0.0132625,
+        "aic_icache_miss_rate": 0.0898475,
+        "aiv_time(us)": 28.6846275,
+        "aiv_vec_time(us)": 0.1524125,
+        "aiv_vec_ratio": 0.0053225,
+        "aiv_scalar_time(us)": 15.07876,
+        "aiv_scalar_ratio": 0.521125,
+        "aiv_mte2_time(us)": 0.6035874999999999,
+        "aiv_mte2_ratio": 0.0208175,
+        "aiv_mte3_time(us)": 0.0377475,
+        "aiv_mte3_ratio": 0.001215,
+        "aiv_icache_miss_rate": 0.0754075,
+        "cube_utilization(%)": 72.2657075
+      },
+      "source_sha256": "bcf6ebe41da1954f71ff9406b5f8ba4624891a330d830d72cb00d9cffc93cf53"
+    },
+    {
+      "arm": "tp8prefixuproute",
+      "rank": 0,
+      "metric": "ResourceConflictRatio",
+      "type": "GroupedMatmulSwigluQuantV2",
+      "input_shapes": "\"6,5120;6;48;48,72,320,16,64;48,4608;48,4608\"",
+      "calls_per_step": 40.0,
+      "task_duration_us": {
+        "count": 400,
+        "mean": 51.0609575,
+        "min": 21.779,
+        "median": 61.119,
+        "p95": 77.398,
+        "max": 88.678
+      },
+      "sum_execution_us_per_step": 2042.4383000000003,
+      "counters": {
+        "aicore_time(us)": 42.86887,
+        "aiv_time(us)": 46.300585
+      },
+      "source_sha256": "bcf6ebe41da1954f71ff9406b5f8ba4624891a330d830d72cb00d9cffc93cf53"
+    },
+    {
+      "arm": "tp8prefixuproute",
+      "rank": 0,
+      "metric": "ResourceConflictRatio",
+      "type": "GroupedMatmul",
+      "input_shapes": "\"6,2304;48,2304,5120;48,5120;48,1,5120;;;;48;6\"",
+      "calls_per_step": 40.0,
+      "task_duration_us": {
+        "count": 400,
+        "mean": 32.70895,
+        "min": 25.36,
+        "median": 31.839,
+        "p95": 40.519,
+        "max": 46.759
+      },
+      "sum_execution_us_per_step": 1308.358,
+      "counters": {
+        "aicore_time(us)": 23.717875,
+        "aiv_time(us)": 28.710345
+      },
+      "source_sha256": "bcf6ebe41da1954f71ff9406b5f8ba4624891a330d830d72cb00d9cffc93cf53"
+    }
+  ],
+  "occupancy_measured": false
+}
