@@ -13,6 +13,8 @@
 
 更新：v1被错误的81次覆盖预期拦下；实测每步80次。修正后的`formal_fp32_decode_reduction_v2`退出0，三组A/A完整路由、token、Top5和logprob全一致/delta0，8rank×80个归约相对FP64参考转BF16逐位一致。新`formal_fp32_stack_graph_audit_v1`正在同worker图模式比较base/core/stack；尚未验收正式性能。后续受补丁源码与证据sha守卫保护。
 
+最新：`formal_fp32_stack_graph_audit_v1`在建立候选前的base A/A拒绝通过，decode路由差1344、专家集合差888、共同logprob max delta1.624983，token相同。eager修复通过不替代图路径；正在准备真实向量的归约图重放及图捕获padding/dtype/守卫覆盖诊断。没有部署通过验收的正式服务。
+
 正式七组×8rank的56CSV已完成shape分析：每步原始2356行包含重复通信逻辑事件，去重后2273执行记录；实际AllReduce82次/step，chip8累计2.937ms，不能当E2E。O投影小M的MTE2高、GMM Scalar高分开研究。正式HC/HcPost保持原生、TP1 selected-GMM/router禁用、BF16激活覆盖0；Indexer独立精度通过不替代整网。
 
 最新报告：`reports/a321-fp32-reduction-validated-20261010-v8.md`；归约定位见v7、微架构统计修正见v6。没有有效正式TP8性能或最优服务验收，19ms目标保持active。

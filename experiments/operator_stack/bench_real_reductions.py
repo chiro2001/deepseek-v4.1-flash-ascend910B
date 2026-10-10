@@ -84,13 +84,24 @@ def worker(rank, args, port):
             'scope': 'Math and repeatability only; timing has not run'}, indent=2) + '\n')
         # Actual inputs stay stable; timing uses same-process graph replays,
         # alternated across methods by later paired invocations if necessary.
-        for _ in range(3): operation(vectors[1])
+        for _ in range(3): operation(vectors[0])
         torch.npu.synchronize()
         dist.barrier()
         graph = torch.npu.NPUGraph()
         with torch.npu.graph(graph):
-            graph_output = operation(vectors[1])
+            graph_output = operation(vectors[0])
         torch.npu.synchronize()
+        graph_observed = []
+        for _ in range(3):
+            graph.replay()
+            torch.npu.synchronize()
+            graph_observed.append(graph_output.cpu().clone())
+        graph_equal = all(torch.equal(graph_observed[0], x) for x in graph_observed)
+        graph_reference_equal = all(torch.equal(reference[0], x) for x in graph_observed)
+        (args.output / f'rank{rank}_{name}_graph_audit.json').write_text(json.dumps({
+            'rank': rank, 'method': name, 'repeat_equal': graph_equal,
+            'fp64_reference_equal': graph_reference_equal,
+            'scope': 'Three graph replays on the first saved attention reduction vector'}, indent=2) + '\n')
         for _ in range(10): graph.replay()
         torch.npu.synchronize()
         timings = []
@@ -104,7 +115,9 @@ def worker(rank, args, port):
             end.synchronize()
             timings.append(start.elapsed_time(end) * 1000 / 100)
         receipts.append({'method': name, 'audit': audit,
-                         'passed': all(r['repeat_equal'] and r['fp64_reference_equal'] for r in audit),
+                         'passed': all(r['repeat_equal'] and r['fp64_reference_equal'] for r in audit) and graph_equal and graph_reference_equal,
+                         'graph_repeat_equal': graph_equal,
+                         'graph_fp64_reference_equal': graph_reference_equal,
                          'event_us_per_collective': timings,
                          'event_median_us': statistics.median(timings)})
         # Keep the captured output alive until all replays finish.

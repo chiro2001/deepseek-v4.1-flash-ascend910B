@@ -1,0 +1,149 @@
+{
+  "timestamp_unix": 1791617771.3509374,
+  "container": "dsv41-real-stack-tp8-20261010-a321",
+  "container_id": "b1aa15d8800346aff8f755a049feaae148b9d6e315e92bd32dcdf1063b429eb0",
+  "image_digest": "sha256:b69e58820f929ac7a77f93774a3d96da1961f507628239e9c7d7b24066b7a8ea",
+  "chips": [
+    8,
+    9,
+    10,
+    11,
+    12,
+    13,
+    14,
+    15
+  ],
+  "resources": {
+    "0": {
+      "health": "OK",
+      "processes": [
+        {
+          "pid": 3768385,
+          "name": "VLLMWorker_DP"
+        }
+      ]
+    },
+    "1": {
+      "health": "OK",
+      "processes": [
+        {
+          "pid": 3768386,
+          "name": "VLLMWorker_DP"
+        }
+      ]
+    },
+    "2": {
+      "health": "OK",
+      "processes": []
+    },
+    "3": {
+      "health": "OK",
+      "processes": []
+    },
+    "4": {
+      "health": "OK",
+      "processes": []
+    },
+    "5": {
+      "health": "OK",
+      "processes": [
+        {
+          "pid": 38304,
+          "name": "VLLMEngineCor"
+        }
+      ]
+    },
+    "6": {
+      "health": "OK",
+      "processes": [
+        {
+          "pid": 3993315,
+          "name": "rain_fusion_att"
+        }
+      ]
+    },
+    "7": {
+      "health": "OK",
+      "processes": []
+    },
+    "8": {
+      "health": "Alarm",
+      "processes": []
+    },
+    "9": {
+      "health": "Alarm",
+      "processes": []
+    },
+    "10": {
+      "health": "Alarm",
+      "processes": []
+    },
+    "11": {
+      "health": "Alarm",
+      "processes": []
+    },
+    "12": {
+      "health": "Alarm",
+      "processes": []
+    },
+    "13": {
+      "health": "Alarm",
+      "processes": []
+    },
+    "14": {
+      "health": "Alarm",
+      "processes": []
+    },
+    "15": {
+      "health": "Alarm",
+      "processes": []
+    }
+  },
+  "alarm_details": {
+    "8": "\tHealth Status                  : Alarm\n\tError Code                     : 80C98001\n\tError Information              : node type=AIC, sensor type=RAS State, event state=module error can not be fixed\n",
+    "9": "\tHealth Status                  : Alarm\n\tError Code                     : 80C98001\n\tError Information              : node type=AIC, sensor type=RAS State, event state=module error can not be fixed\n",
+    "10": "\tHealth Status                  : Alarm\n\tError Code                     : 80C98001\n\tError Information              : node type=AIC, sensor type=RAS State, event state=module error can not be fixed\n",
+    "11": "\tHealth Status                  : Alarm\n\tError Code                     : 80C98001\n\tError Information              : node type=AIC, sensor type=RAS State, event state=module error can not be fixed\n",
+    "12": "\tHealth Status                  : Alarm\n\tError Code                     : 80C98001\n\tError Information              : node type=AIC, sensor type=RAS State, event state=module error can not be fixed\n",
+    "13": "\tHealth Status                  : Alarm\n\tError Code                     : 80C98001\n\tError Information              : node type=AIC, sensor type=RAS State, event state=module error can not be fixed\n",
+    "14": "\tHealth Status                  : Alarm\n\tError Code                     : 80C98001\n\tError Information              : node type=AIC, sensor type=RAS State, event state=module error can not be fixed\n",
+    "15": "\tHealth Status                  : Alarm\n\tError Code                     : 80C98001\n\tError Information              : node type=AIC, sensor type=RAS State, event state=module error can not be fixed\n"
+  },
+  "env": {
+    "LOCAL_WORLD_SIZE": "8",
+    "TASK_QUEUE_ENABLE": "1",
+    "HCCL_OP_EXPANSION_MODE": "AIV",
+    "HCCL_BUFFSIZE": "1024",
+    "ASCEND_MAX_OP_CACHE_SIZE": "-1",
+    "PYTORCH_NPU_ALLOC_CONF": "expandable_segments:True",
+    "V41_ENGRAM_HOST_RESIDENT": "1",
+    "V41_ENGRAM_REUSE_EP_GROUP": "1",
+    "V41_ENGRAM_GATE_CHUNK": "0",
+    "V41_ENGRAM_GATE_MAX_TOKENS": "4096",
+    "V41_ENGRAM_GATE_HOIST": "0",
+    "V41_ENGRAM_JIT": "1",
+    "V41_ENGRAM_DEVICE_INDEX": "1",
+    "V41_ENGRAM_DEVICE_FALLBACK": "0",
+    "V41_QLI_NO_CANDIDATE": "1",
+    "V41_MOE_COMM_ALLGATHER": "1",
+    "V41_MOE_MASK_RANGE": "1",
+    "V41_ROPE_IDXSEL": "1",
+    "V41_O_PROJ_2D": "1",
+    "V41_MOE_ZERO_INVALID": "0",
+    "V41_MOE_ZERO_NONFINITE": "0",
+    "V41_ENGRAM_ROUTE_PROBE": "0",
+    "NUMBA_CACHE_DIR": "/work/cache/numba",
+    "STACK_TP8_ISOLATED_POOLS": "0",
+    "STACK_FP32_DECODE_REDUCTION": "0"
+  },
+  "argv": [
+    "bash",
+    "/work/src/stack/run_stack.sh",
+    "bench_real_reductions.py",
+    "--physical-chips=8,9,10,11,12,13,14,15",
+    "--output=/work/results/formal_reduction_vectors_bench_v1",
+    "--input=/work/results/formal_fp32_decode_reduction_v2"
+  ],
+  "script_sha256": "6ff5bd0bcf4a6295c4e8cbcb2266b41a66d74bd0fcfff06537f5ed082ef2fa0e",
+  "source_sha256": "174cd1a4160c0f8338bc28a3326c076532c5998e7ebecd21ae82abf5931048f7"
+}
