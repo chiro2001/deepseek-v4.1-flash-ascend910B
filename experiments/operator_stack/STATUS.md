@@ -1,3 +1,5 @@
+更新v24：hostmeta best服务v4客户端退出0，GSM8K100/100、Vision23/23，8条serial客户端 `(26.133047ms,A1,38.265726tok/s)`；19ms未达。完整质量通过后仅终止验证归属的本任务API，记录stopped_for_async，当前无API。`/work/src_async_v2` 的 `formal_async_audit_v1`已启动，除整网/消费者还逐请求对齐同步audit参考；异步按token到达墙钟计时，避免CPU polling报价。守卫通过才12配对，异步结果pending。
+
 更新v23：静态metadata `formal_hostmeta_audit_v1`退出0，三原生控制/六配对delta0，24rank/288group精确、spec-build实际覆盖；12组perf退出0，meta25.719245/A1/38.881390→host25.636325/A1/39.007151，9/12更快，配对节省0.100410ms，收益小。strict独立通信图内32测试退出0：BF16原生稳定21.5035us；fixed FP32 15.9325us对齐FP64却640/640不对齐native BF16，未替换/未计E2E。已启动正式best service v4 hostmeta/18764/独立模型名，客户端bench8+Vision23+GSM100 pending。下一异步入口 `/work/src_async_v2` 已准备，按token到达计时并对齐同步完整精度，尚未启动。19ms未达。
 
 更新v22：prefix-up性能12组退出0，metastack `(25.728940ms,A1,38.866739tok/s)`，cumsum-up `(26.969480ms,A1,37.078950tok/s)` 0/12快于参考；routing-prefix `(25.852680ms,A1,38.680709tok/s)`仅3/12更快，均未采用。112份七组微架构全部解析，GMM1 Scalar仅0.62179→0.58364，下投影counts恢复增加Concat/Sub；仍82 AllReduce，无UB容量occupancy。新增静态metadata几何 `tp8hostmeta`，预检通过，`/work/src_hostmeta_v2` 的 `formal_hostmeta_audit_v1`运行，完整守卫后才12配对；当前未计收益。19ms仍未达，API待恢复。

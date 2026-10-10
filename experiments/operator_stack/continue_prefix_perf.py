@@ -83,6 +83,10 @@ def main():
         '--wait-seconds', '600']
     if args.profile:
         command.append('--profile')
+    if result.get('async_scheduling',False):
+        assert not args.profile, 'Do not mix async timing and diagnostic collection'
+        assert result['timing_scope']=='token-arrival elapsed/decoded tokens'
+        command.append('--async-scheduling')
     receipt = {'full_audit_passed': True, 'checked': checked, 'argv': command,
         'profile_after_unprofiled_timing': args.profile, 'time_unix': time.time()}
     (audit_root/'validated_for_prefix_perf.json').write_text(json.dumps(receipt, indent=2)+'\n')
