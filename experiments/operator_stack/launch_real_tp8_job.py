@@ -24,6 +24,7 @@ def main():
     p.add_argument('--audit', action='store_true')
     p.add_argument('--profile', action='store_true')
     p.add_argument('--native-control', action='store_true')
+    p.add_argument('--native-profile', action='store_true')
     p.add_argument('--eager', action='store_true')
     p.add_argument('--probe-native-ops', action='store_true')
     p.add_argument('--isolated-pools', action='store_true',
@@ -34,6 +35,7 @@ def main():
     assert args.job.replace('-', '').replace('_', '').isalnum(), args.job
     assert args.pairs > 0 and args.wait_seconds >= 0
     assert not (args.audit and args.profile)
+    assert not args.native_profile or (not args.native_control and not args.audit and not args.profile and not args.eager and not args.isolated_pools)
     assert not args.native_control or (args.audit and not args.profile)
     assert not args.eager or args.native_control
     assert not args.probe_native_ops or (args.native_control and args.eager)
@@ -101,12 +103,14 @@ def main():
             'V41_ENGRAM_ROUTE_PROBE': '0', 'NUMBA_CACHE_DIR': '/work/cache/numba',
         }
         flags['STACK_TP8_ISOLATED_POOLS'] = '1' if args.isolated_pools else '0'
-        script_name = 'bench_formal_native_control.py' if args.native_control else 'bench_real_tp8_model.py'
+        script_name = ('profile_formal_native.py' if args.native_profile else
+                       'bench_formal_native_control.py' if args.native_control else 'bench_real_tp8_model.py')
         command = ['bash', '/work/src/stack/run_stack.sh', script_name,
             '--model=' + args.model, '--physical-chips=' + args.chips,
-            '--pairs=' + str(args.pairs),
             '--output=/work/results/' + args.job]
-        if not args.native_control:
+        if not args.native_profile:
+            command.append('--pairs=' + str(args.pairs))
+        if not args.native_control and not args.native_profile:
             command.append('--arms=' + args.arms)
         if args.eager:
             command.append('--eager')

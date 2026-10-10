@@ -9,6 +9,8 @@ ORIGINALS = {}
 ENABLED = False
 ENGRAM_GRAPHS = []
 ROUTER_WEIGHTS = {}
+ROUTER_OWNER_STACK = []
+ROUTER_OWNER_HANDLES = []
 
 
 def disable_engram_subgraph(worker):
@@ -48,6 +50,17 @@ def install(worker):
     model = worker.model_runner.model
     for name,module in model.named_modules():
         NAMES[id(module)] = name
+        if getattr(module,'is_internal_router',False):
+            def bind_owner(name):
+                def before(module,inputs):
+                    if ENABLED: ROUTER_OWNER_STACK.append((name,module))
+                def after(module,inputs,output):
+                    if ROUTER_OWNER_STACK and ROUTER_OWNER_STACK[-1][1] is module:
+                        ROUTER_OWNER_STACK.pop()
+                return before,after
+            before,after=bind_owner(name)
+            ROUTER_OWNER_HANDLES.extend([module.register_forward_pre_hook(before),
+                module.register_forward_hook(after,always_call=True)])
         if hasattr(module,'hc_pre') and getattr(module,'hc_mult',None) == 4:
             cls = type(module)
             if cls not in ORIGINALS:
@@ -78,7 +91,11 @@ def install(worker):
     original_linear = functional.linear
     def linear(x,weight,bias=None):
         owner = ROUTER_WEIGHTS.get(weight.data_ptr())
-        key = ('router',weight.data_ptr())
+        if owner is None and tuple(weight.shape)==(384,5120) and ROUTER_OWNER_STACK:
+            # Internal routing may use weight_fp32 or a fresh .to(float32)
+            # tensor; the expert module establishes its real owner.
+            owner=ROUTER_OWNER_STACK[-1]
+        key = ('router',id(owner[1])) if owner is not None else None
         selected = owner is not None and eligible(x) and key not in SEEN
         saved = x.clone() if selected else None
         output = original_linear(x,weight,bias)
@@ -91,6 +108,7 @@ def install(worker):
     functional.linear = linear
     ENABLED = True
     return {'native_hc_classes':len(ORIGINALS),'router_weights':len(ROUTER_WEIGHTS),
+            'internal_router_owners':len(ROUTER_OWNER_HANDLES)//2,
             'scope':'eager first decode; retain actual inputs, no D2H during model forward'}
 
 
