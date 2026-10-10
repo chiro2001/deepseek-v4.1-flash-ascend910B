@@ -21,6 +21,7 @@ def main():
     p.add_argument('--probe-native-ops', action='store_true')
     p.add_argument('--trace-attention', action='store_true')
     p.add_argument('--fp32-decode-reduction', action='store_true')
+    p.add_argument('--hccl-deterministic', choices=('false','true','strict'))
     args = p.parse_args()
     assert os.getenv('TINY_PERF_RANDOM_VALIDATION') != '1'
     assert os.environ['STACK_PHYSICAL_CHIPS'] == args.physical_chips
@@ -29,6 +30,8 @@ def main():
     assert not args.trace_attention or (args.eager and not args.probe_native_ops)
     assert not args.fp32_decode_reduction or (args.eager and not args.trace_attention and not args.probe_native_ops)
     assert (os.getenv('STACK_FP32_DECODE_REDUCTION') == '1') == args.fp32_decode_reduction
+    if args.hccl_deterministic is not None:
+        assert os.getenv('HCCL_DETERMINISTIC') == args.hccl_deterministic
     args.output.mkdir(parents=True, exist_ok=True)
     os.environ['VLLM_CACHE_ROOT'] = str(args.output/'cache')
     from formal_model_contract import inspect_checkpoint
@@ -119,6 +122,7 @@ def main():
         'checkpoint_config_sha256':contract['config_sha256'],'comparisons':comparisons,
         'passed':all(r['passed'] for r in comparisons),'performance_claim':None}
     result['experimental_fp32_decode_reduction']=args.fp32_decode_reduction
+    result['hccl_deterministic_env']=os.getenv('HCCL_DETERMINISTIC')
     (args.output/'result.json').write_text(json.dumps(result,indent=2)+'\n')
     if args.fp32_decode_reduction:
         result['aa_passed']=result['passed']

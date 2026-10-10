@@ -15,6 +15,8 @@
 
 最新：`formal_fp32_stack_graph_audit_v1`在建立候选前的base A/A拒绝通过，decode路由差1344、专家集合差888、共同logprob max delta1.624983，token相同。eager修复通过不替代图路径；正在准备真实向量的归约图重放及图捕获padding/dtype/守卫覆盖诊断。没有部署通过验收的正式服务。
 
+用户提醒HCCL环境变量的历史解决记录后，已核对初始与更正记录，优先启动`formal_native_graph_strict_v1`：正式原生图、`HCCL_DETERMINISTIC=strict`在通信域初始化前设置，不启用FP32或候选bank，3组A/A结果待完成。真实向量的固定顺序普通/补偿求和六配置已全部通过独立与图重放精度，原FP32图重放4rank失败，仍不计整网收益。新增报告v9记录本轮顺序调整。
+
 正式七组×8rank的56CSV已完成shape分析：每步原始2356行包含重复通信逻辑事件，去重后2273执行记录；实际AllReduce82次/step，chip8累计2.937ms，不能当E2E。O投影小M的MTE2高、GMM Scalar高分开研究。正式HC/HcPost保持原生、TP1 selected-GMM/router禁用、BF16激活覆盖0；Indexer独立精度通过不替代整网。
 
 最新报告：`reports/a321-fp32-reduction-validated-20261010-v8.md`；归约定位见v7、微架构统计修正见v6。没有有效正式TP8性能或最优服务验收，19ms目标保持active。

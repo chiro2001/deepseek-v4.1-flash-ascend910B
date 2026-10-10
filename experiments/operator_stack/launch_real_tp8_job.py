@@ -31,6 +31,7 @@ def main():
     p.add_argument('--probe-native-ops', action='store_true')
     p.add_argument('--trace-attention', action='store_true')
     p.add_argument('--fp32-decode-reduction', action='store_true')
+    p.add_argument('--hccl-deterministic', choices=('false','true','strict'))
     p.add_argument('--reduction-evidence-job')
     p.add_argument('--isolated-pools', action='store_true',
                    help='Diagnostic: capture each candidate bank in a separate NPU memory pool')
@@ -116,6 +117,10 @@ def main():
         }
         flags['STACK_TP8_ISOLATED_POOLS'] = '1' if args.isolated_pools else '0'
         flags['STACK_FP32_DECODE_REDUCTION'] = '1' if args.fp32_decode_reduction else '0'
+        if args.hccl_deterministic is not None:
+            # HCCL reads this at process/communicator initialization; exporting
+            # it into the fresh job is intentional, not a live group toggle.
+            flags['HCCL_DETERMINISTIC'] = args.hccl_deterministic
         script_name = ('bench_real_reductions.py' if args.reduction_bench else
                        'profile_formal_native.py' if args.native_profile else
                        'bench_formal_native_control.py' if args.native_control else 'bench_real_tp8_model.py')
@@ -138,6 +143,8 @@ def main():
             command.append('--trace-attention')
         if args.fp32_decode_reduction:
             command.append('--fp32-decode-reduction')
+        if args.hccl_deterministic is not None and args.native_control:
+            command.append('--hccl-deterministic=' + args.hccl_deterministic)
         if args.reduction_evidence_job:
             command.append('--reduction-evidence=/work/results/' + args.reduction_evidence_job)
         if args.audit:
