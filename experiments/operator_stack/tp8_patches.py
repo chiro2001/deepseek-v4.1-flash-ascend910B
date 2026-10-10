@@ -47,8 +47,9 @@ def install(model):
 def save(worker, name):
     from vllm_ascend.compilation import acl_graph as ag
     from vllm.distributed import get_tensor_model_parallel_rank
-    entries = [(wrapper, wrapper.concrete_aclgraph_entries) for wrapper in ag._acl_graph_wrappers]
-    assert sum(len(value) for _, value in entries) == 1
+    entries = [(wrapper, wrapper.concrete_aclgraph_entries, wrapper.graph_pool)
+               for wrapper in ag._acl_graph_wrappers]
+    assert sum(len(value) for _, value, _ in entries) == 1
     role = 'fused' if name == 'tp8stack' else 'baseline'
     refs = activation.REFS.get(activation.ARM, {'routed': [], 'shared': []})
     hc_refs = base.HC_REFS.get(base.ARM, [])
@@ -66,6 +67,8 @@ def save(worker, name):
             'goal_selected_calls': {kind: sum(row[2] for row in rows) for kind, rows in goal.REFS.get(name, {}).items()},
             'generic_activation':{kind:{'calls':len(rows),'selected':sum(r[3] for r in rows),
                                         'shapes':sorted({tuple(r[0].shape) for r in rows})} for kind,rows in generic_refs.items()},
+            'graph_pools':[repr(pool) for _, value, pool in entries if value],
+            'isolated_candidate_pools_requested':os.getenv('STACK_TP8_ISOLATED_POOLS') == '1',
             'tp1_route_and_selected_gmm_enabled': False}
 
 
@@ -97,7 +100,10 @@ def create(worker, name):
     base.HC_REFS[base.ARM] = []; base.ROUTER_REFS[base.ARM] = []
     activation.REFS[activation.ARM] = {'routed': [], 'shared': []}; goal.REFS[name] = {}
     generic_activation.REFS[name]={'routed':[],'shared':[]}
-    for wrapper in ag._acl_graph_wrappers: wrapper.concrete_aclgraph_entries = {}
+    pool = torch.npu.graph_pool_handle() if os.getenv('STACK_TP8_ISOLATED_POOLS') == '1' else None
+    for wrapper in ag._acl_graph_wrappers:
+        wrapper.concrete_aclgraph_entries = {}
+        if pool is not None: wrapper.graph_pool = pool
     ag._graph_params = None; ag.set_graph_params([1])
     worker.model_runner.capture_model()
     return save(worker, name)
@@ -107,7 +113,9 @@ def switch(worker, name):
     from vllm_ascend.compilation import acl_graph as ag
     torch.npu.synchronize(); switch_mode(name)
     entries, params, hc, router, act, idx, refs, generic_refs = BANKS[name]
-    for wrapper, value in entries: wrapper.concrete_aclgraph_entries = value
+    for wrapper, value, pool in entries:
+        wrapper.concrete_aclgraph_entries = value
+        wrapper.graph_pool = pool
     ag._graph_params = params
     base.HC_REFS[base.ARM] = hc; base.ROUTER_REFS[base.ARM] = router
     activation.REFS[activation.ARM] = act; indexer.REFS[indexer.ARM] = idx; goal.REFS[name] = refs

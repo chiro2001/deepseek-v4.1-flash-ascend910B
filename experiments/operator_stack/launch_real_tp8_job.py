@@ -23,12 +23,19 @@ def main():
     p.add_argument('--arms', default='tp8base,tp8core,tp8act,tp8stack')
     p.add_argument('--audit', action='store_true')
     p.add_argument('--profile', action='store_true')
+    p.add_argument('--native-control', action='store_true')
+    p.add_argument('--eager', action='store_true')
+    p.add_argument('--isolated-pools', action='store_true',
+                   help='Diagnostic: capture each candidate bank in a separate NPU memory pool')
     p.add_argument('--allow-alarm', action='store_true')
     p.add_argument('--wait-seconds', type=int, default=0)
     args = p.parse_args()
     assert args.job.replace('-', '').replace('_', '').isalnum(), args.job
     assert args.pairs > 0 and args.wait_seconds >= 0
     assert not (args.audit and args.profile)
+    assert not args.native_control or (args.audit and not args.profile)
+    assert not args.eager or args.native_control
+    assert not args.isolated_pools or not args.native_control
     arms = args.arms.split(',')
     assert arms[0] == 'tp8base' and len(set(arms)) == len(arms)
     assert set(arms) <= {'tp8base', 'tp8core', 'tp8act', 'tp8stack'}
@@ -91,10 +98,16 @@ def main():
             'V41_MOE_ZERO_INVALID': '0', 'V41_MOE_ZERO_NONFINITE': '0',
             'V41_ENGRAM_ROUTE_PROBE': '0', 'NUMBA_CACHE_DIR': '/work/cache/numba',
         }
-        command = ['bash', '/work/src/stack/run_stack.sh', 'bench_real_tp8_model.py',
+        flags['STACK_TP8_ISOLATED_POOLS'] = '1' if args.isolated_pools else '0'
+        script_name = 'bench_formal_native_control.py' if args.native_control else 'bench_real_tp8_model.py'
+        command = ['bash', '/work/src/stack/run_stack.sh', script_name,
             '--model=' + args.model, '--physical-chips=' + args.chips,
-            '--pairs=' + str(args.pairs), '--arms=' + args.arms,
+            '--pairs=' + str(args.pairs),
             '--output=/work/results/' + args.job]
+        if not args.native_control:
+            command.append('--arms=' + args.arms)
+        if args.eager:
+            command.append('--eager')
         if args.audit:
             command.append('--audit')
         if args.profile:
@@ -114,7 +127,7 @@ def main():
             'chips': chips, 'resources': parsed, 'alarm_details': alarm_details,
             'env': flags, 'argv': command,
             'script_sha256': hashlib.sha256(body.encode()).hexdigest(),
-            'source_sha256': hashlib.sha256((root / 'src/stack/bench_real_tp8_model.py').read_bytes()).hexdigest()}
+            'source_sha256': hashlib.sha256((root / 'src/stack' / script_name).read_bytes()).hexdigest()}
         (out / 'resource_prelaunch.txt').write_text(raw)
         subprocess.run(['docker', 'exec', '-d', args.container, 'bash', '/work/' + script.name], check=True)
         (out / 'launched.json').write_text(json.dumps(receipt, indent=2) + '\n')
