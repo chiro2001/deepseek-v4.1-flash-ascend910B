@@ -32,6 +32,12 @@ class RealTP8StackWorker(NPUWorker):
         return result
 
     def compile_or_warm_up_model(self, *args, **kwargs):
+        if os.getenv('STACK_METADATA_MANY_SLOTS_ENABLED')=='1':
+            from tp8_slot_batches import REGISTRY
+            # V1's initialized KVCacheConfig is authoritative. The legacy
+            # cache_config.num_gpu_blocks may be unset on this vendor build.
+            REGISTRY.bind_pool(self.model_runner.kv_cache_config.num_blocks)
+            print('REAL_SLOT_POOL_BOUND',REGISTRY.model_pool_blocks,flush=True)
         result = super().compile_or_warm_up_model(*args, **kwargs)
         print('REAL_TP8_EFFECTIVE', tp8_patches.save(self, os.getenv('STACK_TP8_ARM', 'tp8base')), flush=True)
         return result

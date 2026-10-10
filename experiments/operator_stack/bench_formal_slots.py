@@ -21,9 +21,15 @@ def run_dtype(dtype):
     groups=[]
     for i in range(12):
         builder=SimpleNamespace(_slot_mapping_2d=torch.full((8,2),-777,device='npu',dtype=dtype))
+        builder.vllm_config=SimpleNamespace(cache_config=SimpleNamespace(num_gpu_blocks=None))
+        builder.kv_cache_spec=SimpleNamespace(block_size=128)
         common=SimpleNamespace(slot_mapping=torch.zeros(1,device='npu',dtype=dtype),
                                query_start_loc=query,num_reqs=1)
         groups.append((builder,common,bool(i%3),1 if i%3==0 else 2,(1,64,128,256)[i%4]))
+    b,c,compressed,ratio,bs=groups[0]
+    assert registry.record(b,c,pos,1,compressed,ratio,bs) is None
+    registry.bind_pool(7939)
+    assert registry.record(b,c,pos,1,compressed,ratio,bs) is not None
     cases=[];reference_discrepancies=[]
     large=2**31-128 if dtype==torch.int32 else 2**31+127
     for raw,pos_value in [(-1,0),(0,0),(1,1),(127,127),(128,128),(129,129),(255,255),(256,256),(large,511)]:
@@ -114,6 +120,7 @@ def run_dtype(dtype):
     result['integer_reference']='CPU exact floor/remainder; no floating-point conversion'
     result['existing_reference_discrepancies_outside_formal_pool_range']=reference_discrepancies
     result['existing_reference_matches_below_2pow24']=True
+    result['unset_legacy_pool_actual_v1_binding_passed']=True
     print('FORMAL_SLOT_PROBE',json.dumps({k:v for k,v in result.items() if k not in ('cases','samples')}),flush=True)
     return result
 

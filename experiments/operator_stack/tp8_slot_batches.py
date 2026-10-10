@@ -6,6 +6,7 @@ its own output buffer. Batch dictionaries are supplied by the native runner
 and reset every step; no token/position values are cached across steps.
 """
 from collections import Counter
+import json
 
 import torch
 import triton
@@ -51,9 +52,14 @@ class SlotBatches:
         self.descriptor_signature = None
         self.counts = Counter()
         self.batch_key = 'tp8:slot_conversion_batch'
+        self.contract_snapshots = {}
+        self.model_pool_blocks = None
 
-    @staticmethod
-    def record(builder, common, positions, n, compressed, ratio, block_size):
+    def bind_pool(self, blocks):
+        assert int(blocks)>0
+        self.model_pool_blocks=int(blocks)
+
+    def record(self, builder, common, positions, n, compressed, ratio, block_size):
         slots, output = common.slot_mapping, builder._slot_mapping_2d
         query = common.query_start_loc
         if (n != 1 or int(getattr(common, 'num_reqs', query.numel()-1)) != 1 or
@@ -71,7 +77,9 @@ class SlotBatches:
         # keep such model configurations outside this integration experiment.
         config=getattr(builder,'vllm_config',None)
         if config is not None:
-            blocks=getattr(config.cache_config,'num_gpu_blocks',None)
+            blocks=self.model_pool_blocks
+            if blocks is None:
+                blocks=getattr(config.cache_config,'num_gpu_blocks',None)
             spec=getattr(builder,'kv_cache_spec',None)
             logical=getattr(spec,'block_size',None)
             if blocks is None or logical is None or int(blocks)*int(logical)>=2**24:
@@ -92,6 +100,22 @@ class SlotBatches:
                                         compressed,ratio,block_size,skip)
         rec = self.record(builder,common,positions,n,compressed,ratio,block_size)
         if rec is None:
+            if n==1 and not torch.npu.is_current_stream_capturing():
+                config=getattr(builder,'vllm_config',None)
+                spec=getattr(builder,'kv_cache_spec',None)
+                tensors={'slots':common.slot_mapping,'output':builder._slot_mapping_2d,
+                         'positions':positions,'query':common.query_start_loc}
+                snapshot={'n':n,'num_reqs':getattr(common,'num_reqs',None),
+                    'compressed':compressed,'ratio':ratio,'block_size':block_size,
+                    'logical_block_size':getattr(spec,'block_size',None),
+                    'num_gpu_blocks':getattr(config.cache_config,'num_gpu_blocks',None) if config else None,
+                    'bound_model_pool_blocks':self.model_pool_blocks,
+                    'tensors':{name:None if t is None else {'shape':list(t.shape),'dtype':str(t.dtype),
+                        'device':str(t.device),'device_type':t.device.type,'contiguous':t.is_contiguous()}
+                        for name,t in tensors.items()}}
+                if self.contract_snapshots.get(id(builder))!=snapshot:
+                    self.contract_snapshots[id(builder)]=snapshot
+                    print('SLOT_BATCH_CONTRACT_FALLBACK',json.dumps(snapshot),flush=True)
             return fallback('contract')
         rec.update(actual_reqs=actual_reqs,actual_tokens=actual_tokens,skip=skip)
         self.targets[id(builder)] = rec
@@ -135,7 +159,9 @@ class SlotBatches:
 
     def status(self):
         return {'counts':dict(self.counts),'registered_groups':len(self.targets),
-                'expected_groups':self.expected_groups,'dynamic_values_cached':False}
+                'expected_groups':self.expected_groups,'dynamic_values_cached':False,
+                'bound_model_pool_blocks':self.model_pool_blocks,
+                'contract_snapshots':list(self.contract_snapshots.values())}
 
     def audit(self):
         assert not torch.npu.is_current_stream_capturing()

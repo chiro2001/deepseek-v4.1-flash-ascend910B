@@ -5,6 +5,8 @@
 
 ## 当前状态（优先于下方历史记录）
 
+最新v15：正式slot审计v1退出1，registered_groups0/contract回退1752，覆盖门拒绝候选并阻止perf。读取当前源码后改为worker在KV初始化后绑定`model_runner.kv_cache_config.num_blocks`，保留范围约束并增加contract诊断。`formal_slots_batch_probe_v5`退出0，144整数用例/6图重放/旧字段为空→实际V1池绑定回归均通过。`formal_slots_batch_audit_v2`已启动`/work/src_manyslots_v7`正式base/core/meta，仍待整网精度及12group实际覆盖；通过后才起12组perf_v2＋单独CPU诊断。当前最佳正式core客户端仍26.744ms/A1/37.391tok-s，质量100/100和23/23已过，19ms及最终服务未完成。
+
 v14独立验证更新：`formal_slots_batch_probe_v4`退出0，INT32/INT64共144组CPU整数参考、尾部保护和6次变化输入图重放全部通过；独立事件INT32为801.356→392.164µs、INT64为945.504→458.397µs，均不计整网收益。`formal_slots_batch_audit_v1`已在同一正式实例建立base/core/meta三bank，源码`/work/src_manyslots_v6`，正在加载/审计。通过原生控制、6个配对、24份rank的12group消费者及实际覆盖后，守卫才启动12组关闭审计的perf＋单独cProfile。完整19ms目标仍active，最佳正式core质量100/100和23/23已验，但最终服务已为实验释放。
 
 更新v14：`formal_core_strict_service_v2`客户端退出0，GSM8K100/100、Vision23/23，8条serial性能`(26.744123ms/step,A=1,37.391393tok/s)`，归属已核对；随后仅SIGTERM本任务API以继续实验。新的完整19ms goal已重新创建active。新增`tp8meta`实验候选，将12group slot坐标转换合并一次发射，保留独立输出与每步动态值；默认已验收core不开启。v1 Ascend标量offset store编译失败已修正；v2/v3近INT32上界差异定位到旧core helper与CPU整数参考不符，候选与CPU相符。v4在`/work/src_manyslots_v6`运行，两种dtype全144组CPU参考及6次重放通过才启动正式审计；INT32已72组/3重放通过，独立事件801→392µs不计E2E。正式19ms及最终最佳部署未完成。
