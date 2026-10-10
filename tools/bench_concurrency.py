@@ -448,6 +448,10 @@ def main() -> int:
                     help="served model name。留空则用 /v1/models 的 data[0]（会打印提示）；"
                          "走聚合网关时**建议显式指定**")
     ap.add_argument("--concurrency", default="1,2,4,8,16,32,64")
+    ap.add_argument("--prompt-count", type=int, default=0,
+                    help="Number of distinct prompts; default=max concurrency. Supports serial multi-prompt sampling.")
+    ap.add_argument("--require-model", action="store_true",
+                    help="Reject a missing explicit model instead of falling back to another service.")
     ap.add_argument("--prompt-tokens", type=int, default=1024)
     ap.add_argument("--output-tokens", type=int, default=256)
     ap.add_argument("--repeats", type=int, default=1)
@@ -476,6 +480,10 @@ def main() -> int:
 
     base = a.base_url.rstrip("/")
     concs = [int(x) for x in a.concurrency.split(",") if x.strip()]
+    assert concs and min(concs)>0 and a.prompt_count>=0
+    num_prompts = a.prompt_count or max(concs)
+    assert num_prompts >= max(concs)
+    assert not a.require_model or a.model, '--require-model needs --model'
 
     try:
         models = _get_json(f"{base}/v1/models")
@@ -500,6 +508,9 @@ def main() -> int:
                 print(f"[bench] /v1/models 里 data[0]={ids[0]}，但 --model={a.model} 也在列表里 "
                       f"⇒ 用 --model（**不覆盖**）", file=sys.stderr)
         else:
+            if a.require_model:
+                print(f"[bench] 指定模型 {a.model} 不在 /v1/models，拒绝测量。", file=sys.stderr)
+                return 3
             served = ids[0]
             print(f"[bench] WARNING: --model={a.model} 不在 /v1/models（{ids[:3]}…）⇒ "
                   f"回退 data[0]={served}。压测目标可能不是你想要的，请核对。", file=sys.stderr)
@@ -523,12 +534,11 @@ def main() -> int:
           f"问题后缀={len(_SUFFIXES)} 个（{', '.join(_SUFFIX_NAMES)}）")
     print("[bench] 每个请求：不同正文切片 + 轮换问题 ⇒ 内容互异，无 prefix cache 复用")
 
-    # 为最大并发数预先校准出每条正好 target_tokens 个 token 的 prompt
-    max_conc = max(concs)
+    # Prepare the requested sample count independently of serving concurrency.
     tok_base = (a.tokenize_url or a.base_url).rstrip('/')
     if tok_base != base:
         print(f"[bench] /tokenize 走 {tok_base}（代理不提供该端点）")
-    prompts = prepare_prompts(tok_base, a.model, max_conc, a.prompt_tokens)
+    prompts = prepare_prompts(tok_base, a.model, num_prompts, a.prompt_tokens)
 
     # 预热（不计入结果）
     wait_idle(base)

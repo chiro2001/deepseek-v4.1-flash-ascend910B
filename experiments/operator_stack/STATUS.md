@@ -17,6 +17,8 @@
 
 用户提醒HCCL环境变量的历史解决记录后，已核对初始与更正记录，优先启动`formal_native_graph_strict_v1`：正式原生图、`HCCL_DETERMINISTIC=strict`在通信域初始化前设置，不启用FP32或候选bank，3组A/A结果待完成。真实向量的固定顺序普通/补偿求和六配置已全部通过独立与图重放精度，原FP32图重放4rank失败，仍不计整网收益。新增报告v9记录本轮顺序调整。
 
+最新进展：`formal_native_graph_strict_v1`退出0，三组完整路由/token/Top5/logprob一致，delta0。`formal_stack_graph_strict_audit_v1`已启动同worker base/core/stack叠加审计，保持strict和原生归约。客户端工具已支持独立模型名、8条serial prompt与错误模型拒绝；GSM8K缓存/官方encoding/视觉图片在a3-21可用。正式性能与客户端质量尚未验收。新报告v10。
+
 正式七组×8rank的56CSV已完成shape分析：每步原始2356行包含重复通信逻辑事件，去重后2273执行记录；实际AllReduce82次/step，chip8累计2.937ms，不能当E2E。O投影小M的MTE2高、GMM Scalar高分开研究。正式HC/HcPost保持原生、TP1 selected-GMM/router禁用、BF16激活覆盖0；Indexer独立精度通过不替代整网。
 
 最新报告：`reports/a321-fp32-reduction-validated-20261010-v8.md`；归约定位见v7、微架构统计修正见v6。没有有效正式TP8性能或最优服务验收，19ms目标保持active。

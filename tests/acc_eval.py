@@ -10,6 +10,7 @@ import argparse, json, os, re, sys, threading, time, urllib.request
 # workers continue concurrently.
 PREFILL_LOCK = threading.Lock()
 SERIALIZE_PREFILL = True
+EVAL_MODEL = 'deepseek-v41'
 
 # [v4 参数化] 原始脚本硬编码 `/home/user/models/DeepSeek-V4.1-Flash/encoding`。
 # 这里改为：① 环境变量 `ENC_DIR`；② 命令行 `--enc-dir`（两者都优先于默认值）；
@@ -50,7 +51,7 @@ def build_prompt(question, mode, effort=75):
 
 def complete(base, prompt, max_tokens=512, timeout=600, temperature=0.0):
     if not SERIALIZE_PREFILL:
-        body = {"model": "deepseek-v41", "prompt": prompt, "max_tokens": max_tokens,
+        body = {"model": EVAL_MODEL, "prompt": prompt, "max_tokens": max_tokens,
                 "temperature": temperature}
         req = urllib.request.Request(base.rstrip("/") + "/v1/completions",
                                      data=json.dumps(body).encode(),
@@ -58,7 +59,7 @@ def complete(base, prompt, max_tokens=512, timeout=600, temperature=0.0):
         with urllib.request.urlopen(req, timeout=timeout) as r:
             return json.loads(r.read())["choices"][0]["text"]
     # streaming + global prefill gate: hold the lock only through first content token
-    body = {"model": "deepseek-v41", "prompt": prompt, "max_tokens": max_tokens,
+    body = {"model": EVAL_MODEL, "prompt": prompt, "max_tokens": max_tokens,
             "temperature": temperature, "stream": True,
             "stream_options": {"include_usage": True}}
     req = urllib.request.Request(base.rstrip("/") + "/v1/completions",
@@ -193,6 +194,7 @@ ap.add_argument("--limit", type=int, default=200)
 ap.add_argument("--base-url", default="http://127.0.0.1:8001")
 # [v4] `--base` 是 `--base-url` 的别名（本包的 tests/t_gsm8k.py 用 `--base`）。
 ap.add_argument("--base", dest="base_url", help="--base-url 的别名")
+ap.add_argument("--model", default='deepseek-v41', help='Exact served model name')
 ap.add_argument("--enc-dir", help="官方 encoding 目录（覆盖环境变量 ENC_DIR 与默认猜测）")
 ap.add_argument("--conc", type=int, default=4)
 ap.add_argument("--mode", default="chat", choices=["chat", "thinking"])
@@ -203,6 +205,7 @@ ap.add_argument("--tag", default="w4a8")
 ap.add_argument("--serialize-prefill", type=int, default=1,
                 help="1=hold a global lock until first token (avoid concurrent prefills)")
 a = ap.parse_args()
+EVAL_MODEL = a.model
 SERIALIZE_PREFILL = bool(a.serialize_prefill)
 if a.enc_dir:
     sys.path.insert(0, a.enc_dir)

@@ -27,6 +27,12 @@ def main():
     p.add_argument('--native-profile', action='store_true')
     p.add_argument('--reduction-bench', action='store_true')
     p.add_argument('--vector-job')
+    p.add_argument('--serve', action='store_true')
+    p.add_argument('--service-arm', choices=('tp8base','tp8core','tp8act','tp8stack'))
+    p.add_argument('--audit-job')
+    p.add_argument('--perf-job')
+    p.add_argument('--port', type=int)
+    p.add_argument('--served-model')
     p.add_argument('--eager', action='store_true')
     p.add_argument('--probe-native-ops', action='store_true')
     p.add_argument('--trace-attention', action='store_true')
@@ -41,6 +47,10 @@ def main():
     assert args.job.replace('-', '').replace('_', '').isalnum(), args.job
     assert args.pairs > 0 and args.wait_seconds >= 0
     assert not (args.audit and args.profile)
+    assert not args.serve or (args.service_arm and args.audit_job and args.perf_job and args.port and args.served_model and
+        args.hccl_deterministic=='strict' and not any((args.audit,args.profile,args.native_control,args.native_profile,args.reduction_bench,args.eager,args.probe_native_ops,args.trace_attention,args.fp32_decode_reduction,args.isolated_pools)))
+    for name in (args.audit_job,args.perf_job):
+        assert not name or (args.serve and name.replace('-', '').replace('_', '').isalnum())
     assert not args.reduction_bench or (args.vector_job and not any((args.audit,args.profile,args.native_control,args.native_profile,args.eager,args.probe_native_ops,args.trace_attention,args.fp32_decode_reduction,args.isolated_pools)))
     assert not args.vector_job or (args.reduction_bench and args.vector_job.replace('-', '').replace('_', '').isalnum())
     assert not args.native_profile or (not args.native_control and not args.audit and not args.profile and not args.eager and not args.isolated_pools)
@@ -121,7 +131,8 @@ def main():
             # HCCL reads this at process/communicator initialization; exporting
             # it into the fresh job is intentional, not a live group toggle.
             flags['HCCL_DETERMINISTIC'] = args.hccl_deterministic
-        script_name = ('bench_real_reductions.py' if args.reduction_bench else
+        script_name = ('serve_formal_tp8.py' if args.serve else
+                       'bench_real_reductions.py' if args.reduction_bench else
                        'profile_formal_native.py' if args.native_profile else
                        'bench_formal_native_control.py' if args.native_control else 'bench_real_tp8_model.py')
         command = ['bash', '/work/src/stack/run_stack.sh', script_name,
@@ -131,9 +142,13 @@ def main():
             command.append('--input=/work/results/' + args.vector_job)
         else:
             command.append('--model=' + args.model)
-        if not args.native_profile and not args.reduction_bench:
+        if args.serve:
+            command.extend(['--audit-root=/work/results/'+args.audit_job,
+                            '--perf-root=/work/results/'+args.perf_job,
+                            '--arm='+args.service_arm,'--port='+str(args.port),'--served-model='+args.served_model])
+        if not args.native_profile and not args.reduction_bench and not args.serve:
             command.append('--pairs=' + str(args.pairs))
-        if not args.native_control and not args.native_profile and not args.reduction_bench:
+        if not args.native_control and not args.native_profile and not args.reduction_bench and not args.serve:
             command.append('--arms=' + args.arms)
         if args.eager:
             command.append('--eager')
@@ -143,7 +158,7 @@ def main():
             command.append('--trace-attention')
         if args.fp32_decode_reduction:
             command.append('--fp32-decode-reduction')
-        if args.hccl_deterministic is not None and args.native_control:
+        if args.hccl_deterministic is not None and (args.native_control or not (args.native_profile or args.reduction_bench or args.serve)):
             command.append('--hccl-deterministic=' + args.hccl_deterministic)
         if args.reduction_evidence_job:
             command.append('--reduction-evidence=/work/results/' + args.reduction_evidence_job)

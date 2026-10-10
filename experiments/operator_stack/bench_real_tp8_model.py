@@ -25,6 +25,7 @@ def main():
                    help='Enable NUMA binding only after validating shared-host memory migration')
     p.add_argument('--audit', action='store_true')
     p.add_argument('--fp32-decode-reduction', action='store_true')
+    p.add_argument('--hccl-deterministic', choices=('false','true','strict'))
     p.add_argument('--reduction-evidence', type=Path)
     p.add_argument('--profile', action='store_true',
                    help='Collect bounded per-rank metrics after unprofiled paired timing')
@@ -33,6 +34,8 @@ def main():
     assert not (args.audit and args.profile), 'Route/clone audit and profiling run separately'
     assert (os.getenv('STACK_FP32_DECODE_REDUCTION') == '1') == args.fp32_decode_reduction
     assert bool(args.reduction_evidence) == args.fp32_decode_reduction
+    if args.hccl_deterministic is not None:
+        assert os.getenv('HCCL_DETERMINISTIC') == args.hccl_deterministic
     from formal_tp8_profile import METRICS
     profile_metrics = args.profile_metrics.split(',')
     assert set(profile_metrics) <= set(METRICS) and len(set(profile_metrics)) == len(profile_metrics)
@@ -198,6 +201,7 @@ def main():
               'engram_enabled':True, 'speculative_decoding':False,
               'engram_storage':'int8', 'cpu_binding':args.cpu_bind,
               'fp32_decode_reduction':args.fp32_decode_reduction,
+              'hccl_deterministic_env':os.getenv('HCCL_DETERMINISTIC'),
               'reduction_evidence':str(args.reduction_evidence) if args.reduction_evidence else None,
               'vision_enabled':True,'limit_mm_per_prompt':{'image':4},'request_modality':'text',
               'same_model_instance':True,'same_processes_per_rank':True,'audit':args.audit,

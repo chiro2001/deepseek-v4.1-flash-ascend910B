@@ -33,6 +33,7 @@ def find_enc_dir(explicit=None):
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--base", required=True)
+    ap.add_argument("--model", default='deepseek-v41')
     ap.add_argument("--limit", type=int, default=200)
     ap.add_argument("--conc", type=int, default=4)
     ap.add_argument("--enc-dir", default=None, help="官方 encoding 目录（缺则用 ENC_DIR / ~/models/...）")
@@ -51,6 +52,7 @@ def main() -> int:
     cmd = [sys.executable, str(HERE / "acc_eval.py"),
            "--task", "gsm8k", "--limit", str(a.limit), "--mode", "chat",
            "--conc", str(a.conc), "--base", a.base, "--enc-dir", enc,
+           "--model", a.model,
            "--out", a.out + ".raw.json"]
     p = subprocess.run(cmd, capture_output=True, text=True)
     txt = (p.stdout or "") + "\n" + (p.stderr or "")
