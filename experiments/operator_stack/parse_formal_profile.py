@@ -11,9 +11,10 @@ def main():
     p=argparse.ArgumentParser(allow_abbrev=False)
     p.add_argument('--root',required=True,type=Path)
     p.add_argument('--jobs',type=int,default=4)
+    p.add_argument('--expected-directories',type=int,default=56)
     args=p.parse_args();assert 1<=args.jobs<=8
     paths=sorted((args.root/'prof').rglob('*_ascend_pt'))
-    assert len(paths)==56,len(paths)
+    assert args.expected_directories>0 and len(paths)==args.expected_directories,(len(paths),args.expected_directories)
     logdir=args.root/'offline_parse';logdir.mkdir(exist_ok=True)
     def parse(path):
         csv=path/'ASCEND_PROFILER_OUTPUT/kernel_details.csv'

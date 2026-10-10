@@ -19,6 +19,10 @@
 
 最新进展：`formal_native_graph_strict_v1`退出0，三组完整路由/token/Top5/logprob一致，delta0。`formal_stack_graph_strict_audit_v1`已启动同worker base/core/stack叠加审计，保持strict和原生归约。客户端工具已支持独立模型名、8条serial prompt与错误模型拒绝；GSM8K缓存/官方encoding/视觉图片在a3-21可用。正式性能与客户端质量尚未验收。新报告v10。
 
+最新正式结果：strict三bank整网审计退出0，3次原生控制/6个配对全delta0，72份rank消费者Indexer/cache逐位一致。关闭审计/profiler的12组配对退出0：base `(30.598535ms,A1,32.681303tok/s)`、core `(26.622860ms,A1,37.561704tok/s)`、stack `(26.707870ms,A1,37.442147tok/s)`；core/stack均12/12快于base，Indexer增量未显示稳定额外收益，当前中位最快core。19ms未达到。`formal_strict_profile_v1`已启动base/core七组细节采集；API验证入口已准备但未起通过验收的服务，GSM8K依赖在独立venv安装中。报告v11。
+
+Profiling v1已确认终止：EI0020、NPU socket16666占用、0采集目录。新`formal_strict_profile_v2`已启动，strict＋`HCCL_NPU_SOCKET_PORT_RANGE=auto`，不停止他人/不reset。解析器可按112目录验证两臂七组。仍待新的采集与客户端质量/服务验收。
+
 正式七组×8rank的56CSV已完成shape分析：每步原始2356行包含重复通信逻辑事件，去重后2273执行记录；实际AllReduce82次/step，chip8累计2.937ms，不能当E2E。O投影小M的MTE2高、GMM Scalar高分开研究。正式HC/HcPost保持原生、TP1 selected-GMM/router禁用、BF16激活覆盖0；Indexer独立精度通过不替代整网。
 
 最新报告：`reports/a321-fp32-reduction-validated-20261010-v8.md`；归约定位见v7、微架构统计修正见v6。没有有效正式TP8性能或最优服务验收，19ms目标保持active。
