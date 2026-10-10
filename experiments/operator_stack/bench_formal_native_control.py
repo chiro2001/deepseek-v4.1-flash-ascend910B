@@ -67,18 +67,11 @@ def main():
     full_request(0,'warmup-0'); full_request(1,'warmup-1')
     reference = full_request(0,'reference')
     comparisons = []
+    from formal_comparison import compare_requests
     for i in range(args.pairs):
         actual = full_request(0,'repeat-'+str(i))
-        a=np.asarray(reference['routes'],dtype=np.int16); b=np.asarray(actual['routes'],dtype=np.int16)
-        diff=np.any(a!=b,axis=-1); sets=np.any(np.sort(a,axis=-1)!=np.sort(b,axis=-1),axis=-1)
-        keys=all(set(r)==set(s) for r,s in zip(reference['logprobs'],actual['logprobs']))
-        delta=max(abs(v-actual['logprobs'][j][k]) for j,row in enumerate(reference['logprobs'])
-                  for k,v in row.items() if k in actual['logprobs'][j])
-        comparison={'repeat':i,'tokens_equal':reference['token_ids']==actual['token_ids'],
-            'routes_equal':bool(not diff.any()),'prefill_differing':int(diff[:2048].sum()),
-            'decode_differing':int(diff[2048:].sum()),'route_set_differing':int(sets.sum()),
-            'logprob_keys_equal':keys,'max_logprob_delta':delta}
-        comparison['passed']=comparison['tokens_equal'] and comparison['routes_equal'] and keys and delta<1e-3
+        comparison=compare_requests(reference,actual,'repeat-'+str(i))
+        comparison['repeat']=i
         comparisons.append(comparison)
         (args.output/'comparisons.json').write_text(json.dumps(comparisons,indent=2)+'\n')
         print('FORMAL_NATIVE_CONTROL_COMPARISON',json.dumps(comparison),flush=True)

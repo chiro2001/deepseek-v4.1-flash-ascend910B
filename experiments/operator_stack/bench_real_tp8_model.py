@@ -136,18 +136,33 @@ def main():
             record['route_capture_status'] = llm.collective_rpc(route_capture_patch.status)
         records.append(record)
         (out/'requests.json').write_text(json.dumps(records, indent=2)+'\n')
-        print('REAL_TP8_REQUEST', json.dumps({k:v for k,v in record.items() if k not in ['step_ms','routes','token_ids','logprobs','rank_audit']}), flush=True)
+        print('REAL_TP8_REQUEST', json.dumps({k:v for k,v in record.items() if k not in ['step_ms','routes','token_ids','logprobs','rank_audit','route_capture_status']}), flush=True)
         return record
 
     request('tp8base', 'warmup', 0); request('tp8base', 'warmup', 1)
     print('REAL_TP8_NATIVE_READY', json.dumps({'formal_weights':True,'engram':True,
         'tp':8,'physical_chips':chips,'audit':args.audit}), flush=True)
+    native_controls = []
+    def check_native(reference, actual, phase):
+        from formal_comparison import compare_requests
+        comparison = compare_requests(reference, actual, phase)
+        native_controls.append(comparison)
+        (out/'native_controls.json').write_text(json.dumps(native_controls,indent=2)+'\n')
+        print('REAL_TP8_NATIVE_CONTROL',json.dumps(comparison),flush=True)
+        assert comparison['passed'], ('Native stability gate failed',phase,comparison)
+    if args.audit:
+        native_reference = request('tp8base','native-control-reference',0)
+        check_native(native_reference,request('tp8base','native-control-repeat',0),'before-candidates')
     # Establish a valid native request before compiling candidate banks. All
     # variants remain in these same eight workers and use the same checkpoint.
     for arm in arms[1:]:
+        if args.audit:
+            native_before = request('tp8base','native-before-'+arm,0)
         banks[arm] = llm.collective_rpc(patches.create, args=(arm,))
         record_banks()
         request(arm, 'warmup', 0); request(arm, 'warmup', 1)
+        if args.audit:
+            check_native(native_before,request('tp8base','native-after-'+arm,0),'capture-'+arm)
     comparisons = []
     for pair in range(args.pairs):
         order = arms if pair % 2 == 0 else list(reversed(arms))
@@ -159,6 +174,9 @@ def main():
                           'candidate_ms':actual['decode_median_ms'],
                           'speedup':ref['decode_median_ms']/actual['decode_median_ms'],'tokens_equal':True}
             if args.audit:
+                from formal_comparison import compare_requests
+                diagnostic=compare_requests(ref,actual,f'pair-{pair}-{arm}')
+                (out/f'comparison_diagnostic_{pair}_{arm}.json').write_text(json.dumps(diagnostic,indent=2)+'\n')
                 assert ref['routes'] == actual['routes'], (pair, arm, 'routes')
                 assert all(set(r)==set(a) for r,a in zip(ref['logprobs'], actual['logprobs']))
                 delta=max(abs(v-actual['logprobs'][i][k]) for i,row in enumerate(ref['logprobs']) for k,v in row.items())
