@@ -1,0 +1,222 @@
+{
+  "timestamp_unix": 1791717159.7714548,
+  "container": "dsv41-real-stack-tp8-20261010-a321",
+  "container_id": "b1aa15d8800346aff8f755a049feaae148b9d6e315e92bd32dcdf1063b429eb0",
+  "image_digest": "sha256:b69e58820f929ac7a77f93774a3d96da1961f507628239e9c7d7b24066b7a8ea",
+  "chips": [
+    8,
+    9,
+    10,
+    11,
+    12,
+    13,
+    14,
+    15
+  ],
+  "resources": {
+    "0": {
+      "health": "OK",
+      "processes": [
+        {
+          "pid": 3485007,
+          "name": "VLLMWorker_DP"
+        }
+      ]
+    },
+    "1": {
+      "health": "OK",
+      "processes": [
+        {
+          "pid": 3485006,
+          "name": "VLLMWorker_DP"
+        }
+      ]
+    },
+    "2": {
+      "health": "OK",
+      "processes": []
+    },
+    "3": {
+      "health": "OK",
+      "processes": []
+    },
+    "4": {
+      "health": "OK",
+      "processes": []
+    },
+    "5": {
+      "health": "OK",
+      "processes": [
+        {
+          "pid": 38304,
+          "name": "VLLMEngineCor"
+        }
+      ]
+    },
+    "6": {
+      "health": "OK",
+      "processes": []
+    },
+    "7": {
+      "health": "OK",
+      "processes": []
+    },
+    "8": {
+      "health": "Alarm",
+      "processes": []
+    },
+    "9": {
+      "health": "Alarm",
+      "processes": []
+    },
+    "10": {
+      "health": "Alarm",
+      "processes": []
+    },
+    "11": {
+      "health": "Alarm",
+      "processes": []
+    },
+    "12": {
+      "health": "Alarm",
+      "processes": []
+    },
+    "13": {
+      "health": "Alarm",
+      "processes": []
+    },
+    "14": {
+      "health": "Alarm",
+      "processes": []
+    },
+    "15": {
+      "health": "Alarm",
+      "processes": []
+    }
+  },
+  "health_details": {
+    "8": "\tHealth Status                  : Alarm\n\tError Code                     : 80C98001\n\tError Information              : node type=AIC, sensor type=RAS State, event state=module error can not be fixed\n",
+    "9": "\tHealth Status                  : Alarm\n\tError Code                     : 80C98001\n\tError Information              : node type=AIC, sensor type=RAS State, event state=module error can not be fixed\n",
+    "10": "\tHealth Status                  : Alarm\n\tError Code                     : 80C98001\n\tError Information              : node type=AIC, sensor type=RAS State, event state=module error can not be fixed\n",
+    "11": "\tHealth Status                  : Alarm\n\tError Code                     : 80C98001\n\tError Information              : node type=AIC, sensor type=RAS State, event state=module error can not be fixed\n",
+    "12": "\tHealth Status                  : Alarm\n\tError Code                     : 80C98001\n\tError Information              : node type=AIC, sensor type=RAS State, event state=module error can not be fixed\n",
+    "13": "\tHealth Status                  : Alarm\n\tError Code                     : 80C98001\n\tError Information              : node type=AIC, sensor type=RAS State, event state=module error can not be fixed\n",
+    "14": "\tHealth Status                  : Alarm\n\tError Code                     : 80C98001\n\tError Information              : node type=AIC, sensor type=RAS State, event state=module error can not be fixed\n",
+    "15": "\tHealth Status                  : Alarm\n\tError Code                     : 80C98001\n\tError Information              : node type=AIC, sensor type=RAS State, event state=module error can not be fixed\n"
+  },
+  "env": {
+    "STACK_SRC_ROOT": "/work/src_dspark_sdk_init_static_default_v4",
+    "STACK_PHYSICAL_CHIPS": "8,9,10,11,12,13,14,15",
+    "ASCEND_RT_VISIBLE_DEVICES": "8,9,10,11,12,13,14,15",
+    "ASCEND_VISIBLE_DEVICES": "8,9,10,11,12,13,14,15",
+    "HCCL_DETERMINISTIC": "strict",
+    "HCCL_NPU_SOCKET_PORT_RANGE": "auto",
+    "LOCAL_WORLD_SIZE": "8",
+    "TASK_QUEUE_ENABLE": "1",
+    "HCCL_OP_EXPANSION_MODE": "AIV",
+    "HCCL_BUFFSIZE": "1024",
+    "ASCEND_MAX_OP_CACHE_SIZE": "-1",
+    "PYTORCH_NPU_ALLOC_CONF": "expandable_segments:True",
+    "V41_ENGRAM_HOST_RESIDENT": "1",
+    "V41_ENGRAM_REUSE_EP_GROUP": "1",
+    "V41_ENGRAM_GATE_CHUNK": "0",
+    "V41_ENGRAM_GATE_MAX_TOKENS": "4096",
+    "V41_ENGRAM_GATE_HOIST": "0",
+    "V41_ENGRAM_JIT": "1",
+    "V41_ENGRAM_DEVICE_INDEX": "1",
+    "V41_ENGRAM_DEVICE_FALLBACK": "0",
+    "V41_QLI_NO_CANDIDATE": "1",
+    "V41_MOE_COMM_ALLGATHER": "1",
+    "V41_MOE_MASK_RANGE": "1",
+    "V41_ROPE_IDXSEL": "1",
+    "V41_O_PROJ_2D": "1",
+    "V41_MOE_ZERO_INVALID": "0",
+    "V41_MOE_ZERO_NONFINITE": "0",
+    "V41_ENGRAM_ROUTE_PROBE": "0",
+    "NUMBA_CACHE_DIR": "/work/cache/numba"
+  },
+  "argv": [
+    "bash",
+    "/work/src_dspark_sdk_init_static_default_v4/stack/run_stack.sh",
+    "parallel_tiny/dspark_formal_audit/native_initialized_worker_discovery_v4/init_only_driver.py",
+    "--model",
+    "/home/l00886679/models/out/v41-w4a8-engram-dr-vision-qrot-mtpq",
+    "--physical-chips",
+    "8,9,10,11,12,13,14,15",
+    "--output",
+    "/work/results/formal_dspark_sdk_init_static_default_v4/gate",
+    "--variant",
+    "static_default"
+  ],
+  "source_dir": "/work/src_dspark_sdk_init_static_default_v4",
+  "source_hashes": {
+    "stack/bench_formal_dspark.py": "e93582adf78029b092baacd9f7f9ae80fc451f13554bcc70209fa4721c527888",
+    "stack/formal_dspark_counters.py": "da845a5891557f21e80eac06d96aec1955263d1ae93afbc4d84e86dd9585dbec",
+    "stack/formal_model_contract.py": "681bcbe1aa1f0b9e3d1ea4046fd2cab9b8ccc3fbad1af29899c82863708a805b",
+    "stack/parallel_tiny/dspark_formal_audit/native_initialized_worker_discovery_v4/README.md": "71f82ab878ef9b8b381a9406263baaa4f99c4fe33bb027a92af3b0363eabccca",
+    "stack/parallel_tiny/dspark_formal_audit/native_initialized_worker_discovery_v4/SHA256SUMS": "64cea2ef9ac1473d8fe5526974da0a59aea6d080f461f56758757ca5d87ffa4f",
+    "stack/parallel_tiny/dspark_formal_audit/native_initialized_worker_discovery_v4/contracts.py": "4cf18b60e7580cf377730e06cd18d0b2de39df7efdb7b2601b535adc10cea34b",
+    "stack/parallel_tiny/dspark_formal_audit/native_initialized_worker_discovery_v4/controller_cpu.py": "c3d2d07434dd2b07fc0065f1584ffe4dca6bfc5d27259ced8cbf0a974ef78951",
+    "stack/parallel_tiny/dspark_formal_audit/native_initialized_worker_discovery_v4/cpu_validation.json": "0d1a454c07b01668f56024a0927ca86dc7b949d8228096369cd0d6078a93340d",
+    "stack/parallel_tiny/dspark_formal_audit/native_initialized_worker_discovery_v4/evidence/checkpoint_config/config.json": "40ebd329d3cb2d99d7176091afb580c182c21f48b88b63b550264a97e9c0d424",
+    "stack/parallel_tiny/dspark_formal_audit/native_initialized_worker_discovery_v4/evidence/checkpoint_config/receipt.json": "409086672941bc0bd7ba55e4df3ab486e35d9b28a67e1e6a8dc558d91fbbce85",
+    "stack/parallel_tiny/dspark_formal_audit/native_initialized_worker_discovery_v4/evidence/cpu_bootstrap/direct_dry_run.json": "c73a2815352108a312005e8489e4619544e3805ca1dd98970690b8ea69204fe1",
+    "stack/parallel_tiny/dspark_formal_audit/native_initialized_worker_discovery_v4/evidence/cpu_bootstrap/direct_help.txt": "e5e53be40a74907e85652fd41f91611c41bbe9549c6ca2484d64bb0ab2f51bbe",
+    "stack/parallel_tiny/dspark_formal_audit/native_initialized_worker_discovery_v4/evidence/cpu_bootstrap/package_import.json": "5f24d80a971eea0cb4e8d4e4b34c988f702144cfc1768e96d5ae9a7e1d33927a",
+    "stack/parallel_tiny/dspark_formal_audit/native_initialized_worker_discovery_v4/evidence/cpu_bootstrap/receipt.json": "2bcde634f0f032e35fa02607514a57703fa0d1da6ded19990dd1aac1c4eee127",
+    "stack/parallel_tiny/dspark_formal_audit/native_initialized_worker_discovery_v4/evidence/cpu_bootstrap/unittest.txt": "0cfbf36977e48cc8a1d8dba1b5a7525e7b741e51140c7c6b96261d11e27c413f",
+    "stack/parallel_tiny/dspark_formal_audit/native_initialized_worker_discovery_v4/evidence/cpu_contracts/receipt.json": "95cab7d8ad5066b00eaebccde84a21be0c914ee719a52838100b3e9cb98d4831",
+    "stack/parallel_tiny/dspark_formal_audit/native_initialized_worker_discovery_v4/evidence/cpu_contracts/unittest.txt": "6b1caca32d8beca97b880adb104d52b75f6018bec0e5838481a1298abd5158cf",
+    "stack/parallel_tiny/dspark_formal_audit/native_initialized_worker_discovery_v4/evidence/cpu_graphex_source/receipt.json": "91a7c5a94ae68980caf82db9100bfb32197642ccaab83872a6462a93b28c68e2",
+    "stack/parallel_tiny/dspark_formal_audit/native_initialized_worker_discovery_v4/evidence/cpu_graphex_source/unittest.txt": "9b0c28ddceb3317667b2f9f5f174e133d8f120d6a4b2b10392c476975d7bd5b8",
+    "stack/parallel_tiny/dspark_formal_audit/native_initialized_worker_discovery_v4/evidence/cpu_graphex_source/v3_rank6_source_failure_reference.json": "d2932218c019023e5f9982d85afa49a70dcec4550e9874ef1ef200796e77b301",
+    "stack/parallel_tiny/dspark_formal_audit/native_initialized_worker_discovery_v4/evidence/cpu_proof/receipt.json": "20102c8d0512c344ae87cd4a54a3770d38a4de0b3c72785628ba31bcfdedb7db",
+    "stack/parallel_tiny/dspark_formal_audit/native_initialized_worker_discovery_v4/evidence/cpu_proof/unittest.txt": "d12baf2ccdc4b5819c44c80bd010c8e037e327eb39a3773c7231c345c00eac69",
+    "stack/parallel_tiny/dspark_formal_audit/native_initialized_worker_discovery_v4/evidence/cpu_tuple/in_memory_harness.py": "2ffb3dfdeca6c7c71a42bac23bb7b4ff91ee0a1bcb8a145676361ff0793366c2",
+    "stack/parallel_tiny/dspark_formal_audit/native_initialized_worker_discovery_v4/evidence/cpu_tuple/receipt.json": "ef0f282bcab53c142b65eb09206281150b7fd0786128d101949d51b0245afda7",
+    "stack/parallel_tiny/dspark_formal_audit/native_initialized_worker_discovery_v4/evidence/cpu_tuple/stderr.txt": "cc87f2ccbcfccc3a16de4a4c67c79d99d795290ed227059749f1b08c54a843ae",
+    "stack/parallel_tiny/dspark_formal_audit/native_initialized_worker_discovery_v4/evidence/cpu_tuple/stdout.txt": "ef0f282bcab53c142b65eb09206281150b7fd0786128d101949d51b0245afda7",
+    "stack/parallel_tiny/dspark_formal_audit/native_initialized_worker_discovery_v4/evidence/legacy_freeze_integrity.json": "94f34028bb925e20f01ff6d61af7185e54a90d7c930f6eeccf11475971f6c576",
+    "stack/parallel_tiny/dspark_formal_audit/native_initialized_worker_discovery_v4/evidence/sdk_source_reference/lazy_source_collection_receipt.json": "36393dccf83d6041b9a1fd7799f6af7452138597a7d21a34177f210880b87ecd",
+    "stack/parallel_tiny/dspark_formal_audit/native_initialized_worker_discovery_v4/evidence/sdk_source_reference/multiproc_executor.py.txt": "ceb3477473bdb1de36e01687e0b2083ad239d42b1ddc2ec8cec16ba2c477efa6",
+    "stack/parallel_tiny/dspark_formal_audit/native_initialized_worker_discovery_v4/evidence/sdk_source_reference/npu_fx_compiler.py.txt": "926818c66e7fae1cc5191ff994935b746c46fcd9e6fba23e1938a0f84fe1382c",
+    "stack/parallel_tiny/dspark_formal_audit/native_initialized_worker_discovery_v4/evidence/sdk_source_reference/npugraph_ex_init.py.txt": "6ce899dddebf09d3be797865bd93cc4ee2ba39c9b33f8d08bb7887c2d5e85c92",
+    "stack/parallel_tiny/dspark_formal_audit/native_initialized_worker_discovery_v4/evidence/sdk_source_reference/torch_npu_dynamo_init.py.txt": "d5e39c5c07ae0e94a4ec0f1c7d4a86c008f15fb635458fd996edc692b046a0ce",
+    "stack/parallel_tiny/dspark_formal_audit/native_initialized_worker_discovery_v4/evidence/sdk_source_reference/worker_base.py.txt": "7da44338c2645ebf03d23394e452b31a8e3da1011fd1b42fcfcccfe99551b3fe",
+    "stack/parallel_tiny/dspark_formal_audit/native_initialized_worker_discovery_v4/freeze.json": "5c761afb50729fea0ff995384fe42711609852280cd8ff0185094521de2d30c4",
+    "stack/parallel_tiny/dspark_formal_audit/native_initialized_worker_discovery_v4/graphex_source_identity.py": "70c20f043e7addd7d5df924c34613bd3c24691dc8a10d5eff401a579c24a6301",
+    "stack/parallel_tiny/dspark_formal_audit/native_initialized_worker_discovery_v4/hook_tuple_adapters.py": "7fc966851ed27ef8456e3d7b568baff48d10afcae53f5820b561589b06879a90",
+    "stack/parallel_tiny/dspark_formal_audit/native_initialized_worker_discovery_v4/init_only_driver.py": "68acfbc05f4eb1861379be3da88860bba629598c2ff038afce64371fb48eb9bf",
+    "stack/parallel_tiny/dspark_formal_audit/native_initialized_worker_discovery_v4/initialized_worker_gate.py": "8c5bfa777a40ccf27b6e6afe68f4d757d0625850c5159f6f3805e98f7e4c47fa",
+    "stack/parallel_tiny/dspark_formal_audit/native_initialized_worker_discovery_v4/mapped_object_proof.py": "a6e1c52cb610dfe1db4f91ed9daaac25379bb4090985b1ef590b7e7036dff39b",
+    "stack/parallel_tiny/dspark_formal_audit/native_initialized_worker_discovery_v4/runtime_scope.py": "0f34e484d7f9fe73782cdb0b80dffb7545b9094413ecd3c5f202b41361004d1a",
+    "stack/parallel_tiny/dspark_formal_audit/native_initialized_worker_discovery_v4/sdk_worker.py": "e9bf00680bbb2d8ddf0c0d6be3348f1fce1baabdc6b5427c6e5584430af92e76",
+    "stack/parallel_tiny/dspark_formal_audit/native_initialized_worker_discovery_v4/tensor_tuple_transport.py": "b93a0106f6a7d0c544fbc61b0d0d89cc22e452c5216be10a66f24f246e0c3a90",
+    "stack/parallel_tiny/dspark_formal_audit/native_initialized_worker_discovery_v4/test_contracts.py": "adc289bf0a53ef49131754a90619ebb3ee9943586eb181bde50d03f116005847",
+    "stack/parallel_tiny/dspark_formal_audit/native_initialized_worker_discovery_v4/test_driver_cpu.py": "1f3c87bc1715307c426f84750bb5bd51234a58fca151b81edf02d75afb027ae5",
+    "stack/parallel_tiny/dspark_formal_audit/native_initialized_worker_discovery_v4/test_graphex_source_cpu.py": "9fe01053a84d20fc04e0a83f3afcfe31cbed2263c1089aee55c1dcd19df4b468",
+    "stack/parallel_tiny/dspark_formal_audit/native_initialized_worker_discovery_v4/test_proof_cpu.py": "019089a6b9f9766948df974d34252053b9255c6d48c2dc4f85c546cc7c3ae4dd",
+    "stack/parallel_tiny/dspark_formal_audit/native_initialized_worker_discovery_v4/test_transport_cpu.py": "05c36373e2f197ba9ce11ccb5573a6ff450f3a2f646c6b98f750077b5600ed21",
+    "stack/parallel_tiny/dspark_formal_audit/native_initialized_worker_discovery_v4/worker_hook.py": "e5676f61db13a61c1b98f3238bb4877db33c3109e2cce6344a0faa1f67e86823",
+    "stack/parallel_tiny/dspark_formal_audit/stock_graph_observer.py": "cb7e1c202c3f7c7d9bdf423b0d2761d4e36604bd9e4c1a99dd2e2a68d8966c0b",
+    "stack/parallel_tiny/dspark_formal_prep/README.md": "ccc56f0b0a9f56f2c56e0554a54283e4569551d95c3fe2b6ecd252275f0d138b",
+    "stack/parallel_tiny/dspark_formal_prep/__init__.py": "c545170a8c67395c241dd60cb105f45684d8bfeb0824cbe655b351b28a609a75",
+    "stack/parallel_tiny/dspark_formal_prep/contract.py": "10b7a698785da75c0b85ae0c4d5e5eb59eff768f8c1e3b4c26b4ab7c6c0a054d",
+    "stack/parallel_tiny/dspark_formal_prep/discovery/c6_checkpoint_missing.json": "d8e5183ae4d5b5e800870d09032df1272edcd1fdf4647b36ba9a0b60653091cc",
+    "stack/parallel_tiny/dspark_formal_prep/discovery/formal_checkpoint_cpu.json": "9ad53fb6a3e5d2c2945553fbb250164a49352e0e758f229ec9e1675b6fa4bc23",
+    "stack/parallel_tiny/dspark_formal_prep/sdk_gate.py": "a7db28ca4c4e31f3855893fab7ecbdeace76c487a7461d9176bdb09b70ca81bc",
+    "stack/parallel_tiny/dspark_formal_prep/test_counters.py": "1d9c4087028dd88c525aba9e1f6a9fe44c6097ef9cec1977202d7f775e5a5cc1",
+    "stack/parallel_tiny/dspark_formal_prep/worker.py": "00811b9b83e69f6fd359e2577c2536875ce46e5effb21938f25b90cb5426ac5c",
+    "stack/run_stack.sh": "d094495bd0df2cdcc74026ff2d66c909b808874029ce2371ec0fa94c83d7a5a8",
+    "stack/sitecustomize.py": "f3f6c9a80ae63875adb485105a58636187effd699cb7892189bac975423d281e"
+  },
+  "snapshot_manifest_sha256": "f32c92cf3e349751e2bee6cda8c56d2c112805311f02ff4dfb6edc2c517a2f89",
+  "script_sha256": "4aab214cf086f4417832ef5a63da68b54e93c5f7b48426f6b082a0ae7b746e13",
+  "scope": "normal-init-only SDK capability; no model or performance receipt",
+  "variant": "static_default",
+  "model_weights_requested": false,
+  "full_consumer_audit_passed": false,
+  "performance_receipt_granted": false,
+  "formal_performance_claim": null,
+  "launcher_sha256": "ec699ce33b30f74b0b72b42b6a0d031ac170aac2f73904deeb517e56b95a19b5"
+}

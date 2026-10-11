@@ -1,0 +1,456 @@
+INFO 10-11 11:12:57 [__init__.py:52] Available plugins for group vllm.platform_plugins:
+INFO 10-11 11:12:57 [__init__.py:54] - ascend -> vllm_ascend:register
+INFO 10-11 11:12:57 [__init__.py:57] All plugins in this group will be loaded. Set `VLLM_PLUGINS` to control which plugins to load.
+INFO 10-11 11:12:57 [__init__.py:237] Platform plugin ascend is activated
+INFO 10-11 11:12:57 [platform.py:70] Breakable CUDAGraph on Ascend is opt-in; using VLLM_USE_BREAKABLE_CUDAGRAPH=0.
+2026-10-11 11:13:02,424 - 1464458 - ServiceProfiler - INFO - VLLM_USE_V1 not set, auto-detected via vLLM 0.27.1+empty: default 1
+INFO 10-11 11:13:12 [__init__.py:112] Registered model loader `<class 'vllm_ascend.model_loader.netloader.netloader.ModelNetLoaderElastic'>` with load format `netloader`
+INFO 10-11 11:13:12 [__init__.py:112] Registered model loader `<class 'vllm_ascend.model_loader.rfork.rfork_loader.RForkModelLoader'>` with load format `rfork`
+[transformers] Unrecognized keys in `rope_parameters` for 'rope_type'='default': {'factor', 'beta_slow', 'beta_fast', 'original_max_position_embeddings'}
+[transformers] Unrecognized keys in `rope_parameters` for 'rope_type'='default': {'factor', 'beta_slow', 'beta_fast', 'original_max_position_embeddings'}
+INFO 10-11 11:13:26 [model.py:645] Resolved architecture: DeepseekV41ForCausalLM
+INFO 10-11 11:13:27 [model.py:2214] Downcasting torch.float32 to torch.bfloat16.
+INFO 10-11 11:13:27 [model.py:1883] Using max model len 8192
+[transformers] Unrecognized keys in `rope_parameters` for 'rope_type'='default': {'factor', 'beta_slow', 'beta_fast', 'original_max_position_embeddings'}
+[transformers] Unrecognized keys in `rope_parameters` for 'rope_type'='default': {'factor', 'beta_slow', 'beta_fast', 'original_max_position_embeddings'}
+[transformers] Unrecognized keys in `rope_parameters` for 'rope_type'='default': {'factor', 'beta_slow', 'beta_fast', 'original_max_position_embeddings'}
+[transformers] Unrecognized keys in `rope_parameters` for 'rope_type'='default': {'factor', 'beta_slow', 'beta_fast', 'original_max_position_embeddings'}
+INFO 10-11 11:13:28 [model.py:645] Resolved architecture: DeepseekV41ForCausalLM
+INFO 10-11 11:13:29 [model.py:2214] Downcasting torch.float32 to torch.bfloat16.
+INFO 10-11 11:13:29 [model.py:1883] Using max model len 1048576
+[transformers] Unrecognized keys in `rope_parameters` for 'rope_type'='default': {'factor', 'beta_slow', 'beta_fast', 'original_max_position_embeddings'}
+[transformers] Unrecognized keys in `rope_parameters` for 'rope_type'='default': {'factor', 'beta_slow', 'beta_fast', 'original_max_position_embeddings'}
+INFO 10-11 11:13:43 [speculative.py:1157] Overriding draft model max model len from 1048576 to 8192
+INFO 10-11 11:13:57 [scheduler.py:242] Chunked prefill is enabled with max_num_batched_tokens=2048.
+INFO 10-11 11:13:57 [kernel.py:306] Final IR op priority after setting platform defaults: IrOpPriorityConfig(rms_norm=['native'], fused_add_rms_norm=['native'])
+WARNING 10-11 11:13:57 [vllm.py:1757] max_num_scheduled_tokens is set to 2044 based on the speculative decoding settings. This may lead to suboptimal performance. Consider increasing max_num_batched_tokens to accommodate the additional draft token slots, or decrease num_speculative_tokens or max_num_seqs.
+WARNING 10-11 11:13:57 [platform.py:651] GPU-specific parameter is not supported on Ascend. parameter=disable_cascade_attn, value=True, action: resetting to False.
+WARNING 10-11 11:13:57 [platform.py:708] Speculative quantization is set but Ascend automatically uses the main model's quantization method. parameter=quantization, action: resetting to None. 
+INFO 10-11 11:13:57 [platform.py:863] The timeout interval of the HCCL operator is 1836s. Timeout in seconds for execute_model RPC calls in multiprocessing must be greater than 1836s, Set VLLM_EXECUTE_MODEL_TIMEOUT_SECONDS=3000
+INFO 10-11 11:13:57 [ascend_config.py:161] Dynamic EPLB is False
+INFO 10-11 11:13:57 [ascend_config.py:162] The number of redundant experts is 0
+INFO 10-11 11:13:57 [platform.py:1167] FlashComm1 is disabled. Using flashinfer_all2allv as the all2all backend.
+INFO 10-11 11:13:57 [platform.py:1356] Set PYTORCH_NPU_ALLOC_CONF=expandable_segments:True
+INFO 10-11 11:13:57 [compilation.py:329] Enabled custom fusions: norm_quant, act_quant
+INFO 10-11 11:14:02 [__init__.py:52] Available plugins for group vllm.platform_plugins:
+INFO 10-11 11:14:02 [__init__.py:54] - ascend -> vllm_ascend:register
+INFO 10-11 11:14:02 [__init__.py:57] All plugins in this group will be loaded. Set `VLLM_PLUGINS` to control which plugins to load.
+INFO 10-11 11:14:02 [__init__.py:237] Platform plugin ascend is activated
+INFO 10-11 11:14:03 [__init__.py:52] Available plugins for group vllm.platform_plugins:
+INFO 10-11 11:14:03 [__init__.py:54] - ascend -> vllm_ascend:register
+INFO 10-11 11:14:03 [__init__.py:57] All plugins in this group will be loaded. Set `VLLM_PLUGINS` to control which plugins to load.
+INFO 10-11 11:14:03 [__init__.py:237] Platform plugin ascend is activated
+INFO 10-11 11:14:03 [platform.py:70] Breakable CUDAGraph on Ascend is opt-in; using VLLM_USE_BREAKABLE_CUDAGRAPH=0.
+INFO 10-11 11:14:03 [__init__.py:52] Available plugins for group vllm.platform_plugins:
+INFO 10-11 11:14:03 [__init__.py:54] - ascend -> vllm_ascend:register
+INFO 10-11 11:14:03 [__init__.py:57] All plugins in this group will be loaded. Set `VLLM_PLUGINS` to control which plugins to load.
+INFO 10-11 11:14:03 [__init__.py:237] Platform plugin ascend is activated
+INFO 10-11 11:14:03 [platform.py:70] Breakable CUDAGraph on Ascend is opt-in; using VLLM_USE_BREAKABLE_CUDAGRAPH=0.
+INFO 10-11 11:14:03 [__init__.py:52] Available plugins for group vllm.platform_plugins:
+INFO 10-11 11:14:03 [__init__.py:54] - ascend -> vllm_ascend:register
+INFO 10-11 11:14:03 [__init__.py:57] All plugins in this group will be loaded. Set `VLLM_PLUGINS` to control which plugins to load.
+INFO 10-11 11:14:03 [__init__.py:237] Platform plugin ascend is activated
+INFO 10-11 11:14:03 [platform.py:70] Breakable CUDAGraph on Ascend is opt-in; using VLLM_USE_BREAKABLE_CUDAGRAPH=0.
+INFO 10-11 11:14:03 [platform.py:70] Breakable CUDAGraph on Ascend is opt-in; using VLLM_USE_BREAKABLE_CUDAGRAPH=0.
+INFO 10-11 11:14:03 [__init__.py:52] Available plugins for group vllm.platform_plugins:
+INFO 10-11 11:14:03 [__init__.py:54] - ascend -> vllm_ascend:register
+INFO 10-11 11:14:03 [__init__.py:57] All plugins in this group will be loaded. Set `VLLM_PLUGINS` to control which plugins to load.
+INFO 10-11 11:14:03 [__init__.py:237] Platform plugin ascend is activated
+INFO 10-11 11:14:03 [platform.py:70] Breakable CUDAGraph on Ascend is opt-in; using VLLM_USE_BREAKABLE_CUDAGRAPH=0.
+INFO 10-11 11:14:03 [__init__.py:52] Available plugins for group vllm.platform_plugins:
+INFO 10-11 11:14:03 [__init__.py:54] - ascend -> vllm_ascend:register
+INFO 10-11 11:14:03 [__init__.py:57] All plugins in this group will be loaded. Set `VLLM_PLUGINS` to control which plugins to load.
+INFO 10-11 11:14:03 [__init__.py:237] Platform plugin ascend is activated
+INFO 10-11 11:14:03 [platform.py:70] Breakable CUDAGraph on Ascend is opt-in; using VLLM_USE_BREAKABLE_CUDAGRAPH=0.
+INFO 10-11 11:14:03 [__init__.py:52] Available plugins for group vllm.platform_plugins:
+INFO 10-11 11:14:03 [__init__.py:54] - ascend -> vllm_ascend:register
+INFO 10-11 11:14:03 [__init__.py:57] All plugins in this group will be loaded. Set `VLLM_PLUGINS` to control which plugins to load.
+INFO 10-11 11:14:03 [__init__.py:237] Platform plugin ascend is activated
+INFO 10-11 11:14:03 [__init__.py:52] Available plugins for group vllm.platform_plugins:
+INFO 10-11 11:14:03 [__init__.py:54] - ascend -> vllm_ascend:register
+INFO 10-11 11:14:03 [__init__.py:57] All plugins in this group will be loaded. Set `VLLM_PLUGINS` to control which plugins to load.
+INFO 10-11 11:14:03 [__init__.py:237] Platform plugin ascend is activated
+INFO 10-11 11:14:03 [platform.py:70] Breakable CUDAGraph on Ascend is opt-in; using VLLM_USE_BREAKABLE_CUDAGRAPH=0.
+INFO 10-11 11:14:04 [platform.py:70] Breakable CUDAGraph on Ascend is opt-in; using VLLM_USE_BREAKABLE_CUDAGRAPH=0.
+2026-10-11 11:14:09,450 - 1464659 - ServiceProfiler - INFO - VLLM_USE_V1 not set, auto-detected via vLLM 0.27.1+empty: default 1
+INFO 10-11 11:14:09 [__init__.py:112] Registered model loader `<class 'vllm_ascend.model_loader.netloader.netloader.ModelNetLoaderElastic'>` with load format `netloader`
+2026-10-11 11:14:09,568 - 1464658 - ServiceProfiler - INFO - VLLM_USE_V1 not set, auto-detected via vLLM 0.27.1+empty: default 1
+INFO 10-11 11:14:09 [__init__.py:112] Registered model loader `<class 'vllm_ascend.model_loader.netloader.netloader.ModelNetLoaderElastic'>` with load format `netloader`
+2026-10-11 11:14:09,675 - 1464661 - ServiceProfiler - INFO - VLLM_USE_V1 not set, auto-detected via vLLM 0.27.1+empty: default 1
+INFO 10-11 11:14:09 [__init__.py:112] Registered model loader `<class 'vllm_ascend.model_loader.netloader.netloader.ModelNetLoaderElastic'>` with load format `netloader`
+INFO 10-11 11:14:09 [__init__.py:112] Registered model loader `<class 'vllm_ascend.model_loader.rfork.rfork_loader.RForkModelLoader'>` with load format `rfork`
+2026-10-11 11:14:09,689 - 1464660 - ServiceProfiler - INFO - VLLM_USE_V1 not set, auto-detected via vLLM 0.27.1+empty: default 1
+INFO 10-11 11:14:09 [__init__.py:112] Registered model loader `<class 'vllm_ascend.model_loader.netloader.netloader.ModelNetLoaderElastic'>` with load format `netloader`
+INFO 10-11 11:14:09 [__init__.py:112] Registered model loader `<class 'vllm_ascend.model_loader.rfork.rfork_loader.RForkModelLoader'>` with load format `rfork`
+2026-10-11 11:14:09,887 - 1464662 - ServiceProfiler - INFO - VLLM_USE_V1 not set, auto-detected via vLLM 0.27.1+empty: default 1
+INFO 10-11 11:14:09 [__init__.py:112] Registered model loader `<class 'vllm_ascend.model_loader.netloader.netloader.ModelNetLoaderElastic'>` with load format `netloader`
+INFO 10-11 11:14:09 [__init__.py:112] Registered model loader `<class 'vllm_ascend.model_loader.rfork.rfork_loader.RForkModelLoader'>` with load format `rfork`
+INFO 10-11 11:14:09 [__init__.py:112] Registered model loader `<class 'vllm_ascend.model_loader.rfork.rfork_loader.RForkModelLoader'>` with load format `rfork`
+INFO 10-11 11:14:10 [__init__.py:112] Registered model loader `<class 'vllm_ascend.model_loader.rfork.rfork_loader.RForkModelLoader'>` with load format `rfork`
+2026-10-11 11:14:10,141 - 1464663 - ServiceProfiler - INFO - VLLM_USE_V1 not set, auto-detected via vLLM 0.27.1+empty: default 1
+INFO 10-11 11:14:10 [__init__.py:112] Registered model loader `<class 'vllm_ascend.model_loader.netloader.netloader.ModelNetLoaderElastic'>` with load format `netloader`
+2026-10-11 11:14:10,334 - 1464664 - ServiceProfiler - INFO - VLLM_USE_V1 not set, auto-detected via vLLM 0.27.1+empty: default 1
+INFO 10-11 11:14:10 [__init__.py:112] Registered model loader `<class 'vllm_ascend.model_loader.netloader.netloader.ModelNetLoaderElastic'>` with load format `netloader`
+INFO 10-11 11:14:10 [__init__.py:112] Registered model loader `<class 'vllm_ascend.model_loader.rfork.rfork_loader.RForkModelLoader'>` with load format `rfork`
+2026-10-11 11:14:10,426 - 1464665 - ServiceProfiler - INFO - VLLM_USE_V1 not set, auto-detected via vLLM 0.27.1+empty: default 1
+INFO 10-11 11:14:10 [__init__.py:112] Registered model loader `<class 'vllm_ascend.model_loader.netloader.netloader.ModelNetLoaderElastic'>` with load format `netloader`
+INFO 10-11 11:14:10 [__init__.py:112] Registered model loader `<class 'vllm_ascend.model_loader.rfork.rfork_loader.RForkModelLoader'>` with load format `rfork`
+[transformers] Unrecognized keys in `rope_parameters` for 'rope_type'='default': {'original_max_position_embeddings', 'beta_slow', 'factor', 'beta_fast'}
+[transformers] Unrecognized keys in `rope_parameters` for 'rope_type'='default': {'original_max_position_embeddings', 'beta_slow', 'factor', 'beta_fast'}
+INFO 10-11 11:14:10 [__init__.py:112] Registered model loader `<class 'vllm_ascend.model_loader.rfork.rfork_loader.RForkModelLoader'>` with load format `rfork`
+[transformers] Unrecognized keys in `rope_parameters` for 'rope_type'='default': {'original_max_position_embeddings', 'factor', 'beta_slow', 'beta_fast'}
+[transformers] Unrecognized keys in `rope_parameters` for 'rope_type'='default': {'original_max_position_embeddings', 'factor', 'beta_slow', 'beta_fast'}
+[transformers] Unrecognized keys in `rope_parameters` for 'rope_type'='default': {'original_max_position_embeddings', 'beta_fast', 'beta_slow', 'factor'}
+[transformers] Unrecognized keys in `rope_parameters` for 'rope_type'='default': {'original_max_position_embeddings', 'beta_fast', 'beta_slow', 'factor'}
+[transformers] Unrecognized keys in `rope_parameters` for 'rope_type'='default': {'factor', 'beta_slow', 'beta_fast', 'original_max_position_embeddings'}
+[transformers] Unrecognized keys in `rope_parameters` for 'rope_type'='default': {'factor', 'beta_slow', 'beta_fast', 'original_max_position_embeddings'}
+[transformers] Unrecognized keys in `rope_parameters` for 'rope_type'='default': {'beta_slow', 'original_max_position_embeddings', 'beta_fast', 'factor'}
+[transformers] Unrecognized keys in `rope_parameters` for 'rope_type'='default': {'beta_slow', 'original_max_position_embeddings', 'beta_fast', 'factor'}
+[transformers] Unrecognized keys in `rope_parameters` for 'rope_type'='default': {'factor', 'beta_fast', 'beta_slow', 'original_max_position_embeddings'}
+[transformers] Unrecognized keys in `rope_parameters` for 'rope_type'='default': {'factor', 'beta_fast', 'beta_slow', 'original_max_position_embeddings'}
+[transformers] Unrecognized keys in `rope_parameters` for 'rope_type'='default': {'beta_slow', 'beta_fast', 'original_max_position_embeddings', 'factor'}
+[transformers] Unrecognized keys in `rope_parameters` for 'rope_type'='default': {'beta_slow', 'beta_fast', 'original_max_position_embeddings', 'factor'}
+[transformers] Unrecognized keys in `rope_parameters` for 'rope_type'='default': {'original_max_position_embeddings', 'beta_fast', 'beta_slow', 'factor'}
+[transformers] Unrecognized keys in `rope_parameters` for 'rope_type'='default': {'original_max_position_embeddings', 'beta_fast', 'beta_slow', 'factor'}
+WARNING 10-11 11:14:12 [patch_triton.py:332] NPU Triton causal_conv1d_update is unavailable (cannot import name 'causal_conv1d_update_npu' from 'vllm_ascend.ops.triton.mamba.causal_conv1d' (/vllm-workspace/vllm-ascend/vllm_ascend/ops/triton/mamba/causal_conv1d.py)); falling back to the PyTorch implementation, which syncs per request and therefore stalls ACL graph capture at decode-FULL.
+WARNING 10-11 11:14:12 [patch_triton.py:332] NPU Triton causal_conv1d_update is unavailable (cannot import name 'causal_conv1d_update_npu' from 'vllm_ascend.ops.triton.mamba.causal_conv1d' (/vllm-workspace/vllm-ascend/vllm_ascend/ops/triton/mamba/causal_conv1d.py)); falling back to the PyTorch implementation, which syncs per request and therefore stalls ACL graph capture at decode-FULL.
+WARNING 10-11 11:14:12 [patch_triton.py:332] NPU Triton causal_conv1d_update is unavailable (cannot import name 'causal_conv1d_update_npu' from 'vllm_ascend.ops.triton.mamba.causal_conv1d' (/vllm-workspace/vllm-ascend/vllm_ascend/ops/triton/mamba/causal_conv1d.py)); falling back to the PyTorch implementation, which syncs per request and therefore stalls ACL graph capture at decode-FULL.
+INFO 10-11 11:14:12 [ascend_config.py:161] Dynamic EPLB is False
+INFO 10-11 11:14:12 [ascend_config.py:162] The number of redundant experts is 0
+WARNING 10-11 11:14:12 [patch_triton.py:332] NPU Triton causal_conv1d_update is unavailable (cannot import name 'causal_conv1d_update_npu' from 'vllm_ascend.ops.triton.mamba.causal_conv1d' (/vllm-workspace/vllm-ascend/vllm_ascend/ops/triton/mamba/causal_conv1d.py)); falling back to the PyTorch implementation, which syncs per request and therefore stalls ACL graph capture at decode-FULL.
+INFO 10-11 11:14:12 [ascend_config.py:161] Dynamic EPLB is False
+INFO 10-11 11:14:12 [ascend_config.py:162] The number of redundant experts is 0
+WARNING 10-11 11:14:12 [patch_triton.py:332] NPU Triton causal_conv1d_update is unavailable (cannot import name 'causal_conv1d_update_npu' from 'vllm_ascend.ops.triton.mamba.causal_conv1d' (/vllm-workspace/vllm-ascend/vllm_ascend/ops/triton/mamba/causal_conv1d.py)); falling back to the PyTorch implementation, which syncs per request and therefore stalls ACL graph capture at decode-FULL.
+INFO 10-11 11:14:12 [ascend_config.py:161] Dynamic EPLB is False
+INFO 10-11 11:14:12 [ascend_config.py:162] The number of redundant experts is 0
+INFO 10-11 11:14:12 [ascend_config.py:161] Dynamic EPLB is False
+INFO 10-11 11:14:12 [ascend_config.py:162] The number of redundant experts is 0
+INFO 10-11 11:14:12 [ascend_config.py:161] Dynamic EPLB is False
+INFO 10-11 11:14:12 [ascend_config.py:162] The number of redundant experts is 0
+WARNING 10-11 11:14:13 [patch_triton.py:332] NPU Triton causal_conv1d_update is unavailable (cannot import name 'causal_conv1d_update_npu' from 'vllm_ascend.ops.triton.mamba.causal_conv1d' (/vllm-workspace/vllm-ascend/vllm_ascend/ops/triton/mamba/causal_conv1d.py)); falling back to the PyTorch implementation, which syncs per request and therefore stalls ACL graph capture at decode-FULL.
+WARNING 10-11 11:14:13 [patch_triton.py:332] NPU Triton causal_conv1d_update is unavailable (cannot import name 'causal_conv1d_update_npu' from 'vllm_ascend.ops.triton.mamba.causal_conv1d' (/vllm-workspace/vllm-ascend/vllm_ascend/ops/triton/mamba/causal_conv1d.py)); falling back to the PyTorch implementation, which syncs per request and therefore stalls ACL graph capture at decode-FULL.
+INFO 10-11 11:14:13 [ascend_config.py:161] Dynamic EPLB is False
+INFO 10-11 11:14:13 [ascend_config.py:162] The number of redundant experts is 0
+WARNING 10-11 11:14:13 [patch_triton.py:332] NPU Triton causal_conv1d_update is unavailable (cannot import name 'causal_conv1d_update_npu' from 'vllm_ascend.ops.triton.mamba.causal_conv1d' (/vllm-workspace/vllm-ascend/vllm_ascend/ops/triton/mamba/causal_conv1d.py)); falling back to the PyTorch implementation, which syncs per request and therefore stalls ACL graph capture at decode-FULL.
+INFO 10-11 11:14:13 [ascend_config.py:161] Dynamic EPLB is False
+INFO 10-11 11:14:13 [ascend_config.py:162] The number of redundant experts is 0
+INFO 10-11 11:14:13 [ascend_config.py:161] Dynamic EPLB is False
+INFO 10-11 11:14:13 [ascend_config.py:162] The number of redundant experts is 0
+INFO 10-11 11:14:14 [parallel_state.py:1640] world_size=8 rank=1 local_rank=1 distributed_init_method=tcp://127.0.0.1:53101 backend=hccl
+INFO 10-11 11:14:14 [parallel_state.py:1640] world_size=8 rank=0 local_rank=0 distributed_init_method=tcp://127.0.0.1:53101 backend=hccl
+INFO 10-11 11:14:14 [parallel_state.py:1640] world_size=8 rank=3 local_rank=3 distributed_init_method=tcp://127.0.0.1:53101 backend=hccl
+INFO 10-11 11:14:14 [parallel_state.py:1640] world_size=8 rank=2 local_rank=2 distributed_init_method=tcp://127.0.0.1:53101 backend=hccl
+INFO 10-11 11:14:14 [parallel_state.py:1640] world_size=8 rank=4 local_rank=4 distributed_init_method=tcp://127.0.0.1:53101 backend=hccl
+INFO 10-11 11:14:14 [parallel_state.py:1640] world_size=8 rank=5 local_rank=5 distributed_init_method=tcp://127.0.0.1:53101 backend=hccl
+INFO 10-11 11:14:15 [parallel_state.py:1640] world_size=8 rank=6 local_rank=6 distributed_init_method=tcp://127.0.0.1:53101 backend=hccl
+INFO 10-11 11:14:15 [parallel_state.py:1640] world_size=8 rank=7 local_rank=7 distributed_init_method=tcp://127.0.0.1:53101 backend=hccl
+[Gloo] Rank 6 is connected to 7 peer ranks. Expected number of connected peer ranks is : 7
+[Gloo] Rank 1 is connected to 7 peer ranks. Expected number of connected peer ranks is : 7
+[Gloo] Rank 2 is connected to 7 peer ranks. Expected number of connected peer ranks is : 7
+[Gloo] Rank 5 is connected to 7 peer ranks. Expected number of connected peer ranks is : 7
+[Gloo] Rank 4 is connected to 7 peer ranks. Expected number of connected peer ranks is : 7
+[Gloo] Rank 7 is connected to 7 peer ranks. Expected number of connected peer ranks is : 7
+[Gloo] Rank 0 is connected to 7 peer ranks. Expected number of connected peer ranks is : 7
+[Gloo] Rank 3 is connected to 7 peer ranks. Expected number of connected peer ranks is : 7
+[Gloo] Rank 0 is connected to 7 peer ranks. Expected number of connected peer ranks is : 7
+[Gloo] Rank 2 is connected to 7 peer ranks. Expected number of connected peer ranks is : 7
+[Gloo] Rank 7 is connected to 7 peer ranks. Expected number of connected peer ranks is : 7
+[Gloo] Rank 6 is connected to 7 peer ranks. Expected number of connected peer ranks is : 7
+[Gloo] Rank 4 is connected to 7 peer ranks. Expected number of connected peer ranks is : 7
+[Gloo] Rank 3 is connected to 7 peer ranks. Expected number of connected peer ranks is : 7
+[Gloo] Rank 5 is connected to 7 peer ranks. Expected number of connected peer ranks is : 7
+[Gloo] Rank 1 is connected to 7 peer ranks. Expected number of connected peer ranks is : 7
+[Gloo] Rank 0 is connected to 0 peer ranks. Expected number of connected peer ranks is : 0
+[Gloo] Rank 0 is connected to 0 peer ranks. Expected number of connected peer ranks is : 0
+[Gloo] Rank 0 is connected to 0 peer ranks. Expected number of connected peer ranks is : 0
+[Gloo] Rank 0 is connected to 0 peer ranks. Expected number of connected peer ranks is : 0
+[Gloo] Rank 0 is connected to 0 peer ranks. Expected number of connected peer ranks is : 0
+[Gloo] Rank 0 is connected to 0 peer ranks. Expected number of connected peer ranks is : 0
+[Gloo] Rank 0 is connected to 0 peer ranks. Expected number of connected peer ranks is : 0
+[Gloo] Rank 0 is connected to 0 peer ranks. Expected number of connected peer ranks is : 0
+[Gloo] Rank 0 is connected to 0 peer ranks. Expected number of connected peer ranks is : 0
+[Gloo] Rank 0 is connected to 0 peer ranks. Expected number of connected peer ranks is : 0
+[Gloo] Rank 0 is connected to 0 peer ranks. Expected number of connected peer ranks is : 0
+[Gloo] Rank 0 is connected to 0 peer ranks. Expected number of connected peer ranks is : 0
+[Gloo] Rank 0 is connected to 0 peer ranks. Expected number of connected peer ranks is : 0
+[Gloo] Rank 0 is connected to 0 peer ranks. Expected number of connected peer ranks is : 0
+[Gloo] Rank 0 is connected to 0 peer ranks. Expected number of connected peer ranks is : 0
+[Gloo] Rank 0 is connected to 0 peer ranks. Expected number of connected peer ranks is : 0
+[Gloo] Rank 0 is connected to 0 peer ranks. Expected number of connected peer ranks is : 0
+[Gloo] Rank 0 is connected to 0 peer ranks. Expected number of connected peer ranks is : 0
+[Gloo] Rank 0 is connected to 0 peer ranks. Expected number of connected peer ranks is : 0
+[Gloo] Rank 0 is connected to 0 peer ranks. Expected number of connected peer ranks is : 0
+[Gloo] Rank 0 is connected to 0 peer ranks. Expected number of connected peer ranks is : 0
+[Gloo] Rank 0 is connected to 0 peer ranks. Expected number of connected peer ranks is : 0
+[Gloo] Rank 0 is connected to 0 peer ranks. Expected number of connected peer ranks is : 0
+[Gloo] Rank 0 is connected to 0 peer ranks. Expected number of connected peer ranks is : 0
+[Gloo] Rank 0 is connected to 0 peer ranks. Expected number of connected peer ranks is : 0
+[Gloo] Rank 0 is connected to 0 peer ranks. Expected number of connected peer ranks is : 0
+[Gloo] Rank 0 is connected to 0 peer ranks. Expected number of connected peer ranks is : 0
+[Gloo] Rank 0 is connected to 0 peer ranks. Expected number of connected peer ranks is : 0
+[Gloo] Rank 0 is connected to 0 peer ranks. Expected number of connected peer ranks is : 0
+[Gloo] Rank 0 is connected to 0 peer ranks. Expected number of connected peer ranks is : 0
+[Gloo] Rank 0 is connected to 0 peer ranks. Expected number of connected peer ranks is : 0
+[Gloo] Rank 0 is connected to 0 peer ranks. Expected number of connected peer ranks is : 0
+[Gloo] Rank 3 is connected to 7 peer ranks. Expected number of connected peer ranks is : 7
+[Gloo] Rank 2 is connected to 7 peer ranks. Expected number of connected peer ranks is : 7
+[Gloo] Rank 5 is connected to 7 peer ranks. Expected number of connected peer ranks is : 7
+[Gloo] Rank 4 is connected to 7 peer ranks. Expected number of connected peer ranks is : 7
+[Gloo] Rank 7 is connected to 7 peer ranks. Expected number of connected peer ranks is : 7
+[Gloo] Rank 6 is connected to 7 peer ranks. Expected number of connected peer ranks is : 7
+[Gloo] Rank 0 is connected to 7 peer ranks. Expected number of connected peer ranks is : 7
+[Gloo] Rank 1 is connected to 7 peer ranks. Expected number of connected peer ranks is : 7
+INFO 10-11 11:14:15 [parallel_state.py:1977] rank 0 in world size 8 is assigned as DP rank 0, PP rank 0, PCP rank 0, TP rank 0, EP rank 0, EPLB rank N/A
+[Gloo] Rank 0 is connected to 7 peer ranks. Expected number of connected peer ranks is : 7
+[Gloo] Rank 1 is connected to 7 peer ranks. Expected number of connected peer ranks is : 7
+[Gloo] Rank 3 is connected to 7 peer ranks. Expected number of connected peer ranks is : 7
+[Gloo] Rank 2 is connected to 7 peer ranks. Expected number of connected peer ranks is : 7
+[Gloo] Rank 4 is connected to 7 peer ranks. Expected number of connected peer ranks is : 7
+[Gloo] Rank 6 is connected to 7 peer ranks. Expected number of connected peer ranks is : 7
+[Gloo] Rank 5 is connected to 7 peer ranks. Expected number of connected peer ranks is : 7
+[Gloo] Rank 7 is connected to 7 peer ranks. Expected number of connected peer ranks is : 7
+[rank0]:[W1011 11:14:15.448776080 NPUCachingAllocator.cpp:202] Warning: The current CANN and HDK(driver) versions require processing for 32 padding size, with memory allocation. (function operator())
+[rank3]:[W1011 11:14:15.449017200 NPUCachingAllocator.cpp:202] Warning: The current CANN and HDK(driver) versions require processing for 32 padding size, with memory allocation. (function operator())
+[rank6]:[W1011 11:14:15.449017250 NPUCachingAllocator.cpp:202] Warning: The current CANN and HDK(driver) versions require processing for 32 padding size, with memory allocation. (function operator())
+[rank1]:[W1011 11:14:15.449034680 NPUCachingAllocator.cpp:202] Warning: The current CANN and HDK(driver) versions require processing for 32 padding size, with memory allocation. (function operator())
+[rank2]:[W1011 11:14:15.449102970 NPUCachingAllocator.cpp:202] Warning: The current CANN and HDK(driver) versions require processing for 32 padding size, with memory allocation. (function operator())
+[rank7]:[W1011 11:14:15.449108690 NPUCachingAllocator.cpp:202] Warning: The current CANN and HDK(driver) versions require processing for 32 padding size, with memory allocation. (function operator())
+[rank4]:[W1011 11:14:15.449184920 NPUCachingAllocator.cpp:202] Warning: The current CANN and HDK(driver) versions require processing for 32 padding size, with memory allocation. (function operator())
+[rank5]:[W1011 11:14:15.449186490 NPUCachingAllocator.cpp:202] Warning: The current CANN and HDK(driver) versions require processing for 32 padding size, with memory allocation. (function operator())
+WARNING 10-11 11:14:15 [llm_base_proposer.py:330] Speculative Decoding with draft models or parallel drafting does not fully support multimodal models yet. Proceeding with text-only speculative decoding.
+WARNING 10-11 11:14:15 [llm_base_proposer.py:330] Speculative Decoding with draft models or parallel drafting does not fully support multimodal models yet. Proceeding with text-only speculative decoding.
+WARNING 10-11 11:14:15 [llm_base_proposer.py:330] Speculative Decoding with draft models or parallel drafting does not fully support multimodal models yet. Proceeding with text-only speculative decoding.
+WARNING 10-11 11:14:15 [__init__.py:205] min_p and logit_bias parameters won't work with speculative decoding.
+WARNING 10-11 11:14:15 [__init__.py:205] min_p and logit_bias parameters won't work with speculative decoding.
+WARNING 10-11 11:14:15 [llm_base_proposer.py:330] Speculative Decoding with draft models or parallel drafting does not fully support multimodal models yet. Proceeding with text-only speculative decoding.
+WARNING 10-11 11:14:15 [llm_base_proposer.py:330] Speculative Decoding with draft models or parallel drafting does not fully support multimodal models yet. Proceeding with text-only speculative decoding.
+WARNING 10-11 11:14:15 [llm_base_proposer.py:330] Speculative Decoding with draft models or parallel drafting does not fully support multimodal models yet. Proceeding with text-only speculative decoding.
+WARNING 10-11 11:14:15 [__init__.py:205] min_p and logit_bias parameters won't work with speculative decoding.
+WARNING 10-11 11:14:15 [llm_base_proposer.py:330] Speculative Decoding with draft models or parallel drafting does not fully support multimodal models yet. Proceeding with text-only speculative decoding.
+WARNING 10-11 11:14:15 [llm_base_proposer.py:330] Speculative Decoding with draft models or parallel drafting does not fully support multimodal models yet. Proceeding with text-only speculative decoding.
+WARNING 10-11 11:14:15 [__init__.py:205] min_p and logit_bias parameters won't work with speculative decoding.
+WARNING 10-11 11:14:15 [__init__.py:205] min_p and logit_bias parameters won't work with speculative decoding.
+WARNING 10-11 11:14:15 [__init__.py:205] min_p and logit_bias parameters won't work with speculative decoding.
+WARNING 10-11 11:14:15 [__init__.py:205] min_p and logit_bias parameters won't work with speculative decoding.
+WARNING 10-11 11:14:15 [__init__.py:205] min_p and logit_bias parameters won't work with speculative decoding.
+INFO 10-11 11:14:15 [platform.py:1379] FA3 will not be enabled when rl_config.enable_training_consistency is false. Note that Ascend NPU will use its registered plugin backend instead.
+INFO 10-11 11:14:15 [platform.py:1379] FA3 will not be enabled when rl_config.enable_training_consistency is false. Note that Ascend NPU will use its registered plugin backend instead.
+WARNING 10-11 11:14:15 [llm_base_proposer.py:330] Speculative Decoding with draft models or parallel drafting does not fully support multimodal models yet. Proceeding with text-only speculative decoding.
+WARNING 10-11 11:14:15 [llm_base_proposer.py:330] Speculative Decoding with draft models or parallel drafting does not fully support multimodal models yet. Proceeding with text-only speculative decoding.
+INFO 10-11 11:14:15 [platform.py:1379] FA3 will not be enabled when rl_config.enable_training_consistency is false. Note that Ascend NPU will use its registered plugin backend instead.
+INFO 10-11 11:14:15 [platform.py:1379] FA3 will not be enabled when rl_config.enable_training_consistency is false. Note that Ascend NPU will use its registered plugin backend instead.
+INFO 10-11 11:14:15 [platform.py:1379] FA3 will not be enabled when rl_config.enable_training_consistency is false. Note that Ascend NPU will use its registered plugin backend instead.
+WARNING 10-11 11:14:15 [llm_base_proposer.py:330] Speculative Decoding with draft models or parallel drafting does not fully support multimodal models yet. Proceeding with text-only speculative decoding.
+INFO 10-11 11:14:15 [platform.py:1379] FA3 will not be enabled when rl_config.enable_training_consistency is false. Note that Ascend NPU will use its registered plugin backend instead.
+WARNING 10-11 11:14:15 [llm_base_proposer.py:330] Speculative Decoding with draft models or parallel drafting does not fully support multimodal models yet. Proceeding with text-only speculative decoding.
+INFO 10-11 11:14:15 [platform.py:1379] FA3 will not be enabled when rl_config.enable_training_consistency is false. Note that Ascend NPU will use its registered plugin backend instead.
+WARNING 10-11 11:14:15 [llm_base_proposer.py:330] Speculative Decoding with draft models or parallel drafting does not fully support multimodal models yet. Proceeding with text-only speculative decoding.
+WARNING 10-11 11:14:15 [llm_base_proposer.py:330] Speculative Decoding with draft models or parallel drafting does not fully support multimodal models yet. Proceeding with text-only speculative decoding.
+INFO 10-11 11:14:15 [platform.py:1379] FA3 will not be enabled when rl_config.enable_training_consistency is false. Note that Ascend NPU will use its registered plugin backend instead.
+WARNING 10-11 11:14:15 [llm_base_proposer.py:330] Speculative Decoding with draft models or parallel drafting does not fully support multimodal models yet. Proceeding with text-only speculative decoding.
+WARNING 10-11 11:14:15 [__init__.py:205] min_p and logit_bias parameters won't work with speculative decoding.
+WARNING 10-11 11:14:15 [llm_base_proposer.py:330] Speculative Decoding with draft models or parallel drafting does not fully support multimodal models yet. Proceeding with text-only speculative decoding.
+WARNING 10-11 11:14:15 [__init__.py:205] min_p and logit_bias parameters won't work with speculative decoding.
+WARNING 10-11 11:14:15 [__init__.py:205] min_p and logit_bias parameters won't work with speculative decoding.
+WARNING 10-11 11:14:15 [__init__.py:205] min_p and logit_bias parameters won't work with speculative decoding.
+WARNING 10-11 11:14:15 [__init__.py:205] min_p and logit_bias parameters won't work with speculative decoding.
+WARNING 10-11 11:14:15 [__init__.py:205] min_p and logit_bias parameters won't work with speculative decoding.
+WARNING 10-11 11:14:15 [__init__.py:205] min_p and logit_bias parameters won't work with speculative decoding.
+WARNING 10-11 11:14:15 [__init__.py:205] min_p and logit_bias parameters won't work with speculative decoding.
+[rank5]:E1011 11:14:17.598000 1464663 site-packages/torch/_guards.py:372] [0/0] Error while creating guard:
+[rank5]:E1011 11:14:17.598000 1464663 site-packages/torch/_guards.py:372] [0/0] Name: "G['__builtins_dict___0']['hasattr']"
+[rank5]:E1011 11:14:17.598000 1464663 site-packages/torch/_guards.py:372] [0/0]     Source: global
+[rank5]:E1011 11:14:17.598000 1464663 site-packages/torch/_guards.py:372] [0/0]     Create Function: BUILTIN_MATCH
+[rank5]:E1011 11:14:17.598000 1464663 site-packages/torch/_guards.py:372] [0/0]     Guard Types: ['ID_MATCH']
+[rank5]:E1011 11:14:17.598000 1464663 site-packages/torch/_guards.py:372] [0/0]     Code List: ["___check_obj_id(G['__builtins_dict___0']['hasattr'], 281473503692976), type=<built-in function hasattr>"]
+[rank5]:E1011 11:14:17.598000 1464663 site-packages/torch/_guards.py:372] [0/0]     Object Weakref: <weakref at 0xfffed452af20; to 'builtin_function_or_method' at 0xffffa83388b0>
+[rank5]:E1011 11:14:17.598000 1464663 site-packages/torch/_guards.py:372] [0/0]     Guarded Class Weakref: <weakref at 0xffffa82c04a0; to 'type' at 0xffffa8bafb40 (builtin_function_or_method)>
+[rank5]:E1011 11:14:17.598000 1464663 site-packages/torch/_guards.py:372] [0/0] Traceback (most recent call last):
+[rank5]:E1011 11:14:17.598000 1464663 site-packages/torch/_guards.py:372] [0/0]   File "/usr/local/python3.12.13/lib/python3.12/site-packages/torch/_guards.py", line 370, in create
+[rank5]:E1011 11:14:17.598000 1464663 site-packages/torch/_guards.py:372] [0/0]     return self.create_fn(builder, self)
+[rank5]:E1011 11:14:17.598000 1464663 site-packages/torch/_guards.py:372] [0/0]            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[rank5]:E1011 11:14:17.598000 1464663 site-packages/torch/_guards.py:372] [0/0]   File "/usr/local/python3.12.13/lib/python3.12/site-packages/torch/_dynamo/guards.py", line 2381, in BUILTIN_MATCH
+[rank5]:E1011 11:14:17.598000 1464663 site-packages/torch/_guards.py:372] [0/0]     return self.id_match_unchecked(guard)
+[rank5]:E1011 11:14:17.598000 1464663 site-packages/torch/_guards.py:372] [0/0]            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[rank5]:E1011 11:14:17.598000 1464663 site-packages/torch/_guards.py:372] [0/0]   File "/usr/local/python3.12.13/lib/python3.12/site-packages/torch/_dynamo/guards.py", line 2072, in id_match_unchecked
+[rank5]:E1011 11:14:17.598000 1464663 site-packages/torch/_guards.py:372] [0/0]     self.get_guard_manager(guard).add_id_match_guard(
+[rank5]:E1011 11:14:17.598000 1464663 site-packages/torch/_guards.py:372] [0/0]     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[rank5]:E1011 11:14:17.598000 1464663 site-packages/torch/_guards.py:372] [0/0]   File "/usr/local/python3.12.13/lib/python3.12/site-packages/torch/_dynamo/guards.py", line 1769, in get_guard_manager
+[rank5]:E1011 11:14:17.598000 1464663 site-packages/torch/_guards.py:372] [0/0]     return self.get_guard_manager_from_source(guard.originating_source)
+[rank5]:E1011 11:14:17.598000 1464663 site-packages/torch/_guards.py:372] [0/0]            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[rank5]:E1011 11:14:17.598000 1464663 site-packages/torch/_guards.py:372] [0/0]   File "/usr/local/python3.12.13/lib/python3.12/site-packages/torch/_dynamo/guards.py", line 1360, in get_guard_manager_from_source
+[rank5]:E1011 11:14:17.598000 1464663 site-packages/torch/_guards.py:372] [0/0]     example_value = self.get(source)
+[rank5]:E1011 11:14:17.598000 1464663 site-packages/torch/_guards.py:372] [0/0]                     ^^^^^^^^^^^^^^^^
+[rank5]:E1011 11:14:17.598000 1464663 site-packages/torch/_guards.py:372] [0/0]   File "/usr/local/python3.12.13/lib/python3.12/site-packages/torch/_dynamo/guards.py", line 1821, in get
+[rank5]:E1011 11:14:17.598000 1464663 site-packages/torch/_guards.py:372] [0/0]     ret = src.get_value(self.scope, closure_vars, self.src_get_value_cache)
+[rank5]:E1011 11:14:17.598000 1464663 site-packages/torch/_guards.py:372] [0/0]           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[rank5]:E1011 11:14:17.598000 1464663 site-packages/torch/_guards.py:372] [0/0]   File "/usr/local/python3.12.13/lib/python3.12/site-packages/torch/_guards.py", line 1228, in get_value
+[rank5]:E1011 11:14:17.598000 1464663 site-packages/torch/_guards.py:372] [0/0]     return cache[self]
+[rank5]:E1011 11:14:17.598000 1464663 site-packages/torch/_guards.py:372] [0/0]            ~~~~~^^^^^^
+[rank5]:E1011 11:14:17.598000 1464663 site-packages/torch/_guards.py:372] [0/0]   File "/usr/local/python3.12.13/lib/python3.12/weakref.py", line 414, in __getitem__
+[rank5]:E1011 11:14:17.598000 1464663 site-packages/torch/_guards.py:372] [0/0]     def __getitem__(self, key):
+[rank5]:E1011 11:14:17.598000 1464663 site-packages/torch/_guards.py:372] [0/0]     
+[rank5]:E1011 11:14:17.598000 1464663 site-packages/torch/_guards.py:372] [0/0]   File "/usr/local/python3.12.13/lib/python3.12/site-packages/torch_npu/dynamo/npugraph_ex/__init__.py", line 38, in _signal_handler
+[rank5]:E1011 11:14:17.598000 1464663 site-packages/torch/_guards.py:372] [0/0]     _finalize()
+[rank5]:E1011 11:14:17.598000 1464663 site-packages/torch/_guards.py:372] [0/0]   File "/usr/local/python3.12.13/lib/python3.12/site-packages/torch_npu/dynamo/npugraph_ex/__init__.py", line 33, in _finalize
+[rank5]:E1011 11:14:17.598000 1464663 site-packages/torch/_guards.py:372] [0/0]     torch._dynamo.reset()
+[rank5]:E1011 11:14:17.598000 1464663 site-packages/torch/_guards.py:372] [0/0]   File "/usr/local/python3.12.13/lib/python3.12/site-packages/torch/_dynamo/__init__.py", line 159, in reset
+[rank5]:E1011 11:14:17.598000 1464663 site-packages/torch/_guards.py:372] [0/0]     callback_handler.clear()
+[rank5]:E1011 11:14:17.598000 1464663 site-packages/torch/_guards.py:372] [0/0]   File "/usr/local/python3.12.13/lib/python3.12/site-packages/torch/_dynamo/callback.py", line 148, in clear
+[rank5]:E1011 11:14:17.598000 1464663 site-packages/torch/_guards.py:372] [0/0]     assert self.__pending_callbacks_counter == 0
+[rank5]:E1011 11:14:17.598000 1464663 site-packages/torch/_guards.py:372] [0/0]            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[rank5]:E1011 11:14:17.598000 1464663 site-packages/torch/_guards.py:372] [0/0] AssertionError
+[rank2]:E1011 11:14:17.598000 1464660 site-packages/torch/_guards.py:372] [0/0] Error while creating guard:
+[rank2]:E1011 11:14:17.598000 1464660 site-packages/torch/_guards.py:372] [0/0] Name: "L['torch']"
+[rank2]:E1011 11:14:17.598000 1464660 site-packages/torch/_guards.py:372] [0/0]     Source: local
+[rank2]:E1011 11:14:17.598000 1464660 site-packages/torch/_guards.py:372] [0/0]     Create Function: MODULE_MATCH
+[rank2]:E1011 11:14:17.598000 1464660 site-packages/torch/_guards.py:372] [0/0]     Guard Types: ['ID_MATCH']
+[rank2]:E1011 11:14:17.598000 1464660 site-packages/torch/_guards.py:372] [0/0]     Code List: ["___check_obj_id(L['torch'], 281472880749968), type=<module 'torch' from '/usr/local/python3.12.13/lib/python3.12/site-packages/torch/__init__.py'>"]
+[rank2]:E1011 11:14:17.598000 1464660 site-packages/torch/_guards.py:372] [0/0]     Object Weakref: <weakref at 0xfffec01f8e50; to 'module' at 0xffff83122d90>
+[rank2]:E1011 11:14:17.598000 1464660 site-packages/torch/_guards.py:372] [0/0]     Guarded Class Weakref: <weakref at 0xffff83d73010; to 'type' at 0xffff8462fe98 (module)>
+[rank2]:E1011 11:14:17.598000 1464660 site-packages/torch/_guards.py:372] [0/0] Traceback (most recent call last):
+[rank2]:E1011 11:14:17.598000 1464660 site-packages/torch/_guards.py:372] [0/0]   File "/usr/local/python3.12.13/lib/python3.12/site-packages/torch/_guards.py", line 370, in create
+[rank2]:E1011 11:14:17.598000 1464660 site-packages/torch/_guards.py:372] [0/0]     return self.create_fn(builder, self)
+[rank2]:E1011 11:14:17.598000 1464660 site-packages/torch/_guards.py:372] [0/0]            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[rank2]:E1011 11:14:17.598000 1464660 site-packages/torch/_guards.py:372] [0/0]   File "/usr/local/python3.12.13/lib/python3.12/site-packages/torch/_dynamo/guards.py", line 2361, in MODULE_MATCH
+[rank2]:E1011 11:14:17.598000 1464660 site-packages/torch/_guards.py:372] [0/0]     self.id_match_unchecked(guard)
+[rank2]:E1011 11:14:17.598000 1464660 site-packages/torch/_guards.py:372] [0/0]   File "/usr/local/python3.12.13/lib/python3.12/site-packages/torch/_dynamo/guards.py", line 2072, in id_match_unchecked
+[rank2]:E1011 11:14:17.598000 1464660 site-packages/torch/_guards.py:372] [0/0]     self.get_guard_manager(guard).add_id_match_guard(
+[rank2]:E1011 11:14:17.598000 1464660 site-packages/torch/_guards.py:372] [0/0]     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[rank2]:E1011 11:14:17.598000 1464660 site-packages/torch/_guards.py:372] [0/0]   File "/usr/local/python3.12.13/lib/python3.12/site-packages/torch/_dynamo/guards.py", line 1769, in get_guard_manager
+[rank2]:E1011 11:14:17.598000 1464660 site-packages/torch/_guards.py:372] [0/0]     return self.get_guard_manager_from_source(guard.originating_source)
+[rank2]:E1011 11:14:17.598000 1464660 site-packages/torch/_guards.py:372] [0/0]            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[rank2]:E1011 11:14:17.598000 1464660 site-packages/torch/_guards.py:372] [0/0]   File "/usr/local/python3.12.13/lib/python3.12/site-packages/torch/_dynamo/guards.py", line 1381, in get_guard_manager_from_source
+[rank2]:E1011 11:14:17.598000 1464660 site-packages/torch/_guards.py:372] [0/0]     out = root_guard_manager.framelocals_manager(
+[rank2]:E1011 11:14:17.598000 1464660 site-packages/torch/_guards.py:372] [0/0]           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[rank2]:E1011 11:14:17.598000 1464660 site-packages/torch/_guards.py:372] [0/0]   File "/usr/local/python3.12.13/lib/python3.12/site-packages/torch/utils/_config_module.py", line 369, in __getattr__
+[rank2]:E1011 11:14:17.598000 1464660 site-packages/torch/_guards.py:372] [0/0]     def __getattr__(self, name: str) -> Any:
+[rank2]:E1011 11:14:17.598000 1464660 site-packages/torch/_guards.py:372] [0/0]     
+[rank2]:E1011 11:14:17.598000 1464660 site-packages/torch/_guards.py:372] [0/0]   File "/usr/local/python3.12.13/lib/python3.12/site-packages/torch_npu/dynamo/npugraph_ex/__init__.py", line 38, in _signal_handler
+[rank2]:E1011 11:14:17.598000 1464660 site-packages/torch/_guards.py:372] [0/0]     _finalize()
+[rank2]:E1011 11:14:17.598000 1464660 site-packages/torch/_guards.py:372] [0/0]   File "/usr/local/python3.12.13/lib/python3.12/site-packages/torch_npu/dynamo/npugraph_ex/__init__.py", line 33, in _finalize
+[rank2]:E1011 11:14:17.598000 1464660 site-packages/torch/_guards.py:372] [0/0]     torch._dynamo.reset()
+[rank2]:E1011 11:14:17.598000 1464660 site-packages/torch/_guards.py:372] [0/0]   File "/usr/local/python3.12.13/lib/python3.12/site-packages/torch/_dynamo/__init__.py", line 159, in reset
+[rank2]:E1011 11:14:17.598000 1464660 site-packages/torch/_guards.py:372] [0/0]     callback_handler.clear()
+[rank2]:E1011 11:14:17.598000 1464660 site-packages/torch/_guards.py:372] [0/0]   File "/usr/local/python3.12.13/lib/python3.12/site-packages/torch/_dynamo/callback.py", line 148, in clear
+[rank2]:E1011 11:14:17.598000 1464660 site-packages/torch/_guards.py:372] [0/0]     assert self.__pending_callbacks_counter == 0
+[rank2]:E1011 11:14:17.598000 1464660 site-packages/torch/_guards.py:372] [0/0]            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[rank2]:E1011 11:14:17.598000 1464660 site-packages/torch/_guards.py:372] [0/0] AssertionError
+[rank1]:E1011 11:14:17.598000 1464659 site-packages/torch/_guards.py:372] [0/0] Error while creating guard:
+[rank1]:E1011 11:14:17.598000 1464659 site-packages/torch/_guards.py:372] [0/0] Name: ''
+[rank1]:E1011 11:14:17.598000 1464659 site-packages/torch/_guards.py:372] [0/0]     Source: shape_env
+[rank1]:E1011 11:14:17.598000 1464659 site-packages/torch/_guards.py:372] [0/0]     Create Function: SHAPE_ENV
+[rank1]:E1011 11:14:17.598000 1464659 site-packages/torch/_guards.py:372] [0/0]     Guard Types: None
+[rank1]:E1011 11:14:17.598000 1464659 site-packages/torch/_guards.py:372] [0/0]     Code List: None
+[rank1]:E1011 11:14:17.598000 1464659 site-packages/torch/_guards.py:372] [0/0]     Object Weakref: None
+[rank1]:E1011 11:14:17.598000 1464659 site-packages/torch/_guards.py:372] [0/0]     Guarded Class Weakref: None
+[rank1]:E1011 11:14:17.598000 1464659 site-packages/torch/_guards.py:372] [0/0] Traceback (most recent call last):
+[rank1]:E1011 11:14:17.598000 1464659 site-packages/torch/_guards.py:372] [0/0]   File "/usr/local/python3.12.13/lib/python3.12/site-packages/torch/_guards.py", line 370, in create
+[rank1]:E1011 11:14:17.598000 1464659 site-packages/torch/_guards.py:372] [0/0]     return self.create_fn(builder, self)
+[rank1]:E1011 11:14:17.598000 1464659 site-packages/torch/_guards.py:372] [0/0]            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[rank1]:E1011 11:14:17.598000 1464659 site-packages/torch/_guards.py:372] [0/0]   File "/usr/local/python3.12.13/lib/python3.12/site-packages/torch/_dynamo/guards.py", line 2676, in SHAPE_ENV
+[rank1]:E1011 11:14:17.598000 1464659 site-packages/torch/_guards.py:372] [0/0]     python_code_parts, verbose_code_parts = _get_code_parts(
+[rank1]:E1011 11:14:17.598000 1464659 site-packages/torch/_guards.py:372] [0/0]                                             ^^^^^^^^^^^^^^^^
+[rank1]:E1011 11:14:17.598000 1464659 site-packages/torch/_guards.py:372] [0/0]   File "/usr/local/python3.12.13/lib/python3.12/site-packages/torch/_dynamo/guards.py", line 2649, in _get_code_parts
+[rank1]:E1011 11:14:17.598000 1464659 site-packages/torch/_guards.py:372] [0/0]     return output_graph.shape_env.produce_guards_verbose(
+[rank1]:E1011 11:14:17.598000 1464659 site-packages/torch/_guards.py:372] [0/0]            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[rank1]:E1011 11:14:17.598000 1464659 site-packages/torch/_guards.py:372] [0/0]   File "/usr/local/python3.12.13/lib/python3.12/site-packages/torch/fx/experimental/symbolic_shapes.py", line 5801, in produce_guards_verbose
+[rank1]:E1011 11:14:17.598000 1464659 site-packages/torch/_guards.py:372] [0/0]     "Skipping guard %s", f"{source_ref(source)} == {expr}"
+[rank1]:E1011 11:14:17.598000 1464659 site-packages/torch/_guards.py:372] [0/0]                                                    ^^^^^^
+[rank1]:E1011 11:14:17.598000 1464659 site-packages/torch/_guards.py:372] [0/0]   File "/usr/local/python3.12.13/lib/python3.12/site-packages/sympy/core/expr.py", line 418, in __format__
+[rank1]:E1011 11:14:17.598000 1464659 site-packages/torch/_guards.py:372] [0/0]     return super().__format__(format_spec)
+[rank1]:E1011 11:14:17.598000 1464659 site-packages/torch/_guards.py:372] [0/0]            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[rank1]:E1011 11:14:17.598000 1464659 site-packages/torch/_guards.py:372] [0/0]   File "/usr/local/python3.12.13/lib/python3.12/site-packages/sympy/core/_print_helpers.py", line 29, in __str__
+[rank1]:E1011 11:14:17.598000 1464659 site-packages/torch/_guards.py:372] [0/0]     return sstr(self, order=None)
+[rank1]:E1011 11:14:17.598000 1464659 site-packages/torch/_guards.py:372] [0/0]            ^^^^^^^^^^^^^^^^^^^^^^
+[rank1]:E1011 11:14:17.598000 1464659 site-packages/torch/_guards.py:372] [0/0]   File "/usr/local/python3.12.13/lib/python3.12/site-packages/sympy/printing/printer.py", line 408, in __call__
+[rank1]:E1011 11:14:17.598000 1464659 site-packages/torch/_guards.py:372] [0/0]     return self.__wrapped__(*args, **kwargs)
+[rank1]:E1011 11:14:17.598000 1464659 site-packages/torch/_guards.py:372] [0/0]            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[rank1]:E1011 11:14:17.598000 1464659 site-packages/torch/_guards.py:372] [0/0]   File "/usr/local/python3.12.13/lib/python3.12/site-packages/sympy/printing/str.py", line 975, in sstr
+[rank1]:E1011 11:14:17.598000 1464659 site-packages/torch/_guards.py:372] [0/0]     @print_function(StrPrinter)
+[rank1]:E1011 11:14:17.598000 1464659 site-packages/torch/_guards.py:372] [0/0]     
+[rank1]:E1011 11:14:17.598000 1464659 site-packages/torch/_guards.py:372] [0/0]   File "/usr/local/python3.12.13/lib/python3.12/site-packages/torch_npu/dynamo/npugraph_ex/__init__.py", line 38, in _signal_handler
+[rank1]:E1011 11:14:17.598000 1464659 site-packages/torch/_guards.py:372] [0/0]     _finalize()
+[rank1]:E1011 11:14:17.598000 1464659 site-packages/torch/_guards.py:372] [0/0]   File "/usr/local/python3.12.13/lib/python3.12/site-packages/torch_npu/dynamo/npugraph_ex/__init__.py", line 33, in _finalize
+[rank1]:E1011 11:14:17.598000 1464659 site-packages/torch/_guards.py:372] [0/0]     torch._dynamo.reset()
+[rank1]:E1011 11:14:17.598000 1464659 site-packages/torch/_guards.py:372] [0/0]   File "/usr/local/python3.12.13/lib/python3.12/site-packages/torch/_dynamo/__init__.py", line 159, in reset
+[rank1]:E1011 11:14:17.598000 1464659 site-packages/torch/_guards.py:372] [0/0]     callback_handler.clear()
+[rank1]:E1011 11:14:17.598000 1464659 site-packages/torch/_guards.py:372] [0/0]   File "/usr/local/python3.12.13/lib/python3.12/site-packages/torch/_dynamo/callback.py", line 148, in clear
+[rank1]:E1011 11:14:17.598000 1464659 site-packages/torch/_guards.py:372] [0/0]     assert self.__pending_callbacks_counter == 0
+[rank1]:E1011 11:14:17.598000 1464659 site-packages/torch/_guards.py:372] [0/0]            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[rank1]:E1011 11:14:17.598000 1464659 site-packages/torch/_guards.py:372] [0/0] AssertionError
+[rank0]:E1011 11:14:17.598000 1464658 site-packages/torch/_guards.py:372] [0/0] Error while creating guard:
+[rank0]:E1011 11:14:17.598000 1464658 site-packages/torch/_guards.py:372] [0/0] Name: ''
+[rank0]:E1011 11:14:17.598000 1464658 site-packages/torch/_guards.py:372] [0/0]     Source: shape_env
+[rank0]:E1011 11:14:17.598000 1464658 site-packages/torch/_guards.py:372] [0/0]     Create Function: SHAPE_ENV
+[rank0]:E1011 11:14:17.598000 1464658 site-packages/torch/_guards.py:372] [0/0]     Guard Types: None
+[rank0]:E1011 11:14:17.598000 1464658 site-packages/torch/_guards.py:372] [0/0]     Code List: None
+[rank0]:E1011 11:14:17.598000 1464658 site-packages/torch/_guards.py:372] [0/0]     Object Weakref: None
+[rank0]:E1011 11:14:17.598000 1464658 site-packages/torch/_guards.py:372] [0/0]     Guarded Class Weakref: None
+[rank0]:E1011 11:14:17.598000 1464658 site-packages/torch/_guards.py:372] [0/0] Traceback (most recent call last):
+[rank0]:E1011 11:14:17.598000 1464658 site-packages/torch/_guards.py:372] [0/0]   File "/usr/local/python3.12.13/lib/python3.12/site-packages/torch/_guards.py", line 370, in create
+[rank0]:E1011 11:14:17.598000 1464658 site-packages/torch/_guards.py:372] [0/0]     return self.create_fn(builder, self)
+[rank0]:E1011 11:14:17.598000 1464658 site-packages/torch/_guards.py:372] [0/0]            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[rank0]:E1011 11:14:17.598000 1464658 site-packages/torch/_guards.py:372] [0/0]   File "/usr/local/python3.12.13/lib/python3.12/site-packages/torch/_dynamo/guards.py", line 2676, in SHAPE_ENV
+[rank0]:E1011 11:14:17.598000 1464658 site-packages/torch/_guards.py:372] [0/0]     python_code_parts, verbose_code_parts = _get_code_parts(
+[rank0]:E1011 11:14:17.598000 1464658 site-packages/torch/_guards.py:372] [0/0]                                             ^^^^^^^^^^^^^^^^
+[rank0]:E1011 11:14:17.598000 1464658 site-packages/torch/_guards.py:372] [0/0]   File "/usr/local/python3.12.13/lib/python3.12/site-packages/torch/_dynamo/guards.py", line 2649, in _get_code_parts
+[rank0]:E1011 11:14:17.598000 1464658 site-packages/torch/_guards.py:372] [0/0]     return output_graph.shape_env.produce_guards_verbose(
+[rank0]:E1011 11:14:17.598000 1464658 site-packages/torch/_guards.py:372] [0/0]            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[rank0]:E1011 11:14:17.598000 1464658 site-packages/torch/_guards.py:372] [0/0]   File "/usr/local/python3.12.13/lib/python3.12/site-packages/torch/fx/experimental/symbolic_shapes.py", line 5801, in produce_guards_verbose
+[rank0]:E1011 11:14:17.598000 1464658 site-packages/torch/_guards.py:372] [0/0]     "Skipping guard %s", f"{source_ref(source)} == {expr}"
+[rank0]:E1011 11:14:17.598000 1464658 site-packages/torch/_guards.py:372] [0/0]                                                    ^^^^^^
+[rank0]:E1011 11:14:17.598000 1464658 site-packages/torch/_guards.py:372] [0/0]   File "/usr/local/python3.12.13/lib/python3.12/site-packages/sympy/core/expr.py", line 418, in __format__
+[rank0]:E1011 11:14:17.598000 1464658 site-packages/torch/_guards.py:372] [0/0]     return super().__format__(format_spec)
+[rank0]:E1011 11:14:17.598000 1464658 site-packages/torch/_guards.py:372] [0/0]            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[rank0]:E1011 11:14:17.598000 1464658 site-packages/torch/_guards.py:372] [0/0]   File "/usr/local/python3.12.13/lib/python3.12/site-packages/sympy/core/_print_helpers.py", line 29, in __str__
+[rank0]:E1011 11:14:17.598000 1464658 site-packages/torch/_guards.py:372] [0/0]     return sstr(self, order=None)
+[rank0]:E1011 11:14:17.598000 1464658 site-packages/torch/_guards.py:372] [0/0]            ^^^^^^^^^^^^^^^^^^^^^^
+[rank0]:E1011 11:14:17.598000 1464658 site-packages/torch/_guards.py:372] [0/0]   File "/usr/local/python3.12.13/lib/python3.12/site-packages/sympy/printing/printer.py", line 408, in __call__
+[rank0]:E1011 11:14:17.598000 1464658 site-packages/torch/_guards.py:372] [0/0]     return self.__wrapped__(*args, **kwargs)
+[rank0]:E1011 11:14:17.598000 1464658 site-packages/torch/_guards.py:372] [0/0]            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[rank0]:E1011 11:14:17.598000 1464658 site-packages/torch/_guards.py:372] [0/0]   File "/usr/local/python3.12.13/lib/python3.12/site-packages/sympy/printing/str.py", line 993, in sstr
+[rank0]:E1011 11:14:17.598000 1464658 site-packages/torch/_guards.py:372] [0/0]     s = p.doprint(expr)
+[rank0]:E1011 11:14:17.598000 1464658 site-packages/torch/_guards.py:372] [0/0]         ^^^^^^^^^^^^^^^
+[rank0]:E1011 11:14:17.598000 1464658 site-packages/torch/_guards.py:372] [0/0]   File "/usr/local/python3.12.13/lib/python3.12/site-packages/sympy/printing/printer.py", line 293, in doprint
+[rank0]:E1011 11:14:17.598000 1464658 site-packages/torch/_guards.py:372] [0/0]     return self._str(self._print(expr))
+[rank0]:E1011 11:14:17.598000 1464658 site-packages/torch/_guards.py:372] [0/0]                      ^^^^^^^^^^^^^^^^^
+[rank0]:E1011 11:14:17.598000 1464658 site-packages/torch/_guards.py:372] [0/0]   File "/usr/local/python3.12.13/lib/python3.12/site-packages/sympy/printing/printer.py", line 330, in _print
+[rank0]:E1011 11:14:17.598000 1464658 site-packages/torch/_guards.py:372] [0/0]     printmethod = getattr(self, printmethodname, None)
+[rank0]:E1011 11:14:17.598000 1464658 site-packages/torch/_guards.py:372] [0/0]                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[rank0]:E1011 11:14:17.598000 1464658 site-packages/torch/_guards.py:372] [0/0]   File "/usr/local/python3.12.13/lib/python3.12/site-packages/torch_npu/dynamo/npugraph_ex/__init__.py", line 38, in _signal_handler
+[rank0]:E1011 11:14:17.598000 1464658 site-packages/torch/_guards.py:372] [0/0]     _finalize()
+[rank0]:E1011 11:14:17.598000 1464658 site-packages/torch/_guards.py:372] [0/0]   File "/usr/local/python3.12.13/lib/python3.12/site-packages/torch_npu/dynamo/npugraph_ex/__init__.py", line 33, in _finalize
+[rank0]:E1011 11:14:17.598000 1464658 site-packages/torch/_guards.py:372] [0/0]     torch._dynamo.reset()
+[rank0]:E1011 11:14:17.598000 1464658 site-packages/torch/_guards.py:372] [0/0]   File "/usr/local/python3.12.13/lib/python3.12/site-packages/torch/_dynamo/__init__.py", line 159, in reset
+[rank0]:E1011 11:14:17.598000 1464658 site-packages/torch/_guards.py:372] [0/0]     callback_handler.clear()
+[rank0]:E1011 11:14:17.598000 1464658 site-packages/torch/_guards.py:372] [0/0]   File "/usr/local/python3.12.13/lib/python3.12/site-packages/torch/_dynamo/callback.py", line 148, in clear
+[rank0]:E1011 11:14:17.598000 1464658 site-packages/torch/_guards.py:372] [0/0]     assert self.__pending_callbacks_counter == 0
+[rank0]:E1011 11:14:17.598000 1464658 site-packages/torch/_guards.py:372] [0/0]            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[rank0]:E1011 11:14:17.598000 1464658 site-packages/torch/_guards.py:372] [0/0] AssertionError
+[rank1]:E1011 11:14:17.605000 1464659 site-packages/torch/_guards.py:374] [0/0] Created at:
+[rank1]:E1011 11:14:17.605000 1464659 site-packages/torch/_guards.py:374] [0/0]   File "/usr/local/python3.12.13/lib/python3.12/site-packages/torch/_dynamo/convert_frame.py", line 795, in trace_frame
+[rank1]:E1011 11:14:17.605000 1464659 site-packages/torch/_guards.py:374] [0/0]     tracer = InstructionTranslator(
+[rank1]:E1011 11:14:17.605000 1464659 site-packages/torch/_guards.py:374] [0/0]   File "/usr/local/python3.12.13/lib/python3.12/site-packages/torch/_dynamo/symbolic_convert.py", line 4452, in __init__
+[rank1]:E1011 11:14:17.605000 1464659 site-packages/torch/_guards.py:374] [0/0]     output=OutputGraph(
+[rank1]:E1011 11:14:17.605000 1464659 site-packages/torch/_guards.py:374] [0/0]   File "/usr/local/python3.12.13/lib/python3.12/site-packages/torch/_dynamo/output_graph.py", line 621, in __init__
+[rank1]:E1011 11:14:17.605000 1464659 site-packages/torch/_guards.py:374] [0/0]     self.init_ambient_guards()
+[rank1]:E1011 11:14:17.605000 1464659 site-packages/torch/_guards.py:374] [0/0]   File "/usr/local/python3.12.13/lib/python3.12/site-packages/torch/_dynamo/output_graph.py", line 786, in init_ambient_guards
+[rank1]:E1011 11:14:17.605000 1464659 site-packages/torch/_guards.py:374] [0/0]     self.guards.add(ShapeEnvSource().make_guard(GuardBuilder.SHAPE_ENV))
+[rank0]:E1011 11:14:17.605000 1464658 site-packages/torch/_guards.py:374] [0/0] Created at:
+[rank0]:E1011 11:14:17.605000 1464658 site-packages/torch/_guards.py:374] [0/0]   File "/usr/local/python3.12.13/lib/python3.12/site-packages/torch/_dynamo/convert_frame.py", line 795, in trace_frame
+[rank0]:E1011 11:14:17.605000 1464658 site-packages/torch/_guards.py:374] [0/0]     tracer = InstructionTranslator(
+[rank0]:E1011 11:14:17.605000 1464658 site-packages/torch/_guards.py:374] [0/0]   File "/usr/local/python3.12.13/lib/python3.12/site-packages/torch/_dynamo/symbolic_convert.py", line 4452, in __init__
+[rank0]:E1011 11:14:17.605000 1464658 site-packages/torch/_guards.py:374] [0/0]     output=OutputGraph(
+[rank0]:E1011 11:14:17.605000 1464658 site-packages/torch/_guards.py:374] [0/0]   File "/usr/local/python3.12.13/lib/python3.12/site-packages/torch/_dynamo/output_graph.py", line 621, in __init__
+[rank0]:E1011 11:14:17.605000 1464658 site-packages/torch/_guards.py:374] [0/0]     self.init_ambient_guards()
+[rank0]:E1011 11:14:17.605000 1464658 site-packages/torch/_guards.py:374] [0/0]   File "/usr/local/python3.12.13/lib/python3.12/site-packages/torch/_dynamo/output_graph.py", line 786, in init_ambient_guards
+[rank0]:E1011 11:14:17.605000 1464658 site-packages/torch/_guards.py:374] [0/0]     self.guards.add(ShapeEnvSource().make_guard(GuardBuilder.SHAPE_ENV))
+{
+  "passed": false,
+  "variant": "static_default",
+  "model_load_called": false,
+  "device_audit_passed": false,
+  "full_consumer_audit_passed": false,
+  "output": "/work/results/formal_dspark_sdk_init_static_default_v4/gate"
+}

@@ -1,0 +1,53 @@
+{
+  "source_guard": {
+    "files": {
+      "bench_fixture_timing.py": "7e836e1ab5660f2340aefd855f2033553096f81cf2b6419275ce7214373d3393",
+      "fixture_timing_worker.py": "5244c5270e2f77b0e2ee4c63a666d1710dcd52a4d16fcd8524eecf73101a3ce1",
+      "timing_controls.py": "67413f10ce930e937b01407dc63967c70f34833551f8cc4a06874032b815547a",
+      "reference_token_ids.json": "abf4c8922412f7f34c2eabdd035744ef1165ac31647b976410e31fd1be4a981a",
+      "dspark_worker.py": "08cdd3ca4b236f75e484797d9959738947223d4723cf998526cb82a4ea3e7f47",
+      "stage_ids_vendor.py": "16da30c77a5658aebb324e371dec4d92dfa3f38b15214d1be10cc98bc51743a4",
+      "o_proj_cache_fixture.py": "7dfa11336f7be4c8c55d0f09eb302673ef31ac51d582686d31cffc432af6fe78",
+      "graph_precision_audit.py": "a2f4b5d57179aeb392a651957c81b684f1993f4cd7ab95d4d42cdb3285a29df6",
+      "draft_graph_observer.py": "983c31462b285160c7990390b854e0d07cb546d46b66c3d9cc926e53b1737ac0",
+      "vllm_ascend/compilation/acl_graph.py": "c8ab2fe6aaae034b03e9e34b9c07fd445046564acd5d45e2c24b5ea5232c5a74",
+      "vllm_ascend/attention/dsa_v1.py": "24cb4e1ad3b2fcc9f0524153f22c0c6818aba396d290c4b93cdf4f12ced217d5",
+      "vllm_ascend/attention/dsa_attn_kv_plan.py": "cbb50f37e92aec5a39628ce01af89aa77e5b4b9e9d5b141cd1a2ef74d7fbe795",
+      "vllm_ascend/models/deepseek_v41/model.py": "dfbc3c0d3b0f9ce3349509de5dfb3799a47f834eec26a951769bf4a54e6c022b",
+      "vllm_ascend/models/deepseek_v41/dspark.py": "3fdc5c8afd777b493761cd9e646561e7ad56157d369db6d5c02df9579d4074a0",
+      "vllm_ascend/models/deepseek_v4/dspark.py": "840cfde5eecc559e63283f8bc33666f8767569a0b7c4ad7e7719d662c1ea9946",
+      "vllm_ascend/spec_decode/dspark_proposer.py": "bd1004869551791ae481a3cb7c61b124ee25300905f89097799ab4572439fd67",
+      "vllm_ascend/spec_decode/llm_base_proposer.py": "681c76017b1a508b64ce2594960c605a74008b4fd878a082788551e9b8f53db8",
+      "vllm_ascend/ops/fused_moe/router/fused_topk_router.py": "f32950da16926afe7569b1a6daa437860db2e83171d96623ac79f7734e52b004",
+      "vllm_ascend/worker/model_runner_v1.py": "67035d97f1cea4ae2df31adcc33f1de952f4cab6d8421e76df512296e0e3185e"
+    },
+    "all_actual_source_sha256_match": true,
+    "outside_timing_window": true
+  },
+  "capture": {
+    "actual_entries": 1,
+    "descriptors": [
+      "BatchDescriptor(num_tokens=6, num_reqs=1, uniform=True, has_lora=False, num_active_loras=0)"
+    ],
+    "constructor_use_cuda_graph": true,
+    "bool_flip": false
+  },
+  "parameter_metadata_views": 1032,
+  "cold_helper_history": [
+    {
+      "capturing": true,
+      "runtime_mode": "FULL",
+      "descriptor": "BatchDescriptor(num_tokens=6, num_reqs=1, uniform=True, has_lora=False, num_active_loras=0)",
+      "actual_round_at_entry": null,
+      "begin_s": 2864078.25111387,
+      "returned": true,
+      "end_s": 2864078.28765721
+    }
+  ],
+  "fixture_consumer_d2h_checks_enabled": false,
+  "route_logprob_audit": false,
+  "first_value_trace": false,
+  "profiler": false,
+  "admitted": false,
+  "formal_tp8_claim": false
+}
