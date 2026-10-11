@@ -51,7 +51,7 @@ def probs_fake(ids,weights,first,last,selected):
 def dispatch_mask(ids,weights,first,last):
     eligible=(ids.shape==weights.shape==(1,6) and ids.dtype==torch.int32 and
               weights.dtype==torch.float32 and ids.is_contiguous() and weights.is_contiguous())
-    if eligible:return probs(ids,weights,first,last,ARM=='tp8mask')
+    if eligible:return probs(ids,weights,first,last,ARM in ('tp8mask','tp8qkv'))
     return native(ids,weights,first,last)
 
 

@@ -11,36 +11,38 @@ import tp8_activation as generic_activation
 import formal_w4a8_prefix as prefix
 import formal_woa_cube as woa
 import formal_moe_mask_patches as moe_mask
+import formal_qkv_merge_patches as qkv_merge
 
 BANKS = {}
 
 
 def switch_mode(name):
-    assert name in ['tp8base', 'tp8core', 'tp8act', 'tp8stack', 'tp8meta', 'tp8metastack', 'tp8prefix', 'tp8prefixroute', 'tp8prefixup', 'tp8prefixuproute', 'tp8hostmeta','tp8woa', 'tp8mask']
+    assert name in ['tp8base', 'tp8core', 'tp8act', 'tp8stack', 'tp8meta', 'tp8metastack', 'tp8prefix', 'tp8prefixroute', 'tp8prefixup', 'tp8prefixuproute', 'tp8hostmeta','tp8woa', 'tp8mask', 'tp8qkv']
     prefix.set_arm(name)
     woa.set_arm(name)
     moe_mask.set_arm(name)
+    qkv_merge.set_arm(name)
     goal.ARM = name
     base.ARM = 'native' if name == 'tp8base' or os.getenv('STACK_REAL_WEIGHTS') == '1' else 'both'
     activation.ARM = 'baseline' if name == 'tp8base' else 'overlap'
-    indexer.set_arm('fused' if name in ('tp8stack','tp8metastack','tp8prefix','tp8prefixroute','tp8prefixup','tp8prefixuproute','tp8hostmeta','tp8woa', 'tp8mask') else 'baseline')
+    indexer.set_arm('fused' if name in ('tp8stack','tp8metastack','tp8prefix','tp8prefixroute','tp8prefixup','tp8prefixuproute','tp8hostmeta','tp8woa', 'tp8mask', 'tp8qkv') else 'baseline')
     overlap.set_enabled(name != 'tp8base')
 
 
 @torch.inference_mode()
 def install(model):
     goal.CONFIGS['tp8base'] = set()
-    for name in ['tp8core', 'tp8act', 'tp8stack', 'tp8meta', 'tp8metastack', 'tp8prefix', 'tp8prefixroute', 'tp8prefixup', 'tp8prefixuproute', 'tp8hostmeta','tp8woa', 'tp8mask']:
+    for name in ['tp8core', 'tp8act', 'tp8stack', 'tp8meta', 'tp8metastack', 'tp8prefix', 'tp8prefixroute', 'tp8prefixup', 'tp8prefixuproute', 'tp8hostmeta','tp8woa', 'tp8mask', 'tp8qkv']:
         goal.CONFIGS[name] = {'hcstatic', 'hcpost', 'metadata_all', 'blockmap'}
         if os.getenv('STACK_REAL_WEIGHTS') == '1':
             # Formal HC static failed the original numerical gate. Keep native
             # HC until a corrected candidate passes independent and model audit.
             goal.CONFIGS[name] -= {'hcstatic', 'hcpost'}
-    for name in ['tp8act','tp8stack','tp8metastack','tp8prefix','tp8prefixroute','tp8prefixup','tp8prefixuproute','tp8hostmeta','tp8woa', 'tp8mask']:
+    for name in ['tp8act','tp8stack','tp8metastack','tp8prefix','tp8prefixroute','tp8prefixup','tp8prefixuproute','tp8hostmeta','tp8woa', 'tp8mask', 'tp8qkv']:
         goal.CONFIGS[name].add('activation_generic')
     goal.CONFIGS['tp8hostmeta'].add('metadata_spec')
     goal.CONFIGS['tp8meta'].add('metadata_manyslots')
-    for name in ('tp8metastack','tp8prefix','tp8prefixroute','tp8prefixup','tp8prefixuproute','tp8hostmeta','tp8woa', 'tp8mask'):
+    for name in ('tp8metastack','tp8prefix','tp8prefixroute','tp8prefixup','tp8prefixuproute','tp8hostmeta','tp8woa', 'tp8mask', 'tp8qkv'):
         goal.CONFIGS[name].add('metadata_manyslots')
     goal.install(model)
     activation.install(model)
@@ -56,6 +58,7 @@ def install(model):
     prefix.install()
     woa.install(model)
     moe_mask.install(model)
+    qkv_merge.install(model)
     switch_mode(os.getenv('STACK_TP8_ARM', 'tp8base'))
 
 
@@ -65,7 +68,7 @@ def save(worker, name):
     entries = [(wrapper, wrapper.concrete_aclgraph_entries, wrapper.graph_pool)
                for wrapper in ag._acl_graph_wrappers]
     assert sum(len(value) for _, value, _ in entries) == 1
-    role = 'fused' if name in ('tp8stack','tp8metastack','tp8prefix','tp8prefixroute','tp8prefixup','tp8prefixuproute','tp8hostmeta','tp8woa', 'tp8mask') else 'baseline'
+    role = 'fused' if name in ('tp8stack','tp8metastack','tp8prefix','tp8prefixroute','tp8prefixup','tp8prefixuproute','tp8hostmeta','tp8woa', 'tp8mask', 'tp8qkv') else 'baseline'
     refs = activation.REFS.get(activation.ARM, {'routed': [], 'shared': []})
     hc_refs = base.HC_REFS.get(base.ARM, [])
     router_refs = base.ROUTER_REFS.get(base.ARM, [])
@@ -81,6 +84,7 @@ def save(worker, name):
             'w4a8_prefix': prefix.status(name),
             'woa_cube':woa.status(name),
             'moe_mask':moe_mask.status(name),
+            'qkv_merge':qkv_merge.status(name),
             'metadata_build': __import__('metadata_patches').stats(worker),
             'router_calls': len(router_refs), 'indexer': indexer.coverage(role),
             'activation_eligible_calls': {kind: len(rows) for kind, rows in refs.items()},
@@ -108,9 +112,11 @@ def create(worker, name):
     torch.npu.synchronize()
     switch_mode(name)
     if name=='tp8woa':woa.warm()
-    if name=='tp8mask':moe_mask.warm()
+    if name in ('tp8mask','tp8qkv'):moe_mask.warm()
+    if name=='tp8qkv':qkv_merge.warm()
     woa.reset(name)
     moe_mask.reset(name)
+    qkv_merge.reset(name)
     # Precompile compatible HC kernels outside graph capture, on actual
     # captured layouts. Static weights have already been cached at install.
     if os.getenv('STACK_REAL_WEIGHTS') != '1':
@@ -154,7 +160,7 @@ def audit(worker, name):
     # Run the native references with the original capture's tensors restored.
     switch(worker, name)
     result = {'indexer': indexer.audit(worker, indexer.ARM)}
-    if name in ('tp8meta','tp8metastack','tp8prefix','tp8prefixroute','tp8prefixup','tp8prefixuproute','tp8hostmeta','tp8woa', 'tp8mask'):
+    if name in ('tp8meta','tp8metastack','tp8prefix','tp8prefixroute','tp8prefixup','tp8prefixuproute','tp8hostmeta','tp8woa', 'tp8mask', 'tp8qkv'):
         from tp8_slot_batches import REGISTRY
         result['metadata_slots'] = REGISTRY.audit()
         assert REGISTRY.counts['fused_launches']>0, 'Slot batching candidate has no actual coverage'
@@ -171,7 +177,8 @@ def audit(worker, name):
     result['generic_activation']=generic_activation.audit(name)
     result['w4a8_prefix']=prefix.audit(name)
     if name=='tp8woa':result['woa_cube']=woa.audit(name)
-    if name=='tp8mask':result['moe_mask']=moe_mask.audit(name)
+    if name in ('tp8mask','tp8qkv'):result['moe_mask']=moe_mask.audit(name)
+    if name=='tp8qkv':result['qkv_merge']=qkv_merge.audit(name)
     if name=='tp8hostmeta':
         result['metadata_build']=__import__('metadata_patches').stats(worker)
         assert result['metadata_build']['spec_static_build_calls'].get(name,0)>0, 'Metadata spec candidate has no actual coverage'

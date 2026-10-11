@@ -35,7 +35,7 @@ def main():
     model=selection['served_model'];port=selection['port'];base=f'http://127.0.0.1:{port}'
     assert model.startswith('dsv41-a321-formal-') and selection['client_validation']=='pending'
     arm=selection['selected_arm']
-    assert arm in ('tp8base','tp8core','tp8act','tp8stack','tp8meta','tp8metastack','tp8prefix','tp8prefixroute','tp8prefixup','tp8prefixuproute','tp8hostmeta','tp8woa', 'tp8mask') and selection['measured']['A']==1
+    assert arm in ('tp8base','tp8core','tp8act','tp8stack','tp8meta','tp8metastack','tp8prefix','tp8prefixroute','tp8prefixup','tp8prefixuproute','tp8hostmeta','tp8woa', 'tp8mask', 'tp8qkv') and selection['measured']['A']==1
     out=args.service_root/'client';out.mkdir(exist_ok=True)
     assert not (out/'acceptance.json').exists(),'Do not overwrite previous acceptance'
     while True:

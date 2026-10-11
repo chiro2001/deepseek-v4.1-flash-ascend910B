@@ -1,0 +1,30 @@
+INFO 10-11 03:16:35 [__init__.py:52] Available plugins for group vllm.platform_plugins:
+INFO 10-11 03:16:35 [__init__.py:54] - ascend -> vllm_ascend:register
+INFO 10-11 03:16:35 [__init__.py:57] All plugins in this group will be loaded. Set `VLLM_PLUGINS` to control which plugins to load.
+INFO 10-11 03:16:35 [__init__.py:237] Platform plugin ascend is activated
+INFO 10-11 03:16:35 [platform.py:70] Breakable CUDAGraph on Ascend is opt-in; using VLLM_USE_BREAKABLE_CUDAGRAPH=0.
+Traceback (most recent call last):
+  File "/work/src_qkv_merge_probe_v1/stack/bench_formal_qkv_merge.py", line 204, in <module>
+    main()
+  File "/usr/local/python3.12.13/lib/python3.12/site-packages/torch/utils/_contextlib.py", line 124, in decorate_context
+    return func(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^
+  File "/work/src_qkv_merge_probe_v1/stack/bench_formal_qkv_merge.py", line 59, in main
+    from vllm_ascend.attention.dsa_v1 import AscendDSAImpl
+  File "/vllm-workspace/vllm-ascend/vllm_ascend/attention/dsa_v1.py", line 24, in <module>
+    from vllm_ascend.attention.attention_v1 import AscendAttentionState
+  File "/vllm-workspace/vllm-ascend/vllm_ascend/attention/attention_v1.py", line 63, in <module>
+    from vllm_ascend.device.device_op import DeviceOperator
+  File "/vllm-workspace/vllm-ascend/vllm_ascend/device/device_op.py", line 28, in <module>
+    from vllm_ascend.ops.triton.fla.chunk_scaled_dot_kkt import chunk_scaled_dot_kkt_fwd_kernel
+  File "/vllm-workspace/vllm-ascend/vllm_ascend/ops/__init__.py", line 21, in <module>
+    import vllm_ascend.ops.fused_moe.fused_moe  # noqa
+    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/vllm-workspace/vllm-ascend/vllm_ascend/ops/fused_moe/fused_moe.py", line 30, in <module>
+    from vllm_ascend.ops.fused_moe.moe_comm_method import get_moe_comm_method, setup_moe_comm_method
+  File "/vllm-workspace/vllm-ascend/vllm_ascend/ops/fused_moe/moe_comm_method.py", line 33, in <module>
+    from vllm_ascend.ops.fused_moe.moe_mlp import apply_moe_mlp
+  File "/vllm-workspace/vllm-ascend/vllm_ascend/ops/fused_moe/moe_mlp.py", line 22, in <module>
+    from vllm_ascend.device.device_op import DeviceOperator
+ImportError: cannot import name 'DeviceOperator' from partially initialized module 'vllm_ascend.device.device_op' (most likely due to a circular import) (/vllm-workspace/vllm-ascend/vllm_ascend/device/device_op.py)
+[ERROR] 2026-10-11-03:16:42 (PID:850763, Device:0, RankID:-1) ERR99999 UNKNOWN applicaiton exception

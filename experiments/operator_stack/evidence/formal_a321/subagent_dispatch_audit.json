@@ -1,0 +1,52 @@
+{
+  "time_utc": "2026-10-11T03:35:23.959911+00:00",
+  "issue": "Cross-provider old agents received Fernet ciphertext instead of task text",
+  "old_agents": [
+    {
+      "agent_path": "/root/new_hotspot_review",
+      "model": "deepseek-flash",
+      "reasoning_effort": "max",
+      "id": "01a128fb-a6f0-7de0-8aaf-9d960cbd863e"
+    },
+    {
+      "agent_path": "/root/qkv_probe_review",
+      "model": "deepseek-flash",
+      "reasoning_effort": "max",
+      "id": "01a128fd-ca87-7162-a6de-969c9edc4da6"
+    },
+    {
+      "agent_path": "/root/parallel_tiny_lanes",
+      "model": "deepseek-flash",
+      "reasoning_effort": "max",
+      "id": "01a128ff-77ca-7cf2-a896-fcf054ddd412"
+    }
+  ],
+  "response": "Interrupted old agents; redispatch gpt-6.1-sol/max with shared plain task files and ACK check",
+  "redispatched_agents": [
+    {
+      "agent_path": "/root/tiny_qkv",
+      "model": "gpt-6.1-sol",
+      "reasoning_effort": "max",
+      "id": "01a12907-c17e-7190-9167-5b1c695985f3"
+    },
+    {
+      "agent_path": "/root/tiny_engram",
+      "model": "gpt-6.1-sol",
+      "reasoning_effort": "max",
+      "id": "01a12907-dd3e-7530-8628-18790ae193aa"
+    },
+    {
+      "agent_path": "/root/tiny_ids",
+      "model": "gpt-6.1-sol",
+      "reasoning_effort": "max",
+      "id": "01a12907-f509-7ee1-aeac-40dae96cb529"
+    }
+  ],
+  "models_verified_utc": "2026-10-11T03:36:09.665475+00:00",
+  "plain_ack_received": [
+    "tiny_qkv",
+    "tiny_engram",
+    "tiny_ids"
+  ],
+  "all_plain_acks_verified_utc": "2026-10-11T03:36:34.445770+00:00"
+}

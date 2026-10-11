@@ -39,9 +39,10 @@ def main():
     p.add_argument('--prefix-evidence-job')
     p.add_argument('--woa-evidence-job')
     p.add_argument('--mask-evidence-job')
+    p.add_argument('--qkv-evidence-job')
     p.add_argument('--vector-job')
     p.add_argument('--serve', action='store_true')
-    p.add_argument('--service-arm', choices=('tp8base','tp8core','tp8act','tp8stack','tp8meta','tp8metastack','tp8prefix','tp8prefixroute','tp8prefixup','tp8prefixuproute','tp8hostmeta','tp8woa', 'tp8mask'))
+    p.add_argument('--service-arm', choices=('tp8base','tp8core','tp8act','tp8stack','tp8meta','tp8metastack','tp8prefix','tp8prefixroute','tp8prefixup','tp8prefixuproute','tp8hostmeta','tp8woa', 'tp8mask', 'tp8qkv'))
     p.add_argument('--audit-job')
     p.add_argument('--perf-job')
     p.add_argument('--port', type=int)
@@ -97,7 +98,7 @@ def main():
     assert not args.isolated_pools or not args.native_control
     arms = args.arms.split(',')
     assert arms[0] == 'tp8base' and len(set(arms)) == len(arms)
-    assert set(arms) <= {'tp8base', 'tp8core', 'tp8act', 'tp8stack', 'tp8meta', 'tp8metastack', 'tp8prefix', 'tp8prefixroute', 'tp8prefixup', 'tp8prefixuproute', 'tp8hostmeta','tp8woa', 'tp8mask'}
+    assert set(arms) <= {'tp8base', 'tp8core', 'tp8act', 'tp8stack', 'tp8meta', 'tp8metastack', 'tp8prefix', 'tp8prefixroute', 'tp8prefixup', 'tp8prefixuproute', 'tp8hostmeta','tp8woa', 'tp8mask', 'tp8qkv'}
     chips = [int(x) for x in args.chips.split(',')]
     assert len(chips) == len(set(chips)) == 8 and min(chips) >= 0
     root = Path(args.root).resolve()
@@ -163,7 +164,7 @@ def main():
             'V41_ENGRAM_ROUTE_PROBE': '0', 'NUMBA_CACHE_DIR': '/work/cache/numba',
         }
         flags['STACK_TINY_PROFILE']='1' if args.tiny_profile else '0'
-        mask_selected='tp8mask' in arms or args.service_arm=='tp8mask'
+        mask_selected=bool(set(arms)&{'tp8mask','tp8qkv'} or args.service_arm in ('tp8mask','tp8qkv'))
         flags['STACK_MOE_MASK_ENABLED']='1' if mask_selected else '0'
         mask_evidence=None
         if mask_selected:
@@ -182,6 +183,23 @@ def main():
             flags['STACK_MASK_COMBINE_SHA256']=probe['combine_sha256']
             mask_evidence={'probe_job':args.mask_evidence_job,'kernel_sha256':kernel_sha,
                            'probe_result_sha256':hashlib.sha256((probe_root/'result.json').read_bytes()).hexdigest()}
+        qkv_selected='tp8qkv' in arms or args.service_arm=='tp8qkv'
+        flags['STACK_QKV_MERGE_ENABLED']='1' if qkv_selected else '0'
+        qkv_evidence=None
+        if qkv_selected:
+            assert args.qkv_evidence_job and args.qkv_evidence_job.replace('_','').replace('-','').isalnum()
+            probe_root=root/'results'/args.qkv_evidence_job
+            assert (probe_root/'run.exit').read_text().strip()=='0'
+            probe=json.loads((probe_root/'result.json').read_text())
+            assert probe['completed'] and probe['precision_passed'] and probe['timing_validated']
+            assert probe['eligible_for_model_trial'] and len(probe['cases'])==24
+            assert probe['model']==args.model and probe['physical_chips']==args.chips
+            assert probe['checkpoint_config_sha256']==hashlib.sha256((Path(args.model)/'config.json').read_bytes()).hexdigest()
+            script_sha=hashlib.sha256((source_host/'stack/bench_formal_qkv_merge.py').read_bytes()).hexdigest()
+            assert script_sha==probe['script_sha256'], 'Checked QKV probe differs from source snapshot'
+            flags['STACK_QKV_NATIVE_FILE_SHA256']=probe['native_source_file_sha256']
+            qkv_evidence={'probe_job':args.qkv_evidence_job,'probe_script_sha256':script_sha,
+                          'probe_result_sha256':hashlib.sha256((probe_root/'result.json').read_bytes()).hexdigest()}
         woa_selected='tp8woa' in arms or args.service_arm=='tp8woa'
         flags['STACK_WOA_CUBE_ENABLED']='1' if woa_selected else '0'
         woa_evidence=None
@@ -202,7 +220,7 @@ def main():
             woa_evidence={'probe_job':args.woa_evidence_job,'kernel_sha256':kernel_sha,
                           'probe_result_sha256':hashlib.sha256((probe_root/'result.json').read_bytes()).hexdigest()}
         flags['STACK_TP8_ISOLATED_POOLS'] = '1' if args.isolated_pools else '0'
-        flags['STACK_METADATA_MANY_SLOTS_ENABLED'] = '1' if (set(arms)&{'tp8meta','tp8metastack','tp8prefix','tp8prefixroute','tp8prefixup','tp8prefixuproute','tp8hostmeta','tp8woa', 'tp8mask'} or args.service_arm in ('tp8meta','tp8metastack','tp8prefix','tp8prefixroute','tp8prefixup','tp8prefixuproute','tp8hostmeta','tp8woa', 'tp8mask')) else '0'
+        flags['STACK_METADATA_MANY_SLOTS_ENABLED'] = '1' if (set(arms)&{'tp8meta','tp8metastack','tp8prefix','tp8prefixroute','tp8prefixup','tp8prefixuproute','tp8hostmeta','tp8woa', 'tp8mask', 'tp8qkv'} or args.service_arm in ('tp8meta','tp8metastack','tp8prefix','tp8prefixroute','tp8prefixup','tp8prefixuproute','tp8hostmeta','tp8woa', 'tp8mask', 'tp8qkv')) else '0'
         prefix_selected=bool(set(arms)&{'tp8prefix','tp8prefixroute','tp8prefixup','tp8prefixuproute'} or args.service_arm in ('tp8prefix','tp8prefixroute','tp8prefixup','tp8prefixuproute'))
         flags['STACK_W4A8_PREFIX_ENABLED']='1' if prefix_selected else '0'
         if prefix_selected:
@@ -277,6 +295,7 @@ def main():
             'env': flags, 'argv': command,
             'script_sha256': hashlib.sha256(body.encode()).hexdigest(),
             'source_dir':str(source_dir), 'woa_evidence':woa_evidence, 'mask_evidence':mask_evidence,
+            'qkv_evidence':qkv_evidence,
             'source_sha256': hashlib.sha256((source_host / 'stack' / script_name).read_bytes()).hexdigest()}
         (out / 'resource_prelaunch.txt').write_text(raw)
         subprocess.run(['docker', 'exec', '-d', args.container, 'bash', '/work/' + script.name], check=True)

@@ -1,0 +1,25 @@
+{
+  "argv": [
+    "/home/l00886679/miniforge3/bin/python",
+    "/home/l00886679/projects/dsv41-real-stack-tp8-20261010/src_qkv_model_v2/stack/continue_qkv_perf.py",
+    "--root",
+    "/home/l00886679/projects/dsv41-real-stack-tp8-20261010",
+    "--source-dir",
+    "/work/src_qkv_model_v2",
+    "--container",
+    "dsv41-real-stack-tp8-20261010-a321",
+    "--audit-job",
+    "formal_qkv_merge_audit_v1",
+    "--perf-job",
+    "formal_qkv_merge_perf_v1",
+    "--probe-job",
+    "formal_qkv_merge_probe_v2",
+    "--mask-probe-job",
+    "formal_moe_mask_probe_v2",
+    "--model",
+    "/home/l00886679/models/out/v41-w4a8-engram-dr-vision-qrot-mtpq"
+  ],
+  "source_sha256": "9dd6d363a2e9124f9752ea64ac799f535a40de7081d00a7aa224c1e58874228e",
+  "gate": "Full native A/A plus routes/token/logprob/cache and 40 QKV+mask consumers on all8 ranks before timing",
+  "created_unix": 1791689393.7954433
+}
