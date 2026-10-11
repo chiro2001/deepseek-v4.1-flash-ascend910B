@@ -1,0 +1,56 @@
+# DSpark SDK 双门通过与真实 API 工作集
+
+2026-10-11。正式完整 TP8、真实权重、包含 DSpark 全部执行开销的 ≤20 ms/step 目标保持 active，尚未完成。此次通过的是正常初始化 worker 中的小型 SDK 捕获、复制与当代 marker 验证，不是完整模型性能或质量验收。
+
+## SDK：static 与 nonstatic 两个新 job 完整通过
+
+两个 job 均使用全新标准 TP8 WorkerWrapper/init_device、原生 model_runner graph_capture 上下文与未修改的 SDK。没有加载模型权重；程序为原19个Tensor输入的小型矩阵/缓存/producer-reader快照验证。物理8–15启动前逐次检查空闲/健康，仅放行用户授权的80C98001。
+
+| job / 变体 | 每 rank 完整代数 | 语义/alias | 正常退出 | 整 job |
+|---|---:|---|---|---|
+| v7 static_default | 32 | 语义过；epoch临时目的地址使alias拒绝 | 8个被自有失败清理收口 | exit1 |
+| v7 static_keep | 32 | 8rank全部通过 | 2个0；6个在5s grace后被收口为-9 | exit1 |
+| v8 static_keep | 32 | 8rank全部通过 | 8个全0 | exit0 |
+| v8 nonstatic_keep | 32 | 8rank全部通过 | 8个全0 | exit0 |
+
+v8两个job的16个rank case共512个完整epoch，原13个live owner的tensor object/地址/layout seal前后相同；capture copy目的地址、原marker源、当代payload/positions/valid/count/cache、返回alias、native stream与正常退出恢复均通过。每rank原始result和完整生成图/内核已逐SHA取回，两个job使用不同fresh PID，同一冻结源与outer keep=true。
+
+`static_keep`仅启用外层AOT的keep_inference_input_mutations；原SDK factory/options、kwargs、数学、原kernel Tensor assert保持。实际SDK中capture只留下8条直接payload copy，临时epoch/copyback阻碍消失。CPU SDK-like双AOT对照即使keep=true仍产生临时copy，说明CPU对照不能外推真实SDK的alias结果。
+
+v8进一步把检查器的允许范围明确为12个producer/reader buffer与native cache的13个原owner；按payload/count/cache分类，未知或临时目的地址、错误layout/stream继续拒绝。v7 default真实trace依然被拒绝。正常shutdown grace由全组有界5s延长为45s；失败仍立即核验PID/PPID/boot/start与kernel pidfd后仅收口自有child。真实CPU延迟child6.2368s正常reaped0，未用hard kill。
+
+v8受影响57项CPU检查及两份CPU双AOT对照通过；没有重跑无关旧矩阵。冻结70文件，freeze SHA256 `73f865b8ce39a631db991cac1d6f8b39b35e9b7ab1e5cfdc1d89e7cadae33432`，最大单文件351795B。旧v1–v7保持。
+
+两个actual job的验证汇总：`evidence/formal_a321/sdk_init_keep_v8_two_jobs_validated.json`。原driver汇总各约6.55MB，保留远端并记录原SHA；本地driver compact保留字段并绑定原hash，全部单rank原字节证据完整。SSH包均小于1MB。
+
+实际证据已无损重包为四个compact tgz，单包356227–455470B。重包SHA与原传输SHA分别记录在 `sdk_v7_v8_compact_repack_delivery.json`，不把重新压缩的字节冒充原传输包。每个原文件SHA可从压包中的fetch_manifest复核。
+
+## 完整43层消费者接线仍是下一关
+
+旧v1的 `require_sdk_receipts` 强绑single-chip/initialized_before=false及旧exporter/source SHA，不能改写新TP8收据强行套入。独立TP8证据桥正在验证两job/8rank原文件、fresh身份、同SDK/outer keep、13seal、32epoch与全部正常0退出；桥的CPU协议验证不独立授予actual模型或formal通过。
+
+完整40 main+3 MTP、17个实际函数点、路由/token/Top5/logprob、有效cache/接受前缀/rollback与INT8 prepack实际消费者尚须新的正式真实权重审计。main严格384/top6/local48/M36，draft严格原生128/top3/local16/M15。
+
+新的prepack审计组件正在准备：真实GMM1 raw INT8在_quant_hidden_states后、fused grouped_matmul_swiglu_quant_v2前；GMM2 raw INT8为GMM1返回、npu_grouped_matmul前。GMM1的MSD workspace双bank与GMM2的原x GM原位pack分开绑定。旧M1的K2304/version不变证据不能外推所有role或GMM1；原x snapshot必须在真实prepack前，GMM2 K取实际loaded FFN/weight/输出几何。
+
+## tiny 2K/256：原生RPC入口已修正，完整数值门进行中
+
+v2的callable RPC经UniProcExecutor/run_method实际得到WorkerWrapperBase，而probe安装在内层worker；Python组合guard第一项identity因此拒绝，不能把它当cache数值失败。
+
+独立v3通过真实UniProcExecutor、run_method、WorkerWrapperBase.__getattr__等AST的43项CPU控制，使用string RPC绑定实际worker，identity/audit/capture仍严格检查，capture先拒绝且无D2H/日志；reader665/cache/数值主体保持。冻结42文件SHA `827393390eca642c001808644201c83b1856425c4a5b080b7316fd82cfef43f7`。
+
+physical4的新job三次fresh HealthOK/无进程/正常0.70预算通过，源/模型保持。实际host receipt证明worker与installed_worker为同一GeometryQualityWorker、audit=true/capture=false。已完成2warmup和首个native OFF A/A比较，两个审计请求共256个逐步geometry文件；其余8个比较仍在进行。逐步文件与首个A/A比较完成不能代替整个9比较或正式模型审计，具体delta以原checks为准。warmup采用不同seed，OFF128/ON255 decode rounds不是A/B收益，也不报价性能。
+
+## 真实tokenizer工作集与API计数桥
+
+独立API桥已冻结20文本，21测试/90拒绝反例通过。实际external→core ID在原生提交前tap并等待8rank绑定；terminal device fence/sample timestamp/Gloo join在HTTP前，客户端response.read结束先保存同boot/time namespace的CLOCK_MONOTONIC，再发finish RPC取回actual rounds。原v4计数与算法不改，不使用前端poll、输出token数或累计平均acceptance当step。
+
+新工作集使用正式checkpoint tokenizer，2warmup+8个measured，各2048输入token、256输出预算；10个context原文区间不重叠、问题尾完整、输入SHA各异。原checkpoint AutoTokenizer对Rust编码/解码/长度/末尾问题10/10一致，CPU torch允许，torch_npu/vLLM/ACL/torchair及NPU runtime库加载为0。完整tokenizer6.37MB及corpus2.47MB留远端。
+
+29个文本已冻结并逐SHA核验；workload SHA `8c6a1a4ea2acbb5c72706a21870ac25fd71770d2af4c26b81238ccf043d82572`，CPU交付包133929B，远端 `/work/dspark_api_workload_cpu_20261011_v1/workload.json`。尚未启动真实API服务或发送推理，因此不授性能/质量通过。
+
+正式性能仍须至少8个串行计数请求，warmup不计入8个；audit/profiler关闭，包含已提交initial/terminal草稿完成，按每请求actual verifier rounds计算自洽 `ms=1000*decode_s/rounds`、`A=decoded_tokens/rounds`、`tok/s=decoded_tokens/decode_s`。256输出中的prefill seed排除，decoded_tokens=255；同时报告clean-rate/复读/空答。
+
+私有固定文本端点不支持通用SSE/图像质量任务。GSM canonical前8 train作8-shot、前100 test、max512和严格100/100；Vision原20问答+3negative须严格23/23，脚本默认80%或旧wrapper19/23不能代替。后续同候选独立general质量job须保留原评分与服务身份，不复用旧A1输出或累计meanA。
+
+完整实际消费者、正式包含DSpark≤20ms、GSM100/100、Vision23/23、最优正式部署及最终交付全部达成后才complete；本轮仍未达成。

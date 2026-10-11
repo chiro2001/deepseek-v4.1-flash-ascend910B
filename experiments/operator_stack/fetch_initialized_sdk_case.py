@@ -14,7 +14,7 @@ import hashlib,io,json,sys,tarfile
 from pathlib import Path
 root=Path(sys.argv[1])
 assert (root/'run.exit').is_file(), 'SDK case is not terminal'
-files={}
+files={}; oversized={}
 for p in sorted(root.rglob('*')):
     if not p.is_file() or p.is_symlink(): continue
     rel=p.relative_to(root)
@@ -23,10 +23,27 @@ for p in sorted(root.rglob('*')):
         'launched.json','run.exit','run.log','runner.pid','start.utc','end.utc',
         'resource_prelaunch.txt','resource_presubmit.txt','release_resource.json'):
         continue
-    assert p.stat().st_size<1000000, 'Use COS for file >=1 MB: '+str(rel)
     data=p.read_bytes()
+    if len(data)>=1000000:
+        oversized[str(rel)]={'bytes':len(data),'sha256':hashlib.sha256(data).hexdigest(),
+                             'retained_remotely':True,'raw_bytes_transferred':False}
+        if str(rel)=='gate/result.json':
+            result=json.loads(data)
+            # The original contains the same full receipts saved per rank.
+            compact={key:value for key,value in result.items() if key!='rank_results'}
+            compact['rank_results']=[{key:row.get(key) for key in (
+                'process_identity','phase','passed','stage_semantics_passed',
+                'actual_copy_alias_gate_passed','alias_error','worker_lifecycle')}
+                for row in result.get('rank_results',[])]
+            compact['original_result']=dict(oversized[str(rel)],remote_path=str(p))
+            content=(json.dumps(compact,indent=2)+'\n').encode()
+            assert len(content)<1000000
+            files['gate/result_compact.json']=content
+        continue
     files[str(rel)]=data
 assert 'run.exit' in files and 'launched.json' in files
+if oversized:
+    files['oversized_source_files.json']=(json.dumps(oversized,indent=2)+'\n').encode()
 manifest={rel:{'bytes':len(data),'sha256':hashlib.sha256(data).hexdigest()}
           for rel,data in files.items()}
 files['fetch_manifest.json']=(json.dumps(manifest,indent=2)+'\n').encode()
@@ -77,6 +94,7 @@ def main():
                'archive_sha256': hashlib.sha256(data).hexdigest(),
                'fetch_manifest_sha256': hashlib.sha256(payload['fetch_manifest.json']).hexdigest(),
                'run_exit': int(payload['run.exit'].strip()),
+               'oversized_files_retained_remotely': json.loads(payload.get('oversized_source_files.json', b'{}')),
                'files_sha256_verified': True, 'scope': 'init-only SDK evidence; no performance claim'}
     (args.output / 'archive_receipt.json').write_text(json.dumps(receipt, indent=2) + '\n')
     print(json.dumps(receipt), flush=True)

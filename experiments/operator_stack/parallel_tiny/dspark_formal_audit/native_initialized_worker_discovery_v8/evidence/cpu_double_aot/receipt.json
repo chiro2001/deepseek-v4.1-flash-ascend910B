@@ -1,0 +1,55 @@
+{
+  "scope": "first real invocation CopyMode observations of two independent PyTorch2.10 CPU double-AOT cases; SDK-like backend only",
+  "passed": true,
+  "cases": 2,
+  "torch": "2.10.0+cpu",
+  "cpu_first_runtime_invocation_only": true,
+  "cpu_compile_and_runtime_scope_observations": "CopyMode wraps the original first invoke; do not infer post-warmup NPU capture copy counts",
+  "outer_keep_true_removes_all_epoch_temporaries_on_cpu": false,
+  "real_sdk_backend_executed": false,
+  "real_torch_npu_imported": false,
+  "real_vllm_or_acl_imported": false,
+  "npu_cold_capture_executed": false,
+  "program_and_transport_and_ABI_identical_between_cases": true,
+  "results": {
+    "false": {
+      "outer_keep_inference_input_mutations": false,
+      "inner_keep_inference_input_mutations": true,
+      "copy_calls": 21,
+      "temporary_epoch_copies": 2,
+      "marker_source_copybacks": 6,
+      "all_copy_destinations_original_owned": false,
+      "all_copy_logical_destinations_equal_actual": false,
+      "cpu_original_owner_seals_stable": true,
+      "cpu_returned_owner_aliases_stable": true,
+      "cpu_math_equal": true
+    },
+    "true": {
+      "outer_keep_inference_input_mutations": true,
+      "inner_keep_inference_input_mutations": true,
+      "copy_calls": 34,
+      "temporary_epoch_copies": 4,
+      "marker_source_copybacks": 6,
+      "all_copy_destinations_original_owned": false,
+      "all_copy_logical_destinations_equal_actual": false,
+      "cpu_original_owner_seals_stable": true,
+      "cpu_returned_owner_aliases_stable": true,
+      "cpu_math_equal": true
+    }
+  },
+  "raw_stdout_sha256": {
+    "false": "b0a83663e93c30c8c53238dfa62c8f96afe9c66a4c3b96507cf9b4cd22b22c8e",
+    "true": "29ca0f2f6ad0ac31730d607ed6e308e86b5ae5f716dd8ea8970522a4ebbb88ca"
+  },
+  "archive_sha256": "a5629c003bf6af38527face21dd177bb43da03e1dc36eeef8bfec89ec79f8703",
+  "archive_bytes": 6119,
+  "npu_jobs": 0,
+  "actual_copy_alias_gate_passed": false,
+  "actual_sdk_32_epochs_passed": false,
+  "device_audit_passed": false,
+  "safe_formal_receipt": false,
+  "full_consumer_audit_passed": false,
+  "formal_model_validated": false,
+  "actual_prepack_consumer_order_validated": false,
+  "performance_claim": null
+}

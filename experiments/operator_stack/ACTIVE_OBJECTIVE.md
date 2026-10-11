@@ -29,7 +29,7 @@
 
 最新QKV early-kv-tail-v2完整审计通过，但12组性能mask(19.208722ms,A1,52.059685tok/s)、
 QKV(19.307216ms,A1,51.794106tok/s)，0/12更快，拒绝部署；同样关闭DSpark。
-Engram SDK普通NPUGraph32代可行；正常TP8初始化的v6 static_default中，5个有完整结果的rank已通过真实双AOT Tensor ABI/warmup，随后cold-capture因默认stream被框架拒绝，完整32代/alias仍未验证，原型默认关闭。其余3rank未取得完整SDK结果，不能套用同因。
+Engram SDK普通NPUGraph32代可行；正常TP8初始化的v7 static_default已在8rank完成32代语义/native stream恢复，但epoch临时目的地址使alias拒绝。独立v7 static_keep的8rank语义/alias/32代/恢复全部通过；整job因5s正常shutdown grace后6个child被收口为-9而exit1。v8在两个fresh正常TP8 job（static_keep/nonstatic_keep）均实际exit0，16rank case共512epoch、13个live owner seal/严格alias/native恢复通过、全部自有child正常0退出；source/SDK/math未改。它仍是未加载权重的小型SDK能力，不是完整43层消费者或正式性能，原型默认关闭。
 稀疏MSD固定M1/capacity6已在真实E48原参数、synthetic activation的9case数值门通过（SDK/raw/candidate均maxULP0）；planner/canary/seals与输入原地修改生命周期已验证。当前未有性能、实际模型消费者或K5收益证明。正式profile实际target GMM容量36/E48，draft容量15/E16，不能直接推广M1二进制。
 
 用户已清除旧goal并要求重新创建；2026-10-11已成功创建包含DSpark的正式≤20ms/step新goal，
@@ -41,3 +41,5 @@ Engram SDK普通NPUGraph32代可行；正常TP8初始化的v6 static_default中�
 新API链须保留实际external→core request映射、同boot/time namespace的客户端结束时钟，
 从真实worker计数获取rounds并核对initial/terminal及TP8末轮fence/Gloo join。
 最终至少8个串行计数请求，warmup不计入这8个；不能使用`1000/tok/s`替代DSpark ms/step。
+
+真实API CPU桥已冻结并通过21测试/90反例；真实checkpoint tokenizer工作集为2warmup+8measured、每条2048 token/256预算，AutoTokenizer parity10/10。它们尚无真实服务/HTTP/NPU性能通过。tiny2K/256 v2的callable RPC实际传wrapper导致strict worker identity拒绝；v3以真实string bound RPC保留原identity/audit/capture门，43CPU门通过，正进行实际3组665/cache/9数值比较，部分逐步快照不是整组数值通过。

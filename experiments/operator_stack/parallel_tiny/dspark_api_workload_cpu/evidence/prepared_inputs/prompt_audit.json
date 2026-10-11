@@ -1,0 +1,421 @@
+{
+  "CPU_only": true,
+  "real_tokenizer_and_source_used": true,
+  "mock_tokenizer_used": false,
+  "warmup_names": [
+    "warmup_0",
+    "warmup_1"
+  ],
+  "measured_names": [
+    "measured_0",
+    "measured_1",
+    "measured_2",
+    "measured_3",
+    "measured_4",
+    "measured_5",
+    "measured_6",
+    "measured_7"
+  ],
+  "warmup_excluded_from_measured": true,
+  "source_context_intervals_nonoverlapping": true,
+  "all_prompt_tokens": 2048,
+  "all_output_budgets": 256,
+  "prompts": [
+    {
+      "name": "warmup_0",
+      "phase": "warmup",
+      "index": 0,
+      "task": "quote",
+      "prompt_sha256": "cdb6e41086394dede6517dfbaecdc5efce6761c09475e256fa0e5d3c5bcdc486",
+      "prompt_tokens": 2048,
+      "output_budget": 256,
+      "text_path": "/work/dspark_api_workload_cpu_20261011_v1/prompts/warmup_0.txt",
+      "text_sha256": "957ef369d718b731e04f86dbe945fd5e1aa3e692992cdeb73522109c6b0e11f0",
+      "question": "请从上文中**逐字引用**开头第一句完整的原文（不要改写、不要总结，直接抄录）。\n请将回答控制在约150字以内。",
+      "question_source": {
+        "path": "/work/client/data/hlm_local/local_quote.txt",
+        "resolved_path": "/work/client/data/hlm_local/local_quote.txt",
+        "bytes": 114,
+        "sha256": "bc0d64717ce8b069a1287adfc8da9df461149d113b6a1f4ef3d7e5bf895fce0f",
+        "source_file_transferred": false
+      },
+      "question_appendix": "请将回答控制在约150字以内。",
+      "source_span": {
+        "character_start": 2091,
+        "character_end": 4602,
+        "byte_start": 6065,
+        "byte_end": 13576,
+        "context_sha256": "5d9fa0af7c34a8d255d55dcdbf7eda7b46bd79586c631dc1a04cdf22ad596223"
+      },
+      "answerability": {
+        "requires_external_book_content": false,
+        "first_complete_sentence_witness": "一日，正当嗟悼之际，俄见一僧一道，远远而来，生得骨格不凡，丰神迥异。",
+        "named_characters_present_in_excerpt": [
+          "甄士隐",
+          "宝玉"
+        ],
+        "scope": "task refers only to the exact visible excerpt; no model answer or semantic accuracy has been tested"
+      }
+    },
+    {
+      "name": "warmup_1",
+      "phase": "warmup",
+      "index": 1,
+      "task": "qa",
+      "prompt_sha256": "da4bc351581915d5c3ddb91a00431a37bf662af2e1dd1b9a0365bdac5ffea762",
+      "prompt_tokens": 2048,
+      "output_budget": 256,
+      "text_path": "/work/dspark_api_workload_cpu_20261011_v1/prompts/warmup_1.txt",
+      "text_sha256": "fb405aa1c68fdef8f63bdf3436bd2e1b5a40a9e218e25533cca0de57ecf38f72",
+      "question": "请只根据上面这段文字回答：本段出现了哪些人物？他们各自做了什么？请分点作答，并引用原文依据。\n请将回答控制在约150字以内。",
+      "question_source": {
+        "path": "/work/client/data/hlm_local/local_qa.txt",
+        "resolved_path": "/work/client/data/hlm_local/local_qa.txt",
+        "bytes": 140,
+        "sha256": "49ca197f896b06965af7625b62c8e6983ac820f201b662b05cf3979e32c9ea88",
+        "source_file_transferred": false
+      },
+      "question_appendix": "请将回答控制在约150字以内。",
+      "source_span": {
+        "character_start": 13874,
+        "character_end": 16440,
+        "byte_start": 41292,
+        "byte_end": 48958,
+        "context_sha256": "5b90b3a579b2a9c5fcfc6672b349af6e6041501c3d05165fd01b825fd7251d72"
+      },
+      "answerability": {
+        "requires_external_book_content": false,
+        "first_complete_sentence_witness": "雨村听了，笑道：“可知我言不谬了。",
+        "named_characters_present_in_excerpt": [
+          "林黛玉",
+          "贾母",
+          "贾政",
+          "贾雨村",
+          "黛玉"
+        ],
+        "scope": "task refers only to the exact visible excerpt; no model answer or semantic accuracy has been tested"
+      }
+    },
+    {
+      "name": "measured_0",
+      "phase": "measured",
+      "index": 0,
+      "task": "continue",
+      "prompt_sha256": "74707c04476782348ee2185b63c760e780138d2c62449c6e1c3d4e77c9b7db7e",
+      "prompt_tokens": 2048,
+      "output_budget": 256,
+      "text_path": "/work/dspark_api_workload_cpu_20261011_v1/prompts/measured_0.txt",
+      "text_sha256": "4b01da7f2f2670f0bc7cf58a50c96f6c1cb11961f76503893c1a3aab3d84cb08",
+      "question": "请接着上文，用相同的文风继续写下去。\n请将回答控制在约150字以内。",
+      "question_source": {
+        "path": "/work/client/data/hlm_local/local_continue.txt",
+        "resolved_path": "/work/client/data/hlm_local/local_continue.txt",
+        "bytes": 56,
+        "sha256": "ed8a9f2f9caec4937119347ae212e3e1de7c26623f7e8ebc070197d8503201e9",
+        "source_file_transferred": false
+      },
+      "question_appendix": "请将回答控制在约150字以内。",
+      "source_span": {
+        "character_start": 25961,
+        "character_end": 28592,
+        "byte_start": 77405,
+        "byte_end": 85266,
+        "context_sha256": "e6fbebb23915cdfaa86f653cf06c342add069c05636b92545e6866c2bc45e4a4"
+      },
+      "answerability": {
+        "requires_external_book_content": false,
+        "first_complete_sentence_witness": "薛蟠素闻得都中乃第一繁华之地，正思一游，更趁此机会，一来送妹待选，二来望亲，三来亲自入部销算旧账，再计新支，──其实只为游览上国风光之意。",
+        "named_characters_present_in_excerpt": [
+          "林黛玉",
+          "薛宝钗",
+          "贾母",
+          "贾政",
+          "贾琏",
+          "袭人",
+          "贾雨村",
+          "宝玉",
+          "黛玉",
+          "宝钗",
+          "贾赦",
+          "探春",
+          "迎春",
+          "惜春"
+        ],
+        "scope": "task refers only to the exact visible excerpt; no model answer or semantic accuracy has been tested"
+      }
+    },
+    {
+      "name": "measured_1",
+      "phase": "measured",
+      "index": 1,
+      "task": "extract",
+      "prompt_sha256": "bf951cac6d2ba85d23092f2d31d293bfc8cfbf5544ba045079390aace0686fc8",
+      "prompt_tokens": 2048,
+      "output_budget": 256,
+      "text_path": "/work/dspark_api_workload_cpu_20261011_v1/prompts/measured_1.txt",
+      "text_sha256": "9dd6be065e51781e9fc35b4c24845f437302b8330aec8e02ecd7626436f78cab",
+      "question": "任务：请统计上面这段文字里出现次数最多的十个词，逐一列出，并为每个词给出它在段内出现的原文片段（逐字引用 30 字以内）。\n请将回答控制在约150字以内。",
+      "question_source": {
+        "path": "/work/client/data/hlm_local/local_extract.txt",
+        "resolved_path": "/work/client/data/hlm_local/local_extract.txt",
+        "bytes": 177,
+        "sha256": "36b509a9b3cd1950629526176658e59f9a13eb3172c652b64e088620b19df94b",
+        "source_file_transferred": false
+      },
+      "question_appendix": "请将回答控制在约150字以内。",
+      "source_span": {
+        "character_start": 37598,
+        "character_end": 40361,
+        "byte_start": 112104,
+        "byte_end": 120375,
+        "context_sha256": "4cf0be92ec902a272e00c2fa655373eca9ef007d9577c1d9f360860b210aaf31"
+      },
+      "answerability": {
+        "requires_external_book_content": false,
+        "first_complete_sentence_witness": "周瑞家的听了，便已猜着几分来意。",
+        "named_characters_present_in_excerpt": [
+          "贾琏",
+          "刘姥姥",
+          "凤姐",
+          "平儿"
+        ],
+        "scope": "task refers only to the exact visible excerpt; no model answer or semantic accuracy has been tested"
+      }
+    },
+    {
+      "name": "measured_2",
+      "phase": "measured",
+      "index": 2,
+      "task": "quote",
+      "prompt_sha256": "9c0eea6579126ace4dc60e936168490931305d164e7e011c55ee2227cc59dda2",
+      "prompt_tokens": 2048,
+      "output_budget": 256,
+      "text_path": "/work/dspark_api_workload_cpu_20261011_v1/prompts/measured_2.txt",
+      "text_sha256": "57f297e19e8ce34cbec2d762ad2890313af3d711422bdec6edeec9d58bc754d0",
+      "question": "请从上文中**逐字引用**开头第一句完整的原文（不要改写、不要总结，直接抄录）。\n请将回答控制在约150字以内。",
+      "question_source": {
+        "path": "/work/client/data/hlm_local/local_quote.txt",
+        "resolved_path": "/work/client/data/hlm_local/local_quote.txt",
+        "bytes": 114,
+        "sha256": "bc0d64717ce8b069a1287adfc8da9df461149d113b6a1f4ef3d7e5bf895fce0f",
+        "source_file_transferred": false
+      },
+      "question_appendix": "请将回答控制在约150字以内。",
+      "source_span": {
+        "character_start": 50148,
+        "character_end": 52872,
+        "byte_start": 149634,
+        "byte_end": 157764,
+        "context_sha256": "fd27d52551d63d07afdaa6e6122f71f243970aab7531249754ad4046d1e2210d"
+      },
+      "answerability": {
+        "requires_external_book_content": false,
+        "first_complete_sentence_witness": "宝玉听了，忙下炕来，到了里间门前，只见吊着半旧的红绸软帘。",
+        "named_characters_present_in_excerpt": [
+          "宝玉",
+          "黛玉",
+          "宝钗"
+        ],
+        "scope": "task refers only to the exact visible excerpt; no model answer or semantic accuracy has been tested"
+      }
+    },
+    {
+      "name": "measured_3",
+      "phase": "measured",
+      "index": 3,
+      "task": "qa",
+      "prompt_sha256": "b1b813ab7019d8674b21eba9100d053c9a90d415f75bc72b38c769fc48159b20",
+      "prompt_tokens": 2048,
+      "output_budget": 256,
+      "text_path": "/work/dspark_api_workload_cpu_20261011_v1/prompts/measured_3.txt",
+      "text_sha256": "92fcfe52088c4b78554cb7d2114782de99f63907623fe93486741b56c907be5f",
+      "question": "请只根据上面这段文字回答：本段出现了哪些人物？他们各自做了什么？请分点作答，并引用原文依据。\n请将回答控制在约150字以内。",
+      "question_source": {
+        "path": "/work/client/data/hlm_local/local_qa.txt",
+        "resolved_path": "/work/client/data/hlm_local/local_qa.txt",
+        "bytes": 140,
+        "sha256": "49ca197f896b06965af7625b62c8e6983ac820f201b662b05cf3979e32c9ea88",
+        "source_file_transferred": false
+      },
+      "question_appendix": "请将回答控制在约150字以内。",
+      "source_span": {
+        "character_start": 61592,
+        "character_end": 64382,
+        "byte_start": 183830,
+        "byte_end": 192178,
+        "context_sha256": "89e5f69394f0ea727791d665120ed40fa83b59dda4431b23f09b56ef03df1687"
+      },
+      "answerability": {
+        "requires_external_book_content": false,
+        "first_complete_sentence_witness": "说起话儿来，金荣的母亲偏提起昨日贾家学房里的事，从头至尾，一五一十都和他小泵子说了。",
+        "named_characters_present_in_excerpt": [
+          "宝玉"
+        ],
+        "scope": "task refers only to the exact visible excerpt; no model answer or semantic accuracy has been tested"
+      }
+    },
+    {
+      "name": "measured_4",
+      "phase": "measured",
+      "index": 4,
+      "task": "continue",
+      "prompt_sha256": "945623399f29834b467a20e1162acfb7d3543e2f0ab2c78be9e3928b2c3a48d9",
+      "prompt_tokens": 2048,
+      "output_budget": 256,
+      "text_path": "/work/dspark_api_workload_cpu_20261011_v1/prompts/measured_4.txt",
+      "text_sha256": "27d994129a8ac3aa46f1adaf0249a50abcd73f325300dee5a3a12db78cb916b4",
+      "question": "请接着上文，用相同的文风继续写下去。\n请将回答控制在约150字以内。",
+      "question_source": {
+        "path": "/work/client/data/hlm_local/local_continue.txt",
+        "resolved_path": "/work/client/data/hlm_local/local_continue.txt",
+        "bytes": 56,
+        "sha256": "ed8a9f2f9caec4937119347ae212e3e1de7c26623f7e8ebc070197d8503201e9",
+        "source_file_transferred": false
+      },
+      "question_appendix": "请将回答控制在约150字以内。",
+      "source_span": {
+        "character_start": 73557,
+        "character_end": 76199,
+        "byte_start": 219543,
+        "byte_end": 227175,
+        "context_sha256": "ac1e6b39d0ca54cde83ec5c4794a08accf496e65fae71ec41528432889fa0ce9"
+      },
+      "answerability": {
+        "requires_external_book_content": false,
+        "first_complete_sentence_witness": "贾蔷又道：“如今要放你，我就担着不是。",
+        "named_characters_present_in_excerpt": [
+          "王熙凤",
+          "贾母",
+          "贾政",
+          "贾琏",
+          "凤姐",
+          "宝玉",
+          "黛玉",
+          "贾赦",
+          "平儿",
+          "秦可卿"
+        ],
+        "scope": "task refers only to the exact visible excerpt; no model answer or semantic accuracy has been tested"
+      }
+    },
+    {
+      "name": "measured_5",
+      "phase": "measured",
+      "index": 5,
+      "task": "extract",
+      "prompt_sha256": "320f9e262f3c7ffa74724985acc657b13d995e270ac94ad256a3876ddf6af719",
+      "prompt_tokens": 2048,
+      "output_budget": 256,
+      "text_path": "/work/dspark_api_workload_cpu_20261011_v1/prompts/measured_5.txt",
+      "text_sha256": "2c7a189cd30f61effd0dfedc5a459b3e8d6ad03a05b2ff134a117f924d8b50d5",
+      "question": "任务：请统计上面这段文字里出现次数最多的十个词，逐一列出，并为每个词给出它在段内出现的原文片段（逐字引用 30 字以内）。\n请将回答控制在约150字以内。",
+      "question_source": {
+        "path": "/work/client/data/hlm_local/local_extract.txt",
+        "resolved_path": "/work/client/data/hlm_local/local_extract.txt",
+        "bytes": 177,
+        "sha256": "36b509a9b3cd1950629526176658e59f9a13eb3172c652b64e088620b19df94b",
+        "source_file_transferred": false
+      },
+      "question_appendix": "请将回答控制在约150字以内。",
+      "source_span": {
+        "character_start": 85637,
+        "character_end": 88087,
+        "byte_start": 253737,
+        "byte_end": 261059,
+        "context_sha256": "9313a632e3cc4687916ec7c7fa8d5c3757c1b794aebf1ea8f635d991f3513e1b"
+      },
+      "answerability": {
+        "requires_external_book_content": false,
+        "first_complete_sentence_witness": "那时官客送殡的有镇国公牛清之孙现袭一等伯牛继宗，理国公柳彪之孙现袭一等子柳芳，齐国公陈翼之孙世袭三品威镇将军陈瑞文，治国公马魁之孙世袭三品威远将军马尚德，修国公侯晓明之孙世袭一等子侯孝康（缮国公诰命亡故，其孙石光珠守孝不得来）：这六家与荣宁二家，当日所称“八公”的便是。",
+        "named_characters_present_in_excerpt": [
+          "贾政",
+          "凤姐",
+          "宝玉",
+          "贾赦"
+        ],
+        "scope": "task refers only to the exact visible excerpt; no model answer or semantic accuracy has been tested"
+      }
+    },
+    {
+      "name": "measured_6",
+      "phase": "measured",
+      "index": 6,
+      "task": "quote",
+      "prompt_sha256": "db5db12c9a474eee383045a137be59d5208aeb8cfe68fc4a5e50e4070d551009",
+      "prompt_tokens": 2048,
+      "output_budget": 256,
+      "text_path": "/work/dspark_api_workload_cpu_20261011_v1/prompts/measured_6.txt",
+      "text_sha256": "4c2b14f6a83bc5301cae0c135e406afd98fefb4bc1cbfdc3d083ab9e2280f2e0",
+      "question": "请从上文中**逐字引用**开头第一句完整的原文（不要改写、不要总结，直接抄录）。\n请将回答控制在约150字以内。",
+      "question_source": {
+        "path": "/work/client/data/hlm_local/local_quote.txt",
+        "resolved_path": "/work/client/data/hlm_local/local_quote.txt",
+        "bytes": 114,
+        "sha256": "bc0d64717ce8b069a1287adfc8da9df461149d113b6a1f4ef3d7e5bf895fce0f",
+        "source_file_transferred": false
+      },
+      "question_appendix": "请将回答控制在约150字以内。",
+      "source_span": {
+        "character_start": 97588,
+        "character_end": 100092,
+        "byte_start": 289466,
+        "byte_end": 296942,
+        "context_sha256": "6774bb6be35d98b89446a7eedf78b9a0007b625cd103553a48fb94d5fb08531d"
+      },
+      "answerability": {
+        "requires_external_book_content": false,
+        "first_complete_sentence_witness": "且说宝玉近因家中有这等大事，贾政不来问他的书，心中自是畅快。",
+        "named_characters_present_in_excerpt": [
+          "贾母",
+          "贾政",
+          "宝玉"
+        ],
+        "scope": "task refers only to the exact visible excerpt; no model answer or semantic accuracy has been tested"
+      }
+    },
+    {
+      "name": "measured_7",
+      "phase": "measured",
+      "index": 7,
+      "task": "qa",
+      "prompt_sha256": "cdc3394bcaeb51bf2b3386082e8c4b27f7c5bedc1a4acea0b27bb5f6ec8734e8",
+      "prompt_tokens": 2048,
+      "output_budget": 256,
+      "text_path": "/work/dspark_api_workload_cpu_20261011_v1/prompts/measured_7.txt",
+      "text_sha256": "66beab5fc7600e25a2f0560e0853f45d3c21164cb6a179ea1cc023e359f5a1a8",
+      "question": "请只根据上面这段文字回答：本段出现了哪些人物？他们各自做了什么？请分点作答，并引用原文依据。\n请将回答控制在约150字以内。",
+      "question_source": {
+        "path": "/work/client/data/hlm_local/local_qa.txt",
+        "resolved_path": "/work/client/data/hlm_local/local_qa.txt",
+        "bytes": 140,
+        "sha256": "49ca197f896b06965af7625b62c8e6983ac820f201b662b05cf3979e32c9ea88",
+        "source_file_transferred": false
+      },
+      "question_appendix": "请将回答控制在约150字以内。",
+      "source_span": {
+        "character_start": 109779,
+        "character_end": 112557,
+        "byte_start": 325827,
+        "byte_end": 334137,
+        "context_sha256": "68cd4afd8efee849fe81bfbe524c4ccbc3f561466c2bbf60c19b78a6a2d94d45"
+      },
+      "answerability": {
+        "requires_external_book_content": false,
+        "first_complete_sentence_witness": "谁想贾珍这边唱的是《丁郎认父》、《黄伯央大摆阴魂阵》，更有《孙行者大闹天宫》、《姜太公斩将封神》等类的戏文，倏尔神鬼乱出，忽又妖魔毕露。",
+        "named_characters_present_in_excerpt": [
+          "贾琏",
+          "袭人",
+          "宝玉"
+        ],
+        "scope": "task refers only to the exact visible excerpt; no model answer or semantic accuracy has been tested"
+      }
+    }
+  ],
+  "actual_model_inference_executed": false,
+  "actual_api_performance_observed": false,
+  "actual_api_quality_observed": false,
+  "actual_client_quality_passed": false,
+  "actual_device_consumer_proof": false,
+  "performance_receipt_granted": false,
+  "formal_receipt_granted": false
+}

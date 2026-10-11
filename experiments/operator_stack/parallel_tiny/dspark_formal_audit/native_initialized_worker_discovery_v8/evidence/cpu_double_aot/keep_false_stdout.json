@@ -1,0 +1,1673 @@
+{
+  "scope": "PyTorch2.10 CPU double-AOT keep/owner observation using exact transport/program/ABI; SDK-like backend only; no real SDK/NPU",
+  "torch": "2.10.0+cpu",
+  "all_original_inputs_are_tensor": true,
+  "records": [
+    {
+      "boundary": "outer_fw_compile",
+      "example_args": {
+        "type": "list",
+        "length": 19,
+        "items": [
+          {
+            "type": "FakeTensor",
+            "shape": [
+              6,
+              64
+            ],
+            "stride": [
+              64,
+              1
+            ]
+          },
+          {
+            "type": "FakeTensor",
+            "shape": [
+              64,
+              64
+            ],
+            "stride": [
+              64,
+              1
+            ]
+          },
+          {
+            "type": "FakeTensor",
+            "shape": [
+              6,
+              64
+            ],
+            "stride": [
+              64,
+              1
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "boundary": "inner_fw_compile",
+      "example_args": {
+        "type": "list",
+        "length": 19,
+        "items": [
+          {
+            "type": "FakeTensor",
+            "shape": [
+              6,
+              64
+            ],
+            "stride": [
+              64,
+              1
+            ]
+          },
+          {
+            "type": "FakeTensor",
+            "shape": [
+              64,
+              64
+            ],
+            "stride": [
+              64,
+              1
+            ]
+          },
+          {
+            "type": "FakeTensor",
+            "shape": [
+              6,
+              64
+            ],
+            "stride": [
+              64,
+              1
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "boundary": "sdk_backend_return",
+      "boxed": true,
+      "signature": "(*args, **kwargs)"
+    },
+    {
+      "boundary": "outer_backend_return",
+      "boxed": true,
+      "signature": "(arguments, **kwargs)"
+    },
+    {
+      "boundary": "copymode_invoke",
+      "runtime_args": {
+        "type": "tuple",
+        "length": 19,
+        "items": [
+          {
+            "type": "Tensor",
+            "shape": [
+              6,
+              64
+            ],
+            "stride": [
+              64,
+              1
+            ]
+          },
+          {
+            "type": "Tensor",
+            "shape": [
+              64,
+              64
+            ],
+            "stride": [
+              64,
+              1
+            ]
+          },
+          {
+            "type": "Tensor",
+            "shape": [
+              6,
+              64
+            ],
+            "stride": [
+              64,
+              1
+            ]
+          }
+        ]
+      },
+      "inner_boxed_now": true
+    },
+    {
+      "boundary": "dynamo_unboxed_entry",
+      "container": "tuple",
+      "arity": 19,
+      "types": [
+        "torch.Tensor",
+        "torch.Tensor",
+        "torch.Tensor",
+        "torch.Tensor",
+        "torch.Tensor",
+        "torch.Tensor",
+        "torch.Tensor",
+        "torch.Tensor",
+        "torch.Tensor",
+        "torch.Tensor",
+        "torch.Tensor",
+        "torch.Tensor",
+        "torch.Tensor",
+        "torch.Tensor",
+        "torch.Tensor",
+        "torch.Tensor",
+        "torch.Tensor",
+        "torch.Tensor",
+        "torch.Tensor"
+      ],
+      "tensor_mask": [
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true
+      ],
+      "object_ids": [
+        281473188075136,
+        281473188075216,
+        281473188077216,
+        281473188075296,
+        281473188077296,
+        281473188075456,
+        281473188076976,
+        281473188077376,
+        281473188077456,
+        281473188077696,
+        281473188077776,
+        281473188077136,
+        281473188077056,
+        281473188077856,
+        281473188077936,
+        281473188078016,
+        281473188078096,
+        281473188078176,
+        281473188078256
+      ],
+      "keyword_names": [],
+      "keyword_types": {}
+    },
+    {
+      "boundary": "outer_aot_boxed_fw_to_sdk_unboxed",
+      "container": "tuple",
+      "arity": 19,
+      "types": [
+        "torch.Tensor",
+        "torch.Tensor",
+        "torch.Tensor",
+        "torch.Tensor",
+        "torch.Tensor",
+        "torch.Tensor",
+        "torch.Tensor",
+        "torch.Tensor",
+        "torch.Tensor",
+        "torch.Tensor",
+        "torch.Tensor",
+        "torch.Tensor",
+        "torch.Tensor",
+        "torch.Tensor",
+        "torch.Tensor",
+        "torch.Tensor",
+        "torch.Tensor",
+        "torch.Tensor",
+        "torch.Tensor"
+      ],
+      "tensor_mask": [
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true
+      ],
+      "object_ids": [
+        281473188075136,
+        281473188075216,
+        281473188077216,
+        281473188075296,
+        281473188077296,
+        281473188075456,
+        281473188076976,
+        281473188077376,
+        281473188077456,
+        281473188077696,
+        281473188077776,
+        281473188077136,
+        281473188077056,
+        281473188077856,
+        281473188077936,
+        281473188078016,
+        281473188078096,
+        281473188078176,
+        281473188078256
+      ],
+      "keyword_names": [],
+      "keyword_types": {},
+      "incoming_boxed_container": "list",
+      "sdk_advertised_boxed_call": true,
+      "adapter_boxed_call": true,
+      "sdk_call_abi": "unboxed",
+      "tensor_objects_replaced": false,
+      "tensor_order_changed": false,
+      "kwargs_filtered": false
+    },
+    {
+      "boundary": "generated_kernel_entry",
+      "runtime_args": {
+        "type": "tuple",
+        "length": 19,
+        "items": [
+          {
+            "type": "Tensor",
+            "shape": [
+              6,
+              64
+            ],
+            "stride": [
+              64,
+              1
+            ]
+          },
+          {
+            "type": "Tensor",
+            "shape": [
+              64,
+              64
+            ],
+            "stride": [
+              64,
+              1
+            ]
+          },
+          {
+            "type": "Tensor",
+            "shape": [
+              6,
+              64
+            ],
+            "stride": [
+              64,
+              1
+            ]
+          }
+        ]
+      },
+      "kwargs": []
+    }
+  ],
+  "npu_jobs": 0,
+  "device_audit_passed": false,
+  "safe_formal_receipt": false,
+  "passed": true,
+  "output_count": 14,
+  "outer_keep_inference_input_mutations": false,
+  "inner_keep_inference_input_mutations": true,
+  "real_torch_npu_imported": false,
+  "real_sdk_backend_executed": false,
+  "cpu_stream_observed": false,
+  "owned_before": {
+    "producer.values": {
+      "owner": "producer.values",
+      "tensor_object_id": 281473188077216,
+      "layout": {
+        "ptr": 5789884416768,
+        "shape": [
+          6,
+          64
+        ],
+        "stride": [
+          64,
+          1
+        ],
+        "dtype": "torch.bfloat16",
+        "device": "cpu"
+      }
+    },
+    "producer.positions": {
+      "owner": "producer.positions",
+      "tensor_object_id": 281473188077296,
+      "layout": {
+        "ptr": 5789884547456,
+        "shape": [
+          6,
+          1
+        ],
+        "stride": [
+          1,
+          1
+        ],
+        "dtype": "torch.int64",
+        "device": "cpu"
+      }
+    },
+    "producer.valid": {
+      "owner": "producer.valid",
+      "tensor_object_id": 281473188077376,
+      "layout": {
+        "ptr": 5789884612928,
+        "shape": [
+          6
+        ],
+        "stride": [
+          1
+        ],
+        "dtype": "torch.bool",
+        "device": "cpu"
+      }
+    },
+    "producer.epoch": {
+      "owner": "producer.epoch",
+      "tensor_object_id": 281473188077456,
+      "layout": {
+        "ptr": 5789884612992,
+        "shape": [
+          1
+        ],
+        "stride": [
+          1
+        ],
+        "dtype": "torch.int64",
+        "device": "cpu"
+      }
+    },
+    "producer.copy_count": {
+      "owner": "producer.copy_count",
+      "tensor_object_id": 281473188077696,
+      "layout": {
+        "ptr": 5789884613056,
+        "shape": [
+          1
+        ],
+        "stride": [
+          1
+        ],
+        "dtype": "torch.int64",
+        "device": "cpu"
+      }
+    },
+    "producer.row_count": {
+      "owner": "producer.row_count",
+      "tensor_object_id": 281473188077776,
+      "layout": {
+        "ptr": 5789884613120,
+        "shape": [
+          1
+        ],
+        "stride": [
+          1
+        ],
+        "dtype": "torch.int64",
+        "device": "cpu"
+      }
+    },
+    "reader.values": {
+      "owner": "reader.values",
+      "tensor_object_id": 281473188077856,
+      "layout": {
+        "ptr": 5789884417536,
+        "shape": [
+          6,
+          64
+        ],
+        "stride": [
+          64,
+          1
+        ],
+        "dtype": "torch.bfloat16",
+        "device": "cpu"
+      }
+    },
+    "reader.positions": {
+      "owner": "reader.positions",
+      "tensor_object_id": 281473188077936,
+      "layout": {
+        "ptr": 5789884547584,
+        "shape": [
+          6,
+          1
+        ],
+        "stride": [
+          1,
+          1
+        ],
+        "dtype": "torch.int64",
+        "device": "cpu"
+      }
+    },
+    "reader.valid": {
+      "owner": "reader.valid",
+      "tensor_object_id": 281473188078016,
+      "layout": {
+        "ptr": 5789884613248,
+        "shape": [
+          6
+        ],
+        "stride": [
+          1
+        ],
+        "dtype": "torch.bool",
+        "device": "cpu"
+      }
+    },
+    "reader.epoch": {
+      "owner": "reader.epoch",
+      "tensor_object_id": 281473188078096,
+      "layout": {
+        "ptr": 5789884613312,
+        "shape": [
+          1
+        ],
+        "stride": [
+          1
+        ],
+        "dtype": "torch.int64",
+        "device": "cpu"
+      }
+    },
+    "reader.copy_count": {
+      "owner": "reader.copy_count",
+      "tensor_object_id": 281473188078176,
+      "layout": {
+        "ptr": 5789884613376,
+        "shape": [
+          1
+        ],
+        "stride": [
+          1
+        ],
+        "dtype": "torch.int64",
+        "device": "cpu"
+      }
+    },
+    "reader.row_count": {
+      "owner": "reader.row_count",
+      "tensor_object_id": 281473188078256,
+      "layout": {
+        "ptr": 5789884613440,
+        "shape": [
+          1
+        ],
+        "stride": [
+          1
+        ],
+        "dtype": "torch.int64",
+        "device": "cpu"
+      }
+    },
+    "native.cache": {
+      "owner": "native.cache",
+      "tensor_object_id": 281473188077136,
+      "layout": {
+        "ptr": 5789884678144,
+        "shape": [
+          16,
+          64
+        ],
+        "stride": [
+          64,
+          1
+        ],
+        "dtype": "torch.bfloat16",
+        "device": "cpu"
+      }
+    }
+  },
+  "owned_after": {
+    "producer.values": {
+      "owner": "producer.values",
+      "tensor_object_id": 281473188077216,
+      "layout": {
+        "ptr": 5789884416768,
+        "shape": [
+          6,
+          64
+        ],
+        "stride": [
+          64,
+          1
+        ],
+        "dtype": "torch.bfloat16",
+        "device": "cpu"
+      }
+    },
+    "producer.positions": {
+      "owner": "producer.positions",
+      "tensor_object_id": 281473188077296,
+      "layout": {
+        "ptr": 5789884547456,
+        "shape": [
+          6,
+          1
+        ],
+        "stride": [
+          1,
+          1
+        ],
+        "dtype": "torch.int64",
+        "device": "cpu"
+      }
+    },
+    "producer.valid": {
+      "owner": "producer.valid",
+      "tensor_object_id": 281473188077376,
+      "layout": {
+        "ptr": 5789884612928,
+        "shape": [
+          6
+        ],
+        "stride": [
+          1
+        ],
+        "dtype": "torch.bool",
+        "device": "cpu"
+      }
+    },
+    "producer.epoch": {
+      "owner": "producer.epoch",
+      "tensor_object_id": 281473188077456,
+      "layout": {
+        "ptr": 5789884612992,
+        "shape": [
+          1
+        ],
+        "stride": [
+          1
+        ],
+        "dtype": "torch.int64",
+        "device": "cpu"
+      }
+    },
+    "producer.copy_count": {
+      "owner": "producer.copy_count",
+      "tensor_object_id": 281473188077696,
+      "layout": {
+        "ptr": 5789884613056,
+        "shape": [
+          1
+        ],
+        "stride": [
+          1
+        ],
+        "dtype": "torch.int64",
+        "device": "cpu"
+      }
+    },
+    "producer.row_count": {
+      "owner": "producer.row_count",
+      "tensor_object_id": 281473188077776,
+      "layout": {
+        "ptr": 5789884613120,
+        "shape": [
+          1
+        ],
+        "stride": [
+          1
+        ],
+        "dtype": "torch.int64",
+        "device": "cpu"
+      }
+    },
+    "reader.values": {
+      "owner": "reader.values",
+      "tensor_object_id": 281473188077856,
+      "layout": {
+        "ptr": 5789884417536,
+        "shape": [
+          6,
+          64
+        ],
+        "stride": [
+          64,
+          1
+        ],
+        "dtype": "torch.bfloat16",
+        "device": "cpu"
+      }
+    },
+    "reader.positions": {
+      "owner": "reader.positions",
+      "tensor_object_id": 281473188077936,
+      "layout": {
+        "ptr": 5789884547584,
+        "shape": [
+          6,
+          1
+        ],
+        "stride": [
+          1,
+          1
+        ],
+        "dtype": "torch.int64",
+        "device": "cpu"
+      }
+    },
+    "reader.valid": {
+      "owner": "reader.valid",
+      "tensor_object_id": 281473188078016,
+      "layout": {
+        "ptr": 5789884613248,
+        "shape": [
+          6
+        ],
+        "stride": [
+          1
+        ],
+        "dtype": "torch.bool",
+        "device": "cpu"
+      }
+    },
+    "reader.epoch": {
+      "owner": "reader.epoch",
+      "tensor_object_id": 281473188078096,
+      "layout": {
+        "ptr": 5789884613312,
+        "shape": [
+          1
+        ],
+        "stride": [
+          1
+        ],
+        "dtype": "torch.int64",
+        "device": "cpu"
+      }
+    },
+    "reader.copy_count": {
+      "owner": "reader.copy_count",
+      "tensor_object_id": 281473188078176,
+      "layout": {
+        "ptr": 5789884613376,
+        "shape": [
+          1
+        ],
+        "stride": [
+          1
+        ],
+        "dtype": "torch.int64",
+        "device": "cpu"
+      }
+    },
+    "reader.row_count": {
+      "owner": "reader.row_count",
+      "tensor_object_id": 281473188078256,
+      "layout": {
+        "ptr": 5789884613440,
+        "shape": [
+          1
+        ],
+        "stride": [
+          1
+        ],
+        "dtype": "torch.int64",
+        "device": "cpu"
+      }
+    },
+    "native.cache": {
+      "owner": "native.cache",
+      "tensor_object_id": 281473188077136,
+      "layout": {
+        "ptr": 5789884678144,
+        "shape": [
+          16,
+          64
+        ],
+        "stride": [
+          64,
+          1
+        ],
+        "dtype": "torch.bfloat16",
+        "device": "cpu"
+      }
+    }
+  },
+  "copy_records": [
+    {
+      "phase": "cpu-real-call",
+      "op": "aten.copy.default",
+      "destination": {
+        "ptr": 5789884419840,
+        "shape": [
+          6,
+          64
+        ],
+        "stride": [
+          64,
+          1
+        ],
+        "dtype": "torch.bfloat16",
+        "device": "cpu"
+      },
+      "logical_destination": {
+        "ptr": 5789884419072,
+        "shape": [
+          6,
+          64
+        ],
+        "stride": [
+          64,
+          1
+        ],
+        "dtype": "torch.bfloat16",
+        "device": "cpu"
+      },
+      "source": {
+        "ptr": 5789884418304,
+        "shape": [
+          6,
+          64
+        ],
+        "stride": [
+          64,
+          1
+        ],
+        "dtype": "torch.bfloat16",
+        "device": "cpu"
+      },
+      "destination_owner": null,
+      "logical_owner": null,
+      "original_input_source": null
+    },
+    {
+      "phase": "cpu-real-call",
+      "op": "aten.copy.default",
+      "destination": {
+        "ptr": 5789884547776,
+        "shape": [
+          6,
+          1
+        ],
+        "stride": [
+          1,
+          1
+        ],
+        "dtype": "torch.int64",
+        "device": "cpu"
+      },
+      "logical_destination": {
+        "ptr": 5789884547712,
+        "shape": [
+          6,
+          1
+        ],
+        "stride": [
+          1,
+          1
+        ],
+        "dtype": "torch.int64",
+        "device": "cpu"
+      },
+      "source": {
+        "ptr": 5789884547264,
+        "shape": [
+          6,
+          1
+        ],
+        "stride": [
+          1,
+          1
+        ],
+        "dtype": "torch.int64",
+        "device": "cpu"
+      },
+      "destination_owner": null,
+      "logical_owner": null,
+      "original_input_source": "input.positions"
+    },
+    {
+      "phase": "cpu-real-call",
+      "op": "aten.copy.default",
+      "destination": {
+        "ptr": 5789884616640,
+        "shape": [
+          6
+        ],
+        "stride": [
+          1
+        ],
+        "dtype": "torch.bool",
+        "device": "cpu"
+      },
+      "logical_destination": {
+        "ptr": 5789884616576,
+        "shape": [
+          6
+        ],
+        "stride": [
+          1
+        ],
+        "dtype": "torch.bool",
+        "device": "cpu"
+      },
+      "source": {
+        "ptr": 5789884612736,
+        "shape": [
+          6
+        ],
+        "stride": [
+          1
+        ],
+        "dtype": "torch.bool",
+        "device": "cpu"
+      },
+      "destination_owner": null,
+      "logical_owner": null,
+      "original_input_source": "input.valid"
+    },
+    {
+      "phase": "cpu-real-call",
+      "op": "aten.copy.default",
+      "destination": {
+        "ptr": 5789884616512,
+        "shape": [
+          1
+        ],
+        "stride": [
+          1
+        ],
+        "dtype": "torch.int64",
+        "device": "cpu"
+      },
+      "logical_destination": {
+        "ptr": 5789884612992,
+        "shape": [
+          1
+        ],
+        "stride": [
+          1
+        ],
+        "dtype": "torch.int64",
+        "device": "cpu"
+      },
+      "source": {
+        "ptr": 5789884612800,
+        "shape": [
+          1
+        ],
+        "stride": [
+          1
+        ],
+        "dtype": "torch.int64",
+        "device": "cpu"
+      },
+      "destination_owner": null,
+      "logical_owner": "producer.epoch",
+      "original_input_source": "input.epoch"
+    },
+    {
+      "phase": "cpu-real-call",
+      "op": "aten.copy.default",
+      "destination": {
+        "ptr": 5789884422912,
+        "shape": [
+          6,
+          64
+        ],
+        "stride": [
+          64,
+          1
+        ],
+        "dtype": "torch.bfloat16",
+        "device": "cpu"
+      },
+      "logical_destination": {
+        "ptr": 5789884422144,
+        "shape": [
+          6,
+          64
+        ],
+        "stride": [
+          64,
+          1
+        ],
+        "dtype": "torch.bfloat16",
+        "device": "cpu"
+      },
+      "source": {
+        "ptr": 5789884421376,
+        "shape": [
+          6,
+          64
+        ],
+        "stride": [
+          64,
+          1
+        ],
+        "dtype": "torch.bfloat16",
+        "device": "cpu"
+      },
+      "destination_owner": null,
+      "logical_owner": null,
+      "original_input_source": null
+    },
+    {
+      "phase": "cpu-real-call",
+      "op": "aten.copy.default",
+      "destination": {
+        "ptr": 5789884548160,
+        "shape": [
+          6,
+          1
+        ],
+        "stride": [
+          1,
+          1
+        ],
+        "dtype": "torch.int64",
+        "device": "cpu"
+      },
+      "logical_destination": {
+        "ptr": 5789884548032,
+        "shape": [
+          6,
+          1
+        ],
+        "stride": [
+          1,
+          1
+        ],
+        "dtype": "torch.int64",
+        "device": "cpu"
+      },
+      "source": {
+        "ptr": 5789884547264,
+        "shape": [
+          6,
+          1
+        ],
+        "stride": [
+          1,
+          1
+        ],
+        "dtype": "torch.int64",
+        "device": "cpu"
+      },
+      "destination_owner": null,
+      "logical_owner": null,
+      "original_input_source": "input.positions"
+    },
+    {
+      "phase": "cpu-real-call",
+      "op": "aten.copy.default",
+      "destination": {
+        "ptr": 5789884616192,
+        "shape": [
+          6
+        ],
+        "stride": [
+          1
+        ],
+        "dtype": "torch.bool",
+        "device": "cpu"
+      },
+      "logical_destination": {
+        "ptr": 5789884616128,
+        "shape": [
+          6
+        ],
+        "stride": [
+          1
+        ],
+        "dtype": "torch.bool",
+        "device": "cpu"
+      },
+      "source": {
+        "ptr": 5789884612736,
+        "shape": [
+          6
+        ],
+        "stride": [
+          1
+        ],
+        "dtype": "torch.bool",
+        "device": "cpu"
+      },
+      "destination_owner": null,
+      "logical_owner": null,
+      "original_input_source": "input.valid"
+    },
+    {
+      "phase": "cpu-real-call",
+      "op": "aten.copy.default",
+      "destination": {
+        "ptr": 5789884615808,
+        "shape": [
+          1
+        ],
+        "stride": [
+          1
+        ],
+        "dtype": "torch.int64",
+        "device": "cpu"
+      },
+      "logical_destination": {
+        "ptr": 5789884613312,
+        "shape": [
+          1
+        ],
+        "stride": [
+          1
+        ],
+        "dtype": "torch.int64",
+        "device": "cpu"
+      },
+      "source": {
+        "ptr": 5789884612800,
+        "shape": [
+          1
+        ],
+        "stride": [
+          1
+        ],
+        "dtype": "torch.int64",
+        "device": "cpu"
+      },
+      "destination_owner": null,
+      "logical_owner": "reader.epoch",
+      "original_input_source": "input.epoch"
+    },
+    {
+      "phase": "cpu-real-call",
+      "op": "aten.copy_.default",
+      "destination": {
+        "ptr": 5789884416768,
+        "shape": [
+          6,
+          64
+        ],
+        "stride": [
+          64,
+          1
+        ],
+        "dtype": "torch.bfloat16",
+        "device": "cpu"
+      },
+      "logical_destination": {
+        "ptr": 5789884416768,
+        "shape": [
+          6,
+          64
+        ],
+        "stride": [
+          64,
+          1
+        ],
+        "dtype": "torch.bfloat16",
+        "device": "cpu"
+      },
+      "source": {
+        "ptr": 5789884420608,
+        "shape": [
+          6,
+          64
+        ],
+        "stride": [
+          64,
+          1
+        ],
+        "dtype": "torch.bfloat16",
+        "device": "cpu"
+      },
+      "destination_owner": "producer.values",
+      "logical_owner": "producer.values",
+      "original_input_source": null
+    },
+    {
+      "phase": "cpu-real-call",
+      "op": "aten.copy_.default",
+      "destination": {
+        "ptr": 5789884547456,
+        "shape": [
+          6,
+          1
+        ],
+        "stride": [
+          1,
+          1
+        ],
+        "dtype": "torch.int64",
+        "device": "cpu"
+      },
+      "logical_destination": {
+        "ptr": 5789884547456,
+        "shape": [
+          6,
+          1
+        ],
+        "stride": [
+          1,
+          1
+        ],
+        "dtype": "torch.int64",
+        "device": "cpu"
+      },
+      "source": {
+        "ptr": 5789884547904,
+        "shape": [
+          6,
+          1
+        ],
+        "stride": [
+          1,
+          1
+        ],
+        "dtype": "torch.int64",
+        "device": "cpu"
+      },
+      "destination_owner": "producer.positions",
+      "logical_owner": "producer.positions",
+      "original_input_source": null
+    },
+    {
+      "phase": "cpu-real-call",
+      "op": "aten.copy_.default",
+      "destination": {
+        "ptr": 5789884612928,
+        "shape": [
+          6
+        ],
+        "stride": [
+          1
+        ],
+        "dtype": "torch.bool",
+        "device": "cpu"
+      },
+      "logical_destination": {
+        "ptr": 5789884612928,
+        "shape": [
+          6
+        ],
+        "stride": [
+          1
+        ],
+        "dtype": "torch.bool",
+        "device": "cpu"
+      },
+      "source": {
+        "ptr": 5789884616768,
+        "shape": [
+          6
+        ],
+        "stride": [
+          1
+        ],
+        "dtype": "torch.bool",
+        "device": "cpu"
+      },
+      "destination_owner": "producer.valid",
+      "logical_owner": "producer.valid",
+      "original_input_source": null
+    },
+    {
+      "phase": "cpu-real-call",
+      "op": "aten.copy_.default",
+      "destination": {
+        "ptr": 5789884612992,
+        "shape": [
+          1
+        ],
+        "stride": [
+          1
+        ],
+        "dtype": "torch.int64",
+        "device": "cpu"
+      },
+      "logical_destination": {
+        "ptr": 5789884612992,
+        "shape": [
+          1
+        ],
+        "stride": [
+          1
+        ],
+        "dtype": "torch.int64",
+        "device": "cpu"
+      },
+      "source": {
+        "ptr": 5789884616512,
+        "shape": [
+          1
+        ],
+        "stride": [
+          1
+        ],
+        "dtype": "torch.int64",
+        "device": "cpu"
+      },
+      "destination_owner": "producer.epoch",
+      "logical_owner": "producer.epoch",
+      "original_input_source": null
+    },
+    {
+      "phase": "cpu-real-call",
+      "op": "aten.copy_.default",
+      "destination": {
+        "ptr": 5789884613056,
+        "shape": [
+          1
+        ],
+        "stride": [
+          1
+        ],
+        "dtype": "torch.int64",
+        "device": "cpu"
+      },
+      "logical_destination": {
+        "ptr": 5789884613056,
+        "shape": [
+          1
+        ],
+        "stride": [
+          1
+        ],
+        "dtype": "torch.int64",
+        "device": "cpu"
+      },
+      "source": {
+        "ptr": 5789884616448,
+        "shape": [
+          1
+        ],
+        "stride": [
+          1
+        ],
+        "dtype": "torch.int64",
+        "device": "cpu"
+      },
+      "destination_owner": "producer.copy_count",
+      "logical_owner": "producer.copy_count",
+      "original_input_source": null
+    },
+    {
+      "phase": "cpu-real-call",
+      "op": "aten.copy_.default",
+      "destination": {
+        "ptr": 5789884613120,
+        "shape": [
+          1
+        ],
+        "stride": [
+          1
+        ],
+        "dtype": "torch.int64",
+        "device": "cpu"
+      },
+      "logical_destination": {
+        "ptr": 5789884613120,
+        "shape": [
+          1
+        ],
+        "stride": [
+          1
+        ],
+        "dtype": "torch.int64",
+        "device": "cpu"
+      },
+      "source": {
+        "ptr": 5789884616640,
+        "shape": [
+          1
+        ],
+        "stride": [
+          1
+        ],
+        "dtype": "torch.int64",
+        "device": "cpu"
+      },
+      "destination_owner": "producer.row_count",
+      "logical_owner": "producer.row_count",
+      "original_input_source": null
+    },
+    {
+      "phase": "cpu-real-call",
+      "op": "aten.copy_.default",
+      "destination": {
+        "ptr": 5789884678144,
+        "shape": [
+          16,
+          64
+        ],
+        "stride": [
+          64,
+          1
+        ],
+        "dtype": "torch.bfloat16",
+        "device": "cpu"
+      },
+      "logical_destination": {
+        "ptr": 5789884678144,
+        "shape": [
+          16,
+          64
+        ],
+        "stride": [
+          64,
+          1
+        ],
+        "dtype": "torch.bfloat16",
+        "device": "cpu"
+      },
+      "source": {
+        "ptr": 5789884680192,
+        "shape": [
+          16,
+          64
+        ],
+        "stride": [
+          64,
+          1
+        ],
+        "dtype": "torch.bfloat16",
+        "device": "cpu"
+      },
+      "destination_owner": "native.cache",
+      "logical_owner": "native.cache",
+      "original_input_source": null
+    },
+    {
+      "phase": "cpu-real-call",
+      "op": "aten.copy_.default",
+      "destination": {
+        "ptr": 5789884417536,
+        "shape": [
+          6,
+          64
+        ],
+        "stride": [
+          64,
+          1
+        ],
+        "dtype": "torch.bfloat16",
+        "device": "cpu"
+      },
+      "logical_destination": {
+        "ptr": 5789884417536,
+        "shape": [
+          6,
+          64
+        ],
+        "stride": [
+          64,
+          1
+        ],
+        "dtype": "torch.bfloat16",
+        "device": "cpu"
+      },
+      "source": {
+        "ptr": 5789884421376,
+        "shape": [
+          6,
+          64
+        ],
+        "stride": [
+          64,
+          1
+        ],
+        "dtype": "torch.bfloat16",
+        "device": "cpu"
+      },
+      "destination_owner": "reader.values",
+      "logical_owner": "reader.values",
+      "original_input_source": null
+    },
+    {
+      "phase": "cpu-real-call",
+      "op": "aten.copy_.default",
+      "destination": {
+        "ptr": 5789884547584,
+        "shape": [
+          6,
+          1
+        ],
+        "stride": [
+          1,
+          1
+        ],
+        "dtype": "torch.int64",
+        "device": "cpu"
+      },
+      "logical_destination": {
+        "ptr": 5789884547584,
+        "shape": [
+          6,
+          1
+        ],
+        "stride": [
+          1,
+          1
+        ],
+        "dtype": "torch.int64",
+        "device": "cpu"
+      },
+      "source": {
+        "ptr": 5789884548224,
+        "shape": [
+          6,
+          1
+        ],
+        "stride": [
+          1,
+          1
+        ],
+        "dtype": "torch.int64",
+        "device": "cpu"
+      },
+      "destination_owner": "reader.positions",
+      "logical_owner": "reader.positions",
+      "original_input_source": null
+    },
+    {
+      "phase": "cpu-real-call",
+      "op": "aten.copy_.default",
+      "destination": {
+        "ptr": 5789884613248,
+        "shape": [
+          6
+        ],
+        "stride": [
+          1
+        ],
+        "dtype": "torch.bool",
+        "device": "cpu"
+      },
+      "logical_destination": {
+        "ptr": 5789884613248,
+        "shape": [
+          6
+        ],
+        "stride": [
+          1
+        ],
+        "dtype": "torch.bool",
+        "device": "cpu"
+      },
+      "source": {
+        "ptr": 5789884616256,
+        "shape": [
+          6
+        ],
+        "stride": [
+          1
+        ],
+        "dtype": "torch.bool",
+        "device": "cpu"
+      },
+      "destination_owner": "reader.valid",
+      "logical_owner": "reader.valid",
+      "original_input_source": null
+    },
+    {
+      "phase": "cpu-real-call",
+      "op": "aten.copy_.default",
+      "destination": {
+        "ptr": 5789884613312,
+        "shape": [
+          1
+        ],
+        "stride": [
+          1
+        ],
+        "dtype": "torch.int64",
+        "device": "cpu"
+      },
+      "logical_destination": {
+        "ptr": 5789884613312,
+        "shape": [
+          1
+        ],
+        "stride": [
+          1
+        ],
+        "dtype": "torch.int64",
+        "device": "cpu"
+      },
+      "source": {
+        "ptr": 5789884615808,
+        "shape": [
+          1
+        ],
+        "stride": [
+          1
+        ],
+        "dtype": "torch.int64",
+        "device": "cpu"
+      },
+      "destination_owner": "reader.epoch",
+      "logical_owner": "reader.epoch",
+      "original_input_source": null
+    },
+    {
+      "phase": "cpu-real-call",
+      "op": "aten.copy_.default",
+      "destination": {
+        "ptr": 5789884613376,
+        "shape": [
+          1
+        ],
+        "stride": [
+          1
+        ],
+        "dtype": "torch.int64",
+        "device": "cpu"
+      },
+      "logical_destination": {
+        "ptr": 5789884613376,
+        "shape": [
+          1
+        ],
+        "stride": [
+          1
+        ],
+        "dtype": "torch.int64",
+        "device": "cpu"
+      },
+      "source": {
+        "ptr": 5789884615680,
+        "shape": [
+          1
+        ],
+        "stride": [
+          1
+        ],
+        "dtype": "torch.int64",
+        "device": "cpu"
+      },
+      "destination_owner": "reader.copy_count",
+      "logical_owner": "reader.copy_count",
+      "original_input_source": null
+    },
+    {
+      "phase": "cpu-real-call",
+      "op": "aten.copy_.default",
+      "destination": {
+        "ptr": 5789884613440,
+        "shape": [
+          1
+        ],
+        "stride": [
+          1
+        ],
+        "dtype": "torch.int64",
+        "device": "cpu"
+      },
+      "logical_destination": {
+        "ptr": 5789884613440,
+        "shape": [
+          1
+        ],
+        "stride": [
+          1
+        ],
+        "dtype": "torch.int64",
+        "device": "cpu"
+      },
+      "source": {
+        "ptr": 5789884615872,
+        "shape": [
+          1
+        ],
+        "stride": [
+          1
+        ],
+        "dtype": "torch.int64",
+        "device": "cpu"
+      },
+      "destination_owner": "reader.row_count",
+      "logical_owner": "reader.row_count",
+      "original_input_source": null
+    }
+  ],
+  "copy_calls": 21,
+  "temporary_epoch_copies": 2,
+  "marker_source_copybacks": 6,
+  "all_copy_destinations_original_owned": false,
+  "all_copy_logical_destinations_equal_actual": false,
+  "cpu_original_owner_seals_stable": true,
+  "cpu_returned_owner_aliases_stable": true,
+  "cpu_math_equal": true,
+  "source_hashes": {
+    "transport": "b93a0106f6a7d0c544fbc61b0d0d89cc22e452c5216be10a66f24f246e0c3a90",
+    "tensor_abi": "4ad74455cf434ab960a394834c9f8b2d0804c6a30f778534ff3261d21619f791",
+    "program": "29df3b85431c89728e9a538bf3772668a2fc57efb57cb5cf491301ff4815c278"
+  },
+  "actual_copy_alias_gate_passed": false,
+  "actual_sdk_32_epochs_passed": false,
+  "full_consumer_audit_passed": false,
+  "formal_model_validated": false,
+  "actual_prepack_consumer_order_validated": false,
+  "performance_claim": null
+}

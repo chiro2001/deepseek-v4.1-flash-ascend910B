@@ -1,0 +1,195 @@
+{
+  "scope": "Read-only source/trace analysis followed by independently authorized CPU-only v3 preparation; original v2 delivery stays frozen",
+  "source_job": "dspark_lane_20261011_c4_graph_geometry2k256_v2",
+  "source_vendor_py_tree_sha256": "e552b649eb47a39aeeeb549ffdb0f80d8aad199fe5105df34296b5ba62366ecc",
+  "postmortem_source_files": [
+    {
+      "relative_path": "vllm/v1/serial_utils.py",
+      "bytes": 24093,
+      "sha256": "d75c17a098231b2398cbdb7da6f9983e5b9229c0ba138b2874934d45fafd1f28"
+    },
+    {
+      "relative_path": "vllm/v1/worker/worker_base.py",
+      "bytes": 13154,
+      "sha256": "7da44338c2645ebf03d23394e452b31a8e3da1011fd1b42fcfcccfe99551b3fe"
+    },
+    {
+      "relative_path": "vllm/v1/executor/uniproc_executor.py",
+      "bytes": 7567,
+      "sha256": "4625c8e59aef1482600b02204701d348d7f716427581d3cf23b06bff9b056abe"
+    },
+    {
+      "relative_path": "vllm/forward_context.py",
+      "bytes": 14252,
+      "sha256": "985adacc9e7ed2a7695819ac2e2ad9cb264a7d886806d3091ad75bfda7392242"
+    },
+    {
+      "relative_path": "vllm_ascend/compilation/acl_graph.py",
+      "bytes": 16962,
+      "sha256": "c8ab2fe6aaae034b03e9e34b9c07fd445046564acd5d45e2c24b5ea5232c5a74"
+    }
+  ],
+  "source_job_traceback_sha256": "1263a61a640a5e33c1910adfe499e6db3524169ffd4429b15d487086159fe301",
+  "v2_delivery_sha256": "4a34f99c3cab7c578f746c15a9d20634aa2987b768abe16ddc55c9310c66265a",
+  "source_trace_conclusion": {
+    "identity_mismatch_source_path_proven": true,
+    "direct_callable_receiver": "UniProcExecutor.driver_worker: WorkerWrapperBase",
+    "installed_identity_owner": "GeometryQualityWorker.load_model self: actual inner worker",
+    "callable_execution": "run_method(obj, callable, ...) -> partial(callable, obj)",
+    "load_model_binding": "WorkerWrapperBase.__getattr__ -> getattr(self.worker, attr) -> bound inner-worker method",
+    "geometry_install": "STATE[worker] assigned actual load_model self",
+    "first_identity_conjunct_false_on_observed_trace_path": true,
+    "runtime_worker_ids_recorded_in_v2": false,
+    "geometry_entry_audit_capture_values_recorded_in_v2": false,
+    "and_short_circuit_skips_remaining_conjuncts_on_identity_mismatch": true,
+    "earlier_same_step_audit_snapshot_returned": true,
+    "earlier_audit_snapshot_asserts": "enabled and current is not None and not _capturing()",
+    "no_switch_or_finish_between_earlier_audit_snapshot_and_geometry_RPC": true
+  },
+  "audit_lifecycle": {
+    "module_initial_enabled": false,
+    "switch": "STATE arm set and enabled=bool(auditing); auditing true creates current with tag and empty steps",
+    "warmups": "auditing false; geometry RPC disabled",
+    "first_audited_request": "switch off,true,native-off-0-A",
+    "snapshot": "does not turn enabled off; appends current step",
+    "finish": "only runs after request completes; sets current=None and enabled=False",
+    "geometry_entry_current_truth_values": "not separately sampled by v2 failed guard"
+  },
+  "capture_predicate": {
+    "helper_file": "frozen_quality_shared/graph_precision_audit.py",
+    "helper": "bool(getattr(get_forward_context(),capturing,False)); AssertionError -> False",
+    "native_get_forward_context": "assert _forward_context is not None; return _forward_context",
+    "native_context_restoration": "override_forward_context restores prev_context in finally",
+    "native_graph_capture": "ACLGraphWrapper sets forward_context.capturing=True before torch.npu.graph",
+    "graph_runtime_FULL_is_not_alone_the_capture_predicate": true,
+    "helper_semantics_unchanged_in_v3": true
+  },
+  "v3_CPU_solution": {
+    "bench_RPC": "string snapshot_geometry_step",
+    "worker_adapter": "GeometryQualityWorker bound method delegates to geometry_cache_probe.snapshot_step(self,...)",
+    "strict_installed_worker_identity": true,
+    "guard_order": [
+      "capture",
+      "host scalar/id receipt once outside capture",
+      "strict identity",
+      "audit enabled"
+    ],
+    "capture_has_no_D2H_sync_diagnostic_write_log_or_device_payload": true,
+    "distinct_rejection_messages": [
+      "geometry_snapshot.capture_forbidden",
+      "geometry_snapshot.worker_identity_mismatch",
+      "geometry_snapshot.audit_disabled"
+    ],
+    "CPU_controls": 43,
+    "new_RPC_controls": 9,
+    "actual_native_RPC_method_bodies_executed_without_rewriting": true,
+    "CPU_class_shells_omit_unrelated_bases": true,
+    "device_payload_substituted_with_CPU_entry_only_payload": true,
+    "RPC_transport_and_bound_adapter_are_not_substituted": true,
+    "CPU_proof_does_not_establish_NPU_geometry_or_accuracy": true
+  },
+  "unchanged_runtime_gate": {
+    "bench_AST_identical_after_reversing_only_RPC_target": true,
+    "complete_geometry_sync_and_device_reader_body_AST_identical_after_entry_guard": true,
+    "probe_install_and_finish_AST_identical": true,
+    "geometry_contract_byte_identical_sha256": "c26634ea3c34dee353b6ddce8106dcd7aa849c418078181ed14dbbe15bb07c04",
+    "shared_quality_sources_byte_identical": [
+      {
+        "file": "bench_draft_graph_candidate.py",
+        "sha256": "6c292864b0437197764eaed0602ca89ab4db1d7be6abfda4e072af1912d34ec8",
+        "bytes": 13183
+      },
+      {
+        "file": "draft_graph_observer.py",
+        "sha256": "983c31462b285160c7990390b854e0d07cb546d46b66c3d9cc926e53b1737ac0",
+        "bytes": 3849
+      },
+      {
+        "file": "dspark_worker.py",
+        "sha256": "08cdd3ca4b236f75e484797d9959738947223d4723cf998526cb82a4ea3e7f47",
+        "bytes": 8607
+      },
+      {
+        "file": "graph_candidate_worker.py",
+        "sha256": "572b71410ec0bed8f9a9f405e3973ddea59abd9cd07163966d38ab610c62f404",
+        "bytes": 2863
+      },
+      {
+        "file": "graph_precision_audit.py",
+        "sha256": "a2f4b5d57179aeb392a651957c81b684f1993f4cd7ab95d4d42cdb3285a29df6",
+        "bytes": 22208
+      },
+      {
+        "file": "launch_dspark_tiny.py",
+        "sha256": "1080e7144417cd791de9e2f9b5a1a8f9b53520a911ffa07dc5dbdf9db6fd0833",
+        "bytes": 8550
+      },
+      {
+        "file": "native_first_value_trace.py",
+        "sha256": "4f254f85499417f543a443c49e43f64dc5992b3df57b336dde846f1b255ea57b",
+        "bytes": 24508
+      },
+      {
+        "file": "native_route_diagnostic_worker.py",
+        "sha256": "e782dd256fd336856f6744f3948c8e1b32432deda96f62090583b9914776ba5e",
+        "bytes": 3444
+      },
+      {
+        "file": "o_proj_cache_fixture.py",
+        "sha256": "7dfa11336f7be4c8c55d0f09eb302673ef31ac51d582686d31cffc432af6fe78",
+        "bytes": 6611
+      },
+      {
+        "file": "o_proj_cache_fixture_worker.py",
+        "sha256": "ecb95df6bb6c829e292f9153de673e69f5cd3edae31791a1984758c0d989f05e",
+        "bytes": 1468
+      },
+      {
+        "file": "stage_ids_vendor.py",
+        "sha256": "16da30c77a5658aebb324e371dec4d92dfa3f38b15214d1be10cc98bc51743a4",
+        "bytes": 4268
+      }
+    ],
+    "reader_slots_per_group": 665,
+    "route_layers": 43,
+    "proposal_and_three_attention_per_round_kept": true,
+    "required_comparisons": 9,
+    "partial_initial_seed_terminal_native_calls_and_final_fence_kept": true,
+    "math_parameter_cache_value_native_draft_call_or_scheduler_changed": false
+  },
+  "old_manifests_verified_unchanged": [
+    {
+      "path": "experiments/operator_stack/parallel_tiny/dspark_lane/fixture_timing_diagnostic_v2/geometry_2k_256_v2_cpu_prepare/delivery_geometry2k256_v2_failed_files.json",
+      "sha256": "4a34f99c3cab7c578f746c15a9d20634aa2987b768abe16ddc55c9310c66265a",
+      "files": 178,
+      "unchanged": true
+    },
+    {
+      "path": "experiments/operator_stack/parallel_tiny/dspark_lane/fixture_timing_diagnostic_v2/geometry_2k_256_cpu_prepare/delivery_geometry2k256_v1_failed_files.json",
+      "sha256": "4c0f462400383e759aeda589a703d432bbcb9b0f3691594344cadd80d6e474c8",
+      "files": 48,
+      "unchanged": true
+    },
+    {
+      "path": "experiments/operator_stack/parallel_tiny/dspark_lane/fixture_timing_diagnostic_v2/delivery_fixture_timing_v2_files.json",
+      "sha256": "e63bd1797c6340ab8f0dc5a762b003fe474f2dfa02895065ebb7495f751baa38",
+      "files": 85,
+      "unchanged": true
+    },
+    {
+      "path": "experiments/operator_stack/parallel_tiny/dspark_lane/delivery_graph_fixture_v1_files.json",
+      "sha256": "6d12c7f6cd31dd6b46ea13ac7a0fac751c3404aaf05e58a8201235ed7d72b3d6",
+      "files": 70,
+      "unchanged": true
+    },
+    {
+      "path": "experiments/operator_stack/parallel_tiny/dspark_lane/delivery_v7_files.json",
+      "sha256": "beda910e174d993c6a12f7c475fd81adc4df9b97373a4b781169c03a2d2ac3e2",
+      "files": 37,
+      "unchanged": true
+    }
+  ],
+  "current_NPU_permission": 0,
+  "no_new_NPU_launch": true,
+  "no_root_SDK_API_or_other_agent_files_changed": true
+}

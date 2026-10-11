@@ -1,0 +1,128 @@
+import base64,hashlib,json,linecache,os,sys,traceback,types
+assert not any(n=='torch_npu' or n.startswith('torch_npu.') or n=='vllm' or n.startswith('vllm.') or n=='acl' for n in sys.modules)
+assert os.environ['TORCH_DEVICE_BACKEND_AUTOLOAD']=='0'
+assert all(os.environ.get(n,'')=='' for n in ['ASCEND_RT_VISIBLE_DEVICES','ASCEND_VISIBLE_DEVICES','CUDA_VISIBLE_DEVICES'])
+assert os.environ['CPU_OUTER_KEEP'] in ('0','1')
+keep=os.environ['CPU_OUTER_KEEP']=='1'
+import torch
+assert torch.__version__.startswith('2.10.0')
+from torch._dynamo.backends.common import aot_autograd
+from torch._functorch.aot_autograd import aot_module_simplified
+from torch.utils._python_dispatch import TorchDispatchMode
+source=base64.b64decode('IiIiRXhwbGljaXQgVGVuc29yIGlucHV0L291dHB1dCBib3VuZGVkIHRyYW5zcG9ydCwgbm8gdG9yY2ggaW1wb3J0IG9uIGltcG9ydC4iIiIKZnJvbSBkYXRhY2xhc3NlcyBpbXBvcnQgZGF0YWNsYXNzCgoKRklFTERTID0gKCd2YWx1ZXMnLCdwb3NpdGlvbnMnLCd2YWxpZCcsJ2Vwb2NoJywnY29weV9jb3VudCcsJ3Jvd19jb3VudCcpCgoKQGRhdGFjbGFzcyhmcm96ZW49VHJ1ZSkKY2xhc3MgU25hcHNob3RTcGVjOgogICAgbWF4X3Jvd3M6IGludAogICAgd2lkdGg6IGludAogICAgcG9zaXRpb25fd2lkdGg6IGludCA9IDEKCiAgICBkZWYgY2hlY2soc2VsZik6CiAgICAgICAgaWYgbWluKHNlbGYubWF4X3Jvd3Msc2VsZi53aWR0aCxzZWxmLnBvc2l0aW9uX3dpZHRoKSA8PSAwOgogICAgICAgICAgICByYWlzZSBWYWx1ZUVycm9yKCdOZWVkIGZpeGVkIHBvc2l0aXZlIGJvdW5kZWQgc25hcHNob3QgZGltZW5zaW9ucycpCgoKZGVmIGFsbG9jYXRlX2J1ZmZlcnModG9yY2gsIHNwZWMsICosIGRldmljZSwgZHR5cGUpOgogICAgc3BlYy5jaGVjaygpCiAgICByZXR1cm4gKHRvcmNoLnplcm9zKChzcGVjLm1heF9yb3dzLHNwZWMud2lkdGgpLGRldmljZT1kZXZpY2UsZHR5cGU9ZHR5cGUpLAogICAgICAgICAgICB0b3JjaC5mdWxsKChzcGVjLm1heF9yb3dzLHNwZWMucG9zaXRpb25fd2lkdGgpLC0xLGRldmljZT1kZXZpY2UsZHR5cGU9dG9yY2guaW50NjQpLAogICAgICAgICAgICB0b3JjaC56ZXJvcygoc3BlYy5tYXhfcm93cywpLGRldmljZT1kZXZpY2UsZHR5cGU9dG9yY2guYm9vbCksCiAgICAgICAgICAgIHRvcmNoLnplcm9zKCgxLCksZGV2aWNlPWRldmljZSxkdHlwZT10b3JjaC5pbnQ2NCksCiAgICAgICAgICAgIHRvcmNoLnplcm9zKCgxLCksZGV2aWNlPWRldmljZSxkdHlwZT10b3JjaC5pbnQ2NCksCiAgICAgICAgICAgIHRvcmNoLnplcm9zKCgxLCksZGV2aWNlPWRldmljZSxkdHlwZT10b3JjaC5pbnQ2NCkpCgoKZGVmIHNuYXBzaG90X3R1cGxlKHRvcmNoLCBjYXJyaWVyLCB2YWx1ZXMsIHBvc2l0aW9ucywgdmFsaWQsIGVwb2NoLCBidWZmZXJzKToKICAgIGlmIGxlbihidWZmZXJzKSAhPSBsZW4oRklFTERTKToKICAgICAgICByYWlzZSBWYWx1ZUVycm9yKCdFeHBsaWNpdCBzbmFwc2hvdCBUZW5zb3IgdHVwbGUgQUJJIGNoYW5nZWQnKQogICAgb3V0X3ZhbHVlcyxvdXRfcG9zaXRpb25zLG91dF92YWxpZCxvdXRfZXBvY2gsb3V0X2NvdW50LG91dF9yb3dzID0gYnVmZmVycwogICAgcm93cyA9IHZhbHVlcy5zaGFwZVswXQogICAgaWYgKHZhbHVlcy5uZGltICE9IDIgb3Igcm93cyA+IG91dF92YWx1ZXMuc2hhcGVbMF0gb3IgdmFsdWVzLnNoYXBlWzFdICE9IG91dF92YWx1ZXMuc2hhcGVbMV0KICAgICAgICAgICAgb3IgcG9zaXRpb25zLnNoYXBlICE9IChyb3dzLG91dF9wb3NpdGlvbnMuc2hhcGVbMV0pIG9yIHZhbGlkLnNoYXBlICE9IChyb3dzLCkpOgogICAgICAgIHJhaXNlIFZhbHVlRXJyb3IoJ0JvdW5kZWQgc25hcHNob3QgZXh0ZW50L3Bvc2l0aW9ucy92YWxpZCBtaXNtYXRjaCcpCiAgICBpZiBlcG9jaC5zaGFwZSAhPSAoMSwpIG9yIGVwb2NoLmR0eXBlICE9IHRvcmNoLmludDY0OgogICAgICAgIHJhaXNlIFZhbHVlRXJyb3IoJ05lZWQgZXhwbGljaXQgZGV2aWNlIGludDY0WzFdIGVwb2NoIFRlbnNvcicpCiAgICBpZiAodmFsdWVzLmR0eXBlICE9IG91dF92YWx1ZXMuZHR5cGUgb3IgcG9zaXRpb25zLmR0eXBlICE9IHRvcmNoLmludDY0IG9yIHZhbGlkLmR0eXBlICE9IHRvcmNoLmJvb2wKICAgICAgICAgICAgb3IgYW55KHRlbnNvci5kZXZpY2UgIT0gb3V0X3ZhbHVlcy5kZXZpY2UgZm9yIHRlbnNvciBpbiAodmFsdWVzLHBvc2l0aW9ucyx2YWxpZCxlcG9jaCwqYnVmZmVycykpKToKICAgICAgICByYWlzZSBWYWx1ZUVycm9yKCdBY3R1YWwgc25hcHNob3QgZHR5cGUvZGV2aWNlIGRpZmZlcnMgZnJvbSB0aGUgcHJlYWxsb2NhdGVkIHR1cGxlJykKICAgIG91dF92YWx1ZXMuemVyb18oKTtvdXRfdmFsdWVzWzpyb3dzXS5jb3B5Xyh2YWx1ZXMpCiAgICBvdXRfcG9zaXRpb25zLmZpbGxfKC0xKTtvdXRfcG9zaXRpb25zWzpyb3dzXS5jb3B5Xyhwb3NpdGlvbnMpCiAgICBvdXRfdmFsaWQuemVyb18oKTtvdXRfdmFsaWRbOnJvd3NdLmNvcHlfKHZhbGlkKQogICAgb3V0X3Jvd3MuZmlsbF8ocm93cyk7b3V0X2NvdW50LmFkZF8oMSk7b3V0X2Vwb2NoLmNvcHlfKGVwb2NoKQogICAgIyBFdmVyeSBtdXRhdGVkIFRlbnNvciByZW1haW5zIGFuIGV4cGxpY2l0IGdyYXBoIG91dHB1dC4gT3JpZ2luYWwgY2FycmllcgogICAgIyBhbmQgYnVmZmVyIGFkZHJlc3NlcyBtdXN0IGFsc28gYmUgY2hlY2tlZCBpbiB0aGUgcmVhbCBjb21waWxlZCBTREsgZ2F0ZS4KICAgIHJldHVybiAoY2FycmllciwqYnVmZmVycykKCgpkZWYgcmVzZXRfYWZ0ZXJfcHJpb3JfZmVuY2UoYnVmZmVycyk6CiAgICAjIFRoZSBjYWxsZXIgcGVyZm9ybXMgYSByZWFsIGRldmljZSBmZW5jZSBiZWZvcmUgcmVzZXQ7IG5vIHByZXRlbmQgZmxhZy4KICAgIHZhbHVlcyxwb3NpdGlvbnMsdmFsaWQsZXBvY2gsY291bnQscm93cyA9IGJ1ZmZlcnMKICAgIHZhbHVlcy56ZXJvXygpO3Bvc2l0aW9ucy5maWxsXygtMSk7dmFsaWQuemVyb18oKTtlcG9jaC56ZXJvXygpO2NvdW50Lnplcm9fKCk7cm93cy56ZXJvXygpCg==').decode();filename='/CPU-only-v5/tensor_tuple_transport.py'
+module=types.ModuleType('tensor_tuple_transport');module.__file__=filename;sys.modules['tensor_tuple_transport']=module
+linecache.cache[filename]=(len(source),None,source.splitlines(keepends=True),filename)
+exec(compile(source,filename,'exec'),module.__dict__)
+from tensor_tuple_transport import SnapshotSpec,allocate_buffers,snapshot_tuple
+program_source=base64.b64decode('ZGVmIHByb2dyYW0oKmFjdHVhbCk6CiAgICAgICAgICAgICAgICB4LHdlaWdodCxwb3NpdGlvbnMsdmFsaWQsZXBvY2gsaW5kaWNlcyxjYWNoZT1hY3R1YWxbOjddCiAgICAgICAgICAgICAgICBwcm9kdWNlcl9pbnB1dHM9YWN0dWFsWzc6MTNdO3JlYWRlcl9pbnB1dHM9YWN0dWFsWzEzOjE5XQogICAgICAgICAgICAgICAgdmFsdWU9dG9yY2gubm4uZnVuY3Rpb25hbC5saW5lYXIoeCx3ZWlnaHQpCiAgICAgICAgICAgICAgICBwcm9kdWNlcl9vdXRwdXRzPXNuYXBzaG90X3R1cGxlKHRvcmNoLHZhbHVlLHZhbHVlLHBvc2l0aW9ucyx2YWxpZCxlcG9jaCxwcm9kdWNlcl9pbnB1dHMpCiAgICAgICAgICAgICAgICB2YWx1ZT1wcm9kdWNlcl9vdXRwdXRzWzBdCiAgICAgICAgICAgICAgICBjYWNoZS5pbmRleF9jb3B5XygwLGluZGljZXMsdmFsdWUpCiAgICAgICAgICAgICAgICBjb25zdW1lZD1jYWNoZS5pbmRleF9zZWxlY3QoMCxpbmRpY2VzKQogICAgICAgICAgICAgICAgcmVhZGVyX291dHB1dHM9c25hcHNob3RfdHVwbGUodG9yY2gsdmFsdWUsY29uc3VtZWQscG9zaXRpb25zLHZhbGlkLGVwb2NoLHJlYWRlcl9pbnB1dHMpCiAgICAgICAgICAgICAgICByZXR1cm4gKHJlYWRlcl9vdXRwdXRzWzBdKjIsY2FjaGUsKnByb2R1Y2VyX291dHB1dHNbMTpdLCpyZWFkZXJfb3V0cHV0c1sxOl0p').decode();filename='/CPU-only-v5/program.py'
+linecache.cache[filename]=(len(program_source),None,program_source.splitlines(keepends=True),filename)
+exec(compile(program_source,filename,'exec'),globals())
+abi_source=base64.b64decode('IiIiUHJpdmF0ZSBBT1QgY29tcGlsZXIgQUJJIGFkYXB0ZXI7IG5vIHRvcmNoL1NESyBpbXBvcnQgb3IgVGVuc29yIHZhbHVlIHJlYWQuIiIiCgoKZGVmIGFyZ3VtZW50X3N0cnVjdHVyZShhcmd1bWVudHMsIGt3YXJncywgdGVuc29yX3R5cGUpOgogICAgcmV0dXJuIHsnY29udGFpbmVyJzp0eXBlKGFyZ3VtZW50cykuX19uYW1lX18sJ2FyaXR5JzpsZW4oYXJndW1lbnRzKSwKICAgICAgICAgICAgJ3R5cGVzJzpbdHlwZSh2YWx1ZSkuX19tb2R1bGVfXysnLicrdHlwZSh2YWx1ZSkuX19xdWFsbmFtZV9fIGZvciB2YWx1ZSBpbiBhcmd1bWVudHNdLAogICAgICAgICAgICAndGVuc29yX21hc2snOltpc2luc3RhbmNlKHZhbHVlLHRlbnNvcl90eXBlKSBmb3IgdmFsdWUgaW4gYXJndW1lbnRzXSwKICAgICAgICAgICAgJ29iamVjdF9pZHMnOltpZCh2YWx1ZSkgZm9yIHZhbHVlIGluIGFyZ3VtZW50c10sCiAgICAgICAgICAgICdrZXl3b3JkX25hbWVzJzpsaXN0KGt3YXJncyksCiAgICAgICAgICAgICdrZXl3b3JkX3R5cGVzJzp7bmFtZTp0eXBlKHZhbHVlKS5fX21vZHVsZV9fKycuJyt0eXBlKHZhbHVlKS5fX3F1YWxuYW1lX18gZm9yIG5hbWUsdmFsdWUgaW4ga3dhcmdzLml0ZW1zKCl9fQoKCmRlZiB2YWxpZGF0ZV90ZW5zb3JfYXJndW1lbnRzKGFyZ3VtZW50cywgZXhwZWN0ZWRfYXJpdHksIHRlbnNvcl90eXBlLCBmYWtlX3R5cGU9Tm9uZSk6CiAgICBpZiBsZW4oYXJndW1lbnRzKSE9ZXhwZWN0ZWRfYXJpdHk6CiAgICAgICAgcmFpc2UgVHlwZUVycm9yKCdSdW50aW1lIFRlbnNvciBjYWxsIEFCSSBhcml0eSBkaWZmZXJzOiBleHBlY3RlZCAnK3N0cihleHBlY3RlZF9hcml0eSkrJywgZ290ICcrc3RyKGxlbihhcmd1bWVudHMpKSkKICAgIGlmIGFueShub3QgaXNpbnN0YW5jZSh2YWx1ZSx0ZW5zb3JfdHlwZSkgb3IgKGZha2VfdHlwZSBpcyBub3QgTm9uZSBhbmQgaXNpbnN0YW5jZSh2YWx1ZSxmYWtlX3R5cGUpKQogICAgICAgICAgIGZvciB2YWx1ZSBpbiBhcmd1bWVudHMpOgogICAgICAgIHJhaXNlIFR5cGVFcnJvcignUnVudGltZSBUZW5zb3IgY2FsbCBBQkkgcmVxdWlyZXMgb3JpZ2luYWwgcmVhbCBUZW5zb3IgYXJndW1lbnRzLCBubyBuZXN0ZWQgbGlzdC9Ob25lL3NjYWxhci9GYWtlVGVuc29yJykKCgpkZWYgb2JzZXJ2ZV9maXJzdF93YXJtdXAoYm91bmRhcnksIGdldF9waGFzZSwgb2JzZXJ2ZSk6CiAgICBzZWVuPUZhbHNlCiAgICBkZWYgcmVjb3JkKGFyZ3VtZW50cywga3dhcmdzLCB0ZW5zb3JfdHlwZSwgbWV0YWRhdGE9Tm9uZSk6CiAgICAgICAgbm9ubG9jYWwgc2VlbgogICAgICAgIGlmIG5vdCBzZWVuIGFuZCBnZXRfcGhhc2UoKT09J3JlYWwtd2FybXVwJzoKICAgICAgICAgICAgc2Vlbj1UcnVlCiAgICAgICAgICAgIG9ic2VydmUoeydib3VuZGFyeSc6Ym91bmRhcnksKiphcmd1bWVudF9zdHJ1Y3R1cmUoYXJndW1lbnRzLGt3YXJncyx0ZW5zb3JfdHlwZSksKioobWV0YWRhdGEgb3Ige30pfSkKICAgIHJldHVybiByZWNvcmQKCgpkZWYgYm94ZWRfc2RrX2NvbXBpbGVyX2FkYXB0ZXIoc2RrX2NhbGxhYmxlLCAqLCBleHBlY3RlZF9hcml0eSwgdGVuc29yX3R5cGUsIGZha2VfdHlwZT1Ob25lLAogICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgZ2V0X3BoYXNlPWxhbWJkYTpOb25lLCBvYnNlcnZlPWxhbWJkYSByZWNvcmQ6Tm9uZSk6CiAgICAiIiJBT1QgY2FsbHMgb25lIGJveGVkIGxpc3Q7IG9yaWdpbmFsIFNESyBEeW5hbW8gY2FsbGFibGUgZ2V0cyAqVGVuc29yIGFyZ3MuCgogICAgU0RLIHJldHVybiBtZXRhZGF0YSBpcyBsZWZ0IHVudG91Y2hlZC4gVGhpcyBuZXcgY29tcGlsZXItYm91bmRhcnkgY2FsbGFibGUKICAgIGRlY2xhcmVzIGl0cyBvd24gYm94ZWQgQUJJIGFuZCB1bnBhY2tzIGV4YWN0bHkgb25jZSwgcHJlc2VydmluZyBhbGwgVGVuc29yCiAgICBvYmplY3RzLCB0aGVpciBvcmRlciwgYW5kIGV2ZXJ5IGtleXdvcmQgdmFsdWUuIE5vIGdyYXBoL2Fzc2VydCBpcyByZXBsYWNlZC4KICAgICIiIgogICAgcmVjb3JkPW9ic2VydmVfZmlyc3Rfd2FybXVwKCdvdXRlcl9hb3RfYm94ZWRfZndfdG9fc2RrX3VuYm94ZWQnLGdldF9waGFzZSxvYnNlcnZlKQogICAgYWR2ZXJ0aXNlZF9ib3hlZD1nZXRhdHRyKHNka19jYWxsYWJsZSwnX2JveGVkX2NhbGwnLE5vbmUpCiAgICBkZWYgYm94ZWQoYXJndW1lbnRzLCAqKmt3YXJncyk6CiAgICAgICAgYWN0dWFsPWFyZ3VtZW50cwogICAgICAgIHRyeToKICAgICAgICAgICAgaWYgdHlwZShhcmd1bWVudHMpIGlzIG5vdCBsaXN0OgogICAgICAgICAgICAgICAgcmFpc2UgVHlwZUVycm9yKCdBT1QgY29tcGlsZXIgQUJJIHJlcXVpcmVzIGV4YWN0bHkgb25lIGJveGVkIGxpc3Qgb2YgVGVuc29yIGFyZ3VtZW50cycpCiAgICAgICAgICAgIGFjdHVhbD10dXBsZShhcmd1bWVudHMpCiAgICAgICAgICAgIHZhbGlkYXRlX3RlbnNvcl9hcmd1bWVudHMoYWN0dWFsLGV4cGVjdGVkX2FyaXR5LHRlbnNvcl90eXBlLGZha2VfdHlwZSkKICAgICAgICAgICAgcmVjb3JkKGFjdHVhbCxrd2FyZ3MsdGVuc29yX3R5cGUseydpbmNvbWluZ19ib3hlZF9jb250YWluZXInOidsaXN0JywKICAgICAgICAgICAgICAgICAgICdzZGtfYWR2ZXJ0aXNlZF9ib3hlZF9jYWxsJzphZHZlcnRpc2VkX2JveGVkLCdhZGFwdGVyX2JveGVkX2NhbGwnOlRydWUsCiAgICAgICAgICAgICAgICAgICAnc2RrX2NhbGxfYWJpJzondW5ib3hlZCcsJ3RlbnNvcl9vYmplY3RzX3JlcGxhY2VkJzpGYWxzZSwndGVuc29yX29yZGVyX2NoYW5nZWQnOkZhbHNlLAogICAgICAgICAgICAgICAgICAgJ2t3YXJnc19maWx0ZXJlZCc6RmFsc2V9KQogICAgICAgICAgICByZXR1cm4gc2RrX2NhbGxhYmxlKCphY3R1YWwsKiprd2FyZ3MpCiAgICAgICAgZXhjZXB0IEJhc2VFeGNlcHRpb24gYXMgZXhjOgogICAgICAgICAgICAjIFJldGFpbiByZWZlcmVuY2VzIG9ubHkuIFRoZSBvd25lciByZW5kZXJzIHR5cGUgZmFjdHMgYWZ0ZXIgYW55CiAgICAgICAgICAgICMgY2FwdHVyZSBjb250ZXh0IGhhcyB1bndvdW5kOyBubyBjYXB0dXJlLXRpbWUgbG9nIG9yIHZhbHVlIHJlYWQuCiAgICAgICAgICAgIGV4Yy50ZW5zb3JfY2FsbF9hYmlfZmFpbHVyZT0oYWN0dWFsLGt3YXJncyx0ZW5zb3JfdHlwZSwnb3V0ZXJfYW90X2JveGVkX2Z3X3RvX3Nka191bmJveGVkJykKICAgICAgICAgICAgcmFpc2UKICAgIGJveGVkLl9ib3hlZF9jYWxsPVRydWUKICAgIHJldHVybiBib3hlZAo=').decode();abi_filename='/CPU-only-v5/tensor_call_abi.py'
+abi_module=types.ModuleType('tensor_call_abi');abi_module.__file__=abi_filename;sys.modules['tensor_call_abi']=abi_module
+linecache.cache[abi_filename]=(len(abi_source),None,abi_source.splitlines(keepends=True),abi_filename)
+exec(compile(abi_source,abi_filename,'exec'),abi_module.__dict__)
+from tensor_call_abi import boxed_sdk_compiler_adapter,validate_tensor_arguments,observe_first_warmup
+from torch._subclasses.fake_tensor import FakeTensor
+records=[]
+def shape(value,depth=0):
+    if isinstance(value,torch.Tensor):return {'type':type(value).__name__,'shape':list(value.shape),'stride':list(value.stride())}
+    if isinstance(value,(tuple,list)):return {'type':type(value).__name__,'length':len(value),'items':[shape(item,depth+1) for item in value[:3]] if depth<2 else []}
+    return {'type':type(value).__name__,'is_none':value is None}
+copy_records=[]
+def cpu_stamp(value):
+    assert isinstance(value,torch.Tensor) and not isinstance(value,FakeTensor) and value.device.type=='cpu'
+    return {'ptr':value.data_ptr(),'shape':list(value.shape),'stride':list(value.stride()),
+            'dtype':str(value.dtype),'device':str(value.device)}
+class Mode(TorchDispatchMode):
+    def __torch_dispatch__(self,func,types,args=(),kwargs=None):
+        result=func(*args,**(kwargs or {}))
+        if str(func) in ('aten.copy_.default','aten.copy.default') and len(args)>=2 and all(
+                isinstance(t,torch.Tensor) and not isinstance(t,FakeTensor) and t.device.type=='cpu' for t in args[:2]):
+            destination=args[0] if str(func)=='aten.copy_.default' else result
+            actual=cpu_stamp(destination);logical=cpu_stamp(args[0]);source=cpu_stamp(args[1])
+            actual_owner=next((name for name,seal in owned_before.items() if seal['layout']==actual),None)
+            logical_owner=next((name for name,seal in owned_before.items() if seal['layout']==logical),None)
+            original_source=next((name for name,stamp in original_sources.items() if stamp==source),None)
+            copy_records.append({'phase':'cpu-real-call','op':str(func),'destination':actual,
+                'logical_destination':logical,'source':source,'destination_owner':actual_owner,
+                'logical_owner':logical_owner,'original_input_source':original_source})
+        return result
+class CPUCompiledFxGraph:
+    def __init__(self,gm,examples):self.gm=gm;self.examples=examples
+    def __call__(self,*args,**kwargs):
+        records.append({'boundary':'generated_kernel_entry','runtime_args':shape(args),'kwargs':list(kwargs)})
+        torch._C._dynamo.guards.assert_size_stride(args[0],tuple(self.examples[0].shape),tuple(self.examples[0].stride()))
+        return self.gm(*args,**kwargs)
+def sdk_like_backend(gm,examples):
+    def compiler(inner_gm,inner_examples):
+        records.append({'boundary':'inner_fw_compile','example_args':shape(inner_examples)})
+        return CPUCompiledFxGraph(inner_gm,inner_examples)
+    result=aot_module_simplified(gm,examples,fw_compiler=compiler,inference_compiler=compiler,keep_inference_input_mutations=True)
+    records.append({'boundary':'sdk_backend_return','boxed':getattr(result,'_boxed_call',None),'signature':str(__import__('inspect').signature(result))})
+    return result
+def fw(gm,args):
+    records.append({'boundary':'outer_fw_compile','example_args':shape(args)})
+    sdk=sdk_like_backend(gm,args)
+    return boxed_sdk_compiler_adapter(sdk,expected_arity=len(args),tensor_type=torch.Tensor,fake_type=FakeTensor,
+                                      get_phase=lambda:'real-warmup',observe=records.append)
+outer=aot_autograd(fw_compiler=fw,keep_inference_input_mutations=keep)
+def backend(gm,args):
+    inner=outer(gm,args)
+    records.append({'boundary':'outer_backend_return','boxed':getattr(inner,'_boxed_call',None),'signature':str(__import__('inspect').signature(inner))})
+    observe=observe_first_warmup("dynamo_unboxed_entry",lambda:"real-warmup",records.append)
+    def invoke(*actual):
+        records.append({'boundary':'copymode_invoke','runtime_args':shape(actual),'inner_boxed_now':getattr(inner,'_boxed_call',None)})
+        validate_tensor_arguments(actual,len(args),torch.Tensor,FakeTensor)
+        observe(actual,{},torch.Tensor)
+        with Mode():return inner(*actual)
+    return invoke
+spec=SnapshotSpec(6,64)
+x=torch.zeros((6,64),dtype=torch.bfloat16);weight=torch.eye(64,dtype=torch.bfloat16)
+positions=torch.arange(6,dtype=torch.int64).reshape(6,1);valid=torch.ones((6,),dtype=torch.bool)
+epoch=torch.zeros((1,),dtype=torch.int64);indices=torch.arange(6,dtype=torch.int64)
+cache=torch.zeros((16,64),dtype=torch.bfloat16)
+producer=allocate_buffers(torch,spec,device='cpu',dtype=torch.bfloat16)
+reader=allocate_buffers(torch,spec,device='cpu',dtype=torch.bfloat16)
+inputs=(x,weight,positions,valid,epoch,indices,cache,*producer,*reader)
+owned_tensors={f'{owner}.{field}':tensor for owner,items in (('producer',producer),('reader',reader))
+               for field,tensor in zip(module.FIELDS,items)}
+owned_tensors['native.cache']=cache
+owned_before={name:{'owner':name,'tensor_object_id':id(t),'layout':cpu_stamp(t)} for name,t in owned_tensors.items()}
+original_sources={name:cpu_stamp(t) for name,t in [('input.positions',positions),('input.valid',valid),('input.epoch',epoch)]}
+
+receipt={'scope':'PyTorch2.10 CPU double-AOT keep/owner observation using exact transport/program/ABI; SDK-like backend only; no real SDK/NPU','torch':torch.__version__,
+         'all_original_inputs_are_tensor':all(isinstance(value,torch.Tensor) for value in inputs),'records':records,
+         'npu_jobs':0,'device_audit_passed':False,'safe_formal_receipt':False,'passed':False}
+prior=torch._inductor.config.enable_auto_functionalized_v2;torch._inductor.config.enable_auto_functionalized_v2=False
+try:
+    compiled=torch.compile(program,backend=backend,fullgraph=True,dynamic=False)
+    with torch.no_grad():output=compiled(*inputs)
+    receipt['passed']=True;receipt['output_count']=len(output)
+except BaseException as exc:receipt.update(exception_type=type(exc).__name__,exception=str(exc),traceback=traceback.format_exc())
+finally:torch._inductor.config.enable_auto_functionalized_v2=prior
+assert not any(n=='torch_npu' or n.startswith('torch_npu.') or n=='vllm' or n.startswith('vllm.') or n=='acl' for n in sys.modules)
+assert receipt['passed'],receipt.get('traceback')
+assert next(record for record in records if record['boundary']=='generated_kernel_entry')['runtime_args']['length']==19
+owned_after={name:{'owner':name,'tensor_object_id':id(t),'layout':cpu_stamp(t)} for name,t in owned_tensors.items()}
+returned_owned={f'{owner}.{field}':cpu_stamp(t) for owner,items in (('producer',output[2:8]),('reader',output[8:14]))
+                for field,t in zip(module.FIELDS,items)}
+temporary_epochs=[c for c in copy_records if c['logical_owner'] in ('producer.epoch','reader.epoch') and c['destination_owner']!=c['logical_owner']]
+marker_copybacks=[c for c in copy_records if c['destination_owner'] and c['destination_owner'].endswith(('.positions','.valid','.epoch'))
+                  and c['original_input_source'] is None]
+assert owned_after==owned_before
+assert returned_owned=={name:seal['layout'] for name,seal in owned_before.items() if name!='native.cache'}
+assert cpu_stamp(output[1])==owned_before['native.cache']['layout']
+assert torch.equal(output[0],x*2) and torch.equal(cache[indices],x)
+receipt.update(outer_keep_inference_input_mutations=keep,inner_keep_inference_input_mutations=True,
+    real_torch_npu_imported=False,real_sdk_backend_executed=False,cpu_stream_observed=False,
+    owned_before=owned_before,owned_after=owned_after,copy_records=copy_records,
+    copy_calls=len(copy_records),temporary_epoch_copies=len(temporary_epochs),
+    marker_source_copybacks=len(marker_copybacks),all_copy_destinations_original_owned=all(c['destination_owner'] is not None for c in copy_records),
+    all_copy_logical_destinations_equal_actual=all(c['destination']==c['logical_destination'] for c in copy_records),
+    cpu_original_owner_seals_stable=True,cpu_returned_owner_aliases_stable=True,cpu_math_equal=True,
+    source_hashes={'transport':hashlib.sha256(source.encode()).hexdigest(),
+        'tensor_abi':hashlib.sha256(abi_source.encode()).hexdigest(),'program':hashlib.sha256(program_source.encode()).hexdigest()},
+    actual_copy_alias_gate_passed=False,actual_sdk_32_epochs_passed=False,
+    full_consumer_audit_passed=False,formal_model_validated=False,actual_prepack_consumer_order_validated=False,
+    performance_claim=None)
+print(json.dumps(receipt,indent=2))

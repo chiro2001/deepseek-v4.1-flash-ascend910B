@@ -1,0 +1,106 @@
+{
+  "job": "dspark_lane_20261011_c4_graph_geometry2k256_v3",
+  "cpu_ready": true,
+  "cpu_controls": 43,
+  "cpu_gate_sha256": "b4457e3825264a601201a21fa1d2dd82ac213a40bc9ca33a31bcedc0138f44c8",
+  "new_npu_authorization_received": false,
+  "native_window_command": "python3 launch_geometry_gate.py --job dspark_lane_20261011_c4_graph_geometry2k256_v3 --launch",
+  "sources": {
+    "bench_draft_graph_candidate.py": {
+      "bytes": 13183,
+      "sha256": "6c292864b0437197764eaed0602ca89ab4db1d7be6abfda4e072af1912d34ec8"
+    },
+    "draft_graph_observer.py": {
+      "bytes": 3849,
+      "sha256": "983c31462b285160c7990390b854e0d07cb546d46b66c3d9cc926e53b1737ac0"
+    },
+    "dspark_worker.py": {
+      "bytes": 8607,
+      "sha256": "08cdd3ca4b236f75e484797d9959738947223d4723cf998526cb82a4ea3e7f47"
+    },
+    "graph_candidate_worker.py": {
+      "bytes": 2863,
+      "sha256": "572b71410ec0bed8f9a9f405e3973ddea59abd9cd07163966d38ab610c62f404"
+    },
+    "graph_precision_audit.py": {
+      "bytes": 22208,
+      "sha256": "a2f4b5d57179aeb392a651957c81b684f1993f4cd7ab95d4d42cdb3285a29df6"
+    },
+    "native_first_value_trace.py": {
+      "bytes": 24508,
+      "sha256": "4f254f85499417f543a443c49e43f64dc5992b3df57b336dde846f1b255ea57b"
+    },
+    "native_route_diagnostic_worker.py": {
+      "bytes": 3444,
+      "sha256": "e782dd256fd336856f6744f3948c8e1b32432deda96f62090583b9914776ba5e"
+    },
+    "o_proj_cache_fixture.py": {
+      "bytes": 6611,
+      "sha256": "7dfa11336f7be4c8c55d0f09eb302673ef31ac51d582686d31cffc432af6fe78"
+    },
+    "o_proj_cache_fixture_worker.py": {
+      "bytes": 1468,
+      "sha256": "ecb95df6bb6c829e292f9153de673e69f5cd3edae31791a1984758c0d989f05e"
+    },
+    "stage_ids_vendor.py": {
+      "bytes": 4268,
+      "sha256": "16da30c77a5658aebb324e371dec4d92dfa3f38b15214d1be10cc98bc51743a4"
+    },
+    "bench_geometry_gate.py": {
+      "bytes": 15188,
+      "sha256": "990b469d5aa08c0ba9e432e9317a7091e6a6fb67c6da8f16e5311af815f5e488"
+    },
+    "geometry_contract.py": {
+      "bytes": 7353,
+      "sha256": "c26634ea3c34dee353b6ddce8106dcd7aa849c418078181ed14dbbe15bb07c04"
+    },
+    "geometry_cache_probe.py": {
+      "bytes": 11473,
+      "sha256": "1953d4d139f744651da3b7b54f4bf9c3fa9b49aab8efc1f50c71e6cad2c7b6a2"
+    },
+    "geometry_quality_worker.py": {
+      "bytes": 770,
+      "sha256": "4c3270f77a49b1a8900b3aade8f130c6af459d790bb089bf1dc1f00f01f616b5"
+    }
+  },
+  "physical_device": 4,
+  "logical_device": 0,
+  "input_tokens": 2048,
+  "output_tokens": 256,
+  "max_model_len": 4096,
+  "max_batched_tokens": 2048,
+  "capture_representative_seq_len": 3072,
+  "fresh_memory_budget_required_gpu_fraction": 0.7,
+  "model_memory_budget_lowering_allowed": false,
+  "independent_comparisons_required": {
+    "native_off_AA": 3,
+    "off_on": 3,
+    "native_on_AA": 3
+  },
+  "actual_decode_round_count_must_be_derived": true,
+  "native_chunked_prefill_preserved": true,
+  "all_prefill_native_helpers_preserved": true,
+  "unique_sampleable_seed_required": true,
+  "geometry_snapshots_actual_decode_only": true,
+  "v1_v2_numeric_checks_or_geometry_borrowed": false,
+  "geometry_RPC": "string bound method snapshot_geometry_step",
+  "actual_UniProcExecutor_run_method_WorkerWrapper_AST_executed": true,
+  "installed_worker_identity_strict": true,
+  "distinct_identity_audit_capture_rejections": true,
+  "capture_guard_before_diagnostic_IO": true,
+  "noncapture_host_scalar_entry_receipt_once_per_process": true,
+  "per_group_cache_NPU_proof_pending": [
+    "Three actual capture SparseAttnSharedkv input bindings",
+    "Per-group block table in-place refresh and stable native index addresses",
+    "Actual visible logical block columns derived from each real decode reader",
+    "All 665 native selected slots finite and bitwise equal per group, on every real step"
+  ],
+  "SWA128_unretained_prefix_not_scanned": true,
+  "native_null_block_id": 0,
+  "capture_device_reads": false,
+  "timing_evaluation": false,
+  "tiny_admitted": false,
+  "formal_admitted": false,
+  "formal_tp8_claim": false,
+  "remote_script_bytes": 75912
+}

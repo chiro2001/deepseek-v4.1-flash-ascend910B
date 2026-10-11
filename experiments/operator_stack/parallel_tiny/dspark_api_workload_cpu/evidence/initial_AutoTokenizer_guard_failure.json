@@ -1,0 +1,15 @@
+{
+  "CPU_only": true,
+  "phase": "before workload/output creation",
+  "script_sha256_before_revision": "d5d5e2f03decbbe14cb785d8fa18a3801ea5ff615cd9007983007fa70e445153",
+  "exit_code": 1,
+  "strict_guard_reason": "Installed transformers AutoTokenizer imported CPU torch despite USE_TORCH/TF/FLAX=0; rejected before preparing any prompt",
+  "backend_autoload": "0",
+  "all_device_visible_variables": "empty",
+  "torch_npu_import_observed": false,
+  "vllm_import_observed": false,
+  "NPU_calls": 0,
+  "HTTP_inference_requests": 0,
+  "actual_API_performance_or_quality_admission": false,
+  "replacement": "Use actual checkpoint tokenizer.json with tokenizers Rust CPU, verify full text/token roundtrip; AutoTokenizer parity remains unperformed"
+}
