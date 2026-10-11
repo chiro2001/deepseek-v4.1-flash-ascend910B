@@ -18,12 +18,13 @@ def main():
     p.add_argument('--container',required=True)
     p.add_argument('--job',required=True)
     p.add_argument('--model',required=True)
-    p.add_argument('--probe',choices=('woa','moe-mask'),default='woa')
+    p.add_argument('--probe',choices=('woa','moe-mask','quant-gemv'),default='woa')
     args=p.parse_args()
     assert args.job.replace('_','').replace('-','').isalnum()
     root=args.root.resolve();assert args.source_dir.is_relative_to('/work')
     source=root/args.source_dir.relative_to('/work')
-    script='bench_formal_oprojection.py' if args.probe=='woa' else 'bench_formal_moe_mask.py'
+    script={'woa':'bench_formal_oprojection.py','moe-mask':'bench_formal_moe_mask.py',
+            'quant-gemv':'bench_formal_quant_gemv.py'}[args.probe]
     assert (source/'stack'/script).is_file()
     cfg=json.loads(subprocess.check_output(['docker','inspect',args.container],text=True))[0]
     env=dict(x.split('=',1) for x in cfg['Config']['Env'])

@@ -1,3 +1,9 @@
+接续v34：按用户指定找到会话01a1275a-c0b2-7662-aaaa-49e6ca507155，确认上下文耗尽终止；新会话01a128f6-00b4-7761-8a4b-eb78c0303c52创建完整17ms active目标。复查现场8–15空闲，quant probe v3退出143、API v6退出0；客户端与probe共23份抓取收据SHA逐一核对。补齐v32/v33源码与证据提交，v33发布COS/links-server并下载SHA复核。当前正式客户端仍(19.289956ms,A1,51.840451tok/s)、GSM100/100、Vision23/23，下一候选须重新独立和完整整网验收。
+
+更新v33：INT8投影v1/v2在独立NZ契约/写入代理getter前置处退出，未计数值；v3实际NZ格式通过，17权重×6输入每候选102/120例均保留原1ULP门，120未完成。八配置全部已测投影慢于原生：ND64/256 q_a16.350268→21.414277μs、KV11.479634→17.627676μs、q_b14.160444→19.933535μs；NZ适配调用毫秒级额外开销未定位。基于性能否证核对runner父子/完整argv，仅SIGTERM本任务主probe847969，退出143；不宣称完整精度、不进整网/部署。客户端best仍19.289956/A1/51.840451、GSM100/100、Vision23/23，17ms未达到，目标active。
+
+更新v32：best async mask API v6客户端退出0，归属正确、GSM8K100/100、Vision23/23；串行8请求/2K输入/256输出 `(19.289956ms/step,A1,51.840451tok/s)`，17ms门槛明确False。质量全部完成后仅SIGTERM已核对argv/模型归属的本任务API，保存stopped_for_quant_probe；新 `/work/src_quant_gemv_probe_v1` 的INT8注意力投影探针准备/启动，正式层0/20、真实复制/TP切片、原生NZ布局与BF16加载scale，INT32累加/三缩放顺序/ND与NZ路径待验证。17ms目标active。
+
 更新v31：正式掩码审计退出0，三A/A控制/六路由、token、Top5/logprob比较delta0；24份rank/960次40层概率消费者逐位一致，Indexer/cache通过。12组无审计/profiler异步配对退出0：base `(20.393742ms,A1,49.034650tok/s)`、metastack `(19.372919ms,A1,51.618446tok/s)`、mask `(19.228652ms,A1,52.005725tok/s)`；mask对meta配对中位节省0.149769ms、12/12更快。delivery守卫已起 `formal_best_async_service_v6` 私有18766/独立mask模型名，加载后自动8请求/Vision23/GSM100/17ms验收。客户端pending，17ms未达到；v29/v30源码与独立证据已在ecdff09完成自检、双push。
 
 更新v30：MoE掩码及BF16消费者转换独立v2退出0，八EP范围×四shape×三风格96case，两输出共192次逐位一致。首版每图32调用约8.94μs未建立提交余量，不计收益；v2每图512不同输入地址、重放8次，全部窗口设备/提交比例≥2，FP32 4.392957→0.841917μs、BF16消费者5.506194→0.854939μs，两候选均64/64更快。新tp8mask继承metastack、真实layer绑定/40唯一层门/源码SHA/关键字契约通过；`/work/src_mask_model_v2` 的 `formal_moe_mask_audit_v1`已在复查空闲/授权Alarm后启动三bank异步整网审计，完整守卫后才12配对。没有新E2E或17ms声明。

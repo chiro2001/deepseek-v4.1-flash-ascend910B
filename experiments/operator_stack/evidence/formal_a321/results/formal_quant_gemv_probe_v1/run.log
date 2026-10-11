@@ -1,0 +1,18 @@
+INFO 10-10 23:58:40 [__init__.py:52] Available plugins for group vllm.platform_plugins:
+INFO 10-10 23:58:40 [__init__.py:54] - ascend -> vllm_ascend:register
+INFO 10-10 23:58:40 [__init__.py:57] All plugins in this group will be loaded. Set `VLLM_PLUGINS` to control which plugins to load.
+INFO 10-10 23:58:40 [__init__.py:237] Platform plugin ascend is activated
+INFO 10-10 23:58:40 [platform.py:70] Breakable CUDAGraph on Ascend is opt-in; using VLLM_USE_BREAKABLE_CUDAGRAPH=0.
+[W1010 23:58:46.784765820 NPUCachingAllocator.cpp:202] Warning: The current CANN and HDK(driver) versions require processing for 32 padding size, with memory allocation. (function operator())
+[W1010 23:58:46.785498710 TensorFactories.cpp:423] Warning: Cannot create tensor with interal format while allow_internel_format=False, tensor will be created with base format. (function operator())
+Traceback (most recent call last):
+  File "/work/src_quant_gemv_probe_v1/stack/bench_formal_quant_gemv.py", line 133, in <module>
+    if __name__=='__main__':main()
+                            ^^^^^^
+  File "/usr/local/python3.12.13/lib/python3.12/site-packages/torch/utils/_contextlib.py", line 124, in decorate_context
+    return func(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^
+  File "/work/src_quant_gemv_probe_v1/stack/bench_formal_quant_gemv.py", line 60, in main
+    assert torch_npu.get_npu_format(nz)==29
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError

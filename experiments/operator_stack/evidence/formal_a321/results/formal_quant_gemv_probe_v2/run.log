@@ -1,0 +1,12 @@
+Traceback (most recent call last):
+  File "/work/src_quant_gemv_probe_v2/stack/bench_formal_quant_gemv.py", line 137, in <module>
+    if __name__=='__main__':main()
+                            ^^^^^^
+  File "/usr/local/python3.12.13/lib/python3.12/site-packages/torch/utils/_contextlib.py", line 124, in decorate_context
+    return func(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^
+  File "/work/src_quant_gemv_probe_v2/stack/bench_formal_quant_gemv.py", line 34, in main
+    assert torch_npu.npu.config.allow_internal_format
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AttributeError: '_npuConfig' object has no attribute 'allow_internal_format'
+[ERROR] 2026-10-11-00:02:05 (PID:847823, Device:0, RankID:-1) ERR99999 UNKNOWN applicaiton exception

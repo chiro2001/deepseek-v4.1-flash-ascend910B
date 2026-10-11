@@ -1,0 +1,38 @@
+{
+  "best_arm": "tp8mask",
+  "paired_median_saved_ms": 0.14976871749147413,
+  "faster_pairs": 12,
+  "total_pairs": 12,
+  "client_returncode": 0,
+  "service_job": "formal_best_async_service_v6",
+  "target_ms": 17.0,
+  "client_argv": [
+    "docker",
+    "exec",
+    "-e",
+    "STACK_SRC_ROOT=/work/src_mask_model_v2",
+    "dsv41-real-stack-tp8-20261010-a321",
+    "bash",
+    "/work/src_mask_model_v2/stack/run_stack.sh",
+    "run_formal_client_acceptance.py",
+    "--service-root=/work/results/formal_best_async_service_v6",
+    "--client-root=/work/client",
+    "--data-root=/work/client_data/gsm8k",
+    "--encoder=/home/l00886679/models/DeepSeek-V4.1-Flash/encoding",
+    "--images=/home/l00886679/models/DeepSeek-V4.1-Flash/inference/examples/images",
+    "--target-ms=17.0"
+  ],
+  "client_quality_passed": true,
+  "performance_target_passed": false,
+  "timing": {
+    "ms_per_step": 19.28995554411585,
+    "A": 1,
+    "tokens_per_second": 51.84045125003085,
+    "samples": 8,
+    "raw_accept_length": 0.0,
+    "speculative_decoding": false,
+    "scope": "Client decode single-stream median; 2K input, 256 output; profiler/audit off",
+    "target_ms_per_step": 17.0,
+    "passed_target": false
+  }
+}
