@@ -1,0 +1,1846 @@
+{
+  "raw_launch_counters_from_actual_API_events": {
+    "raw_native_submit_accepted": 18,
+    "candidate_submit_accepted": 9,
+    "planner_submit_accepted": 9,
+    "raw_math_stream_sync_success": 27
+  },
+  "command": [
+    "python3",
+    "/work/gmm_lane_sparse_msd_m1_numeric_p6_20261011_v5/source/runtime_numeric.py"
+  ],
+  "exit_code": 0,
+  "timeout": false,
+  "child_PID": 1460782,
+  "runtime_log_bytes": 44716886,
+  "runtime_log_sha256": "de5b493c4f88d392e8d6bfb32f5247ed6749721ff27e6a17c043b3ebf96a2bc1",
+  "runtime_retries": 0,
+  "dependency_sha256_after": {
+    "/work/gmm_lane_sparse_msd_build_20261011_v3_repro/op_build_candidate/Gmm2SparseMsdDown_candidate_v6.o": "bd08a12b15d14f44a2c63a2ff91ec2977a0ed2b62645ed7d43273ee2fb024970",
+    "/work/gmm_lane_sparse_msd_build_20261011_v3_repro/op_build_native/Gmm2NativeMsdDown_control_v6.o": "1e8a606d459bd4560b0e19efbb1894d98a1826bf0048eb9fa16d930b7d46ec0d",
+    "/work/gmm_lane_sparse_msd_build_20261011_v3_repro/planner_cpu_rebuild.o": "f921e2d9c895aca5958177a17bd398f058c7a1d8910564bcd54c4dd98b51b770",
+    "/work/gmm_lane_sparse_msd_build_20261011_v3_repro/libgmm2_sparse_msd_probe.so": "02816eb5b23f93d7784258578a9aecf8df7dc35b4bc3feacb15af3020ad10ac8"
+  },
+  "terminal": {
+    "passed": true,
+    "scope": "synthetic INT8/FP32 activation, real original-loader E48 W2, M1 capacity6",
+    "physical": 6,
+    "logical": 0,
+    "performance_measured": false,
+    "full_model_executed": false,
+    "K5_verifier_coverage": false,
+    "explicit_reset_or_empty_cache_calls": 0,
+    "Torch_context_and_stream_borrowed": true,
+    "container_PID": 1460782,
+    "bridge_cleanup_code": 0,
+    "owner_retained_after_close": false,
+    "SDK_math_launch_attempts": 9,
+    "raw_native_entry_attempts": 18,
+    "candidate_entry_attempts": 9,
+    "planner_expected_entry_attempts": 9,
+    "cases_passed": 9,
+    "case_names_passed": [
+      "R1_e0",
+      "R1_e47",
+      "R3_e0",
+      "R3_e47",
+      "R3_three_slots",
+      "R6_e0",
+      "R6_e47",
+      "R6_mixed_counts",
+      "R6_six_slots"
+    ],
+    "Torch_resources_release": "Original SDK owner cleanup at this process exit; no device reset/cache clear"
+  },
+  "original_receipt_ref": {
+    "path": "/work/gmm_lane_sparse_msd_m1_numeric_p6_20261011_v5/run_receipt.json",
+    "bytes": 785106,
+    "sha256": "26e95466703d6c8a6653b494025485db9b7db9ebe151ad9d8182a1d92cfe3788"
+  },
+  "actual_submit_sync_and_pointer_events": [
+    {
+      "bridge_mapping": true,
+      "visible_count": 1,
+      "logical": 0,
+      "physical": 6
+    },
+    {
+      "bridge_mapping": true,
+      "visible_count": 1,
+      "logical": 0,
+      "physical": 6
+    },
+    {
+      "borrowed_context": 187651846910432,
+      "borrowed_stream": 187652118181784,
+      "context_owner": "Torch original SDK consumer"
+    },
+    {
+      "registered_function": "planner",
+      "aic_address": 0,
+      "aiv_address": 20618581901312,
+      "aic_bytes": 0,
+      "aiv_bytes": 368
+    },
+    {
+      "registered_function": "native",
+      "aic_address": 20618581938176,
+      "aiv_address": 20618581943328,
+      "aic_bytes": 5152,
+      "aiv_bytes": 8440
+    },
+    {
+      "registered_function": "candidate",
+      "aic_address": 20618581958656,
+      "aiv_address": 20618581967404,
+      "aic_bytes": 8748,
+      "aiv_bytes": 8440
+    },
+    {
+      "workspace_allocator_policy": "ACL_MEM_MALLOC_HUGE_FIRST",
+      "enum_value": 0,
+      "requested_bytes": 117441408,
+      "HBM_free_bytes": 55935721472,
+      "HBM_total_bytes": 65787658240
+    },
+    {
+      "probe_workspace_base": 20618583998976,
+      "workspace_allocation_address": 20618583998464,
+      "workspace_allocation_bytes": 117441408,
+      "workspace_alignment": 512,
+      "workspace_canary_each_bytes": 128,
+      "workspace_bytes": 117440640,
+      "planner_frame_address": 20618600776192,
+      "candidate_native_user_scratch": 20618600776320,
+      "probe_y_address": 20619064336512,
+      "ffts": 17514876633088,
+      "ffts_bytes": 32
+    },
+    {
+      "raw_launch_pointers": true,
+      "sparse": 0,
+      "args_API": "aclrtLaunchKernelWithHostArgs",
+      "GMM_bytes": 72,
+      "placeholder_count": 0,
+      "words": [
+        17514876633088,
+        20619064401920,
+        20619064406016,
+        20619064410112,
+        20619064414208,
+        20618580802560,
+        20618580802048,
+        20619064418304,
+        20618583998976
+      ],
+      "tensor_GM_addresses": [
+        20618580787712,
+        20618294591488,
+        20618579804160,
+        20618577707520,
+        20618580802560,
+        20618580802048,
+        20619064336512
+      ],
+      "single_tensor_lists": [
+        24,
+        4294967296,
+        4294967295,
+        20618580787712,
+        24,
+        4294967296,
+        4294967295,
+        20618294591488,
+        24,
+        4294967296,
+        4294967295,
+        20618579804160,
+        24,
+        4294967296,
+        4294967295,
+        20618577707520,
+        24,
+        4294967296,
+        4294967295,
+        20619064336512
+      ]
+    },
+    {
+      "bridge_stage": "HostArgs:native",
+      "code": 0
+    },
+    {
+      "bridge_stage": "sync:raw_math",
+      "code": 0
+    },
+    {
+      "bridge_stage": "workspace_and_y_canary_guard",
+      "code": 0
+    },
+    {
+      "raw_launch_pointers": true,
+      "sparse": 0,
+      "args_API": "aclrtLaunchKernelWithHostArgs",
+      "GMM_bytes": 72,
+      "placeholder_count": 0,
+      "words": [
+        17514876633088,
+        20619064401920,
+        20619064406016,
+        20619064410112,
+        20619064414208,
+        20618580802560,
+        20618580802048,
+        20619064418304,
+        20618583998976
+      ],
+      "tensor_GM_addresses": [
+        20618580787712,
+        20618294591488,
+        20618579804160,
+        20618577707520,
+        20618580802560,
+        20618580802048,
+        20619064336512
+      ],
+      "single_tensor_lists": [
+        24,
+        4294967296,
+        4294967295,
+        20618580787712,
+        24,
+        4294967296,
+        4294967295,
+        20618294591488,
+        24,
+        4294967296,
+        4294967295,
+        20618579804160,
+        24,
+        4294967296,
+        4294967295,
+        20618577707520,
+        24,
+        4294967296,
+        4294967295,
+        20619064336512
+      ]
+    },
+    {
+      "bridge_stage": "HostArgs:native",
+      "code": 0
+    },
+    {
+      "bridge_stage": "sync:raw_math",
+      "code": 0
+    },
+    {
+      "bridge_stage": "workspace_and_y_canary_guard",
+      "code": 0
+    },
+    {
+      "raw_launch_pointers": true,
+      "sparse": 1,
+      "args_API": "aclrtLaunchKernelWithHostArgs",
+      "GMM_bytes": 72,
+      "placeholder_count": 0,
+      "words": [
+        17514876633088,
+        20619064401920,
+        20619064406016,
+        20619064410112,
+        20619064414208,
+        20618580802560,
+        20618580802048,
+        20619064418304,
+        20618583998976
+      ],
+      "tensor_GM_addresses": [
+        20618580787712,
+        20618294591488,
+        20618579804160,
+        20618577707520,
+        20618580802560,
+        20618580802048,
+        20619064336512
+      ],
+      "single_tensor_lists": [
+        24,
+        4294967296,
+        4294967295,
+        20618580787712,
+        24,
+        4294967296,
+        4294967295,
+        20618294591488,
+        24,
+        4294967296,
+        4294967295,
+        20618579804160,
+        24,
+        4294967296,
+        4294967295,
+        20618577707520,
+        24,
+        4294967296,
+        4294967295,
+        20619064336512
+      ]
+    },
+    {
+      "bridge_stage": "HostArgs:planner_included",
+      "code": 0
+    },
+    {
+      "bridge_stage": "HostArgs:candidate",
+      "code": 0
+    },
+    {
+      "bridge_stage": "sync:raw_math",
+      "code": 0
+    },
+    {
+      "bridge_stage": "workspace_and_y_canary_guard",
+      "code": 0
+    },
+    {
+      "raw_launch_pointers": true,
+      "sparse": 0,
+      "args_API": "aclrtLaunchKernelWithHostArgs",
+      "GMM_bytes": 72,
+      "placeholder_count": 0,
+      "words": [
+        17514876633088,
+        20619064401920,
+        20619064406016,
+        20619064410112,
+        20619064414208,
+        20618580788224,
+        20618580787712,
+        20619064418304,
+        20618583998976
+      ],
+      "tensor_GM_addresses": [
+        20618580865024,
+        20618294591488,
+        20618579804160,
+        20618577707520,
+        20618580788224,
+        20618580787712,
+        20619064336512
+      ],
+      "single_tensor_lists": [
+        24,
+        4294967296,
+        4294967295,
+        20618580865024,
+        24,
+        4294967296,
+        4294967295,
+        20618294591488,
+        24,
+        4294967296,
+        4294967295,
+        20618579804160,
+        24,
+        4294967296,
+        4294967295,
+        20618577707520,
+        24,
+        4294967296,
+        4294967295,
+        20619064336512
+      ]
+    },
+    {
+      "bridge_stage": "HostArgs:native",
+      "code": 0
+    },
+    {
+      "bridge_stage": "sync:raw_math",
+      "code": 0
+    },
+    {
+      "bridge_stage": "workspace_and_y_canary_guard",
+      "code": 0
+    },
+    {
+      "raw_launch_pointers": true,
+      "sparse": 0,
+      "args_API": "aclrtLaunchKernelWithHostArgs",
+      "GMM_bytes": 72,
+      "placeholder_count": 0,
+      "words": [
+        17514876633088,
+        20619064401920,
+        20619064406016,
+        20619064410112,
+        20619064414208,
+        20618580788224,
+        20618580787712,
+        20619064418304,
+        20618583998976
+      ],
+      "tensor_GM_addresses": [
+        20618580865024,
+        20618294591488,
+        20618579804160,
+        20618577707520,
+        20618580788224,
+        20618580787712,
+        20619064336512
+      ],
+      "single_tensor_lists": [
+        24,
+        4294967296,
+        4294967295,
+        20618580865024,
+        24,
+        4294967296,
+        4294967295,
+        20618294591488,
+        24,
+        4294967296,
+        4294967295,
+        20618579804160,
+        24,
+        4294967296,
+        4294967295,
+        20618577707520,
+        24,
+        4294967296,
+        4294967295,
+        20619064336512
+      ]
+    },
+    {
+      "bridge_stage": "HostArgs:native",
+      "code": 0
+    },
+    {
+      "bridge_stage": "sync:raw_math",
+      "code": 0
+    },
+    {
+      "bridge_stage": "workspace_and_y_canary_guard",
+      "code": 0
+    },
+    {
+      "raw_launch_pointers": true,
+      "sparse": 1,
+      "args_API": "aclrtLaunchKernelWithHostArgs",
+      "GMM_bytes": 72,
+      "placeholder_count": 0,
+      "words": [
+        17514876633088,
+        20619064401920,
+        20619064406016,
+        20619064410112,
+        20619064414208,
+        20618580788224,
+        20618580787712,
+        20619064418304,
+        20618583998976
+      ],
+      "tensor_GM_addresses": [
+        20618580865024,
+        20618294591488,
+        20618579804160,
+        20618577707520,
+        20618580788224,
+        20618580787712,
+        20619064336512
+      ],
+      "single_tensor_lists": [
+        24,
+        4294967296,
+        4294967295,
+        20618580865024,
+        24,
+        4294967296,
+        4294967295,
+        20618294591488,
+        24,
+        4294967296,
+        4294967295,
+        20618579804160,
+        24,
+        4294967296,
+        4294967295,
+        20618577707520,
+        24,
+        4294967296,
+        4294967295,
+        20619064336512
+      ]
+    },
+    {
+      "bridge_stage": "HostArgs:planner_included",
+      "code": 0
+    },
+    {
+      "bridge_stage": "HostArgs:candidate",
+      "code": 0
+    },
+    {
+      "bridge_stage": "sync:raw_math",
+      "code": 0
+    },
+    {
+      "bridge_stage": "workspace_and_y_canary_guard",
+      "code": 0
+    },
+    {
+      "raw_launch_pointers": true,
+      "sparse": 0,
+      "args_API": "aclrtLaunchKernelWithHostArgs",
+      "GMM_bytes": 72,
+      "placeholder_count": 0,
+      "words": [
+        17514876633088,
+        20619064401920,
+        20619064406016,
+        20619064410112,
+        20619064414208,
+        20618580787712,
+        20618580803072,
+        20619064418304,
+        20618583998976
+      ],
+      "tensor_GM_addresses": [
+        20618580788736,
+        20618294591488,
+        20618579804160,
+        20618577707520,
+        20618580787712,
+        20618580803072,
+        20619064336512
+      ],
+      "single_tensor_lists": [
+        24,
+        4294967296,
+        4294967295,
+        20618580788736,
+        24,
+        4294967296,
+        4294967295,
+        20618294591488,
+        24,
+        4294967296,
+        4294967295,
+        20618579804160,
+        24,
+        4294967296,
+        4294967295,
+        20618577707520,
+        24,
+        4294967296,
+        4294967295,
+        20619064336512
+      ]
+    },
+    {
+      "bridge_stage": "HostArgs:native",
+      "code": 0
+    },
+    {
+      "bridge_stage": "sync:raw_math",
+      "code": 0
+    },
+    {
+      "bridge_stage": "workspace_and_y_canary_guard",
+      "code": 0
+    },
+    {
+      "raw_launch_pointers": true,
+      "sparse": 0,
+      "args_API": "aclrtLaunchKernelWithHostArgs",
+      "GMM_bytes": 72,
+      "placeholder_count": 0,
+      "words": [
+        17514876633088,
+        20619064401920,
+        20619064406016,
+        20619064410112,
+        20619064414208,
+        20618580787712,
+        20618580803072,
+        20619064418304,
+        20618583998976
+      ],
+      "tensor_GM_addresses": [
+        20618580788736,
+        20618294591488,
+        20618579804160,
+        20618577707520,
+        20618580787712,
+        20618580803072,
+        20619064336512
+      ],
+      "single_tensor_lists": [
+        24,
+        4294967296,
+        4294967295,
+        20618580788736,
+        24,
+        4294967296,
+        4294967295,
+        20618294591488,
+        24,
+        4294967296,
+        4294967295,
+        20618579804160,
+        24,
+        4294967296,
+        4294967295,
+        20618577707520,
+        24,
+        4294967296,
+        4294967295,
+        20619064336512
+      ]
+    },
+    {
+      "bridge_stage": "HostArgs:native",
+      "code": 0
+    },
+    {
+      "bridge_stage": "sync:raw_math",
+      "code": 0
+    },
+    {
+      "bridge_stage": "workspace_and_y_canary_guard",
+      "code": 0
+    },
+    {
+      "raw_launch_pointers": true,
+      "sparse": 1,
+      "args_API": "aclrtLaunchKernelWithHostArgs",
+      "GMM_bytes": 72,
+      "placeholder_count": 0,
+      "words": [
+        17514876633088,
+        20619064401920,
+        20619064406016,
+        20619064410112,
+        20619064414208,
+        20618580787712,
+        20618580803072,
+        20619064418304,
+        20618583998976
+      ],
+      "tensor_GM_addresses": [
+        20618580788736,
+        20618294591488,
+        20618579804160,
+        20618577707520,
+        20618580787712,
+        20618580803072,
+        20619064336512
+      ],
+      "single_tensor_lists": [
+        24,
+        4294967296,
+        4294967295,
+        20618580788736,
+        24,
+        4294967296,
+        4294967295,
+        20618294591488,
+        24,
+        4294967296,
+        4294967295,
+        20618579804160,
+        24,
+        4294967296,
+        4294967295,
+        20618577707520,
+        24,
+        4294967296,
+        4294967295,
+        20619064336512
+      ]
+    },
+    {
+      "bridge_stage": "HostArgs:planner_included",
+      "code": 0
+    },
+    {
+      "bridge_stage": "HostArgs:candidate",
+      "code": 0
+    },
+    {
+      "bridge_stage": "sync:raw_math",
+      "code": 0
+    },
+    {
+      "bridge_stage": "workspace_and_y_canary_guard",
+      "code": 0
+    },
+    {
+      "raw_launch_pointers": true,
+      "sparse": 0,
+      "args_API": "aclrtLaunchKernelWithHostArgs",
+      "GMM_bytes": 72,
+      "placeholder_count": 0,
+      "words": [
+        17514876633088,
+        20619064401920,
+        20619064406016,
+        20619064410112,
+        20619064414208,
+        20618580788736,
+        20618580788224,
+        20619064418304,
+        20618583998976
+      ],
+      "tensor_GM_addresses": [
+        20618580865536,
+        20618294591488,
+        20618579804160,
+        20618577707520,
+        20618580788736,
+        20618580788224,
+        20619064336512
+      ],
+      "single_tensor_lists": [
+        24,
+        4294967296,
+        4294967295,
+        20618580865536,
+        24,
+        4294967296,
+        4294967295,
+        20618294591488,
+        24,
+        4294967296,
+        4294967295,
+        20618579804160,
+        24,
+        4294967296,
+        4294967295,
+        20618577707520,
+        24,
+        4294967296,
+        4294967295,
+        20619064336512
+      ]
+    },
+    {
+      "bridge_stage": "HostArgs:native",
+      "code": 0
+    },
+    {
+      "bridge_stage": "sync:raw_math",
+      "code": 0
+    },
+    {
+      "bridge_stage": "workspace_and_y_canary_guard",
+      "code": 0
+    },
+    {
+      "raw_launch_pointers": true,
+      "sparse": 0,
+      "args_API": "aclrtLaunchKernelWithHostArgs",
+      "GMM_bytes": 72,
+      "placeholder_count": 0,
+      "words": [
+        17514876633088,
+        20619064401920,
+        20619064406016,
+        20619064410112,
+        20619064414208,
+        20618580788736,
+        20618580788224,
+        20619064418304,
+        20618583998976
+      ],
+      "tensor_GM_addresses": [
+        20618580865536,
+        20618294591488,
+        20618579804160,
+        20618577707520,
+        20618580788736,
+        20618580788224,
+        20619064336512
+      ],
+      "single_tensor_lists": [
+        24,
+        4294967296,
+        4294967295,
+        20618580865536,
+        24,
+        4294967296,
+        4294967295,
+        20618294591488,
+        24,
+        4294967296,
+        4294967295,
+        20618579804160,
+        24,
+        4294967296,
+        4294967295,
+        20618577707520,
+        24,
+        4294967296,
+        4294967295,
+        20619064336512
+      ]
+    },
+    {
+      "bridge_stage": "HostArgs:native",
+      "code": 0
+    },
+    {
+      "bridge_stage": "sync:raw_math",
+      "code": 0
+    },
+    {
+      "bridge_stage": "workspace_and_y_canary_guard",
+      "code": 0
+    },
+    {
+      "raw_launch_pointers": true,
+      "sparse": 1,
+      "args_API": "aclrtLaunchKernelWithHostArgs",
+      "GMM_bytes": 72,
+      "placeholder_count": 0,
+      "words": [
+        17514876633088,
+        20619064401920,
+        20619064406016,
+        20619064410112,
+        20619064414208,
+        20618580788736,
+        20618580788224,
+        20619064418304,
+        20618583998976
+      ],
+      "tensor_GM_addresses": [
+        20618580865536,
+        20618294591488,
+        20618579804160,
+        20618577707520,
+        20618580788736,
+        20618580788224,
+        20619064336512
+      ],
+      "single_tensor_lists": [
+        24,
+        4294967296,
+        4294967295,
+        20618580865536,
+        24,
+        4294967296,
+        4294967295,
+        20618294591488,
+        24,
+        4294967296,
+        4294967295,
+        20618579804160,
+        24,
+        4294967296,
+        4294967295,
+        20618577707520,
+        24,
+        4294967296,
+        4294967295,
+        20619064336512
+      ]
+    },
+    {
+      "bridge_stage": "HostArgs:planner_included",
+      "code": 0
+    },
+    {
+      "bridge_stage": "HostArgs:candidate",
+      "code": 0
+    },
+    {
+      "bridge_stage": "sync:raw_math",
+      "code": 0
+    },
+    {
+      "bridge_stage": "workspace_and_y_canary_guard",
+      "code": 0
+    },
+    {
+      "raw_launch_pointers": true,
+      "sparse": 0,
+      "args_API": "aclrtLaunchKernelWithHostArgs",
+      "GMM_bytes": 72,
+      "placeholder_count": 0,
+      "words": [
+        17514876633088,
+        20619064401920,
+        20619064406016,
+        20619064410112,
+        20619064414208,
+        20618580788224,
+        20618580787712,
+        20619064418304,
+        20618583998976
+      ],
+      "tensor_GM_addresses": [
+        20618580789248,
+        20618294591488,
+        20618579804160,
+        20618577707520,
+        20618580788224,
+        20618580787712,
+        20619064336512
+      ],
+      "single_tensor_lists": [
+        24,
+        4294967296,
+        4294967295,
+        20618580789248,
+        24,
+        4294967296,
+        4294967295,
+        20618294591488,
+        24,
+        4294967296,
+        4294967295,
+        20618579804160,
+        24,
+        4294967296,
+        4294967295,
+        20618577707520,
+        24,
+        4294967296,
+        4294967295,
+        20619064336512
+      ]
+    },
+    {
+      "bridge_stage": "HostArgs:native",
+      "code": 0
+    },
+    {
+      "bridge_stage": "sync:raw_math",
+      "code": 0
+    },
+    {
+      "bridge_stage": "workspace_and_y_canary_guard",
+      "code": 0
+    },
+    {
+      "raw_launch_pointers": true,
+      "sparse": 0,
+      "args_API": "aclrtLaunchKernelWithHostArgs",
+      "GMM_bytes": 72,
+      "placeholder_count": 0,
+      "words": [
+        17514876633088,
+        20619064401920,
+        20619064406016,
+        20619064410112,
+        20619064414208,
+        20618580788224,
+        20618580787712,
+        20619064418304,
+        20618583998976
+      ],
+      "tensor_GM_addresses": [
+        20618580789248,
+        20618294591488,
+        20618579804160,
+        20618577707520,
+        20618580788224,
+        20618580787712,
+        20619064336512
+      ],
+      "single_tensor_lists": [
+        24,
+        4294967296,
+        4294967295,
+        20618580789248,
+        24,
+        4294967296,
+        4294967295,
+        20618294591488,
+        24,
+        4294967296,
+        4294967295,
+        20618579804160,
+        24,
+        4294967296,
+        4294967295,
+        20618577707520,
+        24,
+        4294967296,
+        4294967295,
+        20619064336512
+      ]
+    },
+    {
+      "bridge_stage": "HostArgs:native",
+      "code": 0
+    },
+    {
+      "bridge_stage": "sync:raw_math",
+      "code": 0
+    },
+    {
+      "bridge_stage": "workspace_and_y_canary_guard",
+      "code": 0
+    },
+    {
+      "raw_launch_pointers": true,
+      "sparse": 1,
+      "args_API": "aclrtLaunchKernelWithHostArgs",
+      "GMM_bytes": 72,
+      "placeholder_count": 0,
+      "words": [
+        17514876633088,
+        20619064401920,
+        20619064406016,
+        20619064410112,
+        20619064414208,
+        20618580788224,
+        20618580787712,
+        20619064418304,
+        20618583998976
+      ],
+      "tensor_GM_addresses": [
+        20618580789248,
+        20618294591488,
+        20618579804160,
+        20618577707520,
+        20618580788224,
+        20618580787712,
+        20619064336512
+      ],
+      "single_tensor_lists": [
+        24,
+        4294967296,
+        4294967295,
+        20618580789248,
+        24,
+        4294967296,
+        4294967295,
+        20618294591488,
+        24,
+        4294967296,
+        4294967295,
+        20618579804160,
+        24,
+        4294967296,
+        4294967295,
+        20618577707520,
+        24,
+        4294967296,
+        4294967295,
+        20619064336512
+      ]
+    },
+    {
+      "bridge_stage": "HostArgs:planner_included",
+      "code": 0
+    },
+    {
+      "bridge_stage": "HostArgs:candidate",
+      "code": 0
+    },
+    {
+      "bridge_stage": "sync:raw_math",
+      "code": 0
+    },
+    {
+      "bridge_stage": "workspace_and_y_canary_guard",
+      "code": 0
+    },
+    {
+      "raw_launch_pointers": true,
+      "sparse": 0,
+      "args_API": "aclrtLaunchKernelWithHostArgs",
+      "GMM_bytes": 72,
+      "placeholder_count": 0,
+      "words": [
+        17514876633088,
+        20619064401920,
+        20619064406016,
+        20619064410112,
+        20619064414208,
+        20618580787712,
+        20618580788736,
+        20619064418304,
+        20618583998976
+      ],
+      "tensor_GM_addresses": [
+        20618580865536,
+        20618294591488,
+        20618579804160,
+        20618577707520,
+        20618580787712,
+        20618580788736,
+        20619064336512
+      ],
+      "single_tensor_lists": [
+        24,
+        4294967296,
+        4294967295,
+        20618580865536,
+        24,
+        4294967296,
+        4294967295,
+        20618294591488,
+        24,
+        4294967296,
+        4294967295,
+        20618579804160,
+        24,
+        4294967296,
+        4294967295,
+        20618577707520,
+        24,
+        4294967296,
+        4294967295,
+        20619064336512
+      ]
+    },
+    {
+      "bridge_stage": "HostArgs:native",
+      "code": 0
+    },
+    {
+      "bridge_stage": "sync:raw_math",
+      "code": 0
+    },
+    {
+      "bridge_stage": "workspace_and_y_canary_guard",
+      "code": 0
+    },
+    {
+      "raw_launch_pointers": true,
+      "sparse": 0,
+      "args_API": "aclrtLaunchKernelWithHostArgs",
+      "GMM_bytes": 72,
+      "placeholder_count": 0,
+      "words": [
+        17514876633088,
+        20619064401920,
+        20619064406016,
+        20619064410112,
+        20619064414208,
+        20618580787712,
+        20618580788736,
+        20619064418304,
+        20618583998976
+      ],
+      "tensor_GM_addresses": [
+        20618580865536,
+        20618294591488,
+        20618579804160,
+        20618577707520,
+        20618580787712,
+        20618580788736,
+        20619064336512
+      ],
+      "single_tensor_lists": [
+        24,
+        4294967296,
+        4294967295,
+        20618580865536,
+        24,
+        4294967296,
+        4294967295,
+        20618294591488,
+        24,
+        4294967296,
+        4294967295,
+        20618579804160,
+        24,
+        4294967296,
+        4294967295,
+        20618577707520,
+        24,
+        4294967296,
+        4294967295,
+        20619064336512
+      ]
+    },
+    {
+      "bridge_stage": "HostArgs:native",
+      "code": 0
+    },
+    {
+      "bridge_stage": "sync:raw_math",
+      "code": 0
+    },
+    {
+      "bridge_stage": "workspace_and_y_canary_guard",
+      "code": 0
+    },
+    {
+      "raw_launch_pointers": true,
+      "sparse": 1,
+      "args_API": "aclrtLaunchKernelWithHostArgs",
+      "GMM_bytes": 72,
+      "placeholder_count": 0,
+      "words": [
+        17514876633088,
+        20619064401920,
+        20619064406016,
+        20619064410112,
+        20619064414208,
+        20618580787712,
+        20618580788736,
+        20619064418304,
+        20618583998976
+      ],
+      "tensor_GM_addresses": [
+        20618580865536,
+        20618294591488,
+        20618579804160,
+        20618577707520,
+        20618580787712,
+        20618580788736,
+        20619064336512
+      ],
+      "single_tensor_lists": [
+        24,
+        4294967296,
+        4294967295,
+        20618580865536,
+        24,
+        4294967296,
+        4294967295,
+        20618294591488,
+        24,
+        4294967296,
+        4294967295,
+        20618579804160,
+        24,
+        4294967296,
+        4294967295,
+        20618577707520,
+        24,
+        4294967296,
+        4294967295,
+        20619064336512
+      ]
+    },
+    {
+      "bridge_stage": "HostArgs:planner_included",
+      "code": 0
+    },
+    {
+      "bridge_stage": "HostArgs:candidate",
+      "code": 0
+    },
+    {
+      "bridge_stage": "sync:raw_math",
+      "code": 0
+    },
+    {
+      "bridge_stage": "workspace_and_y_canary_guard",
+      "code": 0
+    },
+    {
+      "raw_launch_pointers": true,
+      "sparse": 0,
+      "args_API": "aclrtLaunchKernelWithHostArgs",
+      "GMM_bytes": 72,
+      "placeholder_count": 0,
+      "words": [
+        17514876633088,
+        20619064401920,
+        20619064406016,
+        20619064410112,
+        20619064414208,
+        20618580788736,
+        20618580788224,
+        20619064418304,
+        20618583998976
+      ],
+      "tensor_GM_addresses": [
+        20618580789248,
+        20618294591488,
+        20618579804160,
+        20618577707520,
+        20618580788736,
+        20618580788224,
+        20619064336512
+      ],
+      "single_tensor_lists": [
+        24,
+        4294967296,
+        4294967295,
+        20618580789248,
+        24,
+        4294967296,
+        4294967295,
+        20618294591488,
+        24,
+        4294967296,
+        4294967295,
+        20618579804160,
+        24,
+        4294967296,
+        4294967295,
+        20618577707520,
+        24,
+        4294967296,
+        4294967295,
+        20619064336512
+      ]
+    },
+    {
+      "bridge_stage": "HostArgs:native",
+      "code": 0
+    },
+    {
+      "bridge_stage": "sync:raw_math",
+      "code": 0
+    },
+    {
+      "bridge_stage": "workspace_and_y_canary_guard",
+      "code": 0
+    },
+    {
+      "raw_launch_pointers": true,
+      "sparse": 0,
+      "args_API": "aclrtLaunchKernelWithHostArgs",
+      "GMM_bytes": 72,
+      "placeholder_count": 0,
+      "words": [
+        17514876633088,
+        20619064401920,
+        20619064406016,
+        20619064410112,
+        20619064414208,
+        20618580788736,
+        20618580788224,
+        20619064418304,
+        20618583998976
+      ],
+      "tensor_GM_addresses": [
+        20618580789248,
+        20618294591488,
+        20618579804160,
+        20618577707520,
+        20618580788736,
+        20618580788224,
+        20619064336512
+      ],
+      "single_tensor_lists": [
+        24,
+        4294967296,
+        4294967295,
+        20618580789248,
+        24,
+        4294967296,
+        4294967295,
+        20618294591488,
+        24,
+        4294967296,
+        4294967295,
+        20618579804160,
+        24,
+        4294967296,
+        4294967295,
+        20618577707520,
+        24,
+        4294967296,
+        4294967295,
+        20619064336512
+      ]
+    },
+    {
+      "bridge_stage": "HostArgs:native",
+      "code": 0
+    },
+    {
+      "bridge_stage": "sync:raw_math",
+      "code": 0
+    },
+    {
+      "bridge_stage": "workspace_and_y_canary_guard",
+      "code": 0
+    },
+    {
+      "raw_launch_pointers": true,
+      "sparse": 1,
+      "args_API": "aclrtLaunchKernelWithHostArgs",
+      "GMM_bytes": 72,
+      "placeholder_count": 0,
+      "words": [
+        17514876633088,
+        20619064401920,
+        20619064406016,
+        20619064410112,
+        20619064414208,
+        20618580788736,
+        20618580788224,
+        20619064418304,
+        20618583998976
+      ],
+      "tensor_GM_addresses": [
+        20618580789248,
+        20618294591488,
+        20618579804160,
+        20618577707520,
+        20618580788736,
+        20618580788224,
+        20619064336512
+      ],
+      "single_tensor_lists": [
+        24,
+        4294967296,
+        4294967295,
+        20618580789248,
+        24,
+        4294967296,
+        4294967295,
+        20618294591488,
+        24,
+        4294967296,
+        4294967295,
+        20618579804160,
+        24,
+        4294967296,
+        4294967295,
+        20618577707520,
+        24,
+        4294967296,
+        4294967295,
+        20619064336512
+      ]
+    },
+    {
+      "bridge_stage": "HostArgs:planner_included",
+      "code": 0
+    },
+    {
+      "bridge_stage": "HostArgs:candidate",
+      "code": 0
+    },
+    {
+      "bridge_stage": "sync:raw_math",
+      "code": 0
+    },
+    {
+      "bridge_stage": "workspace_and_y_canary_guard",
+      "code": 0
+    },
+    {
+      "raw_launch_pointers": true,
+      "sparse": 0,
+      "args_API": "aclrtLaunchKernelWithHostArgs",
+      "GMM_bytes": 72,
+      "placeholder_count": 0,
+      "words": [
+        17514876633088,
+        20619064401920,
+        20619064406016,
+        20619064410112,
+        20619064414208,
+        20618580788224,
+        20618580787712,
+        20619064418304,
+        20618583998976
+      ],
+      "tensor_GM_addresses": [
+        20618580865536,
+        20618294591488,
+        20618579804160,
+        20618577707520,
+        20618580788224,
+        20618580787712,
+        20619064336512
+      ],
+      "single_tensor_lists": [
+        24,
+        4294967296,
+        4294967295,
+        20618580865536,
+        24,
+        4294967296,
+        4294967295,
+        20618294591488,
+        24,
+        4294967296,
+        4294967295,
+        20618579804160,
+        24,
+        4294967296,
+        4294967295,
+        20618577707520,
+        24,
+        4294967296,
+        4294967295,
+        20619064336512
+      ]
+    },
+    {
+      "bridge_stage": "HostArgs:native",
+      "code": 0
+    },
+    {
+      "bridge_stage": "sync:raw_math",
+      "code": 0
+    },
+    {
+      "bridge_stage": "workspace_and_y_canary_guard",
+      "code": 0
+    },
+    {
+      "raw_launch_pointers": true,
+      "sparse": 0,
+      "args_API": "aclrtLaunchKernelWithHostArgs",
+      "GMM_bytes": 72,
+      "placeholder_count": 0,
+      "words": [
+        17514876633088,
+        20619064401920,
+        20619064406016,
+        20619064410112,
+        20619064414208,
+        20618580788224,
+        20618580787712,
+        20619064418304,
+        20618583998976
+      ],
+      "tensor_GM_addresses": [
+        20618580865536,
+        20618294591488,
+        20618579804160,
+        20618577707520,
+        20618580788224,
+        20618580787712,
+        20619064336512
+      ],
+      "single_tensor_lists": [
+        24,
+        4294967296,
+        4294967295,
+        20618580865536,
+        24,
+        4294967296,
+        4294967295,
+        20618294591488,
+        24,
+        4294967296,
+        4294967295,
+        20618579804160,
+        24,
+        4294967296,
+        4294967295,
+        20618577707520,
+        24,
+        4294967296,
+        4294967295,
+        20619064336512
+      ]
+    },
+    {
+      "bridge_stage": "HostArgs:native",
+      "code": 0
+    },
+    {
+      "bridge_stage": "sync:raw_math",
+      "code": 0
+    },
+    {
+      "bridge_stage": "workspace_and_y_canary_guard",
+      "code": 0
+    },
+    {
+      "raw_launch_pointers": true,
+      "sparse": 1,
+      "args_API": "aclrtLaunchKernelWithHostArgs",
+      "GMM_bytes": 72,
+      "placeholder_count": 0,
+      "words": [
+        17514876633088,
+        20619064401920,
+        20619064406016,
+        20619064410112,
+        20619064414208,
+        20618580788224,
+        20618580787712,
+        20619064418304,
+        20618583998976
+      ],
+      "tensor_GM_addresses": [
+        20618580865536,
+        20618294591488,
+        20618579804160,
+        20618577707520,
+        20618580788224,
+        20618580787712,
+        20619064336512
+      ],
+      "single_tensor_lists": [
+        24,
+        4294967296,
+        4294967295,
+        20618580865536,
+        24,
+        4294967296,
+        4294967295,
+        20618294591488,
+        24,
+        4294967296,
+        4294967295,
+        20618579804160,
+        24,
+        4294967296,
+        4294967295,
+        20618577707520,
+        24,
+        4294967296,
+        4294967295,
+        20619064336512
+      ]
+    },
+    {
+      "bridge_stage": "HostArgs:planner_included",
+      "code": 0
+    },
+    {
+      "bridge_stage": "HostArgs:candidate",
+      "code": 0
+    },
+    {
+      "bridge_stage": "sync:raw_math",
+      "code": 0
+    },
+    {
+      "bridge_stage": "workspace_and_y_canary_guard",
+      "code": 0
+    },
+    {
+      "raw_launch_pointers": true,
+      "sparse": 0,
+      "args_API": "aclrtLaunchKernelWithHostArgs",
+      "GMM_bytes": 72,
+      "placeholder_count": 0,
+      "words": [
+        17514876633088,
+        20619064401920,
+        20619064406016,
+        20619064410112,
+        20619064414208,
+        20618580787712,
+        20618580803072,
+        20619064418304,
+        20618583998976
+      ],
+      "tensor_GM_addresses": [
+        20618580788736,
+        20618294591488,
+        20618579804160,
+        20618577707520,
+        20618580787712,
+        20618580803072,
+        20619064336512
+      ],
+      "single_tensor_lists": [
+        24,
+        4294967296,
+        4294967295,
+        20618580788736,
+        24,
+        4294967296,
+        4294967295,
+        20618294591488,
+        24,
+        4294967296,
+        4294967295,
+        20618579804160,
+        24,
+        4294967296,
+        4294967295,
+        20618577707520,
+        24,
+        4294967296,
+        4294967295,
+        20619064336512
+      ]
+    },
+    {
+      "bridge_stage": "HostArgs:native",
+      "code": 0
+    },
+    {
+      "bridge_stage": "sync:raw_math",
+      "code": 0
+    },
+    {
+      "bridge_stage": "workspace_and_y_canary_guard",
+      "code": 0
+    },
+    {
+      "raw_launch_pointers": true,
+      "sparse": 0,
+      "args_API": "aclrtLaunchKernelWithHostArgs",
+      "GMM_bytes": 72,
+      "placeholder_count": 0,
+      "words": [
+        17514876633088,
+        20619064401920,
+        20619064406016,
+        20619064410112,
+        20619064414208,
+        20618580787712,
+        20618580803072,
+        20619064418304,
+        20618583998976
+      ],
+      "tensor_GM_addresses": [
+        20618580788736,
+        20618294591488,
+        20618579804160,
+        20618577707520,
+        20618580787712,
+        20618580803072,
+        20619064336512
+      ],
+      "single_tensor_lists": [
+        24,
+        4294967296,
+        4294967295,
+        20618580788736,
+        24,
+        4294967296,
+        4294967295,
+        20618294591488,
+        24,
+        4294967296,
+        4294967295,
+        20618579804160,
+        24,
+        4294967296,
+        4294967295,
+        20618577707520,
+        24,
+        4294967296,
+        4294967295,
+        20619064336512
+      ]
+    },
+    {
+      "bridge_stage": "HostArgs:native",
+      "code": 0
+    },
+    {
+      "bridge_stage": "sync:raw_math",
+      "code": 0
+    },
+    {
+      "bridge_stage": "workspace_and_y_canary_guard",
+      "code": 0
+    },
+    {
+      "raw_launch_pointers": true,
+      "sparse": 1,
+      "args_API": "aclrtLaunchKernelWithHostArgs",
+      "GMM_bytes": 72,
+      "placeholder_count": 0,
+      "words": [
+        17514876633088,
+        20619064401920,
+        20619064406016,
+        20619064410112,
+        20619064414208,
+        20618580787712,
+        20618580803072,
+        20619064418304,
+        20618583998976
+      ],
+      "tensor_GM_addresses": [
+        20618580788736,
+        20618294591488,
+        20618579804160,
+        20618577707520,
+        20618580787712,
+        20618580803072,
+        20619064336512
+      ],
+      "single_tensor_lists": [
+        24,
+        4294967296,
+        4294967295,
+        20618580788736,
+        24,
+        4294967296,
+        4294967295,
+        20618294591488,
+        24,
+        4294967296,
+        4294967295,
+        20618579804160,
+        24,
+        4294967296,
+        4294967295,
+        20618577707520,
+        24,
+        4294967296,
+        4294967295,
+        20619064336512
+      ]
+    },
+    {
+      "bridge_stage": "HostArgs:planner_included",
+      "code": 0
+    },
+    {
+      "bridge_stage": "HostArgs:candidate",
+      "code": 0
+    },
+    {
+      "bridge_stage": "sync:raw_math",
+      "code": 0
+    },
+    {
+      "bridge_stage": "workspace_and_y_canary_guard",
+      "code": 0
+    },
+    {
+      "bridge_stage": "cleanup:single_tensor_list",
+      "code": 0
+    },
+    {
+      "bridge_stage": "cleanup:single_tensor_list",
+      "code": 0
+    },
+    {
+      "bridge_stage": "cleanup:single_tensor_list",
+      "code": 0
+    },
+    {
+      "bridge_stage": "cleanup:single_tensor_list",
+      "code": 0
+    },
+    {
+      "bridge_stage": "cleanup:single_tensor_list",
+      "code": 0
+    },
+    {
+      "bridge_stage": "cleanup:y",
+      "code": 0
+    },
+    {
+      "bridge_stage": "cleanup:workspace",
+      "code": 0
+    },
+    {
+      "bridge_stage": "cleanup:loader_v2_close",
+      "code": 0
+    },
+    {
+      "bridge_terminal": true,
+      "native_launch_attempts": 18,
+      "candidate_launch_attempts": 9,
+      "planner_launch_attempts": 9,
+      "live_binaries": 0,
+      "blob_bytes": 0,
+      "owner_retained": false,
+      "context_stream_owner": "Torch; released at this process exit",
+      "explicit_device_reset_calls": 0
+    }
+  ]
+}

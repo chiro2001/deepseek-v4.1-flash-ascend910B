@@ -1,3 +1,5 @@
+最新v39：正式原生profiling已exit0，8rank×10active真实设备完整步/6880HcPre核验通过，原始CSV已离线export且无新NPU初始化；采集态区间不报价。GMM v5原9case全maxULP0、raw AA bitwise、planner/canary/full seals通过，实际SDK9/raw18/candidate9/planner9，fresh释放6；之前控制差异逐位确认inplace MSD改x，v5只恢复probe输入生命周期。无M1性能/整网/K5外推。tiny派生dummy wo_a_3d从prefill正确到首decode相同ptr内容被改/2144非有限，继续定位覆盖源、无质量或性能admission。20ms/100/23/最优部署仍未完成，goal active。
+
 正式原生时间线诊断formal_dspark_native_profile_v1已在fresh8–15/80C98001门后启动；与通过AA的9源码SHA相同，2K/256、route/logprob审计关、profiler开，5真实decode warmup/10active×8rank，不能报价。GMM v4原SDK1/raw native1真实提交+sync完成，但原生对照5112/5120超1ULP（maxULP32253/maxabs1.009765625），candidate/planner0，已释放6转CPU原SDK/tiling/NZ/ABI对齐诊断。SDK7初始化失败0epoch/copy，已释放、所有消费者receipt仍false。
 
 正式最新：formal_dspark_native_eager_aa_v3已exit0，真实DSpark/K5/target FULL[6]/draft eager、完整40层/384top6/Engram/视觉/MTP3，3原生配对token/目标routes/Top5/logprob及真实round streams全delta0，8rank末轮device fence+CPU Gloo join/coreID闭环通过；8请求（2warmup+6计数）、48真实rounds、每rank54草稿调用。审计2K/47合并诊断(59.623209ms,A5.75,96.438956tok/s)，不是2K/256正式性能报价。完整43层/cache/rollback消费者门及GSM100/Vision23/20ms仍待，goal active。

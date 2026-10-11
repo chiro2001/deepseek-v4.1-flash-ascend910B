@@ -1,0 +1,43 @@
+# 正式 DSpark 时间线与稀疏 GMM 数值门
+
+2026-10-11 · 当前goal active：正式 TP8包含DSpark全部开销≤20ms/step，尚未达成。
+
+正式原生ON A/A此前已通过：完整40层/384top6/真实W4A8/Engram/视觉/MTP3，K5、target FULL[6]、draft eager、HCCL strict。三组token/目标route/Top5/logprob和实际草稿/验证流delta0，8rank的末轮device fence/CPU Gloo join/core ID闭环过。完整消费者和2K/256正式客户端质量/20ms门仍待。
+
+## 正式设备时间线已核验
+
+`formal_dspark_native_profile_v1` exit0。8rank各5个实际decode warmup、10个active步，在daemon之外离线导出，明确无新NPU初始化；每rank设备CSV的步骤5–14逐一通过40层target（80 HcPre）+3层MTP（6 HcPre）、3个draft attention reader、3个context及3个query cache writer检查。共80个rank步、6880个HcPre，原始CSV/trace留远端并保留SHA。
+
+空Step ID的边界kernel保留统计，只在全部已标记decode窗外且无HcPre/cache reader时排除；TP8 graph内HCCL行的OP State=N/A、仍有真实model ID，因此包含其通信包络，不把N/A误当缺失。离线分析脚本与采集源码分开，冻结20项推理文件SHA均不变。
+
+80个rank步合并的采集态区间中位值：
+
+| 设备步骤标签内区间 | 包络ms | kernel时间区间并集ms |
+| --- | ---: | ---: |
+| 主图前 | 16.124280 | 2.963990 |
+| target FULL图（含通信） | 23.188977 | 21.837357 |
+| 验证/草稿准备 | 1.586888 | 0.431992 |
+| draft context投影/cache | 7.883511 | 1.167799 |
+| draft body/logits | 14.151017 | 5.889992 |
+
+这些是开启profiler的区间/并集，不能作为关闭profiler的客户端报价或可回收预算，也不按阶段中位值简单求和。主图前/草稿logits的具体跨步骤提交、HCCL等待与CPU归属继续查证；下一项优化以真实消费者和同实例收益门为准。
+
+源码核验排除了“把5个独立lm_head改成一次batch”这一猜测：原base logits已一次计算B*K行。串行的是Markov链，后位置的embedding/bias依赖前位置argmax/采样token；confidence projection也已flatten B*K。不能破坏此依赖做K维并行或未经数值门做代数重排。
+
+## 稀疏 GMM 的真实数值门通过
+
+v5固定M1/capacity6、完整E48原W2 NZ/scale/assist、M6/K2304/N5120、counts48/type1，9个R1/R3/R6及expert0/47/混合/six-slot case全部通过。输入明确为synthetic activation，不能替代模型实际激活/路由/cache门。
+
+真实计数为SDK9、raw native18、candidate9、planner9，raw/candidate stream同步27；三种比较各case均maxULP0，raw原生A/A逐位。128B planner oracle、workspace/output双canary、unused rows、每次同GM输入恢复、36组全E48权重及完整scale/assist/counts/token seals均过。全部cleanup0、owner/blob0，physical6已fresh释放/HealthOK，无reset/清cache/重试。44.7MB大log留远端并记SHA，源码/完整小证据可复核。
+
+此前SDK→raw控制不一致的原因已逐位复现：ND MSD预处理会原地把INT8输入x转换成high/low INT4布局；probe复用被修改的x，导致重复预处理。独立CPU参考与冻结SDK5120输出逐位一致，重复处理与冻结raw5120输出也逐位一致。v5只修probe生命周期，每次原调用前在同GM地址恢复原x，不修改原kernel/17数学函数/tiling/HostArgs，也不放宽阈值。实际消费者snapshot必须在pack前完成独立device copy，Tensor version不能证明CANN内部GM未写。
+
+候选尚无planner在内的配对性能结果，未接正式模型，不覆盖K5多token verifier。下一独立CPU性能/几何准备保持该范围，实际NPU需fresh资源门及新明确分配。
+
+## tiny与实际消费者审计
+
+专属tiny仍是full40/8expert top2/BF16 dummy/无Engram。图提交已证明，但质量拒绝继续定位。最新实际MTP0 bad operand为派生`_dummy_wo_a_3d` [8,4096,512]：同请求prefill前与原native permutation逐位一致，首decode相同ptr/stride/format出现2144非有限值；原wo_a/wo_b不变且有限，attention输入/output及实际665读槽均有限。此为派生cache内容变更证据，尚未确定覆盖来源；未修写cache/参数或sanitize，仍无性能资格。
+
+ATen copy/epoch与CPU角色/source/参数绑定已冻结，实际17 hook/43层device导出尚未执行，所有device/alias/formal receipt=false。新的initialized-worker入口只借用正常初始化的当前context/stream、以实际runtime getters核对TP/physical映射；不自行set_device/init或重试p7。pre-GMM activation需要独立snapshot、epoch最后写入，权重seal与mutable输入/cache分开。
+
+所有阶段结果仍以(ms/step,A,tok/s)、clean-rate及原精度门为准。目标是包括initial/terminal已提交草稿在内的完整正式客户端20ms；A/A、profile、tiny与kernel数值通过均不能替代最终GSM100/100、Vision23/23、归属与20ms验收。

@@ -1,0 +1,312 @@
+{
+  "job": "formal_dspark_native_profile_v1",
+  "exit": 0,
+  "scope": "actual native full40 TP8 DSpark profile; diagnostic spans/unions only",
+  "actual_complete_steps": 80,
+  "actual_ranks": 8,
+  "target_hc_pre_per_step": 80,
+  "mtp_hc_pre_per_step": 6,
+  "total_hc_pre": 6880,
+  "actual_mtp_attention_readers_per_step": 3,
+  "context_cache_writes_per_step": 3,
+  "query_cache_writes_per_step": 3,
+  "phase_statistics_pooled_80_rank_steps": {
+    "pre_target": {
+      "median_span_ms": 16.12428,
+      "median_kernel_union_ms": 2.9639899999999617
+    },
+    "target_graph": {
+      "median_span_ms": 23.18897650000004,
+      "median_kernel_union_ms": 21.837357000000527
+    },
+    "verify_and_prepare": {
+      "median_span_ms": 1.5868880000000063,
+      "median_kernel_union_ms": 0.43199150000007647
+    },
+    "draft_context_projection_cache": {
+      "median_span_ms": 7.8835114999999645,
+      "median_kernel_union_ms": 1.1677994999997463
+    },
+    "draft_body_logits": {
+      "median_span_ms": 14.151017499999957,
+      "median_kernel_union_ms": 5.889992499999993
+    }
+  },
+  "formal_performance_claim": null,
+  "full_consumer_audit_passed": false,
+  "boundary_unlabelled_rows": {
+    "0": {
+      "count": 27,
+      "types": {
+        "hcom_allGather_": 1,
+        "Transpose": 1,
+        "GatherV2": 5,
+        "MatMulV2": 5,
+        "Add": 5,
+        "ArgMaxV2": 5,
+        "Cast": 5
+      },
+      "outside_all_labelled_decode_windows": true,
+      "model_layers_or_draft_cache_readers": 0
+    },
+    "1": {
+      "count": 38,
+      "types": {
+        "hcom_allReduce_": 1,
+        "HcPost": 1,
+        "Cast": 7,
+        "Mul": 1,
+        "ReduceSum": 1,
+        "IndexCheck": 1,
+        "Index": 1,
+        "RmsNorm": 1,
+        "MatMulV2": 6,
+        "hcom_allGather_": 2,
+        "Transpose": 1,
+        "GatherV2": 5,
+        "Add": 5,
+        "ArgMaxV2": 5
+      },
+      "outside_all_labelled_decode_windows": true,
+      "model_layers_or_draft_cache_readers": 0
+    },
+    "2": {
+      "count": 0,
+      "types": {},
+      "outside_all_labelled_decode_windows": true,
+      "model_layers_or_draft_cache_readers": 0
+    },
+    "3": {
+      "count": 38,
+      "types": {
+        "hcom_allReduce_": 1,
+        "HcPost": 1,
+        "Cast": 7,
+        "Mul": 1,
+        "ReduceSum": 1,
+        "IndexCheck": 1,
+        "Index": 1,
+        "RmsNorm": 1,
+        "MatMulV2": 6,
+        "hcom_allGather_": 2,
+        "Transpose": 1,
+        "GatherV2": 5,
+        "Add": 5,
+        "ArgMaxV2": 5
+      },
+      "outside_all_labelled_decode_windows": true,
+      "model_layers_or_draft_cache_readers": 0
+    },
+    "4": {
+      "count": 0,
+      "types": {},
+      "outside_all_labelled_decode_windows": true,
+      "model_layers_or_draft_cache_readers": 0
+    },
+    "5": {
+      "count": 38,
+      "types": {
+        "hcom_allReduce_": 1,
+        "HcPost": 1,
+        "Cast": 7,
+        "Mul": 1,
+        "ReduceSum": 1,
+        "IndexCheck": 1,
+        "Index": 1,
+        "RmsNorm": 1,
+        "MatMulV2": 6,
+        "hcom_allGather_": 2,
+        "Transpose": 1,
+        "GatherV2": 5,
+        "Add": 5,
+        "ArgMaxV2": 5
+      },
+      "outside_all_labelled_decode_windows": true,
+      "model_layers_or_draft_cache_readers": 0
+    },
+    "6": {
+      "count": 38,
+      "types": {
+        "hcom_allReduce_": 1,
+        "HcPost": 1,
+        "Cast": 7,
+        "Mul": 1,
+        "ReduceSum": 1,
+        "IndexCheck": 1,
+        "Index": 1,
+        "RmsNorm": 1,
+        "MatMulV2": 6,
+        "hcom_allGather_": 2,
+        "Transpose": 1,
+        "GatherV2": 5,
+        "Add": 5,
+        "ArgMaxV2": 5
+      },
+      "outside_all_labelled_decode_windows": true,
+      "model_layers_or_draft_cache_readers": 0
+    },
+    "7": {
+      "count": 27,
+      "types": {
+        "hcom_allGather_": 1,
+        "Transpose": 1,
+        "GatherV2": 5,
+        "MatMulV2": 5,
+        "Add": 5,
+        "ArgMaxV2": 5,
+        "Cast": 5
+      },
+      "outside_all_labelled_decode_windows": true,
+      "model_layers_or_draft_cache_readers": 0
+    }
+  },
+  "offline_no_npu_init": true,
+  "raw_timeline_sha256": "37ba26f70c7a55baea53f90340f580a3f47ed6ee3a9e7de20dfe1962b3681d31",
+  "raw_source_sha256": {
+    "0": {
+      "/work/results/formal_dspark_native_profile_v1/profile/dspark_rank0_1273693_20261011084446718_ascend_pt/ASCEND_PROFILER_OUTPUT/kernel_details.csv": {
+        "bytes": 9448475,
+        "sha256": "41f5deb73774f1f8d1b6a554f7625e6311c08585a7c3d0dbcfb67780f4f8158b"
+      },
+      "/work/results/formal_dspark_native_profile_v1/profile/dspark_rank0_1273693_20261011084446718_ascend_pt/ASCEND_PROFILER_OUTPUT/task_time.csv": {
+        "bytes": 5745642,
+        "sha256": "001d52c0fc45ba76c94fdd825301864129e39c6034a18d8702a2926f2d05f823"
+      },
+      "/work/results/formal_dspark_native_profile_v1/profile/dspark_rank0_1273693_20261011084446718_ascend_pt/ASCEND_PROFILER_OUTPUT/api_statistic.csv": {
+        "bytes": 7558,
+        "sha256": "9ea660b22c0300c7f127a70d5f88eadab0d209db9c6e3f6f28be0088864f0dd3"
+      },
+      "/work/results/formal_dspark_native_profile_v1/profile/dspark_rank0_1273693_20261011084446718_ascend_pt/ASCEND_PROFILER_OUTPUT/step_trace_time.csv": {
+        "bytes": 1221,
+        "sha256": "5ef7250b69bed3c24229ce5f15d14c0279c235dbb00bb5578a2fbbb4c9fb5747"
+      }
+    },
+    "1": {
+      "/work/results/formal_dspark_native_profile_v1/profile/dspark_rank1_1273712_20261011084446718_ascend_pt/ASCEND_PROFILER_OUTPUT/kernel_details.csv": {
+        "bytes": 9451391,
+        "sha256": "6fa570e8ffabf082e2965f29d4f25c984b4661390e9bd790ff1970a02cd08437"
+      },
+      "/work/results/formal_dspark_native_profile_v1/profile/dspark_rank1_1273712_20261011084446718_ascend_pt/ASCEND_PROFILER_OUTPUT/task_time.csv": {
+        "bytes": 5747397,
+        "sha256": "e2cbf864798a718b18d39dc7911e364b6ff66c976d66575d7b6636efe072215c"
+      },
+      "/work/results/formal_dspark_native_profile_v1/profile/dspark_rank1_1273712_20261011084446718_ascend_pt/ASCEND_PROFILER_OUTPUT/api_statistic.csv": {
+        "bytes": 7544,
+        "sha256": "b7c3f2143fc59943c3529786083ee4392626be6f5fca46c2cf7645a4e3c3e56a"
+      },
+      "/work/results/formal_dspark_native_profile_v1/profile/dspark_rank1_1273712_20261011084446718_ascend_pt/ASCEND_PROFILER_OUTPUT/step_trace_time.csv": {
+        "bytes": 1305,
+        "sha256": "7ce9d190dc162d5855b47508d734adc66184efc296c86c76624dfedb52d1d243"
+      }
+    },
+    "2": {
+      "/work/results/formal_dspark_native_profile_v1/profile/dspark_rank2_1273742_20261011084446718_ascend_pt/ASCEND_PROFILER_OUTPUT/kernel_details.csv": {
+        "bytes": 9467795,
+        "sha256": "5fb099e35bb5ef5f63ed74d4b1ff22847e7c1121766f07276c8258934aa75fdc"
+      },
+      "/work/results/formal_dspark_native_profile_v1/profile/dspark_rank2_1273742_20261011084446718_ascend_pt/ASCEND_PROFILER_OUTPUT/task_time.csv": {
+        "bytes": 5783049,
+        "sha256": "bd214c1fe569d07eaa06c8dba5072262c0b5ce9d46b44dabe36cd4f7099e6675"
+      },
+      "/work/results/formal_dspark_native_profile_v1/profile/dspark_rank2_1273742_20261011084446718_ascend_pt/ASCEND_PROFILER_OUTPUT/api_statistic.csv": {
+        "bytes": 7550,
+        "sha256": "4c3828fecf9221415577d1d4c62bfc87e459e31bd41b875923f7c7e4c473af2e"
+      },
+      "/work/results/formal_dspark_native_profile_v1/profile/dspark_rank2_1273742_20261011084446718_ascend_pt/ASCEND_PROFILER_OUTPUT/step_trace_time.csv": {
+        "bytes": 1281,
+        "sha256": "6f7f240efda0e6c956eed7056cd380999ffda6888db2c08e23d7c565217001e8"
+      }
+    },
+    "3": {
+      "/work/results/formal_dspark_native_profile_v1/profile/dspark_rank3_1273805_20261011084446718_ascend_pt/ASCEND_PROFILER_OUTPUT/kernel_details.csv": {
+        "bytes": 9480324,
+        "sha256": "1055d000cb94d236b463be72075be5ee65df503b14deb7e92bb09083677e7c90"
+      },
+      "/work/results/formal_dspark_native_profile_v1/profile/dspark_rank3_1273805_20261011084446718_ascend_pt/ASCEND_PROFILER_OUTPUT/task_time.csv": {
+        "bytes": 5789728,
+        "sha256": "b67d5be2c9ee6078fffe0f4f719d98149da5e4ff6d40e5ed03229af555b765a6"
+      },
+      "/work/results/formal_dspark_native_profile_v1/profile/dspark_rank3_1273805_20261011084446718_ascend_pt/ASCEND_PROFILER_OUTPUT/api_statistic.csv": {
+        "bytes": 7575,
+        "sha256": "33aac258a9d8e99f9ed6b07989968292f47b7cb47b068e798c97b3d3b67241c0"
+      },
+      "/work/results/formal_dspark_native_profile_v1/profile/dspark_rank3_1273805_20261011084446718_ascend_pt/ASCEND_PROFILER_OUTPUT/step_trace_time.csv": {
+        "bytes": 1304,
+        "sha256": "95ba532f8fe78bf4c174ab7293941b2a4011810bac15ced8276d29171e577ba1"
+      }
+    },
+    "4": {
+      "/work/results/formal_dspark_native_profile_v1/profile/dspark_rank4_1273851_20261011084446718_ascend_pt/ASCEND_PROFILER_OUTPUT/kernel_details.csv": {
+        "bytes": 9467976,
+        "sha256": "d021b823faedaed22be7caf6db46b3a7e4acfea8e8f8e5ea52f88e3f59167a06"
+      },
+      "/work/results/formal_dspark_native_profile_v1/profile/dspark_rank4_1273851_20261011084446718_ascend_pt/ASCEND_PROFILER_OUTPUT/task_time.csv": {
+        "bytes": 5783333,
+        "sha256": "1a94aeb4de5277a112c9a9f8d67db20d176902e417855c535a3755674d3fec38"
+      },
+      "/work/results/formal_dspark_native_profile_v1/profile/dspark_rank4_1273851_20261011084446718_ascend_pt/ASCEND_PROFILER_OUTPUT/api_statistic.csv": {
+        "bytes": 7547,
+        "sha256": "b9f482054be302e85f1905298f717642ea08cf848be50fd1190f131129db3600"
+      },
+      "/work/results/formal_dspark_native_profile_v1/profile/dspark_rank4_1273851_20261011084446718_ascend_pt/ASCEND_PROFILER_OUTPUT/step_trace_time.csv": {
+        "bytes": 1350,
+        "sha256": "38a169a0facf6b691437e064f9b095f7ef9353fa982160af73424486ae5facf6"
+      }
+    },
+    "5": {
+      "/work/results/formal_dspark_native_profile_v1/profile/dspark_rank5_1273897_20261011084446718_ascend_pt/ASCEND_PROFILER_OUTPUT/kernel_details.csv": {
+        "bytes": 9480573,
+        "sha256": "ac94903540d378a28999b646b1601e997fb7a7540ab7ae66b3d8adaffa03b10e"
+      },
+      "/work/results/formal_dspark_native_profile_v1/profile/dspark_rank5_1273897_20261011084446718_ascend_pt/ASCEND_PROFILER_OUTPUT/task_time.csv": {
+        "bytes": 5789819,
+        "sha256": "665e1440f7dc813b2ea234ce957f07a5db37c80744a44b72f89efb44b69e9715"
+      },
+      "/work/results/formal_dspark_native_profile_v1/profile/dspark_rank5_1273897_20261011084446718_ascend_pt/ASCEND_PROFILER_OUTPUT/api_statistic.csv": {
+        "bytes": 7560,
+        "sha256": "aef4a9b5d72fd27fd387430f1e4bca20016a62890d8d3277ca995e1f928e8d3f"
+      },
+      "/work/results/formal_dspark_native_profile_v1/profile/dspark_rank5_1273897_20261011084446718_ascend_pt/ASCEND_PROFILER_OUTPUT/step_trace_time.csv": {
+        "bytes": 1216,
+        "sha256": "b132721eb03d7cf3a20dd6ea58f16095193a7226299aaca5d50e62559f7c9c40"
+      }
+    },
+    "6": {
+      "/work/results/formal_dspark_native_profile_v1/profile/dspark_rank6_1273943_20261011084446718_ascend_pt/ASCEND_PROFILER_OUTPUT/kernel_details.csv": {
+        "bytes": 9479367,
+        "sha256": "8a74e56b3f62544b493d70da3fe102a60bed5ef4c64a8a75b199a52ca0bb7d2a"
+      },
+      "/work/results/formal_dspark_native_profile_v1/profile/dspark_rank6_1273943_20261011084446718_ascend_pt/ASCEND_PROFILER_OUTPUT/task_time.csv": {
+        "bytes": 5789825,
+        "sha256": "b6b034e41e26c6c32c4de15d95e5ff7bad50bd53fcafeb58dd432f9f38759740"
+      },
+      "/work/results/formal_dspark_native_profile_v1/profile/dspark_rank6_1273943_20261011084446718_ascend_pt/ASCEND_PROFILER_OUTPUT/api_statistic.csv": {
+        "bytes": 7544,
+        "sha256": "18513a9ed84e4d03509f85ad7ddbc241f7cb45d9d01f4562572a14816c4dac6a"
+      },
+      "/work/results/formal_dspark_native_profile_v1/profile/dspark_rank6_1273943_20261011084446718_ascend_pt/ASCEND_PROFILER_OUTPUT/step_trace_time.csv": {
+        "bytes": 1285,
+        "sha256": "02f55828ade32af4aa8e4fcaa661067a133aa3b7302a7b80ec1d01625623fa94"
+      }
+    },
+    "7": {
+      "/work/results/formal_dspark_native_profile_v1/profile/dspark_rank7_1273989_20261011084446719_ascend_pt/ASCEND_PROFILER_OUTPUT/kernel_details.csv": {
+        "bytes": 9476817,
+        "sha256": "3f2f5b313b9493db7f02e03de86be9aafa6f8acd604cdbe9576002671dc7c58e"
+      },
+      "/work/results/formal_dspark_native_profile_v1/profile/dspark_rank7_1273989_20261011084446719_ascend_pt/ASCEND_PROFILER_OUTPUT/task_time.csv": {
+        "bytes": 5788072,
+        "sha256": "eb508641cee0c9d947520f17068eb0fc6cd30114bca698dcce1eb5be4ddf6198"
+      },
+      "/work/results/formal_dspark_native_profile_v1/profile/dspark_rank7_1273989_20261011084446719_ascend_pt/ASCEND_PROFILER_OUTPUT/api_statistic.csv": {
+        "bytes": 7560,
+        "sha256": "22afa643838cdc4a0ddec08ec0a74a98c9bcbc11b4bb556f9bddd2be479fe6c5"
+      },
+      "/work/results/formal_dspark_native_profile_v1/profile/dspark_rank7_1273989_20261011084446719_ascend_pt/ASCEND_PROFILER_OUTPUT/step_trace_time.csv": {
+        "bytes": 1272,
+        "sha256": "aa297abfb2224e12681f3309c1932e5b55662a1976ebaf024a85a145c58783fe"
+      }
+    }
+  },
+  "parser_sha256": "96356ac4fca03958dad1165019293be737d4d44b16d3358e021fed30f03defef"
+}

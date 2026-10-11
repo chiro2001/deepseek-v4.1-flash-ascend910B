@@ -1,0 +1,80 @@
+--- m1_numeric_v4/runtime_numeric.py
++++ m1_numeric_v5/runtime_numeric.py
+@@ -12,7 +12,7 @@
+ from numeric_contract import cases, activation, array_sha, array_stats, oracle, bf16_stats, compare_bf16
+ from weights_cpu import load_weights, nz_expert_bytes
+ 
+-ROOT = Path('/work/gmm_lane_sparse_msd_m1_numeric_p6_20261011_v4')
++ROOT = Path('/work/gmm_lane_sparse_msd_m1_numeric_p6_20261011_v5')
+ FROZEN = Path('/work/gmm_lane_sparse_msd_build_20261011_v3_repro')
+ V2 = Path('/work/gmm_lane_sparse_msd_runtime_loader_v2_cpu_20261011')
+ V3 = Path('/work/gmm_lane_sparse_msd_launch_args_v3_cpu_20261011')
+@@ -177,7 +177,48 @@
+                                           'scale': scale.data_ptr(), 'counts': counts.data_ptr(), 'token_scale': token.data_ptr()},
+                      'borrowed_stream': int(stream.npu_stream)}
+             current_entry = entry
++            lifecycle = []; entry['x_input_lifecycle'] = lifecycle
++            same_x_ptr = x.data_ptr()
++            def capture_x(stage, restored=False):
++                host = ctypes.create_string_buffer(cpu_x.nbytes)
++                checked('D2H:x:' + stage, lib.m1_probe_read(x.data_ptr(), host, cpu_x.nbytes))
++                actual = np.frombuffer(host.raw, dtype=np.int8).reshape(6, 2304).copy()
++                item = {'stage': stage, 'GM_ptr': x.data_ptr(), 'same_original_GM_ptr': x.data_ptr() == same_x_ptr,
++                        'full_capacity_sha256': array_sha(actual), 'valid_rows_sha256': array_sha(actual[:rows]),
++                        'unused_rows_sha256': array_sha(actual[rows:]), 'valid_rows': rows, 'unused_rows': 6 - rows,
++                        'valid_stats': array_stats(actual[:rows]),
++                        'full_capacity_original_byte_exact': bool(np.array_equal(actual, cpu_x)),
++                        'unused_original_byte_exact': bool(np.array_equal(actual[rows:], cpu_x[rows:]))}
++                assert item['same_original_GM_ptr'] and item['unused_original_byte_exact']
++                if restored: assert item['full_capacity_original_byte_exact']
++                lifecycle.append(item); emit({'x_lifecycle': item})
++                (ROOT / (name + '_input_lifecycle.json')).write_text(json.dumps(lifecycle, indent=2) + '\n')
++            def restore_x(stage):
++                x.copy_(torch.from_numpy(cpu_x))
++                torch.npu.synchronize()
++                capture_x(stage + ':before_original_restored', restored=True)
++            readonly_seals = []; entry['readonly_parameter_seals_after_each_call'] = readonly_seals
++            def seal_readonly(stage):
++                full = hashlib.sha256()
++                expert_bytes = 2304 * 5120 // 2
++                for expert in range(48):
++                    host = ctypes.create_string_buffer(expert_bytes)
++                    checked('D2H:readonly_weight_expert', lib.m1_probe_read(weight.data_ptr() + expert * expert_bytes, host, expert_bytes))
++                    full.update(host.raw)
++                record = {'stage': stage, 'all_E48_weight_sha256': full.hexdigest(), 'sha256': {}}
++                assert record['all_E48_weight_sha256'] == expected['processed']['expected_physical_NZ']['sha256']
++                for label, tensor, size, target_sha in [
++                        ('scale', scale, expected['processed']['scale']['bytes'], expected['processed']['scale']['sha256']),
++                        ('assist', assist, expected['processed']['assist']['bytes'], expected['processed']['assist']['sha256']),
++                        ('counts', counts, cpu_counts.nbytes, array_sha(cpu_counts)),
++                        ('token_scale', token, cpu_token.nbytes, array_sha(cpu_token))]:
++                    host = ctypes.create_string_buffer(size)
++                    checked('D2H:readonly_' + label, lib.m1_probe_read(tensor.data_ptr(), host, size))
++                    record['sha256'][label] = hashlib.sha256(host.raw).hexdigest()
++                    assert record['sha256'][label] == target_sha
++                readonly_seals.append(record); emit({'readonly_parameter_seal': record})
+             emit({'begin_case': entry})
++            restore_x('SDK_native')
+             sdk_attempts += 1
+             reference = torch_npu.npu_grouped_matmul(
+                 x=[x], weight=[weight], scale=[scale], bias=[assist], per_token_scale=[token],
+@@ -190,14 +231,19 @@
+             entry['SDK_output'] = bf16_stats(ref_bits[:rows])
+             assert entry['SDK_output']['finite']
+             ref_bits.tofile(ROOT / f'{name}_sdk_native.bf16.bin')
++            capture_x('SDK_native:after_sync')
++            seal_readonly('SDK_native:after_sync')
+             outputs = []
+             for label, sparse in [('raw_native_A1', 0), ('raw_native_A2', 0), ('candidate', 1)]:
+                 bits = np.empty((6, 5120), dtype=np.uint16); frame = np.zeros(32, dtype=np.uint32)
+                 if sparse: candidate_attempts += 1; planner_attempts += 1
+                 else: native_attempts += 1
++                restore_x(label)
+                 checked(label, lib.m1_probe_run(owner, x.data_ptr(), weight.data_ptr(), assist.data_ptr(),
+                         scale.data_ptr(), counts.data_ptr(), token.data_ptr(), sparse,
+                         bits.ctypes.data, frame.ctypes.data))
++                capture_x(label + ':after_sync')
++                seal_readonly(label + ':after_sync')
+                 bits.tofile(ROOT / f'{name}_{label}.bf16.bin')
+                 entry[label + '_output'] = bf16_stats(bits[:rows])
+                 assert entry[label + '_output']['finite']
