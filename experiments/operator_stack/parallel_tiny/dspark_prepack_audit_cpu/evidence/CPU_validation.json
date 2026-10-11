@@ -1,0 +1,357 @@
+{
+  "CPU_only": true,
+  "CPU_torch_version": "2.10.0+cpu",
+  "CPU_mock_native_consumers": true,
+  "tests": 16,
+  "passed": true,
+  "failures": 0,
+  "errors": 0,
+  "negative_cases": [
+    "reusing_packed_x_without_restore",
+    "restore_without_prior_fence",
+    "wrong_x_shape",
+    "wrong_x_dtype",
+    "wrong_x_format",
+    "wrong_counts_shape",
+    "wrong_counts_dtype",
+    "foreign_layer",
+    "replaced_weight",
+    "changed_weight_version",
+    "changed_weight_format",
+    "EPLB",
+    "LoRA",
+    "replaced_nested_actual_scheme_owner",
+    "snapshot_buffer_aliases_original_x",
+    "missing_snapshot_output_field",
+    "wrong_snapshot_marker_dtype",
+    "two_mutable_snapshot_fields_alias",
+    "new_epoch_label_without_producer_is_not_raw_refeed",
+    "refeed_another_carrier_not_same_original_GM",
+    "after_pack_clone_cannot_register_before_pack_snapshot",
+    "unchanged_version_cannot_rearm_consumed_raw_GM",
+    "wrong_topk",
+    "wrong_local_E",
+    "wrong_global_E",
+    "wrong_EP",
+    "wrong_layer",
+    "wrong_ffn_partition",
+    "main_cannot_be_global40_draft_owner",
+    "foreign_quant_layer_with_same_shapes",
+    "old_K2304_cannot_override_loaded_draft_FFN",
+    "profiler47",
+    "zero_stream",
+    "no_stream_source",
+    "SITU_is_another_consumer_path",
+    "wrong_actual_schema_gmm1",
+    "wrong_actual_schema_gmm2",
+    "missing_actual_selected_schema",
+    "lease_role",
+    "lease_layer",
+    "lease_stage"
+  ],
+  "negative_case_count": 41,
+  "positive_role_stage_cases": [
+    {
+      "CPU_mock": true,
+      "role": "main",
+      "stage": "gmm1",
+      "M": 36,
+      "K": 5120,
+      "original_GM_same": true,
+      "fixed_raw_before_pack_equal": true,
+      "raw_pointer_write_mutated_x": false,
+      "ATen_version_unchanged": true,
+      "pack_target_source": {
+        "kind": "workspace_doublebank",
+        "sources": {
+          "gmm1_pre": {
+            "path": "/vllm-workspace/vllm-ascend/vllm_ascend/_cann_ops_custom/vendors/custom_transformer/op_impl/ai_core/tbe/custom_transformer_impl/ascendc/grouped_matmul_swiglu_quant_v2/grouped_matmul_swiglu_quant_v2_a8w4_msd_pre.h",
+            "sha256": "b87eda2542700e1800412f9775360552b5c6ae6e38e2afcbd77da677d60f8332"
+          },
+          "gmm1_pipeline": {
+            "path": "/vllm-workspace/vllm-ascend/vllm_ascend/_cann_ops_custom/vendors/custom_transformer/op_impl/ai_core/tbe/custom_transformer_impl/ascendc/grouped_matmul_swiglu_quant_v2/grouped_matmul_swiglu_quant_v2_a8w4_msd_pipeline.h",
+            "sha256": "e7398287dcc06dd2a70d7c658cd4b3839367f32f34a9c6a5a6f68a8bf0077ae9"
+          },
+          "gmm1_torch": {
+            "path": "/vllm-workspace/vllm-ascend/csrc/gmm/grouped_matmul_swiglu_quant_v2/grouped_matmul_swiglu_quant_v2_torch_adpt.h",
+            "sha256": "8cafbcddde2c63306d0d962cafda8f9e37917422b4c076189db0ebb385722ce5"
+          },
+          "native_stream_and_GM": {
+            "path": "/vllm-workspace/vllm-ascend/csrc/aclnn_torch_adapter/op_api_common.h",
+            "sha256": "0d0dc34a02151b72fc8e50000fd1c2db948fbe8a4090c5c6eaae8dc229e12cbb"
+          }
+        },
+        "actual_workspace_GM_observed": false,
+        "actual_selected_kernel_or_tiling_observed": false,
+        "actual_pack_target_binding_requires_device_job": true,
+        "actual_prepack_consumer_order_validated": false,
+        "actual_device_consumer_proof": false,
+        "device_audit_passed": false,
+        "full_consumer_audit_passed": false,
+        "safe_formal_receipt": false,
+        "formal_model_validated": false,
+        "performance_receipt_granted": false,
+        "performance_benefit_observed": false
+      },
+      "actual_prepack_consumer_order_validated": false,
+      "actual_device_consumer_proof": false,
+      "device_audit_passed": false,
+      "full_consumer_audit_passed": false,
+      "safe_formal_receipt": false,
+      "formal_model_validated": false,
+      "performance_receipt_granted": false,
+      "performance_benefit_observed": false
+    },
+    {
+      "CPU_mock": true,
+      "role": "main",
+      "stage": "gmm2",
+      "M": 36,
+      "K": 2304,
+      "original_GM_same": true,
+      "fixed_raw_before_pack_equal": true,
+      "raw_pointer_write_mutated_x": true,
+      "ATen_version_unchanged": true,
+      "pack_target_source": {
+        "kind": "ND_original_x_GM_alias",
+        "sources": {
+          "gmm2_pre": {
+            "path": "/usr/local/Ascend/cann-9.1.0/opp/built-in/op_impl/ai_core/tbe/impl/ops_transformer/ascendc/grouped_matmul/grouped_matmul_antiquant_a8w4_msd_pre.h",
+            "sha256": "606b515bc5df715f9c049834df81e0e77d9ea9c27a9d8713c1b4cac11d075800"
+          },
+          "gmm2_kernel_selector": {
+            "path": "/usr/local/Ascend/cann-9.1.0/opp/built-in/op_impl/ai_core/tbe/impl/ops_transformer/ascendc/grouped_matmul/grouped_matmul.cpp",
+            "sha256": "f4ec1b62fe060211c7e7dee9e96fa740b9a19a4798e5d0c013b6d5a2e9837a7c"
+          }
+        },
+        "actual_workspace_GM_observed": false,
+        "actual_selected_kernel_or_tiling_observed": false,
+        "actual_pack_target_binding_requires_device_job": true,
+        "actual_prepack_consumer_order_validated": false,
+        "actual_device_consumer_proof": false,
+        "device_audit_passed": false,
+        "full_consumer_audit_passed": false,
+        "safe_formal_receipt": false,
+        "formal_model_validated": false,
+        "performance_receipt_granted": false,
+        "performance_benefit_observed": false
+      },
+      "actual_prepack_consumer_order_validated": false,
+      "actual_device_consumer_proof": false,
+      "device_audit_passed": false,
+      "full_consumer_audit_passed": false,
+      "safe_formal_receipt": false,
+      "formal_model_validated": false,
+      "performance_receipt_granted": false,
+      "performance_benefit_observed": false
+    },
+    {
+      "CPU_mock": true,
+      "role": "draft",
+      "stage": "gmm1",
+      "M": 15,
+      "K": 5120,
+      "original_GM_same": true,
+      "fixed_raw_before_pack_equal": true,
+      "raw_pointer_write_mutated_x": false,
+      "ATen_version_unchanged": true,
+      "pack_target_source": {
+        "kind": "workspace_doublebank",
+        "sources": {
+          "gmm1_pre": {
+            "path": "/vllm-workspace/vllm-ascend/vllm_ascend/_cann_ops_custom/vendors/custom_transformer/op_impl/ai_core/tbe/custom_transformer_impl/ascendc/grouped_matmul_swiglu_quant_v2/grouped_matmul_swiglu_quant_v2_a8w4_msd_pre.h",
+            "sha256": "b87eda2542700e1800412f9775360552b5c6ae6e38e2afcbd77da677d60f8332"
+          },
+          "gmm1_pipeline": {
+            "path": "/vllm-workspace/vllm-ascend/vllm_ascend/_cann_ops_custom/vendors/custom_transformer/op_impl/ai_core/tbe/custom_transformer_impl/ascendc/grouped_matmul_swiglu_quant_v2/grouped_matmul_swiglu_quant_v2_a8w4_msd_pipeline.h",
+            "sha256": "e7398287dcc06dd2a70d7c658cd4b3839367f32f34a9c6a5a6f68a8bf0077ae9"
+          },
+          "gmm1_torch": {
+            "path": "/vllm-workspace/vllm-ascend/csrc/gmm/grouped_matmul_swiglu_quant_v2/grouped_matmul_swiglu_quant_v2_torch_adpt.h",
+            "sha256": "8cafbcddde2c63306d0d962cafda8f9e37917422b4c076189db0ebb385722ce5"
+          },
+          "native_stream_and_GM": {
+            "path": "/vllm-workspace/vllm-ascend/csrc/aclnn_torch_adapter/op_api_common.h",
+            "sha256": "0d0dc34a02151b72fc8e50000fd1c2db948fbe8a4090c5c6eaae8dc229e12cbb"
+          }
+        },
+        "actual_workspace_GM_observed": false,
+        "actual_selected_kernel_or_tiling_observed": false,
+        "actual_pack_target_binding_requires_device_job": true,
+        "actual_prepack_consumer_order_validated": false,
+        "actual_device_consumer_proof": false,
+        "device_audit_passed": false,
+        "full_consumer_audit_passed": false,
+        "safe_formal_receipt": false,
+        "formal_model_validated": false,
+        "performance_receipt_granted": false,
+        "performance_benefit_observed": false
+      },
+      "actual_prepack_consumer_order_validated": false,
+      "actual_device_consumer_proof": false,
+      "device_audit_passed": false,
+      "full_consumer_audit_passed": false,
+      "safe_formal_receipt": false,
+      "formal_model_validated": false,
+      "performance_receipt_granted": false,
+      "performance_benefit_observed": false
+    },
+    {
+      "CPU_mock": true,
+      "role": "draft",
+      "stage": "gmm2",
+      "M": 15,
+      "K": 2304,
+      "original_GM_same": true,
+      "fixed_raw_before_pack_equal": true,
+      "raw_pointer_write_mutated_x": true,
+      "ATen_version_unchanged": true,
+      "pack_target_source": {
+        "kind": "ND_original_x_GM_alias",
+        "sources": {
+          "gmm2_pre": {
+            "path": "/usr/local/Ascend/cann-9.1.0/opp/built-in/op_impl/ai_core/tbe/impl/ops_transformer/ascendc/grouped_matmul/grouped_matmul_antiquant_a8w4_msd_pre.h",
+            "sha256": "606b515bc5df715f9c049834df81e0e77d9ea9c27a9d8713c1b4cac11d075800"
+          },
+          "gmm2_kernel_selector": {
+            "path": "/usr/local/Ascend/cann-9.1.0/opp/built-in/op_impl/ai_core/tbe/impl/ops_transformer/ascendc/grouped_matmul/grouped_matmul.cpp",
+            "sha256": "f4ec1b62fe060211c7e7dee9e96fa740b9a19a4798e5d0c013b6d5a2e9837a7c"
+          }
+        },
+        "actual_workspace_GM_observed": false,
+        "actual_selected_kernel_or_tiling_observed": false,
+        "actual_pack_target_binding_requires_device_job": true,
+        "actual_prepack_consumer_order_validated": false,
+        "actual_device_consumer_proof": false,
+        "device_audit_passed": false,
+        "full_consumer_audit_passed": false,
+        "safe_formal_receipt": false,
+        "formal_model_validated": false,
+        "performance_receipt_granted": false,
+        "performance_benefit_observed": false
+      },
+      "actual_prepack_consumer_order_validated": false,
+      "actual_device_consumer_proof": false,
+      "device_audit_passed": false,
+      "full_consumer_audit_passed": false,
+      "safe_formal_receipt": false,
+      "formal_model_validated": false,
+      "performance_receipt_granted": false,
+      "performance_benefit_observed": false
+    }
+  ],
+  "pure_Tensor_entry_CPU_cases": [
+    {
+      "role": "main",
+      "private_source_only": true,
+      "stage": "gmm1",
+      "original_function_sha256": "f9c4b4aa13b87f6e89e34af0a9ab3ac2fe3a2f44999bad73d030993874e899a8",
+      "private_AST_sha256": "e4448f180388e3fd13ec1f6ca8f30aa3c4956e419c5bdb592a72d0dd408897b9",
+      "original_native_call_AST_byte_equal": true,
+      "six_explicit_snapshot_tensor_outputs": true,
+      "actual_graph_captured": false,
+      "actual_device_order_validated": false,
+      "graph_compiler_must_not_drop_or_reorder_snapshot": true,
+      "actual_prepack_consumer_order_validated": false,
+      "actual_device_consumer_proof": false,
+      "device_audit_passed": false,
+      "full_consumer_audit_passed": false,
+      "safe_formal_receipt": false,
+      "formal_model_validated": false,
+      "performance_receipt_granted": false,
+      "performance_benefit_observed": false,
+      "CPU_mock_execution_passed": true
+    },
+    {
+      "role": "main",
+      "private_source_only": true,
+      "stage": "gmm2",
+      "original_function_sha256": "139467bcb96201aed166a2d42764b1310164c6dbe57133ddfa8af1170202a48f",
+      "private_AST_sha256": "9689225ae739b730b5894a4c48fa54ccc4a6a66f35c6d38a3776fe7dfd8543d9",
+      "original_native_call_AST_byte_equal": true,
+      "six_explicit_snapshot_tensor_outputs": true,
+      "actual_graph_captured": false,
+      "actual_device_order_validated": false,
+      "graph_compiler_must_not_drop_or_reorder_snapshot": true,
+      "actual_prepack_consumer_order_validated": false,
+      "actual_device_consumer_proof": false,
+      "device_audit_passed": false,
+      "full_consumer_audit_passed": false,
+      "safe_formal_receipt": false,
+      "formal_model_validated": false,
+      "performance_receipt_granted": false,
+      "performance_benefit_observed": false,
+      "CPU_mock_execution_passed": true
+    },
+    {
+      "role": "draft",
+      "private_source_only": true,
+      "stage": "gmm1",
+      "original_function_sha256": "f9c4b4aa13b87f6e89e34af0a9ab3ac2fe3a2f44999bad73d030993874e899a8",
+      "private_AST_sha256": "e4448f180388e3fd13ec1f6ca8f30aa3c4956e419c5bdb592a72d0dd408897b9",
+      "original_native_call_AST_byte_equal": true,
+      "six_explicit_snapshot_tensor_outputs": true,
+      "actual_graph_captured": false,
+      "actual_device_order_validated": false,
+      "graph_compiler_must_not_drop_or_reorder_snapshot": true,
+      "actual_prepack_consumer_order_validated": false,
+      "actual_device_consumer_proof": false,
+      "device_audit_passed": false,
+      "full_consumer_audit_passed": false,
+      "safe_formal_receipt": false,
+      "formal_model_validated": false,
+      "performance_receipt_granted": false,
+      "performance_benefit_observed": false,
+      "CPU_mock_execution_passed": true
+    },
+    {
+      "role": "draft",
+      "private_source_only": true,
+      "stage": "gmm2",
+      "original_function_sha256": "139467bcb96201aed166a2d42764b1310164c6dbe57133ddfa8af1170202a48f",
+      "private_AST_sha256": "9689225ae739b730b5894a4c48fa54ccc4a6a66f35c6d38a3776fe7dfd8543d9",
+      "original_native_call_AST_byte_equal": true,
+      "six_explicit_snapshot_tensor_outputs": true,
+      "actual_graph_captured": false,
+      "actual_device_order_validated": false,
+      "graph_compiler_must_not_drop_or_reorder_snapshot": true,
+      "actual_prepack_consumer_order_validated": false,
+      "actual_device_consumer_proof": false,
+      "device_audit_passed": false,
+      "full_consumer_audit_passed": false,
+      "safe_formal_receipt": false,
+      "formal_model_validated": false,
+      "performance_receipt_granted": false,
+      "performance_benefit_observed": false,
+      "CPU_mock_execution_passed": true
+    }
+  ],
+  "actual_NPU_calls": 0,
+  "actual_HTTP_inference_requests": 0,
+  "services_started": 0,
+  "NPU_SDK_modules_imported": [],
+  "NPU_runtime_libraries_mapped": [],
+  "backend_autoload": "0",
+  "device_visibility": {
+    "ASCEND_RT_VISIBLE_DEVICES": "",
+    "ASCEND_VISIBLE_DEVICES": "",
+    "CUDA_VISIBLE_DEVICES": "",
+    "HIP_VISIBLE_DEVICES": ""
+  },
+  "actual_claims": {
+    "actual_prepack_consumer_order_validated": false,
+    "actual_device_consumer_proof": false,
+    "device_audit_passed": false,
+    "full_consumer_audit_passed": false,
+    "safe_formal_receipt": false,
+    "formal_model_validated": false,
+    "performance_receipt_granted": false,
+    "performance_benefit_observed": false
+  },
+  "limitations": [
+    "All GMM/quant/workspace/stream callbacks are explicit CPU fakes; no native math or model executed.",
+    "Pure Tensor source order is not actual compiled/device copy-before-prepack proof.",
+    "GMM1 actual workspace addresses and GMM2 actual selected tiling/kernel still require a device audit job.",
+    "Host raw lifecycle/provenance needs actual producer/device epoch evidence per replay; _version is never that evidence."
+  ]
+}

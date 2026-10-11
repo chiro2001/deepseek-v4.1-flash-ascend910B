@@ -42,4 +42,12 @@ Engram SDK普通NPUGraph32代可行；正常TP8初始化的v7 static_default已�
 从真实worker计数获取rounds并核对initial/terminal及TP8末轮fence/Gloo join。
 最终至少8个串行计数请求，warmup不计入这8个；不能使用`1000/tok/s`替代DSpark ms/step。
 
-真实API CPU桥已冻结并通过21测试/90反例；真实checkpoint tokenizer工作集为2warmup+8measured、每条2048 token/256预算，AutoTokenizer parity10/10。它们尚无真实服务/HTTP/NPU性能通过。tiny2K/256 v2的callable RPC实际传wrapper导致strict worker identity拒绝；v3以真实string bound RPC保留原identity/audit/capture门，43CPU门通过，正进行实际3组665/cache/9数值比较，部分逐步快照不是整组数值通过。
+真实API CPU桥已冻结并通过21测试/90反例；真实checkpoint tokenizer工作集为2warmup+8measured、每条2048 token/256预算，AutoTokenizer parity10/10。实际完整真实权重原生HTTP诊断 `formal_dspark_native_api_v2` 已完成：8个measured合计688 actual verifier rounds、2040 decoded tokens、39.61618308s，三元组为 `(57.5816614535 ms/step, A=2.9651162791, 51.4941077458 tok/s)`，clean7/8、复读1。audit/profiler关闭、原生K5 draft eager/target FULL[6]；包含initial/terminal已提交draft和8rank末轮device fence/Gloo join，finish RPC排除。10请求/80份rank收据与原HTTP字节、38份部署源SHA均离线核验，13证据篡改反例拒绝；client/service均exit0，自有服务正常关闭。它是集成诊断，尚无完整43层/17消费者门、正式20ms或通用质量通过，不能授formal receipt。
+
+v1曾因私有ASGI缺原 `routes` 失败exit1；其serve_http前的service_started=true不作HTTP证据。v2独立透明facade转发原routes/state后得到实际HTTP输出，不改冻结桥/SDK/数学。完整API raw约22MB、bridge windows约21MB保留远端并绑定SHA，本地保留全部round长度和首末原payload的112423B compact。
+
+新的prepack CPU组件18文本、16测试/41反例已冻结；GMM1 raw INT8须在实际prepack前snapshot，GMM2原x GM原位pack，K从实际loaded role几何交叉绑定，6个审计Tensor须穿过真实graph出口。SDK v9协议桥已冻结10文件；完整43层生产接线 `full43_consumers_v10` 仍在开发，禁止把CPU或部分覆盖当正式消费者通过。通用质量API基础包17文本、8测试/34反例已冻结，真实source snapshot/启动器正在准备，GSM100/100与Vision23/23尚须同候选新输出。
+
+tiny2K/256 v2的callable RPC实际传wrapper导致strict worker identity拒绝；v3以真实string bound RPC保留原identity/audit/capture门，43CPU门通过。当前同一physical4/PID953926继续运行，已完成7请求，9项数值门已有native OFF A/A seed0/1两项通过（delta0）；其余7项未完成，部分逐步快照不是整组数值通过。
+
+用户再次要求create_goal时，工具核实当前thread已有unfinished active goal并拒绝重复创建；保持原目标active，未为重建而把未达成目标标complete。后续继续完整消费者实机审计、同实例配对优化及正式质量/20ms/部署与交付门。

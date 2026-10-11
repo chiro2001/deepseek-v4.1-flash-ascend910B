@@ -1,0 +1,112 @@
+{
+  "cpu_preparation_only": true,
+  "service_started": false,
+  "npu_calls": 0,
+  "actual_http_inference_requests": 0,
+  "served_model": "dsv41-dspark-private-formal_dspark_native_api_v1",
+  "host": "127.0.0.1",
+  "port": 18573,
+  "model_kwargs": {
+    "model": "/home/l00886679/models/out/v41-w4a8-engram-dr-vision-qrot-mtpq",
+    "tokenizer": "/home/l00886679/models/out/v41-w4a8-engram-dr-vision-qrot-mtpq",
+    "load_format": "auto",
+    "dtype": "bfloat16",
+    "safetensors_load_strategy": "lazy",
+    "model_loader_extra_config": {
+      "enable_multithread_load": true,
+      "num_threads": 128
+    },
+    "worker_cls": "parallel_tiny.dspark_api_counter_bridge_cpu.worker_adapter.ApiCounterDSparkWorker",
+    "tensor_parallel_size": 8,
+    "distributed_executor_backend": "mp",
+    "enable_expert_parallel": true,
+    "seed": 0,
+    "trust_remote_code": true,
+    "async_scheduling": false,
+    "limit_mm_per_prompt": {
+      "image": 4
+    },
+    "max_model_len": 8192,
+    "max_num_seqs": 1,
+    "max_num_batched_tokens": 2048,
+    "gpu_memory_utilization": 0.7,
+    "kv_cache_memory_bytes": 4294967296,
+    "block_size": 128,
+    "enable_prefix_caching": false,
+    "enable_return_routed_experts": false,
+    "speculative_config": {
+      "method": "dspark",
+      "num_speculative_tokens": 5,
+      "enforce_eager": true
+    },
+    "compilation_config": {
+      "cudagraph_mode": "FULL_DECODE_ONLY",
+      "cudagraph_capture_sizes": [
+        6
+      ]
+    },
+    "additional_config": {
+      "enable_engram": true,
+      "engram_storage": "int8",
+      "enable_cpu_binding": false,
+      "ascend_compilation_config": {
+        "enable_npugraph_ex": true,
+        "enable_static_kernel": true
+      },
+      "multistream_dsv4_dsa_overlap": false
+    }
+  },
+  "environment": {
+    "VLLM_ENABLE_V1_MULTIPROCESSING": "1",
+    "VLLM_WORKER_MULTIPROC_METHOD": "spawn",
+    "VLLM_ALLOW_INSECURE_SERIALIZATION": "1",
+    "VLLM_DISABLE_COMPILE_CACHE": "1",
+    "VLLM_CACHE_ROOT": "/work/results/formal_dspark_native_api_v1/service/native/cache",
+    "HCCL_DETERMINISTIC": "strict",
+    "STACK_DSPARK_FORMAL_OUTPUT": "/work/results/formal_dspark_native_api_v1/service/native",
+    "LOCAL_WORLD_SIZE": "8",
+    "STACK_PHYSICAL_CHIPS": "8,9,10,11,12,13,14,15",
+    "STACK_REAL_WEIGHTS": "1",
+    "STACK_REAL_AUDIT": "0",
+    "STACK_TP8_ARM": "tp8base",
+    "STACK_FP32_DECODE_REDUCTION": "0",
+    "STACK_TINY_PROFILE": "0",
+    "STACK_W4A8_PREFIX_ENABLED": "0",
+    "STACK_WOA_CUBE_ENABLED": "0",
+    "STACK_QKV_MERGE_ENABLED": "0",
+    "STACK_QKV_TAIL_SCHEDULE": "native",
+    "STACK_MOE_MASK_ENABLED": "0",
+    "STACK_METADATA_MANY_SLOTS_ENABLED": "0",
+    "OPT_BLOCKMAP_VERIFY": "0",
+    "DRAFT_FORCE_EAGER": "0",
+    "V41_ENGRAM_WITH_DUMMY": "0",
+    "V41_DUMMY_WO_A_FIX": "0",
+    "DRAFT_GRAPH": "0",
+    "DSPARK_GRAPH_CAPTURE_METADATA": "1",
+    "DSPARK_DRAFT_METADATA_MODE": "sync",
+    "DSPARK_CAPTURE_VALUE_FIX": "1",
+    "DSPARK_SWA_INDICES_RESIDENT": "1",
+    "DSPARK_CAPTURE_NCTX_FIX": "1",
+    "DSPARK_DISPATCH_QUERY_LEN_FIX": "1",
+    "DSPARK_DRAFT_USE_CUDAGRAPH": "0",
+    "DSPARK_HOIST_CONTEXT_KV": "0",
+    "DSPARK_API_FROZEN_COUNTER": "/work/src_dspark_native_api_v1/stack/formal_dspark_counters.py"
+  },
+  "frozen_counter_sha256": "da845a5891557f21e80eac06d96aec1955263d1ae93afbc4d84e86dd9585dbec",
+  "http_protocol": [
+    "GET /private/dspark/identity",
+    "POST /private/dspark/completions",
+    "POST /private/dspark/finish"
+  ],
+  "clock": "same boot/time namespace CLOCK_MONOTONIC; end immediately after response.read()",
+  "warmup_requests": 2,
+  "measured_requests_minimum": 8,
+  "prompt_tokens": 2048,
+  "output_tokens": 256,
+  "actual_api_performance_observed": false,
+  "actual_api_quality_observed": false,
+  "actual_client_quality_passed": false,
+  "actual_device_consumer_proof": false,
+  "performance_receipt_granted": false,
+  "formal_receipt_granted": false
+}

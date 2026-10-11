@@ -1,0 +1,7 @@
+def apply_gmm2(self, mlp_compute_input, hidden_states, act_out_scale, *, audit_positions, audit_valid, audit_epoch, audit_buffers):
+    _, _, w2, w2_scale = self._get_mlp_weights(mlp_compute_input.layer)
+    _, bias2 = self._get_mlp_scale_bias(mlp_compute_input.layer)
+    group_list, group_list_type = self._maybe_convert_group_list(mlp_compute_input)
+    _raw_audit = _snapshot_tensor_tuple(torch, hidden_states, audit_positions, audit_valid, audit_epoch, audit_buffers)
+    _native_result = torch_npu.npu_grouped_matmul(x=[hidden_states], weight=w2, scale=w2_scale, bias=bias2, per_token_scale=[act_out_scale], split_item=2, group_list_type=group_list_type, group_type=0, group_list=group_list, output_dtype=torch.bfloat16)[0]
+    return (_native_result, *_raw_audit[1:])
