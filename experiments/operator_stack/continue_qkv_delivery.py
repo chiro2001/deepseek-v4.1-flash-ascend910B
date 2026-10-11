@@ -18,6 +18,7 @@ def main():
     p.add_argument('--client-root',default='/work/client')
     p.add_argument('--data-root',default='/work/client_data/gsm8k')
     p.add_argument('--target-ms',type=float,default=17.)
+    p.add_argument('--qkv-tail-overlap', action='store_true')
     args=p.parse_args()
     assert args.source_dir.is_relative_to('/work') and '..' not in args.source_dir.parts
     assert args.served_model.startswith('dsv41-a321-formal-') and args.target_ms==17.
@@ -31,6 +32,10 @@ def main():
         time.sleep(10)
     assert (audit/'run.exit').read_text().strip()==(perf/'run.exit').read_text().strip()=='0'
     assert (audit/'validated_for_qkv_perf.json').exists()
+    schedule = 'early' if args.qkv_tail_overlap else 'native'
+    for root in (audit, perf):
+        launch = json.loads((root/'launched.json').read_text())
+        assert launch['env'].get('STACK_QKV_TAIL_SCHEDULE', 'native') == schedule, 'Do not deploy another QKV scheduling variant'
     result=json.loads((perf/'result.json').read_text())
     assert not result['audit'] and result['profiler']=='OFF' and result['async_scheduling']
     assert result['formal_weights'] and result['tensor_parallel_size']==8
@@ -55,6 +60,8 @@ def main():
         '--serve','--service-arm','tp8qkv','--audit-job',args.audit_job,'--perf-job',args.perf_job,
         '--mask-evidence-job',args.mask_probe_job,'--qkv-evidence-job',args.probe_job,'--port',str(args.port),'--served-model',args.served_model,
         '--hccl-deterministic','strict','--hccl-npu-socket-port-range','auto','--allow-alarm','--wait-seconds','600']
+    if args.qkv_tail_overlap:
+        command.append('--qkv-tail-overlap')
     (args.controller_root/'validated_for_delivery.json').write_text(json.dumps({**selection,'argv':command},indent=2)+'\n')
     subprocess.run(command,check=True)
     client=['docker','exec','-e','STACK_SRC_ROOT='+str(args.source_dir),args.container,'bash',

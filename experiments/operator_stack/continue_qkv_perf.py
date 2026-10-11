@@ -1,5 +1,6 @@
 """Gate twelve formal QKV pairings on the complete forty-layer audit."""
 import argparse
+import hashlib
 import json
 from pathlib import Path
 import subprocess
@@ -16,6 +17,7 @@ def main():
     p.add_argument('--perf-job', required=True)
     p.add_argument('--probe-job', required=True)
     p.add_argument('--mask-probe-job', required=True)
+    p.add_argument('--qkv-tail-overlap', action='store_true')
     p.add_argument('--model', required=True)
     args = p.parse_args()
     for name in (args.audit_job, args.perf_job, args.probe_job, args.mask_probe_job):
@@ -28,6 +30,11 @@ def main():
         time.sleep(10)
     assert (out / 'run.exit').read_text().strip() == '0', 'Audit failed; reject performance launch'
     result = json.loads((out / 'result.json').read_text())
+    launched = json.loads((out / 'launched.json').read_text())
+    schedule = 'early' if args.qkv_tail_overlap else 'native'
+    variant = 'early-kv-tail-v2' if args.qkv_tail_overlap else 'native-tail-v1'
+    assert launched['source_dir'] == str(args.source_dir)
+    assert launched['env'].get('STACK_QKV_TAIL_SCHEDULE', 'native') == schedule
     arms = ['tp8base', 'tp8mask', 'tp8qkv']
     assert set(result['arms']) == set(arms) and result['model_path'] == args.model
     assert result['formal_weights'] and result['audit'] and result['async_scheduling']
@@ -58,7 +65,15 @@ def main():
                     assert rank['qkv_merge']['consumer_calls'] == rank['qkv_merge']['unique_layers'] == 40
         if arm == 'tp8qkv':
             assert all(r['qkv_merge']['selected_calls'] == r['qkv_merge']['unique_layers'] == 40 for r in banks[arm])
+            assert all(r['qkv_merge']['source'].get('scheduling', {'variant': 'native-tail-v1'})['variant'] == variant
+                       for r in banks[arm]), 'Audit covered a different KV schedule'
     source = args.root / args.source_dir.relative_to('/work')
+    patch_sha = hashlib.sha256((source / 'stack/formal_qkv_merge_patches.py').read_bytes()).hexdigest()
+    assert all(r['qkv_merge']['source']['patch_file_sha256'] == patch_sha for r in banks['tp8qkv']), 'Patch changed after audit'
+    if args.qkv_tail_overlap:
+        rewrite_sha = hashlib.sha256((source / 'stack/formal_qkv_schedule.py').read_bytes()).hexdigest()
+        assert all(r['qkv_merge']['source']['scheduling']['source_sha256'] == rewrite_sha
+                   for r in banks['tp8qkv']), 'Scheduling source changed after audit'
     command = [sys.executable, str(source / 'stack/launch_real_tp8_job.py'),
                '--root', str(args.root), '--source-dir', str(args.source_dir), '--container', args.container,
                '--job', args.perf_job, '--model', args.model, '--chips', '8,9,10,11,12,13,14,15',
@@ -66,8 +81,10 @@ def main():
                '--mask-evidence-job', args.mask_probe_job, '--qkv-evidence-job', args.probe_job,
                '--hccl-deterministic', 'strict', '--hccl-npu-socket-port-range', 'auto',
                '--allow-alarm', '--wait-seconds', '600']
+    if args.qkv_tail_overlap:
+        command.append('--qkv-tail-overlap')
     receipt = {'passed': True, 'argv': command, 'arms': arms,
-               'ranks': 8, 'unique_consumer_layers_per_rank': 40}
+               'ranks': 8, 'unique_consumer_layers_per_rank': 40, 'qkv_variant': variant}
     (out / 'validated_for_qkv_perf.json').write_text(json.dumps(receipt, indent=2) + '\n')
     print('FORMAL_QKV_FULL_AUDIT_VALIDATED', flush=True)
     subprocess.run(command, check=True)

@@ -1,0 +1,291 @@
+{
+  "scope": "Actual task_time event clusters around layer0 qkv/normalization, not recoverable budget",
+  "records": [
+    {
+      "arm": "tp8mask",
+      "rank": 0,
+      "step": "5",
+      "layer": 0,
+      "task_fields": [
+        "Device_id",
+        "kernel_name",
+        "kernel_type",
+        "stream_id",
+        "task_id",
+        "task_time(us)",
+        "task_start(us)",
+        "task_stop(us)"
+      ],
+      "layer_window": {
+        "step": "5",
+        "layer": 0,
+        "projection_roles": [
+          "q_a",
+          "kv"
+        ],
+        "projection_union_us": 20.75,
+        "projection_span_us": 24.25,
+        "q_norm_us": 5.0,
+        "kv_norm_us": 5.75,
+        "q_kv_norm_overlap_us": 0,
+        "kv_projection_q_norm_overlap_us": 2.75,
+        "kv_norm_start_minus_q_norm_end_us": 6.5,
+        "kv_norm_start_minus_q_quant_end_us": 4.5,
+        "kv_norm_start_minus_projection_end_us": 1.5,
+        "projection_to_first_qb_end_us": 37.5,
+        "copies_1792_calls": 0,
+        "copies_1792_sum_us": 0,
+        "q_norm_task": {
+          "Name": "RmsNorm",
+          "Type": "RmsNorm",
+          "Model ID": "47",
+          "Stream ID": "138",
+          "Input Shapes": "\"1,1280;1280\"",
+          "relative_start_us": 14.25,
+          "duration_us": 5.0
+        },
+        "kv_norm_task": {
+          "Name": "RmsNorm",
+          "Type": "RmsNorm",
+          "Model ID": "47",
+          "Stream ID": "136",
+          "Input Shapes": "\"1,512;512\"",
+          "relative_start_us": 25.75,
+          "duration_us": 5.75
+        },
+        "projections": [
+          {
+            "Name": "aclnnQuantMatmulWeightNz_QuantBatchMatmulV3_QuantBatchMatmulV3",
+            "Type": "QuantBatchMatmulV3",
+            "Model ID": "47",
+            "Stream ID": "138",
+            "Input Shapes": "\"1,5120;40,320,16,32;1280;1\"",
+            "relative_start_us": 0.0,
+            "duration_us": 13.0
+          },
+          {
+            "Name": "aclnnQuantMatmulWeightNz_QuantBatchMatmulV3_QuantBatchMatmulV3",
+            "Type": "QuantBatchMatmulV3",
+            "Model ID": "47",
+            "Stream ID": "136",
+            "Input Shapes": "\"1,5120;16,320,16,32;512;1\"",
+            "relative_start_us": 16.5,
+            "duration_us": 7.75
+          }
+        ],
+        "q_quant": [
+          {
+            "Name": "aclnnDynamicQuantV2_DynamicQuant_DynamicQuant",
+            "Type": "DynamicQuant",
+            "Model ID": "47",
+            "Stream ID": "138",
+            "Input Shapes": "\"1,1280\"",
+            "relative_start_us": 19.0,
+            "duration_us": 2.25
+          }
+        ],
+        "copies_1792": []
+      },
+      "events": [
+        {
+          "Device_id": "8",
+          "kernel_name": "N/A",
+          "kernel_type": "EVENT_WAIT",
+          "stream_id": "136",
+          "task_id": "0",
+          "task_time(us)": "210.255",
+          "relative_start_us": -195.75,
+          "relative_stop_us": 14.5
+        },
+        {
+          "Device_id": "8",
+          "kernel_name": "N/A",
+          "kernel_type": "EVENT_RECORD",
+          "stream_id": "138",
+          "task_id": "31",
+          "task_time(us)": "0.020",
+          "relative_start_us": 14.0,
+          "relative_stop_us": 14.0
+        },
+        {
+          "Device_id": "8",
+          "kernel_name": "N/A",
+          "kernel_type": "EVENT_RECORD",
+          "stream_id": "138",
+          "task_id": "34",
+          "task_time(us)": "0.020",
+          "relative_start_us": 21.25,
+          "relative_stop_us": 21.25
+        },
+        {
+          "Device_id": "8",
+          "kernel_name": "N/A",
+          "kernel_type": "EVENT_WAIT",
+          "stream_id": "138",
+          "task_id": "35",
+          "task_time(us)": "4.800",
+          "relative_start_us": 21.25,
+          "relative_stop_us": 26.0
+        },
+        {
+          "Device_id": "8",
+          "kernel_name": "N/A",
+          "kernel_type": "EVENT_RECORD",
+          "stream_id": "136",
+          "task_id": "2",
+          "task_time(us)": "0.020",
+          "relative_start_us": 25.5,
+          "relative_stop_us": 25.5
+        },
+        {
+          "Device_id": "8",
+          "kernel_name": "N/A",
+          "kernel_type": "EVENT_WAIT",
+          "stream_id": "136",
+          "task_id": "3",
+          "task_time(us)": "0.020",
+          "relative_start_us": 25.75,
+          "relative_stop_us": 25.75
+        }
+      ]
+    },
+    {
+      "arm": "tp8qkv",
+      "rank": 0,
+      "step": "5",
+      "layer": 0,
+      "task_fields": [
+        "Device_id",
+        "kernel_name",
+        "kernel_type",
+        "stream_id",
+        "task_id",
+        "task_time(us)",
+        "task_start(us)",
+        "task_stop(us)"
+      ],
+      "layer_window": {
+        "step": "5",
+        "layer": 0,
+        "projection_roles": [
+          "merged_qkv"
+        ],
+        "projection_union_us": 20.25,
+        "projection_span_us": 20.25,
+        "q_norm_us": 5.5,
+        "kv_norm_us": 5.25,
+        "q_kv_norm_overlap_us": 0,
+        "kv_projection_q_norm_overlap_us": 0,
+        "kv_norm_start_minus_q_norm_end_us": 3.0,
+        "kv_norm_start_minus_q_quant_end_us": 0.75,
+        "kv_norm_start_minus_projection_end_us": 9.5,
+        "projection_to_first_qb_end_us": 40.0,
+        "copies_1792_calls": 0,
+        "copies_1792_sum_us": 0,
+        "q_norm_task": {
+          "Name": "RmsNorm",
+          "Type": "RmsNorm",
+          "Model ID": "46",
+          "Stream ID": "135",
+          "Input Shapes": "\"1,1280;1280\"",
+          "relative_start_us": 21.25,
+          "duration_us": 5.5
+        },
+        "kv_norm_task": {
+          "Name": "RmsNorm",
+          "Type": "RmsNorm",
+          "Model ID": "46",
+          "Stream ID": "133",
+          "Input Shapes": "\"1,512;512\"",
+          "relative_start_us": 29.75,
+          "duration_us": 5.25
+        },
+        "projections": [
+          {
+            "Name": "aclnnQuantMatmulWeightNz_QuantBatchMatmulV3_QuantBatchMatmulV3",
+            "Type": "QuantBatchMatmulV3",
+            "Model ID": "46",
+            "Stream ID": "135",
+            "Input Shapes": "\"1,5120;56,320,16,32;1792;1\"",
+            "relative_start_us": 0.0,
+            "duration_us": 20.25
+          }
+        ],
+        "q_quant": [
+          {
+            "Name": "aclnnDynamicQuantV2_DynamicQuant_DynamicQuant",
+            "Type": "DynamicQuant",
+            "Model ID": "46",
+            "Stream ID": "135",
+            "Input Shapes": "\"1,1280\"",
+            "relative_start_us": 26.75,
+            "duration_us": 2.25
+          }
+        ],
+        "copies_1792": []
+      },
+      "events": [
+        {
+          "Device_id": "8",
+          "kernel_name": "N/A",
+          "kernel_type": "EVENT_WAIT",
+          "stream_id": "133",
+          "task_id": "0",
+          "task_time(us)": "158.776",
+          "relative_start_us": -137.0,
+          "relative_stop_us": 21.75
+        },
+        {
+          "Device_id": "8",
+          "kernel_name": "N/A",
+          "kernel_type": "EVENT_RECORD",
+          "stream_id": "135",
+          "task_id": "31",
+          "task_time(us)": "0.020",
+          "relative_start_us": 21.25,
+          "relative_stop_us": 21.25
+        },
+        {
+          "Device_id": "8",
+          "kernel_name": "N/A",
+          "kernel_type": "EVENT_RECORD",
+          "stream_id": "133",
+          "task_id": "1",
+          "task_time(us)": "0.000",
+          "relative_start_us": 22.0,
+          "relative_stop_us": 22.0
+        },
+        {
+          "Device_id": "8",
+          "kernel_name": "N/A",
+          "kernel_type": "EVENT_WAIT",
+          "stream_id": "133",
+          "task_id": "2",
+          "task_time(us)": "7.660",
+          "relative_start_us": 22.0,
+          "relative_stop_us": 29.5
+        },
+        {
+          "Device_id": "8",
+          "kernel_name": "N/A",
+          "kernel_type": "EVENT_RECORD",
+          "stream_id": "135",
+          "task_id": "34",
+          "task_time(us)": "0.020",
+          "relative_start_us": 29.0,
+          "relative_stop_us": 29.0
+        },
+        {
+          "Device_id": "8",
+          "kernel_name": "N/A",
+          "kernel_type": "EVENT_WAIT",
+          "stream_id": "135",
+          "task_id": "35",
+          "task_time(us)": "0.020",
+          "relative_start_us": 29.0,
+          "relative_stop_us": 29.0
+        }
+      ]
+    }
+  ]
+}

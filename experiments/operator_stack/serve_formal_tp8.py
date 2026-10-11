@@ -45,6 +45,18 @@ def verify_selection(audit_root, perf_root, arm, contract, chips):
         patch_sha=hashlib.sha256((Path(__file__).parent/'formal_qkv_merge_patches.py').read_bytes()).hexdigest()
         assert all(r['qkv_merge']['source']['patch_file_sha256']==patch_sha for r in banks), 'QKV patch differs from actual consumer audit'
         assert all(r['qkv_merge']['source']['actual_consumer']=='DeepseekV41EagerAttentionImpl.multistream_preprocess' for r in banks)
+        schedule = os.getenv('STACK_QKV_TAIL_SCHEDULE', 'native')
+        assert schedule in ('native', 'early')
+        variant = 'early-kv-tail-v2' if schedule == 'early' else 'native-tail-v1'
+        for root in (audit_root, perf_root):
+            launch = json.loads((root/'launched.json').read_text())
+            assert launch['env'].get('STACK_QKV_TAIL_SCHEDULE', 'native') == schedule, 'QKV service scheduling differs from measured/audited scheduling'
+        assert all(r['qkv_merge']['source'].get('scheduling', {'variant': 'native-tail-v1'})['variant'] == variant
+                   for r in banks), 'QKV schedule was not audited'
+        if schedule == 'early':
+            rewrite_sha = hashlib.sha256((Path(__file__).parent/'formal_qkv_schedule.py').read_bytes()).hexdigest()
+            assert all(r['qkv_merge']['source']['scheduling']['source_sha256'] == rewrite_sha
+                       for r in banks), 'QKV scheduling rewrite changed after audit'
         selected=[r for r in json.loads((audit_root/'requests.json').read_text())
                   if r['arm']==arm and r['tag'].startswith('pair-')]
         assert len(selected)>=3 and all(len(r['rank_audit'])==8 for r in selected)

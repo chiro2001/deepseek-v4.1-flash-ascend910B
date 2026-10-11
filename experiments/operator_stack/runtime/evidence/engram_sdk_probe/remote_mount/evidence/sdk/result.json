@@ -1,0 +1,17 @@
+{
+  "scope": "Small BF16 SDK/graph semantics only; not model/full Engram/formal performance",
+  "stage": "sdk",
+  "static_kernel": false,
+  "formal_model_validated": false,
+  "prototype_context_sha256": "3f8176a05201d61fe5cb4b39c94c0715e95cb6f776ee827ab0a9e0110cd01ccc",
+  "prototype_executed": false,
+  "safe_formal_receipt": false,
+  "passed": false,
+  "phase": "source-freeze",
+  "generations": [],
+  "exception_type": "TypeError",
+  "exception": "module, class, method, function, traceback, frame, or code object was expected, got _LazyNpuGraphEx",
+  "traceback": "Traceback (most recent call last):\n  File \"/work/engram_sdk_probe_20261011_c4_v1/source/probe_sdk.py\", line 136, in run\n    result['environment']=freeze_environment(out)\n                          ^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/work/engram_sdk_probe_20261011_c4_v1/source/probe_sdk.py\", line 75, in freeze_environment\n    'npugraph_ex': digest(inspect.getfile(nge)), 'npu_fx_compiler': digest(inspect.getfile(nfx)),\n                          ^^^^^^^^^^^^^^^^^^^^\n  File \"/usr/local/python3.12.13/lib/python3.12/site-packages/torch/package/package_importer.py\", line 728, in _patched_getfile\n    return _orig_getfile(object)\n           ^^^^^^^^^^^^^^^^^^^^^\n  File \"/usr/local/python3.12.13/lib/python3.12/inspect.py\", line 935, in getfile\n    raise TypeError('module, class, method, function, traceback, frame, or '\nTypeError: module, class, method, function, traceback, frame, or code object was expected, got _LazyNpuGraphEx\n",
+  "poisoned_after_partial_enqueue": false,
+  "action": "Terminal failure; no tensor/event/graph reuse, no reset/retry"
+}

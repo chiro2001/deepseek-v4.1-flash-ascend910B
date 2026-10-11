@@ -1,0 +1,32 @@
+{
+  "command": [
+    "docker",
+    "exec",
+    "-e",
+    "ASCEND_RT_VISIBLE_DEVICES=4",
+    "-e",
+    "ASCEND_VISIBLE_DEVICES=4",
+    "-e",
+    "SDK_PROBE_PHYSICAL_CHIP=4",
+    "-e",
+    "HCCL_DETERMINISTIC=strict",
+    "-e",
+    "LOCAL_WORLD_SIZE=1",
+    "-e",
+    "OMP_NUM_THREADS=1",
+    "dsv41-tiny-goal20-20261010-c6",
+    "bash",
+    "/work/engram_sdk_probe_20261011_c4_v1/run_v6.sh",
+    "--stage",
+    "graphex",
+    "--static-kernel",
+    "--generations",
+    "32",
+    "--enqueue-order",
+    "consumer-first",
+    "--output",
+    "/work/engram_sdk_probe_20261011_c4_v1/evidence/graphex_static_v6"
+  ],
+  "physical_chip": 4,
+  "source_sha256": "bd5d995abc63dde901b558c0e44d31266d3cc14ac990e9ecd3b9007f900cc167"
+}

@@ -68,6 +68,13 @@ def install(model):
     assert tree.count(qa) == tree.count(kv) == 1
     updated = tree.replace(qa, 'q_a, formal_kv = formal_qkv_project(v1_impl, q_quant, q_scale)')
     updated = updated.replace(kv, 'kv = formal_kv')
+    schedule = os.getenv('STACK_QKV_TAIL_SCHEDULE', 'native')
+    assert schedule in ('native', 'early')
+    scheduling_evidence = {'variant': 'native-tail-v1'}
+    if schedule == 'early':
+        from formal_qkv_schedule import early_kv_tail
+        updated, scheduling_evidence = early_kv_tail(updated)
+        scheduling_evidence['source_sha256'] = hashlib.sha256(Path(inspect.getfile(early_kv_tail)).read_bytes()).hexdigest()
     namespace = {**original.__globals__, 'formal_qkv_project': merged}
     exec(compile(updated, '<formal_qkv_merge_prolog>', 'exec'), namespace)
     candidate = namespace['multistream_preprocess']
@@ -80,6 +87,7 @@ def install(model):
             continue
         assert _is_w8a8_dynamic(impl.wq_a) and _is_w8a8_dynamic(impl.wkv)
         assert not impl.cv_wq_a._has_communication and not impl.cv_wkv._has_communication
+        assert type(impl.cv_wq_a._quant_method) is type(impl.cv_wkv._quant_method)
         qa_weight, kv_weight = impl.wq_a.weight, impl.wkv.weight
         qa_scale, kv_scale = impl.wq_a.weight_scale, impl.wkv.weight_scale
         assert qa_weight.shape == (5120, 1280) and kv_weight.shape == (5120, 512)
@@ -112,7 +120,8 @@ def install(model):
                   patched_method_sha256=hashlib.sha256(updated.encode()).hexdigest(),
                   patch_file_sha256=hashlib.sha256(Path(__file__).read_bytes()).hexdigest(),
                   actual_consumer='DeepseekV41EagerAttentionImpl.multistream_preprocess',
-                  preserved_tail='Native V4.1 floating qr, streams/events, norms, RoPE, SWA cache and Q_b')
+                  scheduling=scheduling_evidence,
+                  preserved_tail='Native V4.1 floating qr, norms, RoPE, SWA cache and Q_b; final aux join retained')
     INSTALLED = True
 
 

@@ -1,0 +1,105 @@
+{
+  "tensor_parallel_size": 8,
+  "physical_chips": [
+    8,
+    9,
+    10,
+    11,
+    12,
+    13,
+    14,
+    15
+  ],
+  "formal_weights": true,
+  "requested_load_format": "auto",
+  "model_path": "/home/l00886679/models/out/v41-w4a8-engram-dr-vision-qrot-mtpq",
+  "checkpoint_config_sha256": "40ebd329d3cb2d99d7176091afb580c182c21f48b88b63b550264a97e9c0d424",
+  "safetensors_load_strategy": "lazy",
+  "multithread_loader_threads": 128,
+  "engram_enabled": true,
+  "speculative_decoding": false,
+  "engram_storage": "int8",
+  "cpu_binding": false,
+  "async_scheduling": true,
+  "timing_scope": "token-arrival elapsed/decoded tokens",
+  "fp32_decode_reduction": false,
+  "hccl_deterministic_env": "strict",
+  "reduction_evidence": null,
+  "vision_enabled": true,
+  "limit_mm_per_prompt": {
+    "image": 4
+  },
+  "request_modality": "text",
+  "same_model_instance": true,
+  "same_processes_per_rank": true,
+  "audit": false,
+  "profiler": "OFF",
+  "A": 1,
+  "arms": {
+    "tp8base": {
+      "ms_per_step": 20.405017687246584,
+      "A": 1,
+      "tokens_per_second": 49.007553697197416
+    },
+    "tp8mask": {
+      "ms_per_step": 19.17681205444611,
+      "A": 1,
+      "tokens_per_second": 52.146310719468715
+    },
+    "tp8qkv": {
+      "ms_per_step": 19.377154357826864,
+      "A": 1,
+      "tokens_per_second": 51.60716488776267
+    }
+  },
+  "pairs": [
+    {
+      "pair": 0,
+      "arm": "tp8mask",
+      "baseline_ms": 20.398083071296032,
+      "candidate_ms": 19.20797051384281,
+      "speedup": 1.0619593078089917,
+      "tokens_equal": true
+    },
+    {
+      "pair": 0,
+      "arm": "tp8qkv",
+      "baseline_ms": 20.398083071296032,
+      "candidate_ms": 19.356969230545637,
+      "speedup": 1.0537849612896786,
+      "tokens_equal": true
+    },
+    {
+      "pair": 1,
+      "arm": "tp8mask",
+      "baseline_ms": 20.405017687246584,
+      "candidate_ms": 19.17681205444611,
+      "speedup": 1.0640463925554153,
+      "tokens_equal": true
+    },
+    {
+      "pair": 1,
+      "arm": "tp8qkv",
+      "baseline_ms": 20.405017687246584,
+      "candidate_ms": 19.377154357826864,
+      "speedup": 1.053045112323448,
+      "tokens_equal": true
+    },
+    {
+      "pair": 2,
+      "arm": "tp8mask",
+      "baseline_ms": 20.42687205502238,
+      "candidate_ms": 19.17396563415726,
+      "speedup": 1.0653441465772289,
+      "tokens_equal": true
+    },
+    {
+      "pair": 2,
+      "arm": "tp8qkv",
+      "baseline_ms": 20.42687205502238,
+      "candidate_ms": 19.401493852432722,
+      "speedup": 1.0528504768956792,
+      "tokens_equal": true
+    }
+  ]
+}

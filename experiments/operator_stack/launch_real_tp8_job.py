@@ -42,6 +42,8 @@ def main():
     p.add_argument('--woa-evidence-job')
     p.add_argument('--mask-evidence-job')
     p.add_argument('--qkv-evidence-job')
+    p.add_argument('--qkv-tail-overlap', action='store_true',
+                   help='Experimental merged V4.1 KV tail before Q norm; requires a new full audit')
     p.add_argument('--vector-job')
     p.add_argument('--serve', action='store_true')
     p.add_argument('--service-arm', choices=('tp8base','tp8core','tp8act','tp8stack','tp8meta','tp8metastack','tp8prefix','tp8prefixroute','tp8prefixup','tp8prefixuproute','tp8hostmeta','tp8woa', 'tp8mask', 'tp8qkv'))
@@ -101,6 +103,9 @@ def main():
     arms = args.arms.split(',')
     assert arms[0] == 'tp8base' and len(set(arms)) == len(arms)
     assert set(arms) <= {'tp8base', 'tp8core', 'tp8act', 'tp8stack', 'tp8meta', 'tp8metastack', 'tp8prefix', 'tp8prefixroute', 'tp8prefixup', 'tp8prefixuproute', 'tp8hostmeta','tp8woa', 'tp8mask', 'tp8qkv'}
+    assert not args.qkv_tail_overlap or (('tp8qkv' in arms or (args.serve and args.service_arm == 'tp8qkv')) and
+        not any((args.native_control, args.native_profile, args.reduction_bench,
+                 args.slot_bench, args.prefix_bench, args.tiny_profile))), 'Early KV tail requires the QKV bank and its matching audit'
     assert not (args.profile_metrics or args.profile_arms) or (args.profile and not args.tiny_profile)
     if args.profile_metrics:
         from formal_tp8_profile import METRICS
@@ -195,6 +200,7 @@ def main():
                            'probe_result_sha256':hashlib.sha256((probe_root/'result.json').read_bytes()).hexdigest()}
         qkv_selected='tp8qkv' in arms or args.service_arm=='tp8qkv'
         flags['STACK_QKV_MERGE_ENABLED']='1' if qkv_selected else '0'
+        flags['STACK_QKV_TAIL_SCHEDULE']='early' if args.qkv_tail_overlap else 'native'
         qkv_evidence=None
         if qkv_selected:
             assert args.qkv_evidence_job and args.qkv_evidence_job.replace('_','').replace('-','').isalnum()

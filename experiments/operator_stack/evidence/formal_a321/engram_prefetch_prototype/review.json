@@ -1,0 +1,12 @@
+{
+  "scope": "CPU binding/lifecycle review only; no NPU/model claim",
+  "prototype_default": "disabled",
+  "model_integrated": false,
+  "changes": [
+    "Freeze full input pointer/shape/stride/dtype/device/format without fixing slice Python identity",
+    "Seal audit destination and parameter address/layout during cold preparation",
+    "Reject audit reallocation or buffer replacement before another producer submission",
+    "Remove per-generation host consumed.wait; require explicit submission-stream completion_fence receipt"
+  ],
+  "sdk_open_issue": "Direct NPUGraph ordinary main done fence passed32/32 while withheld producer yielded query=False; actual GraphEx/AOT/static and model submission stream still require validation"
+}
