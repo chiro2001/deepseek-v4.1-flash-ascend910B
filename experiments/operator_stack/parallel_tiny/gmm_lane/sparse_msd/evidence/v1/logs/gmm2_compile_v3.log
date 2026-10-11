@@ -1,0 +1,133 @@
+Opc tool start working now, please wait for a moment.
+--input_param = /work/gmm_lane_sparse_msd_build_20261011_v1/compile_input_v2.json
+--main_func = grouped_matmul
+--output = /work/gmm_lane_sparse_msd_build_20261011_v1/op_build_v3
+--soc_version = Ascend910_9382
+--op_mode = dynamic
+--deterministic = true
+--op_debug_config = dump_cce
+--log = debug
+set compile mode: single_op_compile_config_file_mode.
+absolute output dir path is /work/gmm_lane_sparse_msd_build_20261011_v1/op_build_v3.
+set abs dir path /work/gmm_lane_sparse_msd_build_20261011_v1/op_build_v3 for output.
+absolute output dir path is /work/gmm_lane_sparse_msd_build_20261011_v1.
+set abs dir path /work/gmm_lane_sparse_msd_build_20261011_v1 for debug_dir.
+path = /work/gmm_lane_sparse_msd_build_20261011_v1/private_impl/grouped_matmul.py
+absolute json file path is /work/gmm_lane_sparse_msd_build_20261011_v1/private_impl/grouped_matmul.py.
+path = /work/gmm_lane_sparse_msd_build_20261011_v1/compile_input_v2.json
+absolute json file path is /work/gmm_lane_sparse_msd_build_20261011_v1/compile_input_v2.json.
+Set keep_kernel_meta_dir flag True.
+Save op_relocatable_bin False.
+json_path is /usr/local/Ascend/cann-9.1.0/opp/built-in/op_impl/ai_core/tbe/config/ascend910_93/aic-ascend910_93-ops-info.json.
+load file[/usr/local/Ascend/cann-9.1.0/opp/built-in/op_impl/ai_core/tbe/config/ascend910_93/aic-ascend910_93-ops-info.json] failed, reason: [Errno 2] No such file or directory: '/usr/local/Ascend/cann-9.1.0/opp/built-in/op_impl/ai_core/tbe/config/ascend910_93/aic-ascend910_93-ops-info.json'.
+No need to check paraType, cur mode is no_placeholder.
+op_content GroupedMatmul is not exist.
+return op_type:[GroupedMatmul] core type: VectorCore, vector_combine: split
+set op_type: [GroupedMatmul] core type [VectorCore]
+__is_ascendc is True
+op_type:GroupedMatmul is not exist.
+Op GroupedMatmul is not found in opstore.
+op_type is GroupedMatmul, main_func is grouped_matmul, op_path is /work/gmm_lane_sparse_msd_build_20261011_v1/private_impl/grouped_matmul.py
+End set_flag_before_compile
+Start to resolve op json: 
+[op_info_parser.py:455][get_op_info] op = {'op_type': 'GroupedMatmul', 'op_name': 'gmm2_sparse_msd_down_v1', 'inputs': [[{'name': 'x', 'dtype': 'int8', 'shape': [6, 2304], 'format': 'ND', 'ori_shape': [6, 2304], 'ori_format': 'ND', 'index': 0, 'paramType': 'dynamic', 'format_match_mode': 'FormatAgnostic'}], [{'name': 'weight', 'dtype': 'int4', 'shape': [48, 80, 144, 16, 64], 'format': 'FRACTAL_NZ', 'ori_shape': [48, 2304, 5120], 'ori_format': 'ND', 'index': 1, 'paramType': 'dynamic', 'format_match_mode': 'FormatAgnostic'}], [{'name': 'bias', 'dtype': 'float32', 'shape': [48, 5120], 'format': 'ND', 'ori_shape': [48, 5120], 'ori_format': 'ND', 'index': 2, 'paramType': 'dynamic', 'format_match_mode': 'FormatAgnostic'}], [{'name': 'scale', 'dtype': 'uint64', 'shape': [48, 1, 5120], 'format': 
+'ND', 'ori_shape': [48, 1, 5120], 'ori_format': 'ND', 'index': 3, 'paramType': 'dynamic', 'format_match_mode': 'FormatAgnostic'}], None, None, None, {'name': 'group_list', 'dtype': 'int64', 'shape': [48], 'format': 'ND', 'ori_shape': [48], 'ori_format': 'ND', 'index': 7, 'paramType': 'optional', 'format_match_mode': 'FormatAgnostic'}, {'name': 'per_token_scale', 'dtype': 'float32', 'shape': [6], 'format': 'ND', 'ori_shape': [6], 'ori_format': 'ND', 'index': 8, 'paramType': 'optional', 'format_match_mode': 'FormatAgnostic'}], 'outputs': [[{'name': 'y', 'dtype': 'bfloat16', 'shape': [6, 5120], 'format': 'ND', 'ori_shape': [6, 5120], 'ori_format': 'ND', 'index': 0, 'paramType': 'dynamic', 'format_match_mode': 'FormatAgnostic'}]], 'attrs': [{'name': 'split_item', 'dtype': 'int', 'value': 2}, 
+{'name': 'dtype', 'dtype': 'int', 'value': 27}, {'name': 'transpose_weight', 'dtype': 'bool', 'value': False}, {'name': 'transpose_x', 'dtype': 'bool', 'value': False}, {'name': 'group_type', 'dtype': 'int', 'value': 0}, {'name': 'group_list_type', 'dtype': 'int', 'value': 1}, {'name': 'act_type', 'dtype': 'int', 'value': 0}, {'name': 'tuning_config', 'dtype': 'list_int', 'value': [0]}], 'bin_filename': 'Gmm2SparseMsd_down_v2'}
+Start to resolve op json inputs.
+Range is None.
+Range is None.
+update_range to: [[6, 6], [2304, 2304]].
+tensor_dict is {'shape': [6, 2304], 'ori_shape': [6, 2304], 'format': 'ND', 'ori_format': 'ND', 'dtype': 'int8', 'range': [[6, 6], [2304, 2304]]}.
+Range is None.
+Range is None.
+update_range to: [[48, 48], [80, 80], [144, 144], [16, 16], [64, 64]].
+tensor_dict is {'shape': [48, 80, 144, 16, 64], 'ori_shape': [48, 2304, 5120], 'format': 'FRACTAL_NZ', 'ori_format': 'ND', 'dtype': 'int4', 'range': [[48, 48], [80, 80], [144, 144], [16, 16], [64, 64]]}.
+Range is None.
+Range is None.
+update_range to: [[48, 48], [5120, 5120]].
+tensor_dict is {'shape': [48, 5120], 'ori_shape': [48, 5120], 'format': 'ND', 'ori_format': 'ND', 'dtype': 'float32', 'range': [[48, 48], [5120, 5120]]}.
+Range is None.
+Range is None.
+update_range to: [[48, 48], [1, 1], [5120, 5120]].
+tensor_dict is {'shape': [48, 1, 5120], 'ori_shape': [48, 1, 5120], 'format': 'ND', 'ori_format': 'ND', 'dtype': 'uint64', 'range': [[48, 48], [1, 1], [5120, 5120]]}.
+Tensor is null.
+Tensor is null.
+Tensor is null.
+Range is None.
+Range is None.
+update_range to: [[48, 48]].
+tensor_dict is {'shape': [48], 'ori_shape': [48], 'format': 'ND', 'ori_format': 'ND', 'dtype': 'int64', 'range': [[48, 48]]}.
+Range is None.
+Range is None.
+update_range to: [[6, 6]].
+tensor_dict is {'shape': [6], 'ori_shape': [6], 'format': 'ND', 'ori_format': 'ND', 'dtype': 'float32', 'range': [[6, 6]]}.
+Start to resolve op json outputs.
+Range is None.
+Range is None.
+update_range to: [[6, 6], [5120, 5120]].
+tensor_dict is {'shape': [6, 5120], 'ori_shape': [6, 5120], 'format': 'ND', 'ori_format': 'ND', 'dtype': 'bfloat16', 'range': [[6, 6], [5120, 5120]]}.
+Start to resolve json attr.
+Dict attr attr_dict: {'name': 'split_item', 'dtype': 'int', 'value': 2}.
+Dict attr attr_dict: {'name': 'dtype', 'dtype': 'int', 'value': 27}.
+Dict attr attr_dict: {'name': 'transpose_weight', 'dtype': 'bool', 'value': False}.
+Dict attr attr_dict: {'name': 'transpose_x', 'dtype': 'bool', 'value': False}.
+Dict attr attr_dict: {'name': 'group_type', 'dtype': 'int', 'value': 0}.
+Dict attr attr_dict: {'name': 'group_list_type', 'dtype': 'int', 'value': 1}.
+Dict attr attr_dict: {'name': 'act_type', 'dtype': 'int', 'value': 0}.
+Dict attr attr_dict: {'name': 'tuning_config', 'dtype': 'list_int', 'value': [0]}.
+op_type:GroupedMatmul is not exist.
+Op GroupedMatmul is not found in opstore.
+Start to resolve json by key bin_filename.
+Start to resolve json by key simplified_key.
+Has no key simplified_key.
+Resolve json to dict, input: ([{'shape': [6, 2304], 'ori_shape': [6, 2304], 'format': 'ND', 'ori_format': 'ND', 'dtype': 'int8', 'range': [[6, 6], [2304, 2304]]}], [{'shape': [48, 80, 144, 16, 64], 'ori_shape': [48, 2304, 5120], 'format': 'FRACTAL_NZ', 'ori_format': 'ND', 'dtype': 'int4', 'range': [[48, 48], [80, 80], [144, 144], [16, 16], [64, 64]]}], [{'shape': [48, 5120], 'ori_shape': [48, 5120], 'format': 'ND', 'ori_format': 'ND', 'dtype': 'float32', 'range': [[48, 48], [5120, 5120]]}], [{'shape': [48, 1, 5120], 'ori_shape': [48, 1, 5120], 'format': 'ND', 'ori_format': 'ND', 'dtype': 'uint64', 'range': [[48, 48], [1, 1], [5120, 5120]]}], None, None, None, {'shape': [48], 'ori_shape': [48], 'format': 'ND', 'ori_format': 'ND', 'dtype': 'int64', 'range': [[48, 48]]}, {'shape': [6], 'ori_shape': [6], 'format': 'ND', 'ori_format': 'ND', 'dtype': 'float32', 'range': [[6, 6]]}).
+Resolve json to dict, output: ([{'shape': [6, 5120], 'ori_shape': [6, 5120], 'format': 'ND', 'ori_format': 'ND', 'dtype': 'bfloat16', 'range': [[6, 6], [5120, 5120]]}],).
+Resolve json to dict, attr: [{'name': 'split_item', 'dtype': 'int', 'value': 2}, {'name': 'dtype', 'dtype': 'int', 'value': 27}, {'name': 'transpose_weight', 'dtype': 'bool', 'value': False}, {'name': 'transpose_x', 'dtype': 'bool', 'value': False}, {'name': 'group_type', 'dtype': 'int', 'value': 0}, {'name': 'group_list_type', 'dtype': 'int', 'value': 1}, {'name': 'act_type', 'dtype': 'int', 'value': 0}, {'name': 'tuning_config', 'dtype': 'list_int', 'value': [0]}], bin_filename Gmm2SparseMsd_down_v2, simplified_key .
+int64_mode of Op[GroupedMatmul] is 1.
+del IMPL_MODE. impl_mode_cfg [None]. impl_mode_default: [impl_mode=''].
+[op_info_parser.py:479][generate_kernel_name] Start to generate kernel name, op_info_dict is {'op_type': 'GroupedMatmul', 'op_func_attr': <function grouped_matmul at 0xffffbc5b3ba0>, 'extra_params': {}, 'status_check': 'true', 'enable_vector_core': None, 'jit_compile_mode': 0, 'extra_settings': None, 'deterministic': 'true', 'inputs': ([{'shape': [6, 2304], 'ori_shape': [6, 2304], 'format': 'ND', 'ori_format': 'ND', 'dtype': 'int8', 'range': [[6, 6], [2304, 2304]]}], [{'shape': [48, 80, 144, 16, 64], 'ori_shape': [48, 2304, 5120], 'format': 'FRACTAL_NZ', 'ori_format': 'ND', 'dtype': 'int4', 'range': [[48, 48], [80, 80], [144, 144], [16, 16], [64, 64]]}], [{'shape': [48, 5120], 'ori_shape': [48, 5120], 'format': 'ND', 'ori_format': 'ND', 'dtype': 'float32', 'range': [[48, 48], [5120, 5120]
+]}], [{'shape': [48, 1, 5120], 'ori_shape': [48, 1, 5120], 'format': 'ND', 'ori_format': 'ND', 'dtype': 'uint64', 'range': [[48, 48], [1, 1], [5120, 5120]]}], None, None, None, {'shape': [48], 'ori_shape': [48], 'format': 'ND', 'ori_format': 'ND', 'dtype': 'int64', 'range': [[48, 48]]}, {'shape': [6], 'ori_shape': [6], 'format': 'ND', 'ori_format': 'ND', 'dtype': 'float32', 'range': [[6, 6]]}), 'outputs': ([{'shape': [6, 5120], 'ori_shape': [6, 5120], 'format': 'ND', 'ori_format': 'ND', 'dtype': 'bfloat16', 'range': [[6, 6], [5120, 5120]]}],), 'attrs': [{'name': 'split_item', 'dtype': 'int', 'value': 2}, {'name': 'dtype', 'dtype': 'int', 'value': 27}, {'name': 'transpose_weight', 'dtype': 'bool', 'value': False}, {'name': 'transpose_x', 'dtype': 'bool', 'value': False}, {'name': 
+'group_type', 'dtype': 'int', 'value': 0}, {'name': 'group_list_type', 'dtype': 'int', 'value': 1}, {'name': 'act_type', 'dtype': 'int', 'value': 0}, {'name': 'tuning_config', 'dtype': 'list_int', 'value': [0]}], 'bin_filename': 'Gmm2SparseMsd_down_v2', 'is_dynamic': False, 'int64_mode': True}.
+Bin_filename is not none, use it as kernel name: Gmm2SparseMsd_down_v2.
+Lock file[/work/gmm_lane_sparse_msd_build_20261011_v1/kernel_meta_Gmm2SparseMsd_down_v2/kernel_meta.lock] is not existed, try to create it
+Lock file[/work/gmm_lane_sparse_msd_build_20261011_v1/kernel_meta_Gmm2SparseMsd_down_v2/kernel_meta.lock] has been created
+call vector_random_buff, debug_dir is /work/gmm_lane_sparse_msd_build_20261011_v1/kernel_meta_Gmm2SparseMsd_down_v2
+Call SingleOpCompile.
+op_compile.
+debug_config dump_cce, enable_super_kernel False.
+__call_op
+context_op_info op_type [GroupedMatmul], precision_mode: None.
+op_type:GroupedMatmul is not exist.
+Op GroupedMatmul is not found in opstore.
+attr's dtype: int, value: 2
+dtype[int] has non-null value, and simplified key won't be generated
+attr_str: 
+[single_op_compile.py:143][__call_op] Call op func, inputs: ([{'shape': [6, 2304], 'ori_shape': [6, 2304], 'format': 'ND', 'ori_format': 'ND', 'dtype': 'int8', 'range': [[6, 6], [2304, 2304]]}], [{'shape': [48, 80, 144, 16, 64], 'ori_shape': [48, 2304, 5120], 'format': 'FRACTAL_NZ', 'ori_format': 'ND', 'dtype': 'int4', 'range': [[48, 48], [80, 80], [144, 144], [16, 16], [64, 64]]}], [{'shape': [48, 5120], 'ori_shape': [48, 5120], 'format': 'ND', 'ori_format': 'ND', 'dtype': 'float32', 'range': [[48, 48], [5120, 5120]]}], [{'shape': [48, 1, 5120], 'ori_shape': [48, 1, 5120], 'format': 'ND', 'ori_format': 'ND', 'dtype': 'uint64', 'range': [[48, 48], [1, 1], [5120, 5120]]}], None, None, None, {'shape': [48], 'ori_shape': [48], 'format': 'ND', 'ori_format': 'ND', 'dtype': 'int64', 'range': [
+[48, 48]]}, {'shape': [6], 'ori_shape': [6], 'format': 'ND', 'ori_format': 'ND', 'dtype': 'float32', 'range': [[6, 6]]}), outputs: ([{'shape': [6, 5120], 'ori_shape': [6, 5120], 'format': 'ND', 'ori_format': 'ND', 'dtype': 'bfloat16', 'range': [[6, 6], [5120, 5120]]}],), attrs: [2, 27, False, False, 0, 1, 0, [0]], kernel_name: Gmm2SparseMsd_down_v2,                      kwargs: {}, optional_input_mode: None, optional_output_mode: None, dyn_param_mode None, SPK_OPT[],                      output_path[/work/gmm_lane_sparse_msd_build_20261011_v1/op_build_v3].
+Exception occured, ({'errCode': 'E80003', 'op_name': 'grouped_matmul', 'param_name': 'offset_in__', 'param_type': 'list truple', 'actual_type': 'NoneType'}, "In op[grouped_matmul], the parameter[offset_in__]'s type should be [list truple],  but actually is [NoneType].")
+Traceback (most recent call last):
+  File "/usr/local/Ascend/cann-9.1.0/python/site-packages/asc_opc_tool/op_compilation.py", line 303, in __single_op_compile
+    json_file_path = single_op_obj.op_compile()
+                     ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/Ascend/cann-9.1.0/python/site-packages/asc_opc_tool/single_op_compile.py", line 259, in op_compile
+    json_file_path = self.__call_op()
+                     ^^^^^^^^^^^^^^^^
+  File "/usr/local/Ascend/cann-9.1.0/python/site-packages/asc_opc_tool/single_op_compile.py", line 165, in __call_op
+    op_func(*inputs, *outputs, *new_attrs, self.__op_info.get(OpcOptions.KERNEL_NAME), **kwargs)
+
+  File "/usr/local/Ascend/ascend-toolkit/latest/python/site-packages/asc_op_compile_base/common/register/operation_func_mgr.py", line 55, in wrapper
+    return func(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/Ascend/ascend-toolkit/latest/python/site-packages/asc_op_compile_base/common/utils/para_check.py", line 516, in _in_wrapper
+    _check_one_op_param(one_args, formal_parameter_list[i][0],
+  File "/usr/local/Ascend/ascend-toolkit/latest/python/site-packages/asc_op_compile_base/common/utils/para_check.py", line 496, in _check_one_op_param
+    _check_input(op_param, param_name, param_type, op_name)
+  File "/usr/local/Ascend/ascend-toolkit/latest/python/site-packages/asc_op_compile_base/common/utils/para_check.py", line 302, in _check_input
+    raise RuntimeError(
+
+RuntimeError: ({'errCode': 'E80003', 'op_name': 'grouped_matmul', 'param_name': 'offset_in__', 'param_type': 'list truple', 'actual_type': 'NoneType'}, "In op[grouped_matmul], the parameter[offset_in__]'s type should be [list truple],  but actually is [NoneType].")
+
+Op[GroupedMatmul] of index[0] compile failed, kernelName: Gmm2SparseMsd_down_v2.
+[op_compilation.py:192][record_compile_error_info] reason is:[({'errCode': 'E80003', 'op_name': 'grouped_matmul', 'param_name': 'offset_in__', 'param_type': 'list truple', 'actual_type': 'NoneType'}, "In op[grouped_matmul], the parameter[offset_in__]'s type should be [list truple],  but actually is [NoneType].")].
+Lock file[/work/gmm_lane_sparse_msd_build_20261011_v1/kernel_meta_Gmm2SparseMsd_down_v2/kernel_meta.lock] has been removed.
+Opc tool compile failed.

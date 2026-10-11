@@ -1,0 +1,21 @@
+607:{"stage":"aclInit","code":0}
+610:{"stage":"aclrtGetDeviceCount","code":0}
+611:{"stage":"single_visible_device_guard","code":0}
+615:[DEBUG] RUNTIME(930848,runtime_registration_probe):2026-10-11-05:58:05.874.254 [api_error.cc:2706] 930848 GetDeviceIndexByPhyId:realDeviceId:8, phyId=8, devIndex=0.
+616:{"stage":"rtGetDeviceIndexByPhyId(8)","code":0}
+619:{"stage":"rtGetDevicePhyIdByIndex","code":0}
+620:{"physical":8,"logical":0,"visible_device_count":1}
+621:{"stage":"physical8_mapping_guard","code":0}
+5030:{"stage":"aclrtCreateContext","code":0}
+5034:{"stage":"aclrtSetCurrentContext","code":0}
+5037:{"stage":"aclrtGetDevice","code":0}
+5038:{"stage":"current_device_guard","code":0}
+5039:[INFO] ASCENDCL(930848,runtime_registration_probe):2026-10-11-05:58:06.255.238 [kernel.cpp:144]930848 aclrtBinaryLoadFromFileImpl: start to execute aclrtBinaryLoadFromFile, binPath[/work/gmm_lane_sparse_msd_build_20261011_v3_repro/planner_cpu_rebuild.o]
+5041:[ERROR] RUNTIME(930848,runtime_registration_probe):2026-10-11-05:58:06.255.260 [binary_loader.cc:131]930848 ParseLoadOptions:Binary load failed, RT_LOAD_BINARY_OPT_MAGIC does not support in load from file.
+5043:[ERROR] RUNTIME(930848,runtime_registration_probe):2026-10-11-05:58:06.255.287 [binary_loader.cc:505]930848 Load:parse load options failed, ret=0x7110001
+5046:[ERROR] RUNTIME(930848,runtime_registration_probe):2026-10-11-05:58:06.255.298 [api_c_kernel.cc:369]930848 rtsBinaryLoadFromFile:ErrCode=107000, desc=[invalid value], InnerCode=0x7110001
+5058:{"stage":"gmm2_sparse_msd_open","code":107000,"SDK_recent_error":"[PID: 930848] 2026-10-11-05:58:06.255.306 Invalid_Argument(EE1001): The argument is invalid. Reason: rtsBinaryLoadFromFile execution failed.\n        Solution: 1. Check the input parameter range of the function. 2. Check the function invocation relationship.\nTraceBack (most recent call last):\n        Binary load failed, RT_LOAD_BINARY_OPT_MAGIC does not support in load from file.[FUNC:ParseLoadOptions][FILE:binary_loader.cc][LINE:131]\n        The argument is invalid. Reason: rtsBinaryLoadFromFile execution failed.\n"}
+6512:{"cleanup":"aclrtDestroyContext","code":0}
+6570:{"cleanup":"aclFinalize","code":0}
+6571:{"terminal":true,"passed":false,"terminal_stage":"gmm2_sparse_msd_open","terminal_code":107000,"registration_passed":false,"physical":8,"logical":0,"planner_launches":0,"planner_cases_passed":0,"GMM_math_launches":0,"weight_bytes":0,"device_reset_calls":0}
+6581:[INFO] RUNTIME(930848,runtime_registration_probe):2026-10-11-05:58:08.291.399 [runtime.cc:1340] 930848 WaitMonitorExit: wait monitor success, used count=0.

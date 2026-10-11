@@ -1,0 +1,545 @@
+{
+  "scope": "read-only docker config, os.stat nodes, package metadata and version/source files; no torch import, NPU init, device write or tenant log reads",
+  "containers": {
+    "dsv41-real-stack-tp8-20261010-a321": {
+      "config": {
+        "image": "sha256:b69e58820f929ac7a77f93774a3d96da1961f507628239e9c7d7b24066b7a8ea",
+        "config_image": "local/dsv41-operator-stack-real:20261010-production",
+        "user": "",
+        "working_dir": "/workspace",
+        "privileged": true,
+        "devices": [
+          {
+            "PathOnHost": "/dev/davinci8",
+            "PathInContainer": "/dev/davinci8",
+            "CgroupPermissions": "rwm"
+          },
+          {
+            "PathOnHost": "/dev/davinci9",
+            "PathInContainer": "/dev/davinci9",
+            "CgroupPermissions": "rwm"
+          },
+          {
+            "PathOnHost": "/dev/davinci10",
+            "PathInContainer": "/dev/davinci10",
+            "CgroupPermissions": "rwm"
+          },
+          {
+            "PathOnHost": "/dev/davinci11",
+            "PathInContainer": "/dev/davinci11",
+            "CgroupPermissions": "rwm"
+          },
+          {
+            "PathOnHost": "/dev/davinci12",
+            "PathInContainer": "/dev/davinci12",
+            "CgroupPermissions": "rwm"
+          },
+          {
+            "PathOnHost": "/dev/davinci13",
+            "PathInContainer": "/dev/davinci13",
+            "CgroupPermissions": "rwm"
+          },
+          {
+            "PathOnHost": "/dev/davinci14",
+            "PathInContainer": "/dev/davinci14",
+            "CgroupPermissions": "rwm"
+          },
+          {
+            "PathOnHost": "/dev/davinci15",
+            "PathInContainer": "/dev/davinci15",
+            "CgroupPermissions": "rwm"
+          },
+          {
+            "PathOnHost": "/dev/davinci_manager",
+            "PathInContainer": "/dev/davinci_manager",
+            "CgroupPermissions": "rwm"
+          },
+          {
+            "PathOnHost": "/dev/devmm_svm",
+            "PathInContainer": "/dev/devmm_svm",
+            "CgroupPermissions": "rwm"
+          },
+          {
+            "PathOnHost": "/dev/hisi_hdc",
+            "PathInContainer": "/dev/hisi_hdc",
+            "CgroupPermissions": "rwm"
+          }
+        ],
+        "device_cgroup_rules": null,
+        "group_add": null,
+        "cap_add": null,
+        "security_opt": [
+          "label=disable"
+        ],
+        "ipc_mode": "shareable",
+        "pid_mode": "",
+        "network_mode": "host",
+        "mounts": [
+          {
+            "Type": "bind",
+            "Source": "/usr/local/Ascend/driver",
+            "Destination": "/usr/local/Ascend/driver",
+            "Mode": "ro",
+            "RW": false,
+            "Propagation": "rprivate"
+          },
+          {
+            "Type": "bind",
+            "Source": "/usr/local/Ascend/firmware",
+            "Destination": "/usr/local/Ascend/firmware",
+            "Mode": "ro",
+            "RW": false,
+            "Propagation": "rprivate"
+          },
+          {
+            "Type": "bind",
+            "Source": "/home/l00886679/projects/dsv41-real-stack-tp8-20261010",
+            "Destination": "/work",
+            "Mode": "",
+            "RW": true,
+            "Propagation": "rprivate"
+          }
+        ],
+        "env": {
+          "ASCEND_RT_VISIBLE_DEVICES": "8,9,10,11,12,13,14,15",
+          "PATH": "/usr/local/Ascend/nnal/atb/latest/atb/cxx_abi_1/bin:/usr/local/Ascend/ascend-toolkit/latest/bin:/usr/local/Ascend/ascend-toolkit/latest/compiler/ccec_compiler/bin:/usr/local/Ascend/ascend-toolkit/latest/tools/ccec_compiler/bin:/usr/local/Ascend/cann-9.1.0/tools/show_kernel_debug_data:/usr/local/Ascend/cann-9.1.0/tools/msobjdump:/usr/local/Ascend/cann-9.1.0/bin:/usr/local/Ascend/cann-9.1.0/tools/ccec_compiler/bin:/usr/local/Ascend/cann-9.1.0/tools/profiler/bin:/usr/local/Ascend/cann-9.1.0/tools/ascend_system_advisor/asys:/usr/local/python3.12.13/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
+          "LD_LIBRARY_PATH": "/usr/local/Ascend/cann-9.1.0/lib64:/usr/local/Ascend/cann-9.1.0/lib64/plugin/opskernel:/usr/local/Ascend/cann-9.1.0/lib64/plugin/nnengine:/usr/local/Ascend/cann-9.1.0/opp/built-in/op_impl/ai_core/tbe/op_tiling:/usr/local/Ascend/driver/lib64:/usr/local/Ascend/driver/lib64/common:/usr/local/Ascend/driver/lib64/driver:/usr/local/Ascend/nnal/atb/latest/atb/cxx_abi_1/lib:/usr/local/Ascend/nnal/atb/latest/atb/cxx_abi_1/examples:/usr/local/Ascend/nnal/atb/latest/atb/cxx_abi_1/tests/atbopstest:/usr/local/Ascend/ascend-toolkit/latest/tools/aml/lib64:/usr/local/Ascend/ascend-toolkit/latest/tools/aml/lib64/plugin:/usr/local/Ascend/ascend-toolkit/latest/lib64:/usr/local/Ascend/ascend-toolkit/latest/lib64/plugin/opskernel:/usr/local/Ascend/ascend-toolkit/latest/lib64/plugin/nnengine:/usr/local/Ascend/ascend-toolkit/latest/opp/built-in/op_impl/ai_core/tbe/op_tiling:/usr/local/python3.12.13/lib:",
+          "PYTHONPATH": "/usr/local/Ascend/ascend-toolkit/latest/python/site-packages:/usr/local/Ascend/ascend-toolkit/latest/opp/built-in/op_impl/ai_core/tbe:/usr/local/Ascend/cann-9.1.0/python/site-packages:/usr/local/Ascend/cann-9.1.0/opp/built-in/op_impl/ai_core/tbe:",
+          "ASCEND_OPP_PATH": "/usr/local/Ascend/cann-9.1.0/opp",
+          "ASCEND_HOME_PATH": "/usr/local/Ascend/cann-9.1.0",
+          "OMP_NUM_THREADS": "1"
+        }
+      },
+      "readonly_metadata": {
+        "env": {
+          "ASCEND_RT_VISIBLE_DEVICES": "8,9,10,11,12,13,14,15",
+          "ASCEND_VISIBLE_DEVICES": null,
+          "ASCEND_DEVICE_ID": null,
+          "ASCEND_HOME_PATH": "/usr/local/Ascend/cann-9.1.0",
+          "ASCEND_TOOLKIT_HOME": "/usr/local/Ascend/cann-9.1.0",
+          "ASCEND_OPP_PATH": "/usr/local/Ascend/cann-9.1.0/opp",
+          "ASCEND_AICPU_PATH": "/usr/local/Ascend/cann-9.1.0",
+          "ASCEND_CUSTOM_OPP_PATH": null,
+          "LD_LIBRARY_PATH": "/usr/local/Ascend/cann-9.1.0/lib64:/usr/local/Ascend/cann-9.1.0/lib64/plugin/opskernel:/usr/local/Ascend/cann-9.1.0/lib64/plugin/nnengine:/usr/local/Ascend/cann-9.1.0/opp/built-in/op_impl/ai_core/tbe/op_tiling:/usr/local/Ascend/driver/lib64:/usr/local/Ascend/driver/lib64/common:/usr/local/Ascend/driver/lib64/driver:/usr/local/Ascend/nnal/atb/latest/atb/cxx_abi_1/lib:/usr/local/Ascend/nnal/atb/latest/atb/cxx_abi_1/examples:/usr/local/Ascend/nnal/atb/latest/atb/cxx_abi_1/tests/atbopstest:/usr/local/Ascend/ascend-toolkit/latest/tools/aml/lib64:/usr/local/Ascend/ascend-toolkit/latest/tools/aml/lib64/plugin:/usr/local/Ascend/ascend-toolkit/latest/lib64:/usr/local/Ascend/ascend-toolkit/latest/lib64/plugin/opskernel:/usr/local/Ascend/ascend-toolkit/latest/lib64/plugin/nnengine:/usr/local/Ascend/ascend-toolkit/latest/opp/built-in/op_impl/ai_core/tbe/op_tiling:/usr/local/python3.12.13/lib:",
+          "LD_PRELOAD": null,
+          "PATH": "/usr/local/Ascend/nnal/atb/latest/atb/cxx_abi_1/bin:/usr/local/Ascend/ascend-toolkit/latest/bin:/usr/local/Ascend/ascend-toolkit/latest/compiler/ccec_compiler/bin:/usr/local/Ascend/ascend-toolkit/latest/tools/ccec_compiler/bin:/usr/local/Ascend/cann-9.1.0/tools/show_kernel_debug_data:/usr/local/Ascend/cann-9.1.0/tools/msobjdump:/usr/local/Ascend/cann-9.1.0/bin:/usr/local/Ascend/cann-9.1.0/tools/ccec_compiler/bin:/usr/local/Ascend/cann-9.1.0/tools/profiler/bin:/usr/local/Ascend/cann-9.1.0/tools/ascend_system_advisor/asys:/usr/local/python3.12.13/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
+          "PYTHONPATH": "/usr/local/Ascend/ascend-toolkit/latest/python/site-packages:/usr/local/Ascend/ascend-toolkit/latest/opp/built-in/op_impl/ai_core/tbe:/usr/local/Ascend/cann-9.1.0/python/site-packages:/usr/local/Ascend/cann-9.1.0/opp/built-in/op_impl/ai_core/tbe:",
+          "HCCL_DETERMINISTIC": null,
+          "LOCAL_WORLD_SIZE": null,
+          "OMP_NUM_THREADS": "1",
+          "TORCH_DEVICE_BACKEND_AUTOLOAD": null
+        },
+        "device_nodes": {
+          "/dev/davinci4": {
+            "exists": true,
+            "mode": "0o20660",
+            "major": 509,
+            "minor": 4,
+            "uid": 1000,
+            "gid": 1000,
+            "character_device": true
+          },
+          "/dev/davinci6": {
+            "exists": true,
+            "mode": "0o20660",
+            "major": 509,
+            "minor": 6,
+            "uid": 1000,
+            "gid": 1000,
+            "character_device": true
+          },
+          "/dev/davinci7": {
+            "exists": true,
+            "mode": "0o20660",
+            "major": 509,
+            "minor": 7,
+            "uid": 1000,
+            "gid": 1000,
+            "character_device": true
+          },
+          "/dev/davinci8": {
+            "exists": true,
+            "mode": "0o20660",
+            "major": 509,
+            "minor": 8,
+            "uid": 1000,
+            "gid": 1000,
+            "character_device": true
+          },
+          "/dev/davinci_manager": {
+            "exists": true,
+            "mode": "0o20660",
+            "major": 510,
+            "minor": 0,
+            "uid": 1000,
+            "gid": 1000,
+            "character_device": true
+          },
+          "/dev/devmm_svm": {
+            "exists": true,
+            "mode": "0o20660",
+            "major": 508,
+            "minor": 0,
+            "uid": 1000,
+            "gid": 1000,
+            "character_device": true
+          },
+          "/dev/hisi_hdc": {
+            "exists": true,
+            "mode": "0o20660",
+            "major": 507,
+            "minor": 0,
+            "uid": 1000,
+            "gid": 1000,
+            "character_device": true
+          }
+        },
+        "distribution_versions": {
+          "torch": "2.10.0+cpu",
+          "torch_npu": "2.10.0.post4",
+          "vllm": "0.27.1+empty",
+          "vllm-ascend": "0.1.dev5097+ge43cf1e9f"
+        },
+        "version_files": {
+          "/usr/local/Ascend/driver/version.info": {
+            "exists": true,
+            "realpath": "/usr/local/Ascend/driver/version.info",
+            "bytes": 332,
+            "sha256": "89fba342fc5cf70d03ad3d1dfd05e9a0e837c03a002ebdc1b222e560a68e7dfc",
+            "text": "Version=26.1.1\nascendhal_version=7.35.23\naicpu_version=1.0\ntdt_version=1.0\nlog_version=1.0\nprof_version=2.0\ndvppkernels_version=1.1\ntsfw_version=1.0\nInnerversion=V100R001C10SPC009B220\ncompatible_version=[V100R001C21],[V100R001C22],[V100R001C23],[V100R001C25],[V100R001C10]\ncompatible_version_fw=[7.0.0,9.9.9]\npackage_version=26.1.1\n"
+          },
+          "/usr/local/Ascend/driver/ascend_install.info": {
+            "exists": false
+          },
+          "/etc/ascend_install.info": {
+            "exists": true,
+            "realpath": "/etc/ascend_install.info",
+            "bytes": 267,
+            "sha256": "3cf2a39372e3d468f7ada4034870472e122ccbbaea9e2327728bbf824182171e",
+            "text": "UserName=HwHiAiUser\nUserGroup=HwHiAiUser\nDriver_Install_Type=full\nDriver_Install_Path_Param=/usr/local/Ascend\nDriver_Install_For_All=no\nDriver_Install_Mode=normal\nDriver_Install_Status=complete\nFirmware_Install_Type=full\nFirmware_Install_Path_Param=/usr/local/Ascend\n"
+          },
+          "/usr/local/Ascend/ascend-toolkit/latest/version.cfg": {
+            "exists": false
+          },
+          "/usr/local/Ascend/ascend-toolkit/latest/aarch64-linux/ascend_toolkit_install.info": {
+            "exists": true,
+            "realpath": "/usr/local/Ascend/cann-9.1.0/aarch64-linux/ascend_toolkit_install.info",
+            "bytes": 213,
+            "sha256": "a9b17ef608ebeb70ade09cde1c12a545eb5e8f3e5312f6806ca0d368b0464848",
+            "text": "package_name=Ascend-cann-toolkit\nversion=9.1.0\ninnerversion=V100R001C11SPC001B243\ncompatible_version=[V100R001C15],[V100R001C21],[V100R001C23],[V100R001C10]\narch=aarch64\nos=linux\npath=/usr/local/Ascend/cann-9.1.0\n"
+          },
+          "/usr/local/Ascend/ascend-toolkit/latest/opp/version.info": {
+            "exists": true,
+            "realpath": "/usr/local/Ascend/cann-9.1.0/opp/version.info",
+            "bytes": 281,
+            "sha256": "841279757459d4eabc1c8cfea69d3e1dc0fc9db3eb0c18100294cd5c1301b9e6",
+            "text": "Version=9.1.0\nversion_dir=cann\nrequired_package_runtime_version=\">=8.5\"\nrequired_package_ge-executor_version=\">=8.5\"\nrequired_package_metadef_version=\">=8.5\"\nrequired_package_asc-devkit_version=\">=8.5\"\nrequired_package_bisheng-compiler_version=\">=8.5\"\ntimestamp=20260730_231653901\n"
+          },
+          "/usr/local/Ascend/nnal/atb/latest/atb_install.info": {
+            "exists": false
+          },
+          "/usr/local/Ascend/ascend-toolkit/set_env.sh": {
+            "exists": true,
+            "realpath": "/usr/local/Ascend/cann-9.1.0/set_env.sh",
+            "bytes": 5112,
+            "sha256": "de50f1bf5b960f8305792ef407e3bfc3fc1b6d82931d0feae39ac4c965690aaf"
+          },
+          "/usr/local/Ascend/nnal/atb/set_env.sh": {
+            "exists": true,
+            "realpath": "/usr/local/Ascend/nnal/atb/set_env.sh",
+            "bytes": 3048,
+            "sha256": "e2d0da06db3e7541a13de4bb88ca3067f8f2e0c9cd0d3c41e5edd20143661a8c"
+          }
+        },
+        "sdk_source_sha256": {
+          "torch/__init__.py": {
+            "path": "/usr/local/python3.12.13/lib/python3.12/site-packages/torch/__init__.py",
+            "bytes": 106868,
+            "sha256": "51c90fe34a7cf869517d1bab4cd114498790e169ec668f1a154c35ec64117a5e"
+          },
+          "torch_npu/__init__.py": {
+            "path": "/usr/local/python3.12.13/lib/python3.12/site-packages/torch_npu/__init__.py",
+            "bytes": 2435,
+            "sha256": "a21f553fb9ac12f087cfdf0fb61a583be3c864d3785cff9920ec862f565d6072"
+          },
+          "torch_npu/npu/__init__.py": {
+            "path": "/usr/local/python3.12.13/lib/python3.12/site-packages/torch_npu/npu/__init__.py",
+            "bytes": 25023,
+            "sha256": "355df777433fd8c85670db75d8aacf7fa076332092470d59b6ba26202ed7fd2f"
+          },
+          "torch_npu/dynamo/npugraph_ex/__init__.py": {
+            "path": "/usr/local/python3.12.13/lib/python3.12/site-packages/torch_npu/dynamo/npugraph_ex/__init__.py",
+            "bytes": 1617,
+            "sha256": "6ce899dddebf09d3be797865bd93cc4ee2ba39c9b33f8d08bb7887c2d5e85c92"
+          },
+          "torch_npu/dynamo/npugraph_ex/npu_fx_compiler.py": {
+            "path": "/usr/local/python3.12.13/lib/python3.12/site-packages/torch_npu/dynamo/npugraph_ex/npu_fx_compiler.py",
+            "bytes": 39919,
+            "sha256": "926818c66e7fae1cc5191ff994935b746c46fcd9e6fba23e1938a0f84fe1382c"
+          }
+        },
+        "worker_sources": {
+          "/vllm-workspace/vllm-ascend/vllm_ascend/worker/worker.py": {
+            "path": "/vllm-workspace/vllm-ascend/vllm_ascend/worker/worker.py",
+            "bytes": 52882,
+            "sha256": "2eb424498fd1a908dece44a56451a2e42bb4697614327aaa91aaa171e3f0f127",
+            "local_path": "experiments/operator_stack/parallel_tiny/dspark_formal_audit/native_capture_copy_v1/evidence/readonly_init_comparison/worker_sources/dsv41-real-stack-tp8-20261010-a321/worker.py"
+          }
+        },
+        "torch_or_sdk_imported": false,
+        "npu_initialized_by_collection": false
+      }
+    },
+    "dsv41-tiny-goal20-20261010-c6": {
+      "config": {
+        "image": "sha256:5a58cf30d9131b81be87dcd1dbc0a71d3e65bc922f3aa1f2737827d5864c28c7",
+        "config_image": "local/dsv41-a3-tp8:20261005-1001",
+        "user": "",
+        "working_dir": "/workspace",
+        "privileged": true,
+        "devices": [],
+        "device_cgroup_rules": null,
+        "group_add": null,
+        "cap_add": null,
+        "security_opt": [
+          "label=disable"
+        ],
+        "ipc_mode": "shareable",
+        "pid_mode": "",
+        "network_mode": "default",
+        "mounts": [
+          {
+            "Type": "bind",
+            "Source": "/usr/local/Ascend/driver",
+            "Destination": "/usr/local/Ascend/driver",
+            "Mode": "ro",
+            "RW": false,
+            "Propagation": "rprivate"
+          },
+          {
+            "Type": "bind",
+            "Source": "/usr/local/Ascend/firmware",
+            "Destination": "/usr/local/Ascend/firmware",
+            "Mode": "ro",
+            "RW": false,
+            "Propagation": "rprivate"
+          },
+          {
+            "Type": "bind",
+            "Source": "/home/l00886679/projects/dsv41-tiny-prof-20261009",
+            "Destination": "/work",
+            "Mode": "",
+            "RW": true,
+            "Propagation": "rprivate"
+          }
+        ],
+        "env": {
+          "PATH": "/usr/local/Ascend/nnal/atb/latest/atb/cxx_abi_1/bin:/usr/local/Ascend/ascend-toolkit/latest/bin:/usr/local/Ascend/ascend-toolkit/latest/compiler/ccec_compiler/bin:/usr/local/Ascend/ascend-toolkit/latest/tools/ccec_compiler/bin:/usr/local/Ascend/cann-9.1.0/tools/show_kernel_debug_data:/usr/local/Ascend/cann-9.1.0/tools/msobjdump:/usr/local/Ascend/cann-9.1.0/bin:/usr/local/Ascend/cann-9.1.0/tools/ccec_compiler/bin:/usr/local/Ascend/cann-9.1.0/tools/profiler/bin:/usr/local/Ascend/cann-9.1.0/tools/ascend_system_advisor/asys:/usr/local/python3.12.13/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
+          "LD_LIBRARY_PATH": "/usr/local/Ascend/cann-9.1.0/lib64:/usr/local/Ascend/cann-9.1.0/lib64/plugin/opskernel:/usr/local/Ascend/cann-9.1.0/lib64/plugin/nnengine:/usr/local/Ascend/cann-9.1.0/opp/built-in/op_impl/ai_core/tbe/op_tiling:/usr/local/Ascend/driver/lib64:/usr/local/Ascend/driver/lib64/common:/usr/local/Ascend/driver/lib64/driver:/usr/local/Ascend/nnal/atb/latest/atb/cxx_abi_1/lib:/usr/local/Ascend/nnal/atb/latest/atb/cxx_abi_1/examples:/usr/local/Ascend/nnal/atb/latest/atb/cxx_abi_1/tests/atbopstest:/usr/local/Ascend/ascend-toolkit/latest/tools/aml/lib64:/usr/local/Ascend/ascend-toolkit/latest/tools/aml/lib64/plugin:/usr/local/Ascend/ascend-toolkit/latest/lib64:/usr/local/Ascend/ascend-toolkit/latest/lib64/plugin/opskernel:/usr/local/Ascend/ascend-toolkit/latest/lib64/plugin/nnengine:/usr/local/Ascend/ascend-toolkit/latest/opp/built-in/op_impl/ai_core/tbe/op_tiling:/usr/local/python3.12.13/lib:",
+          "PYTHONPATH": "/usr/local/Ascend/ascend-toolkit/latest/python/site-packages:/usr/local/Ascend/ascend-toolkit/latest/opp/built-in/op_impl/ai_core/tbe:/usr/local/Ascend/cann-9.1.0/python/site-packages:/usr/local/Ascend/cann-9.1.0/opp/built-in/op_impl/ai_core/tbe:",
+          "ASCEND_OPP_PATH": "/usr/local/Ascend/cann-9.1.0/opp",
+          "ASCEND_HOME_PATH": "/usr/local/Ascend/cann-9.1.0",
+          "OMP_NUM_THREADS": "1"
+        }
+      },
+      "readonly_metadata": {
+        "env": {
+          "ASCEND_RT_VISIBLE_DEVICES": null,
+          "ASCEND_VISIBLE_DEVICES": null,
+          "ASCEND_DEVICE_ID": null,
+          "ASCEND_HOME_PATH": "/usr/local/Ascend/cann-9.1.0",
+          "ASCEND_TOOLKIT_HOME": "/usr/local/Ascend/cann-9.1.0",
+          "ASCEND_OPP_PATH": "/usr/local/Ascend/cann-9.1.0/opp",
+          "ASCEND_AICPU_PATH": "/usr/local/Ascend/cann-9.1.0",
+          "ASCEND_CUSTOM_OPP_PATH": null,
+          "LD_LIBRARY_PATH": "/usr/local/Ascend/cann-9.1.0/lib64:/usr/local/Ascend/cann-9.1.0/lib64/plugin/opskernel:/usr/local/Ascend/cann-9.1.0/lib64/plugin/nnengine:/usr/local/Ascend/cann-9.1.0/opp/built-in/op_impl/ai_core/tbe/op_tiling:/usr/local/Ascend/driver/lib64:/usr/local/Ascend/driver/lib64/common:/usr/local/Ascend/driver/lib64/driver:/usr/local/Ascend/nnal/atb/latest/atb/cxx_abi_1/lib:/usr/local/Ascend/nnal/atb/latest/atb/cxx_abi_1/examples:/usr/local/Ascend/nnal/atb/latest/atb/cxx_abi_1/tests/atbopstest:/usr/local/Ascend/ascend-toolkit/latest/tools/aml/lib64:/usr/local/Ascend/ascend-toolkit/latest/tools/aml/lib64/plugin:/usr/local/Ascend/ascend-toolkit/latest/lib64:/usr/local/Ascend/ascend-toolkit/latest/lib64/plugin/opskernel:/usr/local/Ascend/ascend-toolkit/latest/lib64/plugin/nnengine:/usr/local/Ascend/ascend-toolkit/latest/opp/built-in/op_impl/ai_core/tbe/op_tiling:/usr/local/python3.12.13/lib:",
+          "LD_PRELOAD": null,
+          "PATH": "/usr/local/Ascend/nnal/atb/latest/atb/cxx_abi_1/bin:/usr/local/Ascend/ascend-toolkit/latest/bin:/usr/local/Ascend/ascend-toolkit/latest/compiler/ccec_compiler/bin:/usr/local/Ascend/ascend-toolkit/latest/tools/ccec_compiler/bin:/usr/local/Ascend/cann-9.1.0/tools/show_kernel_debug_data:/usr/local/Ascend/cann-9.1.0/tools/msobjdump:/usr/local/Ascend/cann-9.1.0/bin:/usr/local/Ascend/cann-9.1.0/tools/ccec_compiler/bin:/usr/local/Ascend/cann-9.1.0/tools/profiler/bin:/usr/local/Ascend/cann-9.1.0/tools/ascend_system_advisor/asys:/usr/local/python3.12.13/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
+          "PYTHONPATH": "/usr/local/Ascend/ascend-toolkit/latest/python/site-packages:/usr/local/Ascend/ascend-toolkit/latest/opp/built-in/op_impl/ai_core/tbe:/usr/local/Ascend/cann-9.1.0/python/site-packages:/usr/local/Ascend/cann-9.1.0/opp/built-in/op_impl/ai_core/tbe:",
+          "HCCL_DETERMINISTIC": null,
+          "LOCAL_WORLD_SIZE": null,
+          "OMP_NUM_THREADS": "1",
+          "TORCH_DEVICE_BACKEND_AUTOLOAD": null
+        },
+        "device_nodes": {
+          "/dev/davinci4": {
+            "exists": true,
+            "mode": "0o20660",
+            "major": 509,
+            "minor": 4,
+            "uid": 1000,
+            "gid": 1000,
+            "character_device": true
+          },
+          "/dev/davinci6": {
+            "exists": true,
+            "mode": "0o20660",
+            "major": 509,
+            "minor": 6,
+            "uid": 1000,
+            "gid": 1000,
+            "character_device": true
+          },
+          "/dev/davinci7": {
+            "exists": true,
+            "mode": "0o20660",
+            "major": 509,
+            "minor": 7,
+            "uid": 1000,
+            "gid": 1000,
+            "character_device": true
+          },
+          "/dev/davinci8": {
+            "exists": true,
+            "mode": "0o20660",
+            "major": 509,
+            "minor": 8,
+            "uid": 1000,
+            "gid": 1000,
+            "character_device": true
+          },
+          "/dev/davinci_manager": {
+            "exists": true,
+            "mode": "0o20660",
+            "major": 510,
+            "minor": 0,
+            "uid": 1000,
+            "gid": 1000,
+            "character_device": true
+          },
+          "/dev/devmm_svm": {
+            "exists": true,
+            "mode": "0o20660",
+            "major": 508,
+            "minor": 0,
+            "uid": 1000,
+            "gid": 1000,
+            "character_device": true
+          },
+          "/dev/hisi_hdc": {
+            "exists": true,
+            "mode": "0o20660",
+            "major": 507,
+            "minor": 0,
+            "uid": 1000,
+            "gid": 1000,
+            "character_device": true
+          }
+        },
+        "distribution_versions": {
+          "torch": "2.10.0+cpu",
+          "torch_npu": "2.10.0.post4",
+          "vllm": "0.27.1+empty",
+          "vllm-ascend": "0.1.dev5097+ge43cf1e9f"
+        },
+        "version_files": {
+          "/usr/local/Ascend/driver/version.info": {
+            "exists": true,
+            "realpath": "/usr/local/Ascend/driver/version.info",
+            "bytes": 332,
+            "sha256": "89fba342fc5cf70d03ad3d1dfd05e9a0e837c03a002ebdc1b222e560a68e7dfc",
+            "text": "Version=26.1.1\nascendhal_version=7.35.23\naicpu_version=1.0\ntdt_version=1.0\nlog_version=1.0\nprof_version=2.0\ndvppkernels_version=1.1\ntsfw_version=1.0\nInnerversion=V100R001C10SPC009B220\ncompatible_version=[V100R001C21],[V100R001C22],[V100R001C23],[V100R001C25],[V100R001C10]\ncompatible_version_fw=[7.0.0,9.9.9]\npackage_version=26.1.1\n"
+          },
+          "/usr/local/Ascend/driver/ascend_install.info": {
+            "exists": false
+          },
+          "/etc/ascend_install.info": {
+            "exists": true,
+            "realpath": "/etc/ascend_install.info",
+            "bytes": 267,
+            "sha256": "3cf2a39372e3d468f7ada4034870472e122ccbbaea9e2327728bbf824182171e",
+            "text": "UserName=HwHiAiUser\nUserGroup=HwHiAiUser\nDriver_Install_Type=full\nDriver_Install_Path_Param=/usr/local/Ascend\nDriver_Install_For_All=no\nDriver_Install_Mode=normal\nDriver_Install_Status=complete\nFirmware_Install_Type=full\nFirmware_Install_Path_Param=/usr/local/Ascend\n"
+          },
+          "/usr/local/Ascend/ascend-toolkit/latest/version.cfg": {
+            "exists": false
+          },
+          "/usr/local/Ascend/ascend-toolkit/latest/aarch64-linux/ascend_toolkit_install.info": {
+            "exists": true,
+            "realpath": "/usr/local/Ascend/cann-9.1.0/aarch64-linux/ascend_toolkit_install.info",
+            "bytes": 213,
+            "sha256": "a9b17ef608ebeb70ade09cde1c12a545eb5e8f3e5312f6806ca0d368b0464848",
+            "text": "package_name=Ascend-cann-toolkit\nversion=9.1.0\ninnerversion=V100R001C11SPC001B243\ncompatible_version=[V100R001C15],[V100R001C21],[V100R001C23],[V100R001C10]\narch=aarch64\nos=linux\npath=/usr/local/Ascend/cann-9.1.0\n"
+          },
+          "/usr/local/Ascend/ascend-toolkit/latest/opp/version.info": {
+            "exists": true,
+            "realpath": "/usr/local/Ascend/cann-9.1.0/opp/version.info",
+            "bytes": 281,
+            "sha256": "841279757459d4eabc1c8cfea69d3e1dc0fc9db3eb0c18100294cd5c1301b9e6",
+            "text": "Version=9.1.0\nversion_dir=cann\nrequired_package_runtime_version=\">=8.5\"\nrequired_package_ge-executor_version=\">=8.5\"\nrequired_package_metadef_version=\">=8.5\"\nrequired_package_asc-devkit_version=\">=8.5\"\nrequired_package_bisheng-compiler_version=\">=8.5\"\ntimestamp=20260730_231653901\n"
+          },
+          "/usr/local/Ascend/nnal/atb/latest/atb_install.info": {
+            "exists": false
+          },
+          "/usr/local/Ascend/ascend-toolkit/set_env.sh": {
+            "exists": true,
+            "realpath": "/usr/local/Ascend/cann-9.1.0/set_env.sh",
+            "bytes": 5112,
+            "sha256": "de50f1bf5b960f8305792ef407e3bfc3fc1b6d82931d0feae39ac4c965690aaf"
+          },
+          "/usr/local/Ascend/nnal/atb/set_env.sh": {
+            "exists": true,
+            "realpath": "/usr/local/Ascend/nnal/atb/set_env.sh",
+            "bytes": 3048,
+            "sha256": "e2d0da06db3e7541a13de4bb88ca3067f8f2e0c9cd0d3c41e5edd20143661a8c"
+          }
+        },
+        "sdk_source_sha256": {
+          "torch/__init__.py": {
+            "path": "/usr/local/python3.12.13/lib/python3.12/site-packages/torch/__init__.py",
+            "bytes": 106868,
+            "sha256": "51c90fe34a7cf869517d1bab4cd114498790e169ec668f1a154c35ec64117a5e"
+          },
+          "torch_npu/__init__.py": {
+            "path": "/usr/local/python3.12.13/lib/python3.12/site-packages/torch_npu/__init__.py",
+            "bytes": 2435,
+            "sha256": "a21f553fb9ac12f087cfdf0fb61a583be3c864d3785cff9920ec862f565d6072"
+          },
+          "torch_npu/npu/__init__.py": {
+            "path": "/usr/local/python3.12.13/lib/python3.12/site-packages/torch_npu/npu/__init__.py",
+            "bytes": 25023,
+            "sha256": "355df777433fd8c85670db75d8aacf7fa076332092470d59b6ba26202ed7fd2f"
+          },
+          "torch_npu/dynamo/npugraph_ex/__init__.py": {
+            "path": "/usr/local/python3.12.13/lib/python3.12/site-packages/torch_npu/dynamo/npugraph_ex/__init__.py",
+            "bytes": 1617,
+            "sha256": "6ce899dddebf09d3be797865bd93cc4ee2ba39c9b33f8d08bb7887c2d5e85c92"
+          },
+          "torch_npu/dynamo/npugraph_ex/npu_fx_compiler.py": {
+            "path": "/usr/local/python3.12.13/lib/python3.12/site-packages/torch_npu/dynamo/npugraph_ex/npu_fx_compiler.py",
+            "bytes": 39919,
+            "sha256": "926818c66e7fae1cc5191ff994935b746c46fcd9e6fba23e1938a0f84fe1382c"
+          }
+        },
+        "worker_sources": {
+          "/vllm-workspace/vllm-ascend/vllm_ascend/worker/worker.py": {
+            "path": "/vllm-workspace/vllm-ascend/vllm_ascend/worker/worker.py",
+            "bytes": 52882,
+            "sha256": "2eb424498fd1a908dece44a56451a2e42bb4697614327aaa91aaa171e3f0f127",
+            "local_path": "experiments/operator_stack/parallel_tiny/dspark_formal_audit/native_capture_copy_v1/evidence/readonly_init_comparison/worker_sources/dsv41-tiny-goal20-20261010-c6/worker.py"
+          }
+        },
+        "torch_or_sdk_imported": false,
+        "npu_initialized_by_collection": false
+      }
+    }
+  },
+  "host_driver_files": {
+    "/usr/local/Ascend/driver/version.info": {
+      "exists": true,
+      "realpath": "/usr/local/Ascend/driver/version.info",
+      "bytes": 332,
+      "sha256": "89fba342fc5cf70d03ad3d1dfd05e9a0e837c03a002ebdc1b222e560a68e7dfc",
+      "text": "Version=26.1.1\nascendhal_version=7.35.23\naicpu_version=1.0\ntdt_version=1.0\nlog_version=1.0\nprof_version=2.0\ndvppkernels_version=1.1\ntsfw_version=1.0\nInnerversion=V100R001C10SPC009B220\ncompatible_version=[V100R001C21],[V100R001C22],[V100R001C23],[V100R001C25],[V100R001C10]\ncompatible_version_fw=[7.0.0,9.9.9]\npackage_version=26.1.1\n"
+    },
+    "/usr/local/Ascend/driver/ascend_install.info": {
+      "exists": false
+    },
+    "/etc/ascend_install.info": {
+      "exists": true,
+      "realpath": "/etc/ascend_install.info",
+      "bytes": 267,
+      "sha256": "3cf2a39372e3d468f7ada4034870472e122ccbbaea9e2327728bbf824182171e",
+      "text": "UserName=HwHiAiUser\nUserGroup=HwHiAiUser\nDriver_Install_Type=full\nDriver_Install_Path_Param=/usr/local/Ascend\nDriver_Install_For_All=no\nDriver_Install_Mode=normal\nDriver_Install_Status=complete\nFirmware_Install_Type=full\nFirmware_Install_Path_Param=/usr/local/Ascend\n"
+    }
+  }
+}

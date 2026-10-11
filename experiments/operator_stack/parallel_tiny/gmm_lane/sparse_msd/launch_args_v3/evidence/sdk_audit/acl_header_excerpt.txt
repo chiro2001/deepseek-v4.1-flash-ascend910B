@@ -1,0 +1,137 @@
+3556:/**
+3557: * @ingroup AscendCL
+3558: * @brief Get kernel args handle memory size
+3559: * @param [in] funcHandle
+3560: * @param [out] memSize
+3561: * @retval ACL_SUCCESS The function is successfully executed.
+3562: * @retval OtherValues Failure
+3563: */
+3564:ACL_FUNC_VISIBILITY aclError aclrtKernelArgsGetHandleMemSize(aclrtFuncHandle funcHandle, size_t *memSize);
+3565:
+3566:/**
+3567: * @ingroup AscendCL
+3568: * @brief Get kernel args memory size
+3569: * @param [in] funcHandle
+3570: * @param [in] userArgsSize
+3571: * @param [out] actualArgsSize
+3572: * @retval ACL_SUCCESS The function is successfully executed.
+3573: * @retval OtherValues Failure
+3574: */
+3575:ACL_FUNC_VISIBILITY aclError aclrtKernelArgsGetMemSize(aclrtFuncHandle funcHandle, size_t userArgsSize,
+3576:                                                       size_t *actualArgsSize);
+3577:
+3578:/**
+3579: * @ingroup AscendCL
+3580: * @brief Initial kernel args
+3581: * @param [in] funcHandle
+3582: * @param [out] argsHandle
+3583: * @retval ACL_SUCCESS The function is successfully executed.
+3584: * @retval OtherValues Failure
+3585: */
+3586:ACL_FUNC_VISIBILITY aclError aclrtKernelArgsInit(aclrtFuncHandle funcHandle, aclrtArgsHandle *argsHandle);
+3587:
+3588:/**
+3589: * @ingroup AscendCL
+3590: * @brief Initialize kernel args by user memory
+3591: * @param [in] funcHandle
+3592: * @param [out] argsHandle
+3593: * @param [in] userHostMem
+3594: * @param [in] actualArgsSize
+3595: * @retval ACL_SUCCESS The function is successfully executed.
+3596: * @retval OtherValues Failure
+3597: */
+3598:ACL_FUNC_VISIBILITY aclError aclrtKernelArgsInitByUserMem(aclrtFuncHandle funcHandle, aclrtArgsHandle argsHandle,
+3599:                                                          void *userHostMem, size_t actualArgsSize);
+3600:
+3601:/**
+3602: * @ingroup AscendCL
+3603: * @brief Append kernel args
+3604: * @param [in] argsHandle
+3605: * @param [in] param
+3606: * @param [in] paramSize
+3607: * @param [out] paramHandle
+3608: * @retval ACL_SUCCESS The function is successfully executed.
+3609: * @retval OtherValues Failure
+3610: */
+3611:ACL_FUNC_VISIBILITY aclError aclrtKernelArgsAppend(aclrtArgsHandle argsHandle, void *param, size_t paramSize,
+3612:                                                   aclrtParamHandle *paramHandle);
+3613:
+3614:/**
+3615: * @ingroup AscendCL
+3616: * @brief Append kernel args placeholder
+3617: * @param [in] argsHandle
+3618: * @param [out] paramHandle
+3619: * @retval ACL_SUCCESS The function is successfully executed.
+3620: * @retval OtherValues Failure
+3621: */
+3622:ACL_FUNC_VISIBILITY aclError aclrtKernelArgsAppendPlaceHolder(aclrtArgsHandle argsHandle,
+3623:                                                              aclrtParamHandle *paramHandle);
+3624:
+3625:/**
+3626: * @ingroup AscendCL
+3627: * @brief Get kernel args buffer of placeholder
+3628: * @param [in] argsHandle
+3629: * @param [in] paramHandle
+3630: * @param [in] dataSize
+3631: * @param [out] bufferAddr
+3632: * @retval ACL_SUCCESS The function is successfully executed.
+3633: * @retval OtherValues Failure
+3634: */
+3635:ACL_FUNC_VISIBILITY aclError aclrtKernelArgsGetPlaceHolderBuffer(aclrtArgsHandle argsHandle,
+3636:                                                                 aclrtParamHandle paramHandle, size_t dataSize,
+3637:                                                                 void **bufferAddr);
+3638:
+3639:/**
+3640: * @ingroup AscendCL
+3641: * @brief Update kernel args placeholder
+3642: * @param [in] argsHandle
+3643: * @param [in] paramHandle
+3644: * @param [in] param
+3645: * @param [in] paramSize
+3646: * @retval ACL_SUCCESS The function is successfully executed.
+3647: * @retval OtherValues Failure
+3648: */
+3649:ACL_FUNC_VISIBILITY aclError aclrtKernelArgsParaUpdate(aclrtArgsHandle argsHandle, aclrtParamHandle paramHandle,
+3650:                                                       void *param, size_t paramSize);
+3651:
+3652:/**
+3653: * @ingroup AscendCL
+3654: * @brief Launch kernel
+3655: * @param [in] funcHandle
+3656: * @param [in] numBlocks
+3657: * @param [in] stream
+3658: * @param [in] cfg
+3659: * @param [in] argsHandle
+3660: * @param [in] reserve
+3661: * @retval ACL_SUCCESS The function is successfully executed.
+3662: * @retval OtherValues Failure
+3663: */
+3664:ACL_FUNC_VISIBILITY aclError aclrtLaunchKernelWithConfig(aclrtFuncHandle funcHandle, uint32_t numBlocks,
+3665:                                                         aclrtStream stream, aclrtLaunchKernelCfg *cfg,
+3666:                                                         aclrtArgsHandle argsHandle, void *reserve);
+3724: * @ingroup AscendCL
+3725: * @brief Finalize kernel args
+3726: * @param [in] argsHandle
+3727: * @retval ACL_SUCCESS The function is successfully executed.
+3728: * @retval OtherValues Failure
+3729: */
+3730:ACL_FUNC_VISIBILITY aclError aclrtKernelArgsFinalize(aclrtArgsHandle argsHandle);
+5067:/**
+5068: * @ingroup AscendCL
+5069: * @brief Launch kernel with host args
+5070: * @param [in] funcHandle  function handle
+5071: * @param [in] numBlocks  block dimensions
+5072: * @param [in] stream  stream handle
+5073: * @param [in] cfg  configuration information
+5074: * @param [in] hostArgs  host args data
+5075: * @param [in] argsSize  args size
+5076: * @param [in] placeHolderArray  placeHolder array
+5077: * @param [in] placeHolderNum  placeHolder num
+5078: * @retval ACL_SUCCESS The function is successfully executed.
+5079: * @retval OtherValues Failure
+5080: */
+5081:ACL_FUNC_VISIBILITY aclError aclrtLaunchKernelWithHostArgs(aclrtFuncHandle funcHandle, uint32_t numBlocks,
+5082:                                                           aclrtStream stream, aclrtLaunchKernelCfg *cfg,
+5083:                                                           void *hostArgs, size_t argsSize,
+5084:                                                           aclrtPlaceHolderInfo *placeHolderArray,
+5085:                                                           size_t placeHolderNum);

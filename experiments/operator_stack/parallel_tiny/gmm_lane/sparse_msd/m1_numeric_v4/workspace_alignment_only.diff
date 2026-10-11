@@ -1,0 +1,80 @@
+--- m1_numeric_v3/probe_bridge.cpp
++++ m1_numeric_v4/probe_bridge.cpp
+@@ -2,6 +2,7 @@
+ // No init/set/reset/finalize, SDK installation, timing or model execution here.
+ #include "loader_v2.h"
+ #include "launch_v3.h"
++#include "workspace_layout.h"
+ #include <acl/acl.h>
+ #include <runtime/dev.h>
+ #include <runtime/rt_ffts.h>
+@@ -14,7 +15,7 @@
+ 
+ namespace {
+ constexpr uint64_t SYSTEM = 16ull * 1024 * 1024;
+-constexpr uint64_t WORKSPACE = 117440640;
++constexpr uint64_t WORKSPACE = M1_WORKSPACE_BYTES;
+ constexpr uint64_t Y_BYTES = 6ull * 5120 * 2;
+ static_assert(ACL_MEM_MALLOC_HUGE_FIRST == 0 && ACL_MEM_MALLOC_NORMAL_ONLY == 2 && ACL_HBM_MEM == 1,
+               "Installed public SDK memory policy/attribute ABI");
+@@ -37,6 +38,7 @@
+     Gmm2SparseFunctions functions{};
+     void *workspace_allocation{}, *y_allocation{};
+     std::array<void *, 5> lists{};
++    uint64_t workspace_base{};
+     uint64_t ffts{}; uint32_t ffts_bytes{};
+     uint64_t native_launches{}, candidate_launches{}, planner_launches{};
+     bool synchronized = true;
+@@ -58,9 +60,9 @@
+ }
+ void check_canaries(Probe *p) {
+     std::array<uint8_t, 512> data{};
+-    check("D2H:workspace_prefix", aclrtMemcpy(data.data(), 128, p->workspace_allocation, 128, ACL_MEMCPY_DEVICE_TO_HOST));
++    check("D2H:workspace_prefix", aclrtMemcpy(data.data(), 128, reinterpret_cast<void *>(p->workspace_base - 128), 128, ACL_MEMCPY_DEVICE_TO_HOST));
+     check("D2H:workspace_suffix", aclrtMemcpy(data.data() + 128, 128,
+-          reinterpret_cast<void *>(addr(p->workspace_allocation) + 128 + WORKSPACE), 128, ACL_MEMCPY_DEVICE_TO_HOST));
++          reinterpret_cast<void *>(p->workspace_base + WORKSPACE), 128, ACL_MEMCPY_DEVICE_TO_HOST));
+     check("D2H:y_prefix", aclrtMemcpy(data.data() + 256, 128, p->y_allocation, 128, ACL_MEMCPY_DEVICE_TO_HOST));
+     check("D2H:y_suffix", aclrtMemcpy(data.data() + 384, 128,
+           reinterpret_cast<void *>(addr(p->y_allocation) + 128 + Y_BYTES), 128, ACL_MEMCPY_DEVICE_TO_HOST));
+@@ -112,13 +114,17 @@
+         size_t hbm_free = 0, hbm_total = 0;
+         check("aclrtGetMemInfo:HBM_before_workspace", aclrtGetMemInfo(ACL_HBM_MEM, &hbm_free, &hbm_total));
+         std::cout << "{\"workspace_allocator_policy\":\"ACL_MEM_MALLOC_HUGE_FIRST\",\"enum_value\":0,\"requested_bytes\":"
+-                  << WORKSPACE + 256 << ",\"HBM_free_bytes\":" << hbm_free << ",\"HBM_total_bytes\":" << hbm_total << "}" << std::endl;
+-        check("aclrtMalloc:workspace+canaries:HUGE_FIRST", aclrtMalloc(&p->workspace_allocation, WORKSPACE + 256, ACL_MEM_MALLOC_HUGE_FIRST));
++                  << M1_WORKSPACE_ALLOCATION_BYTES << ",\"HBM_free_bytes\":" << hbm_free << ",\"HBM_total_bytes\":" << hbm_total << "}" << std::endl;
++        check("aclrtMalloc:workspace+canaries:HUGE_FIRST", aclrtMalloc(&p->workspace_allocation, M1_WORKSPACE_ALLOCATION_BYTES, ACL_MEM_MALLOC_HUGE_FIRST));
++        check("workspace_aligned_within_backing_and_canaries",
++              m1_workspace_layout(addr(p->workspace_allocation), M1_WORKSPACE_ALLOCATION_BYTES, &p->workspace_base) ? 0 : -910813);
+         check("aclrtMalloc:y+canaries", aclrtMalloc(&p->y_allocation, Y_BYTES + 256, ACL_MEM_MALLOC_NORMAL_ONLY));
+         for (void *&list : p->lists) check("aclrtMalloc:single_tensor_list32", aclrtMalloc(&list, 32, ACL_MEM_MALLOC_NORMAL_ONLY));
+-        std::cout << "{\"probe_workspace_base\":" << addr(p->workspace_allocation) + 128
+-                  << ",\"workspace_bytes\":" << WORKSPACE << ",\"planner_frame_address\":" << addr(p->workspace_allocation) + 128 + SYSTEM
+-                  << ",\"candidate_native_user_scratch\":" << addr(p->workspace_allocation) + 128 + SYSTEM + 128
++        std::cout << "{\"probe_workspace_base\":" << p->workspace_base
++                  << ",\"workspace_allocation_address\":" << addr(p->workspace_allocation)
++                  << ",\"workspace_allocation_bytes\":" << M1_WORKSPACE_ALLOCATION_BYTES
++                  << ",\"workspace_alignment\":512,\"workspace_canary_each_bytes\":128,\"workspace_bytes\":" << WORKSPACE << ",\"planner_frame_address\":" << p->workspace_base + SYSTEM
++                  << ",\"candidate_native_user_scratch\":" << p->workspace_base + SYSTEM + 128
+                   << ",\"probe_y_address\":" << addr(p->y_allocation) + 128 << ",\"ffts\":" << p->ffts
+                   << ",\"ffts_bytes\":" << p->ffts_bytes << "}" << std::endl;
+         return 0;
+@@ -146,7 +152,7 @@
+         b.y = {addr(p->y_allocation) + 128, Y_BYTES};
+         b.x_list = {addr(p->lists[0]), 32}; b.weight_list = {addr(p->lists[1]), 32};
+         b.assist_list = {addr(p->lists[2]), 32}; b.scale_list = {addr(p->lists[3]), 32}; b.y_list = {addr(p->lists[4]), 32};
+-        b.workspace = {addr(p->workspace_allocation) + 128, WORKSPACE};
++        b.workspace = {p->workspace_base, WORKSPACE};
+         b.ffts_address = p->ffts; b.row_capacity = 6; b.experts = 48; b.k = 2304; b.n = 5120; b.group_list_type = 1;
+         check("frozen_buffer_contract", gmm2_sparse_msd_validate(&b));
+         std::array<uint64_t, 20> words{};
+@@ -154,7 +160,7 @@
+         for (unsigned i = 0; i < 5; ++i) check("H2D:single_tensor_list32",
+             aclrtMemcpy(p->lists[i], 32, words.data() + 4 * i, 32, ACL_MEMCPY_HOST_TO_DEVICE));
+         // Scratch and all guards are reset outside any capture; no timing claim.
+-        check("memset:workspace_canaries", aclrtMemset(p->workspace_allocation, WORKSPACE + 256, 0xa5, WORKSPACE + 256));
++        check("memset:workspace_canaries", aclrtMemset(p->workspace_allocation, M1_WORKSPACE_ALLOCATION_BYTES, 0xa5, M1_WORKSPACE_ALLOCATION_BYTES));
+         check("memset:workspace", aclrtMemset(reinterpret_cast<void *>(b.workspace.address), WORKSPACE, 0, WORKSPACE));
+         check("memset:y_canaries_and_unused_rows", aclrtMemset(p->y_allocation, Y_BYTES + 256, 0xa5, Y_BYTES + 256));
+         Gmm2PlannerArgsV3 planner{counts, b.workspace.address + SYSTEM};

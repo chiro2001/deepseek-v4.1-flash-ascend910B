@@ -1,0 +1,348 @@
+{
+  "command": [
+    "python3",
+    "/work/gmm_lane_sparse_msd_m1_numeric_p6_20261011_v2/source/runtime_numeric.py"
+  ],
+  "exit_code": 1,
+  "timeout": false,
+  "child_PID": 1272219,
+  "terminal": {
+    "passed": false,
+    "scope": "synthetic INT8/FP32 activation, real original-loader E48 W2, M1 capacity6",
+    "physical": 6,
+    "logical": 0,
+    "performance_measured": false,
+    "full_model_executed": false,
+    "K5_verifier_coverage": false,
+    "explicit_reset_or_empty_cache_calls": 0,
+    "Torch_context_and_stream_borrowed": true,
+    "container_PID": 1272219,
+    "failure_type": "RuntimeError",
+    "failure": "open_raw_probe_on_original_SDK_stream: SDK/bridge returned 207001",
+    "traceback": "Traceback (most recent call last):\n  File \"/work/gmm_lane_sparse_msd_m1_numeric_p6_20261011_v2/source/runtime_numeric.py\", line 156, in run\n    checked('open_raw_probe_on_original_SDK_stream', lib.m1_probe_open(str(FROZEN).encode(), stream.npu_stream, ctypes.byref(owner)))\n  File \"/work/gmm_lane_sparse_msd_m1_numeric_p6_20261011_v2/source/runtime_numeric.py\", line 31, in checked\n    if code: raise RuntimeError(f'{stage}: SDK/bridge returned {code}')\n             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nRuntimeError: open_raw_probe_on_original_SDK_stream: SDK/bridge returned 207001\n",
+    "partial_case_result": null,
+    "bridge_cleanup_code": 0,
+    "owner_retained_after_close": false,
+    "SDK_math_launch_attempts": 0,
+    "raw_native_math_launch_attempts": 0,
+    "candidate_math_launch_attempts": 0,
+    "planner_launch_attempts": 0,
+    "cases_passed": 0,
+    "case_names_passed": [],
+    "all_case_results": [],
+    "Torch_resources_release": "Original SDK owner cleanup at this process exit; no device reset/cache clear"
+  },
+  "events": [
+    {
+      "production_allow_internal_format": true,
+      "SDK_option_observed": "enable",
+      "production_setting_source": "/vllm-workspace/vllm-ascend/vllm_ascend/worker/model_runner_v1.py"
+    },
+    {
+      "bridge_stage": "aclrtGetDeviceCount",
+      "code": 0
+    },
+    {
+      "bridge_stage": "single_visible_guard",
+      "code": 0
+    },
+    {
+      "bridge_stage": "rtGetDeviceIndexByPhyId(6)",
+      "code": 0
+    },
+    {
+      "bridge_stage": "rtGetDevicePhyIdByIndex",
+      "code": 0
+    },
+    {
+      "bridge_mapping": true,
+      "visible_count": 1,
+      "logical": 0,
+      "physical": 6
+    },
+    {
+      "bridge_stage": "logical0_physical6_guard",
+      "code": 0
+    },
+    {
+      "stage": "mapping_before_weight_device_allocation",
+      "code": 0
+    },
+    {
+      "torch_version": "2.10.0+cpu",
+      "torch_npu_version": "2.10.0.post4",
+      "borrowed_stream": 187652139498392,
+      "TASK_QUEUE_ENABLE": "0"
+    },
+    {
+      "original_loader_layout_stage": {
+        "stage": "CPU_transposed_to_NPU_ND",
+        "shape": [
+          48,
+          2304,
+          2560
+        ],
+        "stride": [
+          5898240,
+          2560,
+          1
+        ],
+        "dtype": "torch.int8",
+        "format": 2,
+        "storage_bytes": 283115520,
+        "storage_offset": 0,
+        "GM_data_ptr": 20618009378816,
+        "is_contiguous": true
+      }
+    },
+    {
+      "original_loader_layout_stage": {
+        "stage": "original_single_NZ_cast",
+        "shape": [
+          48,
+          2304,
+          2560
+        ],
+        "stride": [
+          5898240,
+          2560,
+          1
+        ],
+        "dtype": "torch.int8",
+        "format": 29,
+        "storage_bytes": 283115520,
+        "storage_offset": 0,
+        "GM_data_ptr": 20618294591488,
+        "is_contiguous": true
+      }
+    },
+    {
+      "original_loader_layout_stage": {
+        "stage": "original_view_dtype_INT32",
+        "shape": [
+          48,
+          2304,
+          640
+        ],
+        "stride": [
+          1474560,
+          640,
+          1
+        ],
+        "dtype": "torch.int32",
+        "format": 29,
+        "storage_bytes": 283115520,
+        "storage_offset": 0,
+        "GM_data_ptr": 20618294591488,
+        "is_contiguous": true
+      }
+    },
+    {
+      "original_loader_layout_stage": {
+        "stage": "original_contiguous",
+        "shape": [
+          48,
+          2304,
+          640
+        ],
+        "stride": [
+          1474560,
+          640,
+          1
+        ],
+        "dtype": "torch.int32",
+        "format": 29,
+        "storage_bytes": 283115520,
+        "storage_offset": 0,
+        "GM_data_ptr": 20618294591488,
+        "is_contiguous": true
+      }
+    },
+    {
+      "bridge_stage": "aclrtGetDeviceCount",
+      "code": 0
+    },
+    {
+      "bridge_stage": "single_visible_guard",
+      "code": 0
+    },
+    {
+      "bridge_stage": "rtGetDeviceIndexByPhyId(6)",
+      "code": 0
+    },
+    {
+      "bridge_stage": "rtGetDevicePhyIdByIndex",
+      "code": 0
+    },
+    {
+      "bridge_mapping": true,
+      "visible_count": 1,
+      "logical": 0,
+      "physical": 6
+    },
+    {
+      "bridge_stage": "logical0_physical6_guard",
+      "code": 0
+    },
+    {
+      "bridge_stage": "mapping_guard",
+      "code": 0
+    },
+    {
+      "bridge_stage": "aclrtGetCurrentContext:borrowed",
+      "code": 0
+    },
+    {
+      "bridge_stage": "borrowed_context_nonnull",
+      "code": 0
+    },
+    {
+      "bridge_stage": "aclrtGetDevice:borrowed",
+      "code": 0
+    },
+    {
+      "bridge_stage": "borrowed_logical0_guard",
+      "code": 0
+    },
+    {
+      "borrowed_context": 187651868231328,
+      "borrowed_stream": 187652139498392,
+      "context_owner": "Torch original SDK consumer"
+    },
+    {
+      "bridge_stage": "loader_v2_open",
+      "code": 0
+    },
+    {
+      "bridge_stage": "loader_v2_functions",
+      "code": 0
+    },
+    {
+      "bridge_stage": "aclrtGetFunctionAddr",
+      "code": 0
+    },
+    {
+      "bridge_stage": "aclrtGetFunctionSize",
+      "code": 0
+    },
+    {
+      "registered_function": "planner",
+      "aic_address": 0,
+      "aiv_address": 20618581901312,
+      "aic_bytes": 0,
+      "aiv_bytes": 368
+    },
+    {
+      "bridge_stage": "strict_engine_pair_and_size",
+      "code": 0
+    },
+    {
+      "bridge_stage": "aclrtGetFunctionAddr",
+      "code": 0
+    },
+    {
+      "bridge_stage": "aclrtGetFunctionSize",
+      "code": 0
+    },
+    {
+      "registered_function": "native",
+      "aic_address": 20618581938176,
+      "aiv_address": 20618581943328,
+      "aic_bytes": 5152,
+      "aiv_bytes": 8440
+    },
+    {
+      "bridge_stage": "strict_engine_pair_and_size",
+      "code": 0
+    },
+    {
+      "bridge_stage": "aclrtGetFunctionAddr",
+      "code": 0
+    },
+    {
+      "bridge_stage": "aclrtGetFunctionSize",
+      "code": 0
+    },
+    {
+      "registered_function": "candidate",
+      "aic_address": 20618581958656,
+      "aiv_address": 20618581967404,
+      "aic_bytes": 8748,
+      "aiv_bytes": 8440
+    },
+    {
+      "bridge_stage": "strict_engine_pair_and_size",
+      "code": 0
+    },
+    {
+      "bridge_stage": "rtGetC2cCtrlAddr:current_context",
+      "code": 0
+    },
+    {
+      "bridge_stage": "ffts_nonnull_guard",
+      "code": 0
+    },
+    {
+      "bridge_stage": "aclrtMalloc:workspace+canaries",
+      "code": 207001
+    },
+    {
+      "stage": "open_raw_probe_on_original_SDK_stream",
+      "code": 207001
+    },
+    {
+      "numeric_gate_failure": "open_raw_probe_on_original_SDK_stream: SDK/bridge returned 207001",
+      "stop_all_following_cases": true
+    },
+    {
+      "bridge_stage": "cleanup:loader_v2_close",
+      "code": 0
+    },
+    {
+      "bridge_terminal": true,
+      "native_launch_attempts": 0,
+      "candidate_launch_attempts": 0,
+      "planner_launch_attempts": 0,
+      "live_binaries": 0,
+      "blob_bytes": 0,
+      "owner_retained": false,
+      "context_stream_owner": "Torch; released at this process exit",
+      "explicit_device_reset_calls": 0
+    },
+    {
+      "terminal": true,
+      "passed": false,
+      "scope": "synthetic INT8/FP32 activation, real original-loader E48 W2, M1 capacity6",
+      "physical": 6,
+      "logical": 0,
+      "performance_measured": false,
+      "full_model_executed": false,
+      "K5_verifier_coverage": false,
+      "explicit_reset_or_empty_cache_calls": 0,
+      "Torch_context_and_stream_borrowed": true,
+      "container_PID": 1272219,
+      "failure_type": "RuntimeError",
+      "failure": "open_raw_probe_on_original_SDK_stream: SDK/bridge returned 207001",
+      "traceback": "Traceback (most recent call last):\n  File \"/work/gmm_lane_sparse_msd_m1_numeric_p6_20261011_v2/source/runtime_numeric.py\", line 156, in run\n    checked('open_raw_probe_on_original_SDK_stream', lib.m1_probe_open(str(FROZEN).encode(), stream.npu_stream, ctypes.byref(owner)))\n  File \"/work/gmm_lane_sparse_msd_m1_numeric_p6_20261011_v2/source/runtime_numeric.py\", line 31, in checked\n    if code: raise RuntimeError(f'{stage}: SDK/bridge returned {code}')\n             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nRuntimeError: open_raw_probe_on_original_SDK_stream: SDK/bridge returned 207001\n",
+      "partial_case_result": null,
+      "bridge_cleanup_code": 0,
+      "owner_retained_after_close": false,
+      "SDK_math_launch_attempts": 0,
+      "raw_native_math_launch_attempts": 0,
+      "candidate_math_launch_attempts": 0,
+      "planner_launch_attempts": 0,
+      "cases_passed": 0,
+      "case_names_passed": [],
+      "Torch_resources_release": "Original SDK owner cleanup at this process exit; no device reset/cache clear"
+    }
+  ],
+  "runtime_log_bytes": 40044647,
+  "runtime_log_sha256": "ec4a8ef76c921e51c8b7514d13ea741ec1b29ea99f123603d1de2fb890ba100a",
+  "runtime_retries": 0,
+  "dependency_sha256_after": {
+    "/work/gmm_lane_sparse_msd_build_20261011_v3_repro/op_build_candidate/Gmm2SparseMsdDown_candidate_v6.o": "bd08a12b15d14f44a2c63a2ff91ec2977a0ed2b62645ed7d43273ee2fb024970",
+    "/work/gmm_lane_sparse_msd_build_20261011_v3_repro/op_build_native/Gmm2NativeMsdDown_control_v6.o": "1e8a606d459bd4560b0e19efbb1894d98a1826bf0048eb9fa16d930b7d46ec0d",
+    "/work/gmm_lane_sparse_msd_build_20261011_v3_repro/planner_cpu_rebuild.o": "f921e2d9c895aca5958177a17bd398f058c7a1d8910564bcd54c4dd98b51b770",
+    "/work/gmm_lane_sparse_msd_build_20261011_v3_repro/libgmm2_sparse_msd_probe.so": "02816eb5b23f93d7784258578a9aecf8df7dc35b4bc3feacb15af3020ad10ac8"
+  }
+}

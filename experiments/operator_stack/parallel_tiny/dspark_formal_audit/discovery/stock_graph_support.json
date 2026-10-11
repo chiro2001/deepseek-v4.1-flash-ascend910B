@@ -1,0 +1,28 @@
+{
+  "stock_source_sha256": "4bbd1d555781bcf4e143a499d56d8b962229a5d0b2b233e13242627184aa47ac",
+  "hard_disable_line": 75,
+  "hard_disable_statement": "self.use_cuda_graph = False",
+  "reason_comment": "# DSpark runs eager only (Ascend cudagraph unsupported on this path).",
+  "configuration_can_enable_stock_draft_graph": false,
+  "actual_v2_draft_graph_configured": false,
+  "eager_native_aa_cli": [
+    "--mode",
+    "audit",
+    "--pairs",
+    "3",
+    "--speculative-tokens",
+    "5",
+    "--draft-graph",
+    "0"
+  ],
+  "target_compilation_preserved": {
+    "cudagraph_mode": "FULL_DECODE_ONLY",
+    "cudagraph_capture_sizes": [
+      6
+    ]
+  },
+  "graph_candidate_requires_new_implementation_and_real_validation": true,
+  "device_audit_passed": false,
+  "formal_performance_passed": false,
+  "npu_jobs_by_this_agent": 0
+}

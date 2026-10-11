@@ -1,0 +1,277 @@
+{
+  "scope": "read-only minimal initialization comparison, no NPU init or repair",
+  "collection_npu_jobs": 0,
+  "torch_or_sdk_imported_for_metadata": false,
+  "metadata_path": "evidence/readonly_init_comparison/raw_readonly_metadata.json",
+  "same_device_nodes": true,
+  "chip7_node": {
+    "exists": true,
+    "mode": "0o20660",
+    "major": 509,
+    "minor": 7,
+    "uid": 1000,
+    "gid": 1000,
+    "character_device": true
+  },
+  "same_sdk_source_sha256": true,
+  "same_distribution_versions": true,
+  "distribution_versions": {
+    "torch": "2.10.0+cpu",
+    "torch_npu": "2.10.0.post4",
+    "vllm": "0.27.1+empty",
+    "vllm-ascend": "0.1.dev5097+ge43cf1e9f"
+  },
+  "same_version_file_records": true,
+  "driver_version": "26.1.1",
+  "cann_version": "9.1.0",
+  "same_worker_source_sha256": true,
+  "configuration_differences": {
+    "formal_image": "sha256:b69e58820f929ac7a77f93774a3d96da1961f507628239e9c7d7b24066b7a8ea",
+    "c6_image": "sha256:5a58cf30d9131b81be87dcd1dbc0a71d3e65bc922f3aa1f2737827d5864c28c7",
+    "formal_explicit_davinci_devices": [
+      "/dev/davinci8",
+      "/dev/davinci9",
+      "/dev/davinci10",
+      "/dev/davinci11",
+      "/dev/davinci12",
+      "/dev/davinci13",
+      "/dev/davinci14",
+      "/dev/davinci15"
+    ],
+    "c6_explicit_devices": [],
+    "formal_default_rt_visible": "8,9,10,11,12,13,14,15",
+    "c6_default_rt_visible": null,
+    "formal_network_mode": "host",
+    "c6_network_mode": "default",
+    "both_privileged": true
+  },
+  "initialization_order": {
+    "production": "local rank -> current_platform.logical_device_id_to_visible_device_id -> torch.device -> torch.npu.set_device -> optional torch_npu._inductor import",
+    "p7_gate": "torch/torch_npu import -> false initialized + count1 -> torch._inductor.config false -> torch.npu.set_device(0) failure",
+    "p4_graphex_v6": "torch._inductor.config false precedes torch.npu.set_device(0); set_device succeeds, then allocation/MatMul; producer compile later fails",
+    "pre_set_device_inductor_difference_alone_explains_p7": false
+  },
+  "physical4_existing_evidence": [
+    {
+      "case": "npugraph_direct_v5",
+      "set_device_succeeded": true,
+      "streams": {
+        "main": 187651987746632,
+        "aux": 187651988719752,
+        "runtime_device": "0",
+        "device_name": "Ascend910_9382",
+        "soc_version": 253
+      },
+      "generations": 32,
+      "case_passed": true,
+      "terminal_phase": "complete",
+      "exception": null,
+      "receipt_is_formal_pass": false
+    },
+    {
+      "case": "graphex_static_v6",
+      "set_device_succeeded": true,
+      "streams": {
+        "main": 187651108087896,
+        "aux": 187651109061016,
+        "runtime_device": "0",
+        "device_name": "Ascend910_9382",
+        "soc_version": 253
+      },
+      "generations": 0,
+      "case_passed": false,
+      "terminal_phase": "aot-graphex-producer-compile",
+      "exception": "expected Tensor()",
+      "receipt_is_formal_pass": false
+    },
+    {
+      "case": "graphex_nonstatic_v6",
+      "set_device_succeeded": true,
+      "streams": {
+        "main": 187651549469352,
+        "aux": 187651550442472,
+        "runtime_device": "0",
+        "device_name": "Ascend910_9382",
+        "soc_version": 253
+      },
+      "generations": 0,
+      "case_passed": false,
+      "terminal_phase": "aot-graphex-producer-compile",
+      "exception": "expected Tensor()",
+      "receipt_is_formal_pass": false
+    }
+  ],
+  "physical6_existing_evidence": [
+    {
+      "case": "v1",
+      "physical_chip": 6,
+      "logical_device": 0,
+      "set_device_and_torch_allocation_preceded_terminal": true,
+      "torch_context_stream_borrowed": true,
+      "events": [
+        {
+          "bridge_mapping": true,
+          "visible_count": 1,
+          "logical": 0,
+          "physical": 6
+        },
+        {
+          "torch_version": "2.10.0+cpu",
+          "torch_npu_version": "2.10.0.post4",
+          "borrowed_stream": 187650826711496,
+          "TASK_QUEUE_ENABLE": "0"
+        }
+      ],
+      "math_calls": 0,
+      "math_case_passed": false,
+      "terminal_failure": "format29 assertion",
+      "large_raw_log_bytes": 39106867,
+      "large_raw_log_sha256": "01f9bd13236b6441605beadda2749e18a93346ff9bd974ad7715a68a94e1c106",
+      "large_raw_log_downloaded_or_scanned": false
+    },
+    {
+      "case": "v2",
+      "physical_chip": 6,
+      "logical_device": 0,
+      "set_device_and_torch_allocation_preceded_terminal": true,
+      "torch_context_stream_borrowed": true,
+      "events": [
+        {
+          "bridge_mapping": true,
+          "visible_count": 1,
+          "logical": 0,
+          "physical": 6
+        },
+        {
+          "torch_version": "2.10.0+cpu",
+          "torch_npu_version": "2.10.0.post4",
+          "borrowed_stream": 187652139498392,
+          "TASK_QUEUE_ENABLE": "0"
+        },
+        {
+          "bridge_mapping": true,
+          "visible_count": 1,
+          "logical": 0,
+          "physical": 6
+        },
+        {
+          "borrowed_context": 187651868231328,
+          "borrowed_stream": 187652139498392,
+          "context_owner": "Torch original SDK consumer"
+        }
+      ],
+      "math_calls": 0,
+      "math_case_passed": false,
+      "terminal_failure": "open_raw_probe_on_original_SDK_stream: SDK/bridge returned 207001",
+      "large_raw_log_bytes": 40044647,
+      "large_raw_log_sha256": "ec4a8ef76c921e51c8b7514d13ea741ec1b29ea99f123603d1de2fb890ba100a",
+      "large_raw_log_downloaded_or_scanned": false
+    }
+  ],
+  "production_existing_evidence": {
+    "job": "formal_dspark_native_eager_aa_v2",
+    "native_dspark_loaded": true,
+    "bank_complete": true,
+    "initialization_preceded_client_boundary_failure": true,
+    "formal_audit_passed": false
+  },
+  "interpretation": "No node absence or package/source-version difference found in this minimal snapshot. The p7 runtime TsdOpen failure remains unresolved; device declarations/default visibility/network/image differ, but no causal claim follows from these read-only comparisons.",
+  "repair_performed": false,
+  "npu_retried": false,
+  "tenant_logs_scanned": false,
+  "device_audit_passed": false,
+  "safe_formal_receipt": false,
+  "formal_model_validated": false,
+  "references": [
+    {
+      "source_local_path": "experiments/operator_stack/runtime/evidence/engram_sdk_probe/remote_mount/evidence/npugraph_direct_v5/environment.json",
+      "archive_path": "evidence/readonly_init_comparison/references/physical4_npugraph_direct_v5/environment.json",
+      "bytes": 3053,
+      "sha256": "0ab0e0df1acd0fe0a9757d22a532f1a0d12085ceae7bf6c44d51f61a5c8d921c"
+    },
+    {
+      "source_local_path": "experiments/operator_stack/runtime/evidence/engram_sdk_probe/remote_mount/evidence/npugraph_direct_v5/result.json",
+      "archive_path": "evidence/readonly_init_comparison/references/physical4_npugraph_direct_v5/result.json",
+      "bytes": 15798,
+      "sha256": "25d74b4e16282b391cefde4c9744d4516eee95cf89467f864938faf9d551fd8e"
+    },
+    {
+      "source_local_path": "experiments/operator_stack/runtime/evidence/engram_sdk_probe/remote_mount/evidence/graphex_static_v6/environment.json",
+      "archive_path": "evidence/readonly_init_comparison/references/physical4_graphex_static_v6/environment.json",
+      "bytes": 3129,
+      "sha256": "73901c04cf68207eead5d8432528eadb048f3f177056b158d9d6b59f534b0cdf"
+    },
+    {
+      "source_local_path": "experiments/operator_stack/runtime/evidence/engram_sdk_probe/remote_mount/evidence/graphex_static_v6/result.json",
+      "archive_path": "evidence/readonly_init_comparison/references/physical4_graphex_static_v6/result.json",
+      "bytes": 16545,
+      "sha256": "0fb27cec9a81bc607e2a14f5025e68e4647e5d52e800575f670db838f1aaca28"
+    },
+    {
+      "source_local_path": "experiments/operator_stack/runtime/evidence/engram_sdk_probe/remote_mount/evidence/graphex_nonstatic_v6/environment.json",
+      "archive_path": "evidence/readonly_init_comparison/references/physical4_graphex_nonstatic_v6/environment.json",
+      "bytes": 3129,
+      "sha256": "d9f592958300c4567e2086dd92f66d7fc9fe146ef090cb306842e21d7cdd85ae"
+    },
+    {
+      "source_local_path": "experiments/operator_stack/runtime/evidence/engram_sdk_probe/remote_mount/evidence/graphex_nonstatic_v6/result.json",
+      "archive_path": "evidence/readonly_init_comparison/references/physical4_graphex_nonstatic_v6/result.json",
+      "bytes": 16549,
+      "sha256": "888bb5f5032fb3f5f91922f2a103c4efd8e66ca6265ba180df0f3b700fb81f55"
+    },
+    {
+      "source_local_path": "experiments/operator_stack/runtime/evidence/engram_sdk_probe/remote_host/source_v6/probe_sdk.py",
+      "archive_path": "evidence/readonly_init_comparison/references/physical4_graphex_source/probe_sdk.py",
+      "bytes": 20832,
+      "sha256": "bd5d995abc63dde901b558c0e44d31266d3cc14ac990e9ecd3b9007f900cc167"
+    },
+    {
+      "source_local_path": "experiments/operator_stack/parallel_tiny/gmm_lane/sparse_msd/m1_numeric_v1/evidence/runtime_v1_terminal/runtime_terminal.json",
+      "archive_path": "evidence/readonly_init_comparison/references/physical6_v1/runtime_terminal.json",
+      "bytes": 1117,
+      "sha256": "eb1b3d62ed445e8505fab3f335294ebdfc7fe1a4037aa40550621b0db78ffe27"
+    },
+    {
+      "source_local_path": "experiments/operator_stack/parallel_tiny/gmm_lane/sparse_msd/m1_numeric_v1/evidence/runtime_v1_terminal/run_receipt.json",
+      "archive_path": "evidence/readonly_init_comparison/references/physical6_v1/run_receipt.json",
+      "bytes": 4268,
+      "sha256": "1703c53bd83c39cd9d05c84779b7c104920ccd2c319966ada2bf6603f6d82be5"
+    },
+    {
+      "source_local_path": "experiments/operator_stack/parallel_tiny/gmm_lane/sparse_msd/m1_numeric_v1/evidence/runtime_v1_terminal/format_guard_excerpt.log",
+      "archive_path": "evidence/readonly_init_comparison/references/physical6_v1/format_guard_excerpt.log",
+      "bytes": 13492,
+      "sha256": "0793987bd15f34fd9d8c7d6fef5d4258c4f4b593f3cc3f79fe32180a48e7d6ac"
+    },
+    {
+      "source_local_path": "experiments/operator_stack/parallel_tiny/gmm_lane/sparse_msd/m1_numeric_v2/evidence/runtime_v2_terminal/runtime_terminal.json",
+      "archive_path": "evidence/readonly_init_comparison/references/physical6_v2/runtime_terminal.json",
+      "bytes": 1535,
+      "sha256": "116cfdb7a179241b5e003acdfef560e60a226d5835dd8f708011a73f0ba14aaa"
+    },
+    {
+      "source_local_path": "experiments/operator_stack/parallel_tiny/gmm_lane/sparse_msd/m1_numeric_v2/evidence/runtime_v2_terminal/run_receipt.json",
+      "archive_path": "evidence/readonly_init_comparison/references/physical6_v2/run_receipt.json",
+      "bytes": 10295,
+      "sha256": "0fb2d0ac9de78d95bc3c566ff52dacca4c1d86ae6cbd51215128427bbea9c542"
+    },
+    {
+      "source_local_path": "experiments/operator_stack/parallel_tiny/gmm_lane/sparse_msd/m1_numeric_v2/evidence/runtime_v2_terminal/loader_layout_stages.json",
+      "archive_path": "evidence/readonly_init_comparison/references/physical6_v2/loader_layout_stages.json",
+      "bytes": 1299,
+      "sha256": "13a02e5d863a79e208aaca5c01c7bd96914332f38d51351c3d7a03cddca40be5"
+    },
+    {
+      "source_local_path": "experiments/operator_stack/parallel_tiny/gmm_lane/sparse_msd/m1_numeric_v2/evidence/runtime_v2_terminal/allocation_failure_excerpt.log",
+      "archive_path": "evidence/readonly_init_comparison/references/physical6_v2/allocation_failure_excerpt.log",
+      "bytes": 5649,
+      "sha256": "7e853887b1c17976e9f4a18cff1e04cc4f75a0b94a933c2c634891bbd820db02"
+    },
+    {
+      "source_local_path": "experiments/operator_stack/evidence/formal_a321/dspark_native_eager_v2_terminal.json",
+      "archive_path": "evidence/readonly_init_comparison/references/production_native_eager_v2/dspark_native_eager_v2_terminal.json",
+      "bytes": 2052,
+      "sha256": "293b2ba5f79a903bc2e7cdea1c5f72ef7c9c04f90be24be646270cd5380381d9"
+    }
+  ]
+}

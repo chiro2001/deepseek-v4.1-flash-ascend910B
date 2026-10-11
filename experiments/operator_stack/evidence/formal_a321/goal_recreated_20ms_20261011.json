@@ -1,0 +1,13 @@
+{
+  "goal": {
+    "threadId": "01a128f6-00b4-7761-8a4b-eb78c0303c52",
+    "objective": "继续会话01a1275a-c0b2-7662-aaaa-49e6ca507155及当前工作，优化a3-21正式TP8/40层DeepSeek V4.1，使包含DSpark/MTP草稿生成、目标验证、调度和cache处理全部实际执行开销的正式API客户端推理达到≤20ms/step。使用完整40层/hidden5120/384专家top6/W4A8_DYNAMIC/Engram int8/完整视觉与MTP3层真实权重，不以关闭DSpark的A1旧结果、dummy/tiny或仅配置ON替代。串行至少8请求、固定2K输入/256输出预算，审计和profiler关闭；按每请求实际target/verifier decode轮次计step，排除prefill/capture/profile，包含initial和terminal已提交draft完成边界，报告自洽(ms/step,A,tok/s)、输出clean-rate/复读/空答，不能以前端poll、输出token数或全局MeanAcceptance代替实际rounds。保持HCCL_DETERMINISTIC=strict及原数值门；先真实ON原生A/A和main/draft/verifier/cache实际消费者、路由/token/Top5/logprob及接受前缀/rollback审计，再同实例候选配对和稳定收益；最优正式服务须通过模型归属、GSM8K100/100、Vision23/23及包含DSpark的≤20ms客户端验收。用户授权所有空闲芯片，主线程正式TP8优先physical8–15、DSpark专属tiny优先physical4；每次启动实时检查占用/健康，仅80C98001 Alarm已获授权，不reset、不停其他租户、不清pagecache、不删设备内部文件，SSH每文件<1MB。并行tiny子代理使用已核验gpt-6.1-sol/max并以明文任务/ACK核查；不将tiny机制或dummy复读接受长度外推正式收益。保留当前进行中的formal_dspark_native_eager_aa_v1及DSpark tiny v7后续工作，不重新重复已拒绝QKV/原型或伪造graph支持。最终发布报告到COS和links-server，提交源码与紧凑证据，从HEAD生成MANIFEST、自检，推送GitHub及内网镜像。全部正式20ms/质量/最优部署/交付要求实际达成才complete；当前未达成。",
+    "status": "active",
+    "tokensUsed": 1195070,
+    "timeUsedSeconds": 1151,
+    "createdAt": 1791703450,
+    "updatedAt": 1791704601
+  },
+  "remainingTokens": null,
+  "completionBudgetReport": null
+}

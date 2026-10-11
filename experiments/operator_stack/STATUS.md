@@ -1,4 +1,14 @@
-最新目标：正式TP8包含DSpark完整推理≤20ms/step，替换此前无DSpark17ms与短暂24ms；按实际target/verifier轮次报告(ms,A,tok/s)与clean-rate。DSpark专属tiny已交tiny_engram/gpt-6.1-sol/max独占physical4；tiny_qkv CPU准备正式full40入口，tiny_ids收口MSD CPU。三代理均明文ACK20ms，SDK已释放4。QKV early-tail完整精度通过，但12配对mask(19.208722ms,A1,52.059685tok/s)、qkv(19.307216ms,A1,51.794106tok/s)，配对节省-0.098764ms、0/12胜，拒绝部署。旧QKV16目录时间线已冻结，无新增切片复制、确认失去原KV Cube/Q norm重叠。Engram普通图32代通过，正式GraphEx static/nonstatic callback前TypeError、原型31项CPU守卫通过且默认禁用。当前已验收19.289956/A1/51.840451/GSM100/Vision23为无DSpark旧基线，不满足新目标；没有正式DSpark20ms或最终部署完成声明。
+正式原生时间线诊断formal_dspark_native_profile_v1已在fresh8–15/80C98001门后启动；与通过AA的9源码SHA相同，2K/256、route/logprob审计关、profiler开，5真实decode warmup/10active×8rank，不能报价。GMM v4原SDK1/raw native1真实提交+sync完成，但原生对照5112/5120超1ULP（maxULP32253/maxabs1.009765625），candidate/planner0，已释放6转CPU原SDK/tiling/NZ/ABI对齐诊断。SDK7初始化失败0epoch/copy，已释放、所有消费者receipt仍false。
+
+正式最新：formal_dspark_native_eager_aa_v3已exit0，真实DSpark/K5/target FULL[6]/draft eager、完整40层/384top6/Engram/视觉/MTP3，3原生配对token/目标routes/Top5/logprob及真实round streams全delta0，8rank末轮device fence+CPU Gloo join/coreID闭环通过；8请求（2warmup+6计数）、48真实rounds、每rank54草稿调用。审计2K/47合并诊断(59.623209ms,A5.75,96.438956tok/s)，不是2K/256正式性能报价。完整43层/cache/rollback消费者门及GSM100/Vision23/20ms仍待，goal active。
+
+最新目标：正式 TP8 包含 DSpark 全部实际开销 ≤20ms/step。用户清除旧 goal 后已重新创建 active 新 goal；无 DSpark 的 19.289956ms/A1/51.840451 旧基线及旧 17ms/24ms 表述均不是完成门槛。
+
+正式 stock DSpark 硬禁 draft 图，原 native_aa_v2 因 actual draft_graph_configured=false 拒绝；真实 eager AA v1 完成两个 warmup 后，在 finished-request 零 token 清理调度被冻结 counter 误拒绝，计数闭环0，核对本任务 driver 后 SIGTERM/exit143。新 stock v3 分开记录空调度并绑定实际 external/core ID，26 CPU回归过；fresh8–15/仅80C98001守卫下的 formal_dspark_native_eager_aa_v2（/work/src_dspark_native_eager_v2）完成加载、两个warmup及一个计数请求后，在次请求因客户端先于个别rank末轮结束而拒绝/exit1；stock v4保留该拒绝门，以实际末轮设备fence/时间戳后CPU Gloo TP8 join补齐完成边界，32 CPU回归过，已通过fresh8–15/仅80C98001门启动formal_dspark_native_eager_aa_v3（/work/src_dspark_native_eager_v3），真实A/A待收取，完整40层/384top6/W4A8/Engram/视觉/MTP3、K5、target FULL[6]、draft eager，仍待实际 A/A及43层/cache/rollback消费者证明，无正式有效时延、20ms验收或最优部署。
+
+专属 DSpark tiny v7 已冻结，8serial合并(45.881321ms,A1.9375,42.228514tok/s)，各31decode/16真实rounds/17实际_propose（initial+terminal）/80验证提议；3native token/Top5/logprob A/A delta0。仅TP1/full40/8expert top2/BF16 dummy/无Engram，target FULL[6]、draft eager，8/8 period2复读，candidate_admitted=false，route/cache门未过；tiny代理继续physical4的真实draft图质量/消费者门。CPU审计代理独立实现native bounded-copy/epoch SDK门，当前NPU权限0。
+
+GMM旧 no-copy/host栈 launch 参数契约已修正为HostArgs；新physical6 R0 planner注册/query/sync/128B frame/canaries实机全部通过exit0，原对象/math/tiling未改，无数学/性能收益声明。授权该代理在fresh健康空闲6继续原E48 W2 NZ、M6/K2304/N5120/counts48 type1、R1/R3/R6≤capacity6的最小数值门，不覆盖K5 verifier。三代理保持已核验 gpt-6.1-sol/max、明文任务/ACK正常。源码/compact及新报告待阶段交付；目标未达成。
 
 更新v35终态：formal_qkv_merge_perf_v2退出0，12组无观察配对mask(19.324495ms,A1,51.747794tok/s)、qkv(19.555371ms,A1,51.136845tok/s)；配对中位节省-0.218051ms、0/12更快，delivery守卫保存skip未部署。完整精度过不等于收益；新16目录PipeUtilization差分formal_qkv_regression_profile_v1已启动，解析/比较真实Slice/ViewCopy与事件，不能按累计直接删预算。当前已验收客户端仍19.289956/A1/51.840451，17ms未达到。
 

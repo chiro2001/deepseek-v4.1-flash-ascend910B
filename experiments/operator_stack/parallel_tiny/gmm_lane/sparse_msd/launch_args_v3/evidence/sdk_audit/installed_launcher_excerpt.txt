@@ -1,0 +1,66 @@
+1021:    {{
+1022:        if (needUnRegisterDevBinary_) {{
+1023:            CheckResult(aclrtBinaryUnLoad(binHandle_), "aclrtBinaryUnLoad");
+1024:        }}
+1025:    }}
+1026:
+1027:private:
+1028:    bool RegisterKernel(const OpgenKernelConfig& kernelConfig, std::string const &filename)
+1029:    {{
+1030:        // 1 magic，ffts不用配置，ffts會通過meta段（aclnn）或者json文件获取
+1031:        CHECK_RT_RESULT(CheckResult(aclrtBinaryLoadFromFile(filename.c_str(), nullptr, &binHandle_),
+1032:                                    "aclrtBinaryLoadFromFile"))
+1033:        // 2 kernelName 不能加_mix_aic/_mix_aiv
+1034:        CHECK_RT_RESULT(CheckResult(aclrtBinaryGetFunctionByEntry(binHandle_, kernelConfig.tilingKey, &funcHandle_),
+1035:                                    "aclrtBinaryGetFunctionByEntry"))
+1036:        CHECK_RT_RESULT(CheckResult(aclrtKernelArgsInit(funcHandle_, &argsHandle_), "aclrtKernelArgsInit"))
+1037:        return true;
+1038:    }}
+1039:
+1040:    bool LaunchKernel(const OpgenKernelConfig &kernelConfig)
+1041:    {{
+1042:        kernelArgs_.clear();
+1043:        if (soc_.find("Ascend310P") != string::npos) {{
+1044:            // 310P关闭overflow
+1045:            int err = aclrtSetStreamOverflowSwitch(kernelConfig.stream, 0);
+1046:            if (err != 0) {{
+1047:                LOGE("Call aclrtSetStreamOverflowSwitch failed, error code: %d", err);
+1048:                return false;
+1049:            }}
+1050:        }}
+1051:
+1052:        kernelArgs_.insert(kernelArgs_.end(), kernelConfig.kernelArgs.begin(), kernelConfig.kernelArgs.end());
+1053:        aclrtParamHandle paramHandle;
+1054:        aclrtKernelArgsAppend(argsHandle_, kernelArgs_.data(), kernelArgs_.size() * 8, &paramHandle);
+1055:        aclrtKernelArgsFinalize(argsHandle_);
+1056:        CHECK_RT_RESULT(CheckResult(aclrtLaunchKernelWithConfig(funcHandle_, kernelConfig.blockDim,
+1057:                                                                    kernelConfig.stream, nullptr, argsHandle_, nullptr),
+1058:                                    "aclrtLaunchKernelWithConfig"))
+1059:
+1060:        if ({enable_printf}) {{
+1061:            if (kernelArgs_.size() < 2) {{
+1062:                LOGW("kernel args smaller than 2, disable ASCENDC::printf ability.");
+1063:                return true;
+1064:            }}
+1065:            void *workspace = kernelArgs_[kernelArgs_.size() - 2U];
+1066:            uint32_t debugBufferSize = 75 * 1024 * 1024;
+1067:            Adx::AdumpPrintWorkSpace(workspace, debugBufferSize, kernelConfig.stream, "{op_type}");
+1068:        }}
+1069:        return true;
+1070:    }}
+1071:
+1072:    bool CheckResult(aclError result, const string &apiName)
+1073:    {{
+1074:        if (result == 0) {{
+1075:            return true;
+1076:        }}
+1077:        LOGE("Runtime API call %s() failed. error code: %d", apiName.c_str(), result);
+1078:        return false;
+1079:    }}
+1080:
+1081:    void *binHandle_ = nullptr;
+1082:    aclrtFuncHandle funcHandle_;
+1083:    aclrtArgsHandle argsHandle_;
+1084:    bool needUnRegisterDevBinary_ = false;
+1085:    vector<void *> kernelArgs_;
+1086:    string soc_;

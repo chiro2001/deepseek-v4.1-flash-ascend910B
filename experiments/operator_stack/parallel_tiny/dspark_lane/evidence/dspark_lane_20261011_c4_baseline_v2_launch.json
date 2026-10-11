@@ -1,0 +1,47 @@
+{
+  "remote_root": "/home/l00886679/projects/dsv41-tiny-prof-20261009/dspark_lane_20261011_c4_baseline_v2",
+  "job": "dspark_lane_20261011_c4_baseline_v2",
+  "supervisor_pid": 2785184,
+  "preflight": {
+    "time": "2026-10-11 13:54:43 +0800",
+    "physical4": {
+      "board": 2,
+      "chip": 0,
+      "health": "OK",
+      "line": "| 0     4                   | 0000:95:00.0  | 0                    0    / 0                3292 / 65536            |"
+    },
+    "physical4_processes": [],
+    "container": "dsv41-tiny-goal20-20261010-c6",
+    "mounts": [
+      {
+        "source": "/home/l00886679/models/out/v41-tiny",
+        "target": "/model",
+        "rw": false
+      },
+      {
+        "source": "/home/l00886679/projects/dsv41-tiny-prof-20261009",
+        "target": "/work",
+        "rw": true
+      }
+    ],
+    "source_files": {
+      "bench_dspark_tiny.py": {
+        "sha256": "1a1a480ce854829a9c4c5988716ffc7751f0f86d1377ed57dcaee9f9dfceb0fa",
+        "bytes": 9658
+      },
+      "dspark_worker.py": {
+        "sha256": "47f4753a1b6b79e818d507641dc0540b609075130dc16604f001fe0e849a632e",
+        "bytes": 7060
+      }
+    },
+    "model_config_sha256": "ad72656e807079b39a5e94f05f5ffe45116725787239344adb4577fc4a2671c3",
+    "target_ms": 20,
+    "formal_tp8_claim": false,
+    "no_reset_no_dropcache": true,
+    "sdk": {
+      "exit": 0,
+      "stdout": "INFO 10-11 05:54:48 [__init__.py:52] Available plugins for group vllm.platform_plugins:\nINFO 10-11 05:54:48 [__init__.py:54] - ascend -> vllm_ascend:register\nINFO 10-11 05:54:48 [__init__.py:57] All plugins in this group will be loaded. Set `VLLM_PLUGINS` to control which plugins to load.\nINFO 10-11 05:54:48 [__init__.py:237] Platform plugin ascend is activated\nINFO 10-11 05:54:48 [platform.py:70] Breakable CUDAGraph on Ascend is opt-in; using VLLM_USE_BREAKABLE_CUDAGRAPH=0.\n{\"device_count\": 1, \"logical_device\": 0, \"physical_device\": 4, \"sdk_ok\": true, \"acl_and_worker_import\": true, \"torch\": \"2.10.0+cpu\"}\n",
+      "stderr": "[W1011 05:54:55.410409330 NPUCachingAllocator.cpp:202] Warning: The current CANN and HDK(driver) versions require processing for 32 padding size, with memory allocation. (function operator())\n"
+    }
+  }
+}

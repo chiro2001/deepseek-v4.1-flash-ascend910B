@@ -1,0 +1,16 @@
+NATIVE_COPY_TERMINAL_REJECTION pre-init ExchangeDevice:../torch_npu/csrc/core/npu/sys_ctrl/npu_sys_ctrl.cpp:285 NPU function error: c10_npu::SetDevice(device), error code is 507033
+[ERROR] 2026-10-11-07:57:56 (PID:1261117, Device:0, RankID:-1) ERR00100 PTA call acl api failed
+[Error]: Failed to start the device. 
+        Rectify the fault based on the error information in the ascend log.
+[PID: 1261117] 2026-10-11-07:58:00.655.183 Invalid_Argument(EE1001): The argument is invalid. Reason: rtGetDevMsg execution failed, the context is a null pointer.
+        Solution: 1. Check the input parameter range of the function. 2. Check the function invocation relationship.
+TraceBack (most recent call last):
+        TsdOpen failed. devId=7, tdt error=1.[FUNC:PrintfTsdError][FILE:runtime.cc][LINE:1834]
+        Check param failed, dev can not be NULL![FUNC:DeviceRetain][FILE:runtime.cc][LINE:2773]
+        Check param failed, ctx can not be NULL![FUNC:PrimaryContextRetain][FILE:runtime.cc][LINE:2414]
+        rtSetDevice execution failed, reason=device retain error[FUNC:FuncErrorReason][FILE:error_message_manage.cc][LINE:69]
+        ctx is NULL![FUNC:GetDevErrMsg][FILE:api_impl.cc][LINE:6047]
+        The argument is invalid. Reason: rtGetDevMsg execution failed, the context is a null pointer.
+        ctx is NULL![FUNC:CheckCurCtxValid][FILE:api_impl.cc][LINE:271]
+        The argument is invalid. Reason: rtGetFaultEvent execution failed, the context is a null pointer.
+

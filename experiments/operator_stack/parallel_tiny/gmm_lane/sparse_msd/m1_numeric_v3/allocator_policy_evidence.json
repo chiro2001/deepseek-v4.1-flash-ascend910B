@@ -1,0 +1,73 @@
+{
+  "CPU_read_only": true,
+  "new_NPU_calls": 0,
+  "allocator_error": "207001 drv6 out of memory on explicit ACL_MEM_MALLOC_NORMAL_ONLY workspace",
+  "HBM_pool_available_from_existing_log_bytes": 55940235264,
+  "HBM_total_from_existing_log_bytes": 65787658240,
+  "same_process_Torch_large_allocations": {
+    "API": "aclrtMallocAlign32",
+    "requested_bytes": 285212672,
+    "observed_policy": 0,
+    "allocations": 2,
+    "succeeded_before_workspace_failure": true
+  },
+  "public_policy_enum": {
+    "path": "/usr/local/Ascend/cann-9.1.0/include/acl/acl_rt.h",
+    "sha256": "22c603cb80ab582006d4f26697ceb14c059d7f3613cf13b3c72aeb0d3d36e3c1",
+    "excerpt": "typedef enum aclrtMemMallocPolicy {\n    ACL_MEM_MALLOC_HUGE_FIRST,\n    ACL_MEM_MALLOC_HUGE_ONLY,\n    ACL_MEM_MALLOC_NORMAL_ONLY,\n    ACL_MEM_MALLOC_HUGE_FIRST_P2P,\n    ACL_MEM_MALLOC_HUGE_ONLY_P2P,\n    ACL_MEM_MALLOC_NORMAL_ONLY_P2P,\n    ACL_MEM_MALLOC_HUGE1G_ONLY,\n    ACL_MEM_MALLOC_HUGE1G_ONLY_P2P,\n    ACL_MEM_TYPE_LOW_BAND_WIDTH   = 0x0100,\n    ACL_MEM_TYPE_HIGH_BAND_WIDTH  = 0x1000,\n    ACL_MEM_ACCESS_USER_SPACE_READONLY = 0x100000,\n} aclrtMemMallocPolicy;",
+    "memory_attribute_excerpt": "typedef enum aclrtMemAttr {\n    ACL_DDR_MEM,\n    ACL_HBM_MEM,\n    ACL_DDR_MEM_HUGE,\n    ACL_DDR_MEM_NORMAL,\n    ACL_HBM_MEM_HUGE,\n    ACL_HBM_MEM_NORMAL,\n    ACL_DDR_MEM_P2P_HUGE,\n    ACL_DDR_MEM_P2P_NORMAL,\n    ACL_HBM_MEM_P2P_HUGE,\n    ACL_HBM_MEM_P2P_NORMAL,\n    ACL_HBM_MEM_HUGE1G,\n    ACL_HBM_MEM_P2P_HUGE1G,\n    ACL_MEM_NORMAL,\n    ACL_MEM_HUGE,\n    ACL_MEM_HUGE1G,\n    ACL_MEM_P2P_NORMAL,\n    ACL_MEM_P2P_HUGE,\n    ACL_MEM_P2P_HUGE1G,\n} aclrtMemAttr;"
+  },
+  "installed_Torch_public_allocator_example": {
+    "path": "/usr/local/python3.12.13/lib/python3.12/site-packages/torch_npu/include/torch_npu/csrc/inductor/aoti_runtime/model.h",
+    "sha256": "941e6f49ba8653f79aa3b23917582046a62d78b57683ad0139417b1ce07953a3",
+    "excerpt": "e,\n    // e.g, model has no weight, we should do padding.\n    size_t padding_bytes = 32;\n    if (num_bytes == 0)\n        num_bytes = padding_bytes;\n    AOTI_RUNTIME_DEVICE_CHECK(aclrtMalloc((void**)&data_ptr, num_bytes, ACL_MEM_MALLOC_HUGE_FIRST));\n    auto deleter = [](void* ptr) { AOTI_RUNTIME_DEVICE_CHECK(aclrtFree(ptr)); };\n    return RAIIDataPtr(data_ptr, deleter);\n#endif\n}\n\n#endif // USE_NPU\n\nRAIIDataPtr RAII_cpuMalloc(size_t num_bytes)\n{\n    void* d"
+  },
+  "existing_log_evidence": [
+    {
+      "line": 3163,
+      "text": "{\"production_allow_internal_format\": true, \"SDK_option_observed\": \"enable\", \"production_setting_source\": \"/vllm-workspace/vllm-ascend/vllm_ascend/worker/model_runner_v1.py\"}"
+    },
+    {
+      "line": 94117,
+      "text": "[DEBUG] ASCENDCL(1272219,python3):2026-10-11-08:01:43.249.797 [memory.cpp:902]1272219 aclrtGetMemInfoImpl: successfully execute aclrtGetMemInfo, memory attribute = 1, free memory = 55940493312 bytes, total memory = 65787658240 bytes"
+    },
+    {
+      "line": 192359,
+      "text": "[DEBUG] ASCENDCL(1272219,python3):2026-10-11-08:01:46.137.259 [memory.cpp:902]1272219 aclrtGetMemInfoImpl: successfully execute aclrtGetMemInfo, memory attribute = 1, free memory = 55940157440 bytes, total memory = 65787658240 bytes"
+    },
+    {
+      "line": 215106,
+      "text": "[DEBUG] ASCENDCL(1272219,python3):2026-10-11-08:01:46.662.879 [memory.cpp:902]1272219 aclrtGetMemInfoImpl: successfully execute aclrtGetMemInfo, memory attribute = 1, free memory = 55940235264 bytes, total memory = 65787658240 bytes"
+    },
+    {
+      "line": 215113,
+      "text": "[DEBUG] ASCENDCL(1272219,python3):2026-10-11-08:01:46.665.569 [memory.cpp:902]1272219 aclrtGetMemInfoImpl: successfully execute aclrtGetMemInfo, memory attribute = 1, free memory = 55940235264 bytes, total memory = 65787658240 bytes"
+    },
+    {
+      "line": 215119,
+      "text": "[DEBUG] ASCENDCL(1272219,python3):2026-10-11-08:01:46.666.672 [memory.cpp:902]1272219 aclrtGetMemInfoImpl: successfully execute aclrtGetMemInfo, memory attribute = 1, free memory = 55940235264 bytes, total memory = 65787658240 bytes"
+    },
+    {
+      "line": 215126,
+      "text": "[DEBUG] ASCENDCL(1272219,python3):2026-10-11-08:01:46.667.513 [memory.cpp:902]1272219 aclrtGetMemInfoImpl: successfully execute aclrtGetMemInfo, memory attribute = 1, free memory = 55940235264 bytes, total memory = 65787658240 bytes"
+    },
+    {
+      "line": 215132,
+      "text": "[DEBUG] ASCENDCL(1272219,python3):2026-10-11-08:01:46.668.668 [memory.cpp:902]1272219 aclrtGetMemInfoImpl: successfully execute aclrtGetMemInfo, memory attribute = 1, free memory = 55940235264 bytes, total memory = 65787658240 bytes"
+    },
+    {
+      "line": 216229,
+      "text": "[DEBUG] ASCENDCL(1272219,python3):2026-10-11-08:01:46.674.730 [memory.cpp:902]1272219 aclrtGetMemInfoImpl: successfully execute aclrtGetMemInfo, memory attribute = 1, free memory = 55940235264 bytes, total memory = 65787658240 bytes"
+    },
+    {
+      "line": 217230,
+      "text": "{\"borrowed_context\":187651868231328,\"borrowed_stream\":187652139498392,\"context_owner\":\"Torch original SDK consumer\"}"
+    },
+    {
+      "line": 217464,
+      "text": "[ERROR] RUNTIME(1272219,python3):2026-10-11-08:01:46.739.560 [npu_driver_mem.cc:1075]1272219 DevMemAllocManaged:Call driver api halMemAlloc failed, drvRetCode=6, size=117440928(bytes), type=0, moduleId=33, drvFlag=0x2100000000904406, drvDevId=6, ErrCode=207001, desc=[driver error:out of memory], InnerCode=0x7020016."
+    }
+  ],
+  "limitation": "Existing log gives aggregate ACL_HBM_MEM free capacity; it does not separately report NORMAL_ONLY page-pool capacity. No device fault/core exception or mathematics launch is recorded.",
+  "proposed_minimal_fix": "Use public ACL_MEM_MALLOC_HUGE_FIRST (enum0) for workspace only, matching installed Torch recommended allocator example and the same-context successful large policy0 allocations; keep exact workspace size, ownership, ABI and all guards."
+}

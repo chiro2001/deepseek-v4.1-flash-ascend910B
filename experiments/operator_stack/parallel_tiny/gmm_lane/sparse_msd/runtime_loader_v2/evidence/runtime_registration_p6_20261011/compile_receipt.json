@@ -1,0 +1,31 @@
+{
+  "command": [
+    "g++",
+    "-std=c++17",
+    "-O2",
+    "/work/gmm_lane_sparse_msd_runtime_loader_v2_cpu_20261011/runtime_registration_p6_20261011/runtime_registration_probe_p6.cpp",
+    "-I",
+    "/work/gmm_lane_sparse_msd_runtime_loader_v2_cpu_20261011/source/runtime_loader_v2",
+    "-I",
+    "/usr/local/Ascend/cann-9.1.0/include",
+    "-I",
+    "/usr/local/Ascend/cann-9.1.0/aarch64-linux/pkg_inc/runtime",
+    "-I",
+    "/usr/local/Ascend/cann-9.1.0/aarch64-linux/pkg_inc",
+    "-L",
+    "/work/gmm_lane_sparse_msd_runtime_loader_v2_cpu_20261011/build",
+    "-lgmm2_sparse_msd_loader_v2",
+    "-L",
+    "/usr/local/Ascend/cann-9.1.0/lib64",
+    "-lascendcl",
+    "-lruntime",
+    "-Wl,--no-undefined",
+    "-Wl,-rpath,/work/gmm_lane_sparse_msd_runtime_loader_v2_cpu_20261011/build",
+    "-o",
+    "/work/gmm_lane_sparse_msd_runtime_loader_v2_cpu_20261011/runtime_registration_p6_20261011/runtime_registration_probe_p6"
+  ],
+  "CPU_only": true,
+  "exit_code": 0,
+  "source_sha256": "5a946921a3af3285263c65bffe9ba12868d83d3a6149b11f060efa6f80a3fb76",
+  "executable_sha256": "665b35633c36a564aec379702960d6736ee869743ddc158d2e7a344e9e5ba9b6"
+}

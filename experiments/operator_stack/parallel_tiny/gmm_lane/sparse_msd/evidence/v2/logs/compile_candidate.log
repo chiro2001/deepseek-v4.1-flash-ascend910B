@@ -1,0 +1,166 @@
+Opc tool start working now, please wait for a moment.
+--input_param = /work/gmm_lane_sparse_msd_build_20261011_v2/compile_input_candidate.json
+--main_func = grouped_matmul
+--output = /work/gmm_lane_sparse_msd_build_20261011_v2/op_build_candidate
+--soc_version = Ascend910_9382
+--op_mode = dynamic
+--deterministic = true
+--op_debug_config = dump_cce
+--log = debug
+set compile mode: single_op_compile_config_file_mode.
+absolute output dir path is /work/gmm_lane_sparse_msd_build_20261011_v2/op_build_candidate.
+set abs dir path /work/gmm_lane_sparse_msd_build_20261011_v2/op_build_candidate for output.
+absolute output dir path is /work/gmm_lane_sparse_msd_build_20261011_v2.
+set abs dir path /work/gmm_lane_sparse_msd_build_20261011_v2 for debug_dir.
+path = /work/gmm_lane_sparse_msd_build_20261011_v2/private_impl/grouped_matmul_cpu_frontend.py
+absolute json file path is /work/gmm_lane_sparse_msd_build_20261011_v2/private_impl/grouped_matmul_cpu_frontend.py.
+path = /work/gmm_lane_sparse_msd_build_20261011_v2/compile_input_candidate.json
+absolute json file path is /work/gmm_lane_sparse_msd_build_20261011_v2/compile_input_candidate.json.
+Set keep_kernel_meta_dir flag True.
+Save op_relocatable_bin False.
+json_path is /usr/local/Ascend/cann-9.1.0/opp/built-in/op_impl/ai_core/tbe/config/ascend910_93/aic-ascend910_93-ops-info.json.
+load file[/usr/local/Ascend/cann-9.1.0/opp/built-in/op_impl/ai_core/tbe/config/ascend910_93/aic-ascend910_93-ops-info.json] failed, reason: [Errno 2] No such file or directory: '/usr/local/Ascend/cann-9.1.0/opp/built-in/op_impl/ai_core/tbe/config/ascend910_93/aic-ascend910_93-ops-info.json'.
+No need to check paraType, cur mode is no_placeholder.
+op_content GroupedMatmul is not exist.
+return op_type:[GroupedMatmul] core type: VectorCore, vector_combine: split
+set op_type: [GroupedMatmul] core type [VectorCore]
+__is_ascendc is True
+op_type:GroupedMatmul is not exist.
+Op GroupedMatmul is not found in opstore.
+op_type is GroupedMatmul, main_func is grouped_matmul, op_path is /work/gmm_lane_sparse_msd_build_20261011_v2/private_impl/grouped_matmul_cpu_frontend.py
+End set_flag_before_compile
+Start to resolve op json: 
+[op_info_parser.py:455][get_op_info] op = {'op_type': 'GroupedMatmul', 'op_name': 'gmm2_sparse_msd_down_v1', 'inputs': [[{'name': 'x', 'dtype': 'int8', 'shape': [6, 2304], 'format': 'ND', 'ori_shape': [6, 2304], 'ori_format': 'ND', 'index': 0, 'paramType': 'dynamic', 'format_match_mode': 'FormatAgnostic'}], [{'name': 'weight', 'dtype': 'int4', 'shape': [48, 80, 144, 16, 64], 'format': 'FRACTAL_NZ', 'ori_shape': [48, 2304, 5120], 'ori_format': 'ND', 'index': 1, 'paramType': 'dynamic', 'format_match_mode': 'FormatAgnostic'}], [{'name': 'bias', 'dtype': 'float32', 'shape': [48, 5120], 'format': 'ND', 'ori_shape': [48, 5120], 'ori_format': 'ND', 'index': 2, 'paramType': 'dynamic', 'format_match_mode': 'FormatAgnostic'}], [{'name': 'scale', 'dtype': 'uint64', 'shape': [48, 1, 5120], 'format': 
+'ND', 'ori_shape': [48, 1, 5120], 'ori_format': 'ND', 'index': 3, 'paramType': 'dynamic', 'format_match_mode': 'FormatAgnostic'}], None, None, None, {'name': 'group_list', 'dtype': 'int64', 'shape': [48], 'format': 'ND', 'ori_shape': [48], 'ori_format': 'ND', 'index': 7, 'paramType': 'optional', 'format_match_mode': 'FormatAgnostic'}, {'name': 'per_token_scale', 'dtype': 'float32', 'shape': [6], 'format': 'ND', 'ori_shape': [6], 'ori_format': 'ND', 'index': 8, 'paramType': 'optional', 'format_match_mode': 'FormatAgnostic'}], 'outputs': [[{'name': 'y', 'dtype': 'bfloat16', 'shape': [6, 5120], 'format': 'ND', 'ori_shape': [6, 5120], 'ori_format': 'ND', 'index': 0, 'paramType': 'dynamic', 'format_match_mode': 'FormatAgnostic'}]], 'attrs': [{'name': 'split_item', 'dtype': 'int', 'value': 2}, 
+{'name': 'dtype', 'dtype': 'int', 'value': 27}, {'name': 'transpose_weight', 'dtype': 'bool', 'value': False}, {'name': 'transpose_x', 'dtype': 'bool', 'value': False}, {'name': 'group_type', 'dtype': 'int', 'value': 0}, {'name': 'group_list_type', 'dtype': 'int', 'value': 1}, {'name': 'act_type', 'dtype': 'int', 'value': 0}, {'name': 'tuning_config', 'dtype': 'list_int', 'value': [0]}], 'bin_filename': 'Gmm2SparseMsdDown_candidate_v6'}
+Start to resolve op json inputs.
+Range is None.
+Range is None.
+update_range to: [[6, 6], [2304, 2304]].
+tensor_dict is {'shape': [6, 2304], 'ori_shape': [6, 2304], 'format': 'ND', 'ori_format': 'ND', 'dtype': 'int8', 'range': [[6, 6], [2304, 2304]]}.
+Range is None.
+Range is None.
+update_range to: [[48, 48], [80, 80], [144, 144], [16, 16], [64, 64]].
+tensor_dict is {'shape': [48, 80, 144, 16, 64], 'ori_shape': [48, 2304, 5120], 'format': 'FRACTAL_NZ', 'ori_format': 'ND', 'dtype': 'int4', 'range': [[48, 48], [80, 80], [144, 144], [16, 16], [64, 64]]}.
+Range is None.
+Range is None.
+update_range to: [[48, 48], [5120, 5120]].
+tensor_dict is {'shape': [48, 5120], 'ori_shape': [48, 5120], 'format': 'ND', 'ori_format': 'ND', 'dtype': 'float32', 'range': [[48, 48], [5120, 5120]]}.
+Range is None.
+Range is None.
+update_range to: [[48, 48], [1, 1], [5120, 5120]].
+tensor_dict is {'shape': [48, 1, 5120], 'ori_shape': [48, 1, 5120], 'format': 'ND', 'ori_format': 'ND', 'dtype': 'uint64', 'range': [[48, 48], [1, 1], [5120, 5120]]}.
+Tensor is null.
+Tensor is null.
+Tensor is null.
+Range is None.
+Range is None.
+update_range to: [[48, 48]].
+tensor_dict is {'shape': [48], 'ori_shape': [48], 'format': 'ND', 'ori_format': 'ND', 'dtype': 'int64', 'range': [[48, 48]]}.
+Range is None.
+Range is None.
+update_range to: [[6, 6]].
+tensor_dict is {'shape': [6], 'ori_shape': [6], 'format': 'ND', 'ori_format': 'ND', 'dtype': 'float32', 'range': [[6, 6]]}.
+Start to resolve op json outputs.
+Range is None.
+Range is None.
+update_range to: [[6, 6], [5120, 5120]].
+tensor_dict is {'shape': [6, 5120], 'ori_shape': [6, 5120], 'format': 'ND', 'ori_format': 'ND', 'dtype': 'bfloat16', 'range': [[6, 6], [5120, 5120]]}.
+Start to resolve json attr.
+Dict attr attr_dict: {'name': 'split_item', 'dtype': 'int', 'value': 2}.
+Dict attr attr_dict: {'name': 'dtype', 'dtype': 'int', 'value': 27}.
+Dict attr attr_dict: {'name': 'transpose_weight', 'dtype': 'bool', 'value': False}.
+Dict attr attr_dict: {'name': 'transpose_x', 'dtype': 'bool', 'value': False}.
+Dict attr attr_dict: {'name': 'group_type', 'dtype': 'int', 'value': 0}.
+Dict attr attr_dict: {'name': 'group_list_type', 'dtype': 'int', 'value': 1}.
+Dict attr attr_dict: {'name': 'act_type', 'dtype': 'int', 'value': 0}.
+Dict attr attr_dict: {'name': 'tuning_config', 'dtype': 'list_int', 'value': [0]}.
+op_type:GroupedMatmul is not exist.
+Op GroupedMatmul is not found in opstore.
+Start to resolve json by key bin_filename.
+Start to resolve json by key simplified_key.
+Has no key simplified_key.
+Resolve json to dict, input: ([{'shape': [6, 2304], 'ori_shape': [6, 2304], 'format': 'ND', 'ori_format': 'ND', 'dtype': 'int8', 'range': [[6, 6], [2304, 2304]]}], [{'shape': [48, 80, 144, 16, 64], 'ori_shape': [48, 2304, 5120], 'format': 'FRACTAL_NZ', 'ori_format': 'ND', 'dtype': 'int4', 'range': [[48, 48], [80, 80], [144, 144], [16, 16], [64, 64]]}], [{'shape': [48, 5120], 'ori_shape': [48, 5120], 'format': 'ND', 'ori_format': 'ND', 'dtype': 'float32', 'range': [[48, 48], [5120, 5120]]}], [{'shape': [48, 1, 5120], 'ori_shape': [48, 1, 5120], 'format': 'ND', 'ori_format': 'ND', 'dtype': 'uint64', 'range': [[48, 48], [1, 1], [5120, 5120]]}], None, None, None, {'shape': [48], 'ori_shape': [48], 'format': 'ND', 'ori_format': 'ND', 'dtype': 'int64', 'range': [[48, 48]]}, {'shape': [6], 'ori_shape': [6], 'format': 'ND', 'ori_format': 'ND', 'dtype': 'float32', 'range': [[6, 6]]}).
+Resolve json to dict, output: ([{'shape': [6, 5120], 'ori_shape': [6, 5120], 'format': 'ND', 'ori_format': 'ND', 'dtype': 'bfloat16', 'range': [[6, 6], [5120, 5120]]}],).
+Resolve json to dict, attr: [{'name': 'split_item', 'dtype': 'int', 'value': 2}, {'name': 'dtype', 'dtype': 'int', 'value': 27}, {'name': 'transpose_weight', 'dtype': 'bool', 'value': False}, {'name': 'transpose_x', 'dtype': 'bool', 'value': False}, {'name': 'group_type', 'dtype': 'int', 'value': 0}, {'name': 'group_list_type', 'dtype': 'int', 'value': 1}, {'name': 'act_type', 'dtype': 'int', 'value': 0}, {'name': 'tuning_config', 'dtype': 'list_int', 'value': [0]}], bin_filename Gmm2SparseMsdDown_candidate_v6, simplified_key .
+int64_mode of Op[GroupedMatmul] is 1.
+del IMPL_MODE. impl_mode_cfg [None]. impl_mode_default: [impl_mode=''].
+[op_info_parser.py:479][generate_kernel_name] Start to generate kernel name, op_info_dict is {'op_type': 'GroupedMatmul', 'op_func_attr': <function grouped_matmul at 0xffffa0533740>, 'extra_params': {}, 'status_check': 'true', 'enable_vector_core': None, 'jit_compile_mode': 0, 'extra_settings': None, 'deterministic': 'true', 'inputs': ([{'shape': [6, 2304], 'ori_shape': [6, 2304], 'format': 'ND', 'ori_format': 'ND', 'dtype': 'int8', 'range': [[6, 6], [2304, 2304]]}], [{'shape': [48, 80, 144, 16, 64], 'ori_shape': [48, 2304, 5120], 'format': 'FRACTAL_NZ', 'ori_format': 'ND', 'dtype': 'int4', 'range': [[48, 48], [80, 80], [144, 144], [16, 16], [64, 64]]}], [{'shape': [48, 5120], 'ori_shape': [48, 5120], 'format': 'ND', 'ori_format': 'ND', 'dtype': 'float32', 'range': [[48, 48], [5120, 5120]
+]}], [{'shape': [48, 1, 5120], 'ori_shape': [48, 1, 5120], 'format': 'ND', 'ori_format': 'ND', 'dtype': 'uint64', 'range': [[48, 48], [1, 1], [5120, 5120]]}], None, None, None, {'shape': [48], 'ori_shape': [48], 'format': 'ND', 'ori_format': 'ND', 'dtype': 'int64', 'range': [[48, 48]]}, {'shape': [6], 'ori_shape': [6], 'format': 'ND', 'ori_format': 'ND', 'dtype': 'float32', 'range': [[6, 6]]}), 'outputs': ([{'shape': [6, 5120], 'ori_shape': [6, 5120], 'format': 'ND', 'ori_format': 'ND', 'dtype': 'bfloat16', 'range': [[6, 6], [5120, 5120]]}],), 'attrs': [{'name': 'split_item', 'dtype': 'int', 'value': 2}, {'name': 'dtype', 'dtype': 'int', 'value': 27}, {'name': 'transpose_weight', 'dtype': 'bool', 'value': False}, {'name': 'transpose_x', 'dtype': 'bool', 'value': False}, {'name': 
+'group_type', 'dtype': 'int', 'value': 0}, {'name': 'group_list_type', 'dtype': 'int', 'value': 1}, {'name': 'act_type', 'dtype': 'int', 'value': 0}, {'name': 'tuning_config', 'dtype': 'list_int', 'value': [0]}], 'bin_filename': 'Gmm2SparseMsdDown_candidate_v6', 'is_dynamic': False, 'int64_mode': True}.
+Bin_filename is not none, use it as kernel name: Gmm2SparseMsdDown_candidate_v6.
+Debug dir[/work/gmm_lane_sparse_msd_build_20261011_v2/kernel_meta_Gmm2SparseMsdDown_candidate_v6] has been created.
+Lock file[/work/gmm_lane_sparse_msd_build_20261011_v2/kernel_meta_Gmm2SparseMsdDown_candidate_v6/kernel_meta.lock] is not existed, try to create it
+Lock file[/work/gmm_lane_sparse_msd_build_20261011_v2/kernel_meta_Gmm2SparseMsdDown_candidate_v6/kernel_meta.lock] has been created
+call vector_random_buff, debug_dir is /work/gmm_lane_sparse_msd_build_20261011_v2/kernel_meta_Gmm2SparseMsdDown_candidate_v6
+Call SingleOpCompile.
+op_compile.
+debug_config dump_cce, enable_super_kernel False.
+__call_op
+context_op_info op_type [GroupedMatmul], precision_mode: None.
+op_type:GroupedMatmul is not exist.
+Op GroupedMatmul is not found in opstore.
+attr's dtype: int, value: 2
+dtype[int] has non-null value, and simplified key won't be generated
+attr_str: 
+[single_op_compile.py:143][__call_op] Call op func, inputs: ([{'shape': [6, 2304], 'ori_shape': [6, 2304], 'format': 'ND', 'ori_format': 'ND', 'dtype': 'int8', 'range': [[6, 6], [2304, 2304]]}], [{'shape': [48, 80, 144, 16, 64], 'ori_shape': [48, 2304, 5120], 'format': 'FRACTAL_NZ', 'ori_format': 'ND', 'dtype': 'int4', 'range': [[48, 48], [80, 80], [144, 144], [16, 16], [64, 64]]}], [{'shape': [48, 5120], 'ori_shape': [48, 5120], 'format': 'ND', 'ori_format': 'ND', 'dtype': 'float32', 'range': [[48, 48], [5120, 5120]]}], [{'shape': [48, 1, 5120], 'ori_shape': [48, 1, 5120], 'format': 'ND', 'ori_format': 'ND', 'dtype': 'uint64', 'range': [[48, 48], [1, 1], [5120, 5120]]}], None, None, None, {'shape': [48], 'ori_shape': [48], 'format': 'ND', 'ori_format': 'ND', 'dtype': 'int64', 'range': [
+[48, 48]]}, {'shape': [6], 'ori_shape': [6], 'format': 'ND', 'ori_format': 'ND', 'dtype': 'float32', 'range': [[6, 6]]}), outputs: ([{'shape': [6, 5120], 'ori_shape': [6, 5120], 'format': 'ND', 'ori_format': 'ND', 'dtype': 'bfloat16', 'range': [[6, 6], [5120, 5120]]}],), attrs: [2, 27, False, False, 0, 1, 0, [0]], kernel_name: Gmm2SparseMsdDown_candidate_v6,                      kwargs: {}, optional_input_mode: None, optional_output_mode: None, dyn_param_mode None, SPK_OPT[],                      output_path[/work/gmm_lane_sparse_msd_build_20261011_v2/op_build_candidate].
+op_context get custom_opp_dir: None
+get custom_opp_dir from env path: None
+[INFO] RUNTIME(902314,python3):2026-10-11-05:08:21.646.577 [task_fail_callback_data_manager.cc:93] 902314 TaskFailCallBackManager: Constructor.
+[INFO] RUNTIME(902314,python3):2026-10-11-05:08:21.646.599 [xpu_task_fail_callback_data_manager.cc:59] 902314 XpuTaskFailCallBackManager: XpuTaskFailCallBackManager Constructor.
+[INFO] RUNTIME(902314,python3):2026-10-11-05:08:21.842.443 [runtime_keeper.cc:211] 902314 CreateRuntimeImpl: Open libruntime_v100.so successfully
+[ERROR] RUNTIME(902314,python3):2026-10-11-05:08:21.842.604 [runtime.cc:4531]902314 GetVisibleDevices:set ASCEND_RT_VISIBLE_DEVICES:[] error, input data range[0-16)
+[INFO] TDT(902314,python3):2026-10-11-05:08:21.843.325 [package_worker_factory.cpp:38][RegisterPackageWorkerCreator][tid:902314] Register[2] package worker was created successfully
+[INFO] TDT(902314,python3):2026-10-11-05:08:21.843.334 [package_worker_factory.cpp:38][RegisterPackageWorkerCreator][tid:902314] Register[3] package worker was created successfully
+Get custom_opp_dir from op_context: None.
+Get custom_opp_dir from env path: None.
+json_file_path is None.
+json_file_path is /work/gmm_lane_sparse_msd_build_20261011_v2/kernel_meta_Gmm2SparseMsdDown_candidate_v6/kernel_meta/Gmm2SparseMsdDown_candidate_v6.json.
+[opc_common.py:448][update_compile_info] json_file_path = /work/gmm_lane_sparse_msd_build_20261011_v2/kernel_meta_Gmm2SparseMsdDown_candidate_v6/kernel_meta/Gmm2SparseMsdDown_candidate_v6.json, compile_info = {}.
+Single op post compile process, json_file_path is /work/gmm_lane_sparse_msd_build_20261011_v2/kernel_meta_Gmm2SparseMsdDown_candidate_v6/kernel_meta/Gmm2SparseMsdDown_candidate_v6.json.
+update_info to json_file_path is /work/gmm_lane_sparse_msd_build_20261011_v2/kernel_meta_Gmm2SparseMsdDown_candidate_v6/kernel_meta/Gmm2SparseMsdDown_candidate_v6.json.
+Value of implMode is none.
+static key ori_attrs is [[{'name': 'split_item', 'dtype': 'int', 'value': 2}, {'name': 'dtype', 'dtype': 'int', 'value': 27}, {'name': 'transpose_weight', 'dtype': 'bool', 'value': False}, {'name': 'transpose_x', 'dtype': 'bool', 'value': False}, {'name': 'group_type', 'dtype': 'int', 'value': 0}, {'name': 'group_list_type', 'dtype': 'int', 'value': 1}, {'name': 'act_type', 'dtype': 'int', 'value': 0}, {'name': 'tuning_config', 'dtype': 'list_int', 'value': [0]}]]
+Generate op static key attrs is [[{'dtype': 'int', 'value': 2}, {'dtype': 'int', 'value': 27}, {'dtype': 'bool', 'value': False}, {'dtype': 'bool', 'value': False}, {'dtype': 'int', 'value': 0}, {'dtype': 'int', 'value': 1}, {'dtype': 'int', 'value': 0}, {'dtype': 'list_int', 'value': [0]}]].
+Generate op build options is {'status_check': 'true'}.
+Generate single tensor: [{'dtype': 'int8', 'format': 'ND', 'shape': [6, 2304]}].
+Generate single tensor: [{'dtype': 'int4', 'format': 'FRACTAL_NZ', 'shape': [48, 80, 144, 16, 64]}].
+Generate single tensor: [{'dtype': 'float32', 'format': 'ND', 'shape': [48, 5120]}].
+Generate single tensor: [{'dtype': 'uint64', 'format': 'ND', 'shape': [48, 1, 5120]}].
+Op is none. Add none to inputs_or_outputs.
+Op is none. Add none to inputs_or_outputs.
+Op is none. Add none to inputs_or_outputs.
+Generate single tensor: [{'dtype': 'int64', 'format': 'ND', 'shape': [48]}].
+Generate single tensor: [{'dtype': 'float32', 'format': 'ND', 'shape': [6]}].
+Generate single tensor: [{'dtype': 'bfloat16', 'format': 'ND', 'shape': [6, 5120]}].
+Generate op(Binfilename=Gmm2SparseMsdDown_candidate_v6) static key is [d9eaf59356aa9543e0b2617e3d87059a852064f79189ff79a76e602c65cb7734]. Static key json is [{"attrs":[{"dtype":"int","value":2},{"dtype":"int","value":27},{"dtype":"bool","value":false},{"dtype":"bool","value":false},{"dtype":"int","value":0},{"dtype":"int","value":1},{"dtype":"int","value":0},{"dtype":"list_int","value":[0]}],"buildOptions":{"status_check":"true"},"inputs":[[{"dtype":"int8","format":"ND","shape":[6,2304]}],[{"dtype":"int4","format":"FRACTAL_NZ","shape":[48,80,144,16,64]}],[{"dtype":"float32","format":"ND","shape":[48,5120]}],[{"dtype":"uint64","format":"ND","shape":[48,1,5120]}],null,null,null,{"dtype":"int64","format":"ND","shape":[48]},{"dtype":"float32","format":"ND","shape":[6]}],"outputs":[[{"dtype":"bfloat16","format":"ND","shape":[6,5120]}]]}]
+Final static_key d9eaf59356aa9543e0b2617e3d87059a852064f79189ff79a76e602c65cb7734.
+deterministic_str: ['d=0']
+impl_mode_param: [None].
+impl_mode_list :[['p=0']].
+attr's dtype: int, value: 2
+dtype[int] has non-null value, and simplified key won't be generated
+attr_str: 
+Op's dynamicParamMode is folded_with_desc.
+Value of tilingKey is none.
+[single_op_post_compile.py:393][__generate_op_support_info] Generate op supportInfo is {'int64Mode': True, 'dynamicParamMode': 'folded_with_desc', 'staticKey': 'd9eaf59356aa9543e0b2617e3d87059a852064f79189ff79a76e602c65cb7734', 'inputs': [[{'name': 'x', 'dtype': 'int8', 'shape': [6, 2304], 'format': 'ND', 'ori_shape': [6, 2304], 'ori_format': 'ND', 'index': 0, 'paramType': 'dynamic', 'format_match_mode': 'FormatAgnostic'}], [{'name': 'weight', 'dtype': 'int4', 'shape': [48, 80, 144, 16, 64], 'format': 'FRACTAL_NZ', 'ori_shape': [48, 2304, 5120], 'ori_format': 'ND', 'index': 1, 'paramType': 'dynamic', 'format_match_mode': 'FormatAgnostic'}], [{'name': 'bias', 'dtype': 'float32', 'shape': [48, 5120], 'format': 'ND', 'ori_shape': [48, 5120], 'ori_format': 'ND', 'index': 2, 'paramType': 
+'dynamic', 'format_match_mode': 'FormatAgnostic'}], [{'name': 'scale', 'dtype': 'uint64', 'shape': [48, 1, 5120], 'format': 'ND', 'ori_shape': [48, 1, 5120], 'ori_format': 'ND', 'index': 3, 'paramType': 'dynamic', 'format_match_mode': 'FormatAgnostic'}], None, None, None, {'name': 'group_list', 'dtype': 'int64', 'shape': [48], 'format': 'ND', 'ori_shape': [48], 'ori_format': 'ND', 'index': 7, 'paramType': 'optional', 'format_match_mode': 'FormatAgnostic'}, {'name': 'per_token_scale', 'dtype': 'float32', 'shape': [6], 'format': 'ND', 'ori_shape': [6], 'ori_format': 'ND', 'index': 8, 'paramType': 'optional', 'format_match_mode': 'FormatAgnostic'}], 'outputs': [[{'name': 'y', 'dtype': 'bfloat16', 'shape': [6, 5120], 'format': 'ND', 'ori_shape': [6, 5120], 'ori_format': 'ND', 'index': 0, 
+'paramType': 'dynamic', 'format_match_mode': 'FormatAgnostic'}]], 'attrs': [{'name': 'split_item', 'dtype': 'int', 'value': 2}, {'name': 'dtype', 'dtype': 'int', 'value': 27}, {'name': 'transpose_weight', 'dtype': 'bool', 'value': False}, {'name': 'transpose_x', 'dtype': 'bool', 'value': False}, {'name': 'group_type', 'dtype': 'int', 'value': 0}, {'name': 'group_list_type', 'dtype': 'int', 'value': 1}, {'name': 'act_type', 'dtype': 'int', 'value': 0}, {'name': 'tuning_config', 'dtype': 'list_int', 'value': [0]}], 'opMode': 'dynamic', 'op_debug_config': 'dump_cce'}
+The compile result files copy to [/work/gmm_lane_sparse_msd_build_20261011_v2/op_build_candidate]
+json_file_path is /work/gmm_lane_sparse_msd_build_20261011_v2/kernel_meta_Gmm2SparseMsdDown_candidate_v6/kernel_meta/Gmm2SparseMsdDown_candidate_v6.json.
+output_path is /work/gmm_lane_sparse_msd_build_20261011_v2/op_build_candidate.
+[post_compile_base.py:168][copy_one_json_file_with_one_obj_file] json_file is {'binFileName': 'Gmm2SparseMsdDown_candidate_v6', 'binFileSuffix': '.o', 'blockDim': 24, 'coreType': 'MIX', 'intercoreSync': 1, 'kernelName': 'Gmm2SparseMsdDown_candidate_v6', 'magic': 'RT_DEV_BINARY_MAGIC_ELF', 'memoryStamping': [], 'opParaSize': 2040, 'parameters': [None, None, None, None, None, None, None, None, None, None, None], 'sha256': 'bd08a12b15d14f44a2c63a2ff91ec2977a0ed2b62645ed7d43273ee2fb024970', 'workspace': {'num': 1, 'size': [117440512], 'type': [0]}, 'taskRation': '1:2', 'supportSuperKernel': 1, 'schedule_mode': 1, 'localMemorySize': 0, 'dynamicParamMode': 'folded_with_desc', 'supportInfo': {'int64Mode': True, 'dynamicParamMode': 'folded_with_desc', 'staticKey': 
+'d9eaf59356aa9543e0b2617e3d87059a852064f79189ff79a76e602c65cb7734', 'inputs': [[{'name': 'x', 'dtype': 'int8', 'shape': [6, 2304], 'format': 'ND', 'ori_shape': [6, 2304], 'ori_format': 'ND', 'index': 0, 'paramType': 'dynamic', 'format_match_mode': 'FormatAgnostic'}], [{'name': 'weight', 'dtype': 'int4', 'shape': [48, 80, 144, 16, 64], 'format': 'FRACTAL_NZ', 'ori_shape': [48, 2304, 5120], 'ori_format': 'ND', 'index': 1, 'paramType': 'dynamic', 'format_match_mode': 'FormatAgnostic'}], [{'name': 'bias', 'dtype': 'float32', 'shape': [48, 5120], 'format': 'ND', 'ori_shape': [48, 5120], 'ori_format': 'ND', 'index': 2, 'paramType': 'dynamic', 'format_match_mode': 'FormatAgnostic'}], [{'name': 'scale', 'dtype': 'uint64', 'shape': [48, 1, 5120], 'format': 'ND', 'ori_shape': [48, 1, 5120], 
+'ori_format': 'ND', 'index': 3, 'paramType': 'dynamic', 'format_match_mode': 'FormatAgnostic'}], None, None, None, {'name': 'group_list', 'dtype': 'int64', 'shape': [48], 'format': 'ND', 'ori_shape': [48], 'ori_format': 'ND', 'index': 7, 'paramType': 'optional', 'format_match_mode': 'FormatAgnostic'}, {'name': 'per_token_scale', 'dtype': 'float32', 'shape': [6], 'format': 'ND', 'ori_shape': [6], 'ori_format': 'ND', 'index': 8, 'paramType': 'optional', 'format_match_mode': 'FormatAgnostic'}], 'outputs': [[{'name': 'y', 'dtype': 'bfloat16', 'shape': [6, 5120], 'format': 'ND', 'ori_shape': [6, 5120], 'ori_format': 'ND', 'index': 0, 'paramType': 'dynamic', 'format_match_mode': 'FormatAgnostic'}]], 'attrs': [{'name': 'split_item', 'dtype': 'int', 'value': 2}, {'name': 'dtype', 'dtype': 'int', 
+'value': 27}, {'name': 'transpose_weight', 'dtype': 'bool', 'value': False}, {'name': 'transpose_x', 'dtype': 'bool', 'value': False}, {'name': 'group_type', 'dtype': 'int', 'value': 0}, {'name': 'group_list_type', 'dtype': 'int', 'value': 1}, {'name': 'act_type', 'dtype': 'int', 'value': 0}, {'name': 'tuning_config', 'dtype': 'list_int', 'value': [0]}], 'opMode': 'dynamic', 'op_debug_config': 'dump_cce'}}.
+object_file_path is /work/gmm_lane_sparse_msd_build_20261011_v2/kernel_meta_Gmm2SparseMsdDown_candidate_v6/kernel_meta/Gmm2SparseMsdDown_candidate_v6.o.
+Op[GroupedMatmul] of index[0] compile success, kernelName:[Gmm2SparseMsdDown_candidate_v6].
+Lock file[/work/gmm_lane_sparse_msd_build_20261011_v2/kernel_meta_Gmm2SparseMsdDown_candidate_v6/kernel_meta.lock] has been removed.
+Opc tool compile success.
+[INFO] RUNTIME(902314,python3):2026-10-11-05:08:30.852.464 [runtime_adapt.cc:58] 902314 ~Runtime: runtime destructor.
+[INFO] RUNTIME(902314,python3):2026-10-11-05:08:30.852.647 [runtime.cc:1340] 902314 WaitMonitorExit: wait monitor success, used count=0.
+[INFO] RUNTIME(902314,python3):2026-10-11-05:08:30.961.982 [tprt.cc:23][TPRT]TID[902314] ~TprtManage: ~TprtManage
+[INFO] RUNTIME(902314,python3):2026-10-11-05:08:30.963.099 [xpu_task_fail_callback_data_manager.cc:64] 902314 ~XpuTaskFailCallBackManager: XpuTaskFailCallBackManager Destructor.
+[INFO] RUNTIME(902314,python3):2026-10-11-05:08:30.963.108 [task_fail_callback_data_manager.cc:98] 902314 ~TaskFailCallBackManager: Destructor.
+[INFO] ATRACE(902314,python3):2026-10-11-05:08:30.977.000 [stacktrace_signal.c:199](tid:902314) unregister all signal handlers, can not capture signal.

@@ -1,0 +1,110 @@
+/usr/local/Ascend/cann-9.1.0/include/acl/acl_rt.h:476:typedef enum aclrtBinaryLoadOptionType {
+/usr/local/Ascend/cann-9.1.0/include/acl/acl_rt.h:481:} aclrtBinaryLoadOptionType;
+/usr/local/Ascend/cann-9.1.0/include/acl/acl_rt.h:483:typedef union aclrtBinaryLoadOptionValue {
+/usr/local/Ascend/cann-9.1.0/include/acl/acl_rt.h:488:} aclrtBinaryLoadOptionValue;
+/usr/local/Ascend/cann-9.1.0/include/acl/acl_rt.h:491:aclrtBinaryLoadOptionType type;
+/usr/local/Ascend/cann-9.1.0/include/acl/acl_rt.h:492:aclrtBinaryLoadOptionValue value;
+/usr/local/Ascend/cann-9.1.0/include/acl/acl_rt.h:493:} aclrtBinaryLoadOption;
+/usr/local/Ascend/cann-9.1.0/include/acl/acl_rt.h:495:typedef struct aclrtBinaryLoadOptions {
+/usr/local/Ascend/cann-9.1.0/include/acl/acl_rt.h:496:aclrtBinaryLoadOption *options;
+/usr/local/Ascend/cann-9.1.0/include/acl/acl_rt.h:498:} aclrtBinaryLoadOptions;
+/usr/local/Ascend/cann-9.1.0/include/acl/acl_rt.h:505:typedef enum aclrtLaunchKernelAttrId {
+/usr/local/Ascend/cann-9.1.0/include/acl/acl_rt.h:517:} aclrtLaunchKernelAttrId;
+/usr/local/Ascend/cann-9.1.0/include/acl/acl_rt.h:528:typedef union aclrtLaunchKernelAttrValue {
+/usr/local/Ascend/cann-9.1.0/include/acl/acl_rt.h:540:} aclrtLaunchKernelAttrValue;
+/usr/local/Ascend/cann-9.1.0/include/acl/acl_rt.h:542:typedef struct aclrtLaunchKernelAttr {
+/usr/local/Ascend/cann-9.1.0/include/acl/acl_rt.h:543:aclrtLaunchKernelAttrId id;
+/usr/local/Ascend/cann-9.1.0/include/acl/acl_rt.h:544:aclrtLaunchKernelAttrValue value;
+/usr/local/Ascend/cann-9.1.0/include/acl/acl_rt.h:545:} aclrtLaunchKernelAttr;
+/usr/local/Ascend/cann-9.1.0/include/acl/acl_rt.h:547:typedef struct aclrtLaunchKernelCfg {
+/usr/local/Ascend/cann-9.1.0/include/acl/acl_rt.h:548:aclrtLaunchKernelAttr *attrs;
+/usr/local/Ascend/cann-9.1.0/include/acl/acl_rt.h:550:} aclrtLaunchKernelCfg;
+/usr/local/Ascend/cann-9.1.0/include/acl/acl_rt.h:581:aclrtLaunchKernelCfg* cfg;
+/usr/local/Ascend/cann-9.1.0/include/acl/acl_rt.h:3217:ACL_FUNC_VISIBILITY aclError aclrtBinaryLoad(const aclrtBinary binary, aclrtBinHandle *binHandle);
+/usr/local/Ascend/cann-9.1.0/include/acl/acl_rt.h:3257:ACL_FUNC_VISIBILITY aclError aclrtLaunchKernel(aclrtFuncHandle funcHandle, uint32_t numBlocks,
+/usr/local/Ascend/cann-9.1.0/include/acl/acl_rt.h:3434:ACL_FUNC_VISIBILITY aclError aclrtBinaryLoadFromFile(const char* binPath, aclrtBinaryLoadOptions *options,
+/usr/local/Ascend/cann-9.1.0/include/acl/acl_rt.h:3664:ACL_FUNC_VISIBILITY aclError aclrtLaunchKernelWithConfig(aclrtFuncHandle funcHandle, uint32_t numBlocks,
+/usr/local/Ascend/cann-9.1.0/include/acl/acl_rt.h:3665:aclrtStream stream, aclrtLaunchKernelCfg *cfg,
+/usr/local/Ascend/cann-9.1.0/include/acl/acl_rt.h:3703:ACL_FUNC_VISIBILITY aclError aclmdlRIKernelTaskGetAttribute(aclmdlRITask task, aclrtLaunchKernelAttrId attrId, aclrtLaunchKernelAttrValue *attrValue);
+/usr/local/Ascend/cann-9.1.0/include/acl/acl_rt.h:4317:ACL_FUNC_VISIBILITY aclError aclrtBinaryLoadFromData(const void *data, size_t length,
+/usr/local/Ascend/cann-9.1.0/include/acl/acl_rt.h:4318:const aclrtBinaryLoadOptions *options, aclrtBinHandle *binHandle);
+/usr/local/Ascend/cann-9.1.0/include/acl/acl_rt.h:5063:ACL_FUNC_VISIBILITY aclError aclrtLaunchKernelV2(aclrtFuncHandle funcHandle, uint32_t numBlocks,
+/usr/local/Ascend/cann-9.1.0/include/acl/acl_rt.h:5065:aclrtLaunchKernelCfg *cfg, aclrtStream stream);
+/usr/local/Ascend/cann-9.1.0/include/acl/acl_rt.h:5081:ACL_FUNC_VISIBILITY aclError aclrtLaunchKernelWithHostArgs(aclrtFuncHandle funcHandle, uint32_t numBlocks,
+/usr/local/Ascend/cann-9.1.0/include/acl/acl_rt.h:5082:aclrtStream stream, aclrtLaunchKernelCfg *cfg,
+/usr/local/Ascend/cann-9.1.0/include/acl/acl_rt.h:5098:ACL_FUNC_VISIBILITY aclError aclrtLaunchKernelWithArgsArray(void *func, uint32_t numBlocks,
+/usr/local/Ascend/cann-9.1.0/include/acl/acl_rt.h:5099:aclrtStream stream, aclrtLaunchKernelCfg *cfg,
+/usr/local/Ascend/cann-9.1.0/include/experiment/runtime/runtime/rt_ffts.h:187:RTS_API rtError_t rtGetC2cCtrlAddr(uint64_t *addr, uint32_t *len);
+/usr/local/Ascend/cann-9.1.0/aarch64-linux/include/acl/acl_rt.h:476:typedef enum aclrtBinaryLoadOptionType {
+/usr/local/Ascend/cann-9.1.0/aarch64-linux/include/acl/acl_rt.h:481:} aclrtBinaryLoadOptionType;
+/usr/local/Ascend/cann-9.1.0/aarch64-linux/include/acl/acl_rt.h:483:typedef union aclrtBinaryLoadOptionValue {
+/usr/local/Ascend/cann-9.1.0/aarch64-linux/include/acl/acl_rt.h:488:} aclrtBinaryLoadOptionValue;
+/usr/local/Ascend/cann-9.1.0/aarch64-linux/include/acl/acl_rt.h:491:aclrtBinaryLoadOptionType type;
+/usr/local/Ascend/cann-9.1.0/aarch64-linux/include/acl/acl_rt.h:492:aclrtBinaryLoadOptionValue value;
+/usr/local/Ascend/cann-9.1.0/aarch64-linux/include/acl/acl_rt.h:493:} aclrtBinaryLoadOption;
+/usr/local/Ascend/cann-9.1.0/aarch64-linux/include/acl/acl_rt.h:495:typedef struct aclrtBinaryLoadOptions {
+/usr/local/Ascend/cann-9.1.0/aarch64-linux/include/acl/acl_rt.h:496:aclrtBinaryLoadOption *options;
+/usr/local/Ascend/cann-9.1.0/aarch64-linux/include/acl/acl_rt.h:498:} aclrtBinaryLoadOptions;
+/usr/local/Ascend/cann-9.1.0/aarch64-linux/include/acl/acl_rt.h:505:typedef enum aclrtLaunchKernelAttrId {
+/usr/local/Ascend/cann-9.1.0/aarch64-linux/include/acl/acl_rt.h:517:} aclrtLaunchKernelAttrId;
+/usr/local/Ascend/cann-9.1.0/aarch64-linux/include/acl/acl_rt.h:528:typedef union aclrtLaunchKernelAttrValue {
+/usr/local/Ascend/cann-9.1.0/aarch64-linux/include/acl/acl_rt.h:540:} aclrtLaunchKernelAttrValue;
+/usr/local/Ascend/cann-9.1.0/aarch64-linux/include/acl/acl_rt.h:542:typedef struct aclrtLaunchKernelAttr {
+/usr/local/Ascend/cann-9.1.0/aarch64-linux/include/acl/acl_rt.h:543:aclrtLaunchKernelAttrId id;
+/usr/local/Ascend/cann-9.1.0/aarch64-linux/include/acl/acl_rt.h:544:aclrtLaunchKernelAttrValue value;
+/usr/local/Ascend/cann-9.1.0/aarch64-linux/include/acl/acl_rt.h:545:} aclrtLaunchKernelAttr;
+/usr/local/Ascend/cann-9.1.0/aarch64-linux/include/acl/acl_rt.h:547:typedef struct aclrtLaunchKernelCfg {
+/usr/local/Ascend/cann-9.1.0/aarch64-linux/include/acl/acl_rt.h:548:aclrtLaunchKernelAttr *attrs;
+/usr/local/Ascend/cann-9.1.0/aarch64-linux/include/acl/acl_rt.h:550:} aclrtLaunchKernelCfg;
+/usr/local/Ascend/cann-9.1.0/aarch64-linux/include/acl/acl_rt.h:581:aclrtLaunchKernelCfg* cfg;
+/usr/local/Ascend/cann-9.1.0/aarch64-linux/include/acl/acl_rt.h:3217:ACL_FUNC_VISIBILITY aclError aclrtBinaryLoad(const aclrtBinary binary, aclrtBinHandle *binHandle);
+/usr/local/Ascend/cann-9.1.0/aarch64-linux/include/acl/acl_rt.h:3257:ACL_FUNC_VISIBILITY aclError aclrtLaunchKernel(aclrtFuncHandle funcHandle, uint32_t numBlocks,
+/usr/local/Ascend/cann-9.1.0/aarch64-linux/include/acl/acl_rt.h:3434:ACL_FUNC_VISIBILITY aclError aclrtBinaryLoadFromFile(const char* binPath, aclrtBinaryLoadOptions *options,
+/usr/local/Ascend/cann-9.1.0/aarch64-linux/include/acl/acl_rt.h:3664:ACL_FUNC_VISIBILITY aclError aclrtLaunchKernelWithConfig(aclrtFuncHandle funcHandle, uint32_t numBlocks,
+/usr/local/Ascend/cann-9.1.0/aarch64-linux/include/acl/acl_rt.h:3665:aclrtStream stream, aclrtLaunchKernelCfg *cfg,
+/usr/local/Ascend/cann-9.1.0/aarch64-linux/include/acl/acl_rt.h:3703:ACL_FUNC_VISIBILITY aclError aclmdlRIKernelTaskGetAttribute(aclmdlRITask task, aclrtLaunchKernelAttrId attrId, aclrtLaunchKernelAttrValue *attrValue);
+/usr/local/Ascend/cann-9.1.0/aarch64-linux/include/acl/acl_rt.h:4317:ACL_FUNC_VISIBILITY aclError aclrtBinaryLoadFromData(const void *data, size_t length,
+/usr/local/Ascend/cann-9.1.0/aarch64-linux/include/acl/acl_rt.h:4318:const aclrtBinaryLoadOptions *options, aclrtBinHandle *binHandle);
+/usr/local/Ascend/cann-9.1.0/aarch64-linux/include/acl/acl_rt.h:5063:ACL_FUNC_VISIBILITY aclError aclrtLaunchKernelV2(aclrtFuncHandle funcHandle, uint32_t numBlocks,
+/usr/local/Ascend/cann-9.1.0/aarch64-linux/include/acl/acl_rt.h:5065:aclrtLaunchKernelCfg *cfg, aclrtStream stream);
+/usr/local/Ascend/cann-9.1.0/aarch64-linux/include/acl/acl_rt.h:5081:ACL_FUNC_VISIBILITY aclError aclrtLaunchKernelWithHostArgs(aclrtFuncHandle funcHandle, uint32_t numBlocks,
+/usr/local/Ascend/cann-9.1.0/aarch64-linux/include/acl/acl_rt.h:5082:aclrtStream stream, aclrtLaunchKernelCfg *cfg,
+/usr/local/Ascend/cann-9.1.0/aarch64-linux/include/acl/acl_rt.h:5098:ACL_FUNC_VISIBILITY aclError aclrtLaunchKernelWithArgsArray(void *func, uint32_t numBlocks,
+/usr/local/Ascend/cann-9.1.0/aarch64-linux/include/acl/acl_rt.h:5099:aclrtStream stream, aclrtLaunchKernelCfg *cfg,
+/usr/local/Ascend/cann-9.1.0/aarch64-linux/include/experiment/runtime/runtime/rt_ffts.h:187:RTS_API rtError_t rtGetC2cCtrlAddr(uint64_t *addr, uint32_t *len);
+/usr/local/Ascend/cann-9.1.0/aarch64-linux/pkg_inc/runtime/runtime/rt_ffts.h:187:RTS_API rtError_t rtGetC2cCtrlAddr(uint64_t *addr, uint32_t *len);
+/usr/local/Ascend/cann-9.1.0/aarch64-linux/pkg_inc/runtime/runtime/kernel.h:371:RTS_API rtError_t rtKernelLaunchWithHandle(void *hdl, const uint64_t tilingKey, uint32_t numBlocks,
+/usr/local/Ascend/cann-9.1.0/aarch64-linux/pkg_inc/runtime/runtime/kernel.h:388:RTS_API rtError_t rtKernelLaunchWithHandleV2(void *hdl, const uint64_t tilingKey, uint32_t numBlocks,
+/usr/local/Ascend/cann-9.1.0/aarch64-linux/asc/impl/adv_api/detail/kfc/kfc_register_obj.h:29:ClearWorkspaceImpl(workspace);
+/usr/local/Ascend/cann-9.1.0/aarch64-linux/asc/impl/adv_api/detail/kfc/kfc_register_obj.h:63:ClearWorkspaceImpl(workspace);
+/usr/local/Ascend/cann-9.1.0/aarch64-linux/asc/impl/adv_api/detail/kfc/kernel_kfc.h:38:AscendC::ClearWorkspaceImpl(workspace);
+/usr/local/Ascend/cann-9.1.0/aarch64-linux/asc/impl/adv_api/detail/hccl/cc/src/common/adapter_acl.h:42:HcclResult LoadBinaryFromFile(const char *binPath, aclrtBinaryLoadOptionType optionType, uint32_t cpuKernelMode,
+/usr/local/Ascend/cann-9.1.0/aarch64-linux/asc/impl/adv_api/detail/hccl/cc/src/aicpu_kfc/common/launch_device/launch_device.h:20:HcclResult LoadBinaryFromFile(const char *binPath, aclrtBinaryLoadOptionType optionType, uint32_t cpuKernelMode,
+/usr/local/Ascend/cann-9.1.0/aarch64-linux/asc/impl/adv_api/detail/hccl/cc/src/aicpu_kfc/legacy/unified_platform/external_system/orion_adapter_rts.h:224:aclrtLaunchKernelCfg *cfg, void *hostArgs, size_t argsSize,
+/usr/local/Ascend/cann-9.1.0/aarch64-linux/asc/impl/adv_api/detail/hccl/cc/src/aicpu_kfc/framework/communicator/impl/hccl_communicator.h:878:HcclResult LoadCustomFile(const char *binPath, aclrtBinaryLoadOptionType optionType, uint32_t cpuKernelMode,
+/usr/local/Ascend/cann-9.1.0/aarch64-linux/asc/impl/adv_api/detail/hccl/cc/src/aicpu_kfc/platform/resource/transport/host/transport_direct_npu_pub.h:139:HcclResult LoadBinaryFromFile(const char *binPath, aclrtBinaryLoadOptionType optionType, uint32_t cpuKernelMode,
+/usr/local/Ascend/cann-9.1.0/aarch64-linux/asc/impl/basic_api/dav_l311/kernel_operator_common_impl.h:245:__aicore__ inline GM_ADDR GetUserWorkspace(GM_ADDR workspace)
+/usr/local/Ascend/cann-9.1.0/aarch64-linux/asc/impl/basic_api/dav_m310/kernel_operator_common_impl.h:46:__aicore__ inline GM_ADDR GetUserWorkspace(GM_ADDR workspace)
+/usr/local/Ascend/cann-9.1.0/aarch64-linux/asc/impl/basic_api/dav_m310/kernel_operator_common_impl.h:54:return g_sysWorkspaceReserved + RESERVED_WORKSPACE;
+/usr/local/Ascend/cann-9.1.0/aarch64-linux/asc/impl/basic_api/dav_m300/kernel_operator_common_impl.h:49:__aicore__ inline GM_ADDR GetUserWorkspace(GM_ADDR workspace)
+/usr/local/Ascend/cann-9.1.0/aarch64-linux/asc/impl/basic_api/dav_m300/kernel_operator_common_impl.h:57:return g_sysWorkspaceReserved + RESERVED_WORKSPACE;
+/usr/local/Ascend/cann-9.1.0/aarch64-linux/asc/impl/basic_api/dav_c100/kernel_operator_common_impl.h:47:__aicore__ inline GM_ADDR GetUserWorkspace(GM_ADDR workspace)
+/usr/local/Ascend/cann-9.1.0/aarch64-linux/asc/impl/basic_api/dav_c100/kernel_operator_common_impl.h:55:return g_sysWorkspaceReserved + RESERVED_WORKSPACE;
+/usr/local/Ascend/cann-9.1.0/aarch64-linux/asc/impl/basic_api/dav_l300/kernel_operator_common_impl.h:208:__aicore__ inline GM_ADDR GetUserWorkspace(GM_ADDR workspace)
+/usr/local/Ascend/cann-9.1.0/aarch64-linux/asc/impl/basic_api/utils/kernel_utils_constants.h:253:constexpr size_t RESERVED_WORKSPACE = 2 * 1024 * 1024;
+/usr/local/Ascend/cann-9.1.0/aarch64-linux/asc/impl/basic_api/utils/kernel_utils_constants.h:255:constexpr size_t RESERVED_WORKSPACE = 2 * 1024 * 1024;
+/usr/local/Ascend/cann-9.1.0/aarch64-linux/asc/impl/basic_api/utils/kernel_utils_constants.h:257:constexpr size_t RESERVED_WORKSPACE = 16 * 1024 * 1024;
+/usr/local/Ascend/cann-9.1.0/aarch64-linux/asc/impl/basic_api/utils/kernel_utils_constants.h:259:constexpr size_t RESERVED_WORKSPACE = 16 * 1024 * 1024;
+/usr/local/Ascend/cann-9.1.0/aarch64-linux/asc/impl/basic_api/utils/kernel_utils_constants.h:261:constexpr size_t RESERVED_WORKSPACE = 16 * 1024 * 1024;
+/usr/local/Ascend/cann-9.1.0/aarch64-linux/asc/impl/basic_api/utils/kernel_utils_constants.h:263:constexpr size_t RESERVED_WORKSPACE = 16 * 1024 * 1024;
+/usr/local/Ascend/cann-9.1.0/aarch64-linux/asc/impl/basic_api/utils/kernel_utils_constants.h:265:constexpr size_t RESERVED_WORKSPACE = 0;
+/usr/local/Ascend/cann-9.1.0/aarch64-linux/asc/impl/basic_api/utils/kernel_utils_constants.h:267:constexpr size_t RESERVED_WORKSPACE = 0;
+/usr/local/Ascend/cann-9.1.0/aarch64-linux/asc/impl/basic_api/dav_c220/kernel_operator_common_impl.h:57:__aicore__ inline GM_ADDR GetUserWorkspace(GM_ADDR workspace)
+/usr/local/Ascend/cann-9.1.0/aarch64-linux/asc/impl/basic_api/dav_c220/kernel_operator_common_impl.h:66:return __get_kfc_workspace_addr() + RESERVED_WORKSPACE;
+/usr/local/Ascend/cann-9.1.0/aarch64-linux/asc/impl/basic_api/dav_c220/kernel_operator_common_impl.h:68:return g_sysWorkspaceReserved + RESERVED_WORKSPACE;
+/usr/local/Ascend/cann-9.1.0/aarch64-linux/asc/impl/basic_api/dav_m200/kernel_operator_common_impl.h:47:__aicore__ inline GM_ADDR GetUserWorkspace(GM_ADDR workspace)
+/usr/local/Ascend/cann-9.1.0/aarch64-linux/asc/impl/basic_api/dav_m200/kernel_operator_common_impl.h:55:return g_sysWorkspaceReserved + RESERVED_WORKSPACE;
+/usr/local/Ascend/cann-9.1.0/aarch64-linux/asc/impl/basic_api/dav_3510/kernel_operator_common_impl.h:51:__aicore__ inline GM_ADDR GetUserWorkspace(GM_ADDR workspace)
+/usr/local/Ascend/cann-9.1.0/aarch64-linux/asc/impl/basic_api/dav_3510/kernel_operator_common_impl.h:59:return GetSysWorkSpacePtr() + RESERVED_WORKSPACE;
+/usr/local/Ascend/cann-9.1.0/aarch64-linux/asc/impl/basic_api/dav_c220/kfc/kfc_comm.h:376:__aicore__ inline void ClearWorkspaceImpl(__gm__ uint8_t* workspace)
+/usr/local/Ascend/cann-9.1.0/aarch64-linux/asc/impl/basic_api/dav_3510/kfc/kfc_comm_gm.h:370:__aicore__ inline void ClearWorkspaceImpl(__gm__ uint8_t* workspace)

@@ -1,0 +1,192 @@
+{
+  "op_list": [
+    {
+      "op_type": "GroupedMatmul",
+      "op_name": "gmm2_sparse_msd_down_v1",
+      "inputs": [
+        [
+          {
+            "name": "x",
+            "dtype": "int8",
+            "shape": [
+              6,
+              2304
+            ],
+            "format": "ND",
+            "ori_shape": [
+              6,
+              2304
+            ],
+            "ori_format": "ND",
+            "index": 0,
+            "paramType": "dynamic",
+            "format_match_mode": "FormatAgnostic"
+          }
+        ],
+        [
+          {
+            "name": "weight",
+            "dtype": "int4",
+            "shape": [
+              48,
+              80,
+              144,
+              16,
+              64
+            ],
+            "format": "FRACTAL_NZ",
+            "ori_shape": [
+              48,
+              2304,
+              5120
+            ],
+            "ori_format": "ND",
+            "index": 1,
+            "paramType": "dynamic",
+            "format_match_mode": "FormatAgnostic"
+          }
+        ],
+        [
+          {
+            "name": "bias",
+            "dtype": "float32",
+            "shape": [
+              48,
+              5120
+            ],
+            "format": "ND",
+            "ori_shape": [
+              48,
+              5120
+            ],
+            "ori_format": "ND",
+            "index": 2,
+            "paramType": "dynamic",
+            "format_match_mode": "FormatAgnostic"
+          }
+        ],
+        [
+          {
+            "name": "scale",
+            "dtype": "uint64",
+            "shape": [
+              48,
+              1,
+              5120
+            ],
+            "format": "ND",
+            "ori_shape": [
+              48,
+              1,
+              5120
+            ],
+            "ori_format": "ND",
+            "index": 3,
+            "paramType": "dynamic",
+            "format_match_mode": "FormatAgnostic"
+          }
+        ],
+        null,
+        null,
+        null,
+        {
+          "name": "group_list",
+          "dtype": "int64",
+          "shape": [
+            48
+          ],
+          "format": "ND",
+          "ori_shape": [
+            48
+          ],
+          "ori_format": "ND",
+          "index": 7,
+          "paramType": "optional",
+          "format_match_mode": "FormatAgnostic"
+        },
+        {
+          "name": "per_token_scale",
+          "dtype": "float32",
+          "shape": [
+            6
+          ],
+          "format": "ND",
+          "ori_shape": [
+            6
+          ],
+          "ori_format": "ND",
+          "index": 8,
+          "paramType": "optional",
+          "format_match_mode": "FormatAgnostic"
+        }
+      ],
+      "outputs": [
+        [
+          {
+            "name": "y",
+            "dtype": "bfloat16",
+            "shape": [
+              6,
+              5120
+            ],
+            "format": "ND",
+            "ori_shape": [
+              6,
+              5120
+            ],
+            "ori_format": "ND",
+            "index": 0,
+            "paramType": "dynamic",
+            "format_match_mode": "FormatAgnostic"
+          }
+        ]
+      ],
+      "attrs": [
+        {
+          "name": "split_item",
+          "dtype": "int",
+          "value": 2
+        },
+        {
+          "name": "dtype",
+          "dtype": "int",
+          "value": 27
+        },
+        {
+          "name": "transpose_weight",
+          "dtype": "bool",
+          "value": false
+        },
+        {
+          "name": "transpose_x",
+          "dtype": "bool",
+          "value": false
+        },
+        {
+          "name": "group_type",
+          "dtype": "int",
+          "value": 0
+        },
+        {
+          "name": "group_list_type",
+          "dtype": "int",
+          "value": 1
+        },
+        {
+          "name": "act_type",
+          "dtype": "int",
+          "value": 0
+        },
+        {
+          "name": "tuning_config",
+          "dtype": "list_int",
+          "value": [
+            0
+          ]
+        }
+      ],
+      "bin_filename": "Gmm2SparseMsdDown_candidate_v6"
+    }
+  ],
+  "op_type": "GroupedMatmul"
+}

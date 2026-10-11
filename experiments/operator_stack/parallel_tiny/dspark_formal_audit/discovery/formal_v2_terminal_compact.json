@@ -1,0 +1,448 @@
+{
+  "job": "formal_dspark_native_aa_v2",
+  "snapshot": "/work/src_dspark_native_v2",
+  "exit_code": 1,
+  "phase": "terminal-loading-native-dspark",
+  "exception": "Draft graph is not configured; actual replay is checked for every real proposal",
+  "traceback": "Traceback (most recent call last):\n  File \"/work/src_dspark_native_v2/stack/bench_formal_dspark.py\", line 226, in main\n    return run_native(args,result,checkpoint,sources)\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/work/src_dspark_native_v2/stack/bench_formal_dspark.py\", line 129, in run_native\n    raise ValueError('Draft graph is not configured; actual replay is checked for every real proposal')\nValueError: Draft graph is not configured; actual replay is checked for every real proposal\n",
+  "requested_speculative_config": {
+    "method": "dspark",
+    "num_speculative_tokens": 5,
+    "enforce_eager": false
+  },
+  "requested_target_compilation_config": {
+    "cudagraph_mode": "FULL_DECODE_ONLY",
+    "cudagraph_capture_sizes": [
+      6
+    ]
+  },
+  "actual_banks": [
+    {
+      "rank": 0,
+      "main_model_class": "vllm_ascend.compilation.acl_graph.ACLGraphWrapper",
+      "main_backbone_class": "vllm_ascend.models.deepseek_v41.model.DeepseekV41Model",
+      "current_main_wrapper_class": "vllm_ascend.compilation.acl_graph.ACLGraphWrapper",
+      "drafter_class": "vllm_ascend.spec_decode.dspark_proposer.AscendDSparkProposer",
+      "draft_model_class": "vllm_ascend.models.deepseek_v41.dspark.DSparkDeepseekV41ForCausalLM",
+      "current_draft_wrapper_class": "vllm_ascend.models.deepseek_v41.dspark.DSparkDeepseekV41ForCausalLM",
+      "method": "dspark",
+      "num_speculative_tokens": 5,
+      "main_layers": 40,
+      "routed_experts": 384,
+      "experts_per_token": 6,
+      "draft_layer_ids": [
+        40,
+        41,
+        42
+      ],
+      "actual_draft_target_layer_ids": [
+        37,
+        38,
+        39
+      ],
+      "draft_use_cuda_graph": false,
+      "draft_graph_configured": false,
+      "actual_graph_submission_proof": null,
+      "graph_observer_sources": {
+        "stock_proposer": {
+          "path": "/vllm-workspace/vllm-ascend/vllm_ascend/spec_decode/llm_base_proposer.py",
+          "sha256": "d5003b772a1982f032f59a65d9ad4970d598311898c487a50791ee2337bdaae4",
+          "function": "AscendSpecDecodeBaseProposer._propose",
+          "function_sha256": "58589048e3e73f3cde09bfc087c1d45a93081fc1a4362b842868d7e12b7a901a"
+        },
+        "acl_wrapper": {
+          "path": "/vllm-workspace/vllm-ascend/vllm_ascend/compilation/acl_graph.py",
+          "sha256": "c8ab2fe6aaae034b03e9e34b9c07fd445046564acd5d45e2c24b5ea5232c5a74",
+          "function": "ACLGraphWrapper.__call__",
+          "function_sha256": "0b1b1e48b2bcc25973108350d43124cf219b090cc845c3fc56f56fd07921e72a"
+        },
+        "npu_graph_replay": {
+          "path": "/usr/local/python3.12.13/lib/python3.12/site-packages/torch_npu/npu/graphs.py",
+          "sha256": "eb11cac181087766e8489cf3a1da0c0fa150933b7e74454dba4a47db6114164e",
+          "function": "NPUGraph.replay",
+          "function_sha256": "296b98230fdb99a2e46b479aef83a5812f63db00d53982d31549b44b998de90f"
+        }
+      },
+      "async_scheduling": false,
+      "load_format": "auto",
+      "hccl_deterministic": "strict"
+    },
+    {
+      "rank": 1,
+      "main_model_class": "vllm_ascend.compilation.acl_graph.ACLGraphWrapper",
+      "main_backbone_class": "vllm_ascend.models.deepseek_v41.model.DeepseekV41Model",
+      "current_main_wrapper_class": "vllm_ascend.compilation.acl_graph.ACLGraphWrapper",
+      "drafter_class": "vllm_ascend.spec_decode.dspark_proposer.AscendDSparkProposer",
+      "draft_model_class": "vllm_ascend.models.deepseek_v41.dspark.DSparkDeepseekV41ForCausalLM",
+      "current_draft_wrapper_class": "vllm_ascend.models.deepseek_v41.dspark.DSparkDeepseekV41ForCausalLM",
+      "method": "dspark",
+      "num_speculative_tokens": 5,
+      "main_layers": 40,
+      "routed_experts": 384,
+      "experts_per_token": 6,
+      "draft_layer_ids": [
+        40,
+        41,
+        42
+      ],
+      "actual_draft_target_layer_ids": [
+        37,
+        38,
+        39
+      ],
+      "draft_use_cuda_graph": false,
+      "draft_graph_configured": false,
+      "actual_graph_submission_proof": null,
+      "graph_observer_sources": {
+        "stock_proposer": {
+          "path": "/vllm-workspace/vllm-ascend/vllm_ascend/spec_decode/llm_base_proposer.py",
+          "sha256": "d5003b772a1982f032f59a65d9ad4970d598311898c487a50791ee2337bdaae4",
+          "function": "AscendSpecDecodeBaseProposer._propose",
+          "function_sha256": "58589048e3e73f3cde09bfc087c1d45a93081fc1a4362b842868d7e12b7a901a"
+        },
+        "acl_wrapper": {
+          "path": "/vllm-workspace/vllm-ascend/vllm_ascend/compilation/acl_graph.py",
+          "sha256": "c8ab2fe6aaae034b03e9e34b9c07fd445046564acd5d45e2c24b5ea5232c5a74",
+          "function": "ACLGraphWrapper.__call__",
+          "function_sha256": "0b1b1e48b2bcc25973108350d43124cf219b090cc845c3fc56f56fd07921e72a"
+        },
+        "npu_graph_replay": {
+          "path": "/usr/local/python3.12.13/lib/python3.12/site-packages/torch_npu/npu/graphs.py",
+          "sha256": "eb11cac181087766e8489cf3a1da0c0fa150933b7e74454dba4a47db6114164e",
+          "function": "NPUGraph.replay",
+          "function_sha256": "296b98230fdb99a2e46b479aef83a5812f63db00d53982d31549b44b998de90f"
+        }
+      },
+      "async_scheduling": false,
+      "load_format": "auto",
+      "hccl_deterministic": "strict"
+    },
+    {
+      "rank": 2,
+      "main_model_class": "vllm_ascend.compilation.acl_graph.ACLGraphWrapper",
+      "main_backbone_class": "vllm_ascend.models.deepseek_v41.model.DeepseekV41Model",
+      "current_main_wrapper_class": "vllm_ascend.compilation.acl_graph.ACLGraphWrapper",
+      "drafter_class": "vllm_ascend.spec_decode.dspark_proposer.AscendDSparkProposer",
+      "draft_model_class": "vllm_ascend.models.deepseek_v41.dspark.DSparkDeepseekV41ForCausalLM",
+      "current_draft_wrapper_class": "vllm_ascend.models.deepseek_v41.dspark.DSparkDeepseekV41ForCausalLM",
+      "method": "dspark",
+      "num_speculative_tokens": 5,
+      "main_layers": 40,
+      "routed_experts": 384,
+      "experts_per_token": 6,
+      "draft_layer_ids": [
+        40,
+        41,
+        42
+      ],
+      "actual_draft_target_layer_ids": [
+        37,
+        38,
+        39
+      ],
+      "draft_use_cuda_graph": false,
+      "draft_graph_configured": false,
+      "actual_graph_submission_proof": null,
+      "graph_observer_sources": {
+        "stock_proposer": {
+          "path": "/vllm-workspace/vllm-ascend/vllm_ascend/spec_decode/llm_base_proposer.py",
+          "sha256": "d5003b772a1982f032f59a65d9ad4970d598311898c487a50791ee2337bdaae4",
+          "function": "AscendSpecDecodeBaseProposer._propose",
+          "function_sha256": "58589048e3e73f3cde09bfc087c1d45a93081fc1a4362b842868d7e12b7a901a"
+        },
+        "acl_wrapper": {
+          "path": "/vllm-workspace/vllm-ascend/vllm_ascend/compilation/acl_graph.py",
+          "sha256": "c8ab2fe6aaae034b03e9e34b9c07fd445046564acd5d45e2c24b5ea5232c5a74",
+          "function": "ACLGraphWrapper.__call__",
+          "function_sha256": "0b1b1e48b2bcc25973108350d43124cf219b090cc845c3fc56f56fd07921e72a"
+        },
+        "npu_graph_replay": {
+          "path": "/usr/local/python3.12.13/lib/python3.12/site-packages/torch_npu/npu/graphs.py",
+          "sha256": "eb11cac181087766e8489cf3a1da0c0fa150933b7e74454dba4a47db6114164e",
+          "function": "NPUGraph.replay",
+          "function_sha256": "296b98230fdb99a2e46b479aef83a5812f63db00d53982d31549b44b998de90f"
+        }
+      },
+      "async_scheduling": false,
+      "load_format": "auto",
+      "hccl_deterministic": "strict"
+    },
+    {
+      "rank": 3,
+      "main_model_class": "vllm_ascend.compilation.acl_graph.ACLGraphWrapper",
+      "main_backbone_class": "vllm_ascend.models.deepseek_v41.model.DeepseekV41Model",
+      "current_main_wrapper_class": "vllm_ascend.compilation.acl_graph.ACLGraphWrapper",
+      "drafter_class": "vllm_ascend.spec_decode.dspark_proposer.AscendDSparkProposer",
+      "draft_model_class": "vllm_ascend.models.deepseek_v41.dspark.DSparkDeepseekV41ForCausalLM",
+      "current_draft_wrapper_class": "vllm_ascend.models.deepseek_v41.dspark.DSparkDeepseekV41ForCausalLM",
+      "method": "dspark",
+      "num_speculative_tokens": 5,
+      "main_layers": 40,
+      "routed_experts": 384,
+      "experts_per_token": 6,
+      "draft_layer_ids": [
+        40,
+        41,
+        42
+      ],
+      "actual_draft_target_layer_ids": [
+        37,
+        38,
+        39
+      ],
+      "draft_use_cuda_graph": false,
+      "draft_graph_configured": false,
+      "actual_graph_submission_proof": null,
+      "graph_observer_sources": {
+        "stock_proposer": {
+          "path": "/vllm-workspace/vllm-ascend/vllm_ascend/spec_decode/llm_base_proposer.py",
+          "sha256": "d5003b772a1982f032f59a65d9ad4970d598311898c487a50791ee2337bdaae4",
+          "function": "AscendSpecDecodeBaseProposer._propose",
+          "function_sha256": "58589048e3e73f3cde09bfc087c1d45a93081fc1a4362b842868d7e12b7a901a"
+        },
+        "acl_wrapper": {
+          "path": "/vllm-workspace/vllm-ascend/vllm_ascend/compilation/acl_graph.py",
+          "sha256": "c8ab2fe6aaae034b03e9e34b9c07fd445046564acd5d45e2c24b5ea5232c5a74",
+          "function": "ACLGraphWrapper.__call__",
+          "function_sha256": "0b1b1e48b2bcc25973108350d43124cf219b090cc845c3fc56f56fd07921e72a"
+        },
+        "npu_graph_replay": {
+          "path": "/usr/local/python3.12.13/lib/python3.12/site-packages/torch_npu/npu/graphs.py",
+          "sha256": "eb11cac181087766e8489cf3a1da0c0fa150933b7e74454dba4a47db6114164e",
+          "function": "NPUGraph.replay",
+          "function_sha256": "296b98230fdb99a2e46b479aef83a5812f63db00d53982d31549b44b998de90f"
+        }
+      },
+      "async_scheduling": false,
+      "load_format": "auto",
+      "hccl_deterministic": "strict"
+    },
+    {
+      "rank": 4,
+      "main_model_class": "vllm_ascend.compilation.acl_graph.ACLGraphWrapper",
+      "main_backbone_class": "vllm_ascend.models.deepseek_v41.model.DeepseekV41Model",
+      "current_main_wrapper_class": "vllm_ascend.compilation.acl_graph.ACLGraphWrapper",
+      "drafter_class": "vllm_ascend.spec_decode.dspark_proposer.AscendDSparkProposer",
+      "draft_model_class": "vllm_ascend.models.deepseek_v41.dspark.DSparkDeepseekV41ForCausalLM",
+      "current_draft_wrapper_class": "vllm_ascend.models.deepseek_v41.dspark.DSparkDeepseekV41ForCausalLM",
+      "method": "dspark",
+      "num_speculative_tokens": 5,
+      "main_layers": 40,
+      "routed_experts": 384,
+      "experts_per_token": 6,
+      "draft_layer_ids": [
+        40,
+        41,
+        42
+      ],
+      "actual_draft_target_layer_ids": [
+        37,
+        38,
+        39
+      ],
+      "draft_use_cuda_graph": false,
+      "draft_graph_configured": false,
+      "actual_graph_submission_proof": null,
+      "graph_observer_sources": {
+        "stock_proposer": {
+          "path": "/vllm-workspace/vllm-ascend/vllm_ascend/spec_decode/llm_base_proposer.py",
+          "sha256": "d5003b772a1982f032f59a65d9ad4970d598311898c487a50791ee2337bdaae4",
+          "function": "AscendSpecDecodeBaseProposer._propose",
+          "function_sha256": "58589048e3e73f3cde09bfc087c1d45a93081fc1a4362b842868d7e12b7a901a"
+        },
+        "acl_wrapper": {
+          "path": "/vllm-workspace/vllm-ascend/vllm_ascend/compilation/acl_graph.py",
+          "sha256": "c8ab2fe6aaae034b03e9e34b9c07fd445046564acd5d45e2c24b5ea5232c5a74",
+          "function": "ACLGraphWrapper.__call__",
+          "function_sha256": "0b1b1e48b2bcc25973108350d43124cf219b090cc845c3fc56f56fd07921e72a"
+        },
+        "npu_graph_replay": {
+          "path": "/usr/local/python3.12.13/lib/python3.12/site-packages/torch_npu/npu/graphs.py",
+          "sha256": "eb11cac181087766e8489cf3a1da0c0fa150933b7e74454dba4a47db6114164e",
+          "function": "NPUGraph.replay",
+          "function_sha256": "296b98230fdb99a2e46b479aef83a5812f63db00d53982d31549b44b998de90f"
+        }
+      },
+      "async_scheduling": false,
+      "load_format": "auto",
+      "hccl_deterministic": "strict"
+    },
+    {
+      "rank": 5,
+      "main_model_class": "vllm_ascend.compilation.acl_graph.ACLGraphWrapper",
+      "main_backbone_class": "vllm_ascend.models.deepseek_v41.model.DeepseekV41Model",
+      "current_main_wrapper_class": "vllm_ascend.compilation.acl_graph.ACLGraphWrapper",
+      "drafter_class": "vllm_ascend.spec_decode.dspark_proposer.AscendDSparkProposer",
+      "draft_model_class": "vllm_ascend.models.deepseek_v41.dspark.DSparkDeepseekV41ForCausalLM",
+      "current_draft_wrapper_class": "vllm_ascend.models.deepseek_v41.dspark.DSparkDeepseekV41ForCausalLM",
+      "method": "dspark",
+      "num_speculative_tokens": 5,
+      "main_layers": 40,
+      "routed_experts": 384,
+      "experts_per_token": 6,
+      "draft_layer_ids": [
+        40,
+        41,
+        42
+      ],
+      "actual_draft_target_layer_ids": [
+        37,
+        38,
+        39
+      ],
+      "draft_use_cuda_graph": false,
+      "draft_graph_configured": false,
+      "actual_graph_submission_proof": null,
+      "graph_observer_sources": {
+        "stock_proposer": {
+          "path": "/vllm-workspace/vllm-ascend/vllm_ascend/spec_decode/llm_base_proposer.py",
+          "sha256": "d5003b772a1982f032f59a65d9ad4970d598311898c487a50791ee2337bdaae4",
+          "function": "AscendSpecDecodeBaseProposer._propose",
+          "function_sha256": "58589048e3e73f3cde09bfc087c1d45a93081fc1a4362b842868d7e12b7a901a"
+        },
+        "acl_wrapper": {
+          "path": "/vllm-workspace/vllm-ascend/vllm_ascend/compilation/acl_graph.py",
+          "sha256": "c8ab2fe6aaae034b03e9e34b9c07fd445046564acd5d45e2c24b5ea5232c5a74",
+          "function": "ACLGraphWrapper.__call__",
+          "function_sha256": "0b1b1e48b2bcc25973108350d43124cf219b090cc845c3fc56f56fd07921e72a"
+        },
+        "npu_graph_replay": {
+          "path": "/usr/local/python3.12.13/lib/python3.12/site-packages/torch_npu/npu/graphs.py",
+          "sha256": "eb11cac181087766e8489cf3a1da0c0fa150933b7e74454dba4a47db6114164e",
+          "function": "NPUGraph.replay",
+          "function_sha256": "296b98230fdb99a2e46b479aef83a5812f63db00d53982d31549b44b998de90f"
+        }
+      },
+      "async_scheduling": false,
+      "load_format": "auto",
+      "hccl_deterministic": "strict"
+    },
+    {
+      "rank": 6,
+      "main_model_class": "vllm_ascend.compilation.acl_graph.ACLGraphWrapper",
+      "main_backbone_class": "vllm_ascend.models.deepseek_v41.model.DeepseekV41Model",
+      "current_main_wrapper_class": "vllm_ascend.compilation.acl_graph.ACLGraphWrapper",
+      "drafter_class": "vllm_ascend.spec_decode.dspark_proposer.AscendDSparkProposer",
+      "draft_model_class": "vllm_ascend.models.deepseek_v41.dspark.DSparkDeepseekV41ForCausalLM",
+      "current_draft_wrapper_class": "vllm_ascend.models.deepseek_v41.dspark.DSparkDeepseekV41ForCausalLM",
+      "method": "dspark",
+      "num_speculative_tokens": 5,
+      "main_layers": 40,
+      "routed_experts": 384,
+      "experts_per_token": 6,
+      "draft_layer_ids": [
+        40,
+        41,
+        42
+      ],
+      "actual_draft_target_layer_ids": [
+        37,
+        38,
+        39
+      ],
+      "draft_use_cuda_graph": false,
+      "draft_graph_configured": false,
+      "actual_graph_submission_proof": null,
+      "graph_observer_sources": {
+        "stock_proposer": {
+          "path": "/vllm-workspace/vllm-ascend/vllm_ascend/spec_decode/llm_base_proposer.py",
+          "sha256": "d5003b772a1982f032f59a65d9ad4970d598311898c487a50791ee2337bdaae4",
+          "function": "AscendSpecDecodeBaseProposer._propose",
+          "function_sha256": "58589048e3e73f3cde09bfc087c1d45a93081fc1a4362b842868d7e12b7a901a"
+        },
+        "acl_wrapper": {
+          "path": "/vllm-workspace/vllm-ascend/vllm_ascend/compilation/acl_graph.py",
+          "sha256": "c8ab2fe6aaae034b03e9e34b9c07fd445046564acd5d45e2c24b5ea5232c5a74",
+          "function": "ACLGraphWrapper.__call__",
+          "function_sha256": "0b1b1e48b2bcc25973108350d43124cf219b090cc845c3fc56f56fd07921e72a"
+        },
+        "npu_graph_replay": {
+          "path": "/usr/local/python3.12.13/lib/python3.12/site-packages/torch_npu/npu/graphs.py",
+          "sha256": "eb11cac181087766e8489cf3a1da0c0fa150933b7e74454dba4a47db6114164e",
+          "function": "NPUGraph.replay",
+          "function_sha256": "296b98230fdb99a2e46b479aef83a5812f63db00d53982d31549b44b998de90f"
+        }
+      },
+      "async_scheduling": false,
+      "load_format": "auto",
+      "hccl_deterministic": "strict"
+    },
+    {
+      "rank": 7,
+      "main_model_class": "vllm_ascend.compilation.acl_graph.ACLGraphWrapper",
+      "main_backbone_class": "vllm_ascend.models.deepseek_v41.model.DeepseekV41Model",
+      "current_main_wrapper_class": "vllm_ascend.compilation.acl_graph.ACLGraphWrapper",
+      "drafter_class": "vllm_ascend.spec_decode.dspark_proposer.AscendDSparkProposer",
+      "draft_model_class": "vllm_ascend.models.deepseek_v41.dspark.DSparkDeepseekV41ForCausalLM",
+      "current_draft_wrapper_class": "vllm_ascend.models.deepseek_v41.dspark.DSparkDeepseekV41ForCausalLM",
+      "method": "dspark",
+      "num_speculative_tokens": 5,
+      "main_layers": 40,
+      "routed_experts": 384,
+      "experts_per_token": 6,
+      "draft_layer_ids": [
+        40,
+        41,
+        42
+      ],
+      "actual_draft_target_layer_ids": [
+        37,
+        38,
+        39
+      ],
+      "draft_use_cuda_graph": false,
+      "draft_graph_configured": false,
+      "actual_graph_submission_proof": null,
+      "graph_observer_sources": {
+        "stock_proposer": {
+          "path": "/vllm-workspace/vllm-ascend/vllm_ascend/spec_decode/llm_base_proposer.py",
+          "sha256": "d5003b772a1982f032f59a65d9ad4970d598311898c487a50791ee2337bdaae4",
+          "function": "AscendSpecDecodeBaseProposer._propose",
+          "function_sha256": "58589048e3e73f3cde09bfc087c1d45a93081fc1a4362b842868d7e12b7a901a"
+        },
+        "acl_wrapper": {
+          "path": "/vllm-workspace/vllm-ascend/vllm_ascend/compilation/acl_graph.py",
+          "sha256": "c8ab2fe6aaae034b03e9e34b9c07fd445046564acd5d45e2c24b5ea5232c5a74",
+          "function": "ACLGraphWrapper.__call__",
+          "function_sha256": "0b1b1e48b2bcc25973108350d43124cf219b090cc845c3fc56f56fd07921e72a"
+        },
+        "npu_graph_replay": {
+          "path": "/usr/local/python3.12.13/lib/python3.12/site-packages/torch_npu/npu/graphs.py",
+          "sha256": "eb11cac181087766e8489cf3a1da0c0fa150933b7e74454dba4a47db6114164e",
+          "function": "NPUGraph.replay",
+          "function_sha256": "296b98230fdb99a2e46b479aef83a5812f63db00d53982d31549b44b998de90f"
+        }
+      },
+      "async_scheduling": false,
+      "load_format": "auto",
+      "hccl_deterministic": "strict"
+    }
+  ],
+  "raw_artifacts": {
+    "result.json": {
+      "remote": "/home/l00886679/projects/dsv41-real-stack-tp8-20261010/results/formal_dspark_native_aa_v2/result.json",
+      "bytes": 2394,
+      "sha256": "c9481100c70e56c05fff10822428edf5c19a40610321c4dabb280a8ae84de112"
+    },
+    "banks.json": {
+      "remote": "/home/l00886679/projects/dsv41-real-stack-tp8-20261010/results/formal_dspark_native_aa_v2/banks.json",
+      "bytes": 285683,
+      "sha256": "531c53ba11ad4185f0f2e7654252719e71d652ce63ce5bf07bb112b6a0c4459a"
+    },
+    "prepared_plan.json": {
+      "remote": "/home/l00886679/projects/dsv41-real-stack-tp8-20261010/results/formal_dspark_native_aa_v2/prepared_plan.json",
+      "bytes": 4148,
+      "sha256": "b2329903520c11f31de38b0c1f5e3cd7316f48677c79de746e41531f15ca0cf8"
+    },
+    "run.exit": {
+      "remote": "/home/l00886679/projects/dsv41-real-stack-tp8-20261010/results/formal_dspark_native_aa_v2/run.exit",
+      "bytes": 2,
+      "sha256": "4355a46b19d348dc2f57c046f8ef63d4538ebb936000f3c9ee954a27460dd865"
+    }
+  },
+  "actual_runtime_draft_compilation_config": "not recorded in v2 bank; no value inferred from requested config",
+  "native_aa_passed": false,
+  "device_audit_passed": false,
+  "formal_performance_passed": false,
+  "scope": "terminal job evidence compacted read-only; no NPU action"
+}

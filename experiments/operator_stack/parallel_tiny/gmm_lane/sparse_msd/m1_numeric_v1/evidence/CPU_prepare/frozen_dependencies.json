@@ -1,0 +1,168 @@
+{
+  "frozen_v3": {
+    "CPU_only": true,
+    "NPU_launches": 0,
+    "objects": {
+      "candidate": {
+        "path": "/work/gmm_lane_sparse_msd_build_20261011_v3_repro/op_build_candidate/Gmm2SparseMsdDown_candidate_v6.o",
+        "bytes": 23488,
+        "sha256": "bd08a12b15d14f44a2c63a2ff91ec2977a0ed2b62645ed7d43273ee2fb024970",
+        "text_sha256": "7c145ad01b85878453eec50ca990e0f05fbf36676a78b25bd5b2466c4caf4c9a",
+        "text_equal_v2": true,
+        "kernel_argument_bytes": [
+          72,
+          72
+        ]
+      },
+      "native": {
+        "path": "/work/gmm_lane_sparse_msd_build_20261011_v3_repro/op_build_native/Gmm2NativeMsdDown_control_v6.o",
+        "bytes": 19304,
+        "sha256": "1e8a606d459bd4560b0e19efbb1894d98a1826bf0048eb9fa16d930b7d46ec0d",
+        "text_sha256": "3a0bcc06fc7e13c393737d68b6c0413c97935f40647b5deccb95024c4b027851",
+        "text_equal_v2": true,
+        "kernel_argument_bytes": [
+          72,
+          72
+        ]
+      },
+      "planner": {
+        "path": "/work/gmm_lane_sparse_msd_build_20261011_v3_repro/planner_cpu_rebuild.o",
+        "bytes": 34560,
+        "sha256": "f921e2d9c895aca5958177a17bd398f058c7a1d8910564bcd54c4dd98b51b770"
+      },
+      "host_adapter": {
+        "path": "/work/gmm_lane_sparse_msd_build_20261011_v3_repro/libgmm2_sparse_msd_probe.so",
+        "bytes": 13392,
+        "sha256": "02816eb5b23f93d7784258578a9aecf8df7dc35b4bc3feacb15af3020ad10ac8"
+      }
+    },
+    "source_v2_v3_contract_equal": true,
+    "candidate_aic_text_matches_proven_v2": true,
+    "host_adapter_direct_sdk_symbols": [
+      "aclrtBinaryGetFunction",
+      "aclrtBinaryLoadFromFile",
+      "aclrtBinaryUnLoad",
+      "aclrtGetFunctionAddr",
+      "aclrtLaunchKernel",
+      "aclrtLaunchKernelV2"
+    ],
+    "host_mock_direct_sdk_symbols": [],
+    "host_mock_contract": {
+      "passed": true,
+      "checks": 30,
+      "real_SDK_runtime_calls": 0,
+      "NPU_launches": 0
+    },
+    "source_sha256": {
+      "opc_diagnostics.py": "48aae8eee454eb697ac6f9131151243e8aa98022a34f27ba97aeb06a2699b0da",
+      "host_adapter.h": "bd72fa9ca9a5903076f9663d35999a9016dd3044aadcc4c4095cc6262cf9c432",
+      "verify_host_adapter.cpp": "8b4b97aff90b3c5d551b5fdd8cdcc1018a78d1a11ff76eb0f613054114103846",
+      "host_adapter.cpp": "f50d150c0e9faebe4331a1b9f19ecd85d05fde1bf979ff470627c2ef569e803b",
+      "planner.cpp": "9458b0db720101f476310082f3a8bbac90ad633222d7133987ee917d3db0a55c",
+      "prove_compiled_branch.py": "f47aee1af73629dd06649a2648dc9e73f7318b39d9b3a19193904d7ac9d44f9b",
+      "verify_scheduling.py": "83506af1ec5e723a0c1a7698cecf26df4a0fae64daaee2e68dd6a43edae4d139",
+      "build_cpu.py": "d3b5f5462e642365e7d10ecd0dfe6767400a2233f72ab26995550c27608904fa",
+      "verify_workspace.py": "e6359ca75d24ce45aeeac48c8179fce4b8c068c51acc038405b06d8334963fd2",
+      "prepare_source.py": "70aa7481d56c0b4ce03e3a3a756ddc87e941a7a357c4ce2c686b241d9f928db2",
+      "host_loader.cpp": "f1bff81224024d02ac0989e0ca9f88e6ff2914dde897e5c1ec21acab189af001",
+      "evidence/v2/compile_input_candidate.json": "33558caac3f60fa6c97c104c6aa52d6c39689b26579149dc2f0a7fead67ba13b",
+      "evidence/v2/compile_input_native.json": "65827b243b74a9e30399a3e5b84036ea663633efada751f127f51d5898a9d81b"
+    },
+    "workspace_contract_passed": true
+  },
+  "loader_v2": {
+    "passed": true,
+    "CPU_only": true,
+    "NPU_launches": 0,
+    "runtime_registration_validated": false,
+    "shared_bytes": 29600,
+    "shared_sha256": "b2e6c3033f372a0542d96f9aa2053f230617052aacd2b37bd484a5293b4cf884",
+    "SDK_undefined_symbols": [
+      "aclrtBinaryGetFunction",
+      "aclrtBinaryLoadFromData",
+      "aclrtBinaryUnLoad",
+      "aclrtGetFunctionAddr"
+    ],
+    "mock_contract": {
+      "passed": true,
+      "checks": 338,
+      "real_SDK_runtime_calls": 0,
+      "NPU_launches": 0,
+      "frozen_ELF_bytes_changed": false
+    },
+    "frozen_v3_objects_SHA_unchanged": {
+      "candidate": "bd08a12b15d14f44a2c63a2ff91ec2977a0ed2b62645ed7d43273ee2fb024970",
+      "native": "1e8a606d459bd4560b0e19efbb1894d98a1826bf0048eb9fa16d930b7d46ec0d",
+      "planner": "f921e2d9c895aca5958177a17bd398f058c7a1d8910564bcd54c4dd98b51b770",
+      "host_adapter": "02816eb5b23f93d7784258578a9aecf8df7dc35b4bc3feacb15af3020ad10ac8"
+    },
+    "frozen_v3_source_SHA_unchanged": {
+      "opc_diagnostics.py": "48aae8eee454eb697ac6f9131151243e8aa98022a34f27ba97aeb06a2699b0da",
+      "host_adapter.h": "bd72fa9ca9a5903076f9663d35999a9016dd3044aadcc4c4095cc6262cf9c432",
+      "verify_host_adapter.cpp": "8b4b97aff90b3c5d551b5fdd8cdcc1018a78d1a11ff76eb0f613054114103846",
+      "host_adapter.cpp": "f50d150c0e9faebe4331a1b9f19ecd85d05fde1bf979ff470627c2ef569e803b",
+      "planner.cpp": "9458b0db720101f476310082f3a8bbac90ad633222d7133987ee917d3db0a55c",
+      "prove_compiled_branch.py": "f47aee1af73629dd06649a2648dc9e73f7318b39d9b3a19193904d7ac9d44f9b",
+      "verify_scheduling.py": "83506af1ec5e723a0c1a7698cecf26df4a0fae64daaee2e68dd6a43edae4d139",
+      "build_cpu.py": "d3b5f5462e642365e7d10ecd0dfe6767400a2233f72ab26995550c27608904fa",
+      "verify_workspace.py": "e6359ca75d24ce45aeeac48c8179fce4b8c068c51acc038405b06d8334963fd2",
+      "prepare_source.py": "70aa7481d56c0b4ce03e3a3a756ddc87e941a7a357c4ce2c686b241d9f928db2",
+      "host_loader.cpp": "f1bff81224024d02ac0989e0ca9f88e6ff2914dde897e5c1ec21acab189af001",
+      "evidence/v2/compile_input_candidate.json": "33558caac3f60fa6c97c104c6aa52d6c39689b26579149dc2f0a7fead67ba13b",
+      "evidence/v2/compile_input_native.json": "65827b243b74a9e30399a3e5b84036ea663633efada751f127f51d5898a9d81b"
+    },
+    "source_sha256": {
+      "inspect_sdk_constraints.py": "f664871380b7db2476d255b93dbb8f407b4b0811b92bbc77ffc0588b86e5c96e",
+      "build.py": "83814f70833600eca7d8992c9ff2045973786561c3dc1c0c667fa45393a0f1a3",
+      "loader_v2.h": "6f827e8e94c42cd2847469e4bd25ae8c4789e51d80d76eedf95fd2a60a6d07dc",
+      "verify_loader_v2.cpp": "ec1ff42b581bdda6db0bde55a5a3060b7110648b1fcd9d35766f84241668c4d1",
+      "loader_v2.cpp": "9c491d7a2c70e851918fcc086318b1e0204bab0945fa80a22ed8af172059997d"
+    },
+    "borrowed_frozen_header_sha256": "bd72fa9ca9a5903076f9663d35999a9016dd3044aadcc4c4095cc6262cf9c432",
+    "remaining_runtime_boundaries": [
+      "Data load accepts explicit vector/mixed MAGIC",
+      "raw planner registration",
+      "base kernelName mixed AIC/AIV pairing",
+      "planner frame GM visibility"
+    ]
+  },
+  "launch_v3": {
+    "passed": true,
+    "CPU_only": true,
+    "NPU_launches": 0,
+    "runtime_launch_validated": false,
+    "mock_contract": {
+      "passed": true,
+      "checks": 36,
+      "real_SDK_runtime_calls": 0,
+      "NPU_launches": 0
+    },
+    "shared_bytes": 8440,
+    "shared_sha256": "5af9db3a35f3cc652bb7643b71f64fb621c70e66e89cd6896b0d0c49787571f5",
+    "SDK_imports": [
+      "aclrtKernelArgsAppend",
+      "aclrtKernelArgsFinalize",
+      "aclrtLaunchKernelWithConfig",
+      "aclrtLaunchKernelWithHostArgs"
+    ],
+    "frozen_v3_objects_SHA_unchanged": {
+      "candidate": "bd08a12b15d14f44a2c63a2ff91ec2977a0ed2b62645ed7d43273ee2fb024970",
+      "native": "1e8a606d459bd4560b0e19efbb1894d98a1826bf0048eb9fa16d930b7d46ec0d",
+      "planner": "f921e2d9c895aca5958177a17bd398f058c7a1d8910564bcd54c4dd98b51b770",
+      "host_adapter": "02816eb5b23f93d7784258578a9aecf8df7dc35b4bc3feacb15af3020ad10ac8"
+    },
+    "loader_v2_SHA_unchanged": "b2e6c3033f372a0542d96f9aa2053f230617052aacd2b37bd484a5293b4cf884",
+    "source_sha256": {
+      "launch_v3.cpp": "f01be78e43affa96f154154f03482a39fe27937af1a0e7d752afcb07650b5c18",
+      "verify_launch_v3.cpp": "46ea083c93c57a8e652f4026aabf1417cb546f263defdd65bc5837cbb740d5f2",
+      "build.py": "9b87ce5c70ee3ae33dc2be9bd636bac85e4d83d48b28a1cf17a8ab940ca3852c",
+      "launch_v3.h": "784547afa7b7cafb03b036405cbf36412ba683ca4b39133419091c8f9dccd29b"
+    },
+    "parameter_bytes_unchanged": {
+      "planner": 16,
+      "GMM": 72
+    },
+    "mathematics_tiling_objects_changed": false
+  },
+  "passed": true
+}

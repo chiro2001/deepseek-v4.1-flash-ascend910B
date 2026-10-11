@@ -1,0 +1,32 @@
+{
+  "command": [
+    "/usr/bin/g++",
+    "-std=c++17",
+    "-O2",
+    "-I",
+    "/usr/local/Ascend/cann-9.1.0/include",
+    "-I",
+    "/work/gmm_lane_sparse_msd_build_20261011_v3_repro/source",
+    "-fPIC",
+    "-shared",
+    "/work/gmm_lane_sparse_msd_build_20261011_v3_repro/source/host_adapter.cpp",
+    "/work/gmm_lane_sparse_msd_build_20261011_v3_repro/source/host_loader.cpp",
+    "-L",
+    "/usr/local/Ascend/cann-9.1.0/lib64",
+    "-lascendcl",
+    "-Wl,--no-undefined",
+    "-o",
+    "/work/gmm_lane_sparse_msd_build_20261011_v3_repro/libgmm2_sparse_msd_probe.so"
+  ],
+  "exit_code": 0,
+  "CPU_only": true,
+  "NPU_launches": 0,
+  "ASCEND_RT_VISIBLE_DEVICES": "",
+  "ASCEND_VISIBLE_DEVICES": "",
+  "mock_CPU_test_executed": false,
+  "log": "/work/gmm_lane_sparse_msd_build_20261011_v3_repro/logs/host_adapter_build.log",
+  "object_sha256": "02816eb5b23f93d7784258578a9aecf8df7dc35b4bc3feacb15af3020ad10ac8",
+  "object_bytes": 13392,
+  "runtime_loaded_or_executed": false,
+  "initialization_functions_present": false
+}

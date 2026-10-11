@@ -1,0 +1,18 @@
+115:
+116:/**
+117: * @ingroup rt_kernel
+118: * @brief args struct
+119: */
+120:typedef struct tagRtArgsEx {
+121:    void *args;                     // args host mem addr
+122:    rtHostInputInfo_t *hostInputInfoPtr;     // nullptr means no host mem input
+123:    uint32_t argsSize;              // input + output + tiling addr size + tiling data size + host mem
+124:    uint32_t tilingAddrOffset;      // tiling addr offset
+125:    uint32_t tilingDataOffset;      // tiling data offset
+126:    uint16_t hostInputInfoNum;      // hostInputInfo num
+127:    uint8_t hasTiling;              // if has tiling: 0 means no tiling
+128:    uint8_t isNoNeedH2DCopy;        // is no need host to device copy: 0 means need H2D copy,
+129:                                    // others means doesn't need H2D copy.
+130:    uint8_t reserved[4];
+131:} rtArgsEx_t;
+132:

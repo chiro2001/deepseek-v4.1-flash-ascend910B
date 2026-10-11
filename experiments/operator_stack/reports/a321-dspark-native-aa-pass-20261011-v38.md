@@ -1,0 +1,27 @@
+# 正式 DSpark 原生 A/A 与全 rank 末轮完成门通过
+
+2026-10-11 · a3-21 · 最新 active goal：正式 TP8 包含 DSpark 全部开销 ≤20ms/step
+
+`formal_dspark_native_eager_aa_v3` 已 exit0。完整40层/hidden5120/384专家top6/真实W4A8、Engram int8、视觉与3层MTP保留，HCCL strict，真正 method=dspark/K5、target FULL[6]、draft eager。三组原生A/A的完整token、目标route顺序、Top5 keys/logprob和实际proposal/verifier流全部一致，最大delta0。
+
+8请求（2warmup+6计数）中，六个计数请求各47输出、46decode、8真实target/verifier rounds、9真实草稿调用（initial+terminal均包括）；8rank逐条绑定实际core ID，并通过device fence→CPU Gloo TP8 join→客户端结束边界。共48真实rounds、每rank54草稿调用，空token结束清理单列，不计step。完整目标route shape为[2094,40,6]，原生A/A逐位相同。
+
+审计合并诊断为 **(59.623209ms/step,A=5.75,96.438956tok/s)**：276decode/48rounds、decode墙钟2.86191403s，三元组自洽。route/logprob审计开启、输出预算47；这不是2K/256关闭观察器的正式性能报价，也不能与无DSpark旧19.289956/A1/51.840451跨实例相减。高接受长度来自这些固定重复上下文的控制请求，clean-rate与正式GSM/Vision质量不继承。
+
+正式完整43层main/draft实际消费者、cache读写/alias/接受前缀/rollback门仍未通过。当前result明确full_consumer_audit_passed=false、performance_claim=null、总体passed=false；新goal保持active，不标complete。后续仍须2K/256、至少8serial、审计/profiler关闭的实际API客户端验收，重新通过GSM100/100、Vision23/23和模型归属。
+
+## 新正式时间线诊断
+
+已通过fresh8–15与仅80C98001守卫启动`formal_dspark_native_profile_v1`，冻结源`/work/src_dspark_native_profile_v1`。它逐文件匹配已通过A/A的九项源码SHA与checkpoint配置，不改变推理或参数，2K/256、两warmup后原生ON的CPU/NPU PipeUtilization诊断。真实scheduler边界触发5个decode warmup与10个active步，8rank分别记录实际core ID与schedule；6项CPU假prefill/清理/跨请求反例通过。
+
+profiler明确开启，只用于定位target、MTP projection/attention/MoE/logits及提交/等待的实际区间，不放行候选或报价。设备CSV仍须核验完整步与HcPre/attention覆盖，不能拿schedule收据替代设备证据。大trace与可能超过1MB的raw counters留远端并记录SHA。完整消费者审计前，不启动正式性能验收。
+
+## 并行线的新边界
+
+专属tiny仍是full40/8expert top2/BF16 dummy/无Engram，不能外推正式收益。真实图entry/replay提交门已取到，质量门拒绝。新同诊断对照把坏值推进到第一native OFF decode的MTP0 router上游：hidden[5,5120]全部非有限，logits[5,8]全部非有限，而相同参数值/地址seal通过；纯无draft capture对照在侵入式输入诊断下未拒绝。尚不能定因，继续从共享KV/attention及实际读槽找首个坏producer，禁止sanitize。当前图候选无性能资格。
+
+ATen copy/epoch exporter、actual object/source/43层角色与参数seal绑定已冻结，28项CPU反例通过。physical7唯一SDK case在TsdOpen/set_device即失败，0allocation/MatMul/compile/capture/epoch/copy；已释放，无迁移重试。所有device/alias/formal receipt仍false。新CPU入口准备在未来正常初始化的正式worker当前context/stream运行最小SDK门，禁止自行init/set_device或选择芯片；不修改旧冻结源。
+
+GMM的HostArgs R0已实机通过。随后真实原loader的内部NZ设置、同GM地址、完整E48物理字节/scale/assist SHA均通过；原SDK R1/e0数学一次成功，5120有效BF16全finite。raw/native/candidate/planner实际kernel启动仍为0：v3被冻结validator的512B workspace对齐门拒绝，入口attempt不算启动。v4仅修正自有backing对齐与canary位置，有效workspace117440640B不变；冻结validator对所有512种allocation模值及边界反例通过。新同physical6数值窗口按原9case/capacity6范围授权，实际结果待收，不覆盖K5 verifier或整网收益。
+
+三代理已核验gpt-6.1-sol/max、明文ACK正常。只用fresh健康空闲芯片，不干预短暂未知进程或其他租户，不reset/清pagecache。报告、源码和compact逐阶段归档，MANIFEST从HEAD生成、自检及GitHub/内网双push；这些交付不会替代最终20ms与质量门。

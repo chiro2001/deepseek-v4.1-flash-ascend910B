@@ -1,0 +1,57 @@
+607:{"stage":"aclInit","code":0}
+610:{"stage":"aclrtGetDeviceCount","code":0}
+611:{"stage":"single_visible_device_guard","code":0}
+616:{"stage":"rtGetDeviceIndexByPhyId(6)","code":0}
+619:{"stage":"rtGetDevicePhyIdByIndex","code":0}
+620:{"physical":6,"logical":0,"visible_device_count":1}
+621:{"stage":"physical6_mapping_guard","code":0}
+622:{"stage":"logical0_guard","code":0}
+5031:{"stage":"aclrtCreateContext","code":0}
+5035:{"stage":"aclrtSetCurrentContext","code":0}
+5038:{"stage":"aclrtGetDevice","code":0}
+5039:{"stage":"current_device_guard","code":0}
+5227:{"loader_stage":"ready","primary_error":0,"cleanup_error":0,"live_binaries":3,"owned_blob_bytes":77352}
+5228:{"stage":"gmm2_sparse_loader_v2_open","code":0}
+5229:{"stage":"gmm2_sparse_loader_v2_functions","code":0}
+5232:{"stage":"aclrtGetFunctionAddr:planner","code":0}
+5233:{"function":"planner","aic_address":0,"aiv_address":20618009378816}
+5234:{"stage":"function_engine_pair_guard","code":0}
+5235:{"stage":"aclrtGetFunctionSize:planner","code":0}
+5236:{"function_size":"planner","aic_bytes":0,"aiv_bytes":368}
+5237:{"stage":"function_size_pair_guard","code":0}
+5240:{"stage":"aclrtGetFunctionAddr:native","code":0}
+5241:{"function":"native","aic_address":20618009415680,"aiv_address":20618009420832}
+5242:{"stage":"function_engine_pair_guard","code":0}
+5243:{"stage":"aclrtGetFunctionSize:native","code":0}
+5244:{"function_size":"native","aic_bytes":5152,"aiv_bytes":8440}
+5245:{"stage":"function_size_pair_guard","code":0}
+5248:{"stage":"aclrtGetFunctionAddr:candidate","code":0}
+5249:{"function":"candidate","aic_address":20618009436160,"aiv_address":20618009444908}
+5250:{"stage":"function_engine_pair_guard","code":0}
+5251:{"stage":"aclrtGetFunctionSize:candidate","code":0}
+5252:{"function_size":"candidate","aic_bytes":8748,"aiv_bytes":8440}
+5253:{"stage":"function_size_pair_guard","code":0}
+5300:{"stage":"aclrtCreateStream","code":0}
+5319:{"stage":"aclrtMalloc:counts384B","code":0}
+5332:{"stage":"aclrtMalloc:frame+canaries384B","code":0}
+5339:{"stage":"aclrtMallocHost:counts384B","code":0}
+5351:[WARNING] RUNTIME(938145,runtime_registration_probe_p6):2026-10-11-06:41:08.978.480 [npu_driver_mem.cc:253] 938145 HostGetDevPointer: Failed to call driver api halMemHostGetDevPointer, drvRetCode=11, drvDevId=6.
+5364:{"stage":"aclrtMemcpyAsync:counts","code":0}
+5386:{"stage":"aclrtMemsetAsync:frame_canaries","code":0}
+5399:{"stage":"aclrtLaunchKernel:planner_only","code":0}
+5615:[ERROR] RUNTIME(938145,runtime_registration_probe_p6):2026-10-11-06:41:08.995.514 [device_error_core_proc.cc:1060]938152 PrintCoreInfo:The error from device(chipId:3, dieId:0), serial number is 128, there is an exception of aivec error, core id is 45, error code = 0, dump info: pc start: 0x12c081200000, current: 0x12c081200074, vec error info: 0x73042a3f09, mte error info: 0x6d06000004, ifu error info: 0x2ffffe48a5bc0, ccu error info: 0x3300234000000000, cube error info: 0, biu error info: 0, aic error mask: 0x6500020bd00028c, para base: 0xffffe48a5bf8, aic cond: 0.
+5616:The extend info: errcode:(0, 0x8000, 0) errorStr: The scalar instruction accesses an invalid GM address or the cross-device memory access times out. fixp_error0 info: 0x6000004, fixp_error1 info: 0x6d, fsmId:1, tslot:5, thread:0, ctxid:0, blk:0, sublk:0, subErrType:4.
+5640:[ERROR] RUNTIME(938145,runtime_registration_probe_p6):2026-10-11-06:41:08.995.637 [davinci_kernel_task.cc:1193]938152 PrintErrorInfoForDavinciTask:[DFX_INFO]AI Core kernel execution failed, device_id=6, stream_id=46, report_stream_id=46, task_id=2, flip_num=0, fault kernel_name=gmm2_sparse_row_plan, fault kernel info ext=none, ctx is NULL!
+5644:[INFO] RUNTIME(938145,runtime_registration_probe_p6):2026-10-11-06:41:08.995.648 [task_manager.cc:625] 938152 GetKernelExceptionDfxInfo: GetExceptionArgs argAddr=0xffffe48a5bf8, argsize=16.
+5669:[ERROR] RUNTIME(938145,runtime_registration_probe_p6):2026-10-11-06:41:08.995.733 [stream.cc:1746]938145 GetError:[DFX_INFO]AI Core kernel execution failed, device_id=6, stream_id=46, report_stream_id=46, task_id=2, flip_num=0, fault kernel_name=gmm2_sparse_row_plan, fault kernel info ext=none, ctx is NULL!
+5672:[ERROR] RUNTIME(938145,runtime_registration_probe_p6):2026-10-11-06:41:08.995.749 [api_c_stream.cc:180]938145 rtStreamSynchronizeWithTimeout:ErrCode=507035, desc=[vector core exception], InnerCode=0x715005e
+5685:{"stage":"aclrtSynchronizeStreamWithTimeout","code":507035,"SDK_recent_error":"EZ9999: Inner Error!\nEZ9999[PID: 938145] 2026-10-11-06:41:08.995.523 (EZ9999):  The error from device(chipId:3, dieId:0), serial number is 128, there is an exception of aivec error, core id is 45, error code = 0, dump info: pc start: 0x12c081200000, current: 0x12c081200074, vec error info: 0x73042a3f09, mte error info: 0x6d06000004, ifu error info: 0x2ffffe48a5bc0, ccu error info: 0x3300234000000000, cube error info: 0, biu error info: 0, aic error mask: 0x6500020bd00028c, para base: 0xffffe48a5bf8, aic cond: 0.\nThe extend info: errcode:(0, 0x8000, 0) errorStr: The scalar instruction accesses an invalid GM address or the cross-device memory access times out. fixp_error0 info: 0x6000004, fixp_error1 info: 0x6d, fsmId:1, tslot:5, thread:0, ctxid:0, blk:0, sublk:0, subErrType:4.\nFor details, see the troubleshooting document on the Ascend official website. Search for the keyword \"AI Core Error\".[FUNC:PrintCoreInfo][FILE:device_error_core_proc.cc][LINE:1060]\nTraceBack (most recent call last):\n       An error occurred in the kernel task, retCode=0x31, [vector core exception].[FUNC:PreCheckTaskErr][FILE:davinci_kernel_task.cc][LINE:1262]\n       Vector Core kernel execution failed, retCode=0x31.[FUNC:GetError][FILE:stream.cc][LINE:1746]\n       [AIC_INFO] after execute:args print end[FUNC:GetError][FILE:stream.cc][LINE:1746]\n       [DFX_INFO]AI Core kernel execution failed, device_id=6, stream_id=46, report_stream_id=46, task_id=2, flip_num=0, fault kernel_name=gmm2_sparse_row_plan, fault kernel info ext=none, ctx is NULL![FUNC:GetError][FILE:stream.cc][LINE:1746]\n       rtStreamSynchronizeWithTimeout execution failed, reason=vector core exception[FUNC:FuncErrorReason][FILE:error_message_manage.cc][LINE:69]\n"}
+5711:{"cleanup":"aclrtDestroyStream","code":0}
+5717:{"cleanup":"aclrtFree:frame","code":0}
+5723:{"cleanup":"aclrtFree:counts","code":0}
+5731:{"cleanup":"aclrtFreeHost:counts","code":0}
+5747:{"cleanup":"gmm2_sparse_loader_v2_close","code":0}
+5748:{"owner_retained_after_close":false,"live_binaries_after_close":0,"blob_bytes_after_close":0}
+7210:{"cleanup":"aclrtDestroyContext","code":0}
+7268:{"cleanup":"aclFinalize","code":0}
+7269:{"terminal":true,"passed":false,"terminal_stage":"aclrtSynchronizeStreamWithTimeout","terminal_code":507035,"registration_passed":true,"physical":6,"logical":0,"planner_launches":1,"planner_cases_passed":0,"GMM_math_launches":0,"weight_bytes":0,"device_reset_calls":0}

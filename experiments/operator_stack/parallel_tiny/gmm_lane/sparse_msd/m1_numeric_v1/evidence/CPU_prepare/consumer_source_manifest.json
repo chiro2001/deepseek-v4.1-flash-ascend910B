@@ -1,0 +1,34 @@
+{
+  "scope": "Original source consumer evidence; model consumer execution is not covered",
+  "CPU_only": true,
+  "NPU_calls": 0,
+  "sources": {
+    "/vllm-workspace/vllm-ascend/vllm_ascend/quantization/methods/w4a8/w4a8.py": {
+      "bytes": 26668,
+      "sha256": "f3a8cdd205719453606fa106d47c1e556ef40d2ee4046869a029d5f12a3b6de9",
+      "function_excerpts": {
+        "_pack_to_int32": "def _pack_to_int32(self, weight: torch.Tensor):\n        # pack 4 int8(int4*2) to int32, because in pytorch, we need to use int32 to represent int4\n        assert weight.shape[-1] % 4 == 0, (\n            f\"the last dim of weight needs to be divided by 4 but got shape {weight.shape}\"\n        )\n        return weight.view(torch.int32).contiguous()",
+        "_process_scale": "def _process_scale(self, scale):\n        scale = scale.transpose(1, 2).contiguous()\n        scale_np = scale.cpu().numpy()\n        scale_np.dtype = np.uint32\n        scale_uint64_tensor = torch.from_numpy(scale_np.astype(np.int64)).npu()\n        return scale_uint64_tensor",
+        "apply_gmm2": "def apply_gmm2(self, mlp_compute_input: MoEMlpComputeInput, hidden_states, act_out_scale):\n        _, _, w2, w2_scale = self._get_mlp_weights(mlp_compute_input.layer)\n        _, bias2 = self._get_mlp_scale_bias(mlp_compute_input.layer)\n        group_list, group_list_type = self._maybe_convert_group_list(mlp_compute_input)\n        return torch_npu.npu_grouped_matmul(\n            x=[hidden_states],\n            weight=w2,\n            scale=w2_scale,\n            bias=bias2,\n            per_token_scale=[act_out_scale],\n            split_item=2,\n            group_list_type=group_list_type,\n            group_type=0,\n            group_list=group_list,\n            output_dtype=torch.bfloat16,\n        )[0]",
+        "process_weights_after_loading_modelslim": "def process_weights_after_loading_modelslim(self, layer):\n        layer.w13_weight.data = layer.w13_weight.data.transpose(1, 2).contiguous()\n        layer.w2_weight.data = layer.w2_weight.data.transpose(1, 2).contiguous()\n\n        layer.w13_weight_scale.data = self._process_scale(layer.w13_weight_scale.data)\n        layer.w2_weight_scale.data = self._process_scale(layer.w2_weight_scale.data)\n\n        layer.w13_scale_bias.data = layer.w13_scale_bias.data.transpose(1, 2).contiguous().sum(axis=1)\n        layer.w2_scale_bias.data = layer.w2_scale_bias.data.transpose(1, 2).contiguous().sum(axis=1)\n        layer.w13_weight_scale.data = self.maybe_squeeze_per_channel_weight_scale(layer.w13_weight_scale.data)"
+      }
+    },
+    "/vllm-workspace/vllm-ascend/vllm_ascend/utils.py": {
+      "bytes": 62165,
+      "sha256": "c42bc5a933fc2f3c3e978e71ae82f0a2054d4e3dd8dce361c6214d7ef64f69c4",
+      "function_excerpts": {
+        "maybe_trans_nz": "def maybe_trans_nz(weight: torch.Tensor) -> torch.Tensor:\n    if not _should_trans_nz(weight):\n        return weight\n    return torch_npu.npu_format_cast(weight, ACL_FORMAT_FRACTAL_NZ)"
+      }
+    },
+    "/vllm-workspace/vllm-ascend/vllm_ascend/ops/fused_moe/moe_mlp.py": {
+      "bytes": 4834,
+      "sha256": "2bf107e3287e3a4c69512e60e65495448f34a4451eab32ae3b23b5c2a46d2558",
+      "function_excerpts": {}
+    },
+    "/usr/local/python3.12.13/lib/python3.12/site-packages/torch_npu/npu/streams.py": {
+      "bytes": 12623,
+      "sha256": "241741b356db5006797dbec119007afb33b73b0e1753bfb06ab27c989c5bfac4",
+      "function_excerpts": {}
+    }
+  }
+}

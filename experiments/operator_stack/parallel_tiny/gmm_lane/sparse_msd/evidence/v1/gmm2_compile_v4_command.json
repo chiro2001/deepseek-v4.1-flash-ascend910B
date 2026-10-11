@@ -1,0 +1,18 @@
+{
+  "command": [
+    "python3",
+    "/work/gmm_lane_sparse_msd_build_20261011_v1/source/opc_diagnostics.py",
+    "/work/gmm_lane_sparse_msd_build_20261011_v1/private_impl/grouped_matmul_nullable_frontend.py",
+    "--input_param=/work/gmm_lane_sparse_msd_build_20261011_v1/compile_input_v2.json",
+    "--main_func=grouped_matmul",
+    "--output=/work/gmm_lane_sparse_msd_build_20261011_v1/op_build_v4",
+    "--soc_version=Ascend910_9382",
+    "--op_mode=dynamic",
+    "--deterministic=true",
+    "--op_debug_config=dump_cce",
+    "--log=debug"
+  ],
+  "CPU_only": true,
+  "NPU_visible_devices": "",
+  "private_frontend_change": "Remove only Python mandatory dynamic-input-list decorator for nullable optional offset/antiquant lists. OpInfo/schema/tiling/math unchanged."
+}

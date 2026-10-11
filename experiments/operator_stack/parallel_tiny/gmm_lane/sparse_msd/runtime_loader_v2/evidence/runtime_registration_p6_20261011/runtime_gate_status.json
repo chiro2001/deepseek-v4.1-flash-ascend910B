@@ -1,0 +1,82 @@
+{
+  "terminal": true,
+  "passed": false,
+  "registration_passed": true,
+  "Data_and_base_kernelName_lookup_passed": true,
+  "strict_vector_mix_addresses_and_sizes_passed": true,
+  "function_addresses": {
+    "planner": {
+      "aic_address": 0,
+      "aiv_address": 20618009378816
+    },
+    "native": {
+      "aic_address": 20618009415680,
+      "aiv_address": 20618009420832
+    },
+    "candidate": {
+      "aic_address": 20618009436160,
+      "aiv_address": 20618009444908
+    }
+  },
+  "function_sizes": {
+    "planner": {
+      "aic_bytes": 0,
+      "aiv_bytes": 368
+    },
+    "native": {
+      "aic_bytes": 5152,
+      "aiv_bytes": 8440
+    },
+    "candidate": {
+      "aic_bytes": 8748,
+      "aiv_bytes": 8440
+    }
+  },
+  "single_visible_device_count": 1,
+  "authorized_physical": 6,
+  "logical": 0,
+  "terminal_API": "aclrtSynchronizeStreamWithTimeout",
+  "SDK_error": 507035,
+  "SDK_description": "vector core exception",
+  "SDK_inner_code": "0x715005e",
+  "task_retCode": "0x31",
+  "fault_kernel": "gmm2_sparse_row_plan",
+  "fault_PC_offset": "0x74",
+  "exact_device_reason": "The scalar instruction accesses an invalid GM address or the cross-device memory access times out.",
+  "device_extended_error": "(0, 0x8000, 0)",
+  "reported_para_base": "0xffffe48a5bf8",
+  "host_argument_pointer_mapping_warning": "halMemHostGetDevPointer drvRetCode=11",
+  "cause_not_proven": "Need CPU review of launch argument memory contract; do not infer numerical failure or hardware root cause.",
+  "planner_launches": 1,
+  "planner_cases_passed": 0,
+  "first_case_R": 0,
+  "frame_readback_performed": false,
+  "other_cases_run": false,
+  "GMM_math_launches": 0,
+  "weight_bytes": 0,
+  "CPU_mutation_objects_launched": 0,
+  "context_initialization_passed": true,
+  "cleanup_codes": {
+    "aclrtDestroyStream": 0,
+    "aclrtFree:frame": 0,
+    "aclrtFree:counts": 0,
+    "aclrtFreeHost:counts": 0,
+    "gmm2_sparse_loader_v2_close": 0,
+    "aclrtDestroyContext": 0,
+    "aclFinalize": 0
+  },
+  "all_cleanup_passed": true,
+  "owner_dropped_only_after_handles_closed": true,
+  "live_binaries_after_close": 0,
+  "blob_bytes_after_close": 0,
+  "physical6_released_fresh_smi": true,
+  "post_release_health": "\tHealth Status                  : OK\n\tError Code                     : NA\n\tError Information              : NA\n",
+  "container_global_env_unchanged": true,
+  "frozen_v3_and_loader_v2_objects_unchanged": true,
+  "runtime_retries": 0,
+  "full_runtime_log_retained_remote": "/work/gmm_lane_sparse_msd_runtime_loader_v2_cpu_20261011/runtime_registration_p6_20261011/runtime.log",
+  "full_runtime_log_bytes": 1672143,
+  "full_runtime_log_sha256": "5b62c98decc7fb133281e97b9d862dd40edd2df936fdba68812ff64c12d37469",
+  "precision_and_performance_validated": false,
+  "scope": "registration attributes + first R0 planner only; M1-capacity6 not multi-token verifier"
+}

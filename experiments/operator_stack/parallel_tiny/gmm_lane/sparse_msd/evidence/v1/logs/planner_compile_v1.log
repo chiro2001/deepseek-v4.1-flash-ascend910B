@@ -1,0 +1,70 @@
+bisheng: warning: argument unused during compilation: '-mcpu=dav-c220-vec' [-Wunused-command-line-argument]
+In file included from /work/gmm_lane_sparse_msd_build_20261011_v1/source/planner.cpp:2:
+In file included from /usr/local/Ascend/cann-9.1.0/compiler/tikcpp/tikcfw/kernel_operator.h:22:
+In file included from /usr/local/Ascend/cann-9.1.0/compiler/tikcpp/tikcfw/interface/kernel_tpipe.h:25:
+In file included from /usr/local/Ascend/cann-9.1.0/compiler/tikcpp/tikcfw/interface/kernel_common.h:24:
+/usr/local/Ascend/cann-9.1.0/compiler/tikcpp/tikcfw/interface/../../impl/basic_api/kernel_event.h:249:104: error: use of undeclared identifier 'PIPE_FIX'
+constexpr pipe_t SUPPORTED_PIPE[PIPE_NUM] = { PIPE_S, PIPE_V, PIPE_M, PIPE_MTE1, PIPE_MTE2, PIPE_MTE3, PIPE_FIX };
+                                                                                                       ^
+/usr/local/Ascend/cann-9.1.0/compiler/tikcpp/tikcfw/interface/../../impl/basic_api/kernel_event.h:270:101: error: use of undeclared identifier 'PIPE_FIX'
+    return pipe == PIPE_S || pipe == PIPE_MTE1 || pipe == PIPE_MTE2 || pipe == PIPE_MTE3 || pipe == PIPE_FIX || pipe == PIPE_M;
+                                                                                                    ^
+In file included from /work/gmm_lane_sparse_msd_build_20261011_v1/source/planner.cpp:2:
+In file included from /usr/local/Ascend/cann-9.1.0/compiler/tikcpp/tikcfw/kernel_operator.h:22:
+In file included from /usr/local/Ascend/cann-9.1.0/compiler/tikcpp/tikcfw/interface/kernel_tpipe.h:25:
+In file included from /usr/local/Ascend/cann-9.1.0/compiler/tikcpp/tikcfw/interface/kernel_common.h:26:
+In file included from /usr/local/Ascend/cann-9.1.0/compiler/tikcpp/tikcfw/interface/../../impl/basic_api/kernel_reg.h:23:
+In file included from /usr/local/Ascend/cann-9.1.0/compiler/tikcpp/tikcfw/interface/../../impl/basic_api/kernel_utils.h:30:
+/usr/local/Ascend/cann-9.1.0/compiler/tikcpp/tikcfw/interface/../../impl/basic_api/../utils/debug/asc_debug_utils.h:116:12: error: only __ubuf__   and local memory pointer can be dereferenced
+    while (*(s + i) != '\0') {
+           ^
+/usr/local/Ascend/cann-9.1.0/compiler/tikcpp/tikcfw/interface/../../impl/basic_api/../utils/debug/asc_debug_utils.h:147:9: error: only __ubuf__   and local memory pointer can be dereferenced
+        *(dst + i) = *(src + i);
+        ^
+/usr/local/Ascend/cann-9.1.0/compiler/tikcpp/tikcfw/interface/../../impl/basic_api/../utils/debug/asc_debug_utils.h:147:22: error: only __ubuf__   and local memory pointer can be dereferenced
+        *(dst + i) = *(src + i);
+                     ^
+/usr/local/Ascend/cann-9.1.0/compiler/tikcpp/tikcfw/interface/../../impl/basic_api/../utils/debug/asc_debug_utils.h:156:73: error: global variable 'g_sysPrintFifoSpace' is not allowed in aicore function
+    uint32_t blockLength = reinterpret_cast<__gm__ DebugBlockHeadInfo*>(g_sysPrintFifoSpace)->length;
+                                                                        ^
+/usr/local/Ascend/cann-9.1.0/compiler/tikcpp/tikcfw/interface/../../impl/basic_api/../utils/debug/asc_debug_utils.h:158:54: error: global variable 'g_sysPrintFifoSpace' is not allowed in aicore function
+        reinterpret_cast<__gm__ DebugBlockHeadInfo*>(g_sysPrintFifoSpace + blockLength * blockIdx);
+                                                     ^
+/usr/local/Ascend/cann-9.1.0/compiler/tikcpp/tikcfw/interface/../../impl/basic_api/../utils/debug/asc_debug_utils.h:159:18: error: only __ubuf__   and local memory pointer can be dereferenced
+    if (blockInfo->magic != 0xAE86) {
+                 ^
+/usr/local/Ascend/cann-9.1.0/compiler/tikcpp/tikcfw/interface/../../impl/basic_api/../utils/debug/asc_debug_utils.h:163:18: error: only __ubuf__   and local memory pointer can be dereferenced
+        blockInfo->flag = 1;
+                 ^
+/usr/local/Ascend/cann-9.1.0/compiler/tikcpp/tikcfw/interface/../../impl/basic_api/../utils/debug/asc_debug_utils.h:165:18: error: only __ubuf__   and local memory pointer can be dereferenced
+        blockInfo->flag = 0;
+                 ^
+/usr/local/Ascend/cann-9.1.0/compiler/tikcpp/tikcfw/interface/../../impl/basic_api/../utils/debug/asc_debug_utils.h:180:78: error: only __ubuf__   and local memory pointer can be dereferenced
+    __gm__ uint8_t* ringBufAddr = reinterpret_cast<__gm__ uint8_t*>(blockInfo->ringBufAddr);
+                                                                             ^
+/usr/local/Ascend/cann-9.1.0/compiler/tikcpp/tikcfw/interface/../../impl/basic_api/../utils/debug/asc_debug_utils.h:182:81: error: only __ubuf__   and local memory pointer can be dereferenced
+    return reinterpret_cast<__gm__ DebugBlockWriteInfo*>(ringBufAddr + blockInfo->ringBufLen);
+                                                                                ^
+/usr/local/Ascend/cann-9.1.0/compiler/tikcpp/tikcfw/interface/../../impl/basic_api/../utils/debug/asc_debug_utils.h:188:78: error: only __ubuf__   and local memory pointer can be dereferenced
+    __gm__ uint8_t* ringBufAddr = reinterpret_cast<__gm__ uint8_t*>(blockInfo->ringBufAddr);
+                                                                             ^
+/usr/local/Ascend/cann-9.1.0/compiler/tikcpp/tikcfw/interface/../../impl/basic_api/../utils/debug/asc_debug_utils.h:189:35: error: only __ubuf__   and local memory pointer can be dereferenced
+    return ringBufAddr + writeInfo->bufOffset;
+                                  ^
+/usr/local/Ascend/cann-9.1.0/compiler/tikcpp/tikcfw/interface/../../impl/basic_api/../utils/debug/asc_debug_utils.h:194:14: error: only __ubuf__   and local memory pointer can be dereferenced
+    writeInfo->bufOffset += tlvLen;
+             ^
+/usr/local/Ascend/cann-9.1.0/compiler/tikcpp/tikcfw/interface/../../impl/basic_api/../utils/debug/asc_debug_utils.h:195:14: error: only __ubuf__   and local memory pointer can be dereferenced
+    writeInfo->packIdx += 1;
+             ^
+/usr/local/Ascend/cann-9.1.0/compiler/tikcpp/tikcfw/interface/../../impl/basic_api/../utils/debug/asc_debug_utils.h:201:14: error: only __ubuf__   and local memory pointer can be dereferenced
+    writeInfo->bufOffset = 0;
+             ^
+/usr/local/Ascend/cann-9.1.0/compiler/tikcpp/tikcfw/interface/../../impl/basic_api/../utils/debug/asc_debug_utils.h:208:89: error: only __ubuf__   and local memory pointer can be dereferenced
+    __gm__ SkipTlv* skipInfo = reinterpret_cast<__gm__ SkipTlv*>(ringBufAddr + writeInfo->bufOffset);
+                                                                                        ^
+/usr/local/Ascend/cann-9.1.0/compiler/tikcpp/tikcfw/interface/../../impl/basic_api/../utils/debug/asc_debug_utils.h:209:13: error: only __ubuf__   and local memory pointer can be dereferenced
+    skipInfo->type = static_cast<uint32_t>(DumpType::DUMP_SKIP);
+            ^
+fatal error: too many errors emitted, stopping now [-ferror-limit=]
+20 errors generated.

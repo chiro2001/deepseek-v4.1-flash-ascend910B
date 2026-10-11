@@ -1,0 +1,27 @@
+--- m1_numeric_v2/probe_bridge.cpp
++++ m1_numeric_v3/probe_bridge.cpp
+@@ -16,6 +16,8 @@
+ constexpr uint64_t SYSTEM = 16ull * 1024 * 1024;
+ constexpr uint64_t WORKSPACE = 117440640;
+ constexpr uint64_t Y_BYTES = 6ull * 5120 * 2;
++static_assert(ACL_MEM_MALLOC_HUGE_FIRST == 0 && ACL_MEM_MALLOC_NORMAL_ONLY == 2 && ACL_HBM_MEM == 1,
++              "Installed public SDK memory policy/attribute ABI");
+ struct Failure { int code; };
+ int report(const char *stage, int code) {
+     std::cout << "{\"bridge_stage\":\"" << stage << "\",\"code\":" << code << "}" << std::endl;
+@@ -104,7 +106,14 @@
+         }
+         check("rtGetC2cCtrlAddr:current_context", rtGetC2cCtrlAddr(&p->ffts, &p->ffts_bytes));
+         check("ffts_nonnull_guard", p->ffts ? 0 : -910809);
+-        check("aclrtMalloc:workspace+canaries", aclrtMalloc(&p->workspace_allocation, WORKSPACE + 256, ACL_MEM_MALLOC_NORMAL_ONLY));
++        // Installed Torch uses policy0 for large allocations; v2's explicit
++        // NORMAL_ONLY failed despite >55GB aggregate HBM free in this context.
++        // Keep full workspace capacity and all ownership/canary/ABI guards.
++        size_t hbm_free = 0, hbm_total = 0;
++        check("aclrtGetMemInfo:HBM_before_workspace", aclrtGetMemInfo(ACL_HBM_MEM, &hbm_free, &hbm_total));
++        std::cout << "{\"workspace_allocator_policy\":\"ACL_MEM_MALLOC_HUGE_FIRST\",\"enum_value\":0,\"requested_bytes\":"
++                  << WORKSPACE + 256 << ",\"HBM_free_bytes\":" << hbm_free << ",\"HBM_total_bytes\":" << hbm_total << "}" << std::endl;
++        check("aclrtMalloc:workspace+canaries:HUGE_FIRST", aclrtMalloc(&p->workspace_allocation, WORKSPACE + 256, ACL_MEM_MALLOC_HUGE_FIRST));
+         check("aclrtMalloc:y+canaries", aclrtMalloc(&p->y_allocation, Y_BYTES + 256, ACL_MEM_MALLOC_NORMAL_ONLY));
+         for (void *&list : p->lists) check("aclrtMalloc:single_tensor_list32", aclrtMalloc(&list, 32, ACL_MEM_MALLOC_NORMAL_ONLY));
+         std::cout << "{\"probe_workspace_base\":" << addr(p->workspace_allocation) + 128

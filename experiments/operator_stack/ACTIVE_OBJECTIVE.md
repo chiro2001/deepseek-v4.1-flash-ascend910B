@@ -30,5 +30,6 @@ QKV(19.307216ms,A1,51.794106tok/s)，0/12更快，拒绝部署；同样关闭DSp
 Engram SDK普通NPUGraph32代可行，正式对齐AOT/GraphEx/static/nonstatic仍在callback前TypeError，原型默认关闭。
 稀疏MSD仅CPU构建/tiling/编译分支与adapter ABI契约成立，NPU数值与模型收益尚未验证。
 
-现有goal工具仍保存旧17ms与paused状态，工具没有修改objective/resume接口；不能伪造旧目标完成或修改SQLite。
-用户已明确继续及新20ms目标，本文件是后续执行与完成审计的当前要求。旧17ms/无DSpark结论均不是新完成条件。
+用户已清除旧goal并要求重新创建；2026-10-11已成功创建包含DSpark的正式≤20ms/step新goal，
+工具状态为active。当前执行与完成审计以该新goal及本文件为准；旧17ms/无DSpark结论均不是新完成条件。
+新goal尚未达成，不能标记complete。

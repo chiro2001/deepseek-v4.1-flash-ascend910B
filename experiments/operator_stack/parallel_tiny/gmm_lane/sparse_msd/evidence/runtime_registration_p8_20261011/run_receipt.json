@@ -1,0 +1,110 @@
+{
+  "command": [
+    "/work/gmm_lane_sparse_msd_build_20261011_v3_repro/runtime_registration_p8_20261011/runtime_registration_probe",
+    "/work/gmm_lane_sparse_msd_build_20261011_v3_repro"
+  ],
+  "exit_code": 1,
+  "timeout": false,
+  "events": [
+    {
+      "stage": "aclInit",
+      "code": 0
+    },
+    {
+      "stage": "aclrtGetDeviceCount",
+      "code": 0
+    },
+    {
+      "stage": "single_visible_device_guard",
+      "code": 0
+    },
+    {
+      "stage": "rtGetDeviceIndexByPhyId(8)",
+      "code": 0
+    },
+    {
+      "stage": "rtGetDevicePhyIdByIndex",
+      "code": 0
+    },
+    {
+      "physical": 8,
+      "logical": 0,
+      "visible_device_count": 1
+    },
+    {
+      "stage": "physical8_mapping_guard",
+      "code": 0
+    },
+    {
+      "stage": "aclrtCreateContext",
+      "code": 0
+    },
+    {
+      "stage": "aclrtSetCurrentContext",
+      "code": 0
+    },
+    {
+      "stage": "aclrtGetDevice",
+      "code": 0
+    },
+    {
+      "stage": "current_device_guard",
+      "code": 0
+    },
+    {
+      "stage": "gmm2_sparse_msd_open",
+      "code": 107000,
+      "SDK_recent_error": "[PID: 930848] 2026-10-11-05:58:06.255.306 Invalid_Argument(EE1001): The argument is invalid. Reason: rtsBinaryLoadFromFile execution failed.\n        Solution: 1. Check the input parameter range of the function. 2. Check the function invocation relationship.\nTraceBack (most recent call last):\n        Binary load failed, RT_LOAD_BINARY_OPT_MAGIC does not support in load from file.[FUNC:ParseLoadOptions][FILE:binary_loader.cc][LINE:131]\n        The argument is invalid. Reason: rtsBinaryLoadFromFile execution failed.\n"
+    },
+    {
+      "cleanup": "aclrtDestroyContext",
+      "code": 0
+    },
+    {
+      "cleanup": "aclFinalize",
+      "code": 0
+    },
+    {
+      "terminal": true,
+      "passed": false,
+      "terminal_stage": "gmm2_sparse_msd_open",
+      "terminal_code": 107000,
+      "registration_passed": false,
+      "physical": 8,
+      "logical": 0,
+      "planner_launches": 0,
+      "planner_cases_passed": 0,
+      "GMM_math_launches": 0,
+      "weight_bytes": 0,
+      "device_reset_calls": 0
+    }
+  ],
+  "terminal": {
+    "terminal": true,
+    "passed": false,
+    "terminal_stage": "gmm2_sparse_msd_open",
+    "terminal_code": 107000,
+    "registration_passed": false,
+    "physical": 8,
+    "logical": 0,
+    "planner_launches": 0,
+    "planner_cases_passed": 0,
+    "GMM_math_launches": 0,
+    "weight_bytes": 0,
+    "device_reset_calls": 0
+  },
+  "only_physical8_authorized": true,
+  "ASCEND_RT_VISIBLE_DEVICES": "8",
+  "ASCEND_VISIBLE_DEVICES": "8",
+  "GMM_math_launches": 0,
+  "weight_bytes": 0,
+  "CPU_mutation_objects_launched": 0,
+  "runtime_log_bytes": 1505103,
+  "runtime_log_sha256": "b00582e486b90b36e4d7a974fb0058fecf08f6468f89493f203101bd8e214342",
+  "objects_sha256_after": {
+    "planner_cpu_rebuild.o": "f921e2d9c895aca5958177a17bd398f058c7a1d8910564bcd54c4dd98b51b770",
+    "op_build_candidate/Gmm2SparseMsdDown_candidate_v6.o": "bd08a12b15d14f44a2c63a2ff91ec2977a0ed2b62645ed7d43273ee2fb024970",
+    "op_build_native/Gmm2NativeMsdDown_control_v6.o": "1e8a606d459bd4560b0e19efbb1894d98a1826bf0048eb9fa16d930b7d46ec0d",
+    "libgmm2_sparse_msd_probe.so": "02816eb5b23f93d7784258578a9aecf8df7dc35b4bc3feacb15af3020ad10ac8"
+  }
+}

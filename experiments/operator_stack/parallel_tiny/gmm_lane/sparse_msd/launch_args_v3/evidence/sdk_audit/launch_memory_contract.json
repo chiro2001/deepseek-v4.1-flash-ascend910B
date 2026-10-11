@@ -1,0 +1,28 @@
+{
+  "CPU_read_only": true,
+  "runtime_loaded_or_called": false,
+  "NPU_launches": 0,
+  "SDK_files_sha256": {
+    "/usr/local/Ascend/cann-9.1.0/include/acl/acl_rt.h": "22c603cb80ab582006d4f26697ceb14c059d7f3613cf13b3c72aeb0d3d36e3c1",
+    "/usr/local/Ascend/cann-9.1.0/python/site-packages/mskl/launcher/code_generator.py": "cdd76a05eace14bcf0501816f35fbc454bd5f4c3d1d991ad00fb8d32aded67c2",
+    "/usr/local/Ascend/cann-9.1.0/aarch64-linux/pkg_inc/runtime/rt_external_kernel.h": "f9532b737f5d6f08c326d351281a5633be7c2c93b409dde9089b09fb95e9b7ad",
+    "/usr/local/Ascend/cann-9.1.0/lib64/libacl_rt_impl.so": "4595d4cf50f064cc9d6a97688eecf5e95ef92a4291911e26dd301091997c37ee",
+    "/usr/local/Ascend/cann-9.1.0/lib64/libruntime.so": "7bc2b610dff552df2f114c95701156b4aba43ffcba24e06e3c249e1cf57bbc21"
+  },
+  "observed_p6": "Host stack16B passed with isNoNeedH2DCopy=1, mapping drv11, para_base matches host stack",
+  "bindings": {
+    "aclrtLaunchKernelImpl@0x82758": "rtLaunchKernelByFuncHandleV3",
+    "aclrtLaunchKernelV2Impl@0x877e4": "rtsLaunchKernelWithDevArgs",
+    "aclrtLaunchKernelWithConfigImpl@0x837a0": "rtsLaunchKernelWithConfig",
+    "aclrtLaunchKernelWithHostArgsImpl@0x87c7c": "rtsLaunchKernelWithHostArgs"
+  },
+  "host_copy_evidence": "rtsLaunchKernelWithHostArgs standard rtArgsEx branch initializes isNoNeedH2DCopy(offset31) to0 at0x505f8; header defines0 as needs H2D copy",
+  "dev_no_copy_evidence": "rtsLaunchKernelWithDevArgs initializes no-copy to1 at0x56668; real bare p6 trace logs1",
+  "SDK_WithConfig_sequence": "KernelArgsInit(func,&handle), KernelArgsAppend(handle,host_bytes,size,&param), KernelArgsFinalize(handle), LaunchKernelWithConfig(...handle,nullptr)",
+  "Finalize_is_not_destroy": "Installed SDK invokesFinalize immediately beforeWithConfig and retains memberargsHandle across calls; runner destructor unloads binary only",
+  "lifecycle_rule": "Retain original GM pointees, function/module, blob owner and SDK args handle through stream completion; do not modify active args. CPU wrapper borrows handles and creates no fake destroy API.",
+  "fixed_page_rule": "A pinned counts source does not pin/register the independent host stack argument buffer. Do not use raw dev/no-copy API with unmapped host memory. SDK-managed ArgsInit/HostArgs paths avoid caller-provided page registration.",
+  "minimal_fix": "Use explicitHostArgs API with unchanged16B planner/72B GMM payload and zero placeholders, or use the installedSDK WithConfig construction sequence.",
+  "runtime_corrected_launch_not_yet_validated": true,
+  "hardware_root_cause_not_claimed": true
+}

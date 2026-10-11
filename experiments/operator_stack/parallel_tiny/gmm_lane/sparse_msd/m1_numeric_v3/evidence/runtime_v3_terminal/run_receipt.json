@@ -1,0 +1,1236 @@
+{
+  "command": [
+    "python3",
+    "/work/gmm_lane_sparse_msd_m1_numeric_p6_20261011_v3/source/runtime_numeric.py"
+  ],
+  "exit_code": 1,
+  "timeout": false,
+  "child_PID": 1272703,
+  "terminal": {
+    "passed": false,
+    "scope": "synthetic INT8/FP32 activation, real original-loader E48 W2, M1 capacity6",
+    "physical": 6,
+    "logical": 0,
+    "performance_measured": false,
+    "full_model_executed": false,
+    "K5_verifier_coverage": false,
+    "explicit_reset_or_empty_cache_calls": 0,
+    "Torch_context_and_stream_borrowed": true,
+    "container_PID": 1272703,
+    "failure_type": "RuntimeError",
+    "failure": "raw_native_A1: SDK/bridge returned -910403",
+    "traceback": "Traceback (most recent call last):\n  File \"/work/gmm_lane_sparse_msd_m1_numeric_p6_20261011_v3/source/runtime_numeric.py\", line 198, in run\n    checked(label, lib.m1_probe_run(owner, x.data_ptr(), weight.data_ptr(), assist.data_ptr(),\n  File \"/work/gmm_lane_sparse_msd_m1_numeric_p6_20261011_v3/source/runtime_numeric.py\", line 31, in checked\n    if code: raise RuntimeError(f'{stage}: SDK/bridge returned {code}')\n             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nRuntimeError: raw_native_A1: SDK/bridge returned -910403\n",
+    "partial_case_result": {
+      "case_index": 0,
+      "name": "R1_e0",
+      "R": 1,
+      "row_capacity": 6,
+      "group_list_type": 1,
+      "counts": [
+        1,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "active_experts": [
+        0
+      ],
+      "synthetic_activation": true,
+      "x_sha256": "4951432abf904be2abde8ed64ee8d4627eb7d0644299bac56c7f4b8d3610fcde",
+      "x_stats": {
+        "shape": [
+          6,
+          2304
+        ],
+        "dtype": "int8",
+        "bytes": 13824,
+        "finite": true,
+        "min": -128.0,
+        "max": 127.0
+      },
+      "token_scale_sha256": "88bc55c8ea207609cdec4368babb1056cd507a83902ce2587fedeaadbab41b10",
+      "token_scale_stats": {
+        "shape": [
+          6
+        ],
+        "dtype": "float32",
+        "bytes": 24,
+        "finite": true,
+        "min": 0.00390625,
+        "max": 0.03125
+      },
+      "counts_sha256": "c85525462fdcf30a2c18d6f4b92923000974355c2477f59594d2c205a1d25add",
+      "weight_physical_NZ_sha256": "ffc24b8d049e82b84d4291e3cf333ddcb9571ff88d625a3f1fb2b2e6337a6567",
+      "scale_sha256": "7f5238b444987c87d73fec22aebf437eb28717289fd04c47dcf3cd44c8fcbb76",
+      "assist_sha256": "8471526e64cd8d6ac68718b1b79871e57e17f00022ff7714d65fd402e849ab60",
+      "SDK_gm_addresses": {
+        "x": 20618580787712,
+        "weight": 20618294591488,
+        "assist": 20618579804160,
+        "scale": 20618577707520,
+        "counts": 20618580802560,
+        "token_scale": 20618580802048,
+        "output": 20618580803072
+      },
+      "borrowed_stream": 187651054183768,
+      "SDK_output": {
+        "shape": [
+          1,
+          5120
+        ],
+        "dtype": "float32",
+        "bytes": 20480,
+        "finite": true,
+        "min": -0.58203125,
+        "max": 0.5234375,
+        "BF16_bytes_sha256": "b495c6cd1f7f7afac40e106c758470b25f0db3b861e10506f1dd164309675035"
+      }
+    },
+    "bridge_cleanup_code": 0,
+    "owner_retained_after_close": false,
+    "SDK_math_launch_attempts": 1,
+    "raw_native_math_launch_attempts": 1,
+    "candidate_math_launch_attempts": 0,
+    "planner_launch_attempts": 0,
+    "cases_passed": 0,
+    "case_names_passed": [],
+    "all_case_results": [],
+    "Torch_resources_release": "Original SDK owner cleanup at this process exit; no device reset/cache clear"
+  },
+  "events": [
+    {
+      "production_allow_internal_format": true,
+      "SDK_option_observed": "enable",
+      "production_setting_source": "/vllm-workspace/vllm-ascend/vllm_ascend/worker/model_runner_v1.py"
+    },
+    {
+      "bridge_stage": "aclrtGetDeviceCount",
+      "code": 0
+    },
+    {
+      "bridge_stage": "single_visible_guard",
+      "code": 0
+    },
+    {
+      "bridge_stage": "rtGetDeviceIndexByPhyId(6)",
+      "code": 0
+    },
+    {
+      "bridge_stage": "rtGetDevicePhyIdByIndex",
+      "code": 0
+    },
+    {
+      "bridge_mapping": true,
+      "visible_count": 1,
+      "logical": 0,
+      "physical": 6
+    },
+    {
+      "bridge_stage": "logical0_physical6_guard",
+      "code": 0
+    },
+    {
+      "stage": "mapping_before_weight_device_allocation",
+      "code": 0
+    },
+    {
+      "torch_version": "2.10.0+cpu",
+      "torch_npu_version": "2.10.0.post4",
+      "borrowed_stream": 187651054183768,
+      "TASK_QUEUE_ENABLE": "0"
+    },
+    {
+      "original_loader_layout_stage": {
+        "stage": "CPU_transposed_to_NPU_ND",
+        "shape": [
+          48,
+          2304,
+          2560
+        ],
+        "stride": [
+          5898240,
+          2560,
+          1
+        ],
+        "dtype": "torch.int8",
+        "format": 2,
+        "storage_bytes": 283115520,
+        "storage_offset": 0,
+        "GM_data_ptr": 20618009378816,
+        "is_contiguous": true
+      }
+    },
+    {
+      "original_loader_layout_stage": {
+        "stage": "original_single_NZ_cast",
+        "shape": [
+          48,
+          2304,
+          2560
+        ],
+        "stride": [
+          5898240,
+          2560,
+          1
+        ],
+        "dtype": "torch.int8",
+        "format": 29,
+        "storage_bytes": 283115520,
+        "storage_offset": 0,
+        "GM_data_ptr": 20618294591488,
+        "is_contiguous": true
+      }
+    },
+    {
+      "original_loader_layout_stage": {
+        "stage": "original_view_dtype_INT32",
+        "shape": [
+          48,
+          2304,
+          640
+        ],
+        "stride": [
+          1474560,
+          640,
+          1
+        ],
+        "dtype": "torch.int32",
+        "format": 29,
+        "storage_bytes": 283115520,
+        "storage_offset": 0,
+        "GM_data_ptr": 20618294591488,
+        "is_contiguous": true
+      }
+    },
+    {
+      "original_loader_layout_stage": {
+        "stage": "original_contiguous",
+        "shape": [
+          48,
+          2304,
+          640
+        ],
+        "stride": [
+          1474560,
+          640,
+          1
+        ],
+        "dtype": "torch.int32",
+        "format": 29,
+        "storage_bytes": 283115520,
+        "storage_offset": 0,
+        "GM_data_ptr": 20618294591488,
+        "is_contiguous": true
+      }
+    },
+    {
+      "bridge_stage": "aclrtGetDeviceCount",
+      "code": 0
+    },
+    {
+      "bridge_stage": "single_visible_guard",
+      "code": 0
+    },
+    {
+      "bridge_stage": "rtGetDeviceIndexByPhyId(6)",
+      "code": 0
+    },
+    {
+      "bridge_stage": "rtGetDevicePhyIdByIndex",
+      "code": 0
+    },
+    {
+      "bridge_mapping": true,
+      "visible_count": 1,
+      "logical": 0,
+      "physical": 6
+    },
+    {
+      "bridge_stage": "logical0_physical6_guard",
+      "code": 0
+    },
+    {
+      "bridge_stage": "mapping_guard",
+      "code": 0
+    },
+    {
+      "bridge_stage": "aclrtGetCurrentContext:borrowed",
+      "code": 0
+    },
+    {
+      "bridge_stage": "borrowed_context_nonnull",
+      "code": 0
+    },
+    {
+      "bridge_stage": "aclrtGetDevice:borrowed",
+      "code": 0
+    },
+    {
+      "bridge_stage": "borrowed_logical0_guard",
+      "code": 0
+    },
+    {
+      "borrowed_context": 187650782921296,
+      "borrowed_stream": 187651054183768,
+      "context_owner": "Torch original SDK consumer"
+    },
+    {
+      "bridge_stage": "loader_v2_open",
+      "code": 0
+    },
+    {
+      "bridge_stage": "loader_v2_functions",
+      "code": 0
+    },
+    {
+      "bridge_stage": "aclrtGetFunctionAddr",
+      "code": 0
+    },
+    {
+      "bridge_stage": "aclrtGetFunctionSize",
+      "code": 0
+    },
+    {
+      "registered_function": "planner",
+      "aic_address": 0,
+      "aiv_address": 20618581901312,
+      "aic_bytes": 0,
+      "aiv_bytes": 368
+    },
+    {
+      "bridge_stage": "strict_engine_pair_and_size",
+      "code": 0
+    },
+    {
+      "bridge_stage": "aclrtGetFunctionAddr",
+      "code": 0
+    },
+    {
+      "bridge_stage": "aclrtGetFunctionSize",
+      "code": 0
+    },
+    {
+      "registered_function": "native",
+      "aic_address": 20618581938176,
+      "aiv_address": 20618581943328,
+      "aic_bytes": 5152,
+      "aiv_bytes": 8440
+    },
+    {
+      "bridge_stage": "strict_engine_pair_and_size",
+      "code": 0
+    },
+    {
+      "bridge_stage": "aclrtGetFunctionAddr",
+      "code": 0
+    },
+    {
+      "bridge_stage": "aclrtGetFunctionSize",
+      "code": 0
+    },
+    {
+      "registered_function": "candidate",
+      "aic_address": 20618581958656,
+      "aiv_address": 20618581967404,
+      "aic_bytes": 8748,
+      "aiv_bytes": 8440
+    },
+    {
+      "bridge_stage": "strict_engine_pair_and_size",
+      "code": 0
+    },
+    {
+      "bridge_stage": "rtGetC2cCtrlAddr:current_context",
+      "code": 0
+    },
+    {
+      "bridge_stage": "ffts_nonnull_guard",
+      "code": 0
+    },
+    {
+      "bridge_stage": "aclrtGetMemInfo:HBM_before_workspace",
+      "code": 0
+    },
+    {
+      "workspace_allocator_policy": "ACL_MEM_MALLOC_HUGE_FIRST",
+      "enum_value": 0,
+      "requested_bytes": 117440896,
+      "HBM_free_bytes": 55935959040,
+      "HBM_total_bytes": 65787658240
+    },
+    {
+      "bridge_stage": "aclrtMalloc:workspace+canaries:HUGE_FIRST",
+      "code": 0
+    },
+    {
+      "bridge_stage": "aclrtMalloc:y+canaries",
+      "code": 0
+    },
+    {
+      "bridge_stage": "aclrtMalloc:single_tensor_list32",
+      "code": 0
+    },
+    {
+      "bridge_stage": "aclrtMalloc:single_tensor_list32",
+      "code": 0
+    },
+    {
+      "bridge_stage": "aclrtMalloc:single_tensor_list32",
+      "code": 0
+    },
+    {
+      "bridge_stage": "aclrtMalloc:single_tensor_list32",
+      "code": 0
+    },
+    {
+      "bridge_stage": "aclrtMalloc:single_tensor_list32",
+      "code": 0
+    },
+    {
+      "probe_workspace_base": 20618583998592,
+      "workspace_bytes": 117440640,
+      "planner_frame_address": 20618600775808,
+      "candidate_native_user_scratch": 20618600775936,
+      "probe_y_address": 20619064336512,
+      "ffts": 17514876633088,
+      "ffts_bytes": 32
+    },
+    {
+      "stage": "open_raw_probe_on_original_SDK_stream",
+      "code": 0
+    },
+    {
+      "bridge_stage": "D2H:original_parameter_storage",
+      "code": 0
+    },
+    {
+      "stage": "D2H:weight_NZ_expert",
+      "code": 0
+    },
+    {
+      "bridge_stage": "D2H:original_parameter_storage",
+      "code": 0
+    },
+    {
+      "stage": "D2H:weight_NZ_expert",
+      "code": 0
+    },
+    {
+      "bridge_stage": "D2H:original_parameter_storage",
+      "code": 0
+    },
+    {
+      "stage": "D2H:weight_NZ_expert",
+      "code": 0
+    },
+    {
+      "bridge_stage": "D2H:original_parameter_storage",
+      "code": 0
+    },
+    {
+      "stage": "D2H:weight_NZ_expert",
+      "code": 0
+    },
+    {
+      "bridge_stage": "D2H:original_parameter_storage",
+      "code": 0
+    },
+    {
+      "stage": "D2H:weight_NZ_expert",
+      "code": 0
+    },
+    {
+      "bridge_stage": "D2H:original_parameter_storage",
+      "code": 0
+    },
+    {
+      "stage": "D2H:weight_NZ_expert",
+      "code": 0
+    },
+    {
+      "bridge_stage": "D2H:original_parameter_storage",
+      "code": 0
+    },
+    {
+      "stage": "D2H:weight_NZ_expert",
+      "code": 0
+    },
+    {
+      "bridge_stage": "D2H:original_parameter_storage",
+      "code": 0
+    },
+    {
+      "stage": "D2H:weight_NZ_expert",
+      "code": 0
+    },
+    {
+      "bridge_stage": "D2H:original_parameter_storage",
+      "code": 0
+    },
+    {
+      "stage": "D2H:weight_NZ_expert",
+      "code": 0
+    },
+    {
+      "bridge_stage": "D2H:original_parameter_storage",
+      "code": 0
+    },
+    {
+      "stage": "D2H:weight_NZ_expert",
+      "code": 0
+    },
+    {
+      "bridge_stage": "D2H:original_parameter_storage",
+      "code": 0
+    },
+    {
+      "stage": "D2H:weight_NZ_expert",
+      "code": 0
+    },
+    {
+      "bridge_stage": "D2H:original_parameter_storage",
+      "code": 0
+    },
+    {
+      "stage": "D2H:weight_NZ_expert",
+      "code": 0
+    },
+    {
+      "bridge_stage": "D2H:original_parameter_storage",
+      "code": 0
+    },
+    {
+      "stage": "D2H:weight_NZ_expert",
+      "code": 0
+    },
+    {
+      "bridge_stage": "D2H:original_parameter_storage",
+      "code": 0
+    },
+    {
+      "stage": "D2H:weight_NZ_expert",
+      "code": 0
+    },
+    {
+      "bridge_stage": "D2H:original_parameter_storage",
+      "code": 0
+    },
+    {
+      "stage": "D2H:weight_NZ_expert",
+      "code": 0
+    },
+    {
+      "bridge_stage": "D2H:original_parameter_storage",
+      "code": 0
+    },
+    {
+      "stage": "D2H:weight_NZ_expert",
+      "code": 0
+    },
+    {
+      "bridge_stage": "D2H:original_parameter_storage",
+      "code": 0
+    },
+    {
+      "stage": "D2H:weight_NZ_expert",
+      "code": 0
+    },
+    {
+      "bridge_stage": "D2H:original_parameter_storage",
+      "code": 0
+    },
+    {
+      "stage": "D2H:weight_NZ_expert",
+      "code": 0
+    },
+    {
+      "bridge_stage": "D2H:original_parameter_storage",
+      "code": 0
+    },
+    {
+      "stage": "D2H:weight_NZ_expert",
+      "code": 0
+    },
+    {
+      "bridge_stage": "D2H:original_parameter_storage",
+      "code": 0
+    },
+    {
+      "stage": "D2H:weight_NZ_expert",
+      "code": 0
+    },
+    {
+      "bridge_stage": "D2H:original_parameter_storage",
+      "code": 0
+    },
+    {
+      "stage": "D2H:weight_NZ_expert",
+      "code": 0
+    },
+    {
+      "bridge_stage": "D2H:original_parameter_storage",
+      "code": 0
+    },
+    {
+      "stage": "D2H:weight_NZ_expert",
+      "code": 0
+    },
+    {
+      "bridge_stage": "D2H:original_parameter_storage",
+      "code": 0
+    },
+    {
+      "stage": "D2H:weight_NZ_expert",
+      "code": 0
+    },
+    {
+      "bridge_stage": "D2H:original_parameter_storage",
+      "code": 0
+    },
+    {
+      "stage": "D2H:weight_NZ_expert",
+      "code": 0
+    },
+    {
+      "bridge_stage": "D2H:original_parameter_storage",
+      "code": 0
+    },
+    {
+      "stage": "D2H:weight_NZ_expert",
+      "code": 0
+    },
+    {
+      "bridge_stage": "D2H:original_parameter_storage",
+      "code": 0
+    },
+    {
+      "stage": "D2H:weight_NZ_expert",
+      "code": 0
+    },
+    {
+      "bridge_stage": "D2H:original_parameter_storage",
+      "code": 0
+    },
+    {
+      "stage": "D2H:weight_NZ_expert",
+      "code": 0
+    },
+    {
+      "bridge_stage": "D2H:original_parameter_storage",
+      "code": 0
+    },
+    {
+      "stage": "D2H:weight_NZ_expert",
+      "code": 0
+    },
+    {
+      "bridge_stage": "D2H:original_parameter_storage",
+      "code": 0
+    },
+    {
+      "stage": "D2H:weight_NZ_expert",
+      "code": 0
+    },
+    {
+      "bridge_stage": "D2H:original_parameter_storage",
+      "code": 0
+    },
+    {
+      "stage": "D2H:weight_NZ_expert",
+      "code": 0
+    },
+    {
+      "bridge_stage": "D2H:original_parameter_storage",
+      "code": 0
+    },
+    {
+      "stage": "D2H:weight_NZ_expert",
+      "code": 0
+    },
+    {
+      "bridge_stage": "D2H:original_parameter_storage",
+      "code": 0
+    },
+    {
+      "stage": "D2H:weight_NZ_expert",
+      "code": 0
+    },
+    {
+      "bridge_stage": "D2H:original_parameter_storage",
+      "code": 0
+    },
+    {
+      "stage": "D2H:weight_NZ_expert",
+      "code": 0
+    },
+    {
+      "bridge_stage": "D2H:original_parameter_storage",
+      "code": 0
+    },
+    {
+      "stage": "D2H:weight_NZ_expert",
+      "code": 0
+    },
+    {
+      "bridge_stage": "D2H:original_parameter_storage",
+      "code": 0
+    },
+    {
+      "stage": "D2H:weight_NZ_expert",
+      "code": 0
+    },
+    {
+      "bridge_stage": "D2H:original_parameter_storage",
+      "code": 0
+    },
+    {
+      "stage": "D2H:weight_NZ_expert",
+      "code": 0
+    },
+    {
+      "bridge_stage": "D2H:original_parameter_storage",
+      "code": 0
+    },
+    {
+      "stage": "D2H:weight_NZ_expert",
+      "code": 0
+    },
+    {
+      "bridge_stage": "D2H:original_parameter_storage",
+      "code": 0
+    },
+    {
+      "stage": "D2H:weight_NZ_expert",
+      "code": 0
+    },
+    {
+      "bridge_stage": "D2H:original_parameter_storage",
+      "code": 0
+    },
+    {
+      "stage": "D2H:weight_NZ_expert",
+      "code": 0
+    },
+    {
+      "bridge_stage": "D2H:original_parameter_storage",
+      "code": 0
+    },
+    {
+      "stage": "D2H:weight_NZ_expert",
+      "code": 0
+    },
+    {
+      "bridge_stage": "D2H:original_parameter_storage",
+      "code": 0
+    },
+    {
+      "stage": "D2H:weight_NZ_expert",
+      "code": 0
+    },
+    {
+      "bridge_stage": "D2H:original_parameter_storage",
+      "code": 0
+    },
+    {
+      "stage": "D2H:weight_NZ_expert",
+      "code": 0
+    },
+    {
+      "bridge_stage": "D2H:original_parameter_storage",
+      "code": 0
+    },
+    {
+      "stage": "D2H:weight_NZ_expert",
+      "code": 0
+    },
+    {
+      "bridge_stage": "D2H:original_parameter_storage",
+      "code": 0
+    },
+    {
+      "stage": "D2H:weight_NZ_expert",
+      "code": 0
+    },
+    {
+      "bridge_stage": "D2H:original_parameter_storage",
+      "code": 0
+    },
+    {
+      "stage": "D2H:weight_NZ_expert",
+      "code": 0
+    },
+    {
+      "bridge_stage": "D2H:original_parameter_storage",
+      "code": 0
+    },
+    {
+      "stage": "D2H:weight_NZ_expert",
+      "code": 0
+    },
+    {
+      "bridge_stage": "D2H:original_parameter_storage",
+      "code": 0
+    },
+    {
+      "stage": "D2H:weight_NZ_expert",
+      "code": 0
+    },
+    {
+      "bridge_stage": "D2H:original_parameter_storage",
+      "code": 0
+    },
+    {
+      "stage": "D2H:weight_NZ_expert",
+      "code": 0
+    },
+    {
+      "bridge_stage": "D2H:original_parameter_storage",
+      "code": 0
+    },
+    {
+      "stage": "D2H:scale",
+      "code": 0
+    },
+    {
+      "bridge_stage": "D2H:original_parameter_storage",
+      "code": 0
+    },
+    {
+      "stage": "D2H:assist",
+      "code": 0
+    },
+    {
+      "weight_physical_NZ_byte_exact": true,
+      "weight_physical_NZ_sha256": "ffc24b8d049e82b84d4291e3cf333ddcb9571ff88d625a3f1fb2b2e6337a6567",
+      "weight_expert_sha256": [
+        "101800b87a18ab4c2d631c2d648eeb5762fd13fab36165effdca035feb82d370",
+        "e0d58db5e69a93b1f1d347b93da9134a0c720e27af55732e1bd901af070fb99c",
+        "0d5c4e8607815f8f08eedde5d61a7be69f8af0560cf73b0e683cc4be06e803a0",
+        "b52b5186a6ba65d8c1c069c75a57d59afc44d38c475ea014fa482929f2791479",
+        "833815b72c946ce7be6cfbffd82a0b87f455604223d758994be77f6c843c29ec",
+        "8d18401f61001d32e3e2de6e31439b25831a55aff7be73d2ee10d97f37c4c4b0",
+        "ac5633a83b6c749f94a3d03bec56bab3923dcf587b923a32f81f35a1dcbfc2a3",
+        "01c6c50d996adee9c26b0b494a9569c9d5742ea66ab12f9ffcda961533085295",
+        "44325cfb0bf535e7af6b8c33e229e2692894124d0a59eae54e6b4e23ce4a2cbb",
+        "801ae0b66f7510669a6d5b2d988628bed2728adf1cb68b37ee8a66f88ab21f2d",
+        "3778bfa3e90d659ce62f4d4d7c51bcc51072f136dd045049fe7557b5901968cf",
+        "06e1b4e30747cd373ac4d1f1818a060766b9c630143ee03a2b3cd6915b62a6b7",
+        "4ca572d53daa84607ff656a2d91c01a84e10188140067e60fdc0937da3ab330e",
+        "186f583a05f5dac42829d9321ceb94103e1e7c997b76387952eeea39ffd9a980",
+        "a1508e0fe0040b51b50aec647fb36ad360469cd3f9e376da469bc796e5e66a7a",
+        "81ee188b57423c568e820d6a4719e1219a06c101514f3ef5ba8c3f8c58098e13",
+        "abfa22623f2eb5c9bfba49d043c8616cc0a07c2f310b354c41728d3a329fb538",
+        "2160dadca2bc88a55e10419c30d0d977dfa4687dd00f6db135a9f0761dc61e52",
+        "9014a774ce154c3398267b304ec194cf23d134cf9531f673bac6303ee7cbf5b0",
+        "a3c9651fff67a1b66a3108f6b1ec33b8f75977457d7a72622e22c9c9f439210e",
+        "4ca999ece6097ff9ee023744d6221eaa97f9004edb9ad1e9a04a4b2276dc1fdb",
+        "b23a1a86715435c52cc1a6b0f81eaa54ed14596b86e17e311c6bc57106bbf013",
+        "cdd08fca133170d9bd5bc30a4e32e0e5fb0b97659e483eccd262a5e9a5a935fb",
+        "f78dcd14e1ce28846fda731f23d0724331fe2f42728437cd0545fd915a1dc605",
+        "40176c52fd64fa9dfa8749ac177f9f12180c29f82c572ae26ef11edb225af662",
+        "ad3123f595aac45e16f07505b4fa78e328a1e320f86a3b86fefec2198a4a3fff",
+        "3e2252d1e6d4992a8f12d9f937ac0eadc1f0b8b2a904fb6765c557d2f610ddf7",
+        "4530cd7772b65cb64b70ea78e719646de7f0c97f53f166eadaa93e00aac1e35c",
+        "3218d8676659270213982821bcc28a76c5c149cc0a854df145334d0c535f6e2f",
+        "92e7b3c8e3e56047e4c07552e3964366f46bd9025c409960bb02c5c718fa4ee4",
+        "afbd583f39e2a786f350dab1ee2897048dbb33ae30dfad115887ba8931f7b0d5",
+        "e458d887377c48745c191155dcd683d552a742075efc197c8eec7bfa6208bed8",
+        "953d01734ccc40e8c9293817d7c4d03ca7dd0b2a6c58b81476007fd812626c07",
+        "e110e6ae7b4e0d97e50613837ac20d09799f2aadc473e54eb8d63f2763e8d213",
+        "370098669f88b622e2bb91c8064483ed2b87e5707e991bde0df1e2a0974d51e0",
+        "59e76555bae901eb42ff3fc3d39f44522c1699b774e39ae2288080ce69459c04",
+        "24b1895519e36e90729d353bd2271bdbc1528fb8ec267e38dd05db89ba05793d",
+        "fdf3497af076f2da026da74e79d3fff23d4d52f4c1189170541400038af523c2",
+        "5eb62c2cf4866e2475375380815d82989d3765e5514995668ced2b8118b15496",
+        "07d1be4f5759f1fd1e1bb8b90425405cf6ab164f9a3fcaebf3e7368be8d5c4dc",
+        "dc2a783291fca6bb9930f80b3270fbbd33491d8fe88cb7c67063a9d740f72e4a",
+        "57dc56e47c2e571c435a0f35d1d33e44df819df83a354665ebd699d93d1bebe4",
+        "4dc38ea325530c2290ce41d89eceec3897163c857d0b98c8d850ecf5b3cd3d53",
+        "1aa7ca527d140ca09db45c99c29b71420bd197cd75b3e44d2b977076e4d0e0b9",
+        "ac5dcec7af0e1755f2aa03d58a8cdd97047f6ad7aed8f2eaeca0f0bcfab53a8d",
+        "8375c7b00718f69991d5c1cdae0533108da30695bab826f61423db05d119c423",
+        "ae13b997adfdf466663d8f4351eb83d4db5a5c7836d326fb1b2893b758634599",
+        "28c05c7f55df3af516e5691b619d7bfeeac0d5837edda52d89d0adf1ceb9bf89"
+      ],
+      "scale_and_assist_physical_sha256": {
+        "scale": "7f5238b444987c87d73fec22aebf437eb28717289fd04c47dcf3cd44c8fcbb76",
+        "assist": "8471526e64cd8d6ac68718b1b79871e57e17f00022ff7714d65fd402e849ab60"
+      },
+      "weight_shape": [
+        48,
+        2304,
+        640
+      ],
+      "weight_stride": [
+        1474560,
+        640,
+        1
+      ],
+      "weight_dtype": "torch.int32",
+      "gm_addresses": {
+        "weight": 20618294591488,
+        "scale": 20618577707520,
+        "assist": 20618579804160
+      },
+      "all_parameters_original_loader": true
+    },
+    {
+      "live_weight_bytes": 283115520,
+      "live_scale_bytes": 1966080,
+      "live_assist_bytes": 983040,
+      "torch_memory_allocated": 286196224,
+      "torch_memory_reserved": 572522496,
+      "no_weight_duplicate_retained_by_probe": true
+    },
+    {
+      "begin_case": {
+        "case_index": 0,
+        "name": "R1_e0",
+        "R": 1,
+        "row_capacity": 6,
+        "group_list_type": 1,
+        "counts": [
+          1,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        "active_experts": [
+          0
+        ],
+        "synthetic_activation": true,
+        "x_sha256": "4951432abf904be2abde8ed64ee8d4627eb7d0644299bac56c7f4b8d3610fcde",
+        "x_stats": {
+          "shape": [
+            6,
+            2304
+          ],
+          "dtype": "int8",
+          "bytes": 13824,
+          "finite": true,
+          "min": -128.0,
+          "max": 127.0
+        },
+        "token_scale_sha256": "88bc55c8ea207609cdec4368babb1056cd507a83902ce2587fedeaadbab41b10",
+        "token_scale_stats": {
+          "shape": [
+            6
+          ],
+          "dtype": "float32",
+          "bytes": 24,
+          "finite": true,
+          "min": 0.00390625,
+          "max": 0.03125
+        },
+        "counts_sha256": "c85525462fdcf30a2c18d6f4b92923000974355c2477f59594d2c205a1d25add",
+        "weight_physical_NZ_sha256": "ffc24b8d049e82b84d4291e3cf333ddcb9571ff88d625a3f1fb2b2e6337a6567",
+        "scale_sha256": "7f5238b444987c87d73fec22aebf437eb28717289fd04c47dcf3cd44c8fcbb76",
+        "assist_sha256": "8471526e64cd8d6ac68718b1b79871e57e17f00022ff7714d65fd402e849ab60",
+        "SDK_gm_addresses": {
+          "x": 20618580787712,
+          "weight": 20618294591488,
+          "assist": 20618579804160,
+          "scale": 20618577707520,
+          "counts": 20618580802560,
+          "token_scale": 20618580802048
+        },
+        "borrowed_stream": 187651054183768
+      }
+    },
+    {
+      "bridge_stage": "aclrtGetCurrentContext:per_case",
+      "code": 0
+    },
+    {
+      "bridge_stage": "same_borrowed_context_guard",
+      "code": 0
+    },
+    {
+      "bridge_stage": "frozen_buffer_contract",
+      "code": -910403
+    },
+    {
+      "stage": "raw_native_A1",
+      "code": -910403
+    },
+    {
+      "numeric_gate_failure": "raw_native_A1: SDK/bridge returned -910403",
+      "stop_all_following_cases": true
+    },
+    {
+      "bridge_stage": "cleanup:single_tensor_list",
+      "code": 0
+    },
+    {
+      "bridge_stage": "cleanup:single_tensor_list",
+      "code": 0
+    },
+    {
+      "bridge_stage": "cleanup:single_tensor_list",
+      "code": 0
+    },
+    {
+      "bridge_stage": "cleanup:single_tensor_list",
+      "code": 0
+    },
+    {
+      "bridge_stage": "cleanup:single_tensor_list",
+      "code": 0
+    },
+    {
+      "bridge_stage": "cleanup:y",
+      "code": 0
+    },
+    {
+      "bridge_stage": "cleanup:workspace",
+      "code": 0
+    },
+    {
+      "bridge_stage": "cleanup:loader_v2_close",
+      "code": 0
+    },
+    {
+      "bridge_terminal": true,
+      "native_launch_attempts": 0,
+      "candidate_launch_attempts": 0,
+      "planner_launch_attempts": 0,
+      "live_binaries": 0,
+      "blob_bytes": 0,
+      "owner_retained": false,
+      "context_stream_owner": "Torch; released at this process exit",
+      "explicit_device_reset_calls": 0
+    },
+    {
+      "terminal": true,
+      "passed": false,
+      "scope": "synthetic INT8/FP32 activation, real original-loader E48 W2, M1 capacity6",
+      "physical": 6,
+      "logical": 0,
+      "performance_measured": false,
+      "full_model_executed": false,
+      "K5_verifier_coverage": false,
+      "explicit_reset_or_empty_cache_calls": 0,
+      "Torch_context_and_stream_borrowed": true,
+      "container_PID": 1272703,
+      "failure_type": "RuntimeError",
+      "failure": "raw_native_A1: SDK/bridge returned -910403",
+      "traceback": "Traceback (most recent call last):\n  File \"/work/gmm_lane_sparse_msd_m1_numeric_p6_20261011_v3/source/runtime_numeric.py\", line 198, in run\n    checked(label, lib.m1_probe_run(owner, x.data_ptr(), weight.data_ptr(), assist.data_ptr(),\n  File \"/work/gmm_lane_sparse_msd_m1_numeric_p6_20261011_v3/source/runtime_numeric.py\", line 31, in checked\n    if code: raise RuntimeError(f'{stage}: SDK/bridge returned {code}')\n             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nRuntimeError: raw_native_A1: SDK/bridge returned -910403\n",
+      "partial_case_result": {
+        "case_index": 0,
+        "name": "R1_e0",
+        "R": 1,
+        "row_capacity": 6,
+        "group_list_type": 1,
+        "counts": [
+          1,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        "active_experts": [
+          0
+        ],
+        "synthetic_activation": true,
+        "x_sha256": "4951432abf904be2abde8ed64ee8d4627eb7d0644299bac56c7f4b8d3610fcde",
+        "x_stats": {
+          "shape": [
+            6,
+            2304
+          ],
+          "dtype": "int8",
+          "bytes": 13824,
+          "finite": true,
+          "min": -128.0,
+          "max": 127.0
+        },
+        "token_scale_sha256": "88bc55c8ea207609cdec4368babb1056cd507a83902ce2587fedeaadbab41b10",
+        "token_scale_stats": {
+          "shape": [
+            6
+          ],
+          "dtype": "float32",
+          "bytes": 24,
+          "finite": true,
+          "min": 0.00390625,
+          "max": 0.03125
+        },
+        "counts_sha256": "c85525462fdcf30a2c18d6f4b92923000974355c2477f59594d2c205a1d25add",
+        "weight_physical_NZ_sha256": "ffc24b8d049e82b84d4291e3cf333ddcb9571ff88d625a3f1fb2b2e6337a6567",
+        "scale_sha256": "7f5238b444987c87d73fec22aebf437eb28717289fd04c47dcf3cd44c8fcbb76",
+        "assist_sha256": "8471526e64cd8d6ac68718b1b79871e57e17f00022ff7714d65fd402e849ab60",
+        "SDK_gm_addresses": {
+          "x": 20618580787712,
+          "weight": 20618294591488,
+          "assist": 20618579804160,
+          "scale": 20618577707520,
+          "counts": 20618580802560,
+          "token_scale": 20618580802048,
+          "output": 20618580803072
+        },
+        "borrowed_stream": 187651054183768,
+        "SDK_output": {
+          "shape": [
+            1,
+            5120
+          ],
+          "dtype": "float32",
+          "bytes": 20480,
+          "finite": true,
+          "min": -0.58203125,
+          "max": 0.5234375,
+          "BF16_bytes_sha256": "b495c6cd1f7f7afac40e106c758470b25f0db3b861e10506f1dd164309675035"
+        }
+      },
+      "bridge_cleanup_code": 0,
+      "owner_retained_after_close": false,
+      "SDK_math_launch_attempts": 1,
+      "raw_native_math_launch_attempts": 1,
+      "candidate_math_launch_attempts": 0,
+      "planner_launch_attempts": 0,
+      "cases_passed": 0,
+      "case_names_passed": [],
+      "Torch_resources_release": "Original SDK owner cleanup at this process exit; no device reset/cache clear"
+    }
+  ],
+  "runtime_log_bytes": 42830163,
+  "runtime_log_sha256": "1e317e44fccf3e44ee50ce72996131450af951ea7ff66c1afdc10ae0ab356d4c",
+  "runtime_retries": 0,
+  "dependency_sha256_after": {
+    "/work/gmm_lane_sparse_msd_build_20261011_v3_repro/op_build_candidate/Gmm2SparseMsdDown_candidate_v6.o": "bd08a12b15d14f44a2c63a2ff91ec2977a0ed2b62645ed7d43273ee2fb024970",
+    "/work/gmm_lane_sparse_msd_build_20261011_v3_repro/op_build_native/Gmm2NativeMsdDown_control_v6.o": "1e8a606d459bd4560b0e19efbb1894d98a1826bf0048eb9fa16d930b7d46ec0d",
+    "/work/gmm_lane_sparse_msd_build_20261011_v3_repro/planner_cpu_rebuild.o": "f921e2d9c895aca5958177a17bd398f058c7a1d8910564bcd54c4dd98b51b770",
+    "/work/gmm_lane_sparse_msd_build_20261011_v3_repro/libgmm2_sparse_msd_probe.so": "02816eb5b23f93d7784258578a9aecf8df7dc35b4bc3feacb15af3020ad10ac8"
+  }
+}

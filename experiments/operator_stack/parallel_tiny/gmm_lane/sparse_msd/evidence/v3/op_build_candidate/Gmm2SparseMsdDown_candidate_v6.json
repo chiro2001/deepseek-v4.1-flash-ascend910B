@@ -1,0 +1,228 @@
+{
+    "binFileName": "Gmm2SparseMsdDown_candidate_v6",
+    "binFileSuffix": ".o",
+    "blockDim": 24,
+    "coreType": "MIX",
+    "intercoreSync": 1,
+    "kernelName": "Gmm2SparseMsdDown_candidate_v6",
+    "magic": "RT_DEV_BINARY_MAGIC_ELF",
+    "memoryStamping": [],
+    "opParaSize": 2040,
+    "parameters": [
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null
+    ],
+    "sha256": "bd08a12b15d14f44a2c63a2ff91ec2977a0ed2b62645ed7d43273ee2fb024970",
+    "workspace": {
+        "num": 1,
+        "size": [
+            117440512
+        ],
+        "type": [
+            0
+        ]
+    },
+    "taskRation": "1:2",
+    "supportSuperKernel": 1,
+    "schedule_mode": 1,
+    "localMemorySize": 0,
+    "dynamicParamMode": "folded_with_desc",
+    "supportInfo": {
+        "int64Mode": true,
+        "dynamicParamMode": "folded_with_desc",
+        "staticKey": "d9eaf59356aa9543e0b2617e3d87059a852064f79189ff79a76e602c65cb7734",
+        "inputs": [
+            [
+                {
+                    "name": "x",
+                    "dtype": "int8",
+                    "shape": [
+                        6,
+                        2304
+                    ],
+                    "format": "ND",
+                    "ori_shape": [
+                        6,
+                        2304
+                    ],
+                    "ori_format": "ND",
+                    "index": 0,
+                    "paramType": "dynamic",
+                    "format_match_mode": "FormatAgnostic"
+                }
+            ],
+            [
+                {
+                    "name": "weight",
+                    "dtype": "int4",
+                    "shape": [
+                        48,
+                        80,
+                        144,
+                        16,
+                        64
+                    ],
+                    "format": "FRACTAL_NZ",
+                    "ori_shape": [
+                        48,
+                        2304,
+                        5120
+                    ],
+                    "ori_format": "ND",
+                    "index": 1,
+                    "paramType": "dynamic",
+                    "format_match_mode": "FormatAgnostic"
+                }
+            ],
+            [
+                {
+                    "name": "bias",
+                    "dtype": "float32",
+                    "shape": [
+                        48,
+                        5120
+                    ],
+                    "format": "ND",
+                    "ori_shape": [
+                        48,
+                        5120
+                    ],
+                    "ori_format": "ND",
+                    "index": 2,
+                    "paramType": "dynamic",
+                    "format_match_mode": "FormatAgnostic"
+                }
+            ],
+            [
+                {
+                    "name": "scale",
+                    "dtype": "uint64",
+                    "shape": [
+                        48,
+                        1,
+                        5120
+                    ],
+                    "format": "ND",
+                    "ori_shape": [
+                        48,
+                        1,
+                        5120
+                    ],
+                    "ori_format": "ND",
+                    "index": 3,
+                    "paramType": "dynamic",
+                    "format_match_mode": "FormatAgnostic"
+                }
+            ],
+            null,
+            null,
+            null,
+            {
+                "name": "group_list",
+                "dtype": "int64",
+                "shape": [
+                    48
+                ],
+                "format": "ND",
+                "ori_shape": [
+                    48
+                ],
+                "ori_format": "ND",
+                "index": 7,
+                "paramType": "optional",
+                "format_match_mode": "FormatAgnostic"
+            },
+            {
+                "name": "per_token_scale",
+                "dtype": "float32",
+                "shape": [
+                    6
+                ],
+                "format": "ND",
+                "ori_shape": [
+                    6
+                ],
+                "ori_format": "ND",
+                "index": 8,
+                "paramType": "optional",
+                "format_match_mode": "FormatAgnostic"
+            }
+        ],
+        "outputs": [
+            [
+                {
+                    "name": "y",
+                    "dtype": "bfloat16",
+                    "shape": [
+                        6,
+                        5120
+                    ],
+                    "format": "ND",
+                    "ori_shape": [
+                        6,
+                        5120
+                    ],
+                    "ori_format": "ND",
+                    "index": 0,
+                    "paramType": "dynamic",
+                    "format_match_mode": "FormatAgnostic"
+                }
+            ]
+        ],
+        "attrs": [
+            {
+                "name": "split_item",
+                "dtype": "int",
+                "value": 2
+            },
+            {
+                "name": "dtype",
+                "dtype": "int",
+                "value": 27
+            },
+            {
+                "name": "transpose_weight",
+                "dtype": "bool",
+                "value": false
+            },
+            {
+                "name": "transpose_x",
+                "dtype": "bool",
+                "value": false
+            },
+            {
+                "name": "group_type",
+                "dtype": "int",
+                "value": 0
+            },
+            {
+                "name": "group_list_type",
+                "dtype": "int",
+                "value": 1
+            },
+            {
+                "name": "act_type",
+                "dtype": "int",
+                "value": 0
+            },
+            {
+                "name": "tuning_config",
+                "dtype": "list_int",
+                "value": [
+                    0
+                ]
+            }
+        ],
+        "opMode": "dynamic",
+        "op_debug_config": "dump_cce"
+    }
+}

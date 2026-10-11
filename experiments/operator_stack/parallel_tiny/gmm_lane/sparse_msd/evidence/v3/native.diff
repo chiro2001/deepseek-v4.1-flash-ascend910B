@@ -1,0 +1,166 @@
+--- native/grouped_matmul_antiquant_a8w4_msd.h
++++ candidate/grouped_matmul_antiquant_a8w4_msd.h
+@@ -99,6 +99,9 @@
+         GM_ADDR group_tokens, GM_ADDR scale, GM_ADDR pertoken_scale, GM_ADDR offset, GM_ADDR logits, GM_ADDR token_ranks, GM_ADDR residual,
+         GM_ADDR y, GM_ADDR workspace, const GMMBaseParams* tilingData, const TCubeTiling* mmTilingData, TPipe *tPipeIn);
+     __aicore__ inline void Process();
++    __aicore__ inline void SetSparsePlanner(GM_ADDR planner) {
++        sparsePlannerGm.SetGlobalBuffer(reinterpret_cast<__gm__ uint32_t*>(planner), 32);
++    }
+ private:
+     __aicore__ inline void InitUbBuffer();
+     __aicore__ inline void MMCompute(uint32_t groupIdx, MNConfig& mnConfig);
+@@ -123,6 +126,7 @@
+     GlobalTensor<DTYPE_PERTOKEN_SCALE_A8W4MSD> perTokenScaleGm;
+     GlobalTensor<DTYPE_OFFSET_A8W4MSD> offsetGm;
+     GlobalTensor<int64_t> groupTokensGm;
++    GlobalTensor<uint32_t> sparsePlannerGm;
+     GlobalTensor<float> logitsGm;
+     GlobalTensor<bfloat16_t> residualGm;
+     GlobalTensor<int32_t> tokenRanksGm;
+@@ -259,6 +263,45 @@
+     if ASCEND_IS_AIC {
+         SyncAll<false>();
+     }
++
++    // The AIV retains the complete native dense loop and numerical body.
++    // Active expert order, tile/core assignment and handshakes stay identical.
++    if ASCEND_IS_AIC {
++        // This MSD class reads counts unconditionally. Some native CPU tiling
++        // blobs retain nominal groupListType=0 even for a count-mode API call;
++        // the new entry's input contract (not that unused field) requires counts.
++        const bool geometry = tiling->groupNum == 48 &&
++            tiling->groupType == 0 && tiling->m == 6 && tiling->k == 2304 && tiling->n == 5120 &&
++            tiling->quantGroupNum == 1 && tiling->isSingleTensor == 1;
++        const bool frame = sparsePlannerGm.GetValue(2) == 0 && sparsePlannerGm.GetValue(3) == 48 &&
++            sparsePlannerGm.GetValue(0) <= 6 && sparsePlannerGm.GetValue(1) <= 6;
++        if (geometry && frame) {
++            uint32_t preCount = 0;
++            for (uint32_t slot = 0; slot < sparsePlannerGm.GetValue(1); ++slot) {
++                const uint32_t pos = 4 + 4 * slot;
++                const uint32_t groupIdx = sparsePlannerGm.GetValue(pos);
++                const uint32_t rowBegin = sparsePlannerGm.GetValue(pos + 1);
++                const uint32_t rowCount = sparsePlannerGm.GetValue(pos + 2);
++                mnConfig.offsetM = rowBegin * 2;
++                mnConfig.m = rowCount * 2;
++                mnConfig.blockDimM = Ceil(mnConfig.m, mnConfig.singleM);
++        mm.SetOrgShape(A8W4preM, tiling->n, tiling->k);
++
++                uint32_t curCount = preCount + mnConfig.blockDimN * mnConfig.blockDimM;
++                uint32_t curBlock = coreIdx >= preCount ? coreIdx : coreIdx + tiling->coreNum;
++                while (curBlock < curCount) {
++                    mnConfig.mIdx = (curBlock - preCount) / mnConfig.blockDimN;
++                    mnConfig.nIdx = (curBlock - preCount) % mnConfig.blockDimN;
++                    MMCompute(groupIdx, mnConfig);
++            if ASCEND_IS_AIV { VectorCompute(groupIdx, mnConfig); }
++
++                    curBlock += tiling->coreNum;
++                }
++                preCount = curCount % tiling->coreNum;
++            }
++            return;
++        }
++    }
+     for (uint32_t groupIdx = 0, preCount = 0; groupIdx < tiling->groupNum; ++groupIdx) {
+         int32_t m = static_cast<int32_t>(groupTokensGm.GetValue(groupIdx));
+         if (m <= 0) {
+--- native/grouped_matmul_antiquant_a8w4_msd_new.h
++++ candidate/grouped_matmul_antiquant_a8w4_msd_new.h
+@@ -98,6 +98,9 @@
+         GM_ADDR group_tokens, GM_ADDR scale, GM_ADDR pertoken_scale, GM_ADDR offset, GM_ADDR logits, GM_ADDR token_ranks, GM_ADDR residual,
+         GM_ADDR y, GM_ADDR workspace, const GMMBaseParams* tilingData, const TCubeTiling* mmTilingData, TPipe *tPipeIn);
+     __aicore__ inline void Process();
++    __aicore__ inline void SetSparsePlanner(GM_ADDR planner) {
++        sparsePlannerGm.SetGlobalBuffer(reinterpret_cast<__gm__ uint32_t*>(planner), 32);
++    }
+ private:
+     __aicore__ inline void InitUbBuffer();
+      __aicore__ inline void MMCompute(uint32_t groupIdx, MNConfig& mnConfig);
+@@ -119,6 +122,7 @@
+     GlobalTensor<DTYPE_SCALE_DEV_A8W4MSD_NEW> scaleGm;
+     GlobalTensor<DTYPE_PERTOKEN_SCALE_A8W4MSD_NEW> perTokenScaleGm;
+     GlobalTensor<int64_t> groupTokensGm;
++    GlobalTensor<uint32_t> sparsePlannerGm;
+     GlobalTensor<float> logitsGm;
+     GlobalTensor<bfloat16_t> residualGm;
+     GlobalTensor<int32_t> tokenRanksGm;
+@@ -238,6 +242,43 @@
+     if ASCEND_IS_AIC {
+         SyncAll<false>();
+     }
++
++    // The AIV retains the complete native dense loop and numerical body.
++    // Active expert order, tile/core assignment and handshakes stay identical.
++    if ASCEND_IS_AIC {
++        // This MSD class reads counts unconditionally. Some native CPU tiling
++        // blobs retain nominal groupListType=0 even for a count-mode API call;
++        // the new entry's input contract (not that unused field) requires counts.
++        const bool geometry = tiling->groupNum == 48 &&
++            tiling->groupType == 0 && tiling->m == 6 && tiling->k == 2304 && tiling->n == 5120 &&
++            tiling->quantGroupNum == 1 && tiling->isSingleTensor == 1;
++        const bool frame = sparsePlannerGm.GetValue(2) == 0 && sparsePlannerGm.GetValue(3) == 48 &&
++            sparsePlannerGm.GetValue(0) <= 6 && sparsePlannerGm.GetValue(1) <= 6;
++        if (geometry && frame) {
++            uint32_t preCount = 0;
++            for (uint32_t slot = 0; slot < sparsePlannerGm.GetValue(1); ++slot) {
++                const uint32_t pos = 4 + 4 * slot;
++                const uint32_t groupIdx = sparsePlannerGm.GetValue(pos);
++                const uint32_t rowBegin = sparsePlannerGm.GetValue(pos + 1);
++                const uint32_t rowCount = sparsePlannerGm.GetValue(pos + 2);
++                mnConfig.offsetM = rowBegin * 2;
++                mnConfig.m = rowCount * 2;
++                mnConfig.blockDimM = Ceil(mnConfig.m, mnConfig.singleM);
++
++                uint32_t curCount = preCount + mnConfig.blockDimN * mnConfig.blockDimM;
++                uint32_t curBlock = coreIdx >= preCount ? coreIdx : coreIdx + tiling->coreNum;
++                while (curBlock < curCount) {
++                    mnConfig.mIdx = (curBlock - preCount) / mnConfig.blockDimN;
++                    mnConfig.nIdx = (curBlock - preCount) % mnConfig.blockDimN;
++                    MMCompute(groupIdx, mnConfig);
++
++                    curBlock += tiling->coreNum;
++                }
++                preCount = curCount % tiling->coreNum;
++            }
++            return;
++        }
++    }
+     for (uint32_t groupIdx = 0, preCount = 0; groupIdx < tiling->groupNum; ++groupIdx) {
+         int32_t m = static_cast<int32_t>(groupTokensGm.GetValue(groupIdx));
+         if (m <= 0) {
+--- native/grouped_matmul.cpp
++++ candidate/grouped_matmul.cpp
+@@ -285,6 +285,7 @@
+             auto userCV = user1 + AlignUp<8>(gmmBaseParams_.m) * gmmBaseParams_.k ;                                    \
+             op.Init(user1, weight, bias, groupList, scale, perTokenScale, offset, nullptr, nullptr, nullptr,           \
+                     y, userCV, &gmmBaseParams_, &mmTilingData_, &tPipe);                                               \
++            op.SetSparsePlanner(sparsePlanner);                                                    \
+             op.Process();                                                                                              \
+         } else {                                                                                                       \
+             using aT = MatmulType<TPosition::GM, CubeFormat::ND, DTYPE_X_DEV_A8W4MSD, false>;                          \
+@@ -302,6 +303,7 @@
+             computeClass<matmulType> op(mm);                                                                           \
+             op.Init(x, weight, bias, groupList, scale, perTokenScale, offset, nullptr, nullptr, nullptr,               \
+                     y, user1, &gmmBaseParams_, &mmTilingData_, &tPipe);                                                \
++            op.SetSparsePlanner(sparsePlanner);                                                    \
+             op.Process();                                                                                              \
+         }                                                                                              \
+     } while (0)
+@@ -381,7 +383,7 @@
+ 
+ template <int D_T_A, int D_T_B, int D_T_Y, int TRANS_A, int TRANS_B, int GROUP_LIST_TYPE,
+           int IS_STATIC_TILING_API, int A8W4_KERNEL_TEMPLATE, int A16W8_KERNEL_TEMPLATE, int AIV_AIC_RATIO, bool IS_ENABLE_FIXED_AXIS>
+-__global__ __aicore__ void grouped_matmul(GM_ADDR x, GM_ADDR weight, GM_ADDR bias, GM_ADDR scale,
++__global__ __aicore__ void gmm2_sparse_msd(GM_ADDR x, GM_ADDR weight, GM_ADDR bias, GM_ADDR scale,
+                                                      GM_ADDR offset, GM_ADDR antiquantScale, GM_ADDR antiquantOffset,
+                                                      GM_ADDR groupList, GM_ADDR perTokenScale, GM_ADDR y,
+                                                      GM_ADDR workspace, GM_ADDR tiling)
+@@ -390,6 +392,8 @@
+     AscendCUtils::SetOverflow(1);
+     KERNEL_TASK_TYPE_DEFAULT(KERNEL_TYPE_AIC_ONLY);
+     GM_ADDR user1 = GetUserWorkspace(workspace);
++    GM_ADDR sparsePlanner = user1;
++    user1 += 128; // extra private workspace prefix; native workspace/tiling is unchanged
+ 
+ #if (defined(__CCE_AICORE__) && __CCE_AICORE__ == 220) || (defined(__NPU_ARCH__) && (__NPU_ARCH__ == 3003 || __NPU_ARCH__ == 3113))
+ #if defined(GMM_ANTI_QUANT_A8W4_MSD)

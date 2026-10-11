@@ -1,0 +1,324 @@
+{
+  "command": [
+    "/work/gmm_lane_sparse_msd_launch_args_v3_npu_p6_20261011_v1/runtime_hostargs_r0",
+    "/work/gmm_lane_sparse_msd_build_20261011_v3_repro"
+  ],
+  "exit_code": 0,
+  "timeout": false,
+  "events": [
+    {
+      "container_PID": 1247774,
+      "authorized_physical": 6,
+      "only_R0": true
+    },
+    {
+      "stage": "aclInit",
+      "code": 0
+    },
+    {
+      "stage": "aclrtGetDeviceCount",
+      "code": 0
+    },
+    {
+      "stage": "single_visible_device_guard",
+      "code": 0
+    },
+    {
+      "stage": "rtGetDeviceIndexByPhyId(6)",
+      "code": 0
+    },
+    {
+      "stage": "rtGetDevicePhyIdByIndex",
+      "code": 0
+    },
+    {
+      "physical": 6,
+      "logical": 0,
+      "visible_device_count": 1
+    },
+    {
+      "stage": "physical6_mapping_guard",
+      "code": 0
+    },
+    {
+      "stage": "logical0_guard",
+      "code": 0
+    },
+    {
+      "stage": "aclrtCreateContext",
+      "code": 0
+    },
+    {
+      "stage": "aclrtSetCurrentContext",
+      "code": 0
+    },
+    {
+      "stage": "aclrtGetDevice",
+      "code": 0
+    },
+    {
+      "stage": "current_device_guard",
+      "code": 0
+    },
+    {
+      "loader_stage": "ready",
+      "primary_error": 0,
+      "cleanup_error": 0,
+      "live_binaries": 3,
+      "owned_blob_bytes": 77352
+    },
+    {
+      "stage": "gmm2_sparse_loader_v2_open",
+      "code": 0
+    },
+    {
+      "stage": "gmm2_sparse_loader_v2_functions",
+      "code": 0
+    },
+    {
+      "stage": "aclrtGetFunctionAddr:planner",
+      "code": 0
+    },
+    {
+      "function": "planner",
+      "aic_address": 0,
+      "aiv_address": 20618009378816
+    },
+    {
+      "stage": "function_engine_pair_guard",
+      "code": 0
+    },
+    {
+      "stage": "aclrtGetFunctionSize:planner",
+      "code": 0
+    },
+    {
+      "function_size": "planner",
+      "aic_bytes": 0,
+      "aiv_bytes": 368
+    },
+    {
+      "stage": "function_size_pair_guard",
+      "code": 0
+    },
+    {
+      "stage": "aclrtGetFunctionAddr:native",
+      "code": 0
+    },
+    {
+      "function": "native",
+      "aic_address": 20618009415680,
+      "aiv_address": 20618009420832
+    },
+    {
+      "stage": "function_engine_pair_guard",
+      "code": 0
+    },
+    {
+      "stage": "aclrtGetFunctionSize:native",
+      "code": 0
+    },
+    {
+      "function_size": "native",
+      "aic_bytes": 5152,
+      "aiv_bytes": 8440
+    },
+    {
+      "stage": "function_size_pair_guard",
+      "code": 0
+    },
+    {
+      "stage": "aclrtGetFunctionAddr:candidate",
+      "code": 0
+    },
+    {
+      "function": "candidate",
+      "aic_address": 20618009436160,
+      "aiv_address": 20618009444908
+    },
+    {
+      "stage": "function_engine_pair_guard",
+      "code": 0
+    },
+    {
+      "stage": "aclrtGetFunctionSize:candidate",
+      "code": 0
+    },
+    {
+      "function_size": "candidate",
+      "aic_bytes": 8748,
+      "aiv_bytes": 8440
+    },
+    {
+      "stage": "function_size_pair_guard",
+      "code": 0
+    },
+    {
+      "stage": "aclrtCreateStream",
+      "code": 0
+    },
+    {
+      "stage": "aclrtMalloc:counts384B",
+      "code": 0
+    },
+    {
+      "stage": "aclrtMalloc:frame+canaries384B",
+      "code": 0
+    },
+    {
+      "stage": "aclrtMallocHost:counts384B",
+      "code": 0
+    },
+    {
+      "stage": "aclrtMemcpyAsync:counts",
+      "code": 0
+    },
+    {
+      "stage": "aclrtMemsetAsync:frame_canaries",
+      "code": 0
+    },
+    {
+      "args_API": "aclrtLaunchKernelWithHostArgs",
+      "bytes": 16,
+      "placeholders": 0,
+      "host_args_address": 281474497770528,
+      "counts_GM_address": 20619064336384,
+      "frame_GM_address": 20619064340608,
+      "host_source_lifetime": "retained through sync and readback"
+    },
+    {
+      "stage": "gmm2_launch_v3_host_args:planner_R0_only",
+      "code": 0
+    },
+    {
+      "stage": "aclrtSynchronizeStreamWithTimeout",
+      "code": 0
+    },
+    {
+      "stage": "aclrtMemcpy:frame_canaries_D2H",
+      "code": 0
+    },
+    {
+      "case": 0,
+      "rows": 0,
+      "slots": 0,
+      "frame_byte_exact": true,
+      "canaries_intact": true,
+      "frame_words": [
+        0,
+        0,
+        0,
+        48,
+        4294967295,
+        0,
+        0,
+        0,
+        4294967295,
+        0,
+        0,
+        0,
+        4294967295,
+        0,
+        0,
+        0,
+        4294967295,
+        0,
+        0,
+        0,
+        4294967295,
+        0,
+        0,
+        0,
+        4294967295,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "stage": "planner_frame_oracle_guard",
+      "code": 0
+    },
+    {
+      "cleanup": "aclrtDestroyStream",
+      "code": 0
+    },
+    {
+      "cleanup": "aclrtFree:frame",
+      "code": 0
+    },
+    {
+      "cleanup": "aclrtFree:counts",
+      "code": 0
+    },
+    {
+      "cleanup": "aclrtFreeHost:counts",
+      "code": 0
+    },
+    {
+      "cleanup": "gmm2_sparse_loader_v2_close",
+      "code": 0
+    },
+    {
+      "owner_retained_after_close": false,
+      "live_binaries_after_close": 0,
+      "blob_bytes_after_close": 0
+    },
+    {
+      "cleanup": "aclrtDestroyContext",
+      "code": 0
+    },
+    {
+      "cleanup": "aclFinalize",
+      "code": 0
+    },
+    {
+      "terminal": true,
+      "passed": true,
+      "terminal_stage": "",
+      "terminal_code": 0,
+      "registration_passed": true,
+      "physical": 6,
+      "logical": 0,
+      "planner_launches": 1,
+      "planner_cases_passed": 1,
+      "GMM_math_launches": 0,
+      "weight_bytes": 0,
+      "device_reset_calls": 0
+    }
+  ],
+  "terminal": {
+    "terminal": true,
+    "passed": true,
+    "terminal_stage": "",
+    "terminal_code": 0,
+    "registration_passed": true,
+    "physical": 6,
+    "logical": 0,
+    "planner_launches": 1,
+    "planner_cases_passed": 1,
+    "GMM_math_launches": 0,
+    "weight_bytes": 0,
+    "device_reset_calls": 0
+  },
+  "only_physical6_authorized": true,
+  "ASCEND_RT_VISIBLE_DEVICES": "6",
+  "ASCEND_VISIBLE_DEVICES": "6",
+  "GMM_math_launches": 0,
+  "weight_bytes": 0,
+  "CPU_mutation_objects_launched": 0,
+  "runtime_log_bytes": 1557688,
+  "runtime_log_sha256": "2cb346451e8e3645085c08cebe960a0e16b1b0d6f061b01022435ca411e62b53",
+  "objects_sha256_after": {
+    "candidate": "bd08a12b15d14f44a2c63a2ff91ec2977a0ed2b62645ed7d43273ee2fb024970",
+    "native": "1e8a606d459bd4560b0e19efbb1894d98a1826bf0048eb9fa16d930b7d46ec0d",
+    "planner": "f921e2d9c895aca5958177a17bd398f058c7a1d8910564bcd54c4dd98b51b770",
+    "host_adapter": "02816eb5b23f93d7784258578a9aecf8df7dc35b4bc3feacb15af3020ad10ac8"
+  },
+  "loader_v2_sha256_after": "b2e6c3033f372a0542d96f9aa2053f230617052aacd2b37bd484a5293b4cf884",
+  "launch_v3_sha256_after": "5af9db3a35f3cc652bb7643b71f64fb621c70e66e89cd6896b0d0c49787571f5"
+}

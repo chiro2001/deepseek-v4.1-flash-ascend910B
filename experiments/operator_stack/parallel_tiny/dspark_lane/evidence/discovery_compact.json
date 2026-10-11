@@ -1,0 +1,293 @@
+{
+  "time": "2026-10-11 13:47:12 +0800",
+  "container": "dsv41-tiny-goal20-20261010-c6",
+  "privileged": true,
+  "mounts": [
+    {
+      "source": "/home/l00886679/projects/dsv41-tiny-prof-20261009",
+      "target": "/work",
+      "rw": true
+    },
+    {
+      "source": "/home/l00886679/models/out/v41-tiny",
+      "target": "/model",
+      "rw": false
+    }
+  ],
+  "env": {
+    "GOAL20_CHIP": "6"
+  },
+  "processes": "PID                 PPID                COMMAND             COMMAND\n3648300             3647952             sleep               sleep infinity\n",
+  "physical4_smi_lines": [
+    "| 2     Ascend910           | OK            | 175.5                49                      0    / 0                |",
+    "| 0     4                   | 0000:95:00.0  | 0                    0    / 0                3292 / 65536            |",
+    "| 2     Ascend910           | OK            | -                    50                      0    / 0                |",
+    "| 4     Ascend910           | Alarm         | 176.2                51                      0    / 0                |",
+    "| 4     Ascend910           | Alarm         | -                    51                      0    / 0                |",
+    "| 2       1                 | 38304         | VLLMEngineCor      | 17739                 | NA                      |"
+  ],
+  "tiny_dspark_config_sha256": "ad72656e807079b39a5e94f05f5ffe45116725787239344adb4577fc4a2671c3",
+  "tiny_dspark_files": [
+    {
+      "path": "dspark_derivation.json",
+      "bytes": 1111,
+      "is_link": false,
+      "target": "/home/l00886679/models/out/v41-tiny-dspark/dspark_derivation.json"
+    },
+    {
+      "path": "config.json",
+      "bytes": 3040,
+      "is_link": false,
+      "target": "/home/l00886679/models/out/v41-tiny-dspark/config.json"
+    },
+    {
+      "path": "tokenizer_config.json",
+      "bytes": 801,
+      "is_link": false,
+      "target": "/home/l00886679/models/out/v41-tiny-dspark/tokenizer_config.json"
+    },
+    {
+      "path": "configuration.json",
+      "bytes": 26,
+      "is_link": false,
+      "target": "/home/l00886679/models/out/v41-tiny-dspark/configuration.json"
+    },
+    {
+      "path": "l1_dummy_provenance.json",
+      "bytes": 1506,
+      "is_link": false,
+      "target": "/home/l00886679/models/out/v41-tiny-dspark/l1_dummy_provenance.json"
+    },
+    {
+      "path": "tokenizer.json",
+      "bytes": 6367257,
+      "is_link": false,
+      "target": "/home/l00886679/models/out/v41-tiny-dspark/tokenizer.json"
+    }
+  ],
+  "tiny_dspark_config": {
+    "hidden_size": 5120,
+    "num_hidden_layers": 40,
+    "hidden_act": "silu",
+    "n_routed_experts": 8,
+    "n_shared_experts": 1,
+    "num_experts_per_tok": 2,
+    "engram_layer_ids": [],
+    "engram_num_embeddings": [],
+    "engram_max_ngram_size": 4,
+    "engram_vocab_size": 16000000,
+    "engram_n_heads": 8,
+    "engram_head_dim": 256,
+    "engram_pad_token_id": 2,
+    "engram_compressed_vocab_size": 99092,
+    "num_nextn_predict_layers": 3,
+    "dspark_block_size": 5,
+    "dspark_noise_token_id": 128799,
+    "dspark_target_layer_ids": [
+      37,
+      38,
+      39
+    ],
+    "dspark_markov_rank": 256,
+    "dspark_n_routed_experts": 8,
+    "dspark_num_experts_per_tok": 2
+  },
+  "stock_sources": [
+    {
+      "path": "/vllm-workspace/vllm-ascend/vllm_ascend/spec_decode/dspark_proposer.py",
+      "bytes": 54873,
+      "sha256": "bd1004869551791ae481a3cb7c61b124ee25300905f89097799ab4572439fd67"
+    },
+    {
+      "path": "/vllm-workspace/vllm-ascend/vllm_ascend/spec_decode/llm_base_proposer.py",
+      "bytes": 191288,
+      "sha256": "681c76017b1a508b64ce2594960c605a74008b4fd878a082788551e9b8f53db8"
+    },
+    {
+      "path": "/vllm-workspace/vllm-ascend/vllm_ascend/worker/model_runner_v1.py",
+      "bytes": 278172,
+      "sha256": "67035d97f1cea4ae2df31adcc33f1de952f4cab6d8421e76df512296e0e3185e"
+    },
+    {
+      "path": "/vllm-workspace/vllm-ascend/vllm_ascend/models/deepseek_v41/model.py",
+      "bytes": 78664,
+      "sha256": "dfbc3c0d3b0f9ce3349509de5dfb3799a47f834eec26a951769bf4a54e6c022b"
+    },
+    {
+      "path": "/vllm-workspace/vllm-ascend/vllm_ascend/models/deepseek_mtp.py",
+      "bytes": 3670,
+      "sha256": "9905fd468d612e579a120be8c080460b49a79561b34a38ded6fbf0954212667f"
+    }
+  ],
+  "source_matches": {
+    "/vllm-workspace/vllm-ascend/vllm_ascend/spec_decode/dspark_proposer.py": [
+      {
+        "line": 22,
+        "text": "from vllm_ascend.ops.triton.spec_decode.utils import copy_and_expand_dflash_and_dspark_inputs_kernel"
+      },
+      {
+        "line": 26,
+        "text": "    _dspark_ptr_line,"
+      },
+      {
+        "line": 27,
+        "text": "    _dspark_row_dump,"
+      },
+      {
+        "line": 28,
+        "text": "    _dspark_ptr_snapshot,"
+      },
+      {
+        "line": 33,
+        "text": "# [DSV41 fix] DSpark draft ACL-graph capture must bake in *real* draft attention"
+      },
+      {
+        "line": 45,
+        "text": "# [DSV41 fix-candidate] capture 期把 draft 的 slot_mapping 置 -1（不写 KV）。"
+      },
+      {
+        "line": 46,
+        "text": "# 见 `_build_capture_draft_attn_metadata` 里的长注释与 `[dspark-capture-pad]` 日志。"
+      },
+      {
+        "line": 64,
+        "text": "#   (a) 捕获期的 draft metadata 必须用**代表性值域**（`runner.seq_lens` /"
+      },
+      {
+        "line": 99,
+        "text": "# [DSV41 fix step 2] The draft graph also needs the device-metadata *wait* inside"
+      },
+      {
+        "line": 100,
+        "text": "# the graph, otherwise the metadata stream (sas_metadata / dspark_swa_indices) and"
+      }
+    ],
+    "/vllm-workspace/vllm-ascend/vllm_ascend/spec_decode/llm_base_proposer.py": [
+      {
+        "line": 30,
+        "text": "from vllm.model_executor.models.qwen3_dspark import Qwen3DSparkForCausalLM"
+      },
+      {
+        "line": 31,
+        "text": "from vllm.models.kimi_k3.nvidia.dspark_mla import K3DSparkForCausalLM"
+      },
+      {
+        "line": 57,
+        "text": "from vllm_ascend.models.deepseek_v4.dspark import DSparkDeepseekV4ForCausalLM"
+      },
+      {
+        "line": 63,
+        "text": "# [DSV41 probe] Shadow eager A/B for the DSpark draft graph: after a graph"
+      },
+      {
+        "line": 64,
+        "text": "# replay, re-run the *same* draft forward eagerly on the same buffers and diff"
+      },
+      {
+        "line": 65,
+        "text": "# the produced draft token ids. Enabled with DSPARK_GRAPH_SHADOW_EAGER=1."
+      },
+      {
+        "line": 69,
+        "text": "# [DSV41 input-dump] 见 `_dspark_row_dump`。"
+      },
+      {
+        "line": 75,
+        "text": "# [DSV41 NO-ATTN] 判定实验：强制 draft 的 `draft_attn_metadatas=None` ⇒"
+      },
+      {
+        "line": 77,
+        "text": "# 用途：把\"draft attention 算错了\"与\"别的原因\"分开 —— 若关掉 attention 后 A 反而变好，"
+      },
+      {
+        "line": 78,
+        "text": "# 就说明 draft attention 是罪魁；若变差，说明 attention 必须在。"
+      }
+    ],
+    "/vllm-workspace/vllm-ascend/vllm_ascend/worker/model_runner_v1.py": [
+      {
+        "line": 101,
+        "text": "from vllm.v1.sample.rejection_sampler import PLACEHOLDER_TOKEN_ID, RejectionSampler"
+      },
+      {
+        "line": 103,
+        "text": "from vllm.v1.spec_decode.ngram_proposer_gpu import copy_num_valid_draft_tokens"
+      },
+      {
+        "line": 136,
+        "text": "    set_draft_graph_params,"
+      },
+      {
+        "line": 171,
+        "text": "from vllm_ascend.spec_decode.draft_proposer import AscendDraftModelProposer"
+      },
+      {
+        "line": 172,
+        "text": "from vllm_ascend.spec_decode.dspark_proposer import AscendDSparkProposer"
+      },
+      {
+        "line": 228,
+        "text": "from vllm_ascend.sample.rejection_sampler import AscendRejectionSampler"
+      },
+      {
+        "line": 291,
+        "text": "def get_tp_context(drafter):"
+      },
+      {
+        "line": 292,
+        "text": "    return getattr(drafter, \"tp_group_context\", nullcontext())"
+      },
+      {
+        "line": 476,
+        "text": "        self._set_up_drafter()"
+      },
+      {
+        "line": 565,
+        "text": "        self.num_draft_tokens = self._make_buffer(self.max_num_reqs, dtype=torch.int32)"
+      }
+    ],
+    "/vllm-workspace/vllm-ascend/vllm_ascend/models/deepseek_v41/model.py": [
+      {
+        "line": 921,
+        "text": "        # DSpark is disabled until its draft cache has a dedicated D-side"
+      },
+      {
+        "line": 929,
+        "text": "        #   * prefill：**架构性不可行**，永远拒绝。DSpark 的 aux hidden state 取自"
+      },
+      {
+        "line": 930,
+        "text": "        #     目标层 37/38/39（config.json 的 dspark_target_layer_ids=[37,38,39]"
+      },
+      {
+        "line": 933,
+        "text": "        #     runner 又因为 dspark 强制 use_aux_hidden_state_outputs=True 而无条件"
+      },
+      {
+        "line": 935,
+        "text": "        #   * decode：**默认放行**（2026-09-27 起 DSpark 是交付口径）。要退回"
+      },
+      {
+        "line": 937,
+        "text": "        #     \"我明确不要 DSpark\"，此时仍然拒绝 —— 这是为了抓\"env 与 SPEC"
+      },
+      {
+        "line": 941,
+        "text": "                \"V41_CED_ROLE=prefill requires SPEC=0: DSpark consumes the residual \""
+      },
+      {
+        "line": 951,
+        "text": "                \"V41_CED_ROLE=decode got SPEC!=0 (DSpark enabled) together with \""
+      },
+      {
+        "line": 952,
+        "text": "                \"V41_CED_ALLOW_DSPARK=0. These contradict each other: DSpark is the \""
+      },
+      {
+        "line": 1480,
+        "text": "            # DSpark consumes the residual stream entering its configured"
+      }
+    ],
+    "/vllm-workspace/vllm-ascend/vllm_ascend/models/deepseek_mtp.py": []
+  }
+}

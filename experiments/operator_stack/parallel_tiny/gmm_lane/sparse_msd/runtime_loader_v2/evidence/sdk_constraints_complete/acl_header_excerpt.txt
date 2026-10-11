@@ -1,0 +1,39 @@
+472:#define ACL_RT_BINARY_MAGIC_ELF_AICORE      0x43554245U
+473:#define ACL_RT_BINARY_MAGIC_ELF_VECTOR_CORE 0x41415246U
+474:#define ACL_RT_BINARY_MAGIC_ELF_CUBE_CORE   0x41494343U
+475:
+476:typedef enum aclrtBinaryLoadOptionType {
+477:    ACL_RT_BINARY_LOAD_OPT_LAZY_LOAD = 1,
+478:    ACL_RT_BINARY_LOAD_OPT_LAZY_MAGIC = 2,
+479:    ACL_RT_BINARY_LOAD_OPT_MAGIC = 2,
+480:    ACL_RT_BINARY_LOAD_OPT_CPU_KERNEL_MODE = 3,
+481:} aclrtBinaryLoadOptionType;
+482:
+483:typedef union aclrtBinaryLoadOptionValue {
+484:    uint32_t isLazyLoad;
+485:    uint32_t magic;
+486:    int32_t cpuKernelMode;
+487:    uint32_t rsv[4];
+488:} aclrtBinaryLoadOptionValue;
+489:
+490:typedef struct {
+491:    aclrtBinaryLoadOptionType type;
+492:    aclrtBinaryLoadOptionValue value;
+493:} aclrtBinaryLoadOption;
+494:
+495:typedef struct aclrtBinaryLoadOptions {
+496:    aclrtBinaryLoadOption *options;
+497:    size_t numOpt;
+498:} aclrtBinaryLoadOptions;
+4307:/**
+4308: * @ingroup AscendCL
+4309: * @brief Load kernel binary from given bin data buffer
+4310: * @param data [in]         kernel binary data ptr
+4311: * @param length [in]       kernel binary data length
+4312: * @param options [in]      optional, can be nullptr
+4313: * @param binHandle [out]   load result
+4314: * @retval ACL_SUCCESS The function is successfully executed.
+4315: * @retval OtherValues Failure
+4316: */
+4317:ACL_FUNC_VISIBILITY aclError aclrtBinaryLoadFromData(const void *data, size_t length,
+4318:    const aclrtBinaryLoadOptions *options, aclrtBinHandle *binHandle);

@@ -1,0 +1,60 @@
+{
+  "job": "formal_dspark_native_eager_aa_v2",
+  "exit": 1,
+  "scope": "native DSpark ON A/A audit failed all-rank client completion boundary; no formal quote",
+  "exception": "Client completion precedes final worker sample completion",
+  "bank_complete": true,
+  "native_dspark_loaded": true,
+  "completed_counted_requests": 1,
+  "audit_output_budget": 47,
+  "native_aa_passed": false,
+  "full_consumer_audit_passed": false,
+  "formal_performance_claim": null,
+  "diagnostic_triplets": [
+    {
+      "tag": "pair-0-a",
+      "ms_per_step": 55.52581875,
+      "A": 5.75,
+      "tokens_per_second": 103.55542933799603,
+      "decoded_tokens": 46,
+      "rounds": 8,
+      "scope": "audit route/logprob export enabled; single complete counter only, not performance"
+    }
+  ],
+  "failed_request_raw_evidence_retained": false,
+  "fix": "actual per-rank device fence and timestamp followed by stock CPU Gloo TP8 terminal join; retain raw receipts before gate",
+  "raw_files": {
+    "launched.json": {
+      "bytes": 6729,
+      "sha256": "efe28a208d1f0df8f1387bb3babf1cb2d0b2836e2ad060b1981b68c437eee2df"
+    },
+    "resource_prelaunch.txt": {
+      "bytes": 8658,
+      "sha256": "eb659481c79e1d709ccbc19f6a6c0adcd091df5ecf3d5b150ee01f74c0a69ae8"
+    },
+    "start.utc": {
+      "bytes": 21,
+      "sha256": "375e29f175fb8b74a3c88f4d2ce71b77f5f83c1d646e337869a0ad96324daef5"
+    },
+    "run.exit": {
+      "bytes": 2,
+      "sha256": "4355a46b19d348dc2f57c046f8ef63d4538ebb936000f3c9ee954a27460dd865"
+    },
+    "result.json": {
+      "bytes": 2906,
+      "sha256": "88ec9e3efe49f54e3caf2733a5c722dab4c8960e62dfd693a126ca38e0404392"
+    },
+    "requests.json": {
+      "bytes": 34550,
+      "sha256": "37eaa140ab6f0b7eece1cf8a8f9c2d936726dae73d6ebbf3b5c836e699d3aa9b"
+    },
+    "pair-0-a_counters.json": {
+      "bytes": 241355,
+      "sha256": "03fcbc12f63f4879c735be513bdeeba90569e3f43fabaa6d21eb31080878096b"
+    },
+    "run.log": {
+      "bytes": 155960,
+      "sha256": "8f0d8e28d555ed2641c4e2514c885b342957a71adf24a4bf513db3987389760d"
+    }
+  }
+}

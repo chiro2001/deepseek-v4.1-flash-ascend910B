@@ -1,0 +1,74 @@
+{
+  "CPU_only": true,
+  "NPU_launches": 0,
+  "compiled_GMM_arg_bytes": [
+    72,
+    72
+  ],
+  "compiled_planner_arg_bytes": 16,
+  "GMM_argument_order": [
+    "ffts_addr",
+    "x_list",
+    "weight_list",
+    "assist_list",
+    "scale_list",
+    "counts",
+    "token_scale",
+    "y_list",
+    "workspace_system_base"
+  ],
+  "planner_argument_order": [
+    "counts",
+    "workspace_system_base+16777216"
+  ],
+  "single_tensor_pointer_list_words": [
+    "24",
+    "1<<32",
+    "0xffffffff",
+    "GM_data_address"
+  ],
+  "pointer_list_bytes": 32,
+  "pointer_list_count": 5,
+  "NPU_ARCH": 2201,
+  "SoC": "Ascend910_9382",
+  "original_workspace_JSON_bytes": 117440512,
+  "candidate_minimum_workspace_bytes": 117440640,
+  "system_reserved_bytes": 16777216,
+  "planner_frame_bytes": 128,
+  "native_scratch_offset": 16777344,
+  "AIC_blocks": 24,
+  "AIV_per_AIC": 2,
+  "schedule_mode": 1,
+  "input_group_list_type_required": 1,
+  "native_tiling_nominal_groupListType": 0,
+  "upstream_valid_counts_required": true,
+  "runtime_count_D2H": false,
+  "same_stream_planner_then_candidate": true,
+  "native_math_body_changed": false,
+  "workspace_clear_bounds": {
+    "KfcMsg_bytes": 128,
+    "MsgUBAvailable_bytes": 64,
+    "MsgMatmulCnt_bytes": 64,
+    "msg_clear_end_exclusive": 786432,
+    "ub_clear_end_exclusive": 847872
+  },
+  "loader_names_from_SDK_JSON": {
+    "planner": "gmm2_sparse_row_plan",
+    "native": "Gmm2NativeMsdDown_control_v6",
+    "candidate": "Gmm2SparseMsdDown_candidate_v6"
+  },
+  "actual_ELF_mix_names": [
+    "Gmm2SparseMsdDown_candidate_v6_mix_aic",
+    "Gmm2SparseMsdDown_candidate_v6_mix_aiv"
+  ],
+  "runtime_registration_launch_validated": false,
+  "runtime_remaining": [
+    "base kernelName resolves to AIC+AIV pair",
+    "raw planner vector ELF registration",
+    "planner frame GM visibility",
+    "raw native vs native API <=1ULP",
+    "sparse vs native <=1ULP",
+    "consumer/capture actual coverage",
+    "planner-inclusive performance and TP8 gate"
+  ]
+}

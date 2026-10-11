@@ -1,0 +1,10 @@
+Selected runtime argument-copy/task excerpt; full log retained remote.
+5067: [DEBUG] RUNTIME(1247774,runtime_hostargs_r0):2026-10-11-07:29:09.908.531 [program.cc:293] 1247774 ArrayInsert:Program ArrayInsert insertIndex=0, curLen=0, copySize=0
+5144: [DEBUG] RUNTIME(1247774,runtime_hostargs_r0):2026-10-11-07:29:09.908.853 [program.cc:293] 1247774 ArrayInsert:Program ArrayInsert insertIndex=0, curLen=0, copySize=0
+5214: [DEBUG] RUNTIME(1247774,runtime_hostargs_r0):2026-10-11-07:29:09.909.045 [program.cc:293] 1247774 ArrayInsert:Program ArrayInsert insertIndex=0, curLen=0, copySize=0
+5360: [INFO] RUNTIME(1247774,runtime_hostargs_r0):2026-10-11-07:29:09.910.350 [memory_task_v100.cc:175] 1247774 ConstructPcieDmaSqe: stream_id=46, task_id=0, copyType=0, src=0x12c0011f0000, dst=0x12c0c0016000, len=0x180
+5382: [INFO] RUNTIME(1247774,runtime_hostargs_r0):2026-10-11-07:29:09.910.420 [memory_task_v100.cc:175] 1247774 ConstructPcieDmaSqe: stream_id=46, task_id=1, copyType=0, src=0x12c0011f1000, dst=0x12c0c0017000, len=0x180
+5388: {"args_API":"aclrtLaunchKernelWithHostArgs","bytes":16,"placeholders":0,"host_args_address":281474497770528,"counts_GM_address":20619064336384,"frame_GM_address":20619064340608,"host_source_lifetime":"retained through sync and readback"}
+5389: [DEBUG] RUNTIME(1247774,runtime_hostargs_r0):2026-10-11-07:29:09.910.454 [api_error.cc:193] 1247774 CheckArgs:hostInputInfoNum=0, isNoNeedH2DCopy=0, argsSize=16, hasTiling=0
+5395: [INFO] RUNTIME(1247774,runtime_hostargs_r0):2026-10-11-07:29:09.910.790 [aix_stars.cc:603] 1247774 StreamLaunchKernelV2: kernel info : device_id=6, stream_id=46, task_id=0, kernelAttrType=2, kernel_name=gmm2_sparse_row_plan, arg_size=16, coreDim=1, taskRation=2, funcType=0, addr1=0x12c081200000, addr2=0x0, mixType=0, kernelFlag=0x0, qos=0, partId=0, schemMode=0, infoAddr=(nil), atomicIndex=0, prefetchCnt1=0, prefetchCnt2=0, isNoNeedH2DCopy=0.
+selected_match_count=8
