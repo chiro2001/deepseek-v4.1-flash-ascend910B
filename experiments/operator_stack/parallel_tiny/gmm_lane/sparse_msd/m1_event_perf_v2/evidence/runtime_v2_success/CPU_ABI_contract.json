@@ -1,0 +1,104 @@
+{
+  "CPU_only": true,
+  "NPU_calls": 0,
+  "SDK_runtime_linked_in_fixture": false,
+  "independent_v5_actual_source_sha256": "26e95466703d6c8a6653b494025485db9b7db9ebe151ad9d8182a1d92cfe3788",
+  "v5_actual_records": 27,
+  "compiled_v2_fixture": {
+    "CPU_only": true,
+    "NPU_calls": 0,
+    "SDK_runtime_linked": false,
+    "v5_actual_payloads_checked": 27,
+    "output_GM_rejected_examples": 27,
+    "checks": 1801,
+    "passed": true
+  },
+  "fixture_build": {
+    "command": [
+      "g++",
+      "-std=c++17",
+      "-O2",
+      "-ffunction-sections",
+      "-fdata-sections",
+      "/work/gmm_lane_sparse_msd_event_perf_p6_20261011_v2/source/verify_perf_bind_cpu.cpp",
+      "/work/gmm_lane_sparse_msd_build_20261011_v3_repro/source/host_adapter.cpp",
+      "-I",
+      "/work/gmm_lane_sparse_msd_event_perf_p6_20261011_v2/source",
+      "-I",
+      "/work/gmm_lane_sparse_msd_build_20261011_v3_repro/source",
+      "-I",
+      "/work/gmm_lane_sparse_msd_runtime_loader_v2_cpu_20261011/source/runtime_loader_v2",
+      "-I",
+      "/work/gmm_lane_sparse_msd_launch_args_v3_cpu_20261011/source",
+      "-I",
+      "/usr/local/Ascend/cann-9.1.0/include",
+      "-I",
+      "/usr/local/Ascend/cann-9.1.0/aarch64-linux/pkg_inc/runtime",
+      "-I",
+      "/usr/local/Ascend/cann-9.1.0/aarch64-linux/pkg_inc",
+      "-Wl,--gc-sections",
+      "-Wl,--no-undefined",
+      "-o",
+      "/work/gmm_lane_sparse_msd_event_perf_p6_20261011_v2/verify_perf_bind_cpu"
+    ],
+    "exit_code": 0,
+    "log_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "CPU_only": true,
+    "NPU_calls": 0
+  },
+  "fixture_run": {
+    "command": [
+      "/work/gmm_lane_sparse_msd_event_perf_p6_20261011_v2/verify_perf_bind_cpu"
+    ],
+    "exit_code": 0,
+    "log_sha256": "e1a43ff3ed5867552906256f4aaed6fc8124f1e7201b69c479f68083e73d6232",
+    "CPU_only": true,
+    "NPU_calls": 0
+  },
+  "compiled_v1_regression_rejected": true,
+  "regression_build": {
+    "command": [
+      "g++",
+      "-DPERF_BRIDGE_SOURCE=\"/work/gmm_lane_sparse_msd_event_perf_cpu_20261011_v1/source/perf_bridge.cpp\"",
+      "-std=c++17",
+      "-O2",
+      "-ffunction-sections",
+      "-fdata-sections",
+      "/work/gmm_lane_sparse_msd_event_perf_p6_20261011_v2/source/verify_perf_bind_cpu.cpp",
+      "/work/gmm_lane_sparse_msd_build_20261011_v3_repro/source/host_adapter.cpp",
+      "-I",
+      "/work/gmm_lane_sparse_msd_event_perf_p6_20261011_v2/source",
+      "-I",
+      "/work/gmm_lane_sparse_msd_build_20261011_v3_repro/source",
+      "-I",
+      "/work/gmm_lane_sparse_msd_runtime_loader_v2_cpu_20261011/source/runtime_loader_v2",
+      "-I",
+      "/work/gmm_lane_sparse_msd_launch_args_v3_cpu_20261011/source",
+      "-I",
+      "/usr/local/Ascend/cann-9.1.0/include",
+      "-I",
+      "/usr/local/Ascend/cann-9.1.0/aarch64-linux/pkg_inc/runtime",
+      "-I",
+      "/usr/local/Ascend/cann-9.1.0/aarch64-linux/pkg_inc",
+      "-Wl,--gc-sections",
+      "-Wl,--no-undefined",
+      "-o",
+      "/work/gmm_lane_sparse_msd_event_perf_p6_20261011_v2/verify_v1_bind_regression_cpu"
+    ],
+    "exit_code": 0,
+    "log_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "CPU_only": true,
+    "NPU_calls": 0
+  },
+  "regression_run": {
+    "command": [
+      "/work/gmm_lane_sparse_msd_event_perf_p6_20261011_v2/verify_v1_bind_regression_cpu"
+    ],
+    "exit_code": 1,
+    "log_sha256": "ed9f9b3a0a366abde676b2131fdc415ce4d975d69a0ccc4033256657df5bfe72",
+    "CPU_only": true,
+    "NPU_calls": 0
+  },
+  "wrong_output_GM_field_offset": 56,
+  "passed": true
+}

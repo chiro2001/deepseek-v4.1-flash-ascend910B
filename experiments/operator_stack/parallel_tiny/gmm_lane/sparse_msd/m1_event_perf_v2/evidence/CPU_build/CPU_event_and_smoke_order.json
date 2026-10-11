@@ -1,0 +1,69 @@
+{
+  "CPU_only": true,
+  "NPU_calls": 0,
+  "event_protocol_source_sha256": "1b48b768b8277e0a09587753e3e57d04f64c1caa422364ac75e0ed7bc7d3633b",
+  "runtime_source_sha256": "c7ae6cc84cf48f7b7db25d8a6a4228ff980594f24f51f3a71237c5cd86c0c47e",
+  "event_order": [
+    "new0",
+    "new1",
+    "new2",
+    "record0",
+    "restore",
+    "record1",
+    "submit_planner_candidate",
+    "record2",
+    "sync2",
+    "finish_oracle",
+    "readonly_seal"
+  ],
+  "interleave_balanced": true,
+  "mock_values_are_not_measurements": true,
+  "actual_runtime_smoke_AST_cases": [
+    {
+      "injected_failure": null,
+      "flow": [
+        "restore",
+        "sync1",
+        "submit_RAW_NATIVE",
+        "sync2",
+        "numeric_RAW_NATIVE",
+        "light_seal",
+        "E48_seal",
+        "smoke_receipt",
+        "downstream_events"
+      ],
+      "events_after_smoke": 1
+    },
+    {
+      "injected_failure": "submit",
+      "flow": [
+        "restore",
+        "sync1",
+        "submit_RAW_NATIVE"
+      ],
+      "events_after_smoke": 0
+    },
+    {
+      "injected_failure": "post_submit_sync",
+      "flow": [
+        "restore",
+        "sync1",
+        "submit_RAW_NATIVE",
+        "sync2"
+      ],
+      "events_after_smoke": 0
+    },
+    {
+      "injected_failure": "numeric",
+      "flow": [
+        "restore",
+        "sync1",
+        "submit_RAW_NATIVE",
+        "sync2",
+        "numeric_RAW_NATIVE"
+      ],
+      "events_after_smoke": 0
+    }
+  ],
+  "passed": true
+}

@@ -1,0 +1,927 @@
+{
+  "job": "dspark_lane_20261011_c4_graph_fixture_v1",
+  "exit": 0,
+  "terminal": true,
+  "scope": "physical4 TP1 tiny dummy, same-instance diagnostic OFF/A-A/ON; no formal TP8 claim",
+  "raw_compact_directory": "experiments/operator_stack/runtime/evidence/dspark_lane/dspark_lane_20261011_c4_graph_fixture_v1",
+  "source_freeze": {
+    "fixture_source_sha256": "7dfa11336f7be4c8c55d0f09eb302673ef31ac51d582686d31cffc432af6fe78",
+    "same_initializer_sha_as_native_fixture": true,
+    "launched_sources_current_sha_match": true,
+    "launched_sources": {
+      "bench_draft_graph_candidate.py": {
+        "sha256": "6c292864b0437197764eaed0602ca89ab4db1d7be6abfda4e072af1912d34ec8",
+        "bytes": 13183
+      },
+      "dspark_worker.py": {
+        "sha256": "08cdd3ca4b236f75e484797d9959738947223d4723cf998526cb82a4ea3e7f47",
+        "bytes": 8607
+      },
+      "graph_candidate_worker.py": {
+        "sha256": "572b71410ec0bed8f9a9f405e3973ddea59abd9cd07163966d38ab610c62f404",
+        "bytes": 2863
+      },
+      "draft_graph_observer.py": {
+        "sha256": "983c31462b285160c7990390b854e0d07cb546d46b66c3d9cc926e53b1737ac0",
+        "bytes": 3849
+      },
+      "graph_precision_audit.py": {
+        "sha256": "a2f4b5d57179aeb392a651957c81b684f1993f4cd7ab95d4d42cdb3285a29df6",
+        "bytes": 22208
+      },
+      "native_first_value_trace.py": {
+        "sha256": "4f254f85499417f543a443c49e43f64dc5992b3df57b336dde846f1b255ea57b",
+        "bytes": 24508
+      },
+      "stage_ids_vendor.py": {
+        "sha256": "16da30c77a5658aebb324e371dec4d92dfa3f38b15214d1be10cc98bc51743a4",
+        "bytes": 4268
+      },
+      "o_proj_cache_fixture.py": {
+        "sha256": "7dfa11336f7be4c8c55d0f09eb302673ef31ac51d582686d31cffc432af6fe78",
+        "bytes": 6611
+      },
+      "o_proj_cache_fixture_worker.py": {
+        "sha256": "ecb95df6bb6c829e292f9153de673e69f5cd3edae31791a1984758c0d989f05e",
+        "bytes": 1468
+      },
+      "native_route_diagnostic_worker.py": {
+        "sha256": "e782dd256fd336856f6744f3948c8e1b32432deda96f62090583b9914776ba5e",
+        "bytes": 3444
+      }
+    },
+    "vendor_source_py_tree_sha256": "e552b649eb47a39aeeeb549ffdb0f80d8aad199fe5105df34296b5ba62366ecc",
+    "restored_native_sources": {
+      "model": {
+        "relative_path": "vllm_ascend/models/deepseek_v41/model.py",
+        "instrumented_sha256": "75da3330766ce2adaad323fbf6a9c4beb91833bd51f3718484ae46d40249cbec",
+        "restored_native_sha256": "dfbc3c0d3b0f9ce3349509de5dfb3799a47f834eec26a951769bf4a54e6c022b",
+        "exact_pre_audit_source": true
+      },
+      "router": {
+        "relative_path": "vllm_ascend/ops/fused_moe/router/fused_topk_router.py",
+        "instrumented_sha256": "cf3ef41b3a6d07ee528f8b907abc053dd2d5c4f34bb5b0306f071307b3656faf",
+        "restored_native_sha256": "f32950da16926afe7569b1a6daa437860db2e83171d96623ac79f7734e52b004",
+        "exact_pre_audit_source": true
+      }
+    },
+    "model_config_sha256": "ad72656e807079b39a5e94f05f5ffe45116725787239344adb4577fc4a2671c3",
+    "baseline_v7_frozen_files_checked": 37,
+    "baseline_v7_all_sha_unchanged": true,
+    "baseline_v7_manifest_sha256": "beda910e174d993c6a12f7c475fd81adc4df9b97373a4b781169c03a2d2ac3e2"
+  },
+  "fetch_integrity": {
+    "files_verified": 194,
+    "all_file_sha256_match": true,
+    "ssh_packed_bytes": 320561,
+    "fetch_receipt_sha256": "31eef84ff71fa89e835d6ce68503f0d795be668374d59805d71218cbd453bde5",
+    "launch_receipt_sha256": "02eb95465da261754c712e4e9ea73be546e99b9af6d33274e8a26c26e29779c5",
+    "selected_result_sha256": {
+      "accuracy_gate.json": "197ad97982d71cd062777f103ab978c66d95bb422e7a26bcb35a56a8353df9d1",
+      "checks.json": "1f943774c3945b1e11923ccc3a0288becfade97210245d7aec87b5b9409fac34",
+      "diagnostic_completion.json": "01738b6e0250698d48b20e7090751d0ff4607b07565e23a42f37e81ca78d8749",
+      "requests.json": "ac5fdccf6856c5b70542b86cdab76b56a6607eb6277e017aad942eef0d7376cf",
+      "config.json": "261342af8cb1d7cd31fda7cf98c7639e317f7db1218dbe3b837d0c0292f5f7d1",
+      "topology.json": "4bf82cf0ff727a518ce858eb19fd91282c02c05d0de84f4339308b4582fb5b85",
+      "audit/fixed_o_proj_cache_fixture.json": "9c1a0c94ec85874404729bc6d19fc383652f9a159432aa9f2ed949825b3cd628",
+      "audit/fixture_validation_after_capture.json": "e97da2f269c491d702ad0c7bf76aa5edf4d612dc59057b6fc7447dca3046a4a9",
+      "audit/router_weight_value_seal.json": "59792d1845500a68cc1f2fb2e62070a848b5e161bf60ef523ce411ab64bf9092"
+    }
+  },
+  "numerical_gate": {
+    "passed_in_diagnostic_mode": true,
+    "requests": 20,
+    "warmup_requests": 2,
+    "audited_requests": 18,
+    "comparison_checks": 9,
+    "check_kinds": {
+      "native_off_AA": 3,
+      "off_on": 3,
+      "native_on_AA": 3
+    },
+    "completion_tokens_each": 32,
+    "router_layers_each_audited_request": 43,
+    "draft_attention_layers_each_audited_request": 3,
+    "step_snapshots_each_audited_request": 17,
+    "all_native_proposals_route_ids_weights_attention_and_logical_cache_bitwise_equal": true,
+    "all_token_ids_and_top5_logprob_keys_equal": true,
+    "max_logprob_delta_recomputed": 0.0,
+    "logprob_values_finite_in_audited_requests": 2880,
+    "checks": [
+      {
+        "kind": "native_off_AA",
+        "left": "native-off-0-A",
+        "right": "native-off-0-B",
+        "passed": true,
+        "max_logprob_delta_recomputed": 0.0,
+        "logprob_values_compared_per_side": 160,
+        "route_values_checked": 18430,
+        "attention_values_checked": 8355840,
+        "cache_values_checked": 253440
+      },
+      {
+        "kind": "native_off_AA",
+        "left": "native-off-1-A",
+        "right": "native-off-1-B",
+        "passed": true,
+        "max_logprob_delta_recomputed": 0.0,
+        "logprob_values_compared_per_side": 160,
+        "route_values_checked": 18430,
+        "attention_values_checked": 8355840,
+        "cache_values_checked": 251904
+      },
+      {
+        "kind": "native_off_AA",
+        "left": "native-off-2-A",
+        "right": "native-off-2-B",
+        "passed": true,
+        "max_logprob_delta_recomputed": 0.0,
+        "logprob_values_compared_per_side": 160,
+        "route_values_checked": 18430,
+        "attention_values_checked": 8355840,
+        "cache_values_checked": 253440
+      },
+      {
+        "kind": "off_on",
+        "left": "candidate-0-off",
+        "right": "candidate-0-on",
+        "passed": true,
+        "max_logprob_delta_recomputed": 0.0,
+        "logprob_values_compared_per_side": 160,
+        "route_values_checked": 18430,
+        "attention_values_checked": 8355840,
+        "cache_values_checked": 253440
+      },
+      {
+        "kind": "native_on_AA",
+        "left": "native-on-0-A",
+        "right": "native-on-0-B",
+        "passed": true,
+        "max_logprob_delta_recomputed": 0.0,
+        "logprob_values_compared_per_side": 160,
+        "route_values_checked": 18430,
+        "attention_values_checked": 8355840,
+        "cache_values_checked": 253440
+      },
+      {
+        "kind": "off_on",
+        "left": "candidate-1-off",
+        "right": "candidate-1-on",
+        "passed": true,
+        "max_logprob_delta_recomputed": 0.0,
+        "logprob_values_compared_per_side": 160,
+        "route_values_checked": 18430,
+        "attention_values_checked": 8355840,
+        "cache_values_checked": 251904
+      },
+      {
+        "kind": "native_on_AA",
+        "left": "native-on-1-A",
+        "right": "native-on-1-B",
+        "passed": true,
+        "max_logprob_delta_recomputed": 0.0,
+        "logprob_values_compared_per_side": 160,
+        "route_values_checked": 18430,
+        "attention_values_checked": 8355840,
+        "cache_values_checked": 251904
+      },
+      {
+        "kind": "off_on",
+        "left": "candidate-2-off",
+        "right": "candidate-2-on",
+        "passed": true,
+        "max_logprob_delta_recomputed": 0.0,
+        "logprob_values_compared_per_side": 160,
+        "route_values_checked": 18430,
+        "attention_values_checked": 8355840,
+        "cache_values_checked": 253440
+      },
+      {
+        "kind": "native_on_AA",
+        "left": "native-on-2-A",
+        "right": "native-on-2-B",
+        "passed": true,
+        "max_logprob_delta_recomputed": 0.0,
+        "logprob_values_compared_per_side": 160,
+        "route_values_checked": 18430,
+        "attention_values_checked": 8355840,
+        "cache_values_checked": 253440
+      }
+    ],
+    "parameter_seal": {
+      "parameter_views": 1032,
+      "sealed_after_all_capture": true,
+      "seal_is_metadata_not_weight_value_or_deviceproof": true,
+      "diagnostic_router_weight_value_seals": 43
+    },
+    "metadata_seal_does_not_prove_all_parameter_values": true,
+    "formal_quality_claim": false
+  },
+  "fixed_cache_fixture": {
+    "owner_buffers": 43,
+    "owner_buffer_name": "_tiny_fixed_native_wo_a_3d",
+    "owner_buffer_persistent": false,
+    "initialized_before_compile_profile_capture": true,
+    "native_loader_permutation_bitwise_equal": true,
+    "source_parameters_unchanged": true,
+    "capture_or_warmup_weight_mutation": false,
+    "after_capture_43_source_cache_seals_passed": true,
+    "per_request_fixture_files": 20,
+    "source_cache_owner_view_value_checks": 860,
+    "all_43_source_cache_seals_passed_after_every_request": true,
+    "final_actual_native_python_consumer_guard_counts": {
+      "target.0": 20,
+      "target.1": 20,
+      "target.2": 20,
+      "target.3": 20,
+      "target.4": 20,
+      "target.5": 20,
+      "target.6": 20,
+      "target.7": 20,
+      "target.8": 20,
+      "target.9": 20,
+      "target.10": 20,
+      "target.11": 20,
+      "target.12": 20,
+      "target.13": 20,
+      "target.14": 20,
+      "target.15": 20,
+      "target.16": 20,
+      "target.17": 20,
+      "target.18": 20,
+      "target.19": 20,
+      "target.20": 20,
+      "target.21": 20,
+      "target.22": 20,
+      "target.23": 20,
+      "target.24": 20,
+      "target.25": 20,
+      "target.26": 20,
+      "target.27": 20,
+      "target.28": 20,
+      "target.29": 20,
+      "target.30": 20,
+      "target.31": 20,
+      "target.32": 20,
+      "target.33": 20,
+      "target.34": 20,
+      "target.35": 20,
+      "target.36": 20,
+      "target.37": 20,
+      "target.38": 20,
+      "target.39": 20,
+      "draft.0": 180,
+      "draft.1": 180,
+      "draft.2": 180
+    },
+    "guard_counts_scope": "Non-capture native Python O-projection entries only; graph replay executes no Python guards. Per-request seals and actual-consumer comparator cover replay results separately."
+  },
+  "finite_trace": {
+    "latest_retained_firstvalue_boundary_categories": 73,
+    "latest_retained_tensor_summaries": 206,
+    "all_retained_tensor_values_finite": true,
+    "latest_target_execute_and_replay_boundary_native_cache_checks_passed": true,
+    "nonfinite_evidence_files": 0,
+    "immediate_finite_rejection_enabled": true,
+    "capture_device_reads": false,
+    "full_graph_kernel_consumer_trace_claim": false
+  },
+  "submission_and_completion_counts": {
+    "cold_draft_capture_helper_calls": 1,
+    "cold_draft_capture_helper_successful_returns": 1,
+    "cold_draft_actual_entry": {
+      "entries": 1,
+      "descriptors": [
+        "BatchDescriptor(num_tokens=6, num_reqs=1, uniform=True, has_lora=False, num_active_loras=0)"
+      ],
+      "constructor_use_cuda_graph": true,
+      "no_bool_flip": true
+    },
+    "arm_summary": {
+      "off": {
+        "requests": 10,
+        "audited_requests": 9,
+        "per_request_unique_counts": {
+          "target_decode_rounds": [
+            16
+          ],
+          "actual_draft_calls": [
+            17
+          ],
+          "native_helper_calls": [
+            17
+          ],
+          "native_helper_successful_returns": [
+            17
+          ],
+          "target_native_replay_returns": [
+            16
+          ],
+          "draft_native_replay_returns": [
+            0
+          ],
+          "initial_actual_draft_calls": [
+            1
+          ],
+          "terminal_actual_draft_calls": [
+            1
+          ],
+          "initial_native_draft_replay_returns": [
+            0
+          ],
+          "terminal_native_draft_replay_returns": [
+            0
+          ],
+          "request_terminal_device_fences": [
+            1
+          ],
+          "counted_steady_extra_syncs": [
+            0
+          ]
+        },
+        "totals": {
+          "target_decode_rounds": 160,
+          "actual_draft_calls": 170,
+          "native_helper_calls": 170,
+          "native_helper_successful_returns": 170,
+          "target_native_replay_returns": 160,
+          "draft_native_replay_returns": 0,
+          "initial_actual_draft_calls": 10,
+          "terminal_actual_draft_calls": 10,
+          "initial_native_draft_replay_returns": 0,
+          "terminal_native_draft_replay_returns": 0,
+          "request_terminal_device_fences": 10,
+          "counted_steady_extra_syncs": 0
+        }
+      },
+      "on": {
+        "requests": 10,
+        "audited_requests": 9,
+        "per_request_unique_counts": {
+          "target_decode_rounds": [
+            16
+          ],
+          "actual_draft_calls": [
+            17
+          ],
+          "native_helper_calls": [
+            1
+          ],
+          "native_helper_successful_returns": [
+            1
+          ],
+          "target_native_replay_returns": [
+            16
+          ],
+          "draft_native_replay_returns": [
+            16
+          ],
+          "initial_actual_draft_calls": [
+            1
+          ],
+          "terminal_actual_draft_calls": [
+            1
+          ],
+          "initial_native_draft_replay_returns": [
+            0
+          ],
+          "terminal_native_draft_replay_returns": [
+            1
+          ],
+          "request_terminal_device_fences": [
+            1
+          ],
+          "counted_steady_extra_syncs": [
+            0
+          ]
+        },
+        "totals": {
+          "target_decode_rounds": 160,
+          "actual_draft_calls": 170,
+          "native_helper_calls": 10,
+          "native_helper_successful_returns": 10,
+          "target_native_replay_returns": 160,
+          "draft_native_replay_returns": 160,
+          "initial_actual_draft_calls": 10,
+          "terminal_actual_draft_calls": 10,
+          "initial_native_draft_replay_returns": 0,
+          "terminal_native_draft_replay_returns": 10,
+          "request_terminal_device_fences": 10,
+          "counted_steady_extra_syncs": 0
+        }
+      }
+    },
+    "requests": [
+      {
+        "tag": "warmup-off",
+        "arm": "off",
+        "audited": false,
+        "completion_tokens": 32,
+        "target_decode_rounds": 16,
+        "actual_draft_calls": 17,
+        "native_helper_calls": 17,
+        "native_helper_successful_returns": 17,
+        "target_native_replay_returns": 16,
+        "draft_native_replay_returns": 0,
+        "initial_actual_draft_calls": 1,
+        "terminal_actual_draft_calls": 1,
+        "initial_native_draft_replay_returns": 0,
+        "terminal_native_draft_replay_returns": 0,
+        "request_terminal_device_fences": 1,
+        "counted_steady_extra_syncs": 0,
+        "initial_and_terminal_device_complete_at_request_fence": true,
+        "fixture_sealed_buffers": 43,
+        "period2_after_prefill_token": true
+      },
+      {
+        "tag": "warmup-on",
+        "arm": "on",
+        "audited": false,
+        "completion_tokens": 32,
+        "target_decode_rounds": 16,
+        "actual_draft_calls": 17,
+        "native_helper_calls": 1,
+        "native_helper_successful_returns": 1,
+        "target_native_replay_returns": 16,
+        "draft_native_replay_returns": 16,
+        "initial_actual_draft_calls": 1,
+        "terminal_actual_draft_calls": 1,
+        "initial_native_draft_replay_returns": 0,
+        "terminal_native_draft_replay_returns": 1,
+        "request_terminal_device_fences": 1,
+        "counted_steady_extra_syncs": 0,
+        "initial_and_terminal_device_complete_at_request_fence": true,
+        "fixture_sealed_buffers": 43,
+        "period2_after_prefill_token": true
+      },
+      {
+        "tag": "native-off-0-A",
+        "arm": "off",
+        "audited": true,
+        "completion_tokens": 32,
+        "target_decode_rounds": 16,
+        "actual_draft_calls": 17,
+        "native_helper_calls": 17,
+        "native_helper_successful_returns": 17,
+        "target_native_replay_returns": 16,
+        "draft_native_replay_returns": 0,
+        "initial_actual_draft_calls": 1,
+        "terminal_actual_draft_calls": 1,
+        "initial_native_draft_replay_returns": 0,
+        "terminal_native_draft_replay_returns": 0,
+        "request_terminal_device_fences": 1,
+        "counted_steady_extra_syncs": 0,
+        "initial_and_terminal_device_complete_at_request_fence": true,
+        "fixture_sealed_buffers": 43,
+        "period2_after_prefill_token": true
+      },
+      {
+        "tag": "native-off-0-B",
+        "arm": "off",
+        "audited": true,
+        "completion_tokens": 32,
+        "target_decode_rounds": 16,
+        "actual_draft_calls": 17,
+        "native_helper_calls": 17,
+        "native_helper_successful_returns": 17,
+        "target_native_replay_returns": 16,
+        "draft_native_replay_returns": 0,
+        "initial_actual_draft_calls": 1,
+        "terminal_actual_draft_calls": 1,
+        "initial_native_draft_replay_returns": 0,
+        "terminal_native_draft_replay_returns": 0,
+        "request_terminal_device_fences": 1,
+        "counted_steady_extra_syncs": 0,
+        "initial_and_terminal_device_complete_at_request_fence": true,
+        "fixture_sealed_buffers": 43,
+        "period2_after_prefill_token": true
+      },
+      {
+        "tag": "native-off-1-A",
+        "arm": "off",
+        "audited": true,
+        "completion_tokens": 32,
+        "target_decode_rounds": 16,
+        "actual_draft_calls": 17,
+        "native_helper_calls": 17,
+        "native_helper_successful_returns": 17,
+        "target_native_replay_returns": 16,
+        "draft_native_replay_returns": 0,
+        "initial_actual_draft_calls": 1,
+        "terminal_actual_draft_calls": 1,
+        "initial_native_draft_replay_returns": 0,
+        "terminal_native_draft_replay_returns": 0,
+        "request_terminal_device_fences": 1,
+        "counted_steady_extra_syncs": 0,
+        "initial_and_terminal_device_complete_at_request_fence": true,
+        "fixture_sealed_buffers": 43,
+        "period2_after_prefill_token": true
+      },
+      {
+        "tag": "native-off-1-B",
+        "arm": "off",
+        "audited": true,
+        "completion_tokens": 32,
+        "target_decode_rounds": 16,
+        "actual_draft_calls": 17,
+        "native_helper_calls": 17,
+        "native_helper_successful_returns": 17,
+        "target_native_replay_returns": 16,
+        "draft_native_replay_returns": 0,
+        "initial_actual_draft_calls": 1,
+        "terminal_actual_draft_calls": 1,
+        "initial_native_draft_replay_returns": 0,
+        "terminal_native_draft_replay_returns": 0,
+        "request_terminal_device_fences": 1,
+        "counted_steady_extra_syncs": 0,
+        "initial_and_terminal_device_complete_at_request_fence": true,
+        "fixture_sealed_buffers": 43,
+        "period2_after_prefill_token": true
+      },
+      {
+        "tag": "native-off-2-A",
+        "arm": "off",
+        "audited": true,
+        "completion_tokens": 32,
+        "target_decode_rounds": 16,
+        "actual_draft_calls": 17,
+        "native_helper_calls": 17,
+        "native_helper_successful_returns": 17,
+        "target_native_replay_returns": 16,
+        "draft_native_replay_returns": 0,
+        "initial_actual_draft_calls": 1,
+        "terminal_actual_draft_calls": 1,
+        "initial_native_draft_replay_returns": 0,
+        "terminal_native_draft_replay_returns": 0,
+        "request_terminal_device_fences": 1,
+        "counted_steady_extra_syncs": 0,
+        "initial_and_terminal_device_complete_at_request_fence": true,
+        "fixture_sealed_buffers": 43,
+        "period2_after_prefill_token": true
+      },
+      {
+        "tag": "native-off-2-B",
+        "arm": "off",
+        "audited": true,
+        "completion_tokens": 32,
+        "target_decode_rounds": 16,
+        "actual_draft_calls": 17,
+        "native_helper_calls": 17,
+        "native_helper_successful_returns": 17,
+        "target_native_replay_returns": 16,
+        "draft_native_replay_returns": 0,
+        "initial_actual_draft_calls": 1,
+        "terminal_actual_draft_calls": 1,
+        "initial_native_draft_replay_returns": 0,
+        "terminal_native_draft_replay_returns": 0,
+        "request_terminal_device_fences": 1,
+        "counted_steady_extra_syncs": 0,
+        "initial_and_terminal_device_complete_at_request_fence": true,
+        "fixture_sealed_buffers": 43,
+        "period2_after_prefill_token": true
+      },
+      {
+        "tag": "candidate-0-off",
+        "arm": "off",
+        "audited": true,
+        "completion_tokens": 32,
+        "target_decode_rounds": 16,
+        "actual_draft_calls": 17,
+        "native_helper_calls": 17,
+        "native_helper_successful_returns": 17,
+        "target_native_replay_returns": 16,
+        "draft_native_replay_returns": 0,
+        "initial_actual_draft_calls": 1,
+        "terminal_actual_draft_calls": 1,
+        "initial_native_draft_replay_returns": 0,
+        "terminal_native_draft_replay_returns": 0,
+        "request_terminal_device_fences": 1,
+        "counted_steady_extra_syncs": 0,
+        "initial_and_terminal_device_complete_at_request_fence": true,
+        "fixture_sealed_buffers": 43,
+        "period2_after_prefill_token": true
+      },
+      {
+        "tag": "candidate-0-on",
+        "arm": "on",
+        "audited": true,
+        "completion_tokens": 32,
+        "target_decode_rounds": 16,
+        "actual_draft_calls": 17,
+        "native_helper_calls": 1,
+        "native_helper_successful_returns": 1,
+        "target_native_replay_returns": 16,
+        "draft_native_replay_returns": 16,
+        "initial_actual_draft_calls": 1,
+        "terminal_actual_draft_calls": 1,
+        "initial_native_draft_replay_returns": 0,
+        "terminal_native_draft_replay_returns": 1,
+        "request_terminal_device_fences": 1,
+        "counted_steady_extra_syncs": 0,
+        "initial_and_terminal_device_complete_at_request_fence": true,
+        "fixture_sealed_buffers": 43,
+        "period2_after_prefill_token": true
+      },
+      {
+        "tag": "native-on-0-A",
+        "arm": "on",
+        "audited": true,
+        "completion_tokens": 32,
+        "target_decode_rounds": 16,
+        "actual_draft_calls": 17,
+        "native_helper_calls": 1,
+        "native_helper_successful_returns": 1,
+        "target_native_replay_returns": 16,
+        "draft_native_replay_returns": 16,
+        "initial_actual_draft_calls": 1,
+        "terminal_actual_draft_calls": 1,
+        "initial_native_draft_replay_returns": 0,
+        "terminal_native_draft_replay_returns": 1,
+        "request_terminal_device_fences": 1,
+        "counted_steady_extra_syncs": 0,
+        "initial_and_terminal_device_complete_at_request_fence": true,
+        "fixture_sealed_buffers": 43,
+        "period2_after_prefill_token": true
+      },
+      {
+        "tag": "native-on-0-B",
+        "arm": "on",
+        "audited": true,
+        "completion_tokens": 32,
+        "target_decode_rounds": 16,
+        "actual_draft_calls": 17,
+        "native_helper_calls": 1,
+        "native_helper_successful_returns": 1,
+        "target_native_replay_returns": 16,
+        "draft_native_replay_returns": 16,
+        "initial_actual_draft_calls": 1,
+        "terminal_actual_draft_calls": 1,
+        "initial_native_draft_replay_returns": 0,
+        "terminal_native_draft_replay_returns": 1,
+        "request_terminal_device_fences": 1,
+        "counted_steady_extra_syncs": 0,
+        "initial_and_terminal_device_complete_at_request_fence": true,
+        "fixture_sealed_buffers": 43,
+        "period2_after_prefill_token": true
+      },
+      {
+        "tag": "candidate-1-on",
+        "arm": "on",
+        "audited": true,
+        "completion_tokens": 32,
+        "target_decode_rounds": 16,
+        "actual_draft_calls": 17,
+        "native_helper_calls": 1,
+        "native_helper_successful_returns": 1,
+        "target_native_replay_returns": 16,
+        "draft_native_replay_returns": 16,
+        "initial_actual_draft_calls": 1,
+        "terminal_actual_draft_calls": 1,
+        "initial_native_draft_replay_returns": 0,
+        "terminal_native_draft_replay_returns": 1,
+        "request_terminal_device_fences": 1,
+        "counted_steady_extra_syncs": 0,
+        "initial_and_terminal_device_complete_at_request_fence": true,
+        "fixture_sealed_buffers": 43,
+        "period2_after_prefill_token": true
+      },
+      {
+        "tag": "candidate-1-off",
+        "arm": "off",
+        "audited": true,
+        "completion_tokens": 32,
+        "target_decode_rounds": 16,
+        "actual_draft_calls": 17,
+        "native_helper_calls": 17,
+        "native_helper_successful_returns": 17,
+        "target_native_replay_returns": 16,
+        "draft_native_replay_returns": 0,
+        "initial_actual_draft_calls": 1,
+        "terminal_actual_draft_calls": 1,
+        "initial_native_draft_replay_returns": 0,
+        "terminal_native_draft_replay_returns": 0,
+        "request_terminal_device_fences": 1,
+        "counted_steady_extra_syncs": 0,
+        "initial_and_terminal_device_complete_at_request_fence": true,
+        "fixture_sealed_buffers": 43,
+        "period2_after_prefill_token": true
+      },
+      {
+        "tag": "native-on-1-A",
+        "arm": "on",
+        "audited": true,
+        "completion_tokens": 32,
+        "target_decode_rounds": 16,
+        "actual_draft_calls": 17,
+        "native_helper_calls": 1,
+        "native_helper_successful_returns": 1,
+        "target_native_replay_returns": 16,
+        "draft_native_replay_returns": 16,
+        "initial_actual_draft_calls": 1,
+        "terminal_actual_draft_calls": 1,
+        "initial_native_draft_replay_returns": 0,
+        "terminal_native_draft_replay_returns": 1,
+        "request_terminal_device_fences": 1,
+        "counted_steady_extra_syncs": 0,
+        "initial_and_terminal_device_complete_at_request_fence": true,
+        "fixture_sealed_buffers": 43,
+        "period2_after_prefill_token": true
+      },
+      {
+        "tag": "native-on-1-B",
+        "arm": "on",
+        "audited": true,
+        "completion_tokens": 32,
+        "target_decode_rounds": 16,
+        "actual_draft_calls": 17,
+        "native_helper_calls": 1,
+        "native_helper_successful_returns": 1,
+        "target_native_replay_returns": 16,
+        "draft_native_replay_returns": 16,
+        "initial_actual_draft_calls": 1,
+        "terminal_actual_draft_calls": 1,
+        "initial_native_draft_replay_returns": 0,
+        "terminal_native_draft_replay_returns": 1,
+        "request_terminal_device_fences": 1,
+        "counted_steady_extra_syncs": 0,
+        "initial_and_terminal_device_complete_at_request_fence": true,
+        "fixture_sealed_buffers": 43,
+        "period2_after_prefill_token": true
+      },
+      {
+        "tag": "candidate-2-off",
+        "arm": "off",
+        "audited": true,
+        "completion_tokens": 32,
+        "target_decode_rounds": 16,
+        "actual_draft_calls": 17,
+        "native_helper_calls": 17,
+        "native_helper_successful_returns": 17,
+        "target_native_replay_returns": 16,
+        "draft_native_replay_returns": 0,
+        "initial_actual_draft_calls": 1,
+        "terminal_actual_draft_calls": 1,
+        "initial_native_draft_replay_returns": 0,
+        "terminal_native_draft_replay_returns": 0,
+        "request_terminal_device_fences": 1,
+        "counted_steady_extra_syncs": 0,
+        "initial_and_terminal_device_complete_at_request_fence": true,
+        "fixture_sealed_buffers": 43,
+        "period2_after_prefill_token": true
+      },
+      {
+        "tag": "candidate-2-on",
+        "arm": "on",
+        "audited": true,
+        "completion_tokens": 32,
+        "target_decode_rounds": 16,
+        "actual_draft_calls": 17,
+        "native_helper_calls": 1,
+        "native_helper_successful_returns": 1,
+        "target_native_replay_returns": 16,
+        "draft_native_replay_returns": 16,
+        "initial_actual_draft_calls": 1,
+        "terminal_actual_draft_calls": 1,
+        "initial_native_draft_replay_returns": 0,
+        "terminal_native_draft_replay_returns": 1,
+        "request_terminal_device_fences": 1,
+        "counted_steady_extra_syncs": 0,
+        "initial_and_terminal_device_complete_at_request_fence": true,
+        "fixture_sealed_buffers": 43,
+        "period2_after_prefill_token": true
+      },
+      {
+        "tag": "native-on-2-A",
+        "arm": "on",
+        "audited": true,
+        "completion_tokens": 32,
+        "target_decode_rounds": 16,
+        "actual_draft_calls": 17,
+        "native_helper_calls": 1,
+        "native_helper_successful_returns": 1,
+        "target_native_replay_returns": 16,
+        "draft_native_replay_returns": 16,
+        "initial_actual_draft_calls": 1,
+        "terminal_actual_draft_calls": 1,
+        "initial_native_draft_replay_returns": 0,
+        "terminal_native_draft_replay_returns": 1,
+        "request_terminal_device_fences": 1,
+        "counted_steady_extra_syncs": 0,
+        "initial_and_terminal_device_complete_at_request_fence": true,
+        "fixture_sealed_buffers": 43,
+        "period2_after_prefill_token": true
+      },
+      {
+        "tag": "native-on-2-B",
+        "arm": "on",
+        "audited": true,
+        "completion_tokens": 32,
+        "target_decode_rounds": 16,
+        "actual_draft_calls": 17,
+        "native_helper_calls": 1,
+        "native_helper_successful_returns": 1,
+        "target_native_replay_returns": 16,
+        "draft_native_replay_returns": 16,
+        "initial_actual_draft_calls": 1,
+        "terminal_actual_draft_calls": 1,
+        "initial_native_draft_replay_returns": 0,
+        "terminal_native_draft_replay_returns": 1,
+        "request_terminal_device_fences": 1,
+        "counted_steady_extra_syncs": 0,
+        "initial_and_terminal_device_complete_at_request_fence": true,
+        "fixture_sealed_buffers": 43,
+        "period2_after_prefill_token": true
+      }
+    ],
+    "terminal_fence_scope": "One counted read_receipts fence per request establishes completion of initial and terminal calls; invasive audit adds other synchronization outside this counter.",
+    "steady_extra_sync_count_is_not_total_audit_sync_count": true,
+    "observer_positional_arguments_count": 0,
+    "kwargs_native_address_guard": false,
+    "observer_submission_alone_is_not_precision_or_device_completion_proof": true
+  },
+  "output_quality": {
+    "dummy_weights": true,
+    "detokenize": false,
+    "token_repetition_period": 2,
+    "period2_requests_after_prefill_token": 20,
+    "period2_audited_requests_after_prefill_token": 18,
+    "output_quality_acceptance_passed": false,
+    "formal_clean_rate": null,
+    "seed_examples": [
+      {
+        "seed": 0,
+        "first_five_token_ids": [
+          120213,
+          96070,
+          120213,
+          96070,
+          120213
+        ],
+        "periodic_tail_token_ids": [
+          96070,
+          120213
+        ]
+      },
+      {
+        "seed": 1,
+        "first_five_token_ids": [
+          103007,
+          48724,
+          103007,
+          48724,
+          103007
+        ],
+        "periodic_tail_token_ids": [
+          48724,
+          103007
+        ]
+      },
+      {
+        "seed": 2,
+        "first_five_token_ids": [
+          15947,
+          18099,
+          51855,
+          18099,
+          51855
+        ],
+        "periodic_tail_token_ids": [
+          18099,
+          51855
+        ]
+      }
+    ],
+    "numerical_equivalence_does_not_establish_output_quality": true
+  },
+  "performance": {
+    "evaluated": false,
+    "evaluation_disabled_by_job": true,
+    "invasive_diagnostic_reads_add_sync": true,
+    "quoted_performance_triplet": null,
+    "tiny_mechanism_candidate_admitted": false,
+    "formal_candidate_admitted": false,
+    "formal_tp8_claim": false,
+    "formal_full_main_mtp_verify_scheduler_cache_20ms_goal_achieved": false,
+    "next_performance_window_requires_parent_decision": true
+  },
+  "device_terminal": {
+    "time_unix": 1791714503.32793,
+    "physical_device": 4,
+    "health": "OK",
+    "physical4_smi_lines": [
+      "| 2     Ascend910           | OK            | 175.0                48                      0    / 0                |",
+      "| 0     4                   | 0000:95:00.0  | 0                    0    / 0                3289 / 65536            |"
+    ],
+    "physical4_process_rows": [],
+    "owned_model_processes_released": true,
+    "container_processes": "PID                 PPID                COMMAND             COMMAND\n3648300             3647952             sleep               sleep infinity\n",
+    "no_reset_no_dropcache_no_unknown_process_stop": true
+  },
+  "mechanism_limits": {
+    "fixture_prevents_observed_derived_wo_a_corruption_in_this_diagnostic_job": true,
+    "overwriting_kernel_identified": false,
+    "allocator_or_shared_pool_alias_proven": false,
+    "mtp_layers_hidden_pre_mix_remain_serial": true,
+    "operator_algebra_or_mtp_order_changed": false
+  }
+}

@@ -1,0 +1,112 @@
+{
+  "CPU_only": true,
+  "NPU_calls": 0,
+  "v5_bridge_source_sha256": "5cd459a340e9bee1f7c2ac1f6d75812c2f784521000ab1055465fc5bf8216c59",
+  "event_bridge_source_sha256": "fca863fff1bcf3b16410b3e75db95c22c3be403d2c273682c7cdb2cce50f4d27",
+  "original_v5_open_mapping_read_numeric_run_close_prefix_byte_equal_after_removing_only_event_owner_members": true,
+  "GMM_HostArgs_72B_fields": [
+    {
+      "index_1based": 1,
+      "byte_offset": 0,
+      "field": "ffts",
+      "v5_actual_value_first_launch": 17514876633088
+    },
+    {
+      "index_1based": 2,
+      "byte_offset": 8,
+      "field": "x_list",
+      "v5_actual_value_first_launch": 20619064401920
+    },
+    {
+      "index_1based": 3,
+      "byte_offset": 16,
+      "field": "weight_list",
+      "v5_actual_value_first_launch": 20619064406016
+    },
+    {
+      "index_1based": 4,
+      "byte_offset": 24,
+      "field": "assist_list",
+      "v5_actual_value_first_launch": 20619064410112
+    },
+    {
+      "index_1based": 5,
+      "byte_offset": 32,
+      "field": "scale_list",
+      "v5_actual_value_first_launch": 20619064414208
+    },
+    {
+      "index_1based": 6,
+      "byte_offset": 40,
+      "field": "counts",
+      "v5_actual_value_first_launch": 20618580802560
+    },
+    {
+      "index_1based": 7,
+      "byte_offset": 48,
+      "field": "token_scale",
+      "v5_actual_value_first_launch": 20618580802048
+    },
+    {
+      "index_1based": 8,
+      "byte_offset": 56,
+      "field": "y_list",
+      "v5_actual_value_first_launch": 20619064418304
+    },
+    {
+      "index_1based": 9,
+      "byte_offset": 64,
+      "field": "workspace_system_base",
+      "v5_actual_value_first_launch": 20618583998976
+    }
+  ],
+  "planner_HostArgs_bytes": 16,
+  "GMM_HostArgs_bytes": 72,
+  "host_copy_placeholders": 0,
+  "wrong_field_8_value_v1": 20619064336512,
+  "correct_field_8_value_v5": 20619064418304,
+  "wrong_vs_correct_equal": false,
+  "source_math_or_tiling_change": false,
+  "workspace": {
+    "bytes": 117440640,
+    "backing_bytes": 117441408,
+    "alignment": 512,
+    "policy": "ACL_MEM_MALLOC_HUGE_FIRST=0",
+    "canary_each_bytes": 128,
+    "system_prefix_bytes": 16777216,
+    "candidate_frame_bytes": 128,
+    "initial_clear_outside_events_once_per_case": true,
+    "native_KFC_clear_inside_unchanged_kernel": "CPU_native_workspace_clear_audit.json"
+  },
+  "lifecycle": {
+    "one_probe_owner_open_source_locations": [
+      93
+    ],
+    "one_bind_call_site_per_case": [
+      109
+    ],
+    "args_members_persist_through_stop": true,
+    "inflight_bind_rejected_and_descriptor_bytes_unchanged": "CPU_ABI_contract.json",
+    "SDK_result_retained_through_stop_event": true,
+    "SDK_uses_own_output_and_workspace_raw_candidate_share_Probe": true,
+    "per_call_runtime_args_and_all_five_descriptor_seals": true,
+    "finish_sync_then_canary_output_frame_D2H_after_stop": true
+  },
+  "runtime_loader": {
+    "ctypes_CDLL_entry_matches_v5_default": true,
+    "loader_v2_and_HostArgs_v3_frozen_sources_and_libraries": true,
+    "same_original_SDK_context_and_stream": true,
+    "bind_current_context_guard_restored": true,
+    "module_blob_functions_and_probe_GM_released_only_in_close": true
+  },
+  "raw_smoke": {
+    "count": 1,
+    "case": "R1_e0",
+    "before_any_Event_creation": true,
+    "candidate_before_smoke_success": 0,
+    "on_failure_stops_remaining_cases_and_events": true,
+    "actual_NPU_smoke_run": false
+  },
+  "event_scope": "M1 same-instance device/queue intervals, host-submit idle can be included; no pure-core/fullnet/K5 claim",
+  "passed": true
+}

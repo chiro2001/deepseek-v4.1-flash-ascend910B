@@ -1,0 +1,74 @@
+{
+  "CPU_read_only": true,
+  "NPU_calls": 0,
+  "sources": {
+    "draft_override": {
+      "path": "/vllm-workspace/vllm-ascend/vllm_ascend/patch/platform/patch_speculative_config.py",
+      "bytes": 5848,
+      "sha256": "94c8872bc1ba9fa15407ca4e0359a005530c400280cf95cb0e474aa6fb8f0ac2",
+      "snippets": [
+        {
+          "first_line": 42,
+          "last_line": 120,
+          "text": "def _normalize_deepseek_v4_dspark_draft(draft_model_config) -> None:\n    \"\"\"Restore the DSpark draft architecture after VL config conversion.\n\n    DeepSeek-V4-Vision uses the same checkpoint for the target and DSpark\n    drafter.  vLLM first rewrites that checkpoint to ``DSparkDraftModel``, but\n    rebuilding ``model_arch_config`` with multimodal detection can restore the\n    top-level ``*ForConditionalGeneration`` architecture.  The drafter would\n    then instantiate a second full VL target and register duplicate attention\n    layer names.  Update both config representations without re-running the\n    multimodal architecture conversion.\n    \"\"\"\n    hf_config = getattr(draft_model_config, \"hf_config\", None)\n    text_config = getattr(hf_config, \"text_config\", None)\n    draft_hf_config = text_config if text_config is not None else hf_config\n    root_model_type = getattr(hf_config, \"model_type\", None)\n    text_model_type = getattr(draft_hf_config, \"model_type\", None)\n    is_v41 = root_model_type in (\"deepseek_v4.1\", \"deepseek_v41\") or text_model_type in (\n        \"deepseek_v4.1_text\",\n        \"deepseek_v41_text\",\n    )\n    if (\n        hf_config is None\n        or (root_model_type != \"deepseek_v4\" and not is_v41)\n        or getattr(draft_hf_config, \"dspark_target_layer_ids\", None) is None\n    ):\n        return\n\n    architecture = \"DeepseekV41DSparkDraftModel\" if is_v41 else \"DSparkDraftModel\"\n    if is_v41:\n        # The Aurora target and draft experts intentionally have different\n        # widths.  SpeculativeConfig owns a private config copy, so adapting\n        # these fields cannot alter the target model.\n        draft_hf_config.update(\n            {\n                \"n_routed_experts\": draft_hf_config.dspark_n_routed_experts,\n                \"num_experts_per_tok\": getattr(\n                    draft_hf_config, \"dspark_num_experts_per_tok\", None\n                )\n                or getattr(draft_hf_config, \"dspark_n_activated_experts\"),\n                \"n_mtp_layers\": getattr(draft_hf_config, \"num_nextn_predict_layers\", 3),\n            }\n        )\n    if is_v41:\n        uses_released_name = (\n            root_model_type == \"deepseek_v41\"\n            or text_model_type == \"deepseek_v41_text\"\n        )\n        normalized_model_type = (\n            \"deepseek_v41\" if uses_released_name else \"deepseek_v4.1\"\n        )\n    else:\n        normalized_model_type = root_model_type\n    hf_config.update(\n        {\n            \"architectures\": [architecture],\n            \"model_type\": normalized_model_type,\n        }\n    )\n    arch_updates = dict(\n        architectures=[architecture],\n        model_type=normalized_model_type,\n        is_mm_prefix_lm=False,\n    )\n    if is_v41:\n        arch_updates.update(\n            num_experts=draft_hf_config.n_routed_experts,\n            num_experts_per_token=draft_hf_config.num_experts_per_tok,\n        )\n    draft_model_config.model_arch_config = replace(\n        draft_model_config.model_arch_config,\n        **arch_updates,\n    )\n    architectures = draft_model_config.model_arch_config.architectures\n    model_info, architecture = draft_model_config.registry.inspect_model_cls(\n        architectures,\n        draft_model_config,\n    )\n    draft_model_config._model_info = model_info\n    draft_model_config._architecture = architecture"
+        },
+        {
+          "first_line": 123,
+          "last_line": 138,
+          "text": "def _dspark_post_init(self):\n    _orig_post_init(self)\n    if self.use_dspark():\n        draft_model_config = getattr(self, \"draft_model_config\", None)\n        draft_hf_config = getattr(draft_model_config, \"hf_config\", None)\n        _normalize_deepseek_v4_dspark_draft(draft_model_config)\n        # deepseek v4 dspark\n        if getattr(draft_hf_config, \"ptd_token_id\", None) is None:  # type: ignore\n            draft_hf_config.ptd_token_id = getattr(draft_hf_config, \"dspark_noise_token_id\", None)  # type: ignore\n        # gqa backend dspark\n        if getattr(draft_hf_config, \"ptd_token_id\", None) is None:  # type: ignore\n            draft_hf_config.ptd_token_id = getattr(draft_hf_config, \"mask_token_id\", None)  # type: ignore\n\n\nSpeculativeConfig.hf_config_override = staticmethod(_normalize_legacy_qwen3_dspark_config)\nSpeculativeConfig.__post_init__ = _dspark_post_init"
+        }
+      ]
+    },
+    "draft_config_owner": {
+      "path": "/vllm-workspace/vllm/vllm/config/speculative.py",
+      "bytes": 64455,
+      "sha256": "83cbb26932b9ec0633753b58e8fe666f55c779580b32fba750cf569cde67c40c",
+      "snippets": [
+        {
+          "first_line": 835,
+          "last_line": 866,
+          "text": "                else:\n                    # Compose any callable hf_overrides set on the target so the\n                    # draft config receives the same transform (e.g. the test\n                    # shrink). Dict overrides stay target-only.\n                    draft_hf_overrides = SpeculativeConfig.compose_draft_hf_overrides(\n                        self.target_model_config.hf_overrides\n                    )\n                self.draft_model_config = ModelConfig(\n                    model=self.model,\n                    runner=\"draft\",\n                    tokenizer=(\n                        self.model\n                        if self.use_heterogeneous_vocab\n                        else self.target_model_config.tokenizer\n                    ),\n                    tokenizer_mode=self.target_model_config.tokenizer_mode,\n                    trust_remote_code=self.target_model_config.trust_remote_code,\n                    allowed_local_media_path=self.target_model_config.allowed_local_media_path,\n                    allowed_media_domains=self.target_model_config.allowed_media_domains,\n                    dtype=self.target_model_config.dtype,\n                    seed=self.target_model_config.seed,\n                    revision=self.revision,\n                    code_revision=self.code_revision,\n                    tokenizer_revision=self.target_model_config.tokenizer_revision,\n                    max_model_len=self.max_model_len,  # type: ignore[arg-type]\n                    spec_target_max_model_len=self.target_model_config.max_model_len,\n                    quantization=self.quantization,\n                    enforce_eager=self.target_model_config.enforce_eager,\n                    max_logprobs=self.target_model_config.max_logprobs,\n                    hf_overrides=draft_hf_overrides,\n                    config_format=self.target_model_config.config_format,\n                )"
+        }
+      ]
+    },
+    "actual_draft_consumer": {
+      "path": "/vllm-workspace/vllm-ascend/vllm_ascend/models/deepseek_v41/dspark.py",
+      "bytes": 7759,
+      "sha256": "3fdc5c8afd777b493761cd9e646561e7ad56157d369db6d5c02df9579d4074a0",
+      "snippets": [
+        {
+          "first_line": 57,
+          "last_line": 72,
+          "text": "\n    def __init__(self, *, vllm_config, prefix=\"\") -> None:\n        # Deliberately do not call the V4 dSPark constructor: V4.1 has delayed\n        # mHC state between blocks and no terminal hc_head parameters.\n        torch.nn.Module.__init__(self)\n        assert vllm_config.speculative_config is not None\n        self.vllm_config = vllm_config\n        validate_cache_runtime(vllm_config)\n        draft_model_config = vllm_config.speculative_config.draft_model_config\n        config = draft_model_config.hf_text_config\n        self.config = config\n        self.hc_mult = config.hc_mult\n        self.hidden_size = config.hidden_size\n        self.block_size = int(config.dspark_block_size)\n        self.target_layer_ids = list(config.dspark_target_layer_ids)\n        self.num_dspark_layers = _get_dspark_num_mtp_layers(config)"
+        },
+        {
+          "first_line": 140,
+          "last_line": 150,
+          "text": "\n@support_torch_compile\nclass DSparkDeepseekV41ForCausalLM(DSparkDeepseekV4ForCausalLM):\n    def __init__(self, *, vllm_config, prefix=\"\") -> None:\n        torch.nn.Module.__init__(self)\n        assert vllm_config.speculative_config is not None\n        self.config = vllm_config.speculative_config.draft_model_config.hf_text_config\n\n        from vllm_ascend.utils import get_rotation_path\n\n        self.rotation_path = get_rotation_path(vllm_config) if vllm_config.quant_config is not None else None"
+        }
+      ]
+    }
+  },
+  "actual_checkpoint_SHA": "40ebd329d3cb2d99d7176091afb580c182c21f48b88b63b550264a97e9c0d424",
+  "actual_private_draft_override": {
+    "actual_function_AST_executed": true,
+    "registry_is_CPU_stub": true,
+    "actual_ModelConfig_or_model_not_constructed": true,
+    "target_unchanged": true,
+    "draft_private_text_config_experts": 128,
+    "draft_private_text_config_top_k": 3,
+    "draft_model_arch_experts": 128,
+    "draft_model_arch_top_k": 3,
+    "passed": true
+  },
+  "target_remains_experts_topk": [
+    384,
+    6
+  ],
+  "draft_experts_topk": [
+    128,
+    3
+  ],
+  "source_guard_ref": "../k5_route_feasibility_cpu/evidence/source_guards.json",
+  "passed": true
+}

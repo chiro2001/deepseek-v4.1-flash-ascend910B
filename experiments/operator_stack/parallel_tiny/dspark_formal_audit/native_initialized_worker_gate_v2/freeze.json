@@ -1,0 +1,83 @@
+{
+  "scope": "CPU reviewed normal-initialized WorkerWrapper init-only SDK entry/driver and tuple hooks, no NPU run",
+  "npu_permissions": 0,
+  "npu_jobs": 0,
+  "worker_scope": "normal WorkerWrapper init_device returned; borrowed context/current stream/actual TP8 mapping; no load_model",
+  "driver_entry": "init_only_driver.py",
+  "driver_direct_file_execution_supported": true,
+  "driver_package": "parallel_tiny.dspark_formal_audit.native_initialized_worker_gate_v2",
+  "variants": [
+    "static_default",
+    "nonstatic_default",
+    "static_keep",
+    "nonstatic_keep"
+  ],
+  "one_variant_per_fresh_worker": true,
+  "old_native_capture_copy_v1_freeze_sha256": "8119d7d4ddabe0835b4d0ce06c2758ebcb0d177814e50391a94a51182465b895",
+  "old_v1_unchanged": true,
+  "cpu_tests_passed": 37,
+  "actual_initialized_worker_sdk_case": false,
+  "actual_17_hooks_installed": false,
+  "actual_43_device_exports": false,
+  "device_audit_passed": false,
+  "actual_copy_alias_gate_passed": false,
+  "full_consumer_audit_passed": false,
+  "safe_formal_receipt": false,
+  "formal_model_validated": false,
+  "actual_prepack_consumer_order_validated": false,
+  "performance_claim": null,
+  "role_geometry_plan": {
+    "main": {
+      "checkpoint_experts": 384,
+      "topk": 6,
+      "ep8_local_counts": 48,
+      "observed_expanded_rows": 36
+    },
+    "draft": {
+      "checkpoint_experts": 128,
+      "topk": 3,
+      "ep8_local_counts": 16,
+      "observed_expanded_rows": 15
+    },
+    "actual_role_binder_installed": false
+  },
+  "existing_aa_v3_dependencies_managed_by_root": [
+    "parallel_tiny/dspark_formal_prep/contract.py",
+    "formal_model_contract.py",
+    "run_stack.sh"
+  ],
+  "file_count_excluding_root_freeze_and_checksum": 29,
+  "total_bytes_excluding_root_freeze_and_checksum": 355679,
+  "max_file_bytes": 122054,
+  "files": {
+    "README.md": "963a1a4d57311f99f9e41b1e7c5823fda3b35f677d584ae83f7e40a77ac13f31",
+    "bootstrap_source_plan.json": "273b0f3b51fc877cc0bd28490f030213a1f1876f6cce37e08f7332df2d8ee3f1",
+    "contracts.py": "b3ea6f450a58e19b6042907e2a598555c948879cb329def5180ccceecc7407da",
+    "controller.template.json": "70d4b57f38d3071aa7942a1e241634117a9d1b97718ead76e49b8a6eb74bfd0b",
+    "controller_cpu.py": "4a0468664570df3dd3b3ad087f0cba8d6b21dcd6c829b2907c8ea9c397bd9dcb",
+    "cpu_validation.json": "c3634e13949ab7123145d0640cf43871578013a3a4dfb2513ab938f519d37b3c",
+    "evidence/checkpoint_config/config.json": "40ebd329d3cb2d99d7176091afb580c182c21f48b88b63b550264a97e9c0d424",
+    "evidence/checkpoint_config/receipt.json": "409086672941bc0bd7ba55e4df3ab486e35d9b28a67e1e6a8dc558d91fbbce85",
+    "evidence/cpu_contracts/receipt.json": "f6dfd6e3b127985e99b6e1b23f8ad15bdb363a4a641f09e2cca4a10dbf199f6e",
+    "evidence/cpu_contracts/unittest.txt": "64579092dc64651502c8f267402b6c19317016d811b02b40a1fa47259958704e",
+    "evidence/cpu_tuple/receipt.json": "cb9a2396575947e011d1558336dbdeb83b2e5eb8ef15d418cb755e4777cda8b7",
+    "evidence/cpu_tuple/stderr.txt": "32b7a4d1313b352d8ce0f6d47df10e7bbcf1e2c2fe50d67de35ff235d3c084ba",
+    "evidence/cpu_tuple/stdout.txt": "84eb80311020046defd4960af82bd35a4bbcfcc629a8f71672ffe1f4b278ebc7",
+    "evidence/role_geometry/v4_decoder_init.json": "80b38e3abcb08096a8252227fdea9b471338a0621bf7845fe4e429ae93384775",
+    "evidence/sdk_source_reference/arg_utils.py.txt": "165f9ec6e3b067bb7e6c72d68adedde7fa4d5ed7932fa7568064b9d9086e6830",
+    "evidence/sdk_source_reference/collection_receipt.json": "d03e05f64ff2aaf43c9ddb0c67b951ea863ba3b58076b86517627079a39b9144",
+    "evidence/sdk_source_reference/multiproc_executor.py.txt": "ceb3477473bdb1de36e01687e0b2083ad239d42b1ddc2ec8cec16ba2c477efa6",
+    "evidence/sdk_source_reference/speculative_config.py.txt": "83cbb26932b9ec0633753b58e8fe666f55c779580b32fba750cf569cde67c40c",
+    "evidence/sdk_source_reference/worker_base.py.txt": "7da44338c2645ebf03d23394e452b31a8e3da1011fd1b42fcfcccfe99551b3fe",
+    "hook_tuple_adapters.py": "7fc966851ed27ef8456e3d7b568baff48d10afcae53f5820b561589b06879a90",
+    "init_only_driver.py": "653416b13c57443a711dfe5812987d39e00a8dbf8ca6aebec6e78df841a19a51",
+    "initialized_worker_gate.py": "52076b628b9fbc16b7d393bb35bcca5a501bb27bd07d14b497bf165144820364",
+    "runtime_scope.py": "0ed729d9aa9acf2be0313e18e31e28cbb61dd54ad76cb47e37c3ba92f8b7b334",
+    "sdk_worker.py": "e9bf00680bbb2d8ddf0c0d6be3348f1fce1baabdc6b5427c6e5584430af92e76",
+    "tensor_tuple_transport.py": "b93a0106f6a7d0c544fbc61b0d0d89cc22e452c5216be10a66f24f246e0c3a90",
+    "test_contracts.py": "02c1f4fc002e2e7bf4c6e7361ceebe2ed9fef741aafd52006d9ca31c331537ab",
+    "test_driver_cpu.py": "570e84fc3a15bf7d0909b63d8c977790c3871e58898d6f1a6ded46b84a5f98a5",
+    "test_transport_cpu.py": "05c36373e2f197ba9ce11ccb5573a6ff450f3a2f646c6b98f750077b5600ed21",
+    "worker_hook.py": "bfa6bc170e8bc7154bee557690d24ec01ae8c74e24c91034f5b9c1c833b71a23"
+  }
+}

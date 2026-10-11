@@ -1,0 +1,268 @@
+{
+  "CPU_only": true,
+  "NPU_calls": 0,
+  "NPU_permission": 0,
+  "prepared_plan": {
+    "path": "/work/results/formal_dspark_native_eager_aa_v3/prepared_plan.json",
+    "sha256": "ed908d8d4723243a574e63d27e3fc4bd6054df81e5252c5a7476cda186f98214"
+  },
+  "checkpoint": {
+    "path": "/home/l00886679/models/out/v41-w4a8-engram-dr-vision-qrot-mtpq/config.json",
+    "sha256": "40ebd329d3cb2d99d7176091afb580c182c21f48b88b63b550264a97e9c0d424",
+    "target_experts": 384,
+    "target_top_k": 6,
+    "draft_experts": 128,
+    "draft_top_k": 3,
+    "K": 2304,
+    "N": 5120,
+    "block_size": 5,
+    "target_layer_ids": [
+      37,
+      38,
+      39
+    ]
+  },
+  "override_CPU_execution": {
+    "actual_function_AST_executed": true,
+    "registry_is_CPU_stub": true,
+    "actual_ModelConfig_or_model_not_constructed": true,
+    "target_unchanged": true,
+    "draft_private_text_config_experts": 128,
+    "draft_private_text_config_top_k": 3,
+    "draft_model_arch_experts": 128,
+    "draft_model_arch_top_k": 3,
+    "passed": true
+  },
+  "EP_mapping": {
+    "EP": 8,
+    "DP": 1,
+    "PCP": 1,
+    "TP": 8,
+    "enable_expert_parallel": true,
+    "placement": "linear",
+    "enable_eplb": false,
+    "ep_rank_equals_formal_TP_rank": true,
+    "target_ranges": [
+      [
+        0,
+        48
+      ],
+      [
+        48,
+        96
+      ],
+      [
+        96,
+        144
+      ],
+      [
+        144,
+        192
+      ],
+      [
+        192,
+        240
+      ],
+      [
+        240,
+        288
+      ],
+      [
+        288,
+        336
+      ],
+      [
+        336,
+        384
+      ]
+    ],
+    "draft_ranges": [
+      [
+        0,
+        16
+      ],
+      [
+        16,
+        32
+      ],
+      [
+        32,
+        48
+      ],
+      [
+        48,
+        64
+      ],
+      [
+        64,
+        80
+      ],
+      [
+        80,
+        96
+      ],
+      [
+        96,
+        112
+      ],
+      [
+        112,
+        128
+      ]
+    ],
+    "runtime_device_expert_map_readback": false,
+    "basis": "actual formal kwargs + defaults + EP flatten/source + actual AllGather active_expert_range"
+  },
+  "role_comm_state_has_distinct_shape_key": true,
+  "sources": {
+    "draft_override": {
+      "path": "/vllm-workspace/vllm-ascend/vllm_ascend/patch/platform/patch_speculative_config.py",
+      "bytes": 5848,
+      "sha256": "94c8872bc1ba9fa15407ca4e0359a005530c400280cf95cb0e474aa6fb8f0ac2",
+      "snippets": [
+        {
+          "first_line": 42,
+          "last_line": 120,
+          "text": "def _normalize_deepseek_v4_dspark_draft(draft_model_config) -> None:\n    \"\"\"Restore the DSpark draft architecture after VL config conversion.\n\n    DeepSeek-V4-Vision uses the same checkpoint for the target and DSpark\n    drafter.  vLLM first rewrites that checkpoint to ``DSparkDraftModel``, but\n    rebuilding ``model_arch_config`` with multimodal detection can restore the\n    top-level ``*ForConditionalGeneration`` architecture.  The drafter would\n    then instantiate a second full VL target and register duplicate attention\n    layer names.  Update both config representations without re-running the\n    multimodal architecture conversion.\n    \"\"\"\n    hf_config = getattr(draft_model_config, \"hf_config\", None)\n    text_config = getattr(hf_config, \"text_config\", None)\n    draft_hf_config = text_config if text_config is not None else hf_config\n    root_model_type = getattr(hf_config, \"model_type\", None)\n    text_model_type = getattr(draft_hf_config, \"model_type\", None)\n    is_v41 = root_model_type in (\"deepseek_v4.1\", \"deepseek_v41\") or text_model_type in (\n        \"deepseek_v4.1_text\",\n        \"deepseek_v41_text\",\n    )\n    if (\n        hf_config is None\n        or (root_model_type != \"deepseek_v4\" and not is_v41)\n        or getattr(draft_hf_config, \"dspark_target_layer_ids\", None) is None\n    ):\n        return\n\n    architecture = \"DeepseekV41DSparkDraftModel\" if is_v41 else \"DSparkDraftModel\"\n    if is_v41:\n        # The Aurora target and draft experts intentionally have different\n        # widths.  SpeculativeConfig owns a private config copy, so adapting\n        # these fields cannot alter the target model.\n        draft_hf_config.update(\n            {\n                \"n_routed_experts\": draft_hf_config.dspark_n_routed_experts,\n                \"num_experts_per_tok\": getattr(\n                    draft_hf_config, \"dspark_num_experts_per_tok\", None\n                )\n                or getattr(draft_hf_config, \"dspark_n_activated_experts\"),\n                \"n_mtp_layers\": getattr(draft_hf_config, \"num_nextn_predict_layers\", 3),\n            }\n        )\n    if is_v41:\n        uses_released_name = (\n            root_model_type == \"deepseek_v41\"\n            or text_model_type == \"deepseek_v41_text\"\n        )\n        normalized_model_type = (\n            \"deepseek_v41\" if uses_released_name else \"deepseek_v4.1\"\n        )\n    else:\n        normalized_model_type = root_model_type\n    hf_config.update(\n        {\n            \"architectures\": [architecture],\n            \"model_type\": normalized_model_type,\n        }\n    )\n    arch_updates = dict(\n        architectures=[architecture],\n        model_type=normalized_model_type,\n        is_mm_prefix_lm=False,\n    )\n    if is_v41:\n        arch_updates.update(\n            num_experts=draft_hf_config.n_routed_experts,\n            num_experts_per_token=draft_hf_config.num_experts_per_tok,\n        )\n    draft_model_config.model_arch_config = replace(\n        draft_model_config.model_arch_config,\n        **arch_updates,\n    )\n    architectures = draft_model_config.model_arch_config.architectures\n    model_info, architecture = draft_model_config.registry.inspect_model_cls(\n        architectures,\n        draft_model_config,\n    )\n    draft_model_config._model_info = model_info\n    draft_model_config._architecture = architecture"
+        },
+        {
+          "first_line": 123,
+          "last_line": 138,
+          "text": "def _dspark_post_init(self):\n    _orig_post_init(self)\n    if self.use_dspark():\n        draft_model_config = getattr(self, \"draft_model_config\", None)\n        draft_hf_config = getattr(draft_model_config, \"hf_config\", None)\n        _normalize_deepseek_v4_dspark_draft(draft_model_config)\n        # deepseek v4 dspark\n        if getattr(draft_hf_config, \"ptd_token_id\", None) is None:  # type: ignore\n            draft_hf_config.ptd_token_id = getattr(draft_hf_config, \"dspark_noise_token_id\", None)  # type: ignore\n        # gqa backend dspark\n        if getattr(draft_hf_config, \"ptd_token_id\", None) is None:  # type: ignore\n            draft_hf_config.ptd_token_id = getattr(draft_hf_config, \"mask_token_id\", None)  # type: ignore\n\n\nSpeculativeConfig.hf_config_override = staticmethod(_normalize_legacy_qwen3_dspark_config)\nSpeculativeConfig.__post_init__ = _dspark_post_init"
+        }
+      ]
+    },
+    "draft_config_owner": {
+      "path": "/vllm-workspace/vllm/vllm/config/speculative.py",
+      "bytes": 64455,
+      "sha256": "83cbb26932b9ec0633753b58e8fe666f55c779580b32fba750cf569cde67c40c",
+      "snippets": [
+        {
+          "first_line": 835,
+          "last_line": 866,
+          "text": "                else:\n                    # Compose any callable hf_overrides set on the target so the\n                    # draft config receives the same transform (e.g. the test\n                    # shrink). Dict overrides stay target-only.\n                    draft_hf_overrides = SpeculativeConfig.compose_draft_hf_overrides(\n                        self.target_model_config.hf_overrides\n                    )\n                self.draft_model_config = ModelConfig(\n                    model=self.model,\n                    runner=\"draft\",\n                    tokenizer=(\n                        self.model\n                        if self.use_heterogeneous_vocab\n                        else self.target_model_config.tokenizer\n                    ),\n                    tokenizer_mode=self.target_model_config.tokenizer_mode,\n                    trust_remote_code=self.target_model_config.trust_remote_code,\n                    allowed_local_media_path=self.target_model_config.allowed_local_media_path,\n                    allowed_media_domains=self.target_model_config.allowed_media_domains,\n                    dtype=self.target_model_config.dtype,\n                    seed=self.target_model_config.seed,\n                    revision=self.revision,\n                    code_revision=self.code_revision,\n                    tokenizer_revision=self.target_model_config.tokenizer_revision,\n                    max_model_len=self.max_model_len,  # type: ignore[arg-type]\n                    spec_target_max_model_len=self.target_model_config.max_model_len,\n                    quantization=self.quantization,\n                    enforce_eager=self.target_model_config.enforce_eager,\n                    max_logprobs=self.target_model_config.max_logprobs,\n                    hf_overrides=draft_hf_overrides,\n                    config_format=self.target_model_config.config_format,\n                )"
+        }
+      ]
+    },
+    "actual_draft_consumer": {
+      "path": "/vllm-workspace/vllm-ascend/vllm_ascend/models/deepseek_v41/dspark.py",
+      "bytes": 7759,
+      "sha256": "3fdc5c8afd777b493761cd9e646561e7ad56157d369db6d5c02df9579d4074a0",
+      "snippets": [
+        {
+          "first_line": 57,
+          "last_line": 72,
+          "text": "\n    def __init__(self, *, vllm_config, prefix=\"\") -> None:\n        # Deliberately do not call the V4 dSPark constructor: V4.1 has delayed\n        # mHC state between blocks and no terminal hc_head parameters.\n        torch.nn.Module.__init__(self)\n        assert vllm_config.speculative_config is not None\n        self.vllm_config = vllm_config\n        validate_cache_runtime(vllm_config)\n        draft_model_config = vllm_config.speculative_config.draft_model_config\n        config = draft_model_config.hf_text_config\n        self.config = config\n        self.hc_mult = config.hc_mult\n        self.hidden_size = config.hidden_size\n        self.block_size = int(config.dspark_block_size)\n        self.target_layer_ids = list(config.dspark_target_layer_ids)\n        self.num_dspark_layers = _get_dspark_num_mtp_layers(config)"
+        },
+        {
+          "first_line": 140,
+          "last_line": 150,
+          "text": "\n@support_torch_compile\nclass DSparkDeepseekV41ForCausalLM(DSparkDeepseekV4ForCausalLM):\n    def __init__(self, *, vllm_config, prefix=\"\") -> None:\n        torch.nn.Module.__init__(self)\n        assert vllm_config.speculative_config is not None\n        self.config = vllm_config.speculative_config.draft_model_config.hf_text_config\n\n        from vllm_ascend.utils import get_rotation_path\n\n        self.rotation_path = get_rotation_path(vllm_config) if vllm_config.quant_config is not None else None"
+        }
+      ]
+    },
+    "AllGather_range_and_count_mode": {
+      "path": "/vllm-workspace/vllm-ascend/vllm_ascend/ops/fused_moe/token_dispatcher.py",
+      "bytes": 35605,
+      "sha256": "37f96f834b98e257b5b82eaab607c451199b191c9c01078f61213c4e592fc9b8",
+      "snippets": [
+        {
+          "first_line": 406,
+          "last_line": 413,
+          "text": "class TokenDispatcherWithAllGather(MoETokenDispatcher[MoEAllGatherCombineMetadata]):\n    def __init__(self, **kwargs):\n        super().__init__(**kwargs)\n        self.max_num_tokens = kwargs.get(\"max_num_tokens\")\n        num_experts_local = kwargs.get(\"num_local_experts\", 0)\n        self.num_experts_local = (\n            num_experts_local.item() if torch.is_tensor(num_experts_local) else int(num_experts_local)\n        )"
+        },
+        {
+          "first_line": 462,
+          "last_line": 501,
+          "text": "        if expert_map is not None:\n            global_num_experts = len(expert_map) + global_redundant_expert_num\n            first_expert_idx = get_ep_group().rank_in_group * self.num_experts_local\n            last_expert_idx = first_expert_idx + self.num_experts_local\n            # [MOE-MASK-RANGE] \u8fde\u7eed\u533a\u95f4\u6620\u5c04\u4e0b expert_map[topk_ids] != -1 \u7b49\u4ef7\u4e8e\n            # \u8303\u56f4\u6bd4\u8f83\uff1b\u63a9\u7801\u672c\u8eab\u5fc5\u987b\u4fdd\u7559\uff08expanded_row_idx \u7684 -1 \u4f1a\u8ba9 unpermute\n            # \u8bfb\u5230\u672a\u5199\u5165\u7684 permuted_tokens \u884c\uff0c\u9760\u8fd9\u91cc\u7684 0 \u6743\u91cd\u538b\u6389\uff09\u3002\n            if _MOE_MASK_RANGE_FAST and _is_contiguous_local_range(\n                    expert_map, first_expert_idx, last_expert_idx):\n                # [SAFE-L1] int32 \u57df\u6bd4\u8f83\uff08\u53bb\u6389\u6bcf\u5c42 2 \u6b21 INT32\u2192INT64 \u7684 Cast\uff1b\n                #   \u9010\u4f4d\u7b49\u4ef7\uff0c\u89c1\u6587\u4ef6\u5934 [SAFE-L1] \u6bb5\u4e0e a2/agents/SAFE_LEVERS/REPORT.md \u00a72\uff09\u3002\n                topk_weights = topk_weights.masked_fill(\n                    (topk_ids < _i32_scalar(first_expert_idx, topk_ids.device))\n                    | (topk_ids >= _i32_scalar(last_expert_idx, topk_ids.device)), 0.0)\n            else:\n                mask = expert_map[topk_ids] != -1\n                topk_weights = topk_weights * mask\n        else:\n            first_expert_idx = 0\n            last_expert_idx = self.num_experts_local\n            global_num_experts = self.num_experts_local\n        sorted_hidden_states, expanded_row_idx, expert_tokens, dynamic_scale = DeviceOperator.npu_moe_init_routing(\n            hidden_states,\n            topk_ids,\n            scale=dynamic_scale,\n            active_num=num_tokens * self.top_k,\n            expert_num=global_num_experts,\n            expert_tokens_num_type=1,\n            expert_tokens_num_flag=True,\n            active_expert_range=[first_expert_idx, last_expert_idx],\n            quant_mode=quant_mode,\n            act_quant_type=act_quant_type,\n        )\n        expert_tokens = expert_tokens.to(torch.int64)\n        group_list_type = 1  # `count` mode\n\n        return MoETokenDispatchOutput(\n            hidden_states=sorted_hidden_states,\n            dynamic_scale=dynamic_scale if with_quant else None,\n            group_list=expert_tokens,"
+        }
+      ]
+    },
+    "linear_expert_map": {
+      "path": "/vllm-workspace/vllm/vllm/model_executor/layers/fused_moe/expert_map_manager.py",
+      "bytes": 18886,
+      "sha256": "308c00f63fcb6f44518ec3a56d8f902c7bba75928c2e3aea30fbe1f3f473973b",
+      "snippets": [
+        {
+          "first_line": 62,
+          "last_line": 93,
+          "text": "    assert ep_size > 0\n    if ep_size == 1:\n        return (global_num_experts, None, None)\n\n    # Distribute experts as evenly as possible to each rank.\n    base_experts = global_num_experts // ep_size\n    remainder = global_num_experts % ep_size\n    local_num_experts = base_experts + 1 if ep_rank < remainder else base_experts\n\n    # Create a tensor of size num_experts filled with -1\n    expert_map = torch.full((global_num_experts,), -1, dtype=torch.int32)\n\n    # Create an expert map for the local experts\n    if expert_placement_strategy == \"linear\":\n        start_idx = ep_rank * base_experts + min(ep_rank, remainder)\n        expert_map[start_idx : start_idx + local_num_experts] = torch.arange(\n            0, local_num_experts, dtype=torch.int32\n        )\n    elif expert_placement_strategy == \"round_robin\":\n        local_log_experts = torch.arange(\n            ep_rank, global_num_experts, ep_size, dtype=torch.int32\n        )\n\n        expert_map[local_log_experts] = torch.arange(\n            0, local_num_experts, dtype=torch.int32\n        )\n    else:\n        raise ValueError(\n            \"Unsupported expert placement strategy \"\n            f\"'{expert_placement_strategy}', expected one of \"\n            f\"{get_args(ExpertPlacementStrategy)}\"\n        )"
+        }
+      ]
+    },
+    "EP_rank_equals_flattened_TP_rank": {
+      "path": "/vllm-workspace/vllm/vllm/model_executor/layers/fused_moe/config.py",
+      "bytes": 50070,
+      "sha256": "c4cfa8a9775144058d581162aaed9bc4441c07fcb1f51e8eb1545e13cc08f6ad",
+      "snippets": [
+        {
+          "first_line": 1114,
+          "last_line": 1121,
+          "text": "        tp_size: int, dp_size: int, dp_rank: int, pcp_size: int, pcp_rank: int\n    ) -> tuple[int, int]:\n        tp_rank = 0 if tp_size == 1 else get_tensor_model_parallel_rank()\n        # There are actually dp_size * pcp_size * tp_size devices.\n        # Update tp_size and tp_rank so we shard across all devices.\n        flatten_tp_size = dp_size * pcp_size * tp_size\n        flatten_tp_rank = dp_rank * pcp_size * tp_size + pcp_rank * tp_size + tp_rank\n        return flatten_tp_size, flatten_tp_rank"
+        },
+        {
+          "first_line": 1204,
+          "last_line": 1215,
+          "text": "        use_ep = (\n            dp_size_ * pcp_size_ * tp_size_ > 1\n            and vllm_parallel_config.enable_expert_parallel\n        )\n\n        dp_size = dp_size_\n        dp_rank = get_dp_group().rank_in_group if dp_size > 1 else 0\n        pcp_size = pcp_size_\n        pcp_rank = get_pcp_group().rank_in_group if pcp_size > 1 else 0\n        tp_size, tp_rank = FusedMoEParallelConfig.flatten_tp_across_dp_and_pcp(\n            tp_size_, dp_size_, dp_rank, pcp_size_, pcp_rank\n        )"
+        },
+        {
+          "first_line": 1234,
+          "last_line": 1250,
+          "text": "        # In EP, each device owns a set of experts fully. There is no tensor\n        # parallel update tp_size, tp_rank, ep_size and ep_rank to reflect that.\n        ep_size = tp_size\n        ep_rank = tp_rank\n        return FusedMoEParallelConfig(\n            tp_size=1,\n            tp_rank=0,\n            pcp_size=pcp_size,\n            pcp_rank=pcp_rank,\n            dp_size=dp_size,\n            dp_rank=dp_rank,\n            ep_size=ep_size,\n            ep_rank=ep_rank,\n            sp_size=sp_size_,\n            use_ep=True,\n            all2all_backend=vllm_parallel_config.all2all_backend,\n            enable_eplb=vllm_parallel_config.enable_eplb,"
+        }
+      ]
+    },
+    "parallel_defaults": {
+      "path": "/vllm-workspace/vllm/vllm/config/parallel.py",
+      "bytes": 44311,
+      "sha256": "5ee765f980d8e371314caa38a27c5a21ab90f3865e697707d48e608ca4d17f3d",
+      "snippets": [
+        {
+          "first_line": 124,
+          "last_line": 133,
+          "text": "    tensor_parallel_size: int = Field(default=1, ge=1)\n    \"\"\"Number of tensor parallel groups.\"\"\"\n    prefill_context_parallel_size: int = Field(default=1, ge=1)\n    \"\"\"Number of ranks that split prefill sequence computation. PCP expands\n    the process world size but does not increase the KV-cache shard count.\"\"\"\n    data_parallel_size: int = Field(default=1, ge=1)\n    \"\"\"Number of data parallel groups. MoE layers will be sharded according to\n    the product of the tensor, prefill-context, and data parallel sizes.\"\"\"\n    data_parallel_size_local: int = Field(default=1, ge=0)\n    \"\"\"Number of local data parallel groups. A value of 0 is a sentinel used by"
+        },
+        {
+          "first_line": 173,
+          "last_line": 180,
+          "text": "    models.\"\"\"\n    enable_eplb: bool = False\n    \"\"\"Enable expert parallelism load balancing for MoE layers.\"\"\"\n    eplb_config: EPLBConfig = Field(default_factory=EPLBConfig)\n    \"\"\"Expert parallelism configuration.\"\"\"\n    expert_placement_strategy: ExpertPlacementStrategy = \"linear\"\n    \"\"\"The expert placement strategy for MoE layers:\n"
+        }
+      ]
+    },
+    "role_comm_state_guard": {
+      "path": "/vllm-workspace/vllm-ascend/vllm_ascend/ops/fused_moe/moe_comm_method.py",
+      "bytes": 24791,
+      "sha256": "164978e4b64ff0ede8014d7f4902798b4abca5a5ef93eec8d1399db205bf0343",
+      "snippets": [
+        {
+          "first_line": 52,
+          "last_line": 80,
+          "text": "def _moe_config_key(moe_config: FusedMoEConfig) -> tuple[int, ...]:\n    \"\"\"Return the execution shape that owns mutable MoE comm state.\n\n    Target and speculative draft models can have different expert counts and\n    top-k values.  A single process-global dispatcher is therefore unsafe: the\n    model constructed last would overwrite the dispatcher's shape for every\n    other MoE layer.  Configs with the same execution shape can still share the\n    existing stateful implementation because their forwards are sequential.\n    \"\"\"\n    fields = (\n        \"num_experts\",\n        \"num_local_experts\",\n        \"experts_per_token\",\n        \"hidden_dim\",\n        \"intermediate_size_per_partition\",\n        \"ep_size\",\n        \"tp_size\",\n        \"dp_size\",\n        \"pcp_size\",\n    )\n    return tuple(int(getattr(moe_config, field, 0) or 0) for field in fields)\n\n\ndef get_moe_comm_method(\n    moe_comm_type: MoECommType | None,\n    moe_config: FusedMoEConfig | None = None,\n) -> MoECommMethod | None:\n    if moe_config is not None:\n        return _MoECommMethodsByConfig.get((moe_comm_type, _moe_config_key(moe_config)))"
+        },
+        {
+          "first_line": 96,
+          "last_line": 117,
+          "text": "    config_key = _moe_config_key(moe_config)\n    for comm_type, implementation_cls in implementations.items():\n        cache_key = (comm_type, config_key)\n        comm_method = _MoECommMethodsByConfig.get(cache_key)\n        if comm_method is None:\n            comm_method = implementation_cls(moe_config)\n            _MoECommMethodsByConfig[cache_key] = comm_method\n        # Preserve the legacy lookup for callers that do not own a layer\n        # config. Layer forwards use the shape-qualified cache below.\n        _MoECommMethods[comm_type] = comm_method\n\n\ndef activate_moe_comm_method(moe_comm_type: MoECommType | None, moe_config: FusedMoEConfig) -> MoECommMethod:\n    \"\"\"Bind the communication implementation matching the active MoE layer.\"\"\"\n    comm_method = get_moe_comm_method(moe_comm_type, moe_config)\n    if comm_method is None:\n        setup_moe_comm_method(moe_config)\n        comm_method = get_moe_comm_method(moe_comm_type, moe_config)\n    if comm_method is None:\n        raise RuntimeError(f\"No MoE communication method registered for {moe_comm_type}\")\n    _EXTRA_CTX.moe_comm_method = comm_method\n    return comm_method"
+        },
+        {
+          "first_line": 258,
+          "last_line": 263,
+          "text": "    def _get_token_dispatcher(self):\n        return TokenDispatcherWithAllGather(\n            top_k=self.moe_config.experts_per_token,\n            num_experts=self.moe_config.num_experts,\n            num_local_experts=self.moe_config.num_local_experts,\n        )"
+        }
+      ]
+    },
+    "route_capture_patch": {
+      "path": "/work/src_dspark_native_eager_v3/stack/route_capture_patch.py",
+      "bytes": 2026,
+      "sha256": "e955fd72b7365befb0179d65f9a1bc5d076b4e13385a5a15b364a652efa8ba59",
+      "snippets": [
+        {
+          "first_line": 1,
+          "last_line": 44,
+          "text": "\"\"\"Audit-only fix for single-DP TP8 sequence-sharded route export.\"\"\"\nimport hashlib\nimport inspect\n\nINSTALLED = False\nRECORDS = []\nCALLS = []\nSOURCE_SHA256 = None\n\n\ndef install():\n    global INSTALLED, SOURCE_SHA256\n    if INSTALLED: return\n    from vllm.model_executor.layers.fused_moe.routed_experts_capturer import RoutedExpertsCapturer\n    from vllm.forward_context import get_forward_context\n    from vllm.distributed import get_tp_group\n    original = RoutedExpertsCapturer.capture\n    SOURCE_SHA256 = hashlib.sha256(inspect.getsource(original).encode()).hexdigest()\n\n    def capture(self, layer_id, topk_ids):\n        ctx = get_forward_context()\n        if len(CALLS) < 80:\n            CALLS.append({'layer':layer_id,'local_tokens':topk_ids.shape[0],\n                          'ctx_tokens':getattr(ctx,'num_tokens',None),'dp_none':ctx.dp_metadata is None,\n                          'attn_type':type(ctx.attn_metadata).__name__})\n        if ctx.dp_metadata is None and self.tp_size == 8:\n            local = topk_ids.shape[0]\n            total = int(getattr(ctx,'num_tokens',local))\n            if local != total and total > 0:\n                assert local == (total+self.tp_size-1)//self.tp_size, (local,total)\n                assert total <= self.device_buffer.shape[0], (total,self.device_buffer.shape)\n                topk_ids = get_tp_group().all_gather(topk_ids,dim=0)[:total]\n                RECORDS.append({'layer':layer_id,'local_tokens':local,'global_tokens':total})\n        return original(self, layer_id, topk_ids)\n\n    RoutedExpertsCapturer.capture = capture; INSTALLED = True\n    print('AUDIT_ROUTE_CAPTURE_PATCH', SOURCE_SHA256, flush=True)\n\n\ndef status(worker):\n    return {'installed': INSTALLED, 'original_capture_sha256': SOURCE_SHA256,\n            'actual_id_gathers': len(RECORDS), 'layouts': sorted({(r['local_tokens'],r['global_tokens']) for r in RECORDS}),\n            'call_samples':CALLS[:5],\n            'note': 'Audit-only route export; model routing and formal timing paths are unchanged'}"
+        }
+      ]
+    }
+  },
+  "passed": true
+}

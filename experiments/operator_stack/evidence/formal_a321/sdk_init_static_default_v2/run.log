@@ -1,0 +1,428 @@
+INFO 10-11 10:09:55 [__init__.py:52] Available plugins for group vllm.platform_plugins:
+INFO 10-11 10:09:55 [__init__.py:54] - ascend -> vllm_ascend:register
+INFO 10-11 10:09:55 [__init__.py:57] All plugins in this group will be loaded. Set `VLLM_PLUGINS` to control which plugins to load.
+INFO 10-11 10:09:55 [__init__.py:237] Platform plugin ascend is activated
+INFO 10-11 10:09:55 [platform.py:70] Breakable CUDAGraph on Ascend is opt-in; using VLLM_USE_BREAKABLE_CUDAGRAPH=0.
+2026-10-11 10:09:59,742 - 1461711 - ServiceProfiler - INFO - VLLM_USE_V1 not set, auto-detected via vLLM 0.27.1+empty: default 1
+INFO 10-11 10:10:09 [__init__.py:112] Registered model loader `<class 'vllm_ascend.model_loader.netloader.netloader.ModelNetLoaderElastic'>` with load format `netloader`
+INFO 10-11 10:10:10 [__init__.py:112] Registered model loader `<class 'vllm_ascend.model_loader.rfork.rfork_loader.RForkModelLoader'>` with load format `rfork`
+[transformers] Unrecognized keys in `rope_parameters` for 'rope_type'='default': {'beta_slow', 'original_max_position_embeddings', 'beta_fast', 'factor'}
+[transformers] Unrecognized keys in `rope_parameters` for 'rope_type'='default': {'beta_slow', 'original_max_position_embeddings', 'beta_fast', 'factor'}
+INFO 10-11 10:10:24 [model.py:645] Resolved architecture: DeepseekV41ForCausalLM
+INFO 10-11 10:10:25 [model.py:2214] Downcasting torch.float32 to torch.bfloat16.
+INFO 10-11 10:10:25 [model.py:1883] Using max model len 8192
+[transformers] Unrecognized keys in `rope_parameters` for 'rope_type'='default': {'beta_slow', 'original_max_position_embeddings', 'beta_fast', 'factor'}
+[transformers] Unrecognized keys in `rope_parameters` for 'rope_type'='default': {'beta_slow', 'original_max_position_embeddings', 'beta_fast', 'factor'}
+[transformers] Unrecognized keys in `rope_parameters` for 'rope_type'='default': {'beta_slow', 'original_max_position_embeddings', 'beta_fast', 'factor'}
+[transformers] Unrecognized keys in `rope_parameters` for 'rope_type'='default': {'beta_slow', 'original_max_position_embeddings', 'beta_fast', 'factor'}
+INFO 10-11 10:10:26 [model.py:645] Resolved architecture: DeepseekV41ForCausalLM
+INFO 10-11 10:10:27 [model.py:2214] Downcasting torch.float32 to torch.bfloat16.
+INFO 10-11 10:10:27 [model.py:1883] Using max model len 1048576
+[transformers] Unrecognized keys in `rope_parameters` for 'rope_type'='default': {'beta_slow', 'original_max_position_embeddings', 'beta_fast', 'factor'}
+[transformers] Unrecognized keys in `rope_parameters` for 'rope_type'='default': {'beta_slow', 'original_max_position_embeddings', 'beta_fast', 'factor'}
+INFO 10-11 10:10:41 [speculative.py:1157] Overriding draft model max model len from 1048576 to 8192
+INFO 10-11 10:10:56 [scheduler.py:242] Chunked prefill is enabled with max_num_batched_tokens=2048.
+INFO 10-11 10:10:56 [kernel.py:306] Final IR op priority after setting platform defaults: IrOpPriorityConfig(rms_norm=['native'], fused_add_rms_norm=['native'])
+WARNING 10-11 10:10:56 [vllm.py:1757] max_num_scheduled_tokens is set to 2044 based on the speculative decoding settings. This may lead to suboptimal performance. Consider increasing max_num_batched_tokens to accommodate the additional draft token slots, or decrease num_speculative_tokens or max_num_seqs.
+WARNING 10-11 10:10:56 [platform.py:651] GPU-specific parameter is not supported on Ascend. parameter=disable_cascade_attn, value=True, action: resetting to False.
+WARNING 10-11 10:10:56 [platform.py:708] Speculative quantization is set but Ascend automatically uses the main model's quantization method. parameter=quantization, action: resetting to None. 
+INFO 10-11 10:10:56 [platform.py:863] The timeout interval of the HCCL operator is 1836s. Timeout in seconds for execute_model RPC calls in multiprocessing must be greater than 1836s, Set VLLM_EXECUTE_MODEL_TIMEOUT_SECONDS=3000
+INFO 10-11 10:10:56 [ascend_config.py:161] Dynamic EPLB is False
+INFO 10-11 10:10:56 [ascend_config.py:162] The number of redundant experts is 0
+INFO 10-11 10:10:56 [platform.py:1167] FlashComm1 is disabled. Using flashinfer_all2allv as the all2all backend.
+INFO 10-11 10:10:56 [platform.py:1356] Set PYTORCH_NPU_ALLOC_CONF=expandable_segments:True
+INFO 10-11 10:10:56 [compilation.py:329] Enabled custom fusions: norm_quant, act_quant
+INFO 10-11 10:11:01 [__init__.py:52] Available plugins for group vllm.platform_plugins:
+INFO 10-11 10:11:01 [__init__.py:54] - ascend -> vllm_ascend:register
+INFO 10-11 10:11:01 [__init__.py:57] All plugins in this group will be loaded. Set `VLLM_PLUGINS` to control which plugins to load.
+INFO 10-11 10:11:02 [__init__.py:237] Platform plugin ascend is activated
+INFO 10-11 10:11:02 [platform.py:70] Breakable CUDAGraph on Ascend is opt-in; using VLLM_USE_BREAKABLE_CUDAGRAPH=0.
+INFO 10-11 10:11:02 [__init__.py:52] Available plugins for group vllm.platform_plugins:
+INFO 10-11 10:11:02 [__init__.py:54] - ascend -> vllm_ascend:register
+INFO 10-11 10:11:02 [__init__.py:57] All plugins in this group will be loaded. Set `VLLM_PLUGINS` to control which plugins to load.
+INFO 10-11 10:11:02 [__init__.py:237] Platform plugin ascend is activated
+INFO 10-11 10:11:02 [platform.py:70] Breakable CUDAGraph on Ascend is opt-in; using VLLM_USE_BREAKABLE_CUDAGRAPH=0.
+INFO 10-11 10:11:02 [__init__.py:52] Available plugins for group vllm.platform_plugins:
+INFO 10-11 10:11:02 [__init__.py:54] - ascend -> vllm_ascend:register
+INFO 10-11 10:11:02 [__init__.py:57] All plugins in this group will be loaded. Set `VLLM_PLUGINS` to control which plugins to load.
+INFO 10-11 10:11:02 [__init__.py:237] Platform plugin ascend is activated
+INFO 10-11 10:11:02 [platform.py:70] Breakable CUDAGraph on Ascend is opt-in; using VLLM_USE_BREAKABLE_CUDAGRAPH=0.
+INFO 10-11 10:11:02 [__init__.py:52] Available plugins for group vllm.platform_plugins:
+INFO 10-11 10:11:02 [__init__.py:54] - ascend -> vllm_ascend:register
+INFO 10-11 10:11:02 [__init__.py:57] All plugins in this group will be loaded. Set `VLLM_PLUGINS` to control which plugins to load.
+INFO 10-11 10:11:02 [__init__.py:237] Platform plugin ascend is activated
+INFO 10-11 10:11:02 [platform.py:70] Breakable CUDAGraph on Ascend is opt-in; using VLLM_USE_BREAKABLE_CUDAGRAPH=0.
+INFO 10-11 10:11:02 [__init__.py:52] Available plugins for group vllm.platform_plugins:
+INFO 10-11 10:11:02 [__init__.py:54] - ascend -> vllm_ascend:register
+INFO 10-11 10:11:02 [__init__.py:57] All plugins in this group will be loaded. Set `VLLM_PLUGINS` to control which plugins to load.
+INFO 10-11 10:11:02 [__init__.py:52] Available plugins for group vllm.platform_plugins:
+INFO 10-11 10:11:02 [__init__.py:54] - ascend -> vllm_ascend:register
+INFO 10-11 10:11:02 [__init__.py:57] All plugins in this group will be loaded. Set `VLLM_PLUGINS` to control which plugins to load.
+INFO 10-11 10:11:02 [__init__.py:237] Platform plugin ascend is activated
+INFO 10-11 10:11:02 [__init__.py:237] Platform plugin ascend is activated
+INFO 10-11 10:11:02 [__init__.py:52] Available plugins for group vllm.platform_plugins:
+INFO 10-11 10:11:02 [__init__.py:54] - ascend -> vllm_ascend:register
+INFO 10-11 10:11:02 [__init__.py:57] All plugins in this group will be loaded. Set `VLLM_PLUGINS` to control which plugins to load.
+INFO 10-11 10:11:02 [__init__.py:237] Platform plugin ascend is activated
+INFO 10-11 10:11:02 [platform.py:70] Breakable CUDAGraph on Ascend is opt-in; using VLLM_USE_BREAKABLE_CUDAGRAPH=0.
+INFO 10-11 10:11:02 [platform.py:70] Breakable CUDAGraph on Ascend is opt-in; using VLLM_USE_BREAKABLE_CUDAGRAPH=0.
+INFO 10-11 10:11:02 [platform.py:70] Breakable CUDAGraph on Ascend is opt-in; using VLLM_USE_BREAKABLE_CUDAGRAPH=0.
+INFO 10-11 10:11:03 [__init__.py:52] Available plugins for group vllm.platform_plugins:
+INFO 10-11 10:11:03 [__init__.py:54] - ascend -> vllm_ascend:register
+INFO 10-11 10:11:03 [__init__.py:57] All plugins in this group will be loaded. Set `VLLM_PLUGINS` to control which plugins to load.
+INFO 10-11 10:11:03 [__init__.py:237] Platform plugin ascend is activated
+INFO 10-11 10:11:03 [platform.py:70] Breakable CUDAGraph on Ascend is opt-in; using VLLM_USE_BREAKABLE_CUDAGRAPH=0.
+2026-10-11 10:11:08,548 - 1461910 - ServiceProfiler - INFO - VLLM_USE_V1 not set, auto-detected via vLLM 0.27.1+empty: default 1
+INFO 10-11 10:11:08 [__init__.py:112] Registered model loader `<class 'vllm_ascend.model_loader.netloader.netloader.ModelNetLoaderElastic'>` with load format `netloader`
+2026-10-11 10:11:08,720 - 1461911 - ServiceProfiler - INFO - VLLM_USE_V1 not set, auto-detected via vLLM 0.27.1+empty: default 1
+INFO 10-11 10:11:08 [__init__.py:112] Registered model loader `<class 'vllm_ascend.model_loader.netloader.netloader.ModelNetLoaderElastic'>` with load format `netloader`
+INFO 10-11 10:11:08 [__init__.py:112] Registered model loader `<class 'vllm_ascend.model_loader.rfork.rfork_loader.RForkModelLoader'>` with load format `rfork`
+2026-10-11 10:11:08,894 - 1461912 - ServiceProfiler - INFO - VLLM_USE_V1 not set, auto-detected via vLLM 0.27.1+empty: default 1
+INFO 10-11 10:11:08 [__init__.py:112] Registered model loader `<class 'vllm_ascend.model_loader.netloader.netloader.ModelNetLoaderElastic'>` with load format `netloader`
+INFO 10-11 10:11:08 [__init__.py:112] Registered model loader `<class 'vllm_ascend.model_loader.rfork.rfork_loader.RForkModelLoader'>` with load format `rfork`
+INFO 10-11 10:11:09 [__init__.py:112] Registered model loader `<class 'vllm_ascend.model_loader.rfork.rfork_loader.RForkModelLoader'>` with load format `rfork`
+2026-10-11 10:11:09,229 - 1461913 - ServiceProfiler - INFO - VLLM_USE_V1 not set, auto-detected via vLLM 0.27.1+empty: default 1
+INFO 10-11 10:11:09 [__init__.py:112] Registered model loader `<class 'vllm_ascend.model_loader.netloader.netloader.ModelNetLoaderElastic'>` with load format `netloader`
+2026-10-11 10:11:09,349 - 1461916 - ServiceProfiler - INFO - VLLM_USE_V1 not set, auto-detected via vLLM 0.27.1+empty: default 1
+INFO 10-11 10:11:09 [__init__.py:112] Registered model loader `<class 'vllm_ascend.model_loader.netloader.netloader.ModelNetLoaderElastic'>` with load format `netloader`
+2026-10-11 10:11:09,362 - 1461915 - ServiceProfiler - INFO - VLLM_USE_V1 not set, auto-detected via vLLM 0.27.1+empty: default 1
+INFO 10-11 10:11:09 [__init__.py:112] Registered model loader `<class 'vllm_ascend.model_loader.netloader.netloader.ModelNetLoaderElastic'>` with load format `netloader`
+INFO 10-11 10:11:09 [__init__.py:112] Registered model loader `<class 'vllm_ascend.model_loader.rfork.rfork_loader.RForkModelLoader'>` with load format `rfork`
+2026-10-11 10:11:09,583 - 1461914 - ServiceProfiler - INFO - VLLM_USE_V1 not set, auto-detected via vLLM 0.27.1+empty: default 1
+INFO 10-11 10:11:09 [__init__.py:112] Registered model loader `<class 'vllm_ascend.model_loader.rfork.rfork_loader.RForkModelLoader'>` with load format `rfork`
+INFO 10-11 10:11:09 [__init__.py:112] Registered model loader `<class 'vllm_ascend.model_loader.netloader.netloader.ModelNetLoaderElastic'>` with load format `netloader`
+INFO 10-11 10:11:09 [__init__.py:112] Registered model loader `<class 'vllm_ascend.model_loader.rfork.rfork_loader.RForkModelLoader'>` with load format `rfork`
+2026-10-11 10:11:09,630 - 1461917 - ServiceProfiler - INFO - VLLM_USE_V1 not set, auto-detected via vLLM 0.27.1+empty: default 1
+INFO 10-11 10:11:09 [__init__.py:112] Registered model loader `<class 'vllm_ascend.model_loader.netloader.netloader.ModelNetLoaderElastic'>` with load format `netloader`
+[transformers] Unrecognized keys in `rope_parameters` for 'rope_type'='default': {'original_max_position_embeddings', 'factor', 'beta_fast', 'beta_slow'}
+[transformers] Unrecognized keys in `rope_parameters` for 'rope_type'='default': {'original_max_position_embeddings', 'factor', 'beta_fast', 'beta_slow'}
+INFO 10-11 10:11:09 [__init__.py:112] Registered model loader `<class 'vllm_ascend.model_loader.rfork.rfork_loader.RForkModelLoader'>` with load format `rfork`
+INFO 10-11 10:11:09 [__init__.py:112] Registered model loader `<class 'vllm_ascend.model_loader.rfork.rfork_loader.RForkModelLoader'>` with load format `rfork`
+[transformers] Unrecognized keys in `rope_parameters` for 'rope_type'='default': {'original_max_position_embeddings', 'factor', 'beta_fast', 'beta_slow'}
+[transformers] Unrecognized keys in `rope_parameters` for 'rope_type'='default': {'original_max_position_embeddings', 'factor', 'beta_fast', 'beta_slow'}
+[transformers] Unrecognized keys in `rope_parameters` for 'rope_type'='default': {'beta_slow', 'factor', 'beta_fast', 'original_max_position_embeddings'}
+[transformers] Unrecognized keys in `rope_parameters` for 'rope_type'='default': {'beta_slow', 'factor', 'beta_fast', 'original_max_position_embeddings'}
+[transformers] Unrecognized keys in `rope_parameters` for 'rope_type'='default': {'beta_slow', 'original_max_position_embeddings', 'factor', 'beta_fast'}
+[transformers] Unrecognized keys in `rope_parameters` for 'rope_type'='default': {'beta_slow', 'original_max_position_embeddings', 'factor', 'beta_fast'}
+[transformers] Unrecognized keys in `rope_parameters` for 'rope_type'='default': {'beta_fast', 'factor', 'original_max_position_embeddings', 'beta_slow'}
+[transformers] Unrecognized keys in `rope_parameters` for 'rope_type'='default': {'original_max_position_embeddings', 'factor', 'beta_slow', 'beta_fast'}
+[transformers] Unrecognized keys in `rope_parameters` for 'rope_type'='default': {'beta_fast', 'factor', 'original_max_position_embeddings', 'beta_slow'}
+[transformers] Unrecognized keys in `rope_parameters` for 'rope_type'='default': {'original_max_position_embeddings', 'factor', 'beta_slow', 'beta_fast'}
+[transformers] Unrecognized keys in `rope_parameters` for 'rope_type'='default': {'original_max_position_embeddings', 'beta_fast', 'factor', 'beta_slow'}
+[transformers] Unrecognized keys in `rope_parameters` for 'rope_type'='default': {'original_max_position_embeddings', 'beta_fast', 'factor', 'beta_slow'}
+[transformers] Unrecognized keys in `rope_parameters` for 'rope_type'='default': {'beta_slow', 'original_max_position_embeddings', 'beta_fast', 'factor'}
+[transformers] Unrecognized keys in `rope_parameters` for 'rope_type'='default': {'beta_slow', 'original_max_position_embeddings', 'beta_fast', 'factor'}
+WARNING 10-11 10:11:11 [patch_triton.py:332] NPU Triton causal_conv1d_update is unavailable (cannot import name 'causal_conv1d_update_npu' from 'vllm_ascend.ops.triton.mamba.causal_conv1d' (/vllm-workspace/vllm-ascend/vllm_ascend/ops/triton/mamba/causal_conv1d.py)); falling back to the PyTorch implementation, which syncs per request and therefore stalls ACL graph capture at decode-FULL.
+WARNING 10-11 10:11:11 [patch_triton.py:332] NPU Triton causal_conv1d_update is unavailable (cannot import name 'causal_conv1d_update_npu' from 'vllm_ascend.ops.triton.mamba.causal_conv1d' (/vllm-workspace/vllm-ascend/vllm_ascend/ops/triton/mamba/causal_conv1d.py)); falling back to the PyTorch implementation, which syncs per request and therefore stalls ACL graph capture at decode-FULL.
+INFO 10-11 10:11:11 [ascend_config.py:161] Dynamic EPLB is False
+INFO 10-11 10:11:11 [ascend_config.py:162] The number of redundant experts is 0
+WARNING 10-11 10:11:11 [patch_triton.py:332] NPU Triton causal_conv1d_update is unavailable (cannot import name 'causal_conv1d_update_npu' from 'vllm_ascend.ops.triton.mamba.causal_conv1d' (/vllm-workspace/vllm-ascend/vllm_ascend/ops/triton/mamba/causal_conv1d.py)); falling back to the PyTorch implementation, which syncs per request and therefore stalls ACL graph capture at decode-FULL.
+INFO 10-11 10:11:12 [ascend_config.py:161] Dynamic EPLB is False
+INFO 10-11 10:11:12 [ascend_config.py:162] The number of redundant experts is 0
+INFO 10-11 10:11:12 [ascend_config.py:161] Dynamic EPLB is False
+INFO 10-11 10:11:12 [ascend_config.py:162] The number of redundant experts is 0
+WARNING 10-11 10:11:12 [patch_triton.py:332] NPU Triton causal_conv1d_update is unavailable (cannot import name 'causal_conv1d_update_npu' from 'vllm_ascend.ops.triton.mamba.causal_conv1d' (/vllm-workspace/vllm-ascend/vllm_ascend/ops/triton/mamba/causal_conv1d.py)); falling back to the PyTorch implementation, which syncs per request and therefore stalls ACL graph capture at decode-FULL.
+WARNING 10-11 10:11:12 [patch_triton.py:332] NPU Triton causal_conv1d_update is unavailable (cannot import name 'causal_conv1d_update_npu' from 'vllm_ascend.ops.triton.mamba.causal_conv1d' (/vllm-workspace/vllm-ascend/vllm_ascend/ops/triton/mamba/causal_conv1d.py)); falling back to the PyTorch implementation, which syncs per request and therefore stalls ACL graph capture at decode-FULL.
+WARNING 10-11 10:11:12 [patch_triton.py:332] NPU Triton causal_conv1d_update is unavailable (cannot import name 'causal_conv1d_update_npu' from 'vllm_ascend.ops.triton.mamba.causal_conv1d' (/vllm-workspace/vllm-ascend/vllm_ascend/ops/triton/mamba/causal_conv1d.py)); falling back to the PyTorch implementation, which syncs per request and therefore stalls ACL graph capture at decode-FULL.
+INFO 10-11 10:11:12 [ascend_config.py:161] Dynamic EPLB is False
+INFO 10-11 10:11:12 [ascend_config.py:162] The number of redundant experts is 0
+WARNING 10-11 10:11:12 [patch_triton.py:332] NPU Triton causal_conv1d_update is unavailable (cannot import name 'causal_conv1d_update_npu' from 'vllm_ascend.ops.triton.mamba.causal_conv1d' (/vllm-workspace/vllm-ascend/vllm_ascend/ops/triton/mamba/causal_conv1d.py)); falling back to the PyTorch implementation, which syncs per request and therefore stalls ACL graph capture at decode-FULL.
+INFO 10-11 10:11:12 [ascend_config.py:161] Dynamic EPLB is False
+INFO 10-11 10:11:12 [ascend_config.py:162] The number of redundant experts is 0
+INFO 10-11 10:11:12 [ascend_config.py:161] Dynamic EPLB is False
+INFO 10-11 10:11:12 [ascend_config.py:162] The number of redundant experts is 0
+WARNING 10-11 10:11:12 [patch_triton.py:332] NPU Triton causal_conv1d_update is unavailable (cannot import name 'causal_conv1d_update_npu' from 'vllm_ascend.ops.triton.mamba.causal_conv1d' (/vllm-workspace/vllm-ascend/vllm_ascend/ops/triton/mamba/causal_conv1d.py)); falling back to the PyTorch implementation, which syncs per request and therefore stalls ACL graph capture at decode-FULL.
+INFO 10-11 10:11:12 [ascend_config.py:161] Dynamic EPLB is False
+INFO 10-11 10:11:12 [ascend_config.py:162] The number of redundant experts is 0
+INFO 10-11 10:11:12 [ascend_config.py:161] Dynamic EPLB is False
+INFO 10-11 10:11:12 [ascend_config.py:162] The number of redundant experts is 0
+INFO 10-11 10:11:21 [parallel_state.py:1640] world_size=8 rank=0 local_rank=0 distributed_init_method=tcp://127.0.0.1:57571 backend=hccl
+INFO 10-11 10:11:21 [parallel_state.py:1640] world_size=8 rank=1 local_rank=1 distributed_init_method=tcp://127.0.0.1:57571 backend=hccl
+INFO 10-11 10:11:22 [parallel_state.py:1640] world_size=8 rank=2 local_rank=2 distributed_init_method=tcp://127.0.0.1:57571 backend=hccl
+INFO 10-11 10:11:22 [parallel_state.py:1640] world_size=8 rank=3 local_rank=3 distributed_init_method=tcp://127.0.0.1:57571 backend=hccl
+INFO 10-11 10:11:22 [parallel_state.py:1640] world_size=8 rank=7 local_rank=7 distributed_init_method=tcp://127.0.0.1:57571 backend=hccl
+INFO 10-11 10:11:22 [parallel_state.py:1640] world_size=8 rank=6 local_rank=6 distributed_init_method=tcp://127.0.0.1:57571 backend=hccl
+INFO 10-11 10:11:22 [parallel_state.py:1640] world_size=8 rank=5 local_rank=5 distributed_init_method=tcp://127.0.0.1:57571 backend=hccl
+INFO 10-11 10:11:22 [parallel_state.py:1640] world_size=8 rank=4 local_rank=4 distributed_init_method=tcp://127.0.0.1:57571 backend=hccl
+[Gloo] Rank 1 is connected to 7 peer ranks. Expected number of connected peer ranks is : 7
+[Gloo] Rank 2 is connected to 7 peer ranks. Expected number of connected peer ranks is : 7
+[Gloo] Rank 5 is connected to 7 peer ranks. Expected number of connected peer ranks is : 7
+[Gloo] Rank 0 is connected to 7 peer ranks. Expected number of connected peer ranks is : 7
+[Gloo] Rank 3 is connected to 7 peer ranks. Expected number of connected peer ranks is : 7
+[Gloo] Rank 4 is connected to 7 peer ranks. Expected number of connected peer ranks is : 7
+[Gloo] Rank 6 is connected to 7 peer ranks. Expected number of connected peer ranks is : 7
+[Gloo] Rank 7 is connected to 7 peer ranks. Expected number of connected peer ranks is : 7
+[Gloo] Rank 0 is connected to 7 peer ranks. Expected number of connected peer ranks is : 7
+[Gloo] Rank 3 is connected to 7 peer ranks. Expected number of connected peer ranks is : 7
+[Gloo] Rank 5 is connected to 7 peer ranks. Expected number of connected peer ranks is : 7
+[Gloo] Rank 2 is connected to 7 peer ranks. Expected number of connected peer ranks is : 7
+[Gloo] Rank 1 is connected to 7 peer ranks. Expected number of connected peer ranks is : 7
+[Gloo] Rank 4 is connected to 7 peer ranks. Expected number of connected peer ranks is : 7
+[Gloo] Rank 6 is connected to 7 peer ranks. Expected number of connected peer ranks is : 7
+[Gloo] Rank 7 is connected to 7 peer ranks. Expected number of connected peer ranks is : 7
+[Gloo] Rank 0 is connected to 0 peer ranks. Expected number of connected peer ranks is : 0
+[Gloo] Rank 0 is connected to 0 peer ranks. Expected number of connected peer ranks is : 0
+[Gloo] Rank 0 is connected to 0 peer ranks. Expected number of connected peer ranks is : 0
+[Gloo] Rank 0 is connected to 0 peer ranks. Expected number of connected peer ranks is : 0
+[Gloo] Rank 0 is connected to 0 peer ranks. Expected number of connected peer ranks is : 0
+[Gloo] Rank 0 is connected to 0 peer ranks. Expected number of connected peer ranks is : 0
+[Gloo] Rank 0 is connected to 0 peer ranks. Expected number of connected peer ranks is : 0
+[Gloo] Rank 0 is connected to 0 peer ranks. Expected number of connected peer ranks is : 0
+[Gloo] Rank 0 is connected to 0 peer ranks. Expected number of connected peer ranks is : 0
+[Gloo] Rank 0 is connected to 0 peer ranks. Expected number of connected peer ranks is : 0
+[Gloo] Rank 0 is connected to 0 peer ranks. Expected number of connected peer ranks is : 0
+[Gloo] Rank 0 is connected to 0 peer ranks. Expected number of connected peer ranks is : 0
+[Gloo] Rank 0 is connected to 0 peer ranks. Expected number of connected peer ranks is : 0
+[Gloo] Rank 0 is connected to 0 peer ranks. Expected number of connected peer ranks is : 0
+[Gloo] Rank 0 is connected to 0 peer ranks. Expected number of connected peer ranks is : 0
+[Gloo] Rank 0 is connected to 0 peer ranks. Expected number of connected peer ranks is : 0
+[Gloo] Rank 0 is connected to 0 peer ranks. Expected number of connected peer ranks is : 0
+[Gloo] Rank 0 is connected to 0 peer ranks. Expected number of connected peer ranks is : 0
+[Gloo] Rank 0 is connected to 0 peer ranks. Expected number of connected peer ranks is : 0
+[Gloo] Rank 0 is connected to 0 peer ranks. Expected number of connected peer ranks is : 0
+[Gloo] Rank 0 is connected to 0 peer ranks. Expected number of connected peer ranks is : 0
+[Gloo] Rank 0 is connected to 0 peer ranks. Expected number of connected peer ranks is : 0
+[Gloo] Rank 0 is connected to 0 peer ranks. Expected number of connected peer ranks is : 0
+[Gloo] Rank 0 is connected to 0 peer ranks. Expected number of connected peer ranks is : 0
+[Gloo] Rank 0 is connected to 0 peer ranks. Expected number of connected peer ranks is : 0
+[Gloo] Rank 0 is connected to 0 peer ranks. Expected number of connected peer ranks is : 0
+[Gloo] Rank 0 is connected to 0 peer ranks. Expected number of connected peer ranks is : 0
+[Gloo] Rank 0 is connected to 0 peer ranks. Expected number of connected peer ranks is : 0
+[Gloo] Rank 0 is connected to 0 peer ranks. Expected number of connected peer ranks is : 0
+[Gloo] Rank 0 is connected to 0 peer ranks. Expected number of connected peer ranks is : 0
+[Gloo] Rank 0 is connected to 0 peer ranks. Expected number of connected peer ranks is : 0
+[Gloo] Rank 0 is connected to 0 peer ranks. Expected number of connected peer ranks is : 0
+[Gloo] Rank 1 is connected to 7 peer ranks. Expected number of connected peer ranks is : 7
+[Gloo] Rank 3 is connected to 7 peer ranks. Expected number of connected peer ranks is : 7
+[Gloo] Rank 4 is connected to 7 peer ranks. Expected number of connected peer ranks is : 7
+[Gloo] Rank 5 is connected to 7 peer ranks. Expected number of connected peer ranks is : 7
+[Gloo] Rank 7 is connected to 7 peer ranks. Expected number of connected peer ranks is : 7
+[Gloo] Rank 6 is connected to 7 peer ranks. Expected number of connected peer ranks is : 7
+[Gloo] Rank 0 is connected to 7 peer ranks. Expected number of connected peer ranks is : 7
+[Gloo] Rank 2 is connected to 7 peer ranks. Expected number of connected peer ranks is : 7
+INFO 10-11 10:11:23 [parallel_state.py:1977] rank 0 in world size 8 is assigned as DP rank 0, PP rank 0, PCP rank 0, TP rank 0, EP rank 0, EPLB rank N/A
+[Gloo] Rank 0 is connected to 7 peer ranks. Expected number of connected peer ranks is : 7
+[Gloo] Rank 2 is connected to 7 peer ranks. Expected number of connected peer ranks is : 7
+[Gloo] Rank 1 is connected to 7 peer ranks. Expected number of connected peer ranks is : 7
+[Gloo] Rank 3 is connected to 7 peer ranks. Expected number of connected peer ranks is : 7
+[Gloo] Rank 6 is connected to 7 peer ranks. Expected number of connected peer ranks is : 7
+[Gloo] Rank 5 is connected to 7 peer ranks. Expected number of connected peer ranks is : 7
+[Gloo] Rank 4 is connected to 7 peer ranks. Expected number of connected peer ranks is : 7
+[Gloo] Rank 7 is connected to 7 peer ranks. Expected number of connected peer ranks is : 7
+[rank0]:[W1011 10:11:23.027206260 NPUCachingAllocator.cpp:202] Warning: The current CANN and HDK(driver) versions require processing for 32 padding size, with memory allocation. (function operator())
+[rank5]:[W1011 10:11:23.027395290 NPUCachingAllocator.cpp:202] Warning: The current CANN and HDK(driver) versions require processing for 32 padding size, with memory allocation. (function operator())
+[rank4]:[W1011 10:11:23.027409210 NPUCachingAllocator.cpp:202] Warning: The current CANN and HDK(driver) versions require processing for 32 padding size, with memory allocation. (function operator())
+[rank3]:[W1011 10:11:23.027409180 NPUCachingAllocator.cpp:202] Warning: The current CANN and HDK(driver) versions require processing for 32 padding size, with memory allocation. (function operator())
+[rank7]:[W1011 10:11:23.027450830 NPUCachingAllocator.cpp:202] Warning: The current CANN and HDK(driver) versions require processing for 32 padding size, with memory allocation. (function operator())
+[rank2]:[W1011 10:11:23.027464930 NPUCachingAllocator.cpp:202] Warning: The current CANN and HDK(driver) versions require processing for 32 padding size, with memory allocation. (function operator())
+[rank1]:[W1011 10:11:23.027501700 NPUCachingAllocator.cpp:202] Warning: The current CANN and HDK(driver) versions require processing for 32 padding size, with memory allocation. (function operator())
+[rank6]:[W1011 10:11:23.027518570 NPUCachingAllocator.cpp:202] Warning: The current CANN and HDK(driver) versions require processing for 32 padding size, with memory allocation. (function operator())
+WARNING 10-11 10:11:23 [llm_base_proposer.py:330] Speculative Decoding with draft models or parallel drafting does not fully support multimodal models yet. Proceeding with text-only speculative decoding.
+WARNING 10-11 10:11:23 [llm_base_proposer.py:330] Speculative Decoding with draft models or parallel drafting does not fully support multimodal models yet. Proceeding with text-only speculative decoding.
+WARNING 10-11 10:11:23 [__init__.py:205] min_p and logit_bias parameters won't work with speculative decoding.
+WARNING 10-11 10:11:23 [__init__.py:205] min_p and logit_bias parameters won't work with speculative decoding.
+WARNING 10-11 10:11:23 [llm_base_proposer.py:330] Speculative Decoding with draft models or parallel drafting does not fully support multimodal models yet. Proceeding with text-only speculative decoding.
+WARNING 10-11 10:11:23 [__init__.py:205] min_p and logit_bias parameters won't work with speculative decoding.
+WARNING 10-11 10:11:23 [llm_base_proposer.py:330] Speculative Decoding with draft models or parallel drafting does not fully support multimodal models yet. Proceeding with text-only speculative decoding.
+WARNING 10-11 10:11:23 [llm_base_proposer.py:330] Speculative Decoding with draft models or parallel drafting does not fully support multimodal models yet. Proceeding with text-only speculative decoding.
+WARNING 10-11 10:11:23 [__init__.py:205] min_p and logit_bias parameters won't work with speculative decoding.
+WARNING 10-11 10:11:23 [llm_base_proposer.py:330] Speculative Decoding with draft models or parallel drafting does not fully support multimodal models yet. Proceeding with text-only speculative decoding.
+WARNING 10-11 10:11:23 [llm_base_proposer.py:330] Speculative Decoding with draft models or parallel drafting does not fully support multimodal models yet. Proceeding with text-only speculative decoding.
+WARNING 10-11 10:11:23 [__init__.py:205] min_p and logit_bias parameters won't work with speculative decoding.
+WARNING 10-11 10:11:23 [__init__.py:205] min_p and logit_bias parameters won't work with speculative decoding.
+WARNING 10-11 10:11:23 [__init__.py:205] min_p and logit_bias parameters won't work with speculative decoding.
+WARNING 10-11 10:11:23 [llm_base_proposer.py:330] Speculative Decoding with draft models or parallel drafting does not fully support multimodal models yet. Proceeding with text-only speculative decoding.
+WARNING 10-11 10:11:23 [__init__.py:205] min_p and logit_bias parameters won't work with speculative decoding.
+INFO 10-11 10:11:23 [platform.py:1379] FA3 will not be enabled when rl_config.enable_training_consistency is false. Note that Ascend NPU will use its registered plugin backend instead.
+WARNING 10-11 10:11:23 [llm_base_proposer.py:330] Speculative Decoding with draft models or parallel drafting does not fully support multimodal models yet. Proceeding with text-only speculative decoding.
+INFO 10-11 10:11:23 [platform.py:1379] FA3 will not be enabled when rl_config.enable_training_consistency is false. Note that Ascend NPU will use its registered plugin backend instead.
+WARNING 10-11 10:11:23 [llm_base_proposer.py:330] Speculative Decoding with draft models or parallel drafting does not fully support multimodal models yet. Proceeding with text-only speculative decoding.
+WARNING 10-11 10:11:23 [__init__.py:205] min_p and logit_bias parameters won't work with speculative decoding.
+WARNING 10-11 10:11:23 [__init__.py:205] min_p and logit_bias parameters won't work with speculative decoding.
+INFO 10-11 10:11:23 [platform.py:1379] FA3 will not be enabled when rl_config.enable_training_consistency is false. Note that Ascend NPU will use its registered plugin backend instead.
+WARNING 10-11 10:11:23 [llm_base_proposer.py:330] Speculative Decoding with draft models or parallel drafting does not fully support multimodal models yet. Proceeding with text-only speculative decoding.
+INFO 10-11 10:11:23 [platform.py:1379] FA3 will not be enabled when rl_config.enable_training_consistency is false. Note that Ascend NPU will use its registered plugin backend instead.
+WARNING 10-11 10:11:23 [llm_base_proposer.py:330] Speculative Decoding with draft models or parallel drafting does not fully support multimodal models yet. Proceeding with text-only speculative decoding.
+INFO 10-11 10:11:23 [platform.py:1379] FA3 will not be enabled when rl_config.enable_training_consistency is false. Note that Ascend NPU will use its registered plugin backend instead.
+WARNING 10-11 10:11:23 [llm_base_proposer.py:330] Speculative Decoding with draft models or parallel drafting does not fully support multimodal models yet. Proceeding with text-only speculative decoding.
+INFO 10-11 10:11:23 [platform.py:1379] FA3 will not be enabled when rl_config.enable_training_consistency is false. Note that Ascend NPU will use its registered plugin backend instead.
+INFO 10-11 10:11:23 [platform.py:1379] FA3 will not be enabled when rl_config.enable_training_consistency is false. Note that Ascend NPU will use its registered plugin backend instead.
+WARNING 10-11 10:11:23 [llm_base_proposer.py:330] Speculative Decoding with draft models or parallel drafting does not fully support multimodal models yet. Proceeding with text-only speculative decoding.
+WARNING 10-11 10:11:23 [__init__.py:205] min_p and logit_bias parameters won't work with speculative decoding.
+WARNING 10-11 10:11:23 [llm_base_proposer.py:330] Speculative Decoding with draft models or parallel drafting does not fully support multimodal models yet. Proceeding with text-only speculative decoding.
+INFO 10-11 10:11:23 [platform.py:1379] FA3 will not be enabled when rl_config.enable_training_consistency is false. Note that Ascend NPU will use its registered plugin backend instead.
+WARNING 10-11 10:11:23 [__init__.py:205] min_p and logit_bias parameters won't work with speculative decoding.
+WARNING 10-11 10:11:23 [llm_base_proposer.py:330] Speculative Decoding with draft models or parallel drafting does not fully support multimodal models yet. Proceeding with text-only speculative decoding.
+WARNING 10-11 10:11:23 [__init__.py:205] min_p and logit_bias parameters won't work with speculative decoding.
+WARNING 10-11 10:11:23 [__init__.py:205] min_p and logit_bias parameters won't work with speculative decoding.
+WARNING 10-11 10:11:23 [__init__.py:205] min_p and logit_bias parameters won't work with speculative decoding.
+WARNING 10-11 10:11:23 [__init__.py:205] min_p and logit_bias parameters won't work with speculative decoding.
+Exception ignored in: <function _WeakValueDictionary.__init__.<locals>.KeyedRef.remove at 0xffffac9fc7c0>
+Traceback (most recent call last):
+  File "<frozen importlib._bootstrap>", line 82, in remove
+Exception ignored in atexit callback: <function shutdown at 0xffff018ade40>
+  File "/vllm-workspace/vllm-ascend/vllm_ascend/worker/worker.py", line 197, in signal_handler
+Exception ignored in atexit callback: <function shutdown at 0xffff140cde40>
+Traceback (most recent call last):
+Traceback (most recent call last):
+  File "/usr/local/python3.12.13/lib/python3.12/site-packages/ray/_private/client_mode_hook.py", line 104, in wrapper
+Exception ignored in atexit callback: <function shutdown at 0xffff19b51e40>
+Exception ignored in atexit callback: <function shutdown at 0xffff02561e40>
+  File "/usr/local/python3.12.13/lib/python3.12/site-packages/ray/_private/client_mode_hook.py", line 104, in wrapper
+Traceback (most recent call last):
+Exception ignored in atexit callback: <function shutdown at 0xffff180e9e40>
+Exception ignored in atexit callback: <function shutdown at 0xffff1d341e40>
+Traceback (most recent call last):
+  File "/usr/local/python3.12.13/lib/python3.12/site-packages/ray/_private/client_mode_hook.py", line 104, in wrapper
+Exception ignored in atexit callback: <function shutdown at 0xfffef8451e40>
+Traceback (most recent call last):
+Traceback (most recent call last):
+  File "/usr/local/python3.12.13/lib/python3.12/site-packages/ray/_private/client_mode_hook.py", line 104, in wrapper
+Traceback (most recent call last):
+  File "/usr/local/python3.12.13/lib/python3.12/site-packages/ray/_private/client_mode_hook.py", line 104, in wrapper
+  File "/usr/local/python3.12.13/lib/python3.12/site-packages/ray/_private/client_mode_hook.py", line 104, in wrapper
+  File "/usr/local/python3.12.13/lib/python3.12/site-packages/ray/_private/client_mode_hook.py", line 104, in wrapper
+    raise SystemExit()
+SystemExit: 
+    return func(*args, **kwargs)
+    return func(*args, **kwargs)
+    return func(*args, **kwargs)
+    return func(*args, **kwargs)
+    return func(*args, **kwargs)
+    return func(*args, **kwargs)
+    return func(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^
+           ^^^^^^^^^^^^^^^^^^^^^
+           ^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/python3.12.13/lib/python3.12/site-packages/ray/_private/worker.py", line 1989, in shutdown
+           ^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/python3.12.13/lib/python3.12/site-packages/ray/_private/worker.py", line 1989, in shutdown
+  File "/usr/local/python3.12.13/lib/python3.12/site-packages/ray/_private/worker.py", line 1989, in shutdown
+           ^^^^^^^^^^^^^^^^^^^^^
+           ^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/python3.12.13/lib/python3.12/site-packages/ray/_private/worker.py", line 1989, in shutdown
+           ^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/python3.12.13/lib/python3.12/site-packages/ray/_private/worker.py", line 1989, in shutdown
+  File "/usr/local/python3.12.13/lib/python3.12/site-packages/ray/_private/worker.py", line 1989, in shutdown
+  File "/usr/local/python3.12.13/lib/python3.12/site-packages/ray/_private/worker.py", line 1989, in shutdown
+    from ray.dag.compiled_dag_node import _shutdown_all_compiled_dags
+    from ray.dag.compiled_dag_node import _shutdown_all_compiled_dags
+    from ray.dag.compiled_dag_node import _shutdown_all_compiled_dags
+    from ray.dag.compiled_dag_node import _shutdown_all_compiled_dags
+    from ray.dag.compiled_dag_node import _shutdown_all_compiled_dags
+    from ray.dag.compiled_dag_node import _shutdown_all_compiled_dags
+  File "/usr/local/python3.12.13/lib/python3.12/site-packages/ray/dag/__init__.py", line 1, in <module>
+  File "/usr/local/python3.12.13/lib/python3.12/site-packages/ray/dag/__init__.py", line 1, in <module>
+  File "/usr/local/python3.12.13/lib/python3.12/site-packages/ray/dag/__init__.py", line 1, in <module>
+  File "/usr/local/python3.12.13/lib/python3.12/site-packages/ray/dag/__init__.py", line 1, in <module>
+  File "/usr/local/python3.12.13/lib/python3.12/site-packages/ray/dag/__init__.py", line 1, in <module>
+    from ray.dag.compiled_dag_node import _shutdown_all_compiled_dags
+  File "/usr/local/python3.12.13/lib/python3.12/site-packages/ray/dag/__init__.py", line 1, in <module>
+  File "/usr/local/python3.12.13/lib/python3.12/site-packages/ray/dag/__init__.py", line 1, in <module>
+    from ray.dag.dag_node import DAGNode
+    from ray.dag.dag_node import DAGNode
+    from ray.dag.dag_node import DAGNode
+    from ray.dag.dag_node import DAGNode
+    from ray.dag.dag_node import DAGNode
+    from ray.dag.dag_node import DAGNode
+    from ray.dag.dag_node import DAGNode
+  File "/usr/local/python3.12.13/lib/python3.12/site-packages/ray/dag/dag_node.py", line 2, in <module>
+  File "/usr/local/python3.12.13/lib/python3.12/site-packages/ray/dag/dag_node.py", line 2, in <module>
+  File "/usr/local/python3.12.13/lib/python3.12/site-packages/ray/dag/dag_node.py", line 2, in <module>
+  File "/usr/local/python3.12.13/lib/python3.12/site-packages/ray/dag/dag_node.py", line 2, in <module>
+  File "/usr/local/python3.12.13/lib/python3.12/site-packages/ray/dag/dag_node.py", line 2, in <module>
+  File "/usr/local/python3.12.13/lib/python3.12/site-packages/ray/dag/dag_node.py", line 2, in <module>
+  File "/usr/local/python3.12.13/lib/python3.12/site-packages/ray/dag/dag_node.py", line 2, in <module>
+    from ray.experimental.channel.auto_transport_type import AutoTransportType
+    from ray.experimental.channel.auto_transport_type import AutoTransportType
+    from ray.experimental.channel.auto_transport_type import AutoTransportType
+    from ray.experimental.channel.auto_transport_type import AutoTransportType
+    from ray.experimental.channel.auto_transport_type import AutoTransportType
+    from ray.experimental.channel.auto_transport_type import AutoTransportType
+    from ray.experimental.channel.auto_transport_type import AutoTransportType
+  File "/usr/local/python3.12.13/lib/python3.12/site-packages/ray/experimental/channel/__init__.py", line 1, in <module>
+  File "/usr/local/python3.12.13/lib/python3.12/site-packages/ray/experimental/channel/__init__.py", line 1, in <module>
+  File "/usr/local/python3.12.13/lib/python3.12/site-packages/ray/experimental/channel/__init__.py", line 1, in <module>
+  File "/usr/local/python3.12.13/lib/python3.12/site-packages/ray/experimental/channel/__init__.py", line 1, in <module>
+  File "<frozen importlib._bootstrap>", line 1360, in _find_and_load
+  File "/usr/local/python3.12.13/lib/python3.12/site-packages/ray/experimental/channel/__init__.py", line 1, in <module>
+  File "<frozen importlib._bootstrap>", line 1321, in _find_and_load_unlocked
+  File "/usr/local/python3.12.13/lib/python3.12/site-packages/ray/experimental/channel/__init__.py", line 1, in <module>
+  File "/vllm-workspace/vllm-ascend/vllm_ascend/worker/worker.py", line 197, in signal_handler
+    from ray.experimental.channel.cached_channel import CachedChannel
+    from ray.experimental.channel.cached_channel import CachedChannel
+    from ray.experimental.channel.cached_channel import CachedChannel
+    from ray.experimental.channel.cached_channel import CachedChannel
+    from ray.experimental.channel.cached_channel import CachedChannel
+    raise SystemExit()
+    from ray.experimental.channel.cached_channel import CachedChannel
+  File "<frozen importlib._bootstrap>", line 1360, in _find_and_load
+  File "<frozen importlib._bootstrap>", line 1360, in _find_and_load
+  File "<frozen importlib._bootstrap>", line 1322, in _find_and_load_unlocked
+  File "<frozen importlib._bootstrap>", line 1360, in _find_and_load
+  File "<frozen importlib._bootstrap>", line 1360, in _find_and_load
+  File "<frozen importlib._bootstrap>", line 1322, in _find_and_load_unlocked
+  File "<frozen importlib._bootstrap>", line 1262, in _find_spec
+  File "<frozen importlib._bootstrap>", line 1322, in _find_and_load_unlocked
+  File "<frozen importlib._bootstrap>", line 1331, in _find_and_load_unlocked
+  File "<frozen importlib._bootstrap_external>", line 1532, in find_spec
+  File "<frozen importlib._bootstrap>", line 1262, in _find_spec
+  File "<frozen importlib._bootstrap>", line 1360, in _find_and_load
+  File "<frozen importlib._bootstrap>", line 1262, in _find_spec
+SystemExit: 
+  File "<frozen importlib._bootstrap>", line 935, in _load_unlocked
+  File "<frozen importlib._bootstrap_external>", line 1506, in _get_spec
+  File "<frozen importlib._bootstrap>", line 1360, in _find_and_load
+  File "<frozen importlib._bootstrap_external>", line 1532, in find_spec
+  File "<frozen importlib._bootstrap>", line 1322, in _find_and_load_unlocked
+  File "<frozen importlib._bootstrap_external>", line 1532, in find_spec
+  File "<frozen importlib._bootstrap_external>", line 995, in exec_module
+  File "<frozen importlib._bootstrap>", line 1262, in _find_spec
+  File "<frozen importlib._bootstrap_external>", line 1633, in find_spec
+  File "<frozen importlib._bootstrap_external>", line 1506, in _get_spec
+  File "<frozen importlib._bootstrap>", line 1322, in _find_and_load_unlocked
+  File "<frozen importlib._bootstrap_external>", line 1504, in _get_spec
+  File "<frozen importlib._bootstrap_external>", line 1091, in get_code
+  File "<frozen importlib._bootstrap_external>", line 1532, in find_spec
+  File "<frozen importlib._bootstrap_external>", line 126, in _path_join
+  File "<frozen importlib._bootstrap_external>", line 1609, in find_spec
+  File "<frozen importlib._bootstrap>", line 1262, in _find_spec
+  File "<frozen importlib._bootstrap_external>", line 1491, in _path_importer_cache
+  File "<frozen importlib._bootstrap_external>", line 1191, in get_data
+  File "<frozen importlib._bootstrap_external>", line 1506, in _get_spec
+  File "/vllm-workspace/vllm-ascend/vllm_ascend/worker/worker.py", line 197, in signal_handler
+  File "<frozen importlib._bootstrap_external>", line 1652, in _fill_cache
+  File "<frozen importlib._bootstrap_external>", line 1532, in find_spec
+  File "<frozen importlib._bootstrap_external>", line 1467, in _path_hooks
+  File "/vllm-workspace/vllm-ascend/vllm_ascend/worker/worker.py", line 197, in signal_handler
+  File "/vllm-workspace/vllm-ascend/vllm_ascend/worker/worker.py", line 197, in signal_handler
+  File "<frozen importlib._bootstrap_external>", line 1609, in find_spec
+  File "<frozen importlib._bootstrap_external>", line 1506, in _get_spec
+  File "<frozen importlib._bootstrap_external>", line 1693, in path_hook_for_FileFinder
+  File "<frozen importlib._bootstrap_external>", line 1652, in _fill_cache
+  File "<frozen importlib._bootstrap_external>", line 1609, in find_spec
+  File "<frozen importlib._bootstrap_external>", line 1585, in __init__
+  File "/vllm-workspace/vllm-ascend/vllm_ascend/worker/worker.py", line 197, in signal_handler
+  File "<frozen importlib._bootstrap_external>", line 1652, in _fill_cache
+  File "/vllm-workspace/vllm-ascend/vllm_ascend/worker/worker.py", line 197, in signal_handler
+  File "/vllm-workspace/vllm-ascend/vllm_ascend/worker/worker.py", line 197, in signal_handler
+    raise SystemExit()
+    raise SystemExit()
+    raise SystemExit()
+    raise SystemExit()
+    raise SystemExit()
+SystemExit: 
+SystemExit: 
+SystemExit: 
+    raise SystemExit()
+SystemExit: 
+SystemExit: 
+SystemExit: 
+{
+  "passed": false,
+  "variant": "static_default",
+  "model_load_called": false,
+  "device_audit_passed": false,
+  "full_consumer_audit_passed": false,
+  "output": "/work/results/formal_dspark_sdk_init_static_default_v2/gate"
+}

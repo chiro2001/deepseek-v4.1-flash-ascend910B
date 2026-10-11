@@ -1,0 +1,85 @@
+{
+  "scope": "read-only standard API/source proof; SDK init-only job not executed",
+  "normal_wrapper_init_before_model_load_supported_by_source": true,
+  "stock_multiproc_ready_before_model_load_supported": false,
+  "standard_sequence": [
+    "WorkerWrapperBase.init_worker",
+    "WorkerWrapperBase.init_device",
+    "normal initialized SDK gate RPC",
+    "process exit"
+  ],
+  "load_model_called_by_this_driver": false,
+  "actual_sdk_driver_executed": false,
+  "npu_permissions": 0,
+  "npu_jobs": 0,
+  "device_audit_passed": false,
+  "full_consumer_audit_passed": false,
+  "safe_formal_receipt": false,
+  "formal_model_validated": false,
+  "functions": [
+    {
+      "remote_path": "/vllm-workspace/vllm/vllm/v1/worker/worker_base.py",
+      "file_sha256": "7da44338c2645ebf03d23394e452b31a8e3da1011fd1b42fcfcccfe99551b3fe",
+      "function": "WorkerWrapperBase.__init__",
+      "line": 196,
+      "end_line": 216,
+      "function_sha256": "1377b27517ee379c4be65e7c248120c9e2fb33c3b464fc91131cc440a44ef733"
+    },
+    {
+      "remote_path": "/vllm-workspace/vllm/vllm/v1/worker/worker_base.py",
+      "file_sha256": "7da44338c2645ebf03d23394e452b31a8e3da1011fd1b42fcfcccfe99551b3fe",
+      "function": "WorkerWrapperBase.init_worker",
+      "line": 230,
+      "end_line": 319,
+      "function_sha256": "e6d2922a093c63f511fe380c098238d9b3dc3239cb8598ac05619388efc302eb"
+    },
+    {
+      "remote_path": "/vllm-workspace/vllm/vllm/v1/worker/worker_base.py",
+      "file_sha256": "7da44338c2645ebf03d23394e452b31a8e3da1011fd1b42fcfcccfe99551b3fe",
+      "function": "WorkerWrapperBase.init_device",
+      "line": 327,
+      "end_line": 331,
+      "function_sha256": "483c66fd0b9ddcc51cc78884b1bf16375f43a3a3ae4c93d975d8502beb3fe4be"
+    },
+    {
+      "remote_path": "/vllm-workspace/vllm/vllm/v1/worker/worker_base.py",
+      "file_sha256": "7da44338c2645ebf03d23394e452b31a8e3da1011fd1b42fcfcccfe99551b3fe",
+      "function": "WorkerWrapperBase.__getattr__",
+      "line": 333,
+      "end_line": 334,
+      "function_sha256": "9a96361f5e79e5a0cb6158af193e9acfd6f894e7acc0ca577edfd9cee8668a7b"
+    },
+    {
+      "remote_path": "/vllm-workspace/vllm/vllm/v1/executor/multiproc_executor.py",
+      "file_sha256": "ceb3477473bdb1de36e01687e0b2083ad239d42b1ddc2ec8cec16ba2c477efa6",
+      "function": "MultiprocExecutor._init_executor",
+      "line": 110,
+      "end_line": 247,
+      "function_sha256": "b6e41a645a93c858ba6ee37adba4b83a52113f921f37d3949f69102daca6cbae"
+    },
+    {
+      "remote_path": "/vllm-workspace/vllm/vllm/v1/executor/multiproc_executor.py",
+      "file_sha256": "ceb3477473bdb1de36e01687e0b2083ad239d42b1ddc2ec8cec16ba2c477efa6",
+      "function": "WorkerProc.__init__",
+      "line": 608,
+      "end_line": 670,
+      "function_sha256": "a342c96310acc3bca612bd49a35645d73a4656b5dd01d066c967b6e864957144"
+    },
+    {
+      "remote_path": "/vllm-workspace/vllm/vllm/v1/executor/multiproc_executor.py",
+      "file_sha256": "ceb3477473bdb1de36e01687e0b2083ad239d42b1ddc2ec8cec16ba2c477efa6",
+      "function": "WorkerProc.worker_main",
+      "line": 821,
+      "end_line": 944,
+      "function_sha256": "f0bbb1e651435675e95e544b7be7f834d6066366d2e4fbec3fac22bf95810761"
+    },
+    {
+      "remote_path": "/vllm-workspace/vllm/vllm/engine/arg_utils.py",
+      "file_sha256": "165f9ec6e3b067bb7e6c72d68adedde7fa4d5ed7932fa7568064b9d9086e6830",
+      "function": "EngineArgs.create_engine_config",
+      "line": 1896,
+      "end_line": 2493,
+      "function_sha256": "2fe89f8a8888a6ef69c0ab7c28e8971fedf0770eddabd2d8d5d776bc665bac95"
+    }
+  ]
+}

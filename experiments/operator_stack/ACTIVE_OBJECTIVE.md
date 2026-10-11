@@ -5,6 +5,8 @@
 旧会话01a1275a-c0b2-7662-aaaa-49e6ca507155的工作继续，源码/证据/正式质量与交付要求保留。
 
 - 正式40层/hidden5120/384专家top6/W4A8_DYNAMIC/Engram int8与完整视觉权重。
+- DSpark使用checkpoint原生MTP3：draft为128专家/top3（TP8 local16），K5/block5。
+  正式target与draft实测GMM容量分别为36/local48及15/local16，审计与候选须按role绑定。
 - 必须实际启用DSpark/MTP，时延包含主模型、草稿生成、目标验证、调度和cache处理。
   不能把仅开启env、草稿失效或无DSpark的A1结果作为新目标验收。
 - 正式客户端串行至少8请求、固定2K输入/256输出预算，审计/profiler关闭。
@@ -28,7 +30,7 @@
 最新QKV early-kv-tail-v2完整审计通过，但12组性能mask(19.208722ms,A1,52.059685tok/s)、
 QKV(19.307216ms,A1,51.794106tok/s)，0/12更快，拒绝部署；同样关闭DSpark。
 Engram SDK普通NPUGraph32代可行，正式对齐AOT/GraphEx/static/nonstatic仍在callback前TypeError，原型默认关闭。
-稀疏MSD仅CPU构建/tiling/编译分支与adapter ABI契约成立，NPU数值与模型收益尚未验证。
+稀疏MSD固定M1/capacity6已在真实E48原参数、synthetic activation的9case数值门通过（SDK/raw/candidate均maxULP0）；planner/canary/seals与输入原地修改生命周期已验证。当前未有性能、实际模型消费者或K5收益证明。正式profile实际target GMM容量36/E48，draft容量15/E16，不能直接推广M1二进制。
 
 用户已清除旧goal并要求重新创建；2026-10-11已成功创建包含DSpark的正式≤20ms/step新goal，
 工具状态为active。当前执行与完成审计以该新goal及本文件为准；旧17ms/无DSpark结论均不是新完成条件。

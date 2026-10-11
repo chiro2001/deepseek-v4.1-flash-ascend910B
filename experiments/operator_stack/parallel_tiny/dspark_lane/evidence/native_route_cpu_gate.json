@@ -1,0 +1,32 @@
+{
+  "passed": true,
+  "cpu_tensors_only_no_npu_init": true,
+  "checks": [
+    "finite BF16 input is copied and bitwise sealed",
+    "inference activations keep value evidence without a version counter",
+    "scalar tensor value seals preserve the scalar shape",
+    "negative zero has a different value seal",
+    "NaN and infinity are retained and rejected",
+    "capture rejects before any device read",
+    "unchanged native router weight value and view pass",
+    "weight mutation through data is rejected by value seal",
+    "target cache boundaries reject foreign, draft, capture and ineligible graph submissions",
+    "native dummy wo_a loader permutation preserves bytes and rejects changed cached weights",
+    "actual sparse indices bind physical cache slots across block boundaries",
+    "unreferenced cache padding is excluded, referenced nonfinite values are retained",
+    "unknown pad sentinel rejected",
+    "out of range slot rejected",
+    "native operator argument binding rejects duplicate ABI names",
+    "operator boundary delegates original arguments and preserves input values",
+    "operator boundary performs no observation device reads during capture",
+    "explicit fixture owner, consumer pointer and source/value seal match",
+    "finite cached-weight mutation is rejected by frozen fixture value seal",
+    "cache replacement is rejected even when owner and consumer agree",
+    "helper receipts separate cold capture, successful returns and exceptions"
+  ],
+  "actual_device_precision_proof": false,
+  "audit_source_sha256": "a2f4b5d57179aeb392a651957c81b684f1993f4cd7ab95d4d42cdb3285a29df6",
+  "first_value_trace_source_sha256": "4f254f85499417f543a443c49e43f64dc5992b3df57b336dde846f1b255ea57b",
+  "o_proj_cache_fixture_source_sha256": "7dfa11336f7be4c8c55d0f09eb302673ef31ac51d582686d31cffc432af6fe78",
+  "ssh_program_bytes": 34813
+}

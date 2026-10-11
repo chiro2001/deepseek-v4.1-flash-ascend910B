@@ -1,0 +1,505 @@
+{
+  "scope": "small initialized-worker SDK copy/epoch/alias gate only; no full43/model/performance receipt",
+  "variant": "static_default",
+  "static_kernel": true,
+  "stage": "graphex",
+  "outer_keep_inference_input_mutations": false,
+  "audit_job_id": "formal_dspark_sdk_init_static_default_v3",
+  "audit_job_root": "/work/results/formal_dspark_sdk_init_static_default_v3",
+  "driver_output_root": "/work/results/formal_dspark_sdk_init_static_default_v3/gate",
+  "controller_output_root": "/work/results/formal_dspark_sdk_init_static_default_v3/gate/sdk_results",
+  "controller_nonce": "61f28ff5254e4321b684440f78fe2fd7",
+  "controller": {
+    "path": "/work/results/formal_dspark_sdk_init_static_default_v3/gate/metadata/controller.json",
+    "bytes": 4349,
+    "sha256": "b86136574586e6a5519b6ed4fddc8d8d9eaeee3ba7f218110c1feb391559a148"
+  },
+  "process_identity": {
+    "pid": 1463677,
+    "boot_id": "3e453542-70e1-442f-88ef-ee52db5f8471",
+    "normal_init_return_ns": 2863379055176750
+  },
+  "phase": "terminal-failed",
+  "passed": false,
+  "stage_semantics_passed": false,
+  "actual_copy_alias_gate_passed": false,
+  "device_audit_passed": false,
+  "safe_formal_receipt": false,
+  "formal_model_validated": false,
+  "full_consumer_audit_passed": false,
+  "actual_prepack_consumer_order_validated": false,
+  "performance_claim": null,
+  "generations": [],
+  "copy_calls": [],
+  "own_context_created": false,
+  "own_stream_created": false,
+  "device_selected_by_gate": false,
+  "probe_allocation_reached": true,
+  "source_gate": {
+    "path": "/work/src_dspark_sdk_init_static_default_v3/stack/parallel_tiny/dspark_formal_audit/native_initialized_worker_discovery_v3/initialized_worker_gate.py",
+    "bytes": 17443,
+    "sha256": "31ded8fc36950d146ba0a751215b63d297790c34ae2b4f4b1a64b0d606b53ba7"
+  },
+  "sources": {
+    "torch": {
+      "path": "/usr/local/python3.12.13/lib/python3.12/site-packages/torch/__init__.py",
+      "bytes": 106868,
+      "sha256": "51c90fe34a7cf869517d1bab4cd114498790e169ec668f1a154c35ec64117a5e"
+    },
+    "torch_npu": {
+      "path": "/usr/local/python3.12.13/lib/python3.12/site-packages/torch_npu/__init__.py",
+      "bytes": 2435,
+      "sha256": "a21f553fb9ac12f087cfdf0fb61a583be3c864d3785cff9920ec862f565d6072"
+    },
+    "npu_worker_init": {
+      "path": "/vllm-workspace/vllm-ascend/vllm_ascend/worker/worker.py",
+      "bytes": 52882,
+      "sha256": "2eb424498fd1a908dece44a56451a2e42bb4697614327aaa91aaa171e3f0f127"
+    },
+    "npu_runner": {
+      "path": "/vllm-workspace/vllm-ascend/vllm_ascend/worker/model_runner_v1.py",
+      "bytes": 278172,
+      "sha256": "67035d97f1cea4ae2df31adcc33f1de952f4cab6d8421e76df512296e0e3185e"
+    },
+    "tp_group_getter": {
+      "path": "/vllm-workspace/vllm/vllm/distributed/parallel_state.py",
+      "bytes": 86864,
+      "sha256": "bbad6969765f3c5eb48ec1b42c458464ba58841c26244a6d42f293ec199bcbe2"
+    },
+    "tp_rank_getter": {
+      "path": "/vllm-workspace/vllm/vllm/distributed/parallel_state.py",
+      "bytes": 86864,
+      "sha256": "bbad6969765f3c5eb48ec1b42c458464ba58841c26244a6d42f293ec199bcbe2"
+    },
+    "npugraph_ex": {
+      "path": "/usr/local/python3.12.13/lib/python3.12/site-packages/torch_npu/dynamo/npugraph_ex/__init__.py",
+      "bytes": 1617,
+      "sha256": "6ce899dddebf09d3be797865bd93cc4ee2ba39c9b33f8d08bb7887c2d5e85c92"
+    },
+    "npu_fx_compiler": {
+      "path": "/usr/local/python3.12.13/lib/python3.12/site-packages/torch_npu/dynamo/npugraph_ex/npu_fx_compiler.py",
+      "bytes": 39919,
+      "sha256": "926818c66e7fae1cc5191ff994935b746c46fcd9e6fba23e1938a0f84fe1382c"
+    }
+  },
+  "runtime_library_sources": {
+    "acl": {
+      "path": "/usr/local/Ascend/cann-9.1.0/aarch64-linux/lib64/libascendcl.so",
+      "bytes": 329544,
+      "sha256": "123d67c313f743e5d6f2e856f40c24d5edac376975cf0a7a1019e079b4171480",
+      "loaded_abi_proof": {
+        "pid": 1463677,
+        "requested_path": "/usr/local/Ascend/cann-9.1.0/aarch64-linux/lib64/libascendcl.so",
+        "resolved_path": "/usr/local/Ascend/cann-9.1.0/aarch64-linux/lib64/libascendcl.so",
+        "segments": [
+          {
+            "range": "ffff97250000-ffff97290000",
+            "start": 281473217527808,
+            "end": 281473217789952,
+            "permissions": "r-xp",
+            "file_offset": 0,
+            "maps_dev": [
+              253,
+              2
+            ],
+            "inode": 158935952,
+            "raw_path": "/usr/local/Ascend/cann-9.1.0/aarch64-linux/lib64/libascendcl.so",
+            "deleted": false
+          },
+          {
+            "range": "ffff97290000-ffff9729f000",
+            "start": 281473217789952,
+            "end": 281473217851392,
+            "permissions": "---p",
+            "file_offset": 262144,
+            "maps_dev": [
+              253,
+              2
+            ],
+            "inode": 158935952,
+            "raw_path": "/usr/local/Ascend/cann-9.1.0/aarch64-linux/lib64/libascendcl.so",
+            "deleted": false
+          },
+          {
+            "range": "ffff9729f000-ffff972a0000",
+            "start": 281473217851392,
+            "end": 281473217855488,
+            "permissions": "r--p",
+            "file_offset": 323584,
+            "maps_dev": [
+              253,
+              2
+            ],
+            "inode": 158935952,
+            "raw_path": "/usr/local/Ascend/cann-9.1.0/aarch64-linux/lib64/libascendcl.so",
+            "deleted": false
+          },
+          {
+            "range": "ffff972a0000-ffff972a1000",
+            "start": 281473217855488,
+            "end": 281473217859584,
+            "permissions": "rw-p",
+            "file_offset": 327680,
+            "maps_dev": [
+              253,
+              2
+            ],
+            "inode": 158935952,
+            "raw_path": "/usr/local/Ascend/cann-9.1.0/aarch64-linux/lib64/libascendcl.so",
+            "deleted": false
+          }
+        ],
+        "device_api_calls": 0,
+        "new_library_loads": 0,
+        "map_files_path": "/proc/self/map_files/ffff97250000-ffff97290000",
+        "mapped_file_stat": {
+          "inode": 158935952,
+          "dev": [
+            0,
+            259
+          ],
+          "bytes": 329544
+        },
+        "mapped_file_sha256": "123d67c313f743e5d6f2e856f40c24d5edac376975cf0a7a1019e079b4171480",
+        "mapped_file_bytes": 329544,
+        "map_files_link": "/usr/local/Ascend/cann-9.1.0/aarch64-linux/lib64/libascendcl.so",
+        "current_path_stat": {
+          "inode": 158935952,
+          "dev": [
+            0,
+            259
+          ],
+          "bytes": 329544
+        },
+        "mountinfo_sha256": "b9bf04beea00b9f40336098b0149bc765383b8c7117e132f3404533bd666b59d",
+        "overlay_mount": {
+          "mount_id": 3634,
+          "parent_mount_id": 2924,
+          "root": "/",
+          "device": [
+            0,
+            259
+          ],
+          "mount_point": "/",
+          "filesystem": "overlay",
+          "source": "overlay",
+          "mountinfo_line": "3634 2924 0:259 / / rw,relatime master:631 - overlay overlay rw,seclabel,lowerdir=/home/docker-data/overlay2/l/IHKXSDOQJXLSDFF2V5SH42B7SE:/home/docker-data/overlay2/l/6BQIDKPCO6I5TCFJ6ZWUJA4KPS:/home/docker-data/overlay2/l/WCS6HNIIFFQNXM5VHAC6S4FGHJ:/home/docker-data/overlay2/l/EEUGMFXWADHVAFAJUYUVIME5IT:/home/docker-data/overlay2/l/RCYILYD3IPURFAZNJLXOIAQYAQ:/home/docker-data/overlay2/l/BAT2QB2F5EAMIPKE5GPPYQSOUH:/home/docker-data/overlay2/l/I4D5O5HQIVCZW72WSBIAVCJVH4:/home/docker-data/overlay2/l/W5TSF7S6JZIVQGFMD7L5MCA6CA:/home/docker-data/overlay2/l/OKTBFYKQXGS4BQSV75T4PXRMVO:/home/docker-data/overlay2/l/7TBNZ7KK5ITLW6PUWFI42GJQCL:/home/docker-data/overlay2/l/FY53HLTO5XUHBGSKC32CMKZE6F:/home/docker-data/overlay2/l/5JYU6ZR3FKMK53Y7547RSTNHMP:/home/docker-data/overlay2/l/FBB5RFEGW5F6SRETUV6QMXTC5T:/home/docker-data/overlay2/l/Z55TKVVCW2EKV22IP5POGK6SXB:/home/docker-data/overlay2/l/OJAB5UDNQXSZJTKUSVAQ65FITY:/home/docker-data/overlay2/l/RORQOEUND4H2NRM4Z7VVUCPQ4J:/home/docker-data/overlay2/l/65WOOKZ5VXQFGAKRBU7JTOOZRN:/home/docker-data/overlay2/l/I4SBRT6ZWQ566BQL2W6VM3MS4Z:/home/docker-data/overlay2/l/IOPEUCJ2V6GA3KXAKY6TT3EB5Z:/home/docker-data/overlay2/l/FX7QYMDIZXOXBT5STCHXGODK5P,upperdir=/home/docker-data/overlay2/8861b29b0556cbdf2769e5ac3afd71bd2abc91f08b2f43010eac7899aad30b71/diff,workdir=/home/docker-data/overlay2/8861b29b0556cbdf2769e5ac3afd71bd2abc91f08b2f43010eac7899aad30b71/work"
+        },
+        "device_views_differ": true,
+        "executable_memory": [
+          {
+            "range": "ffff97250000-ffff97290000",
+            "bytes": 262144,
+            "file_offset": 0,
+            "memory_sha256": "3ecaf5de8cc22043cb9a7488efca15ea1f0f329af163ec050c1f37999ab662ac",
+            "mapped_file_segment_sha256": "3ecaf5de8cc22043cb9a7488efca15ea1f0f329af163ec050c1f37999ab662ac",
+            "byte_equal": true
+          }
+        ],
+        "symbol_addresses": {
+          "aclrtGetCurrentContext": 281473217575536,
+          "aclrtGetDevice": 281473217577040
+        }
+      }
+    },
+    "runtime": {
+      "path": "/usr/local/Ascend/cann-9.1.0/aarch64-linux/lib64/libruntime.so",
+      "bytes": 936424,
+      "sha256": "7bc2b610dff552df2f114c95701156b4aba43ffcba24e06e3c249e1cf57bbc21",
+      "loaded_abi_proof": {
+        "pid": 1463677,
+        "requested_path": "/usr/local/Ascend/cann-9.1.0/aarch64-linux/lib64/libruntime.so",
+        "resolved_path": "/usr/local/Ascend/cann-9.1.0/aarch64-linux/lib64/libruntime.so",
+        "segments": [
+          {
+            "range": "ffff8aca0000-ffff8ad73000",
+            "start": 281473010237440,
+            "end": 281473011101696,
+            "permissions": "r-xp",
+            "file_offset": 0,
+            "maps_dev": [
+              253,
+              2
+            ],
+            "inode": 158936069,
+            "raw_path": "/usr/local/Ascend/cann-9.1.0/aarch64-linux/lib64/libruntime.so",
+            "deleted": false
+          },
+          {
+            "range": "ffff8ad73000-ffff8ad8f000",
+            "start": 281473011101696,
+            "end": 281473011216384,
+            "permissions": "---p",
+            "file_offset": 864256,
+            "maps_dev": [
+              253,
+              2
+            ],
+            "inode": 158936069,
+            "raw_path": "/usr/local/Ascend/cann-9.1.0/aarch64-linux/lib64/libruntime.so",
+            "deleted": false
+          },
+          {
+            "range": "ffff8ad8f000-ffff8ad90000",
+            "start": 281473011216384,
+            "end": 281473011220480,
+            "permissions": "r--p",
+            "file_offset": 913408,
+            "maps_dev": [
+              253,
+              2
+            ],
+            "inode": 158936069,
+            "raw_path": "/usr/local/Ascend/cann-9.1.0/aarch64-linux/lib64/libruntime.so",
+            "deleted": false
+          },
+          {
+            "range": "ffff8ad90000-ffff8ad95000",
+            "start": 281473011220480,
+            "end": 281473011240960,
+            "permissions": "rw-p",
+            "file_offset": 917504,
+            "maps_dev": [
+              253,
+              2
+            ],
+            "inode": 158936069,
+            "raw_path": "/usr/local/Ascend/cann-9.1.0/aarch64-linux/lib64/libruntime.so",
+            "deleted": false
+          }
+        ],
+        "device_api_calls": 0,
+        "new_library_loads": 0,
+        "map_files_path": "/proc/self/map_files/ffff8aca0000-ffff8ad73000",
+        "mapped_file_stat": {
+          "inode": 158936069,
+          "dev": [
+            0,
+            259
+          ],
+          "bytes": 936424
+        },
+        "mapped_file_sha256": "7bc2b610dff552df2f114c95701156b4aba43ffcba24e06e3c249e1cf57bbc21",
+        "mapped_file_bytes": 936424,
+        "map_files_link": "/usr/local/Ascend/cann-9.1.0/aarch64-linux/lib64/libruntime.so",
+        "current_path_stat": {
+          "inode": 158936069,
+          "dev": [
+            0,
+            259
+          ],
+          "bytes": 936424
+        },
+        "mountinfo_sha256": "b9bf04beea00b9f40336098b0149bc765383b8c7117e132f3404533bd666b59d",
+        "overlay_mount": {
+          "mount_id": 3634,
+          "parent_mount_id": 2924,
+          "root": "/",
+          "device": [
+            0,
+            259
+          ],
+          "mount_point": "/",
+          "filesystem": "overlay",
+          "source": "overlay",
+          "mountinfo_line": "3634 2924 0:259 / / rw,relatime master:631 - overlay overlay rw,seclabel,lowerdir=/home/docker-data/overlay2/l/IHKXSDOQJXLSDFF2V5SH42B7SE:/home/docker-data/overlay2/l/6BQIDKPCO6I5TCFJ6ZWUJA4KPS:/home/docker-data/overlay2/l/WCS6HNIIFFQNXM5VHAC6S4FGHJ:/home/docker-data/overlay2/l/EEUGMFXWADHVAFAJUYUVIME5IT:/home/docker-data/overlay2/l/RCYILYD3IPURFAZNJLXOIAQYAQ:/home/docker-data/overlay2/l/BAT2QB2F5EAMIPKE5GPPYQSOUH:/home/docker-data/overlay2/l/I4D5O5HQIVCZW72WSBIAVCJVH4:/home/docker-data/overlay2/l/W5TSF7S6JZIVQGFMD7L5MCA6CA:/home/docker-data/overlay2/l/OKTBFYKQXGS4BQSV75T4PXRMVO:/home/docker-data/overlay2/l/7TBNZ7KK5ITLW6PUWFI42GJQCL:/home/docker-data/overlay2/l/FY53HLTO5XUHBGSKC32CMKZE6F:/home/docker-data/overlay2/l/5JYU6ZR3FKMK53Y7547RSTNHMP:/home/docker-data/overlay2/l/FBB5RFEGW5F6SRETUV6QMXTC5T:/home/docker-data/overlay2/l/Z55TKVVCW2EKV22IP5POGK6SXB:/home/docker-data/overlay2/l/OJAB5UDNQXSZJTKUSVAQ65FITY:/home/docker-data/overlay2/l/RORQOEUND4H2NRM4Z7VVUCPQ4J:/home/docker-data/overlay2/l/65WOOKZ5VXQFGAKRBU7JTOOZRN:/home/docker-data/overlay2/l/I4SBRT6ZWQ566BQL2W6VM3MS4Z:/home/docker-data/overlay2/l/IOPEUCJ2V6GA3KXAKY6TT3EB5Z:/home/docker-data/overlay2/l/FX7QYMDIZXOXBT5STCHXGODK5P,upperdir=/home/docker-data/overlay2/8861b29b0556cbdf2769e5ac3afd71bd2abc91f08b2f43010eac7899aad30b71/diff,workdir=/home/docker-data/overlay2/8861b29b0556cbdf2769e5ac3afd71bd2abc91f08b2f43010eac7899aad30b71/work"
+        },
+        "device_views_differ": true,
+        "executable_memory": [
+          {
+            "range": "ffff8aca0000-ffff8ad73000",
+            "bytes": 864256,
+            "file_offset": 0,
+            "memory_sha256": "d866127d71c949ed271c0d56a2e01a8b08e14027fd8cab8c30c51f97ee91a793",
+            "mapped_file_segment_sha256": "d866127d71c949ed271c0d56a2e01a8b08e14027fd8cab8c30c51f97ee91a793",
+            "byte_equal": true
+          }
+        ],
+        "symbol_addresses": {
+          "rtGetDevicePhyIdByIndex": 281473010504104
+        }
+      }
+    }
+  },
+  "controller_bound_loaded_abi_proofs": {
+    "path": "/work/results/formal_dspark_sdk_init_static_default_v3/gate/metadata/loaded_abi_proofs/rank0.json",
+    "sha256": "ff1ef77ab7aee5709ff7179b733369e75a0f1cd118f399b5436dbec61d7aab61"
+  },
+  "initialized_worker_scope": {
+    "current_initialized": true,
+    "context_ptr": 187652308717776,
+    "runtime_logical_device": 0,
+    "physical_device": 8,
+    "torch_current_device": 0,
+    "worker_device_index": 0,
+    "stream_ptr": 187652694525064,
+    "tp_rank": 0,
+    "tp_world_size": 8,
+    "worker_rank": 0,
+    "global_rank": 0,
+    "runner_idle": true,
+    "capturing": false
+  },
+  "torch": "2.10.0+cpu",
+  "torch_npu": "2.10.0.post4",
+  "buffers_before": {
+    "producer.values": {
+      "ptr": 20623359310336,
+      "shape": [
+        6,
+        64
+      ],
+      "stride": [
+        64,
+        1
+      ],
+      "dtype": "torch.bfloat16",
+      "device": "npu:0",
+      "format": 2
+    },
+    "producer.positions": {
+      "ptr": 20623359320576,
+      "shape": [
+        6,
+        1
+      ],
+      "stride": [
+        1,
+        1
+      ],
+      "dtype": "torch.int64",
+      "device": "npu:0",
+      "format": 2
+    },
+    "producer.valid": {
+      "ptr": 20623359321088,
+      "shape": [
+        6
+      ],
+      "stride": [
+        1
+      ],
+      "dtype": "torch.bool",
+      "device": "npu:0",
+      "format": 2
+    },
+    "producer.epoch": {
+      "ptr": 20623359321600,
+      "shape": [
+        1
+      ],
+      "stride": [
+        1
+      ],
+      "dtype": "torch.int64",
+      "device": "npu:0",
+      "format": 2
+    },
+    "producer.copy_count": {
+      "ptr": 20623359322112,
+      "shape": [
+        1
+      ],
+      "stride": [
+        1
+      ],
+      "dtype": "torch.int64",
+      "device": "npu:0",
+      "format": 2
+    },
+    "producer.row_count": {
+      "ptr": 20623359322624,
+      "shape": [
+        1
+      ],
+      "stride": [
+        1
+      ],
+      "dtype": "torch.int64",
+      "device": "npu:0",
+      "format": 2
+    },
+    "reader.values": {
+      "ptr": 20623359323136,
+      "shape": [
+        6,
+        64
+      ],
+      "stride": [
+        64,
+        1
+      ],
+      "dtype": "torch.bfloat16",
+      "device": "npu:0",
+      "format": 2
+    },
+    "reader.positions": {
+      "ptr": 20623359324160,
+      "shape": [
+        6,
+        1
+      ],
+      "stride": [
+        1,
+        1
+      ],
+      "dtype": "torch.int64",
+      "device": "npu:0",
+      "format": 2
+    },
+    "reader.valid": {
+      "ptr": 20623359324672,
+      "shape": [
+        6
+      ],
+      "stride": [
+        1
+      ],
+      "dtype": "torch.bool",
+      "device": "npu:0",
+      "format": 2
+    },
+    "reader.epoch": {
+      "ptr": 20623359325184,
+      "shape": [
+        1
+      ],
+      "stride": [
+        1
+      ],
+      "dtype": "torch.int64",
+      "device": "npu:0",
+      "format": 2
+    },
+    "reader.copy_count": {
+      "ptr": 20623359325696,
+      "shape": [
+        1
+      ],
+      "stride": [
+        1
+      ],
+      "dtype": "torch.int64",
+      "device": "npu:0",
+      "format": 2
+    },
+    "reader.row_count": {
+      "ptr": 20623359326208,
+      "shape": [
+        1
+      ],
+      "stride": [
+        1
+      ],
+      "dtype": "torch.int64",
+      "device": "npu:0",
+      "format": 2
+    }
+  },
+  "phase_at_exception": "probe-allocation",
+  "exception_type": "TypeError",
+  "exception": "module, class, method, function, traceback, frame, or code object was expected, got _LazyNpuGraphEx",
+  "traceback": "Traceback (most recent call last):\n  File \"/work/src_dspark_sdk_init_static_default_v3/stack/parallel_tiny/dspark_formal_audit/native_initialized_worker_discovery_v3/initialized_worker_gate.py\", line 158, in run_in_initialized_worker\n    actual=digest(inspect.getfile(module))\n                  ^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/usr/local/python3.12.13/lib/python3.12/site-packages/torch/package/package_importer.py\", line 728, in _patched_getfile\n    return _orig_getfile(object)\n           ^^^^^^^^^^^^^^^^^^^^^\n  File \"/usr/local/python3.12.13/lib/python3.12/inspect.py\", line 935, in getfile\n    raise TypeError('module, class, method, function, traceback, frame, or '\nTypeError: module, class, method, function, traceback, frame, or code object was expected, got _LazyNpuGraphEx\n",
+  "action": "Terminate the new audit job. Do not repair context/stream, retry, or continue model execution in this worker.",
+  "worker_lifecycle": "terminal_failed"
+}

@@ -1,0 +1,918 @@
+{
+  "main_model": "ACLGraphWrapper",
+  "main_backbone": "DeepseekV41Model",
+  "main_layers": 40,
+  "draft_model": "DSparkDeepseekV41ForCausalLM",
+  "draft_layers": 3,
+  "target_layer_ids": [
+    37,
+    38,
+    39
+  ],
+  "main_hidden_size": 5120,
+  "num_speculative_tokens": 5,
+  "draft_use_cuda_graph": true,
+  "proposer": "AscendDSparkProposer",
+  "cache_consumers": {
+    "language_model.model.layers.0.self_attn.swa_cache": [
+      {
+        "shape": [
+          3969,
+          128,
+          1,
+          512
+        ],
+        "ptr": 20711909113856
+      }
+    ],
+    "language_model.model.layers.0.self_attn.attn": [
+      {
+        "shape": [
+          0
+        ],
+        "ptr": 0
+      }
+    ],
+    "language_model.model.layers.1.self_attn.swa_cache": [
+      {
+        "shape": [
+          3969,
+          128,
+          1,
+          512
+        ],
+        "ptr": 20712429355008
+      }
+    ],
+    "language_model.model.layers.1.self_attn.attn": [
+      {
+        "shape": [
+          0
+        ],
+        "ptr": 0
+      }
+    ],
+    "language_model.model.layers.2.self_attn.swa_cache": [
+      {
+        "shape": [
+          3969,
+          128,
+          1,
+          512
+        ],
+        "ptr": 20713216163840
+      }
+    ],
+    "language_model.model.layers.2.self_attn.attn": [
+      {
+        "shape": [
+          0
+        ],
+        "ptr": 0
+      }
+    ],
+    "language_model.model.layers.2.self_attn.long_kv_cache": [
+      {
+        "shape": [
+          3969,
+          64,
+          1,
+          512
+        ],
+        "ptr": 20711909113856
+      }
+    ],
+    "language_model.model.layers.2.self_attn.compressor.state_cache": [
+      {
+        "shape": [
+          3969,
+          32,
+          1,
+          1024
+        ],
+        "ptr": 20711909113856
+      }
+    ],
+    "language_model.model.layers.2.self_attn.indexer.k_cache": [],
+    "language_model.model.layers.3.self_attn.swa_cache": [
+      {
+        "shape": [
+          3969,
+          128,
+          1,
+          512
+        ],
+        "ptr": 20713736404992
+      }
+    ],
+    "language_model.model.layers.3.self_attn.attn": [
+      {
+        "shape": [
+          0
+        ],
+        "ptr": 0
+      }
+    ],
+    "language_model.model.layers.4.self_attn.swa_cache": [
+      {
+        "shape": [
+          3969,
+          128,
+          1,
+          512
+        ],
+        "ptr": 20711909113856
+      }
+    ],
+    "language_model.model.layers.4.self_attn.attn": [
+      {
+        "shape": [
+          0
+        ],
+        "ptr": 0
+      }
+    ],
+    "language_model.model.layers.5.self_attn.swa_cache": [
+      {
+        "shape": [
+          3969,
+          128,
+          1,
+          512
+        ],
+        "ptr": 20712429355008
+      }
+    ],
+    "language_model.model.layers.5.self_attn.attn": [
+      {
+        "shape": [
+          0
+        ],
+        "ptr": 0
+      }
+    ],
+    "language_model.model.layers.6.self_attn.swa_cache": [
+      {
+        "shape": [
+          3969,
+          128,
+          1,
+          512
+        ],
+        "ptr": 20713216163840
+      }
+    ],
+    "language_model.model.layers.6.self_attn.attn": [
+      {
+        "shape": [
+          0
+        ],
+        "ptr": 0
+      }
+    ],
+    "language_model.model.layers.7.self_attn.swa_cache": [
+      {
+        "shape": [
+          3969,
+          128,
+          1,
+          512
+        ],
+        "ptr": 20713736404992
+      }
+    ],
+    "language_model.model.layers.7.self_attn.attn": [
+      {
+        "shape": [
+          0
+        ],
+        "ptr": 0
+      }
+    ],
+    "language_model.model.layers.8.self_attn.swa_cache": [
+      {
+        "shape": [
+          3969,
+          128,
+          1,
+          512
+        ],
+        "ptr": 20711909113856
+      }
+    ],
+    "language_model.model.layers.8.self_attn.attn": [
+      {
+        "shape": [
+          0
+        ],
+        "ptr": 0
+      }
+    ],
+    "language_model.model.layers.8.self_attn.long_kv_cache": [
+      {
+        "shape": [
+          3969,
+          64,
+          1,
+          512
+        ],
+        "ptr": 20712429355008
+      }
+    ],
+    "language_model.model.layers.8.self_attn.compressor.state_cache": [
+      {
+        "shape": [
+          3969,
+          32,
+          1,
+          1024
+        ],
+        "ptr": 20712429355008
+      }
+    ],
+    "language_model.model.layers.8.self_attn.indexer.k_cache": [],
+    "language_model.model.layers.9.self_attn.swa_cache": [
+      {
+        "shape": [
+          3969,
+          128,
+          1,
+          512
+        ],
+        "ptr": 20712429355008
+      }
+    ],
+    "language_model.model.layers.9.self_attn.attn": [
+      {
+        "shape": [
+          0
+        ],
+        "ptr": 0
+      }
+    ],
+    "language_model.model.layers.10.self_attn.swa_cache": [
+      {
+        "shape": [
+          3969,
+          128,
+          1,
+          512
+        ],
+        "ptr": 20713216163840
+      }
+    ],
+    "language_model.model.layers.10.self_attn.attn": [
+      {
+        "shape": [
+          0
+        ],
+        "ptr": 0
+      }
+    ],
+    "language_model.model.layers.11.self_attn.swa_cache": [
+      {
+        "shape": [
+          3969,
+          128,
+          1,
+          512
+        ],
+        "ptr": 20713736404992
+      }
+    ],
+    "language_model.model.layers.11.self_attn.attn": [
+      {
+        "shape": [
+          0
+        ],
+        "ptr": 0
+      }
+    ],
+    "language_model.model.layers.12.self_attn.swa_cache": [
+      {
+        "shape": [
+          3969,
+          128,
+          1,
+          512
+        ],
+        "ptr": 20711909113856
+      }
+    ],
+    "language_model.model.layers.12.self_attn.attn": [
+      {
+        "shape": [
+          0
+        ],
+        "ptr": 0
+      }
+    ],
+    "language_model.model.layers.13.self_attn.swa_cache": [
+      {
+        "shape": [
+          3969,
+          128,
+          1,
+          512
+        ],
+        "ptr": 20712429355008
+      }
+    ],
+    "language_model.model.layers.13.self_attn.attn": [
+      {
+        "shape": [
+          0
+        ],
+        "ptr": 0
+      }
+    ],
+    "language_model.model.layers.14.self_attn.swa_cache": [
+      {
+        "shape": [
+          3969,
+          128,
+          1,
+          512
+        ],
+        "ptr": 20713216163840
+      }
+    ],
+    "language_model.model.layers.14.self_attn.attn": [
+      {
+        "shape": [
+          0
+        ],
+        "ptr": 0
+      }
+    ],
+    "language_model.model.layers.14.self_attn.long_kv_cache": [
+      {
+        "shape": [
+          3969,
+          64,
+          1,
+          512
+        ],
+        "ptr": 20713216163840
+      }
+    ],
+    "language_model.model.layers.14.self_attn.compressor.state_cache": [
+      {
+        "shape": [
+          3969,
+          32,
+          1,
+          1024
+        ],
+        "ptr": 20713216163840
+      }
+    ],
+    "language_model.model.layers.14.self_attn.indexer.k_cache": [],
+    "language_model.model.layers.15.self_attn.swa_cache": [
+      {
+        "shape": [
+          3969,
+          128,
+          1,
+          512
+        ],
+        "ptr": 20713736404992
+      }
+    ],
+    "language_model.model.layers.15.self_attn.attn": [
+      {
+        "shape": [
+          0
+        ],
+        "ptr": 0
+      }
+    ],
+    "language_model.model.layers.16.self_attn.swa_cache": [
+      {
+        "shape": [
+          3969,
+          128,
+          1,
+          512
+        ],
+        "ptr": 20711909113856
+      }
+    ],
+    "language_model.model.layers.16.self_attn.attn": [
+      {
+        "shape": [
+          0
+        ],
+        "ptr": 0
+      }
+    ],
+    "language_model.model.layers.17.self_attn.swa_cache": [
+      {
+        "shape": [
+          3969,
+          128,
+          1,
+          512
+        ],
+        "ptr": 20712429355008
+      }
+    ],
+    "language_model.model.layers.17.self_attn.attn": [
+      {
+        "shape": [
+          0
+        ],
+        "ptr": 0
+      }
+    ],
+    "language_model.model.layers.18.self_attn.swa_cache": [
+      {
+        "shape": [
+          3969,
+          128,
+          1,
+          512
+        ],
+        "ptr": 20713216163840
+      }
+    ],
+    "language_model.model.layers.18.self_attn.attn": [
+      {
+        "shape": [
+          0
+        ],
+        "ptr": 0
+      }
+    ],
+    "language_model.model.layers.19.self_attn.swa_cache": [
+      {
+        "shape": [
+          3969,
+          128,
+          1,
+          512
+        ],
+        "ptr": 20713736404992
+      }
+    ],
+    "language_model.model.layers.19.self_attn.attn": [
+      {
+        "shape": [
+          0
+        ],
+        "ptr": 0
+      }
+    ],
+    "language_model.model.layers.20.self_attn.swa_cache": [
+      {
+        "shape": [
+          3969,
+          128,
+          1,
+          512
+        ],
+        "ptr": 20711909113856
+      }
+    ],
+    "language_model.model.layers.20.self_attn.attn": [
+      {
+        "shape": [
+          0
+        ],
+        "ptr": 0
+      }
+    ],
+    "language_model.model.layers.20.self_attn.long_kv_cache": [
+      {
+        "shape": [
+          3969,
+          128,
+          1,
+          512
+        ],
+        "ptr": 20713736404992
+      }
+    ],
+    "language_model.model.layers.20.self_attn.indexer.k_cache": [],
+    "language_model.model.layers.21.self_attn.swa_cache": [
+      {
+        "shape": [
+          3969,
+          128,
+          1,
+          512
+        ],
+        "ptr": 20712429355008
+      }
+    ],
+    "language_model.model.layers.21.self_attn.attn": [
+      {
+        "shape": [
+          0
+        ],
+        "ptr": 0
+      }
+    ],
+    "language_model.model.layers.22.self_attn.swa_cache": [
+      {
+        "shape": [
+          3969,
+          128,
+          1,
+          512
+        ],
+        "ptr": 20713216163840
+      }
+    ],
+    "language_model.model.layers.22.self_attn.attn": [
+      {
+        "shape": [
+          0
+        ],
+        "ptr": 0
+      }
+    ],
+    "language_model.model.layers.23.self_attn.swa_cache": [
+      {
+        "shape": [
+          3969,
+          128,
+          1,
+          512
+        ],
+        "ptr": 20713736404992
+      }
+    ],
+    "language_model.model.layers.23.self_attn.attn": [
+      {
+        "shape": [
+          0
+        ],
+        "ptr": 0
+      }
+    ],
+    "language_model.model.layers.24.self_attn.swa_cache": [
+      {
+        "shape": [
+          3969,
+          128,
+          1,
+          512
+        ],
+        "ptr": 20711909113856
+      }
+    ],
+    "language_model.model.layers.24.self_attn.attn": [
+      {
+        "shape": [
+          0
+        ],
+        "ptr": 0
+      }
+    ],
+    "language_model.model.layers.25.self_attn.swa_cache": [
+      {
+        "shape": [
+          3969,
+          128,
+          1,
+          512
+        ],
+        "ptr": 20712429355008
+      }
+    ],
+    "language_model.model.layers.25.self_attn.attn": [
+      {
+        "shape": [
+          0
+        ],
+        "ptr": 0
+      }
+    ],
+    "language_model.model.layers.26.self_attn.swa_cache": [
+      {
+        "shape": [
+          3969,
+          128,
+          1,
+          512
+        ],
+        "ptr": 20713216163840
+      }
+    ],
+    "language_model.model.layers.26.self_attn.attn": [
+      {
+        "shape": [
+          0
+        ],
+        "ptr": 0
+      }
+    ],
+    "language_model.model.layers.27.self_attn.swa_cache": [
+      {
+        "shape": [
+          3969,
+          128,
+          1,
+          512
+        ],
+        "ptr": 20713736404992
+      }
+    ],
+    "language_model.model.layers.27.self_attn.attn": [
+      {
+        "shape": [
+          0
+        ],
+        "ptr": 0
+      }
+    ],
+    "language_model.model.layers.28.self_attn.swa_cache": [
+      {
+        "shape": [
+          3969,
+          128,
+          1,
+          512
+        ],
+        "ptr": 20711909113856
+      }
+    ],
+    "language_model.model.layers.28.self_attn.attn": [
+      {
+        "shape": [
+          0
+        ],
+        "ptr": 0
+      }
+    ],
+    "language_model.model.layers.29.self_attn.swa_cache": [
+      {
+        "shape": [
+          3969,
+          128,
+          1,
+          512
+        ],
+        "ptr": 20712429355008
+      }
+    ],
+    "language_model.model.layers.29.self_attn.attn": [
+      {
+        "shape": [
+          0
+        ],
+        "ptr": 0
+      }
+    ],
+    "language_model.model.layers.30.self_attn.swa_cache": [
+      {
+        "shape": [
+          3969,
+          128,
+          1,
+          512
+        ],
+        "ptr": 20713216163840
+      }
+    ],
+    "language_model.model.layers.30.self_attn.attn": [
+      {
+        "shape": [
+          0
+        ],
+        "ptr": 0
+      }
+    ],
+    "language_model.model.layers.31.self_attn.swa_cache": [
+      {
+        "shape": [
+          3969,
+          128,
+          1,
+          512
+        ],
+        "ptr": 20713736404992
+      }
+    ],
+    "language_model.model.layers.31.self_attn.attn": [
+      {
+        "shape": [
+          0
+        ],
+        "ptr": 0
+      }
+    ],
+    "language_model.model.layers.32.self_attn.swa_cache": [
+      {
+        "shape": [
+          3969,
+          128,
+          1,
+          512
+        ],
+        "ptr": 20711909113856
+      }
+    ],
+    "language_model.model.layers.32.self_attn.attn": [
+      {
+        "shape": [
+          0
+        ],
+        "ptr": 0
+      }
+    ],
+    "language_model.model.layers.33.self_attn.swa_cache": [
+      {
+        "shape": [
+          3969,
+          128,
+          1,
+          512
+        ],
+        "ptr": 20712429355008
+      }
+    ],
+    "language_model.model.layers.33.self_attn.attn": [
+      {
+        "shape": [
+          0
+        ],
+        "ptr": 0
+      }
+    ],
+    "language_model.model.layers.34.self_attn.swa_cache": [
+      {
+        "shape": [
+          3969,
+          128,
+          1,
+          512
+        ],
+        "ptr": 20713216163840
+      }
+    ],
+    "language_model.model.layers.34.self_attn.attn": [
+      {
+        "shape": [
+          0
+        ],
+        "ptr": 0
+      }
+    ],
+    "language_model.model.layers.35.self_attn.swa_cache": [
+      {
+        "shape": [
+          3969,
+          128,
+          1,
+          512
+        ],
+        "ptr": 20713736404992
+      }
+    ],
+    "language_model.model.layers.35.self_attn.attn": [
+      {
+        "shape": [
+          0
+        ],
+        "ptr": 0
+      }
+    ],
+    "language_model.model.layers.36.self_attn.swa_cache": [
+      {
+        "shape": [
+          3969,
+          128,
+          1,
+          512
+        ],
+        "ptr": 20711909113856
+      }
+    ],
+    "language_model.model.layers.36.self_attn.attn": [
+      {
+        "shape": [
+          0
+        ],
+        "ptr": 0
+      }
+    ],
+    "language_model.model.layers.37.self_attn.swa_cache": [
+      {
+        "shape": [
+          3969,
+          128,
+          1,
+          512
+        ],
+        "ptr": 20712429355008
+      }
+    ],
+    "language_model.model.layers.37.self_attn.attn": [
+      {
+        "shape": [
+          0
+        ],
+        "ptr": 0
+      }
+    ],
+    "language_model.model.layers.38.self_attn.swa_cache": [
+      {
+        "shape": [
+          3969,
+          128,
+          1,
+          512
+        ],
+        "ptr": 20713216163840
+      }
+    ],
+    "language_model.model.layers.38.self_attn.attn": [
+      {
+        "shape": [
+          0
+        ],
+        "ptr": 0
+      }
+    ],
+    "language_model.model.layers.39.self_attn.swa_cache": [
+      {
+        "shape": [
+          3969,
+          128,
+          1,
+          512
+        ],
+        "ptr": 20713736404992
+      }
+    ],
+    "language_model.model.layers.39.self_attn.attn": [
+      {
+        "shape": [
+          0
+        ],
+        "ptr": 0
+      }
+    ],
+    "mtp.0.self_attn.swa_cache": [
+      {
+        "shape": [
+          3969,
+          128,
+          1,
+          512
+        ],
+        "ptr": 20711909113856
+      }
+    ],
+    "mtp.0.self_attn.attn": [
+      {
+        "shape": [
+          0
+        ],
+        "ptr": 0
+      }
+    ],
+    "mtp.1.self_attn.swa_cache": [
+      {
+        "shape": [
+          3969,
+          128,
+          1,
+          512
+        ],
+        "ptr": 20712429355008
+      }
+    ],
+    "mtp.1.self_attn.attn": [
+      {
+        "shape": [
+          0
+        ],
+        "ptr": 0
+      }
+    ],
+    "mtp.2.self_attn.swa_cache": [
+      {
+        "shape": [
+          3969,
+          128,
+          1,
+          512
+        ],
+        "ptr": 20713216163840
+      }
+    ],
+    "mtp.2.self_attn.attn": [
+      {
+        "shape": [
+          0
+        ],
+        "ptr": 0
+      }
+    ]
+  },
+  "physical_device": "4",
+  "hccl_deterministic": "strict"
+}

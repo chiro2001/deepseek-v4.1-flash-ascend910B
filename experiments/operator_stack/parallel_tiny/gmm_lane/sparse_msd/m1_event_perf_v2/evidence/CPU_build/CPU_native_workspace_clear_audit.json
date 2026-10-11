@@ -1,0 +1,134 @@
+{
+  "CPU_only": true,
+  "NPU_calls": 0,
+  "generated_native_candidate_wrappers": [
+    {
+      "kernel": "Gmm2NativeMsdDown_control_v6",
+      "source_path": "/work/gmm_lane_sparse_msd_build_20261011_v3_repro/kernel_meta_Gmm2NativeMsdDown_control_v6/kernel_meta/Gmm2NativeMsdDown_control_v6_930665_kernel.cpp",
+      "source_bytes": 7924,
+      "source_sha256": "e0cf502ce39921f87dff64f9895cac6dd9a687ed1c9d93fd31f2234cc9069c04",
+      "clearWorkspace_line": 123,
+      "snippet": [
+        {
+          "114": "    icache_preload(1);"
+        },
+        {
+          "115": "    if (ffts_addr != nullptr) {"
+        },
+        {
+          "116": "        set_ffts_base_addr((uint64_t)ffts_addr);"
+        },
+        {
+          "117": "    }"
+        },
+        {
+          "118": "#ifdef ASCENDC_TIME_STAMP_ON"
+        },
+        {
+          "119": "    AscendC::PrintTimeStamp(static_cast<uint32_t>(AscendC::TimeStampId::TIME_STAMP_WRAP_FFTS_ADDR));"
+        },
+        {
+          "120": "#endif"
+        },
+        {
+          "121": "#ifdef __MIX_CORE_MACRO__ "
+        },
+        {
+          "122": "    if constexpr (g_coreType == AscendC::AIC) {"
+        },
+        {
+          "123": "        matmul::clearWorkspace(workspace);"
+        },
+        {
+          "124": "#ifdef ASCENDC_TIME_STAMP_ON"
+        },
+        {
+          "125": "        AscendC::PrintTimeStamp(static_cast<uint32_t>(AscendC::TimeStampId::TIME_STAMP_WRAP_CLEAR_WK_SPAC));"
+        },
+        {
+          "126": "#endif"
+        },
+        {
+          "127": "    }"
+        },
+        {
+          "128": "#endif"
+        },
+        {
+          "129": "#if defined(TEMPLATE_PARAMS_LEN) && TEMPLATE_PARAMS_LEN != 0"
+        }
+      ]
+    },
+    {
+      "kernel": "Gmm2SparseMsdDown_candidate_v6",
+      "source_path": "/work/gmm_lane_sparse_msd_build_20261011_v3_repro/kernel_meta_Gmm2SparseMsdDown_candidate_v6/kernel_meta/Gmm2SparseMsdDown_candidate_v6_930636_kernel.cpp",
+      "source_bytes": 7943,
+      "source_sha256": "ecd4ef80a596c4b1dfbe01b26b6fd878cc9ac592b341c6336cb0990ff1aa250a",
+      "clearWorkspace_line": 123,
+      "snippet": [
+        {
+          "114": "    icache_preload(1);"
+        },
+        {
+          "115": "    if (ffts_addr != nullptr) {"
+        },
+        {
+          "116": "        set_ffts_base_addr((uint64_t)ffts_addr);"
+        },
+        {
+          "117": "    }"
+        },
+        {
+          "118": "#ifdef ASCENDC_TIME_STAMP_ON"
+        },
+        {
+          "119": "    AscendC::PrintTimeStamp(static_cast<uint32_t>(AscendC::TimeStampId::TIME_STAMP_WRAP_FFTS_ADDR));"
+        },
+        {
+          "120": "#endif"
+        },
+        {
+          "121": "#ifdef __MIX_CORE_MACRO__ "
+        },
+        {
+          "122": "    if constexpr (g_coreType == AscendC::AIC) {"
+        },
+        {
+          "123": "        matmul::clearWorkspace(workspace);"
+        },
+        {
+          "124": "#ifdef ASCENDC_TIME_STAMP_ON"
+        },
+        {
+          "125": "        AscendC::PrintTimeStamp(static_cast<uint32_t>(AscendC::TimeStampId::TIME_STAMP_WRAP_CLEAR_WK_SPAC));"
+        },
+        {
+          "126": "#endif"
+        },
+        {
+          "127": "    }"
+        },
+        {
+          "128": "#endif"
+        },
+        {
+          "129": "#if defined(TEMPLATE_PARAMS_LEN) && TEMPLATE_PARAMS_LEN != 0"
+        }
+      ]
+    }
+  ],
+  "preprocessed_AIV_source": "/work/gmm_lane_sparse_msd_build_20261011_v3_repro/kernel_meta_Gmm2NativeMsdDown_control_v6/kernel_meta/Gmm2NativeMsdDown_control_v6_mix_aiv.i",
+  "preprocessed_AIV_bytes": 6625955,
+  "preprocessed_AIV_sha256": "520f79d5acf4a2835d605a2bfb0fd3a8f6e9a01bda422b9d06550b84fdbe9773",
+  "clearWorkspace_definition_snippets": [
+    {
+      "line": 119625,
+      "text": "__attribute__((cce_aicore)) inline void clearWorkspace(__attribute__((cce_global)) uint8_t* workspace)\n{\n\n    AscendC::SetAtomicNone();\n    if constexpr(g_coreType == AscendC::AIC) {\n        AscendC::SetMaskNorm();\n        AscendC::SetLoadDataBoundary((uint64_t)0);\n        AscendC::SetLoadDataPaddingValue((uint64_t)0);\n        AscendC::ClearWorkspaceImpl(workspace);\n        AscendC::NotifyEvent<PIPE_MTE3>(WORKSPACE_SYNC_ID);\n    } else {\n        SetVectorMask<uint64_t, MaskMode::NORMAL>((uint64_t)-1, (uint64_t)-1);\n        AscendC::SetMaskNorm();\n    }\n\n}\n\ntemplate <uint8_t enableHardPoll = 0>\nclass KfcServer {\npublic:\n    __attribute__((cce_aicore)) inline void Init(__attribute__((cce_global)) uint8_t* workspaceGM)\n    {\n                                                                                              ;\n        workspace = workspaceGM;\n        quitSize = 0;\n        for (int32_t i = 0; i < MIX_NUM; i++) {\n            kfcCommSrv[i].Init(workspace, i);\n        }\n    }\n\n    __attribute__((cce_aicore)) inline bool isRun()\n    {"
+    }
+  ],
+  "host_zeroing_each_sample": false,
+  "host_binding_initializes_once_per_case_outside_events": true,
+  "native_clear_is_inside_unchanged_generated_kernel": true,
+  "pure_core_time_claim": false,
+  "passed": true
+}
