@@ -1,0 +1,18 @@
+{
+  "command": [
+    "docker",
+    "exec",
+    "dsv41-tiny-prof-20261009-c4",
+    "bash",
+    "-lc",
+    "source /usr/local/Ascend/ascend-toolkit/set_env.sh\nsource /usr/local/Ascend/nnal/atb/set_env.sh\nexport PYTHONPATH=/work/ids_lane_private_v1/ids_lane:/work/ids_lane_private_v1/source\nexport TRITON_CACHE_DIR=/work/ids_lane_private_v1/results/ids_audit_perf_v1/triton_cache\nexport ASCEND_CACHE_PATH=/work/ids_lane_private_v1/results/ids_audit_perf_v1/ascend_cache\nexport ASCEND_RT_VISIBLE_DEVICES=4 ASCEND_VISIBLE_DEVICES=4 IDS_PHYSICAL_CHIP=4\nexport HCCL_DETERMINISTIC=strict LCCL_DETERMINISTIC=1 OMP_NUM_THREADS=1\nexport V41_DUMMY_WO_A_FIX=1 VLLM_ENABLE_V1_MULTIPROCESSING=0 VLLM_ALLOW_INSECURE_SERIALIZATION=1\nexec python3 /work/ids_lane_private_v1/ids_lane/bench_ids_model.py --output /work/ids_lane_private_v1/results/ids_audit_perf_v1 --pairs 12 --profile"
+  ],
+  "fixed_physical_chip": 4,
+  "runtime_visible_index": 4,
+  "container": "dsv41-tiny-prof-20261009-c4",
+  "container_id": "344bb2ff8864a64d02c25ed11ca1ec0c6c8c9b704b078f61d3bdc30d9ec712e4",
+  "source_root": "/work/ids_lane_private_v1",
+  "started_unix": 1791689909.3750265,
+  "pending_new_container_may_only_sleep": "dsv41-tiny-ids-20261011-c4-v1",
+  "same_instance_accuracy_before_performance": true
+}

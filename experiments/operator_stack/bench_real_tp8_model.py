@@ -33,6 +33,7 @@ def main():
     p.add_argument('--profile', action='store_true',
                    help='Collect bounded per-rank metrics after unprofiled paired timing')
     p.add_argument('--profile-metrics', default='PipeUtilization,ArithmeticUtilization,Memory,MemoryL0,MemoryUB,L2Cache,ResourceConflictRatio')
+    p.add_argument('--profile-arms', help='Bounded profiling subset of the already captured formal arms')
     args = p.parse_args()
     assert not args.sync_reference or (args.audit and args.async_scheduling)
     assert not args.async_scheduling or not args.cpu_diagnostic
@@ -64,6 +65,9 @@ def main():
     arms = args.arms.split(',')
     assert arms[0] == 'tp8base' and len(set(arms)) == len(arms)
     assert set(arms) <= {'tp8base','tp8core','tp8act','tp8stack','tp8meta','tp8metastack','tp8prefix','tp8prefixroute','tp8prefixup','tp8prefixuproute','tp8hostmeta','tp8woa', 'tp8mask', 'tp8qkv'}
+    assert not args.profile_arms or args.profile
+    selected_profile_arms=args.profile_arms.split(',') if args.profile_arms else list(dict.fromkeys([arms[0],arms[-1]]))
+    assert set(selected_profile_arms)<=set(arms) and len(set(selected_profile_arms))==len(selected_profile_arms)
     os.environ['OPT_BLOCKMAP_VERIFY'] = '1' if args.audit else '0'
     out = Path(args.output); out.mkdir(parents=True, exist_ok=True)
     os.environ['VLLM_CACHE_ROOT'] = str(out / 'cache')
@@ -284,7 +288,9 @@ def main():
     (out/'result.json').write_text(json.dumps(result, indent=2)+'\n')
     print('REAL_TP8_COMPLETE', json.dumps(result), flush=True)
     if args.profile:
-        for arm in dict.fromkeys([arms[0], arms[-1]]):
+        (out/'profile_selection.json').write_text(json.dumps({'arms':selected_profile_arms,'metrics':profile_metrics,
+            'scope':'After uninstrumented timing; profile windows are not performance quotes'},indent=2)+'\n')
+        for arm in selected_profile_arms:
             for metric in profile_metrics:
                 request(arm, 'profile-'+metric, 0, metric)
         print('REAL_TP8_PROFILE_COMPLETE', json.dumps({'metrics':profile_metrics,

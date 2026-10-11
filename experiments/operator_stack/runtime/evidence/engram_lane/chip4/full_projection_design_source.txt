@@ -1,0 +1,307 @@
+CALLSITE /vllm-workspace/vllm-ascend/vllm_ascend/worker/model_runner_v1.py LINE 2987
+2978:         model_inputs: dict[str, Any] = {
+2979:             "input_ids": input_ids,
+2980:             "positions": positions,
+2981:             "intermediate_tensors": intermediate_tensors,
+2982:             "inputs_embeds": inputs_embeds,
+2983:             **model_kwargs,
+2984:         }
+2985:         # Variable Engram routing must run on every DP before ACLGraph capture
+2986:         # or replay; only its persistent BF16 inputs enter the model graph.
+2987:         prepare_engram = getattr(self.model, "prepare_engram_inputs", None)
+2988:         if prepare_engram is not None:
+2989:             model_inputs.update(prepare_engram(input_ids, positions, num_tokens_padded))
+2990:         run_model = partial(self.model, **model_inputs)
+2991: 
+2992:         if self.enable_enpu:
+2993:             # The soft segmentation scenario requires event.record first, then event.wait
+2994:             self._update_full_graph_params_if_needed(forward_context, num_tokens_padded)
+2995:             hidden_states = run_model()
+2996:         else:
+2997:             hidden_states = run_model()
+2998:             self._update_full_graph_params_if_needed(forward_context, num_tokens_padded)
+2999: 
+3000:         return hidden_states
+3001: 
+3002:     def _prepare_device_metadata_for_forward(
+CALLSITE /vllm-workspace/vllm-ascend/vllm_ascend/models/deepseek_v41/model.py LINE 243
+234: # 8192 页 x 128 x 8 B = 8 MB；拿到 num_gpu_blocks 后再按需增长到 blocks+8。
+235: _ENGRAM_DEVICE_PAGES_BOOT = int(
+236:     _os_engram_hoist.environ.get("V41_ENGRAM_DEVICE_PAGES", "8192") or 8192
+237: )
+238: if _ENGRAM_DEVICE_INDEX:
+239:     # 只在开关打开时导入：模块本身只依赖 torch/ctypes，但保持"关掉即零影响"。
+240:     from .engram_device_index import device_engram_lookup  # noqa: F401
+241:     from .engram_graph import EngramGraphCache  # noqa: F401
+242: # [DEVICE-INDEX-GRAPH] 把整条设备路径放进"每个 batch size 一张图"的缓存里重放。
+243: # 需要它是因为 prepare_engram_inputs() 在 run_model() **之前**调用，也就是在
+244: # 模型自己的 ACLGraph 捕获之外 —— 设备路径于是以 eager 下发，光 hash 就要
+245: # 1.5 ms（且与 batch size 无关，是 ~50 个小算子的纯下发开销）。
+246: # 默认开。曾一度默认关：真机 TP8 起服后第一个请求报
+247: #   RuntimeError: The previous device metadata submission has not been released
+248: # 而误判为"图缓存与引擎的 device_metadata 冲突"。追到根因后是**我们自己的**
+249: # 一个设备不匹配 bug（`build_request_ids` 用 CPU arange 配 device 的 repeats），
+250: # 异常从 forward 里逃出，正好落在引擎 submit/release 之间，把那个标志永久置位；
+251: # 后续请求全部死在 submit 上，与图缓存无关。修法只有一条，且是治本的那条：
+252: #   * `build_request_ids` 两端同设备
+253: # 曾额外加过 `model_runner_v1.py` 的 DMQ 自愈护栏，**已撤销**：那个判据
+254: # （`submission_in_flight == True` 就 release）在**正常运行**中也会短时为真，
+255: # 于是提前释放 device metadata，64 并发实测把服务打挂（57/64 成功，
+256: # `ScatterElements 0x91` → ERR00100 → HCCL watchdog）。详见 CHANGELOG §4.3。
+257: # 单卡实测：n=12 时 2.024 ms → 0.695 ms，捕获重放与 eager 逐位一致。
+258: _ENGRAM_DEVICE_GRAPH = _ENGRAM_DEVICE_INDEX and (
+CALLSITE /vllm-workspace/vllm-ascend/vllm_ascend/models/deepseek_v41/model.py LINE 1114
+1105:                 + f"（每张 {self._engram_dev_tables[config.engram_layer_ids[0]].width}B/行，"
+1106:                 "HBM 占用 0）",
+1107:                 flush=True,
+1108:             )
+1109: 
+1110:     @torch.no_grad()
+1111:     def _engram_dev_empty(self, dev, n):
+1112:         """每一层的空 lookup（形状 [n, n_hash_cols*width]）+ 空 mask。
+1113: 
+1114:         形状必须和真实路径一致，因为 ``prepare_engram_inputs`` 用它来建持久
+1115:         缓冲区（``values.shape[1]``）。空字典会让缓冲区退化成空字典。
+1116:         """
+1117:         config = self.config
+1118:         width = self._engram_dev_tables[config.engram_layer_ids[0]].width
+1119:         cols = (config.engram_max_ngram_size - 1) * config.engram_n_heads
+1120:         return (
+1121:             {
+1122:                 layer_id: torch.empty((n, cols * width), dtype=torch.bfloat16, device=dev)
+1123:                 for layer_id in config.engram_layer_ids
+1124:             },
+1125:             torch.empty(n, dtype=torch.bool, device=dev),
+1126:         )
+1127: 
+1128:     @torch.no_grad()
+1129:     def _prepare_engram_device(self, input_ids, positions):
+CALLSITE /vllm-workspace/vllm-ascend/vllm_ascend/models/deepseek_v41/model.py LINE 1137
+1128:     @torch.no_grad()
+1129:     def _prepare_engram_device(self, input_ids, positions):
+1130:         """[DEVICE-INDEX] 全程设备的 Engram：dense 页镜像 + 哈希 + 整表直索。
+1131: 
+1132:         与 host 路径的接口完全一致（返回 ``{layer_id: [n, cols*width]}`` 与 bool
+1133:         mask），但没有任何 host 往返：没有 ``.cpu()``、没有分片、没有集合通信。
+1134: 
+1135:         **契约**：即使这一步没有任何 token，也必须返回**每一层的空张量**，而不是
+1136:         空字典。host 路径就是这样做的（它总是经过 route_many 再填 lookups），而
+1137:         ``prepare_engram_inputs`` 会把 mask pad 到静态容量，于是
+1138:         ``model.forward`` 里的 ``token_mask.numel()`` 非 0、必然去取
+1139:         ``lookups[layer.layer_idx]`` —— 返回 ``{}`` 会直接 KeyError（实测：
+1140:         profile_run 阶段 dynamo 报 `Dict key lookup failed for int: 1`）。
+1141:         """
+1142:         config = self.config
+1143:         dev = positions.device
+1144:         _bp = _BP_STATE.refresh()
+1145:         _bp.cur_is_decode = False
+1146:         metadata = get_forward_context().attn_metadata
+1147:         if metadata is None:
+1148:             return self._engram_dev_empty(dev, 0)
+1149:         first = self.layers[0].self_attn.dsa_attn.swa_cache_layer
+1150:         meta = metadata[first.prefix]
+1151:         boundaries = (
+1152:             meta.query_start_loc_cpu
+CALLSITE /vllm-workspace/vllm-ascend/vllm_ascend/models/deepseek_v41/model.py LINE 1285
+1276:         return self._prepare_engram_host(input_ids, positions)
+1277: 
+1278:     def _prepare_engram_host(self, input_ids, positions):
+1279:         """Host 路径（原 prepare_engram 本体，保留作为对照与回退）。"""
+1280:         config = self.config
+1281:         if not get_ascend_config().enable_engram:
+1282:             return {}, torch.empty(0, dtype=torch.bool, device=positions.device)
+1283:         _bp = _BP_STATE.refresh()
+1284:         # 默认按"非 decode"记账；只有下面识别出 decode 的那一步才置 True，
+1285:         # 并一直保持到 prepare_engram_inputs 的 tick（review M8 修正）。
+1286:         _bp.cur_is_decode = False
+1287:         columns = (config.engram_max_ngram_size - 1) * config.engram_n_heads
+1288:         hashes = torch.empty((0, len(config.engram_layer_ids), columns), dtype=torch.int64, device="cpu")
+1289:         mask = torch.empty(0, dtype=torch.bool, device="cpu")
+1290:         metadata = get_forward_context().attn_metadata
+1291:         if metadata is not None and self.engram_history is not None:
+1292:             first = self.layers[0].self_attn.dsa_attn.swa_cache_layer
+1293:             meta = metadata[first.prefix]
+1294:             boundaries = (
+1295:                 meta.query_start_loc_cpu
+1296:                 if getattr(meta, "query_start_loc_cpu", None) is not None
+1297:                 else meta.query_start_loc.detach().cpu()
+1298:             ).long()
+1299:             n = int(boundaries[-1])
+1300:             requests = torch.repeat_interleave(torch.arange(len(boundaries) - 1, device="cpu"), boundaries.diff())
+CALLSITE /vllm-workspace/vllm-ascend/vllm_ascend/models/deepseek_v41/model.py LINE 1377
+1368:         elif hasattr(tables[0], "route_many"):
+1369:             routed = tables[0].route_many(tables, ids_list)
+1370:         else:
+1371:             routed = [table(ids) for table, ids in zip(tables, ids_list)]
+1372:         _bp.stat("route", _t2)
+1373:         for layer_id, values in zip(config.engram_layer_ids, routed):
+1374:             lookups[layer_id] = values.flatten(1)
+1375:         return lookups, mask.to(positions.device)
+1376: 
+1377:     def prepare_engram_inputs(self, input_ids, positions, padded_tokens=None):
+1378:         """Refresh persistent inputs before main-model capture or replay."""
+1379:         _bp = _BP_STATE.refresh()
+1380:         _bp.mark_step()
+1381:         _t0 = _bp_time.perf_counter()
+1382:         lookups, mask = self.prepare_engram(input_ids, positions)
+1383:         _t1 = _bp_time.perf_counter()
+1384:         num_tokens = positions.shape[0]
+1385:         # The compiled V4.1 backbone uses the scheduler's static token
+1386:         # capacity for decode graphs (typically max_num_batched_tokens), even
+1387:         # when the current request has one token.  Keep lookup tensors at that
+1388:         # capacity so every captured graph sees the same Engram shape.
+1389:         output_tokens = max(self._engram_max_tokens, padded_tokens or 0)
+1390:         if output_tokens < num_tokens:
+1391:             raise ValueError("Engram padded token count is smaller than the input")
+1392:         if self._engram_input_buffers is None:
+CALLSITE /vllm-workspace/vllm-ascend/vllm_ascend/models/deepseek_v41/model.py LINE 1587
+1578:             # Never expose this dedicated P endpoint as a chat service.
+1579:             marker = 42
+1580:             eos = self.config.eos_token_id
+1581:             if marker >= logits.shape[-1] or marker == eos or (isinstance(eos, (tuple, list)) and marker in eos):
+1582:                 raise RuntimeError("CED internal transfer marker conflicts with tokenizer")
+1583:             logits.fill_(-10000.0)
+1584:             logits[..., marker] = 0.0
+1585:         return logits
+1586: 
+1587:     def prepare_engram_inputs(self, input_ids, positions, padded_tokens=None):
+1588:         return self.model.prepare_engram_inputs(input_ids, positions, padded_tokens)
+1589: 
+1590:     def forward(
+1591:         self,
+1592:         input_ids,
+1593:         positions,
+1594:         intermediate_tensors=None,
+1595:         inputs_embeds=None,
+1596:         engram_lookups=None,
+1597:         engram_mask=None,
+1598:     ):
+1599:         return self.model(
+1600:             input_ids,
+1601:             positions,
+1602:             intermediate_tensors,
+CALLSITE /vllm-workspace/vllm-ascend/vllm_ascend/models/deepseek_v41/model.py LINE 1588
+1579:             marker = 42
+1580:             eos = self.config.eos_token_id
+1581:             if marker >= logits.shape[-1] or marker == eos or (isinstance(eos, (tuple, list)) and marker in eos):
+1582:                 raise RuntimeError("CED internal transfer marker conflicts with tokenizer")
+1583:             logits.fill_(-10000.0)
+1584:             logits[..., marker] = 0.0
+1585:         return logits
+1586: 
+1587:     def prepare_engram_inputs(self, input_ids, positions, padded_tokens=None):
+1588:         return self.model.prepare_engram_inputs(input_ids, positions, padded_tokens)
+1589: 
+1590:     def forward(
+1591:         self,
+1592:         input_ids,
+1593:         positions,
+1594:         intermediate_tensors=None,
+1595:         inputs_embeds=None,
+1596:         engram_lookups=None,
+1597:         engram_mask=None,
+1598:     ):
+1599:         return self.model(
+1600:             input_ids,
+1601:             positions,
+1602:             intermediate_tensors,
+1603:             inputs_embeds,
+NPU_EVENT_SOURCE class Event(torch_npu._C._NPUEventBase):
+    r"""Wrapper around a NPU event.
+
+    NPU events are synchronization markers that can be used to monitor the
+    device's progress, to accurately measure timing, and to synchronize NPU
+    streams.
+
+    The underlying NPU events are lazily initialized when the event is first
+    recorded or exported to another process. After creation, only streams on the
+    same device may record the event. However, streams on any device can wait on
+    the event.
+
+    Arguments:
+        enable_timing (bool, optional): indicates if the event should measure time
+            (default: ``False``)
+        blocking (bool, optional): if ``True``, :meth:`wait` will be blocking (default: ``False``)
+        interprocess (bool): if ``True``, the event can be shared between processes
+            (default: ``False``)
+
+    """
+
+    def __new__(cls, enable_timing=False, blocking=False, interprocess=False):
+        return super(Event, cls).__new__(cls, enable_timing=enable_timing, blocking=blocking,
+                                         interprocess=interprocess, graph_external=False)
+
+    @classmethod
+    def from_ipc_handle(cls, device, handle):
+        r"""Reconstruct an event from an IPC handle on the given device."""
+        return super().from_ipc_handle(device, handle)
+
+    def record(self, stream=None):
+        r"""Records the event in a given stream.
+
+        Uses ``torch_npu.npu.current_stream()`` if no stream is specified. The
+        stream's device must match the event's device.
+        """
+        if stream is None:
+            stream = torch_npu.npu.current_stream()
+        super(Event, self).record(stream)
+
+    def wait(self, stream=None):
+        r"""Makes all future work submitted to the given stream wait for this
+        event.
+
+        Use ``torch_npu.npu.current_stream()`` if no stream is specified.
+        """
+        if stream is None:
+            stream = torch_npu.npu.current_stream()
+        super(Event, self).wait(stream)
+
+    def query(self):
+        r"""Checks if all work currently captured by event has completed.
+
+        Returns:
+            A boolean indicating if all work currently captured by event has
+            completed.
+        """
+        return super(Event, self).query()
+
+    def elapsed_time(self, end_event):
+        r"""Returns the time elapsed in milliseconds after the event was
+        recorded and before the end_event was recorded.
+        """
+        return super(Event, self).elapsed_time(end_event)
+
+    def recorded_time(self):
+        r"""Returns the record time stamp after the event was recorded.
+        """
+        return super(Event, self).recorded_time()
+
+    def synchronize(self):
+        r"""Waits for the event to complete.
+
+        Waits until the completion of all work currently captured in this event.
+        This prevents the CPU thread from proceeding until the event completes.
+
+         .. note:: This is a wrapper around ``npuEventSynchronize()``: see
+            `NPU Event documentation`_ for more info.
+        """
+        super(Event, self).synchronize()
+
+    def ipc_handle(self):
+        r"""Return an IPC handle of this event.
+
+        If not recorded yet, the event will use the current device.
+        """
+        return super().ipc_handle()
+
+    @property
+    def _as_parameter_(self):
+        return ctypes.c_void_p(self.npu_event)
+
+    def __repr__(self):
+        if self.npu_event:
+            return '<torch_npu.npu.Event {0:#x}>'.format(self._as_parameter_.value)
+        else:
+            return '<torch_npu.npu.Event uninitialized>'
+
+CPU_READ_ONLY_NPU_INITIALIZED False

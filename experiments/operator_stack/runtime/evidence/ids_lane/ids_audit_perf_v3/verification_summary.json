@@ -1,0 +1,44 @@
+{
+  "passed": true,
+  "npu_job_exit": 0,
+  "profile_validation_passed": true,
+  "same_model_instance": true,
+  "physical_chip": 4,
+  "native_AA_pairs": 3,
+  "postcapture_AA_pairs": 3,
+  "off_on_accuracy_pairs": 6,
+  "accuracy_route_token_layer_comparisons": 1005280,
+  "max_logprob_delta": 0.0,
+  "direct_route_file_byte_comparisons": 12,
+  "off": {
+    "ms_per_step": 28.862625127658248,
+    "A": 1.0,
+    "tok_per_s": 34.64688314306268
+  },
+  "on": {
+    "ms_per_step": 28.983470052480698,
+    "A": 1.0,
+    "tok_per_s": 34.5024249404674
+  },
+  "paired_delta_median_ms": -0.10858988389372826,
+  "paired_delta_bootstrap_95pct_ms": [
+    -0.12695998884737492,
+    -0.08759531192481518
+  ],
+  "bootstrap_seed": 20261011,
+  "bootstrap_resamples": 20000,
+  "winning_pairs": 0,
+  "performance_pairs": 12,
+  "real_casts_off_per_step": 162.0,
+  "real_casts_on_per_step": 123.0,
+  "real_cast_removed_per_step": 39.0,
+  "scalar_int32_int64_casts_off_per_step": 71.0,
+  "scalar_int32_int64_casts_on_per_step": 32.0,
+  "scalar_int32_int64_cast_duration_off_us_per_step": 90.12989999999999,
+  "scalar_int32_int64_cast_duration_on_us_per_step": 37.9291,
+  "decision": "Valid integer-hoist coverage and accuracy; no TP1 tiny end-to-end benefit (on slower in all 12 pairs). Do not promote using this timing. Formal 384/top6 TP8 gates remain required.",
+  "formal_quality_claim": false,
+  "formal_tp8_speedup_claim": false,
+  "formal_17ms_claim": false,
+  "analysis_script_sha256": "396b327ba0e9c6e7626a3230ac7f4f18cc0778f28bd943f7dad0ca1b512f9bdf"
+}

@@ -1,0 +1,195 @@
+{
+  "host": "localhost.localdomain",
+  "timestamp_unix": 1791689680.6735451,
+  "chips": [
+    3
+  ],
+  "resources": {
+    "0": {
+      "health": "OK",
+      "processes": [
+        {
+          "pid": 3768385,
+          "name": "VLLMWorker_DP"
+        }
+      ]
+    },
+    "1": {
+      "health": "OK",
+      "processes": [
+        {
+          "pid": 3768386,
+          "name": "VLLMWorker_DP"
+        }
+      ]
+    },
+    "2": {
+      "health": "OK",
+      "processes": []
+    },
+    "3": {
+      "health": "OK",
+      "processes": []
+    },
+    "4": {
+      "health": "OK",
+      "processes": []
+    },
+    "5": {
+      "health": "OK",
+      "processes": [
+        {
+          "pid": 38304,
+          "name": "VLLMEngineCor"
+        }
+      ]
+    },
+    "6": {
+      "health": "OK",
+      "processes": []
+    },
+    "7": {
+      "health": "OK",
+      "processes": []
+    },
+    "8": {
+      "health": "Alarm",
+      "processes": [
+        {
+          "pid": 2121139,
+          "name": "VLLMWorker_TP"
+        }
+      ]
+    },
+    "9": {
+      "health": "Alarm",
+      "processes": [
+        {
+          "pid": 2121815,
+          "name": "VLLMWorker_TP"
+        }
+      ]
+    },
+    "10": {
+      "health": "Alarm",
+      "processes": [
+        {
+          "pid": 2122596,
+          "name": "VLLMWorker_TP"
+        }
+      ]
+    },
+    "11": {
+      "health": "Alarm",
+      "processes": [
+        {
+          "pid": 2123258,
+          "name": "VLLMWorker_TP"
+        }
+      ]
+    },
+    "12": {
+      "health": "Alarm",
+      "processes": [
+        {
+          "pid": 2123821,
+          "name": "VLLMWorker_TP"
+        }
+      ]
+    },
+    "13": {
+      "health": "Alarm",
+      "processes": [
+        {
+          "pid": 2124462,
+          "name": "VLLMWorker_TP"
+        }
+      ]
+    },
+    "14": {
+      "health": "Alarm",
+      "processes": [
+        {
+          "pid": 2125039,
+          "name": "VLLMWorker_TP"
+        }
+      ]
+    },
+    "15": {
+      "health": "Alarm",
+      "processes": [
+        {
+          "pid": 2125677,
+          "name": "VLLMWorker_TP"
+        }
+      ]
+    }
+  },
+  "name": "dsv41-engram-lane-20261011-c3",
+  "image": "local/dsv41-operator-stack-real:20261010-production",
+  "image_digest": "sha256:b69e58820f929ac7a77f93774a3d96da1961f507628239e9c7d7b24066b7a8ea",
+  "container_id": "e673769691c1acbd57304e9cb8cdf5dae9a9840c4030e3307aab9991b7609a79",
+  "command": [
+    "docker",
+    "run",
+    "-d",
+    "--name",
+    "dsv41-engram-lane-20261011-c3",
+    "--network",
+    "host",
+    "--shm-size",
+    "16g",
+    "--ulimit",
+    "memlock=-1",
+    "--label",
+    "task=dsv41-engram-lane-20261011-c3",
+    "--label",
+    "chips=3",
+    "--device",
+    "/dev/davinci3",
+    "--device",
+    "/dev/davinci_manager",
+    "--device",
+    "/dev/devmm_svm",
+    "--device",
+    "/dev/hisi_hdc",
+    "-v",
+    "/usr/local/Ascend/driver:/usr/local/Ascend/driver:ro",
+    "-v",
+    "/usr/local/Ascend/firmware:/usr/local/Ascend/firmware:ro",
+    "-v",
+    "/usr/local/dcmi:/usr/local/dcmi:ro",
+    "-v",
+    "/usr/local/bin/npu-smi:/usr/local/bin/npu-smi:ro",
+    "-v",
+    "/etc/ascend_install.info:/etc/ascend_install.info:ro",
+    "-v",
+    "/etc/hccn.conf:/etc/hccn.conf:ro",
+    "-v",
+    "/home/l00886679/projects/dsv41/models/out/v41-w4a8-dspark/optional:/home/l00886679/projects/dsv41/models/out/v41-w4a8-dspark/optional:ro",
+    "-v",
+    "/home/l00886679/projects/dsv41-engram-lane-20261011-c3:/work",
+    "-v",
+    "/home/l00886679/models:/home/l00886679/models:ro",
+    "-e",
+    "ASCEND_RT_VISIBLE_DEVICES=0",
+    "-e",
+    "STACK_EXPECTED_CHIPS=0",
+    "-e",
+    "STACK_PHYSICAL_CHIPS=3",
+    "-e",
+    "HCCL_CONNECT_TIMEOUT=120",
+    "-v",
+    "/home/l00886679/models/out/engram-int8:/home/l00886679/models/out/engram-int8:rw",
+    "-v",
+    "/home/l00886679/projects/dsv41/models/out/engram-int8:/home/l00886679/projects/dsv41/models/out/engram-int8:rw",
+    "--entrypoint",
+    "/bin/bash",
+    "local/dsv41-operator-stack-real:20261010-production",
+    "-lc",
+    "sleep infinity"
+  ],
+  "alarm_explicitly_allowed": false,
+  "alarm_details": {},
+  "claim": "isolated operator probe; not a TP8 deployment"
+}

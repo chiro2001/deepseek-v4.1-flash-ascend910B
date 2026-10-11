@@ -57,19 +57,20 @@ def install(model):
         return
     assert os.getenv('STACK_REAL_WEIGHTS') == '1'
     from vllm_ascend.attention.dsa_v1 import AscendDSAImpl, _is_w8a8_dynamic
-    original = AscendDSAImpl._mla_prolog_multistream
-    source_path = Path(inspect.getfile(AscendDSAImpl))
+    from vllm_ascend.attention.dsa_v41 import DeepseekV41EagerAttentionImpl
+    original = DeepseekV41EagerAttentionImpl.multistream_preprocess
+    source_path = Path(inspect.getfile(DeepseekV41EagerAttentionImpl))
     assert hashlib.sha256(source_path.read_bytes()).hexdigest() == os.environ['STACK_QKV_NATIVE_FILE_SHA256']
     raw = inspect.getsource(original)
     tree = textwrap.dedent(raw)
-    qa = 'wq_a_result = self.cv_wq_a.matmul(q_quant, q_pertoken_scale)'
-    kv = 'kv = self.cv_wkv.matmul(kv_quant, kv_pertoken_scale)'
+    qa = 'q_a = wq_a.matmul(q_quant, q_scale, bias=attn.wq_a.bias)'
+    kv = 'kv = wkv.matmul(kv_quant, kv_scale, bias=attn.wkv.bias)'
     assert tree.count(qa) == tree.count(kv) == 1
-    updated = tree.replace(qa, 'wq_a_result, formal_kv = formal_qkv_project(self, q_quant, q_pertoken_scale)')
+    updated = tree.replace(qa, 'q_a, formal_kv = formal_qkv_project(v1_impl, q_quant, q_scale)')
     updated = updated.replace(kv, 'kv = formal_kv')
     namespace = {**original.__globals__, 'formal_qkv_project': merged}
     exec(compile(updated, '<formal_qkv_merge_prolog>', 'exec'), namespace)
-    candidate = namespace['_mla_prolog_multistream']
+    candidate = namespace['multistream_preprocess']
     signature = inspect.signature(original)
     for name, module in model.named_modules():
         wrapper = getattr(module, 'dsa_attn', None)
@@ -98,19 +99,20 @@ def install(model):
     assert len(LAYERS) == 40, len(LAYERS)
 
     @functools.wraps(original)
-    def dispatch(self, hidden_states, *args, **kwargs):
-        if ARM == 'tp8qkv' and id(self) in LAYERS and hidden_states.shape == (1, 5120):
+    def dispatch(self, attn, hidden_states, *args, **kwargs):
+        impl = attn.dsa_attn.dsa_attn.impl
+        if ARM == 'tp8qkv' and id(impl) in LAYERS and hidden_states.shape == (1, 5120):
             assert hidden_states.dtype == torch.bfloat16
-            bound = signature.bind(self, hidden_states, *args, **kwargs)
-            assert not bound.arguments.get('is_prefill', False)
-            return candidate(self, hidden_states, *args, **kwargs)
-        return original(self, hidden_states, *args, **kwargs)
-    AscendDSAImpl._mla_prolog_multistream = dispatch
+            signature.bind(self, attn, hidden_states, *args, **kwargs)
+            return candidate(self, attn, hidden_states, *args, **kwargs)
+        return original(self, attn, hidden_states, *args, **kwargs)
+    DeepseekV41EagerAttentionImpl.multistream_preprocess = dispatch
     SOURCE.update(native_file_sha256=hashlib.sha256(source_path.read_bytes()).hexdigest(),
                   native_method_sha256=hashlib.sha256(raw.encode()).hexdigest(),
                   patched_method_sha256=hashlib.sha256(updated.encode()).hexdigest(),
                   patch_file_sha256=hashlib.sha256(Path(__file__).read_bytes()).hexdigest(),
-                  preserved_tail='Native stream/events, RMSNorm, RoPE, SWA cache, Q_b and compressor')
+                  actual_consumer='DeepseekV41EagerAttentionImpl.multistream_preprocess',
+                  preserved_tail='Native V4.1 floating qr, streams/events, norms, RoPE, SWA cache and Q_b')
     INSTALLED = True
 
 

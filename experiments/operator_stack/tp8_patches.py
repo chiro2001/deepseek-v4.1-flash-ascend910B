@@ -76,6 +76,10 @@ def save(worker, name):
     assert len(hc_refs) == 80 and len(router_refs) == expected_router, (name, len(hc_refs), len(router_refs))
     index_refs = indexer.REFS[role]
     generic_refs=generic_activation.REFS.get(name,{'routed':[],'shared':[]})
+    if name=='tp8qkv':
+        qkv_status=qkv_merge.status(name)
+        assert qkv_status['enabled'] and qkv_status['selected_calls']==40 and qkv_status['unique_layers']==40, (
+            'QKV candidate did not reach actual V4.1 consumers during capture',qkv_status)
     BANKS[name] = (entries, ag._graph_params, hc_refs, router_refs, refs, index_refs,
                    goal.REFS.get(name, {}),generic_refs)
     from tp8_slot_batches import REGISTRY

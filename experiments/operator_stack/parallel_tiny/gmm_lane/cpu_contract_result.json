@@ -1,0 +1,49 @@
+{
+  "passed": true,
+  "CPU_only": true,
+  "NPU_launches": 0,
+  "real_parameter_sets": 18,
+  "real_raw_coordinate_checks": 648,
+  "synthetic_signed_NZ_coordinate_checks": 12288,
+  "signed_MSD_product_checks": 4096,
+  "sampled_weight_offsets_zero": true,
+  "source_sha256_verified": 17,
+  "GMM1_group_list_types": [
+    0,
+    1
+  ],
+  "old_NZ_adapter_derives_E_from_group_list_shape": true,
+  "sparse_six_slot_descriptor_must_not_use_old_NZ_adapter": true,
+  "generic_GMM_sparse_type2_exists": true,
+  "formal_A8W4_MSD_type2_safe_to_enable": false,
+  "INT32_max_A8W4_K5120_absolute_sum_bound": 5242880,
+  "INT32_max_A4W4_K5120_branch_absolute_sum_bound": 327680,
+  "rounding_counterexample": {
+    "trial": 1049,
+    "scale": 0.00102996826171875,
+    "int32_high_sum": 17,
+    "int32_low_sum": -19,
+    "assist": -0.2471923828125,
+    "native_half_branch_order": 0.013519287109375,
+    "collapsed_one_dot": 0.01338958740234375,
+    "bf16_ulp_distance": 3,
+    "scope": "CPU rounding counterexample, not NPU numerical validation"
+  },
+  "memory_budget": {
+    "w13_bytes_per_layer_rank": 566231040,
+    "w2_bytes_per_layer_rank": 283115520,
+    "weights_MiB_per_layer_rank": 810.0,
+    "full_40layer_ND_duplicate_GiB_per_rank": 31.640625,
+    "scale_bytes_per_layer_rank": 3735552,
+    "assist_bytes_per_layer_rank": 1867776,
+    "descriptor_bytes_per_layer_rank": 128,
+    "descriptor_40layer_bytes_per_rank": 5120,
+    "six_expert_weight_materialization_bytes_per_layer": 106168320,
+    "max_gmm1_msd_half_scratch_bytes": 110592,
+    "max_gmm2_msd_half_scratch_bytes": 122880
+  },
+  "original_1ULP_gate_relaxed": false,
+  "NPU_accuracy_claim": false,
+  "physical_NZ_roundtrip_claim": false,
+  "formal_speedup_claim": false
+}

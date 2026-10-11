@@ -1,0 +1,24 @@
+Traceback (most recent call last):
+  File "/work/resident_engram_replay.py", line 341, in <module>
+    main()
+  File "/usr/local/python3.12.13/lib/python3.12/site-packages/torch/utils/_contextlib.py", line 124, in decorate_context
+    return func(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^
+  File "/work/resident_engram_replay.py", line 73, in main
+    torch.npu.set_device(0)
+  File "/usr/local/python3.12.13/lib/python3.12/site-packages/torch_npu/npu/utils.py", line 91, in set_device
+    torch_npu._C._npu_setDevice(device_id)
+  File "/usr/local/python3.12.13/lib/python3.12/site-packages/torch_npu/npu/__init__.py", line 273, in _lazy_init
+    torch_npu._C._npu_init()
+RuntimeError: Initialize:../torch_npu/csrc/core/npu/sys_ctrl/npu_sys_ctrl.cpp:165 NPU function error: aclInit, error code is 107001
+[ERROR] 2026-10-11-03:37:25 (PID:194, Device:0, RankID:-1) ERR00100 PTA call acl api failed
+[Error]: Invalid device ID.
+        Check whether the device ID is valid.
+[PID: 194] 2026-10-11-03:37:25.739.736 Invalid_Argument(EE1003): Obtaining the logical device ID based on the user device ID failed because value 0 for parameter userDevId is invalid. Expected value: [0, 0).
+        Solution: 1. Check the input parameter range of the function. 2. Check the function invocation relationship.
+TraceBack (most recent call last):
+        rtSetDefaultDeviceId execution failed, reason=device id error[FUNC:FuncErrorReason][FILE:error_message_manage.cc][LINE:69]
+        [Process][DefaultDevice]process HandleDefaultDevice failed[FUNC:ReportInnerError][FILE:log_inner.cpp][LINE:132]
+        ctx is NULL![FUNC:GetDevErrMsg][FILE:api_impl.cc][LINE:6047]
+        The argument is invalid. Reason: rtGetDevMsg execution failed, the context is a null pointer.
+

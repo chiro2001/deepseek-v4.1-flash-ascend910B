@@ -1,0 +1,77 @@
+{
+  "scope": "Pure CPU metadata/order model; no SDK Event/capture/stream execution validated",
+  "torch_imported": false,
+  "npu_started": false,
+  "passed_cases": 14,
+  "cases": [
+    {
+      "case": "ready_sticky_without_reset",
+      "expected_rejection": true,
+      "passed": true
+    },
+    {
+      "case": "publish_before_full_copy_fence",
+      "expected_rejection": true,
+      "passed": true
+    },
+    {
+      "case": "consumer_before_producer_submission",
+      "expected_rejection": true,
+      "passed": true
+    },
+    {
+      "case": "missing_layer14_ready_record",
+      "expected_rejection": true,
+      "passed": true
+    },
+    {
+      "case": "changed_kv_address",
+      "expected_rejection": true,
+      "passed": true
+    },
+    {
+      "case": "changed_event_or_weight_identity",
+      "expected_rejection": true,
+      "passed": true
+    },
+    {
+      "case": "overwrite_before_old_gate_done",
+      "expected_rejection": true,
+      "passed": true
+    },
+    {
+      "case": "reset_while_old_waiter_inflight",
+      "expected_rejection": true,
+      "passed": true
+    },
+    {
+      "case": "retire_with_producer_only",
+      "expected_rejection": true,
+      "passed": true
+    },
+    {
+      "case": "stale_generation_ticket",
+      "expected_rejection": true,
+      "passed": true
+    },
+    {
+      "case": "retire_with_consumer_only",
+      "expected_rejection": true,
+      "passed": true
+    },
+    {
+      "case": "two_generations_serial_slot_reuse",
+      "passed": true
+    },
+    {
+      "case": "unregistered_m_bucket",
+      "expected_rejection": true,
+      "passed": true
+    },
+    {
+      "case": "n_dimension_sharding_forbidden",
+      "expected_rejection": true,
+      "passed": true
+    }
+  ]
+}

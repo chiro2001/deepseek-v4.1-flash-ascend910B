@@ -1,0 +1,2503 @@
+{
+  "completed": true,
+  "precision_passed": true,
+  "eligible_for_model_trial": true,
+  "scope": "Independent real replicated Q_a/KV and rank0 Q_b weights; synthetic inputs; bounded V4.1 preprocess excludes RoPE/cache and source compressor; floating qr is preserved and V4.1 has no post-Q_b Q RMSNorm",
+  "executing_chip": 8,
+  "physical_chips": "8,9,10,11,12,13,14,15",
+  "model": "/home/l00886679/models/out/v41-w4a8-engram-dr-vision-qrot-mtpq",
+  "checkpoint_config_sha256": "40ebd329d3cb2d99d7176091afb580c182c21f48b88b63b550264a97e9c0d424",
+  "native_multistream_source_sha256": "c6d910e1e290a24b9ad42cba5257c3bf6d5a07ecd3873d0747ed07fe52dfba9f",
+  "native_source_file_sha256": "56d3ce83098babf585289d3e078d1efff0442547f61fb0955a11f0b42bfc6ba3",
+  "native_source_extraction": "AST method segment; attention module not imported",
+  "script_sha256": "7990d5ea73d88147225fe4303ed24e38928a151258ce8550192396c01d5c0e84",
+  "precision_gate": "Original one-BF16-ULP gate plus exact downstream quantized Q/scale",
+  "profiler_during_timing": "OFF",
+  "weights": [
+    {
+      "layer": 0,
+      "q_b_rank_shard": 0,
+      "weight_sha256": [
+        "f5c6cc68bb24e1623c073cf7c8ff1a34bba7c4cfede2c7fde5bcbf5df41910fb",
+        "70614ff8952da6caa505a0f14c1c10062e18dcaea81a5f9762e61ab194ea87b1",
+        "927551004e8b3398ef7fdce16772070443f393efda4548638a7a981303edd260"
+      ],
+      "loaded_bf16_scale_sha256": [
+        "77d0772156f20a7fca991cb63b025c952aa634f41cc7e5ed8adc7340739d3236",
+        "edf4d170c414693413bb62b0945a369c3d0a70fa27d55f2c38560756d8909944",
+        "1cb67b6316beded640285d105ab2146d6c51d282cda47c46c5f9b3766cf944c0"
+      ],
+      "packed_weight_sha256": "3a50ea6534548e898599bd2b945c7749f2e8abc1a089440423191d69ffad69f7",
+      "packed_shape": [
+        5120,
+        1792
+      ],
+      "packed_format": 29,
+      "packed_roundtrip_bitwise_equal": true
+    },
+    {
+      "layer": 20,
+      "q_b_rank_shard": 0,
+      "weight_sha256": [
+        "cdf7fe2a4763382ef12711f110d6a26a2054be670b7588c5a556423bfd857075",
+        "f5df06da9229de31c6982ff070961dbdb1d91b5a4a7fe1d8bd9bfe41f7028f4f",
+        "7b18788c9b5c771b25791509d7488b9d6b8da5859e98196d210e88e853990630"
+      ],
+      "loaded_bf16_scale_sha256": [
+        "9e30485ac24f4f372741ccfc45e5b555463617f8de2a310353db356406b20a08",
+        "60ad6e8f8371f0849629ea0f0fb1235ee580a148cf2d003cb6c88ffd29a7b802",
+        "ad2693c09ed0f97f55d695d30cd055804c4670e90a02a0ca8043b65e7286daf2"
+      ],
+      "packed_weight_sha256": "0977c6d7cb7d820b990a2984c1d4d35982e890ca378c9a183ca1cfbad9c517d5",
+      "packed_shape": [
+        5120,
+        1792
+      ],
+      "packed_format": 29,
+      "packed_roundtrip_bitwise_equal": true
+    }
+  ],
+  "cases": [
+    {
+      "layer": 0,
+      "magnitude": 0.001,
+      "style": "random",
+      "outputs": {
+        "q_a": {
+          "dtype": "torch.bfloat16",
+          "shape": [
+            1,
+            1280
+          ],
+          "exact_equal": true,
+          "finite": true,
+          "max_bf16_ulp": 0,
+          "elements_above_one_ulp": 0,
+          "bitwise_equal": true,
+          "passed": true
+        },
+        "kv_raw": {
+          "dtype": "torch.bfloat16",
+          "shape": [
+            1,
+            512
+          ],
+          "exact_equal": true,
+          "finite": true,
+          "max_bf16_ulp": 0,
+          "elements_above_one_ulp": 0,
+          "bitwise_equal": true,
+          "passed": true
+        },
+        "floating_qr": {
+          "dtype": "torch.bfloat16",
+          "shape": [
+            1,
+            1280
+          ],
+          "exact_equal": true,
+          "finite": true,
+          "max_bf16_ulp": 0,
+          "elements_above_one_ulp": 0,
+          "bitwise_equal": true,
+          "passed": true
+        },
+        "q_norm_quant": {
+          "dtype": "torch.int8",
+          "shape": [
+            1,
+            1280
+          ],
+          "exact_equal": true,
+          "passed": true
+        },
+        "q_norm_scale": {
+          "dtype": "torch.float32",
+          "shape": [
+            1
+          ],
+          "exact_equal": true,
+          "passed": true
+        },
+        "q_b": {
+          "dtype": "torch.bfloat16",
+          "shape": [
+            1,
+            4096
+          ],
+          "exact_equal": true,
+          "finite": true,
+          "max_bf16_ulp": 0,
+          "elements_above_one_ulp": 0,
+          "bitwise_equal": true,
+          "passed": true
+        },
+        "kv_norm": {
+          "dtype": "torch.bfloat16",
+          "shape": [
+            1,
+            512
+          ],
+          "exact_equal": true,
+          "finite": true,
+          "max_bf16_ulp": 0,
+          "elements_above_one_ulp": 0,
+          "bitwise_equal": true,
+          "passed": true
+        }
+      },
+      "passed": true
+    },
+    {
+      "layer": 0,
+      "magnitude": 0.001,
+      "style": "constant",
+      "outputs": {
+        "q_a": {
+          "dtype": "torch.bfloat16",
+          "shape": [
+            1,
+            1280
+          ],
+          "exact_equal": true,
+          "finite": true,
+          "max_bf16_ulp": 0,
+          "elements_above_one_ulp": 0,
+          "bitwise_equal": true,
+          "passed": true
+        },
+        "kv_raw": {
+          "dtype": "torch.bfloat16",
+          "shape": [
+            1,
+            512
+          ],
+          "exact_equal": true,
+          "finite": true,
+          "max_bf16_ulp": 0,
+          "elements_above_one_ulp": 0,
+          "bitwise_equal": true,
+          "passed": true
+        },
+        "floating_qr": {
+          "dtype": "torch.bfloat16",
+          "shape": [
+            1,
+            1280
+          ],
+          "exact_equal": true,
+          "finite": true,
+          "max_bf16_ulp": 0,
+          "elements_above_one_ulp": 0,
+          "bitwise_equal": true,
+          "passed": true
+        },
+        "q_norm_quant": {
+          "dtype": "torch.int8",
+          "shape": [
+            1,
+            1280
+          ],
+          "exact_equal": true,
+          "passed": true
+        },
+        "q_norm_scale": {
+          "dtype": "torch.float32",
+          "shape": [
+            1
+          ],
+          "exact_equal": true,
+          "passed": true
+        },
+        "q_b": {
+          "dtype": "torch.bfloat16",
+          "shape": [
+            1,
+            4096
+          ],
+          "exact_equal": true,
+          "finite": true,
+          "max_bf16_ulp": 0,
+          "elements_above_one_ulp": 0,
+          "bitwise_equal": true,
+          "passed": true
+        },
+        "kv_norm": {
+          "dtype": "torch.bfloat16",
+          "shape": [
+            1,
+            512
+          ],
+          "exact_equal": true,
+          "finite": true,
+          "max_bf16_ulp": 0,
+          "elements_above_one_ulp": 0,
+          "bitwise_equal": true,
+          "passed": true
+        }
+      },
+      "passed": true
+    },
+    {
+      "layer": 0,
+      "magnitude": 0.001,
+      "style": "alternating",
+      "outputs": {
+        "q_a": {
+          "dtype": "torch.bfloat16",
+          "shape": [
+            1,
+            1280
+          ],
+          "exact_equal": true,
+          "finite": true,
+          "max_bf16_ulp": 0,
+          "elements_above_one_ulp": 0,
+          "bitwise_equal": true,
+          "passed": true
+        },
+        "kv_raw": {
+          "dtype": "torch.bfloat16",
+          "shape": [
+            1,
+            512
+          ],
+          "exact_equal": true,
+          "finite": true,
+          "max_bf16_ulp": 0,
+          "elements_above_one_ulp": 0,
+          "bitwise_equal": true,
+          "passed": true
+        },
+        "floating_qr": {
+          "dtype": "torch.bfloat16",
+          "shape": [
+            1,
+            1280
+          ],
+          "exact_equal": true,
+          "finite": true,
+          "max_bf16_ulp": 0,
+          "elements_above_one_ulp": 0,
+          "bitwise_equal": true,
+          "passed": true
+        },
+        "q_norm_quant": {
+          "dtype": "torch.int8",
+          "shape": [
+            1,
+            1280
+          ],
+          "exact_equal": true,
+          "passed": true
+        },
+        "q_norm_scale": {
+          "dtype": "torch.float32",
+          "shape": [
+            1
+          ],
+          "exact_equal": true,
+          "passed": true
+        },
+        "q_b": {
+          "dtype": "torch.bfloat16",
+          "shape": [
+            1,
+            4096
+          ],
+          "exact_equal": true,
+          "finite": true,
+          "max_bf16_ulp": 0,
+          "elements_above_one_ulp": 0,
+          "bitwise_equal": true,
+          "passed": true
+        },
+        "kv_norm": {
+          "dtype": "torch.bfloat16",
+          "shape": [
+            1,
+            512
+          ],
+          "exact_equal": true,
+          "finite": true,
+          "max_bf16_ulp": 0,
+          "elements_above_one_ulp": 0,
+          "bitwise_equal": true,
+          "passed": true
+        }
+      },
+      "passed": true
+    },
+    {
+      "layer": 0,
+      "magnitude": 0.001,
+      "style": "outlier",
+      "outputs": {
+        "q_a": {
+          "dtype": "torch.bfloat16",
+          "shape": [
+            1,
+            1280
+          ],
+          "exact_equal": true,
+          "finite": true,
+          "max_bf16_ulp": 0,
+          "elements_above_one_ulp": 0,
+          "bitwise_equal": true,
+          "passed": true
+        },
+        "kv_raw": {
+          "dtype": "torch.bfloat16",
+          "shape": [
+            1,
+            512
+          ],
+          "exact_equal": true,
+          "finite": true,
+          "max_bf16_ulp": 0,
+          "elements_above_one_ulp": 0,
+          "bitwise_equal": true,
+          "passed": true
+        },
+        "floating_qr": {
+          "dtype": "torch.bfloat16",
+          "shape": [
+            1,
+            1280
+          ],
+          "exact_equal": true,
+          "finite": true,
+          "max_bf16_ulp": 0,
+          "elements_above_one_ulp": 0,
+          "bitwise_equal": true,
+          "passed": true
+        },
+        "q_norm_quant": {
+          "dtype": "torch.int8",
+          "shape": [
+            1,
+            1280
+          ],
+          "exact_equal": true,
+          "passed": true
+        },
+        "q_norm_scale": {
+          "dtype": "torch.float32",
+          "shape": [
+            1
+          ],
+          "exact_equal": true,
+          "passed": true
+        },
+        "q_b": {
+          "dtype": "torch.bfloat16",
+          "shape": [
+            1,
+            4096
+          ],
+          "exact_equal": true,
+          "finite": true,
+          "max_bf16_ulp": 0,
+          "elements_above_one_ulp": 0,
+          "bitwise_equal": true,
+          "passed": true
+        },
+        "kv_norm": {
+          "dtype": "torch.bfloat16",
+          "shape": [
+            1,
+            512
+          ],
+          "exact_equal": true,
+          "finite": true,
+          "max_bf16_ulp": 0,
+          "elements_above_one_ulp": 0,
+          "bitwise_equal": true,
+          "passed": true
+        }
+      },
+      "passed": true
+    },
+    {
+      "layer": 0,
+      "magnitude": 1.0,
+      "style": "random",
+      "outputs": {
+        "q_a": {
+          "dtype": "torch.bfloat16",
+          "shape": [
+            1,
+            1280
+          ],
+          "exact_equal": true,
+          "finite": true,
+          "max_bf16_ulp": 0,
+          "elements_above_one_ulp": 0,
+          "bitwise_equal": true,
+          "passed": true
+        },
+        "kv_raw": {
+          "dtype": "torch.bfloat16",
+          "shape": [
+            1,
+            512
+          ],
+          "exact_equal": true,
+          "finite": true,
+          "max_bf16_ulp": 0,
+          "elements_above_one_ulp": 0,
+          "bitwise_equal": true,
+          "passed": true
+        },
+        "floating_qr": {
+          "dtype": "torch.bfloat16",
+          "shape": [
+            1,
+            1280
+          ],
+          "exact_equal": true,
+          "finite": true,
+          "max_bf16_ulp": 0,
+          "elements_above_one_ulp": 0,
+          "bitwise_equal": true,
+          "passed": true
+        },
+        "q_norm_quant": {
+          "dtype": "torch.int8",
+          "shape": [
+            1,
+            1280
+          ],
+          "exact_equal": true,
+          "passed": true
+        },
+        "q_norm_scale": {
+          "dtype": "torch.float32",
+          "shape": [
+            1
+          ],
+          "exact_equal": true,
+          "passed": true
+        },
+        "q_b": {
+          "dtype": "torch.bfloat16",
+          "shape": [
+            1,
+            4096
+          ],
+          "exact_equal": true,
+          "finite": true,
+          "max_bf16_ulp": 0,
+          "elements_above_one_ulp": 0,
+          "bitwise_equal": true,
+          "passed": true
+        },
+        "kv_norm": {
+          "dtype": "torch.bfloat16",
+          "shape": [
+            1,
+            512
+          ],
+          "exact_equal": true,
+          "finite": true,
+          "max_bf16_ulp": 0,
+          "elements_above_one_ulp": 0,
+          "bitwise_equal": true,
+          "passed": true
+        }
+      },
+      "passed": true
+    },
+    {
+      "layer": 0,
+      "magnitude": 1.0,
+      "style": "constant",
+      "outputs": {
+        "q_a": {
+          "dtype": "torch.bfloat16",
+          "shape": [
+            1,
+            1280
+          ],
+          "exact_equal": true,
+          "finite": true,
+          "max_bf16_ulp": 0,
+          "elements_above_one_ulp": 0,
+          "bitwise_equal": true,
+          "passed": true
+        },
+        "kv_raw": {
+          "dtype": "torch.bfloat16",
+          "shape": [
+            1,
+            512
+          ],
+          "exact_equal": true,
+          "finite": true,
+          "max_bf16_ulp": 0,
+          "elements_above_one_ulp": 0,
+          "bitwise_equal": true,
+          "passed": true
+        },
+        "floating_qr": {
+          "dtype": "torch.bfloat16",
+          "shape": [
+            1,
+            1280
+          ],
+          "exact_equal": true,
+          "finite": true,
+          "max_bf16_ulp": 0,
+          "elements_above_one_ulp": 0,
+          "bitwise_equal": true,
+          "passed": true
+        },
+        "q_norm_quant": {
+          "dtype": "torch.int8",
+          "shape": [
+            1,
+            1280
+          ],
+          "exact_equal": true,
+          "passed": true
+        },
+        "q_norm_scale": {
+          "dtype": "torch.float32",
+          "shape": [
+            1
+          ],
+          "exact_equal": true,
+          "passed": true
+        },
+        "q_b": {
+          "dtype": "torch.bfloat16",
+          "shape": [
+            1,
+            4096
+          ],
+          "exact_equal": true,
+          "finite": true,
+          "max_bf16_ulp": 0,
+          "elements_above_one_ulp": 0,
+          "bitwise_equal": true,
+          "passed": true
+        },
+        "kv_norm": {
+          "dtype": "torch.bfloat16",
+          "shape": [
+            1,
+            512
+          ],
+          "exact_equal": true,
+          "finite": true,
+          "max_bf16_ulp": 0,
+          "elements_above_one_ulp": 0,
+          "bitwise_equal": true,
+          "passed": true
+        }
+      },
+      "passed": true
+    },
+    {
+      "layer": 0,
+      "magnitude": 1.0,
+      "style": "alternating",
+      "outputs": {
+        "q_a": {
+          "dtype": "torch.bfloat16",
+          "shape": [
+            1,
+            1280
+          ],
+          "exact_equal": true,
+          "finite": true,
+          "max_bf16_ulp": 0,
+          "elements_above_one_ulp": 0,
+          "bitwise_equal": true,
+          "passed": true
+        },
+        "kv_raw": {
+          "dtype": "torch.bfloat16",
+          "shape": [
+            1,
+            512
+          ],
+          "exact_equal": true,
+          "finite": true,
+          "max_bf16_ulp": 0,
+          "elements_above_one_ulp": 0,
+          "bitwise_equal": true,
+          "passed": true
+        },
+        "floating_qr": {
+          "dtype": "torch.bfloat16",
+          "shape": [
+            1,
+            1280
+          ],
+          "exact_equal": true,
+          "finite": true,
+          "max_bf16_ulp": 0,
+          "elements_above_one_ulp": 0,
+          "bitwise_equal": true,
+          "passed": true
+        },
+        "q_norm_quant": {
+          "dtype": "torch.int8",
+          "shape": [
+            1,
+            1280
+          ],
+          "exact_equal": true,
+          "passed": true
+        },
+        "q_norm_scale": {
+          "dtype": "torch.float32",
+          "shape": [
+            1
+          ],
+          "exact_equal": true,
+          "passed": true
+        },
+        "q_b": {
+          "dtype": "torch.bfloat16",
+          "shape": [
+            1,
+            4096
+          ],
+          "exact_equal": true,
+          "finite": true,
+          "max_bf16_ulp": 0,
+          "elements_above_one_ulp": 0,
+          "bitwise_equal": true,
+          "passed": true
+        },
+        "kv_norm": {
+          "dtype": "torch.bfloat16",
+          "shape": [
+            1,
+            512
+          ],
+          "exact_equal": true,
+          "finite": true,
+          "max_bf16_ulp": 0,
+          "elements_above_one_ulp": 0,
+          "bitwise_equal": true,
+          "passed": true
+        }
+      },
+      "passed": true
+    },
+    {
+      "layer": 0,
+      "magnitude": 1.0,
+      "style": "outlier",
+      "outputs": {
+        "q_a": {
+          "dtype": "torch.bfloat16",
+          "shape": [
+            1,
+            1280
+          ],
+          "exact_equal": true,
+          "finite": true,
+          "max_bf16_ulp": 0,
+          "elements_above_one_ulp": 0,
+          "bitwise_equal": true,
+          "passed": true
+        },
+        "kv_raw": {
+          "dtype": "torch.bfloat16",
+          "shape": [
+            1,
+            512
+          ],
+          "exact_equal": true,
+          "finite": true,
+          "max_bf16_ulp": 0,
+          "elements_above_one_ulp": 0,
+          "bitwise_equal": true,
+          "passed": true
+        },
+        "floating_qr": {
+          "dtype": "torch.bfloat16",
+          "shape": [
+            1,
+            1280
+          ],
+          "exact_equal": true,
+          "finite": true,
+          "max_bf16_ulp": 0,
+          "elements_above_one_ulp": 0,
+          "bitwise_equal": true,
+          "passed": true
+        },
+        "q_norm_quant": {
+          "dtype": "torch.int8",
+          "shape": [
+            1,
+            1280
+          ],
+          "exact_equal": true,
+          "passed": true
+        },
+        "q_norm_scale": {
+          "dtype": "torch.float32",
+          "shape": [
+            1
+          ],
+          "exact_equal": true,
+          "passed": true
+        },
+        "q_b": {
+          "dtype": "torch.bfloat16",
+          "shape": [
+            1,
+            4096
+          ],
+          "exact_equal": true,
+          "finite": true,
+          "max_bf16_ulp": 0,
+          "elements_above_one_ulp": 0,
+          "bitwise_equal": true,
+          "passed": true
+        },
+        "kv_norm": {
+          "dtype": "torch.bfloat16",
+          "shape": [
+            1,
+            512
+          ],
+          "exact_equal": true,
+          "finite": true,
+          "max_bf16_ulp": 0,
+          "elements_above_one_ulp": 0,
+          "bitwise_equal": true,
+          "passed": true
+        }
+      },
+      "passed": true
+    },
+    {
+      "layer": 0,
+      "magnitude": 100.0,
+      "style": "random",
+      "outputs": {
+        "q_a": {
+          "dtype": "torch.bfloat16",
+          "shape": [
+            1,
+            1280
+          ],
+          "exact_equal": true,
+          "finite": true,
+          "max_bf16_ulp": 0,
+          "elements_above_one_ulp": 0,
+          "bitwise_equal": true,
+          "passed": true
+        },
+        "kv_raw": {
+          "dtype": "torch.bfloat16",
+          "shape": [
+            1,
+            512
+          ],
+          "exact_equal": true,
+          "finite": true,
+          "max_bf16_ulp": 0,
+          "elements_above_one_ulp": 0,
+          "bitwise_equal": true,
+          "passed": true
+        },
+        "floating_qr": {
+          "dtype": "torch.bfloat16",
+          "shape": [
+            1,
+            1280
+          ],
+          "exact_equal": true,
+          "finite": true,
+          "max_bf16_ulp": 0,
+          "elements_above_one_ulp": 0,
+          "bitwise_equal": true,
+          "passed": true
+        },
+        "q_norm_quant": {
+          "dtype": "torch.int8",
+          "shape": [
+            1,
+            1280
+          ],
+          "exact_equal": true,
+          "passed": true
+        },
+        "q_norm_scale": {
+          "dtype": "torch.float32",
+          "shape": [
+            1
+          ],
+          "exact_equal": true,
+          "passed": true
+        },
+        "q_b": {
+          "dtype": "torch.bfloat16",
+          "shape": [
+            1,
+            4096
+          ],
+          "exact_equal": true,
+          "finite": true,
+          "max_bf16_ulp": 0,
+          "elements_above_one_ulp": 0,
+          "bitwise_equal": true,
+          "passed": true
+        },
+        "kv_norm": {
+          "dtype": "torch.bfloat16",
+          "shape": [
+            1,
+            512
+          ],
+          "exact_equal": true,
+          "finite": true,
+          "max_bf16_ulp": 0,
+          "elements_above_one_ulp": 0,
+          "bitwise_equal": true,
+          "passed": true
+        }
+      },
+      "passed": true
+    },
+    {
+      "layer": 0,
+      "magnitude": 100.0,
+      "style": "constant",
+      "outputs": {
+        "q_a": {
+          "dtype": "torch.bfloat16",
+          "shape": [
+            1,
+            1280
+          ],
+          "exact_equal": true,
+          "finite": true,
+          "max_bf16_ulp": 0,
+          "elements_above_one_ulp": 0,
+          "bitwise_equal": true,
+          "passed": true
+        },
+        "kv_raw": {
+          "dtype": "torch.bfloat16",
+          "shape": [
+            1,
+            512
+          ],
+          "exact_equal": true,
+          "finite": true,
+          "max_bf16_ulp": 0,
+          "elements_above_one_ulp": 0,
+          "bitwise_equal": true,
+          "passed": true
+        },
+        "floating_qr": {
+          "dtype": "torch.bfloat16",
+          "shape": [
+            1,
+            1280
+          ],
+          "exact_equal": true,
+          "finite": true,
+          "max_bf16_ulp": 0,
+          "elements_above_one_ulp": 0,
+          "bitwise_equal": true,
+          "passed": true
+        },
+        "q_norm_quant": {
+          "dtype": "torch.int8",
+          "shape": [
+            1,
+            1280
+          ],
+          "exact_equal": true,
+          "passed": true
+        },
+        "q_norm_scale": {
+          "dtype": "torch.float32",
+          "shape": [
+            1
+          ],
+          "exact_equal": true,
+          "passed": true
+        },
+        "q_b": {
+          "dtype": "torch.bfloat16",
+          "shape": [
+            1,
+            4096
+          ],
+          "exact_equal": true,
+          "finite": true,
+          "max_bf16_ulp": 0,
+          "elements_above_one_ulp": 0,
+          "bitwise_equal": true,
+          "passed": true
+        },
+        "kv_norm": {
+          "dtype": "torch.bfloat16",
+          "shape": [
+            1,
+            512
+          ],
+          "exact_equal": true,
+          "finite": true,
+          "max_bf16_ulp": 0,
+          "elements_above_one_ulp": 0,
+          "bitwise_equal": true,
+          "passed": true
+        }
+      },
+      "passed": true
+    },
+    {
+      "layer": 0,
+      "magnitude": 100.0,
+      "style": "alternating",
+      "outputs": {
+        "q_a": {
+          "dtype": "torch.bfloat16",
+          "shape": [
+            1,
+            1280
+          ],
+          "exact_equal": true,
+          "finite": true,
+          "max_bf16_ulp": 0,
+          "elements_above_one_ulp": 0,
+          "bitwise_equal": true,
+          "passed": true
+        },
+        "kv_raw": {
+          "dtype": "torch.bfloat16",
+          "shape": [
+            1,
+            512
+          ],
+          "exact_equal": true,
+          "finite": true,
+          "max_bf16_ulp": 0,
+          "elements_above_one_ulp": 0,
+          "bitwise_equal": true,
+          "passed": true
+        },
+        "floating_qr": {
+          "dtype": "torch.bfloat16",
+          "shape": [
+            1,
+            1280
+          ],
+          "exact_equal": true,
+          "finite": true,
+          "max_bf16_ulp": 0,
+          "elements_above_one_ulp": 0,
+          "bitwise_equal": true,
+          "passed": true
+        },
+        "q_norm_quant": {
+          "dtype": "torch.int8",
+          "shape": [
+            1,
+            1280
+          ],
+          "exact_equal": true,
+          "passed": true
+        },
+        "q_norm_scale": {
+          "dtype": "torch.float32",
+          "shape": [
+            1
+          ],
+          "exact_equal": true,
+          "passed": true
+        },
+        "q_b": {
+          "dtype": "torch.bfloat16",
+          "shape": [
+            1,
+            4096
+          ],
+          "exact_equal": true,
+          "finite": true,
+          "max_bf16_ulp": 0,
+          "elements_above_one_ulp": 0,
+          "bitwise_equal": true,
+          "passed": true
+        },
+        "kv_norm": {
+          "dtype": "torch.bfloat16",
+          "shape": [
+            1,
+            512
+          ],
+          "exact_equal": true,
+          "finite": true,
+          "max_bf16_ulp": 0,
+          "elements_above_one_ulp": 0,
+          "bitwise_equal": true,
+          "passed": true
+        }
+      },
+      "passed": true
+    },
+    {
+      "layer": 0,
+      "magnitude": 100.0,
+      "style": "outlier",
+      "outputs": {
+        "q_a": {
+          "dtype": "torch.bfloat16",
+          "shape": [
+            1,
+            1280
+          ],
+          "exact_equal": true,
+          "finite": true,
+          "max_bf16_ulp": 0,
+          "elements_above_one_ulp": 0,
+          "bitwise_equal": true,
+          "passed": true
+        },
+        "kv_raw": {
+          "dtype": "torch.bfloat16",
+          "shape": [
+            1,
+            512
+          ],
+          "exact_equal": true,
+          "finite": true,
+          "max_bf16_ulp": 0,
+          "elements_above_one_ulp": 0,
+          "bitwise_equal": true,
+          "passed": true
+        },
+        "floating_qr": {
+          "dtype": "torch.bfloat16",
+          "shape": [
+            1,
+            1280
+          ],
+          "exact_equal": true,
+          "finite": true,
+          "max_bf16_ulp": 0,
+          "elements_above_one_ulp": 0,
+          "bitwise_equal": true,
+          "passed": true
+        },
+        "q_norm_quant": {
+          "dtype": "torch.int8",
+          "shape": [
+            1,
+            1280
+          ],
+          "exact_equal": true,
+          "passed": true
+        },
+        "q_norm_scale": {
+          "dtype": "torch.float32",
+          "shape": [
+            1
+          ],
+          "exact_equal": true,
+          "passed": true
+        },
+        "q_b": {
+          "dtype": "torch.bfloat16",
+          "shape": [
+            1,
+            4096
+          ],
+          "exact_equal": true,
+          "finite": true,
+          "max_bf16_ulp": 0,
+          "elements_above_one_ulp": 0,
+          "bitwise_equal": true,
+          "passed": true
+        },
+        "kv_norm": {
+          "dtype": "torch.bfloat16",
+          "shape": [
+            1,
+            512
+          ],
+          "exact_equal": true,
+          "finite": true,
+          "max_bf16_ulp": 0,
+          "elements_above_one_ulp": 0,
+          "bitwise_equal": true,
+          "passed": true
+        }
+      },
+      "passed": true
+    },
+    {
+      "layer": 20,
+      "magnitude": 0.001,
+      "style": "random",
+      "outputs": {
+        "q_a": {
+          "dtype": "torch.bfloat16",
+          "shape": [
+            1,
+            1280
+          ],
+          "exact_equal": true,
+          "finite": true,
+          "max_bf16_ulp": 0,
+          "elements_above_one_ulp": 0,
+          "bitwise_equal": true,
+          "passed": true
+        },
+        "kv_raw": {
+          "dtype": "torch.bfloat16",
+          "shape": [
+            1,
+            512
+          ],
+          "exact_equal": true,
+          "finite": true,
+          "max_bf16_ulp": 0,
+          "elements_above_one_ulp": 0,
+          "bitwise_equal": true,
+          "passed": true
+        },
+        "floating_qr": {
+          "dtype": "torch.bfloat16",
+          "shape": [
+            1,
+            1280
+          ],
+          "exact_equal": true,
+          "finite": true,
+          "max_bf16_ulp": 0,
+          "elements_above_one_ulp": 0,
+          "bitwise_equal": true,
+          "passed": true
+        },
+        "q_norm_quant": {
+          "dtype": "torch.int8",
+          "shape": [
+            1,
+            1280
+          ],
+          "exact_equal": true,
+          "passed": true
+        },
+        "q_norm_scale": {
+          "dtype": "torch.float32",
+          "shape": [
+            1
+          ],
+          "exact_equal": true,
+          "passed": true
+        },
+        "q_b": {
+          "dtype": "torch.bfloat16",
+          "shape": [
+            1,
+            4096
+          ],
+          "exact_equal": true,
+          "finite": true,
+          "max_bf16_ulp": 0,
+          "elements_above_one_ulp": 0,
+          "bitwise_equal": true,
+          "passed": true
+        },
+        "kv_norm": {
+          "dtype": "torch.bfloat16",
+          "shape": [
+            1,
+            512
+          ],
+          "exact_equal": true,
+          "finite": true,
+          "max_bf16_ulp": 0,
+          "elements_above_one_ulp": 0,
+          "bitwise_equal": true,
+          "passed": true
+        }
+      },
+      "passed": true
+    },
+    {
+      "layer": 20,
+      "magnitude": 0.001,
+      "style": "constant",
+      "outputs": {
+        "q_a": {
+          "dtype": "torch.bfloat16",
+          "shape": [
+            1,
+            1280
+          ],
+          "exact_equal": true,
+          "finite": true,
+          "max_bf16_ulp": 0,
+          "elements_above_one_ulp": 0,
+          "bitwise_equal": true,
+          "passed": true
+        },
+        "kv_raw": {
+          "dtype": "torch.bfloat16",
+          "shape": [
+            1,
+            512
+          ],
+          "exact_equal": true,
+          "finite": true,
+          "max_bf16_ulp": 0,
+          "elements_above_one_ulp": 0,
+          "bitwise_equal": true,
+          "passed": true
+        },
+        "floating_qr": {
+          "dtype": "torch.bfloat16",
+          "shape": [
+            1,
+            1280
+          ],
+          "exact_equal": true,
+          "finite": true,
+          "max_bf16_ulp": 0,
+          "elements_above_one_ulp": 0,
+          "bitwise_equal": true,
+          "passed": true
+        },
+        "q_norm_quant": {
+          "dtype": "torch.int8",
+          "shape": [
+            1,
+            1280
+          ],
+          "exact_equal": true,
+          "passed": true
+        },
+        "q_norm_scale": {
+          "dtype": "torch.float32",
+          "shape": [
+            1
+          ],
+          "exact_equal": true,
+          "passed": true
+        },
+        "q_b": {
+          "dtype": "torch.bfloat16",
+          "shape": [
+            1,
+            4096
+          ],
+          "exact_equal": true,
+          "finite": true,
+          "max_bf16_ulp": 0,
+          "elements_above_one_ulp": 0,
+          "bitwise_equal": true,
+          "passed": true
+        },
+        "kv_norm": {
+          "dtype": "torch.bfloat16",
+          "shape": [
+            1,
+            512
+          ],
+          "exact_equal": true,
+          "finite": true,
+          "max_bf16_ulp": 0,
+          "elements_above_one_ulp": 0,
+          "bitwise_equal": true,
+          "passed": true
+        }
+      },
+      "passed": true
+    },
+    {
+      "layer": 20,
+      "magnitude": 0.001,
+      "style": "alternating",
+      "outputs": {
+        "q_a": {
+          "dtype": "torch.bfloat16",
+          "shape": [
+            1,
+            1280
+          ],
+          "exact_equal": true,
+          "finite": true,
+          "max_bf16_ulp": 0,
+          "elements_above_one_ulp": 0,
+          "bitwise_equal": true,
+          "passed": true
+        },
+        "kv_raw": {
+          "dtype": "torch.bfloat16",
+          "shape": [
+            1,
+            512
+          ],
+          "exact_equal": true,
+          "finite": true,
+          "max_bf16_ulp": 0,
+          "elements_above_one_ulp": 0,
+          "bitwise_equal": true,
+          "passed": true
+        },
+        "floating_qr": {
+          "dtype": "torch.bfloat16",
+          "shape": [
+            1,
+            1280
+          ],
+          "exact_equal": true,
+          "finite": true,
+          "max_bf16_ulp": 0,
+          "elements_above_one_ulp": 0,
+          "bitwise_equal": true,
+          "passed": true
+        },
+        "q_norm_quant": {
+          "dtype": "torch.int8",
+          "shape": [
+            1,
+            1280
+          ],
+          "exact_equal": true,
+          "passed": true
+        },
+        "q_norm_scale": {
+          "dtype": "torch.float32",
+          "shape": [
+            1
+          ],
+          "exact_equal": true,
+          "passed": true
+        },
+        "q_b": {
+          "dtype": "torch.bfloat16",
+          "shape": [
+            1,
+            4096
+          ],
+          "exact_equal": true,
+          "finite": true,
+          "max_bf16_ulp": 0,
+          "elements_above_one_ulp": 0,
+          "bitwise_equal": true,
+          "passed": true
+        },
+        "kv_norm": {
+          "dtype": "torch.bfloat16",
+          "shape": [
+            1,
+            512
+          ],
+          "exact_equal": true,
+          "finite": true,
+          "max_bf16_ulp": 0,
+          "elements_above_one_ulp": 0,
+          "bitwise_equal": true,
+          "passed": true
+        }
+      },
+      "passed": true
+    },
+    {
+      "layer": 20,
+      "magnitude": 0.001,
+      "style": "outlier",
+      "outputs": {
+        "q_a": {
+          "dtype": "torch.bfloat16",
+          "shape": [
+            1,
+            1280
+          ],
+          "exact_equal": true,
+          "finite": true,
+          "max_bf16_ulp": 0,
+          "elements_above_one_ulp": 0,
+          "bitwise_equal": true,
+          "passed": true
+        },
+        "kv_raw": {
+          "dtype": "torch.bfloat16",
+          "shape": [
+            1,
+            512
+          ],
+          "exact_equal": true,
+          "finite": true,
+          "max_bf16_ulp": 0,
+          "elements_above_one_ulp": 0,
+          "bitwise_equal": true,
+          "passed": true
+        },
+        "floating_qr": {
+          "dtype": "torch.bfloat16",
+          "shape": [
+            1,
+            1280
+          ],
+          "exact_equal": true,
+          "finite": true,
+          "max_bf16_ulp": 0,
+          "elements_above_one_ulp": 0,
+          "bitwise_equal": true,
+          "passed": true
+        },
+        "q_norm_quant": {
+          "dtype": "torch.int8",
+          "shape": [
+            1,
+            1280
+          ],
+          "exact_equal": true,
+          "passed": true
+        },
+        "q_norm_scale": {
+          "dtype": "torch.float32",
+          "shape": [
+            1
+          ],
+          "exact_equal": true,
+          "passed": true
+        },
+        "q_b": {
+          "dtype": "torch.bfloat16",
+          "shape": [
+            1,
+            4096
+          ],
+          "exact_equal": true,
+          "finite": true,
+          "max_bf16_ulp": 0,
+          "elements_above_one_ulp": 0,
+          "bitwise_equal": true,
+          "passed": true
+        },
+        "kv_norm": {
+          "dtype": "torch.bfloat16",
+          "shape": [
+            1,
+            512
+          ],
+          "exact_equal": true,
+          "finite": true,
+          "max_bf16_ulp": 0,
+          "elements_above_one_ulp": 0,
+          "bitwise_equal": true,
+          "passed": true
+        }
+      },
+      "passed": true
+    },
+    {
+      "layer": 20,
+      "magnitude": 1.0,
+      "style": "random",
+      "outputs": {
+        "q_a": {
+          "dtype": "torch.bfloat16",
+          "shape": [
+            1,
+            1280
+          ],
+          "exact_equal": true,
+          "finite": true,
+          "max_bf16_ulp": 0,
+          "elements_above_one_ulp": 0,
+          "bitwise_equal": true,
+          "passed": true
+        },
+        "kv_raw": {
+          "dtype": "torch.bfloat16",
+          "shape": [
+            1,
+            512
+          ],
+          "exact_equal": true,
+          "finite": true,
+          "max_bf16_ulp": 0,
+          "elements_above_one_ulp": 0,
+          "bitwise_equal": true,
+          "passed": true
+        },
+        "floating_qr": {
+          "dtype": "torch.bfloat16",
+          "shape": [
+            1,
+            1280
+          ],
+          "exact_equal": true,
+          "finite": true,
+          "max_bf16_ulp": 0,
+          "elements_above_one_ulp": 0,
+          "bitwise_equal": true,
+          "passed": true
+        },
+        "q_norm_quant": {
+          "dtype": "torch.int8",
+          "shape": [
+            1,
+            1280
+          ],
+          "exact_equal": true,
+          "passed": true
+        },
+        "q_norm_scale": {
+          "dtype": "torch.float32",
+          "shape": [
+            1
+          ],
+          "exact_equal": true,
+          "passed": true
+        },
+        "q_b": {
+          "dtype": "torch.bfloat16",
+          "shape": [
+            1,
+            4096
+          ],
+          "exact_equal": true,
+          "finite": true,
+          "max_bf16_ulp": 0,
+          "elements_above_one_ulp": 0,
+          "bitwise_equal": true,
+          "passed": true
+        },
+        "kv_norm": {
+          "dtype": "torch.bfloat16",
+          "shape": [
+            1,
+            512
+          ],
+          "exact_equal": true,
+          "finite": true,
+          "max_bf16_ulp": 0,
+          "elements_above_one_ulp": 0,
+          "bitwise_equal": true,
+          "passed": true
+        }
+      },
+      "passed": true
+    },
+    {
+      "layer": 20,
+      "magnitude": 1.0,
+      "style": "constant",
+      "outputs": {
+        "q_a": {
+          "dtype": "torch.bfloat16",
+          "shape": [
+            1,
+            1280
+          ],
+          "exact_equal": true,
+          "finite": true,
+          "max_bf16_ulp": 0,
+          "elements_above_one_ulp": 0,
+          "bitwise_equal": true,
+          "passed": true
+        },
+        "kv_raw": {
+          "dtype": "torch.bfloat16",
+          "shape": [
+            1,
+            512
+          ],
+          "exact_equal": true,
+          "finite": true,
+          "max_bf16_ulp": 0,
+          "elements_above_one_ulp": 0,
+          "bitwise_equal": true,
+          "passed": true
+        },
+        "floating_qr": {
+          "dtype": "torch.bfloat16",
+          "shape": [
+            1,
+            1280
+          ],
+          "exact_equal": true,
+          "finite": true,
+          "max_bf16_ulp": 0,
+          "elements_above_one_ulp": 0,
+          "bitwise_equal": true,
+          "passed": true
+        },
+        "q_norm_quant": {
+          "dtype": "torch.int8",
+          "shape": [
+            1,
+            1280
+          ],
+          "exact_equal": true,
+          "passed": true
+        },
+        "q_norm_scale": {
+          "dtype": "torch.float32",
+          "shape": [
+            1
+          ],
+          "exact_equal": true,
+          "passed": true
+        },
+        "q_b": {
+          "dtype": "torch.bfloat16",
+          "shape": [
+            1,
+            4096
+          ],
+          "exact_equal": true,
+          "finite": true,
+          "max_bf16_ulp": 0,
+          "elements_above_one_ulp": 0,
+          "bitwise_equal": true,
+          "passed": true
+        },
+        "kv_norm": {
+          "dtype": "torch.bfloat16",
+          "shape": [
+            1,
+            512
+          ],
+          "exact_equal": true,
+          "finite": true,
+          "max_bf16_ulp": 0,
+          "elements_above_one_ulp": 0,
+          "bitwise_equal": true,
+          "passed": true
+        }
+      },
+      "passed": true
+    },
+    {
+      "layer": 20,
+      "magnitude": 1.0,
+      "style": "alternating",
+      "outputs": {
+        "q_a": {
+          "dtype": "torch.bfloat16",
+          "shape": [
+            1,
+            1280
+          ],
+          "exact_equal": true,
+          "finite": true,
+          "max_bf16_ulp": 0,
+          "elements_above_one_ulp": 0,
+          "bitwise_equal": true,
+          "passed": true
+        },
+        "kv_raw": {
+          "dtype": "torch.bfloat16",
+          "shape": [
+            1,
+            512
+          ],
+          "exact_equal": true,
+          "finite": true,
+          "max_bf16_ulp": 0,
+          "elements_above_one_ulp": 0,
+          "bitwise_equal": true,
+          "passed": true
+        },
+        "floating_qr": {
+          "dtype": "torch.bfloat16",
+          "shape": [
+            1,
+            1280
+          ],
+          "exact_equal": true,
+          "finite": true,
+          "max_bf16_ulp": 0,
+          "elements_above_one_ulp": 0,
+          "bitwise_equal": true,
+          "passed": true
+        },
+        "q_norm_quant": {
+          "dtype": "torch.int8",
+          "shape": [
+            1,
+            1280
+          ],
+          "exact_equal": true,
+          "passed": true
+        },
+        "q_norm_scale": {
+          "dtype": "torch.float32",
+          "shape": [
+            1
+          ],
+          "exact_equal": true,
+          "passed": true
+        },
+        "q_b": {
+          "dtype": "torch.bfloat16",
+          "shape": [
+            1,
+            4096
+          ],
+          "exact_equal": true,
+          "finite": true,
+          "max_bf16_ulp": 0,
+          "elements_above_one_ulp": 0,
+          "bitwise_equal": true,
+          "passed": true
+        },
+        "kv_norm": {
+          "dtype": "torch.bfloat16",
+          "shape": [
+            1,
+            512
+          ],
+          "exact_equal": true,
+          "finite": true,
+          "max_bf16_ulp": 0,
+          "elements_above_one_ulp": 0,
+          "bitwise_equal": true,
+          "passed": true
+        }
+      },
+      "passed": true
+    },
+    {
+      "layer": 20,
+      "magnitude": 1.0,
+      "style": "outlier",
+      "outputs": {
+        "q_a": {
+          "dtype": "torch.bfloat16",
+          "shape": [
+            1,
+            1280
+          ],
+          "exact_equal": true,
+          "finite": true,
+          "max_bf16_ulp": 0,
+          "elements_above_one_ulp": 0,
+          "bitwise_equal": true,
+          "passed": true
+        },
+        "kv_raw": {
+          "dtype": "torch.bfloat16",
+          "shape": [
+            1,
+            512
+          ],
+          "exact_equal": true,
+          "finite": true,
+          "max_bf16_ulp": 0,
+          "elements_above_one_ulp": 0,
+          "bitwise_equal": true,
+          "passed": true
+        },
+        "floating_qr": {
+          "dtype": "torch.bfloat16",
+          "shape": [
+            1,
+            1280
+          ],
+          "exact_equal": true,
+          "finite": true,
+          "max_bf16_ulp": 0,
+          "elements_above_one_ulp": 0,
+          "bitwise_equal": true,
+          "passed": true
+        },
+        "q_norm_quant": {
+          "dtype": "torch.int8",
+          "shape": [
+            1,
+            1280
+          ],
+          "exact_equal": true,
+          "passed": true
+        },
+        "q_norm_scale": {
+          "dtype": "torch.float32",
+          "shape": [
+            1
+          ],
+          "exact_equal": true,
+          "passed": true
+        },
+        "q_b": {
+          "dtype": "torch.bfloat16",
+          "shape": [
+            1,
+            4096
+          ],
+          "exact_equal": true,
+          "finite": true,
+          "max_bf16_ulp": 0,
+          "elements_above_one_ulp": 0,
+          "bitwise_equal": true,
+          "passed": true
+        },
+        "kv_norm": {
+          "dtype": "torch.bfloat16",
+          "shape": [
+            1,
+            512
+          ],
+          "exact_equal": true,
+          "finite": true,
+          "max_bf16_ulp": 0,
+          "elements_above_one_ulp": 0,
+          "bitwise_equal": true,
+          "passed": true
+        }
+      },
+      "passed": true
+    },
+    {
+      "layer": 20,
+      "magnitude": 100.0,
+      "style": "random",
+      "outputs": {
+        "q_a": {
+          "dtype": "torch.bfloat16",
+          "shape": [
+            1,
+            1280
+          ],
+          "exact_equal": true,
+          "finite": true,
+          "max_bf16_ulp": 0,
+          "elements_above_one_ulp": 0,
+          "bitwise_equal": true,
+          "passed": true
+        },
+        "kv_raw": {
+          "dtype": "torch.bfloat16",
+          "shape": [
+            1,
+            512
+          ],
+          "exact_equal": true,
+          "finite": true,
+          "max_bf16_ulp": 0,
+          "elements_above_one_ulp": 0,
+          "bitwise_equal": true,
+          "passed": true
+        },
+        "floating_qr": {
+          "dtype": "torch.bfloat16",
+          "shape": [
+            1,
+            1280
+          ],
+          "exact_equal": true,
+          "finite": true,
+          "max_bf16_ulp": 0,
+          "elements_above_one_ulp": 0,
+          "bitwise_equal": true,
+          "passed": true
+        },
+        "q_norm_quant": {
+          "dtype": "torch.int8",
+          "shape": [
+            1,
+            1280
+          ],
+          "exact_equal": true,
+          "passed": true
+        },
+        "q_norm_scale": {
+          "dtype": "torch.float32",
+          "shape": [
+            1
+          ],
+          "exact_equal": true,
+          "passed": true
+        },
+        "q_b": {
+          "dtype": "torch.bfloat16",
+          "shape": [
+            1,
+            4096
+          ],
+          "exact_equal": true,
+          "finite": true,
+          "max_bf16_ulp": 0,
+          "elements_above_one_ulp": 0,
+          "bitwise_equal": true,
+          "passed": true
+        },
+        "kv_norm": {
+          "dtype": "torch.bfloat16",
+          "shape": [
+            1,
+            512
+          ],
+          "exact_equal": true,
+          "finite": true,
+          "max_bf16_ulp": 0,
+          "elements_above_one_ulp": 0,
+          "bitwise_equal": true,
+          "passed": true
+        }
+      },
+      "passed": true
+    },
+    {
+      "layer": 20,
+      "magnitude": 100.0,
+      "style": "constant",
+      "outputs": {
+        "q_a": {
+          "dtype": "torch.bfloat16",
+          "shape": [
+            1,
+            1280
+          ],
+          "exact_equal": true,
+          "finite": true,
+          "max_bf16_ulp": 0,
+          "elements_above_one_ulp": 0,
+          "bitwise_equal": true,
+          "passed": true
+        },
+        "kv_raw": {
+          "dtype": "torch.bfloat16",
+          "shape": [
+            1,
+            512
+          ],
+          "exact_equal": true,
+          "finite": true,
+          "max_bf16_ulp": 0,
+          "elements_above_one_ulp": 0,
+          "bitwise_equal": true,
+          "passed": true
+        },
+        "floating_qr": {
+          "dtype": "torch.bfloat16",
+          "shape": [
+            1,
+            1280
+          ],
+          "exact_equal": true,
+          "finite": true,
+          "max_bf16_ulp": 0,
+          "elements_above_one_ulp": 0,
+          "bitwise_equal": true,
+          "passed": true
+        },
+        "q_norm_quant": {
+          "dtype": "torch.int8",
+          "shape": [
+            1,
+            1280
+          ],
+          "exact_equal": true,
+          "passed": true
+        },
+        "q_norm_scale": {
+          "dtype": "torch.float32",
+          "shape": [
+            1
+          ],
+          "exact_equal": true,
+          "passed": true
+        },
+        "q_b": {
+          "dtype": "torch.bfloat16",
+          "shape": [
+            1,
+            4096
+          ],
+          "exact_equal": true,
+          "finite": true,
+          "max_bf16_ulp": 0,
+          "elements_above_one_ulp": 0,
+          "bitwise_equal": true,
+          "passed": true
+        },
+        "kv_norm": {
+          "dtype": "torch.bfloat16",
+          "shape": [
+            1,
+            512
+          ],
+          "exact_equal": true,
+          "finite": true,
+          "max_bf16_ulp": 0,
+          "elements_above_one_ulp": 0,
+          "bitwise_equal": true,
+          "passed": true
+        }
+      },
+      "passed": true
+    },
+    {
+      "layer": 20,
+      "magnitude": 100.0,
+      "style": "alternating",
+      "outputs": {
+        "q_a": {
+          "dtype": "torch.bfloat16",
+          "shape": [
+            1,
+            1280
+          ],
+          "exact_equal": true,
+          "finite": true,
+          "max_bf16_ulp": 0,
+          "elements_above_one_ulp": 0,
+          "bitwise_equal": true,
+          "passed": true
+        },
+        "kv_raw": {
+          "dtype": "torch.bfloat16",
+          "shape": [
+            1,
+            512
+          ],
+          "exact_equal": true,
+          "finite": true,
+          "max_bf16_ulp": 0,
+          "elements_above_one_ulp": 0,
+          "bitwise_equal": true,
+          "passed": true
+        },
+        "floating_qr": {
+          "dtype": "torch.bfloat16",
+          "shape": [
+            1,
+            1280
+          ],
+          "exact_equal": true,
+          "finite": true,
+          "max_bf16_ulp": 0,
+          "elements_above_one_ulp": 0,
+          "bitwise_equal": true,
+          "passed": true
+        },
+        "q_norm_quant": {
+          "dtype": "torch.int8",
+          "shape": [
+            1,
+            1280
+          ],
+          "exact_equal": true,
+          "passed": true
+        },
+        "q_norm_scale": {
+          "dtype": "torch.float32",
+          "shape": [
+            1
+          ],
+          "exact_equal": true,
+          "passed": true
+        },
+        "q_b": {
+          "dtype": "torch.bfloat16",
+          "shape": [
+            1,
+            4096
+          ],
+          "exact_equal": true,
+          "finite": true,
+          "max_bf16_ulp": 0,
+          "elements_above_one_ulp": 0,
+          "bitwise_equal": true,
+          "passed": true
+        },
+        "kv_norm": {
+          "dtype": "torch.bfloat16",
+          "shape": [
+            1,
+            512
+          ],
+          "exact_equal": true,
+          "finite": true,
+          "max_bf16_ulp": 0,
+          "elements_above_one_ulp": 0,
+          "bitwise_equal": true,
+          "passed": true
+        }
+      },
+      "passed": true
+    },
+    {
+      "layer": 20,
+      "magnitude": 100.0,
+      "style": "outlier",
+      "outputs": {
+        "q_a": {
+          "dtype": "torch.bfloat16",
+          "shape": [
+            1,
+            1280
+          ],
+          "exact_equal": true,
+          "finite": true,
+          "max_bf16_ulp": 0,
+          "elements_above_one_ulp": 0,
+          "bitwise_equal": true,
+          "passed": true
+        },
+        "kv_raw": {
+          "dtype": "torch.bfloat16",
+          "shape": [
+            1,
+            512
+          ],
+          "exact_equal": true,
+          "finite": true,
+          "max_bf16_ulp": 0,
+          "elements_above_one_ulp": 0,
+          "bitwise_equal": true,
+          "passed": true
+        },
+        "floating_qr": {
+          "dtype": "torch.bfloat16",
+          "shape": [
+            1,
+            1280
+          ],
+          "exact_equal": true,
+          "finite": true,
+          "max_bf16_ulp": 0,
+          "elements_above_one_ulp": 0,
+          "bitwise_equal": true,
+          "passed": true
+        },
+        "q_norm_quant": {
+          "dtype": "torch.int8",
+          "shape": [
+            1,
+            1280
+          ],
+          "exact_equal": true,
+          "passed": true
+        },
+        "q_norm_scale": {
+          "dtype": "torch.float32",
+          "shape": [
+            1
+          ],
+          "exact_equal": true,
+          "passed": true
+        },
+        "q_b": {
+          "dtype": "torch.bfloat16",
+          "shape": [
+            1,
+            4096
+          ],
+          "exact_equal": true,
+          "finite": true,
+          "max_bf16_ulp": 0,
+          "elements_above_one_ulp": 0,
+          "bitwise_equal": true,
+          "passed": true
+        },
+        "kv_norm": {
+          "dtype": "torch.bfloat16",
+          "shape": [
+            1,
+            512
+          ],
+          "exact_equal": true,
+          "finite": true,
+          "max_bf16_ulp": 0,
+          "elements_above_one_ulp": 0,
+          "bitwise_equal": true,
+          "passed": true
+        }
+      },
+      "passed": true
+    }
+  ],
+  "pairs": [
+    {
+      "layer": 0,
+      "pair": 0,
+      "microseconds": {
+        "separate_projection": 30.294999480247498,
+        "merged_projection": 20.303281024098396,
+        "native_multistream_prolog": 57.11701139807701,
+        "merged_multistream_prolog": 45.52523419260979
+      },
+      "device_to_submission_ratio": {
+        "separate_projection": 11.731458229333555,
+        "merged_projection": 11.58493438002573,
+        "native_multistream_prolog": 4.440034504274662,
+        "merged_multistream_prolog": 5.514691654735554
+      }
+    },
+    {
+      "layer": 0,
+      "pair": 1,
+      "microseconds": {
+        "merged_multistream_prolog": 37.05783188343048,
+        "native_multistream_prolog": 44.13627088069916,
+        "merged_projection": 18.4694342315197,
+        "separate_projection": 27.608241885900497
+      },
+      "device_to_submission_ratio": {
+        "merged_multistream_prolog": 213.9080018584482,
+        "native_multistream_prolog": 360.2096386275492,
+        "merged_projection": 182.78367510497253,
+        "separate_projection": 338.9375171782361
+      }
+    },
+    {
+      "layer": 0,
+      "pair": 2,
+      "microseconds": {
+        "separate_projection": 27.595097199082375,
+        "merged_projection": 18.473731353878975,
+        "native_multistream_prolog": 44.0632626414299,
+        "merged_multistream_prolog": 37.03087940812111
+      },
+      "device_to_submission_ratio": {
+        "separate_projection": 255.03070290534208,
+        "merged_projection": 220.40259152117537,
+        "native_multistream_prolog": 499.8975363407487,
+        "merged_multistream_prolog": 427.89010032052965
+      }
+    },
+    {
+      "layer": 0,
+      "pair": 3,
+      "microseconds": {
+        "merged_multistream_prolog": 37.017323076725006,
+        "native_multistream_prolog": 44.05851662158966,
+        "merged_projection": 18.478691577911377,
+        "separate_projection": 27.583535760641098
+      },
+      "device_to_submission_ratio": {
+        "merged_multistream_prolog": 360.83386217718555,
+        "native_multistream_prolog": 508.86417075988993,
+        "merged_projection": 223.53492338159575,
+        "separate_projection": 342.6184999237456
+      }
+    },
+    {
+      "layer": 0,
+      "pair": 4,
+      "microseconds": {
+        "separate_projection": 27.58677676320076,
+        "merged_projection": 18.48488301038742,
+        "native_multistream_prolog": 44.12273317575455,
+        "merged_multistream_prolog": 37.07296773791313
+      },
+      "device_to_submission_ratio": {
+        "separate_projection": 286.52920672586436,
+        "merged_projection": 210.59859397456157,
+        "native_multistream_prolog": 300.72997090237357,
+        "merged_multistream_prolog": 435.5513193962869
+      }
+    },
+    {
+      "layer": 0,
+      "pair": 5,
+      "microseconds": {
+        "merged_multistream_prolog": 37.064120173454285,
+        "native_multistream_prolog": 44.13968697190285,
+        "merged_projection": 18.471816554665565,
+        "separate_projection": 27.587851509451866
+      },
+      "device_to_submission_ratio": {
+        "merged_multistream_prolog": 377.4981112696148,
+        "native_multistream_prolog": 432.8990769916912,
+        "merged_projection": 207.13053101352315,
+        "separate_projection": 287.7950209917598
+      }
+    },
+    {
+      "layer": 0,
+      "pair": 6,
+      "microseconds": {
+        "separate_projection": 27.59789116680622,
+        "merged_projection": 18.488749861717224,
+        "native_multistream_prolog": 44.080860912799835,
+        "merged_multistream_prolog": 37.0449423789978
+      },
+      "device_to_submission_ratio": {
+        "separate_projection": 287.63503884051926,
+        "merged_projection": 217.8153258723126,
+        "native_multistream_prolog": 546.5397594285103,
+        "merged_multistream_prolog": 428.1493364167197
+      }
+    },
+    {
+      "layer": 0,
+      "pair": 7,
+      "microseconds": {
+        "merged_multistream_prolog": 37.04290837049484,
+        "native_multistream_prolog": 44.088006019592285,
+        "merged_projection": 18.47166009247303,
+        "separate_projection": 27.595996856689453
+      },
+      "device_to_submission_ratio": {
+        "merged_multistream_prolog": 389.6049673090076,
+        "native_multistream_prolog": 584.7933512359307,
+        "merged_projection": 211.43492984373862,
+        "separate_projection": 359.1548427357307
+      }
+    },
+    {
+      "layer": 20,
+      "pair": 0,
+      "microseconds": {
+        "separate_projection": 29.859023168683052,
+        "merged_projection": 20.095156505703926,
+        "native_multistream_prolog": 55.61472475528717,
+        "merged_multistream_prolog": 45.134298503398895
+      },
+      "device_to_submission_ratio": {
+        "separate_projection": 12.942672079167483,
+        "merged_projection": 12.141229445431568,
+        "native_multistream_prolog": 4.405924274189995,
+        "merged_multistream_prolog": 5.575160239798792
+      }
+    },
+    {
+      "layer": 20,
+      "pair": 1,
+      "microseconds": {
+        "merged_multistream_prolog": 37.052832543849945,
+        "native_multistream_prolog": 43.10322180390358,
+        "merged_projection": 18.503515049815178,
+        "separate_projection": 27.59302780032158
+      },
+      "device_to_submission_ratio": {
+        "merged_multistream_prolog": 444.91304568710854,
+        "native_multistream_prolog": 560.6920268322981,
+        "merged_projection": 236.40148444408294,
+        "separate_projection": 356.08357730791124
+      }
+    },
+    {
+      "layer": 20,
+      "pair": 2,
+      "microseconds": {
+        "separate_projection": 27.5872852653265,
+        "merged_projection": 18.504999577999115,
+        "native_multistream_prolog": 43.108321726322174,
+        "merged_multistream_prolog": 37.086211144924164
+      },
+      "device_to_submission_ratio": {
+        "separate_projection": 341.05265384874855,
+        "merged_projection": 242.7819440012887,
+        "native_multistream_prolog": 570.4703679560937,
+        "merged_multistream_prolog": 502.66230757567354
+      }
+    },
+    {
+      "layer": 20,
+      "pair": 3,
+      "microseconds": {
+        "merged_multistream_prolog": 37.086036056280136,
+        "native_multistream_prolog": 43.09910163283348,
+        "merged_projection": 18.487518653273582,
+        "separate_projection": 27.58810482919216
+      },
+      "device_to_submission_ratio": {
+        "merged_multistream_prolog": 470.70025651769896,
+        "native_multistream_prolog": 50.84679092100597,
+        "merged_projection": 153.28935673079098,
+        "separate_projection": 381.09014903921656
+      }
+    },
+    {
+      "layer": 20,
+      "pair": 4,
+      "microseconds": {
+        "separate_projection": 27.59970724582672,
+        "merged_projection": 18.48074235022068,
+        "native_multistream_prolog": 43.05843636393547,
+        "merged_multistream_prolog": 37.05138713121414
+      },
+      "device_to_submission_ratio": {
+        "separate_projection": 328.17167680503513,
+        "merged_projection": 211.58734944551466,
+        "native_multistream_prolog": 534.9006192173633,
+        "merged_multistream_prolog": 493.63461847263034
+      }
+    },
+    {
+      "layer": 20,
+      "pair": 5,
+      "microseconds": {
+        "merged_multistream_prolog": 37.055645138025284,
+        "native_multistream_prolog": 43.05826127529144,
+        "merged_projection": 18.501542508602142,
+        "separate_projection": 27.59162150323391
+      },
+      "device_to_submission_ratio": {
+        "merged_multistream_prolog": 452.8043910446268,
+        "native_multistream_prolog": 542.8004923641366,
+        "merged_projection": 245.7273450060699,
+        "separate_projection": 326.06737609630267
+      }
+    },
+    {
+      "layer": 20,
+      "pair": 6,
+      "microseconds": {
+        "separate_projection": 27.596602216362953,
+        "merged_projection": 18.497323617339134,
+        "native_multistream_prolog": 43.01507771015167,
+        "merged_multistream_prolog": 37.0512492954731
+      },
+      "device_to_submission_ratio": {
+        "separate_projection": 321.52658151338863,
+        "merged_projection": 232.78038686047842,
+        "native_multistream_prolog": 590.7664207449599,
+        "merged_multistream_prolog": 487.60328702063487
+      }
+    },
+    {
+      "layer": 20,
+      "pair": 7,
+      "microseconds": {
+        "merged_multistream_prolog": 37.07003965973854,
+        "native_multistream_prolog": 43.06154325604439,
+        "merged_projection": 18.503418192267418,
+        "separate_projection": 27.606621384620667
+      },
+      "device_to_submission_ratio": {
+        "merged_multistream_prolog": 436.0690672629428,
+        "native_multistream_prolog": 650.4645965736581,
+        "merged_projection": 270.0997498240909,
+        "separate_projection": 389.705879084338
+      }
+    }
+  ],
+  "timing_contract": {
+    "calls_per_graph": 128,
+    "replays": 8,
+    "distinct_input_buffers": 128,
+    "minimum_device_to_submission_ratio": 2.0
+  },
+  "summary": {
+    "projection": {
+      "native_us": 27.595547027885914,
+      "merged_us": 18.488134257495403,
+      "paired_speedup_median": 1.49232614856981,
+      "faster_pairs": 16,
+      "pairs": 16
+    },
+    "bounded_prolog": {
+      "native_us": 44.06088963150978,
+      "merged_us": 37.05673851072788,
+      "paired_speedup_median": 1.1899175907007835,
+      "faster_pairs": 16,
+      "pairs": 16
+    }
+  },
+  "timing_validated": true
+}

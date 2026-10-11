@@ -1,0 +1,498 @@
+{
+  "formal_source_read_only": {
+    "model": {
+      "path": "/vllm-workspace/vllm-ascend/vllm_ascend/models/deepseek_v41/model.py",
+      "sha256": "11ddc71dd178061113f2b206758a9e3a6b85925949fe3a816af38311bf3ed607",
+      "relevant_lines": [
+        {
+          "line": 54,
+          "text": "_ENGRAM_WITH_DUMMY = _os_egd.environ.get(\"V41_ENGRAM_WITH_DUMMY\", \"0\") == \"1\""
+        },
+        {
+          "line": 55,
+          "text": "_ENGRAM_PAD_SKIP = _os_egd.environ.get(\"V41_ENGRAM_PAD_SKIP\", \"0\") == \"1\""
+        },
+        {
+          "line": 56,
+          "text": ""
+        },
+        {
+          "line": 57,
+          "text": "_IDS64_HOIST = _os_ids.environ.get(\"V41_IDS64_HOIST\", \"0\") == \"1\""
+        },
+        {
+          "line": 58,
+          "text": "_CED_PREFILL_ROLE = _os_ids.environ.get(\"V41_CED_ROLE\", \"\") == \"prefill\""
+        },
+        {
+          "line": 59,
+          "text": "_CED_H20_SNAPSHOT_POS = _os_ids.environ.get(\"V41_CED_H20_SNAPSHOT_POS\", \"\")"
+        },
+        {
+          "line": 60,
+          "text": "_CED_H20_SNAPSHOT_DIR = _os_ids.environ.get(\"V41_CED_H20_SNAPSHOT_DIR\", \"\")"
+        },
+        {
+          "line": 61,
+          "text": "_CED_LAYER_SNAPSHOT_POS = _os_ids.environ.get(\"V41_CED_LAYER_SNAPSHOT_POS\", \"\")"
+        },
+        {
+          "line": 62,
+          "text": "_CED_LAYER_SNAPSHOT_DIR = _os_ids.environ.get(\"V41_CED_LAYER_SNAPSHOT_DIR\", \"\")"
+        },
+        {
+          "line": 63,
+          "text": "_CED_LAYER_SNAPSHOT_LAYERS = {"
+        },
+        {
+          "line": 64,
+          "text": "    int(value)"
+        },
+        {
+          "line": 65,
+          "text": "    for value in _os_ids.environ.get(\"V41_CED_LAYER_SNAPSHOT_LAYERS\", \"0,1,2,13,14,15,19,20\").split(\",\")"
+        },
+        {
+          "line": 66,
+          "text": "    if value.strip()"
+        },
+        {
+          "line": 67,
+          "text": "}"
+        },
+        {
+          "line": 68,
+          "text": "_CED_CAPTURE_DECODE = _os_ids.environ.get(\"V41_CED_CAPTURE_DECODE\", \"0\") == \"1\""
+        },
+        {
+          "line": 1438,
+          "text": "        moe_input_ids = input_ids"
+        },
+        {
+          "line": 1439,
+          "text": "        if self.needs_moe_input_ids:"
+        },
+        {
+          "line": 1440,
+          "text": "            moe_input_ids = torch.where(input_ids == -1, 0, input_ids)"
+        },
+        {
+          "line": 1441,
+          "text": "        if _IDS64_HOIST and moe_input_ids.dtype != torch.int64:"
+        },
+        {
+          "line": 1442,
+          "text": "            # [IDS64-HOIST] fused_topk_router.py:164 casts input_ids to int64 on"
+        },
+        {
+          "line": 1443,
+          "text": "            # EVERY layer (40x/step, ~0.20 ms).  The cast is idempotent and"
+        },
+        {
+          "line": 1444,
+          "text": "            # moe_input_ids is not mutated inside the loop, so doing it once here"
+        },
+        {
+          "line": 1445,
+          "text": "            # makes the in-loop .to(torch.int64) a no-op (same dtype -> returns"
+        },
+        {
+          "line": 1446,
+          "text": "            # self, no kernel launched).  The value the router's all_gather sees"
+        },
+        {
+          "line": 1447,
+          "text": "            # is unchanged, so communication shape/dtype is identical."
+        },
+        {
+          "line": 1448,
+          "text": "            moe_input_ids = moe_input_ids.to(torch.int64)"
+        },
+        {
+          "line": 1449,
+          "text": "        for layer in self.layers:"
+        },
+        {
+          "line": 1450,
+          "text": "            if layer.layer_idx == 20:"
+        },
+        {
+          "line": 1451,
+          "text": "                _maybe_snapshot_ced_h20(layer, positions, hidden_states, pre_mix)"
+        },
+        {
+          "line": 1452,
+          "text": "            _maybe_snapshot_ced_layer("
+        }
+      ]
+    },
+    "consumer": {
+      "path": "/vllm-workspace/vllm-ascend/vllm_ascend/ops/fused_moe/router/fused_topk_router.py",
+      "sha256": "f32950da16926afe7569b1a6daa437860db2e83171d96623ac79f7734e52b004",
+      "relevant_lines": [
+        {
+          "line": 156,
+          "text": "        num_expert_group = self.num_expert_group if self.num_expert_group is not None else 1"
+        },
+        {
+          "line": 157,
+          "text": "        renorm = int(self.renormalize)"
+        },
+        {
+          "line": 158,
+          "text": "        if self.scoring_func == \"sqrtsoftplus\":"
+        },
+        {
+          "line": 159,
+          "text": "            if self.tid2eid is not None or self.bias_vl is not None:"
+        },
+        {
+          "line": 160,
+          "text": "                if input_ids is None:"
+        },
+        {
+          "line": 161,
+          "text": "                    raise ValueError(\"DeepSeek V4 vision/hash MoE routing requires input_ids.\")"
+        },
+        {
+          "line": 162,
+          "text": "                # The model sanitizes placeholder IDs once before layer-local"
+        },
+        {
+          "line": 163,
+          "text": "                # communication, which only pads with zeros or shards IDs."
+        },
+        {
+          "line": 164,
+          "text": "                input_ids = input_ids.to(torch.int64)"
+        },
+        {
+          "line": 165,
+          "text": "                tid2eid_ones = self.tid2eid.to(torch.int32) if self.tid2eid is not None else None"
+        },
+        {
+          "line": 166,
+          "text": "                if _EXTRA_CTX.moe_comm_type == MoECommType.ALLGATHER:"
+        },
+        {
+          "line": 167,
+          "text": "                    prepare_finalize = _EXTRA_CTX.moe_comm_method.prepare_finalize"
+        },
+        {
+          "line": 168,
+          "text": "                    input_ids = prepare_finalize.all_gather_input_id_with_dp_group(input_ids)"
+        },
+        {
+          "line": 169,
+          "text": "                else:"
+        },
+        {
+          "line": 170,
+          "text": "                    input_ids = _EXTRA_CTX.moe_comm_method.pad_and_split_input_ids(input_ids)"
+        },
+        {
+          "line": 171,
+          "text": "                if _EXTRA_CTX.moe_comm_type != MoECommType.ALLGATHER and input_ids.numel() != router_logits.shape[0]:"
+        },
+        {
+          "line": 172,
+          "text": "                    # Native MoE SP chunks hidden states before MC2/All2All,"
+        },
+        {
+          "line": 173,
+          "text": "                    # while their replace-allreduce paths retain full token"
+        },
+        {
+          "line": 174,
+          "text": "                    # ids. Apply the identical TP chunk only when communication"
+        },
+        {
+          "line": 175,
+          "text": "                    # has not already aligned ids with local router rows."
+        }
+      ]
+    }
+  },
+  "tiny_original_source": {
+    "model": {
+      "path": "/vllm-workspace/vllm-ascend/vllm_ascend/models/deepseek_v41/model.py",
+      "sha256": "dfbc3c0d3b0f9ce3349509de5dfb3799a47f834eec26a951769bf4a54e6c022b",
+      "relevant_lines": [
+        {
+          "line": 59,
+          "text": "#   \u2605 \u6570\u503c**\u9010\u4f4d\u4e0d\u53d8**\uff1a\u6bcf\u4e2a\u8f93\u51fa\u5143\u7d20\u4ecd\u7531\u4e00\u6b21 matmul \u7b97\u51fa\uff0cgather \u53ea\u662f\u642c\u5b57\u8282\u3002"
+        },
+        {
+          "line": 60,
+          "text": "_ENGRAM_WKV_TP = _os_egd.environ.get(\"V41_ENGRAM_WKV_TP\", \"0\") == \"1\""
+        },
+        {
+          "line": 61,
+          "text": ""
+        },
+        {
+          "line": 62,
+          "text": "_IDS64_HOIST = _os_ids.environ.get(\"V41_IDS64_HOIST\", \"0\") == \"1\""
+        },
+        {
+          "line": 63,
+          "text": "_CED_PREFILL_ROLE = _os_ids.environ.get(\"V41_CED_ROLE\", \"\") == \"prefill\""
+        },
+        {
+          "line": 64,
+          "text": "_CED_H20_SNAPSHOT_POS = _os_ids.environ.get(\"V41_CED_H20_SNAPSHOT_POS\", \"\")"
+        },
+        {
+          "line": 65,
+          "text": "_CED_H20_SNAPSHOT_DIR = _os_ids.environ.get(\"V41_CED_H20_SNAPSHOT_DIR\", \"\")"
+        },
+        {
+          "line": 66,
+          "text": "_CED_LAYER_SNAPSHOT_POS = _os_ids.environ.get(\"V41_CED_LAYER_SNAPSHOT_POS\", \"\")"
+        },
+        {
+          "line": 67,
+          "text": "_CED_LAYER_SNAPSHOT_DIR = _os_ids.environ.get(\"V41_CED_LAYER_SNAPSHOT_DIR\", \"\")"
+        },
+        {
+          "line": 68,
+          "text": "_CED_LAYER_SNAPSHOT_LAYERS = {"
+        },
+        {
+          "line": 69,
+          "text": "    int(value)"
+        },
+        {
+          "line": 70,
+          "text": "    for value in _os_ids.environ.get(\"V41_CED_LAYER_SNAPSHOT_LAYERS\", \"0,1,2,13,14,15,19,20\").split(\",\")"
+        },
+        {
+          "line": 71,
+          "text": "    if value.strip()"
+        },
+        {
+          "line": 72,
+          "text": "}"
+        },
+        {
+          "line": 73,
+          "text": "_CED_CAPTURE_DECODE = _os_ids.environ.get(\"V41_CED_CAPTURE_DECODE\", \"0\") == \"1\""
+        },
+        {
+          "line": 1459,
+          "text": "        moe_input_ids = input_ids"
+        },
+        {
+          "line": 1460,
+          "text": "        if self.needs_moe_input_ids:"
+        },
+        {
+          "line": 1461,
+          "text": "            moe_input_ids = torch.where(input_ids == -1, 0, input_ids)"
+        },
+        {
+          "line": 1462,
+          "text": "        if _IDS64_HOIST and moe_input_ids.dtype != torch.int64:"
+        },
+        {
+          "line": 1463,
+          "text": "            # [IDS64-HOIST] fused_topk_router.py:164 casts input_ids to int64 on"
+        },
+        {
+          "line": 1464,
+          "text": "            # EVERY layer (40x/step, ~0.20 ms).  The cast is idempotent and"
+        },
+        {
+          "line": 1465,
+          "text": "            # moe_input_ids is not mutated inside the loop, so doing it once here"
+        },
+        {
+          "line": 1466,
+          "text": "            # makes the in-loop .to(torch.int64) a no-op (same dtype -> returns"
+        },
+        {
+          "line": 1467,
+          "text": "            # self, no kernel launched).  The value the router's all_gather sees"
+        },
+        {
+          "line": 1468,
+          "text": "            # is unchanged, so communication shape/dtype is identical."
+        },
+        {
+          "line": 1469,
+          "text": "            moe_input_ids = moe_input_ids.to(torch.int64)"
+        },
+        {
+          "line": 1470,
+          "text": "        for layer in self.layers:"
+        },
+        {
+          "line": 1471,
+          "text": "            if layer.layer_idx == 20:"
+        },
+        {
+          "line": 1472,
+          "text": "                _maybe_snapshot_ced_h20(layer, positions, hidden_states, pre_mix)"
+        },
+        {
+          "line": 1473,
+          "text": "            _maybe_snapshot_ced_layer("
+        }
+      ]
+    },
+    "consumer": {
+      "path": "/vllm-workspace/vllm-ascend/vllm_ascend/ops/fused_moe/router/fused_topk_router.py",
+      "sha256": "f32950da16926afe7569b1a6daa437860db2e83171d96623ac79f7734e52b004",
+      "relevant_lines": [
+        {
+          "line": 156,
+          "text": "        num_expert_group = self.num_expert_group if self.num_expert_group is not None else 1"
+        },
+        {
+          "line": 157,
+          "text": "        renorm = int(self.renormalize)"
+        },
+        {
+          "line": 158,
+          "text": "        if self.scoring_func == \"sqrtsoftplus\":"
+        },
+        {
+          "line": 159,
+          "text": "            if self.tid2eid is not None or self.bias_vl is not None:"
+        },
+        {
+          "line": 160,
+          "text": "                if input_ids is None:"
+        },
+        {
+          "line": 161,
+          "text": "                    raise ValueError(\"DeepSeek V4 vision/hash MoE routing requires input_ids.\")"
+        },
+        {
+          "line": 162,
+          "text": "                # The model sanitizes placeholder IDs once before layer-local"
+        },
+        {
+          "line": 163,
+          "text": "                # communication, which only pads with zeros or shards IDs."
+        },
+        {
+          "line": 164,
+          "text": "                input_ids = input_ids.to(torch.int64)"
+        },
+        {
+          "line": 165,
+          "text": "                tid2eid_ones = self.tid2eid.to(torch.int32) if self.tid2eid is not None else None"
+        },
+        {
+          "line": 166,
+          "text": "                if _EXTRA_CTX.moe_comm_type == MoECommType.ALLGATHER:"
+        },
+        {
+          "line": 167,
+          "text": "                    prepare_finalize = _EXTRA_CTX.moe_comm_method.prepare_finalize"
+        },
+        {
+          "line": 168,
+          "text": "                    input_ids = prepare_finalize.all_gather_input_id_with_dp_group(input_ids)"
+        },
+        {
+          "line": 169,
+          "text": "                else:"
+        },
+        {
+          "line": 170,
+          "text": "                    input_ids = _EXTRA_CTX.moe_comm_method.pad_and_split_input_ids(input_ids)"
+        },
+        {
+          "line": 171,
+          "text": "                if _EXTRA_CTX.moe_comm_type != MoECommType.ALLGATHER and input_ids.numel() != router_logits.shape[0]:"
+        },
+        {
+          "line": 172,
+          "text": "                    # Native MoE SP chunks hidden states before MC2/All2All,"
+        },
+        {
+          "line": 173,
+          "text": "                    # while their replace-allreduce paths retain full token"
+        },
+        {
+          "line": 174,
+          "text": "                    # ids. Apply the identical TP chunk only when communication"
+        },
+        {
+          "line": 175,
+          "text": "                    # has not already aligned ids with local router rows."
+        }
+      ]
+    }
+  },
+  "consumer_byte_exact_formal_vs_tiny": true,
+  "formal_launcher_flag_status": "Task handoff says default unset; source flag defaults 0",
+  "pending_new_container": {
+    "id": "b569cf324d1730f441469e34c9398450699c1e917ac4a7a50f8603ac4c51d2b2",
+    "privileged": false,
+    "command": [
+      "sleep",
+      "infinity"
+    ],
+    "devices": [
+      {
+        "PathOnHost": "/dev/davinci4",
+        "PathInContainer": "/dev/davinci4",
+        "CgroupPermissions": "rwm"
+      },
+      {
+        "PathOnHost": "/dev/davinci_manager",
+        "PathInContainer": "/dev/davinci_manager",
+        "CgroupPermissions": "rwm"
+      },
+      {
+        "PathOnHost": "/dev/devmm_svm",
+        "PathInContainer": "/dev/devmm_svm",
+        "CgroupPermissions": "rwm"
+      },
+      {
+        "PathOnHost": "/dev/hisi_hdc",
+        "PathInContainer": "/dev/hisi_hdc",
+        "CgroupPermissions": "rwm"
+      },
+      {
+        "PathOnHost": "/dev/hisi_soc_cache_mgmt",
+        "PathInContainer": "/dev/hisi_soc_cache_mgmt",
+        "CgroupPermissions": "rwm"
+      }
+    ],
+    "npu_started": false
+  },
+  "active_unique_job": "ids_audit_perf_v3",
+  "active_fallback_container": "dsv41-tiny-prof-20261009-c4",
+  "runtime_visible_index": 4,
+  "physical_chip": 4,
+  "timestamp_unix": 1791690634.2081575,
+  "active_root": "/home/l00886679/projects/dsv41-tiny-prof-20261009/ids_lane_private_v3",
+  "npu_job_exit": 0,
+  "private_source_sha256": {
+    "source/vllm_ascend/models/deepseek_v41/model.py": "75da3330766ce2adaad323fbf6a9c4beb91833bd51f3718484ae46d40249cbec",
+    "source/vllm_ascend/ops/fused_moe/router/fused_topk_router.py": "cf3ef41b3a6d07ee528f8b907abc053dd2d5c4f34bb5b0306f071307b3656faf"
+  },
+  "frozen_runtime_sources": {
+    "ids_lane/launch_ids_job.py": "7c03b242b05734b5364f3b4abea03a8007c52e2401bf444563fe9deeedfabce3",
+    "ids_lane/ids_worker.py": "b7682327da9657c8e5614a9b70215234ace5de7942dfb151b2751ae7f4333ce7",
+    "ids_lane/analyze_ids_profiles.py": "569ac605bcd80edcfee0ae6ae22e7d736326ad1b388d3da46d232042c5f9fc34",
+    "ids_lane/bench_ids_model.py": "8fb3bbbdd7f7bbc26a4adae415d5c79e4c760615ed862fdaad16b42cb5805055",
+    "ids_lane/instrument_snapshot.py": "0b92261ac7bef61d7f704d4d490d5e986671b8e88638e548148ee3ffddd4c381",
+    "ids_lane/ids_patches.py": "fee4f2a324f4cce7ac9b190baad612559ed837c5f84262ab7507f9236de1e02c"
+  },
+  "initialization_failure_v1": {
+    "exit": 1,
+    "npu_initialized": false,
+    "reason": "PYTHONPATH omitted SDK acl path; fixed in a new snapshot"
+  },
+  "performance_gate_rejection_v2": {
+    "exit": 1,
+    "accuracy_passed": true,
+    "timings_rejected": true,
+    "reason": "routed_experts_initialized latch retained native D2H export; v3 disables config/latch/callbacks/scheduler"
+  }
+}

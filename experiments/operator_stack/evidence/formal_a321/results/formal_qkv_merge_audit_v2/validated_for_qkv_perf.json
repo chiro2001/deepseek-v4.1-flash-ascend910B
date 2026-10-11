@@ -1,0 +1,42 @@
+{
+  "passed": true,
+  "argv": [
+    "/home/l00886679/miniforge3/bin/python",
+    "/home/l00886679/projects/dsv41-real-stack-tp8-20261010/src_qkv_v41_model_v3/stack/launch_real_tp8_job.py",
+    "--root",
+    "/home/l00886679/projects/dsv41-real-stack-tp8-20261010",
+    "--source-dir",
+    "/work/src_qkv_v41_model_v3",
+    "--container",
+    "dsv41-real-stack-tp8-20261010-a321",
+    "--job",
+    "formal_qkv_merge_perf_v2",
+    "--model",
+    "/home/l00886679/models/out/v41-w4a8-engram-dr-vision-qrot-mtpq",
+    "--chips",
+    "8,9,10,11,12,13,14,15",
+    "--arms",
+    "tp8base,tp8mask,tp8qkv",
+    "--pairs",
+    "12",
+    "--async-scheduling",
+    "--mask-evidence-job",
+    "formal_moe_mask_probe_v2",
+    "--qkv-evidence-job",
+    "formal_qkv_v41_probe_v3",
+    "--hccl-deterministic",
+    "strict",
+    "--hccl-npu-socket-port-range",
+    "auto",
+    "--allow-alarm",
+    "--wait-seconds",
+    "600"
+  ],
+  "arms": [
+    "tp8base",
+    "tp8mask",
+    "tp8qkv"
+  ],
+  "ranks": 8,
+  "unique_consumer_layers_per_rank": 40
+}

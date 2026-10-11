@@ -1,0 +1,79 @@
+{
+  "container": "dsv41-engram-lane-20261011-c3",
+  "container_id": "e673769691c1acbd57304e9cb8cdf5dae9a9840c4030e3307aab9991b7609a79",
+  "image_digest": "sha256:b69e58820f929ac7a77f93774a3d96da1961f507628239e9c7d7b24066b7a8ea",
+  "devices": [
+    {
+      "PathOnHost": "/dev/davinci3",
+      "PathInContainer": "/dev/davinci3",
+      "CgroupPermissions": "rwm"
+    },
+    {
+      "PathOnHost": "/dev/davinci_manager",
+      "PathInContainer": "/dev/davinci_manager",
+      "CgroupPermissions": "rwm"
+    },
+    {
+      "PathOnHost": "/dev/devmm_svm",
+      "PathInContainer": "/dev/devmm_svm",
+      "CgroupPermissions": "rwm"
+    },
+    {
+      "PathOnHost": "/dev/hisi_hdc",
+      "PathInContainer": "/dev/hisi_hdc",
+      "CgroupPermissions": "rwm"
+    }
+  ],
+  "timestamp_unix": 1791689894.7675261,
+  "physical_chip": 3,
+  "exec_visible_devices": "0",
+  "torch_logical_device": 0,
+  "enumeration": {
+    "visible": "0",
+    "rc": 0,
+    "stdout": "DEVICE_COUNT 1\n",
+    "stderr": ""
+  },
+  "resources": {
+    "health": "OK",
+    "processes": []
+  },
+  "tokenizer_copy": [
+    {
+      "source": "/home/l00886679/models/out/v41-w4a8-dspark/tokenizer.json",
+      "target": "/home/l00886679/projects/dsv41-engram-lane-20261011-c3/tokenizer/tokenizer.json",
+      "bytes": 6367257,
+      "sha256": "c90dfa01249db1be4245780a052ede752e1361c612ac6d08e2bdada7d599476b",
+      "copy_method": "read-only docker exec CPU pathname read; remote-local bytes"
+    },
+    {
+      "source": "/home/l00886679/models/out/v41-w4a8-dspark/tokenizer_config.json",
+      "target": "/home/l00886679/projects/dsv41-engram-lane-20261011-c3/tokenizer/tokenizer_config.json",
+      "bytes": 801,
+      "sha256": "6ac8c8dc065ed118161d02dd532749ae3f52c243deac27872134fae2f50d8547",
+      "copy_method": "read-only docker exec CPU pathname read; remote-local bytes"
+    },
+    {
+      "source": "/home/l00886679/models/out/v41-w4a8-dspark/configuration.json",
+      "target": "/home/l00886679/projects/dsv41-engram-lane-20261011-c3/tokenizer/configuration.json",
+      "bytes": 26,
+      "sha256": "563571360b3c5a4cf9b14b09732f686a8ed9da2d0dfcd1728d72140b4aeb1467",
+      "copy_method": "read-only docker exec CPU pathname read; remote-local bytes"
+    }
+  ],
+  "command": [
+    "python",
+    "/work/resident_engram_replay.py",
+    "--model",
+    "/home/l00886679/models/out/v41-w4a8-engram-dr-vision-qrot-mtpq",
+    "--tokenizer",
+    "/work/tokenizer",
+    "--physical-chip",
+    "3",
+    "--output",
+    "/work/resident_v3/replay"
+  ],
+  "replay_script_sha256": "c1b5283f8d6597256009d660243d19656f78790ac0ad5b504971f1116f23129c",
+  "job": "/home/l00886679/projects/dsv41-engram-lane-20261011-c3/resident_v3",
+  "scope": "Single-chip resident real Engram consumer replay, synthetic residual"
+}

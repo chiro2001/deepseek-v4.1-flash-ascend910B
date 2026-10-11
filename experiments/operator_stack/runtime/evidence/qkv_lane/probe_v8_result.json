@@ -1,0 +1,171 @@
+{
+  "scope": "BF16 projection-only probe; not tiny/full model; no RoPE/cache/compressor/MoE",
+  "weights": "synthetic random BF16",
+  "hardware": "a3-21 Ascend910C physical6",
+  "input_shape": [
+    1,
+    5120
+  ],
+  "q_a_shape": [
+    1,
+    512
+  ],
+  "kv_shape": [
+    1,
+    512
+  ],
+  "native_layout": 2,
+  "tested_merged_layouts": [
+    2,
+    29
+  ],
+  "strict": "strict",
+  "same_process": true,
+  "precision": {
+    "2": {
+      "passed": false,
+      "all_bitwise_equal": false,
+      "max_bf16_ulp": 8
+    },
+    "29": {
+      "passed": false,
+      "all_bitwise_equal": false,
+      "max_bf16_ulp": 8
+    }
+  },
+  "pairs": [
+    {
+      "pair": 0,
+      "projection_us": {
+        "native_a": 285.6026291847229,
+        "native_b": 286.63942217826843
+      },
+      "speedup": {}
+    },
+    {
+      "pair": 1,
+      "projection_us": {
+        "native_b": 285.59374809265137,
+        "native_a": 285.86193919181824
+      },
+      "speedup": {}
+    },
+    {
+      "pair": 2,
+      "projection_us": {
+        "native_a": 285.61457991600037,
+        "native_b": 285.4810655117035
+      },
+      "speedup": {}
+    },
+    {
+      "pair": 3,
+      "projection_us": {
+        "native_b": 285.3938043117523,
+        "native_a": 285.3703498840332
+      },
+      "speedup": {}
+    },
+    {
+      "pair": 4,
+      "projection_us": {
+        "native_a": 286.5971624851227,
+        "native_b": 285.53417325019836
+      },
+      "speedup": {}
+    },
+    {
+      "pair": 5,
+      "projection_us": {
+        "native_b": 285.4484021663666,
+        "native_a": 285.4555547237396
+      },
+      "speedup": {}
+    },
+    {
+      "pair": 6,
+      "projection_us": {
+        "native_a": 285.7712507247925,
+        "native_b": 285.8056426048279
+      },
+      "speedup": {}
+    },
+    {
+      "pair": 7,
+      "projection_us": {
+        "native_b": 286.75463795661926,
+        "native_a": 285.456120967865
+      },
+      "speedup": {}
+    },
+    {
+      "pair": 8,
+      "projection_us": {
+        "native_a": 285.5134904384613,
+        "native_b": 285.43227910995483
+      },
+      "speedup": {}
+    },
+    {
+      "pair": 9,
+      "projection_us": {
+        "native_b": 285.1904332637787,
+        "native_a": 285.38626432418823
+      },
+      "speedup": {}
+    },
+    {
+      "pair": 10,
+      "projection_us": {
+        "native_a": 285.2645814418793,
+        "native_b": 286.4651083946228
+      },
+      "speedup": {}
+    },
+    {
+      "pair": 11,
+      "projection_us": {
+        "native_b": 285.29274463653564,
+        "native_a": 285.3781282901764
+      },
+      "speedup": {}
+    },
+    {
+      "pair": 12,
+      "projection_us": {
+        "native_a": 285.76716780662537,
+        "native_b": 285.20146012306213
+      },
+      "speedup": {}
+    },
+    {
+      "pair": 13,
+      "projection_us": {
+        "native_b": 285.51143407821655,
+        "native_a": 286.43977642059326
+      },
+      "speedup": {}
+    },
+    {
+      "pair": 14,
+      "projection_us": {
+        "native_a": 285.3306531906128,
+        "native_b": 285.3797376155853
+      },
+      "speedup": {}
+    },
+    {
+      "pair": 15,
+      "projection_us": {
+        "native_b": 285.5936586856842,
+        "native_a": 285.5328619480133
+      },
+      "speedup": {}
+    }
+  ],
+  "median_projection_us": {
+    "native_a": 285.5231761932373,
+    "native_b": 285.49624979496
+  },
+  "pairs_faster": {}
+}

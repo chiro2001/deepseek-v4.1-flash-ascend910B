@@ -1,0 +1,56 @@
+{
+  "passed": true,
+  "diagnostic_only": true,
+  "same_model_instance": true,
+  "physical_chip": 4,
+  "topology": {
+    "layers": 40,
+    "hidden": 5120,
+    "experts": 8,
+    "topk": 2,
+    "moe_intermediate": 256,
+    "tp": 1,
+    "ep": 1,
+    "dtype": "bfloat16",
+    "quantization": "unquantized BF16 dummy",
+    "num_hash_layers": 0,
+    "vision_n_layers": 32,
+    "needs_moe_input_ids": true,
+    "backbone_dynamo_bypassed": true,
+    "native_reductions": true,
+    "randomized_validation_weights": {
+      "gate": 40,
+      "hc_fn": 80,
+      "hc_scale": 80,
+      "hc_base": 80
+    },
+    "randomization_seed": 20261011,
+    "physical_chip": 4,
+    "visible_devices": "4",
+    "hccl_deterministic": "strict",
+    "model_class": "vllm_ascend.compilation.acl_graph.ACLGraphWrapper",
+    "router_objects_found_before_capture": 40,
+    "scope": "40-layer TP1 diagnostic; 8 experts/top2; not formal TP8 384/top6"
+  },
+  "startup_s": 79.7146706697531,
+  "accuracy_gate": "accuracy_gate.json",
+  "timing_pairs": 12,
+  "timing_profiler": "OFF",
+  "timing_route_export": false,
+  "timing_logprobs": false,
+  "off": {
+    "ms_per_step": 28.862625127658248,
+    "A": 1.0,
+    "tok_per_s": 34.64688314306268
+  },
+  "on": {
+    "ms_per_step": 28.983470052480698,
+    "A": 1.0,
+    "tok_per_s": 34.5024249404674
+  },
+  "paired_delta_median_ms": -0.10858988389372826,
+  "paired_ratio_median": 0.9962576527809351,
+  "winning_pairs": 0,
+  "formal_17ms_claim": false,
+  "formal_tp8_speedup_claim": false
+}

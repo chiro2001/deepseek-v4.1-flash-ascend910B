@@ -42,6 +42,9 @@ def verify_selection(audit_root, perf_root, arm, contract, chips):
     if arm=='tp8qkv':
         banks=json.loads((audit_root/'banks.json').read_text())[arm]
         assert all(r['qkv_merge']['selected_calls']==40 and r['qkv_merge']['unique_layers']==40 for r in banks)
+        patch_sha=hashlib.sha256((Path(__file__).parent/'formal_qkv_merge_patches.py').read_bytes()).hexdigest()
+        assert all(r['qkv_merge']['source']['patch_file_sha256']==patch_sha for r in banks), 'QKV patch differs from actual consumer audit'
+        assert all(r['qkv_merge']['source']['actual_consumer']=='DeepseekV41EagerAttentionImpl.multistream_preprocess' for r in banks)
         selected=[r for r in json.loads((audit_root/'requests.json').read_text())
                   if r['arm']==arm and r['tag'].startswith('pair-')]
         assert len(selected)>=3 and all(len(r['rank_audit'])==8 for r in selected)

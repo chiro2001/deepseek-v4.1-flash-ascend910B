@@ -1,0 +1,59 @@
+{
+  "scope": "只读正式 QKV 接线审查；未修改正式模块",
+  "finding": "V4.1 真实消费者绕过 AscendDSAImpl._mla_prolog_multistream",
+  "interpretation": "零覆盖为接线失败，尚未发生数值比较",
+  "native_v41_sha256": "56d3ce83098babf585289d3e078d1efff0442547f61fb0955a11f0b42bfc6ba3",
+  "native_model_sha256": "11ddc71dd178061113f2b206758a9e3a6b85925949fe3a816af38311bf3ed607",
+  "call_chain": [
+    "models/deepseek_v41/model.py: DeepseekV41Attention.v41_impl = DeepseekV41EagerAttentionImpl",
+    "DeepseekV41Attention.forward -> torch.ops.vllm.dsa_v41_forward",
+    "attention/dsa_v41.py: dsa_v41_forward -> attn.v41_impl.forward",
+    "DeepseekV41EagerAttentionImpl.forward -> self.multistream_preprocess if v1_impl.multistream_dsv4_dsa_overlap else self.preprocess"
+  ],
+  "actual_projection_anchors": [
+    "q_a = wq_a.matmul(q_quant, q_scale, bias=attn.wq_a.bias)",
+    "kv = wkv.matmul(kv_quant, kv_scale, bias=attn.wkv.bias)"
+  ],
+  "preservation": "原生浮点 qr、RMSNorm、Q_b、RoPE、SWA 写入、压缩器及流事件；V4.1 不可替换成 V1 尾部",
+  "blocked_chip2": "Health OK，但 HDC 设备侧无文件空间；启动 acl set_device 507033，未到模型加载",
+  "chip2_plog_excerpt": "hdc_file.c:817 There is no space on the destination side, exit.",
+  "reassigned_physical_chip": 6,
+  "chip6_sdk": {
+    "exit": 0,
+    "visible_count": 1,
+    "bf16_ones_sum": 16.0
+  },
+  "static_initial_multistream_attempt": {
+    "job": "audit_v5",
+    "state": "归属核验后终止，exit137",
+    "observed_stack": "torch_npu/npu/streams.py:85 synchronize <- static_kernel.py:631 _fx_func_run",
+    "compile_directory": "空；未进入 static_compile",
+    "interpretation": "等待静态 dump 的 NPU 执行同步，非正常编译耗时",
+    "next_attempt": "single-stream initial static compile -> same-instance multistream native A/A and merged banks",
+    "later_device_evidence": "v5 和 initial single-stream v7 都出现加载权重前的 Device oom；v7 AiCPU 注册 507018。阶段顺序修复未消除设备阻塞。"
+  },
+  "tiny_contract": {
+    "layers": 40,
+    "hidden": 5120,
+    "experts": 8,
+    "topk": 2,
+    "tp": 1,
+    "dtype": "BF16",
+    "weights": "dummy",
+    "native_layout": 2,
+    "requested_merged_layout": 29,
+    "actual_merged_layout": "旧 fulltiny/probe 未记录；probe 有 base format 回退警告，NZ 未验证"
+  },
+  "formal_extrapolation_allowed": false,
+  "fulltiny_quality_gate": "NOT_RUN",
+  "fulltiny_performance_gate": "NOT_RUN",
+  "projection_probe": {
+    "job": "probe_v8",
+    "exit": 0,
+    "max_bf16_ulp": 8,
+    "allowed_bf16_ulp": 1,
+    "accepted": false,
+    "candidate_timing": "NOT_RUN",
+    "model_extrapolation_allowed": false
+  }
+}

@@ -1,0 +1,117 @@
+{
+  "tensor_parallel_size": 8,
+  "physical_chips": [
+    8,
+    9,
+    10,
+    11,
+    12,
+    13,
+    14,
+    15
+  ],
+  "formal_weights": true,
+  "requested_load_format": "auto",
+  "model_path": "/home/l00886679/models/out/v41-w4a8-engram-dr-vision-qrot-mtpq",
+  "checkpoint_config_sha256": "40ebd329d3cb2d99d7176091afb580c182c21f48b88b63b550264a97e9c0d424",
+  "safetensors_load_strategy": "lazy",
+  "multithread_loader_threads": 128,
+  "engram_enabled": true,
+  "speculative_decoding": false,
+  "engram_storage": "int8",
+  "cpu_binding": false,
+  "async_scheduling": true,
+  "timing_scope": "token-arrival elapsed/decoded tokens",
+  "fp32_decode_reduction": false,
+  "hccl_deterministic_env": "strict",
+  "reduction_evidence": null,
+  "vision_enabled": true,
+  "limit_mm_per_prompt": {
+    "image": 4
+  },
+  "request_modality": "text",
+  "same_model_instance": true,
+  "same_processes_per_rank": true,
+  "audit": true,
+  "profiler": "OFF",
+  "A": 1,
+  "arms": {
+    "tp8base": {
+      "ms_per_step": 21.58601341867133,
+      "A": 1,
+      "tokens_per_second": 46.32629381834009
+    },
+    "tp8mask": {
+      "ms_per_step": 26.811805786564946,
+      "A": 1,
+      "tokens_per_second": 37.297002968039074
+    },
+    "tp8qkv": {
+      "ms_per_step": 26.61009315450333,
+      "A": 1,
+      "tokens_per_second": 37.57972563995952
+    }
+  },
+  "pairs": [
+    {
+      "pair": 0,
+      "arm": "tp8mask",
+      "baseline_ms": 21.581232094352966,
+      "candidate_ms": 26.811805786564946,
+      "speedup": 0.8049152774770227,
+      "tokens_equal": true,
+      "actual_routes_equal": true,
+      "max_logprob_delta": 0.0
+    },
+    {
+      "pair": 0,
+      "arm": "tp8qkv",
+      "baseline_ms": 21.581232094352966,
+      "candidate_ms": 26.61009315450333,
+      "speedup": 0.8110167810780734,
+      "tokens_equal": true,
+      "actual_routes_equal": true,
+      "max_logprob_delta": 0.0
+    },
+    {
+      "pair": 1,
+      "arm": "tp8mask",
+      "baseline_ms": 21.590504102790966,
+      "candidate_ms": 26.861006668649424,
+      "speedup": 0.8037861115603729,
+      "tokens_equal": true,
+      "actual_routes_equal": true,
+      "max_logprob_delta": 0.0
+    },
+    {
+      "pair": 1,
+      "arm": "tp8qkv",
+      "baseline_ms": 21.590504102790966,
+      "candidate_ms": 26.55367691738483,
+      "speedup": 0.8130890561772087,
+      "tokens_equal": true,
+      "actual_routes_equal": true,
+      "max_logprob_delta": 0.0
+    },
+    {
+      "pair": 2,
+      "arm": "tp8mask",
+      "baseline_ms": 21.58601341867133,
+      "candidate_ms": 26.640727098933176,
+      "speedup": 0.8102636740547423,
+      "tokens_equal": true,
+      "actual_routes_equal": true,
+      "max_logprob_delta": 0.0
+    },
+    {
+      "pair": 2,
+      "arm": "tp8qkv",
+      "baseline_ms": 21.58601341867133,
+      "candidate_ms": 27.355698954412027,
+      "speedup": 0.7890865246998143,
+      "tokens_equal": true,
+      "actual_routes_equal": true,
+      "max_logprob_delta": 0.0
+    }
+  ]
+}

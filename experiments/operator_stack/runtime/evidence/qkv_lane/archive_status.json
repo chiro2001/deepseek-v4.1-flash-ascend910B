@@ -1,0 +1,149 @@
+{
+  "scope": "BF16 QKV 实验 lane 终态归档；正式 QKV 文件仅只读审查",
+  "active_npu_jobs": 0,
+  "fulltiny": {
+    "layers": 40,
+    "hidden": 5120,
+    "experts": 8,
+    "topk": 2,
+    "tp": 1,
+    "dtype": "BF16",
+    "weights": "dummy",
+    "q_lora": 512,
+    "A_A_completed": false,
+    "consumer_gate_completed": false,
+    "quality_result": null,
+    "performance_result": null
+  },
+  "attempts": [
+    {
+      "attempt": "audit_v1",
+      "chip": 2,
+      "exit": 1,
+      "stage": "aclInit 107001；隔离设备命名空间可见编号无效",
+      "log": "audit_v1.log",
+      "source": "source_snapshots/chip2_latest（为最终保存版本；v1/v2 逐次 worker SHA 未记录）"
+    },
+    {
+      "attempt": "audit_v2",
+      "chip": 2,
+      "exit": 1,
+      "stage": "logical0 对应physical2后，set_device 507033/HDC发送失败",
+      "log": "audit_v2.log",
+      "source": "source_snapshots/chip2_latest（为最终保存版本；v1/v2 逐次 worker SHA 未记录）"
+    },
+    {
+      "attempt": "audit_v3",
+      "chip": 2,
+      "exit": 1,
+      "stage": "privileged 容器准确env2仍HDC目标无空间；未到load_model",
+      "log": "chip2_audit_v3.log",
+      "plog": "audit_v3_plog_excerpt.txt",
+      "source": "source_snapshots/chip2_latest"
+    },
+    {
+      "attempt": "audit_v4",
+      "chip": 6,
+      "exit": 1,
+      "stage": "加载11.3389GB后pack失败：ASCEND_CACHE_PATH目录缺失；启动脚本已修复",
+      "log": "audit_v4.log",
+      "source": "source_snapshots/chip6_v4"
+    },
+    {
+      "attempt": "audit_v5",
+      "chip": 6,
+      "exit": 137,
+      "stage": "initial multistream static dump synchronize；plog模型加载前就重复Device oom；归属核验后结束",
+      "log": "audit_v5.log",
+      "plog": "audit_v5_plog_excerpt.txt",
+      "stack": "audit_v5_python_stack.txt",
+      "source": "source_snapshots/chip6_v4"
+    },
+    {
+      "attempt": "audit_v6",
+      "chip": 6,
+      "exit": 143,
+      "stage": "non-static尝试因阶段顺序修复安排而结束；没有完成A/A或消费者比较",
+      "log": "audit_v6.log",
+      "source": "source_snapshots/chip6_v6"
+    },
+    {
+      "attempt": "audit_v7",
+      "chip": 6,
+      "exit": 137,
+      "stage": "initial single-stream static仍AiCPU507018/Device oom，capture同步不能推进；归属核验后结束",
+      "log": "audit_v7.log",
+      "plog": "audit_v7_plog_excerpt.txt",
+      "stack": "audit_v7_python_stack.txt",
+      "source": "source_snapshots/chip6_v7"
+    },
+    {
+      "attempt": "probe_v8",
+      "chip": 6,
+      "exit": 0,
+      "stage": "projection-only完成，BF16最大8ULP拒绝；候选性能未运行",
+      "log": "probe_v8.log",
+      "source": "source_snapshots/probe_v8"
+    }
+  ],
+  "projection_only_probe": {
+    "inputs": 24,
+    "outputs_per_input": 2,
+    "input_shape": [
+      1,
+      5120
+    ],
+    "output_shapes": [
+      [
+        1,
+        512
+      ],
+      [
+        1,
+        512
+      ]
+    ],
+    "weights": "synthetic BF16 ND",
+    "max_bf16_ulp": 8,
+    "allowed_bf16_ulp": 1,
+    "accepted": false,
+    "worst_row": {
+      "seed": 20,
+      "scale": 0.001,
+      "layout": 2,
+      "projection": "kv",
+      "bitwise_equal": false,
+      "max_bf16_ulp": 8,
+      "max_abs": 1.4551915228366852e-11
+    },
+    "requested_layouts": [
+      2,
+      29
+    ],
+    "actual_layout_recorded": false,
+    "nz_verified": false,
+    "layout_warning": "allow_internal_format=False，内部格式创建回退base；旧日志不能作为NZ对比",
+    "candidate_performance": "NOT_RUN",
+    "native_A_A_events": "仅诊断原始数据，未列为模型性能",
+    "full_model_extrapolation_allowed": false
+  },
+  "current_sources": "../../parallel_tiny/qkv_lane；已加入真实format检查、adapter源码SHA绑定；归档后未启动NPU",
+  "remote_roots": [
+    "/home/l00886679/projects/dsv41-qkv-lane-20261011-chip2-v1",
+    "/home/l00886679/projects/dsv41-qkv-lane-20261011-chip6-v4",
+    "/home/l00886679/projects/dsv41-qkv-lane-20261011-chip6-v6",
+    "/home/l00886679/projects/dsv41-qkv-lane-20261011-chip6-v7"
+  ],
+  "transfers": [
+    {
+      "payload_bytes": 136428,
+      "decoded_file_bytes": 101880
+    },
+    {
+      "payload_bytes": 201004,
+      "decoded_file_bytes": 150036
+    }
+  ],
+  "large_weights_and_traces_transferred": false,
+  "hardware_reset_or_device_files_deleted": false
+}

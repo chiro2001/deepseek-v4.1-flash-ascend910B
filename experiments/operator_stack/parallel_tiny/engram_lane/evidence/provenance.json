@@ -1,0 +1,61 @@
+{
+  "raw_evidence_root": "experiments/operator_stack/runtime/evidence/engram_lane",
+  "raw_files": 57,
+  "ssh_payload_bytes": [
+    784160,
+    22057
+  ],
+  "large_fixture_or_weights_transferred": false,
+  "compact_files": [
+    {
+      "file": "summary.json",
+      "sha256": "8080ca5933068c8ef9e7d3db7ee9c275595c29ab492e37173578e0961ba9a4af",
+      "bytes": 2182,
+      "remote_path": "/home/l00886679/projects/dsv41-tiny-prof-20261009/engram_lane_20261011_c4/summary.json"
+    },
+    {
+      "file": "precision_result.json",
+      "sha256": "efdf752a0b0e2cefb7042583cee282a180f520dacfbd74f461679ebffc0bb0bf",
+      "bytes": 211348,
+      "remote_path": "/home/l00886679/projects/dsv41-tiny-prof-20261009/engram_lane_20261011_c4/resident_c4_v2/replay/result.json"
+    },
+    {
+      "file": "fixture_receipt.json",
+      "sha256": "e2a9f14883e36f2d750a0d25e366d193d2b874a12e3969be720447076b83899f",
+      "bytes": 42916,
+      "remote_path": "/home/l00886679/projects/dsv41-engram-lane-20261011-c3/cpu_fixture_v1/fixture_receipt.json"
+    },
+    {
+      "file": "weight_receipt.json",
+      "sha256": "8c9083aac09b76584de41c6d20e7cb43b274abf4045ba770e69e1da834445315",
+      "bytes": 3161,
+      "remote_path": "/home/l00886679/projects/dsv41-engram-lane-20261011-c3/cpu_fixture_v1/weight_receipt.json"
+    },
+    {
+      "file": "full_projection_production_source.txt",
+      "sha256": "3bff06806d62cad5ac82b1f11e4cc291228088bda3fe203422b9ee1b4103b5c6",
+      "bytes": 5327,
+      "remote_path": "/home/l00886679/projects/dsv41-tiny-prof-20261009/engram_lane_20261011_c4/full_projection_production_source.txt"
+    },
+    {
+      "file": "model_consumer_source.txt",
+      "source_full_file_sha256": "11ddc71dd178061113f2b206758a9e3a6b85925949fe3a816af38311bf3ed607",
+      "scope": "Relevant exact line excerpts; full snapshot retained in ignored runtime evidence"
+    },
+    {
+      "file": "cpu_lifecycle_selfcheck.json",
+      "sha256": "e35f49efa01e89d392afe1ebafe6e363d18177b66e2e6b4cef292f55105aa384",
+      "bytes": 1743,
+      "origin": "local pure CPU reference selfcheck"
+    }
+  ],
+  "cpu_lifecycle_selfcheck": {
+    "command": "python3 prefetch_lifecycle_contract.py",
+    "source_sha256": "bed680a3c032d89c65c1974ce5f2db28d8e419c5e12e0ef85dafdf877e22f62b",
+    "result_sha256": "e35f49efa01e89d392afe1ebafe6e363d18177b66e2e6b4cef292f55105aa384",
+    "passed_cases": 14,
+    "scope": "Pure CPU metadata/order model; no SDK Event/capture/stream execution validated",
+    "torch_imported": false,
+    "npu_started": false
+  }
+}

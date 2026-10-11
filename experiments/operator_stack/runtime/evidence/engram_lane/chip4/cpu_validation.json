@@ -1,0 +1,425 @@
+{
+  "scope": "CPU-only compatibility and original dequant lookup validation; no NPU arithmetic or performance claim",
+  "cpu_only": true,
+  "npu_initialized": false,
+  "rows_verified": 48,
+  "native_sources": [
+    {
+      "module": "vllm_ascend.models.deepseek_v41.engram_jit_kernel",
+      "path": "/work/engram_lane_20261011_c4/native_sources/engram_jit_kernel.py",
+      "sha256": "1394bbe7e9752a0bcf3cc177f3ff3baf10c9c1d6847569855f5d5ed5237f38cf"
+    },
+    {
+      "module": "vllm_ascend.models.deepseek_v41.engram_plan_kernel",
+      "path": "/work/engram_lane_20261011_c4/native_sources/engram_plan_kernel.py",
+      "sha256": "87fd738eeb8c69d363d01105de1bb7067acc714e8d8e98739f146b6c547e8117"
+    },
+    {
+      "module": "vllm_ascend.models.deepseek_v41.engram_hash",
+      "path": "/work/engram_lane_20261011_c4/native_sources/engram_hash.py",
+      "sha256": "acf1aa4a9a75eef5ebe6dbf69bbeb8dd9195797c739ecc46751e3a79776ff4a8"
+    },
+    {
+      "module": "vllm_ascend.models.deepseek_v41.engram_hbm",
+      "path": "/work/engram_lane_20261011_c4/native_sources/engram_hbm.py",
+      "sha256": "b422e9899204b7a55af05832073bdea41e24cdc14900ea739c1dcd82822c77ae"
+    },
+    {
+      "module": "vllm_ascend.models.deepseek_v41.engram_device_index",
+      "path": "/work/engram_lane_20261011_c4/native_sources/engram_device_index.py",
+      "sha256": "4c9a29e3e37c0170ab8b349dc4996aaf0d488ad375b7dc400589d9cc906ca7f4"
+    },
+    {
+      "module": "vllm_ascend.models.deepseek_v41.engram_gate",
+      "path": "/work/engram_lane_20261011_c4/native_sources/engram_gate.py",
+      "sha256": "955e40b94e933aabddb37035ec295e701bdfe3c12fef586a6b7ba775a05e90a2"
+    }
+  ],
+  "fixture_sha256": "2993073c26dc65934464923a6988985146464cd3f38f2ac5a1d14dcce3b699c3",
+  "rows": [
+    {
+      "request": 0,
+      "step": 0,
+      "layer": 1,
+      "lookup_sha256": "a8a5ca1fc8ddac9ad4eb1eb1284157246e48eebb7e7b34e00450adf1a7811559",
+      "original_cpu_lookup_bitwise_equal": true,
+      "cpu_dequant_aa_bitwise_equal": true
+    },
+    {
+      "request": 0,
+      "step": 0,
+      "layer": 14,
+      "lookup_sha256": "f5bc7982829a4d312713f7a4593f5007bb6e784fdf40e075c2d3994c78eb1ee3",
+      "original_cpu_lookup_bitwise_equal": true,
+      "cpu_dequant_aa_bitwise_equal": true
+    },
+    {
+      "request": 0,
+      "step": 1,
+      "layer": 1,
+      "lookup_sha256": "e537ac9031b3237e35f44513ee58b77ad3a0a7a76c4a225818d19192cbe70062",
+      "original_cpu_lookup_bitwise_equal": true,
+      "cpu_dequant_aa_bitwise_equal": true
+    },
+    {
+      "request": 0,
+      "step": 1,
+      "layer": 14,
+      "lookup_sha256": "5ea5205f766615011b8cb03b89fc0b667812ae77bf9068d90a494f3c8ea01e75",
+      "original_cpu_lookup_bitwise_equal": true,
+      "cpu_dequant_aa_bitwise_equal": true
+    },
+    {
+      "request": 0,
+      "step": 2,
+      "layer": 1,
+      "lookup_sha256": "9b6cfd5a0f3b3e657a822146e20d37904ecb4747e5c59ab6202184f42f4832cf",
+      "original_cpu_lookup_bitwise_equal": true,
+      "cpu_dequant_aa_bitwise_equal": true
+    },
+    {
+      "request": 0,
+      "step": 2,
+      "layer": 14,
+      "lookup_sha256": "9e28480aeebe6257eedae89aedf4fa2aae7193fc5015adf1896b6f059345df20",
+      "original_cpu_lookup_bitwise_equal": true,
+      "cpu_dequant_aa_bitwise_equal": true
+    },
+    {
+      "request": 0,
+      "step": 3,
+      "layer": 1,
+      "lookup_sha256": "9af9a3127fe7ab228f9e9aa31acf7e3e786e18d28bf172b355dea438a8535754",
+      "original_cpu_lookup_bitwise_equal": true,
+      "cpu_dequant_aa_bitwise_equal": true
+    },
+    {
+      "request": 0,
+      "step": 3,
+      "layer": 14,
+      "lookup_sha256": "1bb924891c1583b725d6349bb438b0d4e8c6c199d3e258e608264da12ec5bd84",
+      "original_cpu_lookup_bitwise_equal": true,
+      "cpu_dequant_aa_bitwise_equal": true
+    },
+    {
+      "request": 0,
+      "step": 4,
+      "layer": 1,
+      "lookup_sha256": "7286146c1949b040776633953eddfb46687479ef304c1c30dbe122dd417985f8",
+      "original_cpu_lookup_bitwise_equal": true,
+      "cpu_dequant_aa_bitwise_equal": true
+    },
+    {
+      "request": 0,
+      "step": 4,
+      "layer": 14,
+      "lookup_sha256": "a3a24d5fe5d3a67d2383a1f28dc9d8ea3dc39f9634c09eaf94e2617c984d9b78",
+      "original_cpu_lookup_bitwise_equal": true,
+      "cpu_dequant_aa_bitwise_equal": true
+    },
+    {
+      "request": 0,
+      "step": 5,
+      "layer": 1,
+      "lookup_sha256": "39b7051156fbce4a655bf5179f971527f2b81192317d950b8d3d61155c712882",
+      "original_cpu_lookup_bitwise_equal": true,
+      "cpu_dequant_aa_bitwise_equal": true
+    },
+    {
+      "request": 0,
+      "step": 5,
+      "layer": 14,
+      "lookup_sha256": "40bc1e4c2ec646ce994e459554406db6154fb8ce47e19cbe925a52d6658415ff",
+      "original_cpu_lookup_bitwise_equal": true,
+      "cpu_dequant_aa_bitwise_equal": true
+    },
+    {
+      "request": 1,
+      "step": 0,
+      "layer": 1,
+      "lookup_sha256": "0229eac3fd858c7e20555959b9666f198518e0dc380b91c67b62e91df9fae781",
+      "original_cpu_lookup_bitwise_equal": true,
+      "cpu_dequant_aa_bitwise_equal": true
+    },
+    {
+      "request": 1,
+      "step": 0,
+      "layer": 14,
+      "lookup_sha256": "717264aef4d7d479b3c5b051bfbfc352aa65124bf228aded5cfc1001aa9fac6e",
+      "original_cpu_lookup_bitwise_equal": true,
+      "cpu_dequant_aa_bitwise_equal": true
+    },
+    {
+      "request": 1,
+      "step": 1,
+      "layer": 1,
+      "lookup_sha256": "17265d408f8f6154078c48b8d745e271b2269a757bd00326aa9d8b83144ebfd0",
+      "original_cpu_lookup_bitwise_equal": true,
+      "cpu_dequant_aa_bitwise_equal": true
+    },
+    {
+      "request": 1,
+      "step": 1,
+      "layer": 14,
+      "lookup_sha256": "c8fd314dc6697e9bb572cc9757705b42870bdcf450b71a13306dc594346de8cb",
+      "original_cpu_lookup_bitwise_equal": true,
+      "cpu_dequant_aa_bitwise_equal": true
+    },
+    {
+      "request": 1,
+      "step": 2,
+      "layer": 1,
+      "lookup_sha256": "973ca07707aa7254f0d25fb7b1f95afb71dbaa52a6aca32767ff9f6fbfa7910a",
+      "original_cpu_lookup_bitwise_equal": true,
+      "cpu_dequant_aa_bitwise_equal": true
+    },
+    {
+      "request": 1,
+      "step": 2,
+      "layer": 14,
+      "lookup_sha256": "9115302b8ccbeb071ba117d46853d18e1b43cde6b295d7148e576b4ea754aed5",
+      "original_cpu_lookup_bitwise_equal": true,
+      "cpu_dequant_aa_bitwise_equal": true
+    },
+    {
+      "request": 1,
+      "step": 3,
+      "layer": 1,
+      "lookup_sha256": "9af9a3127fe7ab228f9e9aa31acf7e3e786e18d28bf172b355dea438a8535754",
+      "original_cpu_lookup_bitwise_equal": true,
+      "cpu_dequant_aa_bitwise_equal": true
+    },
+    {
+      "request": 1,
+      "step": 3,
+      "layer": 14,
+      "lookup_sha256": "1bb924891c1583b725d6349bb438b0d4e8c6c199d3e258e608264da12ec5bd84",
+      "original_cpu_lookup_bitwise_equal": true,
+      "cpu_dequant_aa_bitwise_equal": true
+    },
+    {
+      "request": 1,
+      "step": 4,
+      "layer": 1,
+      "lookup_sha256": "7286146c1949b040776633953eddfb46687479ef304c1c30dbe122dd417985f8",
+      "original_cpu_lookup_bitwise_equal": true,
+      "cpu_dequant_aa_bitwise_equal": true
+    },
+    {
+      "request": 1,
+      "step": 4,
+      "layer": 14,
+      "lookup_sha256": "a3a24d5fe5d3a67d2383a1f28dc9d8ea3dc39f9634c09eaf94e2617c984d9b78",
+      "original_cpu_lookup_bitwise_equal": true,
+      "cpu_dequant_aa_bitwise_equal": true
+    },
+    {
+      "request": 1,
+      "step": 5,
+      "layer": 1,
+      "lookup_sha256": "39b7051156fbce4a655bf5179f971527f2b81192317d950b8d3d61155c712882",
+      "original_cpu_lookup_bitwise_equal": true,
+      "cpu_dequant_aa_bitwise_equal": true
+    },
+    {
+      "request": 1,
+      "step": 5,
+      "layer": 14,
+      "lookup_sha256": "40bc1e4c2ec646ce994e459554406db6154fb8ce47e19cbe925a52d6658415ff",
+      "original_cpu_lookup_bitwise_equal": true,
+      "cpu_dequant_aa_bitwise_equal": true
+    },
+    {
+      "request": 2,
+      "step": 0,
+      "layer": 1,
+      "lookup_sha256": "149e78244e5636d830a777f42bb8cb0ddc75194b1e3ef6575538726341ddfc3e",
+      "original_cpu_lookup_bitwise_equal": true,
+      "cpu_dequant_aa_bitwise_equal": true
+    },
+    {
+      "request": 2,
+      "step": 0,
+      "layer": 14,
+      "lookup_sha256": "63e5f4d3b48f54312bf24592e1d67711a938d416609fbac84b24fefce6579683",
+      "original_cpu_lookup_bitwise_equal": true,
+      "cpu_dequant_aa_bitwise_equal": true
+    },
+    {
+      "request": 2,
+      "step": 1,
+      "layer": 1,
+      "lookup_sha256": "67f4d0cfccef95960867dff1538d25ba1b801f9263d8b411321e152106fb6a81",
+      "original_cpu_lookup_bitwise_equal": true,
+      "cpu_dequant_aa_bitwise_equal": true
+    },
+    {
+      "request": 2,
+      "step": 1,
+      "layer": 14,
+      "lookup_sha256": "b5de583e4c853cc4a411c0ec20e958a67c3761986534a93f37017fea77b9eeac",
+      "original_cpu_lookup_bitwise_equal": true,
+      "cpu_dequant_aa_bitwise_equal": true
+    },
+    {
+      "request": 2,
+      "step": 2,
+      "layer": 1,
+      "lookup_sha256": "9b6cfd5a0f3b3e657a822146e20d37904ecb4747e5c59ab6202184f42f4832cf",
+      "original_cpu_lookup_bitwise_equal": true,
+      "cpu_dequant_aa_bitwise_equal": true
+    },
+    {
+      "request": 2,
+      "step": 2,
+      "layer": 14,
+      "lookup_sha256": "9e28480aeebe6257eedae89aedf4fa2aae7193fc5015adf1896b6f059345df20",
+      "original_cpu_lookup_bitwise_equal": true,
+      "cpu_dequant_aa_bitwise_equal": true
+    },
+    {
+      "request": 2,
+      "step": 3,
+      "layer": 1,
+      "lookup_sha256": "9af9a3127fe7ab228f9e9aa31acf7e3e786e18d28bf172b355dea438a8535754",
+      "original_cpu_lookup_bitwise_equal": true,
+      "cpu_dequant_aa_bitwise_equal": true
+    },
+    {
+      "request": 2,
+      "step": 3,
+      "layer": 14,
+      "lookup_sha256": "1bb924891c1583b725d6349bb438b0d4e8c6c199d3e258e608264da12ec5bd84",
+      "original_cpu_lookup_bitwise_equal": true,
+      "cpu_dequant_aa_bitwise_equal": true
+    },
+    {
+      "request": 2,
+      "step": 4,
+      "layer": 1,
+      "lookup_sha256": "7286146c1949b040776633953eddfb46687479ef304c1c30dbe122dd417985f8",
+      "original_cpu_lookup_bitwise_equal": true,
+      "cpu_dequant_aa_bitwise_equal": true
+    },
+    {
+      "request": 2,
+      "step": 4,
+      "layer": 14,
+      "lookup_sha256": "a3a24d5fe5d3a67d2383a1f28dc9d8ea3dc39f9634c09eaf94e2617c984d9b78",
+      "original_cpu_lookup_bitwise_equal": true,
+      "cpu_dequant_aa_bitwise_equal": true
+    },
+    {
+      "request": 2,
+      "step": 5,
+      "layer": 1,
+      "lookup_sha256": "39b7051156fbce4a655bf5179f971527f2b81192317d950b8d3d61155c712882",
+      "original_cpu_lookup_bitwise_equal": true,
+      "cpu_dequant_aa_bitwise_equal": true
+    },
+    {
+      "request": 2,
+      "step": 5,
+      "layer": 14,
+      "lookup_sha256": "40bc1e4c2ec646ce994e459554406db6154fb8ce47e19cbe925a52d6658415ff",
+      "original_cpu_lookup_bitwise_equal": true,
+      "cpu_dequant_aa_bitwise_equal": true
+    },
+    {
+      "request": 3,
+      "step": 0,
+      "layer": 1,
+      "lookup_sha256": "9f1f466fde42d812b770e4a188f14efa9df29df04f8dfa1c3b4e7ab7d58b8a4b",
+      "original_cpu_lookup_bitwise_equal": true,
+      "cpu_dequant_aa_bitwise_equal": true
+    },
+    {
+      "request": 3,
+      "step": 0,
+      "layer": 14,
+      "lookup_sha256": "3e9f5e98b487a111cd1c841530a13d21104e44b7a1d15c50da3354f08bf66c0e",
+      "original_cpu_lookup_bitwise_equal": true,
+      "cpu_dequant_aa_bitwise_equal": true
+    },
+    {
+      "request": 3,
+      "step": 1,
+      "layer": 1,
+      "lookup_sha256": "9f1f466fde42d812b770e4a188f14efa9df29df04f8dfa1c3b4e7ab7d58b8a4b",
+      "original_cpu_lookup_bitwise_equal": true,
+      "cpu_dequant_aa_bitwise_equal": true
+    },
+    {
+      "request": 3,
+      "step": 1,
+      "layer": 14,
+      "lookup_sha256": "3e9f5e98b487a111cd1c841530a13d21104e44b7a1d15c50da3354f08bf66c0e",
+      "original_cpu_lookup_bitwise_equal": true,
+      "cpu_dequant_aa_bitwise_equal": true
+    },
+    {
+      "request": 3,
+      "step": 2,
+      "layer": 1,
+      "lookup_sha256": "eaf87c785f3a3baf48a4bc2f8cf20ea1dbcbe7dc753c62eba41f2ea91b78341e",
+      "original_cpu_lookup_bitwise_equal": true,
+      "cpu_dequant_aa_bitwise_equal": true
+    },
+    {
+      "request": 3,
+      "step": 2,
+      "layer": 14,
+      "lookup_sha256": "22c9f9d31f48087c5ce498bbd87267286fa7abe1d27f4b0f9231977969acfaaf",
+      "original_cpu_lookup_bitwise_equal": true,
+      "cpu_dequant_aa_bitwise_equal": true
+    },
+    {
+      "request": 3,
+      "step": 3,
+      "layer": 1,
+      "lookup_sha256": "5d95e58836198d450e63f29f49d27d4434ac3a3313a35cc45a7b3353777774e7",
+      "original_cpu_lookup_bitwise_equal": true,
+      "cpu_dequant_aa_bitwise_equal": true
+    },
+    {
+      "request": 3,
+      "step": 3,
+      "layer": 14,
+      "lookup_sha256": "3efb121b9ac76a913e3f60f44290cc6702483de8c469a8759f527f444780ca05",
+      "original_cpu_lookup_bitwise_equal": true,
+      "cpu_dequant_aa_bitwise_equal": true
+    },
+    {
+      "request": 3,
+      "step": 4,
+      "layer": 1,
+      "lookup_sha256": "042d6001c8fde32ba7874ff609200ccbe9d5ce670b332870be5585041ee07932",
+      "original_cpu_lookup_bitwise_equal": true,
+      "cpu_dequant_aa_bitwise_equal": true
+    },
+    {
+      "request": 3,
+      "step": 4,
+      "layer": 14,
+      "lookup_sha256": "d5be4aaa196dc28c4301dbe8b060718fb732ea3ff37d62eb024b5f1199a1c130",
+      "original_cpu_lookup_bitwise_equal": true,
+      "cpu_dequant_aa_bitwise_equal": true
+    },
+    {
+      "request": 3,
+      "step": 5,
+      "layer": 1,
+      "lookup_sha256": "39b7051156fbce4a655bf5179f971527f2b81192317d950b8d3d61155c712882",
+      "original_cpu_lookup_bitwise_equal": true,
+      "cpu_dequant_aa_bitwise_equal": true
+    },
+    {
+      "request": 3,
+      "step": 5,
+      "layer": 14,
+      "lookup_sha256": "40bc1e4c2ec646ce994e459554406db6154fb8ce47e19cbe925a52d6658415ff",
+      "original_cpu_lookup_bitwise_equal": true,
+      "cpu_dequant_aa_bitwise_equal": true
+    }
+  ]
+}

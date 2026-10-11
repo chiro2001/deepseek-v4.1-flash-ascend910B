@@ -1,0 +1,92 @@
+{
+  "status": "candidate_rejected_by_original_precision_gate",
+  "resident_job_exit": 3,
+  "hardware": "a3-21 Ascend910C",
+  "physical_chip": 4,
+  "replay_tp": 1,
+  "model_tp_scope": 8,
+  "tiny_model": false,
+  "real_engram_consumers": true,
+  "pre_read_lookup": true,
+  "synthetic_residual": true,
+  "hash_mask_bitwise_cases": 28,
+  "real_cpu_npu_lookup_bitwise_cases": 48,
+  "native_aa_bitwise_cases": 48,
+  "candidate_passed_cases": 39,
+  "candidate_failed_cases": 9,
+  "performance_pairs": 0,
+  "performance": {},
+  "formal_tp8_eligible": false,
+  "ms_per_step": null,
+  "A": null,
+  "tok_per_second": null,
+  "operator_timing": "not run after precision rejection",
+  "source_model": "/home/l00886679/models/out/v41-w4a8-engram-dr-vision-qrot-mtpq",
+  "input_shape": [
+    1,
+    6144
+  ],
+  "weight_shape": [
+    25600,
+    6144
+  ],
+  "shard_shape": [
+    3200,
+    6144
+  ],
+  "precision_gate": "Native A/A bitwise; candidate projection/key/value/gate original <=1 BF16 ULP",
+  "layers": {
+    "1": {
+      "projection": {
+        "bitwise_cases": 6,
+        "passed_cases": 19,
+        "max_ulp": 6,
+        "elements_above_one_ulp": 5
+      },
+      "key": {
+        "bitwise_cases": 16,
+        "passed_cases": 23,
+        "max_ulp": 2,
+        "elements_above_one_ulp": 1
+      },
+      "value": {
+        "bitwise_cases": 8,
+        "passed_cases": 20,
+        "max_ulp": 6,
+        "elements_above_one_ulp": 4
+      },
+      "gate_output": {
+        "bitwise_cases": 19,
+        "passed_cases": 23,
+        "max_ulp": 6,
+        "elements_above_one_ulp": 1
+      }
+    },
+    "14": {
+      "projection": {
+        "bitwise_cases": 7,
+        "passed_cases": 21,
+        "max_ulp": 96,
+        "elements_above_one_ulp": 3
+      },
+      "key": {
+        "bitwise_cases": 14,
+        "passed_cases": 24,
+        "max_ulp": 1,
+        "elements_above_one_ulp": 0
+      },
+      "value": {
+        "bitwise_cases": 12,
+        "passed_cases": 21,
+        "max_ulp": 96,
+        "elements_above_one_ulp": 3
+      },
+      "gate_output": {
+        "bitwise_cases": 17,
+        "passed_cases": 21,
+        "max_ulp": 2,
+        "elements_above_one_ulp": 3
+      }
+    }
+  }
+}

@@ -1,3 +1,7 @@
+更新v35终态：formal_qkv_merge_perf_v2退出0，12组无观察配对mask(19.324495ms,A1,51.747794tok/s)、qkv(19.555371ms,A1,51.136845tok/s)；配对中位节省-0.218051ms、0/12更快，delivery守卫保存skip未部署。完整精度过不等于收益；新16目录PipeUtilization差分formal_qkv_regression_profile_v1已启动，解析/比较真实Slice/ViewCopy与事件，不能按累计直接删预算。当前已验收客户端仍19.289956/A1/51.840451，17ms未达到。
+
+更新v35：首个正式QKV审计v1因错误绑定V1入口导致实际覆盖0，退出1且性能守卫拒绝。修正真实dsa_v41.multistream_preprocess、浮点qr与原tail；v41 probe_v3退出0，24×7输出逐位、16/16更快，有限preprocess44.060890→37.056739µs。formal_qkv_merge_audit_v2退出0，8rank各40真实唯一层、原生3A/A及六完整比较delta0、cache/Indexer/mask通过；12组无审计perf_v2已启动，结果待终态。IDS tiny精度/39 Cast减少成立但0/12更快，默认off；Engram8输出片9/48超1ULP（最大96）拒绝/不计时；BF16QKV toy投影8ULP拒绝，fulltiny受AiCPU异常。所有新代理gpt-6.1-sol/max明文交接正常，源码/compact已归档，17ms未达到。
+
 更新v34：原生INT8 Q_a/KV输出维合并probe v2退出0，24组×六输出逐位一致，16/16配对更快：投影27.631289→18.488428µs、bounded prolog43.712199→35.484796µs，min设备/提交比4.795；v1循环import前置退出1。新tp8qkv继承mask，40层真实参数加载期打包，保留原生tail，完整strict async审计formal_qkv_merge_audit_v1在src_qkv_model_v2启动，守卫通过才12配对。用户授权所有空闲chip并行多个tiny；旧deepseek子代理密文传递确认，已停并重派gpt-6.1-sol/max三lane，chip2/3/4准确明文ACK与模型参数核验通过。正式客户端19.289956/A1/51.840451仍是基准，17ms未达到。
 
 接续v34：按用户指定找到会话01a1275a-c0b2-7662-aaaa-49e6ca507155，确认上下文耗尽终止；新会话01a128f6-00b4-7761-8a4b-eb78c0303c52创建完整17ms active目标。复查现场8–15空闲，quant probe v3退出143、API v6退出0；客户端与probe共23份抓取收据SHA逐一核对。补齐v32/v33源码与证据提交，v33发布COS/links-server并下载SHA复核。当前正式客户端仍(19.289956ms,A1,51.840451tok/s)、GSM100/100、Vision23/23，下一候选须重新独立和完整整网验收。

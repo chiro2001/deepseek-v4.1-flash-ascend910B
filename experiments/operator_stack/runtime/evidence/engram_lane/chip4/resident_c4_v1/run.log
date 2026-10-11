@@ -1,0 +1,20 @@
+INFO 10-11 03:53:17 [__init__.py:52] Available plugins for group vllm.platform_plugins:
+INFO 10-11 03:53:17 [__init__.py:54] - ascend -> vllm_ascend:register
+INFO 10-11 03:53:17 [__init__.py:57] All plugins in this group will be loaded. Set `VLLM_PLUGINS` to control which plugins to load.
+INFO 10-11 03:53:17 [__init__.py:237] Platform plugin ascend is activated
+INFO 10-11 03:53:17 [platform.py:70] Breakable CUDAGraph on Ascend is opt-in; using VLLM_USE_BREAKABLE_CUDAGRAPH=0.
+[W1011 03:53:23.111340270 NPUCachingAllocator.cpp:202] Warning: The current CANN and HDK(driver) versions require processing for 32 padding size, with memory allocation. (function operator())
+Traceback (most recent call last):
+  File "/work/engram_lane_20261011_c4/resident_engram_replay.py", line 371, in <module>
+    main()
+  File "/usr/local/python3.12.13/lib/python3.12/site-packages/torch/utils/_contextlib.py", line 124, in decorate_context
+    return func(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^
+  File "/work/engram_lane_20261011_c4/resident_engram_replay.py", line 237, in main
+    cpu_weight = load(prefix + "wkv.weight").contiguous()
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/work/engram_lane_20261011_c4/resident_engram_replay.py", line 191, in load
+    with safe_open(str(args.model / index[key]), framework="pt", device="cpu") as file:
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+FileNotFoundError: No such file or directory: /work/engram_lane_20261011_c4/model/engram_extra.safetensors
+[ERROR] 2026-10-11-03:53:24 (PID:5961, Device:0, RankID:-1) ERR99999 UNKNOWN applicaiton exception

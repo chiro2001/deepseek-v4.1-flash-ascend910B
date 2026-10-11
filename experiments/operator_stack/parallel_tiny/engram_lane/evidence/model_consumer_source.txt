@@ -1,0 +1,149 @@
+Production model source SHA256: 11ddc71dd178061113f2b206758a9e3a6b85925949fe3a816af38311bf3ed607
+Full raw snapshot retained under runtime/evidence/engram_lane/native_sources/model.py
+
+765: 
+766:     attention_cls = DeepseekV41Attention
+767: 
+768:     def __init__(self, vllm_config, prefix, **kwargs):
+769:         super().__init__(vllm_config, prefix, **kwargs)
+770:         config = vllm_config.model_config.hf_config
+771:         engram_enabled = get_ascend_config().enable_engram
+772:         if engram_enabled and self.layer_idx in config.engram_layer_ids:
+773:             self.engram = torch.nn.Module()
+774:             self.engram.wkv = torch.nn.Linear(
+775:                 (config.engram_max_ngram_size - 1) * config.engram_n_heads * config.engram_head_dim,
+776:                 (config.hc_mult + 1) * config.hidden_size,
+777:                 bias=False,
+778:                 dtype=torch.bfloat16,
+779:             )
+780:             self.engram.q_weight = torch.nn.Parameter(
+781:                 torch.empty(config.hc_mult, config.hidden_size, dtype=torch.bfloat16)
+782:             )
+783:             self.engram.k_weight = torch.nn.Parameter(
+784:                 torch.empty(config.hc_mult, config.hidden_size, dtype=torch.bfloat16)
+785:             )
+786:         else:
+787:             self.engram = None
+788: 
+789:     @staticmethod
+790:     def hc_collapse(x, pre_mix):
+
+1356:     def prepare_engram_inputs(self, input_ids, positions, padded_tokens=None):
+1357:         """Refresh persistent inputs before main-model capture or replay."""
+1358:         _bp = _BP_STATE.refresh()
+1359:         _bp.mark_step()
+1360:         _t0 = _bp_time.perf_counter()
+1361:         lookups, mask = self.prepare_engram(input_ids, positions)
+1362:         _t1 = _bp_time.perf_counter()
+1363:         num_tokens = positions.shape[0]
+1364:         # The compiled V4.1 backbone uses the scheduler's static token
+1365:         # capacity for decode graphs (typically max_num_batched_tokens), even
+1366:         # when the current request has one token.  Keep lookup tensors at that
+1367:         # capacity so every captured graph sees the same Engram shape.
+1368:         output_tokens = max(self._engram_max_tokens, padded_tokens or 0)
+1369:         if output_tokens < num_tokens:
+1370:             raise ValueError("Engram padded token count is smaller than the input")
+1371:         if self._engram_input_buffers is None:
+1372:             capacity = self._engram_max_tokens
+1373:             self._engram_input_buffers = (
+1374:                 {layer: values.new_zeros((capacity, values.shape[1])) for layer, values in lookups.items()},
+1375:                 mask.new_zeros(capacity),
+1376:             )
+1377:         buffers, mask_buffer = self._engram_input_buffers
+1378:         padded_mask = mask_buffer[:output_tokens]
+1379:         padded_mask.zero_()
+1380:         padded_mask[: mask.numel()].copy_(mask)
+1381:         padded_lookups = {}
+1382:         for layer, values in lookups.items():
+1383:             padded = buffers[layer][:output_tokens]
+1384:             if _ENGRAM_PAD_SKIP:
+1385:                 # [PAD-SKIP] Only the rows the model can actually read need
+1386:                 # zeroing: `model.forward` does `lookups[layer][:n]` with
+1387:                 # n = the padded batch size, and `copy_` below writes the valid
+1388:                 # head.  Zeroing all 2048 rows cost 25.2 MB x 2 layers = 50.3 MB
+1389:                 # of memset per step (measured pad=0.13 ms, ~387 GB/s).
+1390:                 _n_read = max(values.shape[0], int(padded_tokens or 0))
+1391:                 if _n_read > padded.shape[0]:
+1392:                     _n_read = padded.shape[0]
+1393:                 padded[:_n_read].zero_()
+1394:             else:
+1395:                 padded.zero_()
+1396:             padded[: values.shape[0]].copy_(values)
+1397:             padded_lookups[layer] = padded
+1398:         _bp.stat("pad", _t1)
+1399:         _bp.stat("total", _t0)
+1400:         if padded_lookups:
+1401:             _first = next(iter(padded_lookups.values()))
+1402:             _shape = tuple(_first.shape)
+1403:         else:
+1404:             _shape = ()
+1405:         _bp.tick(
+1406:             f"n={num_tokens} padded={int(padded_tokens or 0)} max={self._engram_max_tokens} "
+1407:             f"lookup={_shape} fake={_bp.fake_hits} mirror={_bp.mirror_ok}/{_bp.mirror_bad}"
+1408:             + (
+1409:                 f" | {self._engram_dev_graph.stats()}"
+1410:                 if getattr(self, "_engram_dev_graph", None) is not None
+1411:                 else ""
+1412:             )
+1413:         )
+1414:         return {"engram_lookups": padded_lookups, "engram_mask": padded_mask}
+1415: 
+1416:     def forward(
+1417:         self,
+
+1457:                 break
+1458:             last_layer = layer
+1459:             # DSpark consumes the residual stream entering its configured
+1460:             # target layers. The runner expresses checkpoint IDs as one-based.
+1461:             if layer.layer_idx + 1 in self.aux_hidden_state_layers:
+1462:                 aux_hidden_states.append(hidden_states.mean(dim=1))
+1463:             if layer.engram is not None and token_mask.numel():
+1464:                 n = hidden_states.shape[0]
+1465:                 # Graph captures keep lookup buffers at static capacity; the
+1466:                 # model's actual token dimension remains scheduler-dynamic.
+1467:                 lookup = lookups[layer.layer_idx][:n]
+1468:                 active_mask = token_mask[:n]
+1469:                 kv = layer.engram.wkv(lookup)
+1470:                 key, value = kv.split([self.hc_mult * self.config.hidden_size, self.config.hidden_size], -1)
+1471:                 hidden_states[:n] = engram_gate(
+1472:                     hidden_states[:n],
+1473:                     key.view(n, self.hc_mult, self.config.hidden_size),
+1474:                     value,
+1475:                     _engram_gate_channel_weight(layer.engram.q_weight, layer.engram.k_weight),
+1476:                     _engram_gate_rotation_f32(self.engram_rotation),
+1477:                     active_mask,
+1478:                     self.config.rms_norm_eps,
+1479:                 )
+1480:                 _maybe_snapshot_ced_layer(
+1481:                     layer, positions, input_ids, hidden_states, pre_mix,
+1482:                     "after_engram", lookup=lookup, token_mask=active_mask,
+1483:                 )
+1484:             ced_source_snapshot = None
+1485:             if (
+1486:                 self._ced_source_compare_remaining > 0
+1487:                 and layer.layer_idx == 20
+1488:                 and not getattr(get_forward_context(), "capturing", False)
+
+1561:     def prepare_engram_inputs(self, input_ids, positions, padded_tokens=None):
+1562:         return self.model.prepare_engram_inputs(input_ids, positions, padded_tokens)
+1563: 
+1564:     def forward(
+1565:         self,
+1566:         input_ids,
+1567:         positions,
+1568:         intermediate_tensors=None,
+1569:         inputs_embeds=None,
+1570:         engram_lookups=None,
+1571:         engram_mask=None,
+1572:     ):
+1573:         return self.model(
+1574:             input_ids,
+1575:             positions,
+1576:             intermediate_tensors,
+1577:             inputs_embeds,
+1578:             engram_lookups=engram_lookups,
+1579:             engram_mask=engram_mask,
+1580:         )
+1581: 
+1582:     @classmethod
+1583:     def _is_milestone_weight(cls, name):

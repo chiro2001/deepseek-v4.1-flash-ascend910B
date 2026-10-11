@@ -30,6 +30,8 @@ def main():
     p.add_argument('--sync-reference-job')
     p.add_argument('--cpu-diagnostic',action='store_true')
     p.add_argument('--profile', action='store_true')
+    p.add_argument('--profile-metrics')
+    p.add_argument('--profile-arms')
     p.add_argument('--native-control', action='store_true')
     p.add_argument('--native-profile', action='store_true')
     p.add_argument('--reduction-bench', action='store_true')
@@ -99,6 +101,14 @@ def main():
     arms = args.arms.split(',')
     assert arms[0] == 'tp8base' and len(set(arms)) == len(arms)
     assert set(arms) <= {'tp8base', 'tp8core', 'tp8act', 'tp8stack', 'tp8meta', 'tp8metastack', 'tp8prefix', 'tp8prefixroute', 'tp8prefixup', 'tp8prefixuproute', 'tp8hostmeta','tp8woa', 'tp8mask', 'tp8qkv'}
+    assert not (args.profile_metrics or args.profile_arms) or (args.profile and not args.tiny_profile)
+    if args.profile_metrics:
+        from formal_tp8_profile import METRICS
+        metrics=args.profile_metrics.split(',')
+        assert set(metrics)<=set(METRICS) and len(metrics)==len(set(metrics))
+    if args.profile_arms:
+        selected=args.profile_arms.split(',')
+        assert set(selected)<=set(arms) and len(selected)==len(set(selected))
     chips = [int(x) for x in args.chips.split(',')]
     assert len(chips) == len(set(chips)) == 8 and min(chips) >= 0
     root = Path(args.root).resolve()
@@ -277,6 +287,10 @@ def main():
             command.append('--sync-reference=/work/results/'+args.sync_reference_job)
         if args.profile:
             command.append('--profile')
+        if args.profile_metrics:
+            command.append('--profile-metrics='+args.profile_metrics)
+        if args.profile_arms:
+            command.append('--profile-arms='+args.profile_arms)
         if args.cpu_diagnostic:
             command.append('--cpu-diagnostic')
         job_path = '/work/results/' + args.job

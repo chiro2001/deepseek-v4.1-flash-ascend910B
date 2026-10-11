@@ -1,0 +1,50 @@
+{
+  "llm": {
+    "model": "/model",
+    "tokenizer": "/model",
+    "load_format": "dummy",
+    "dtype": "bfloat16",
+    "worker_cls": "ids_worker.IdsWorker",
+    "tensor_parallel_size": 1,
+    "enable_expert_parallel": true,
+    "seed": 0,
+    "trust_remote_code": true,
+    "async_scheduling": false,
+    "limit_mm_per_prompt": {
+      "image": 0
+    },
+    "max_model_len": 8192,
+    "max_num_seqs": 1,
+    "max_num_batched_tokens": 2048,
+    "gpu_memory_utilization": 0.7,
+    "kv_cache_memory_bytes": 4294967296,
+    "block_size": 128,
+    "enable_prefix_caching": false,
+    "enable_return_routed_experts": true,
+    "compilation_config": {
+      "cudagraph_mode": "FULL_DECODE_ONLY",
+      "cudagraph_capture_sizes": [
+        1
+      ]
+    },
+    "additional_config": {
+      "enable_engram": false,
+      "enable_cpu_binding": true,
+      "ascend_compilation_config": {
+        "enable_npugraph_ex": true,
+        "enable_static_kernel": false
+      },
+      "multistream_dsv4_dsa_overlap": false
+    }
+  },
+  "torch": "2.10.0+cpu",
+  "torch_npu": "2.10.0.post4",
+  "vllm": "0.27.1",
+  "vllm_ascend": "/work/ids_lane_private_v1/source/vllm_ascend/__init__.py",
+  "physical_chip": 4,
+  "hccl_deterministic": "strict",
+  "engine_timing_scope": "synchronous engine.step wall-clock; profiler/audits OFF",
+  "baseline_source": "private copy from dsv41-tiny-prof-20261009-c4",
+  "same_model_instance": true,
+  "formal_17ms_claim": false
+}

@@ -61,17 +61,18 @@ def main():
     assert (cfg['hidden_size'], cfg['q_lora_rank'], cfg['num_hidden_layers']) == (5120, 1280, 40)
     wm = json.loads((args.model / 'quant_model_weights.safetensors.index.json').read_text())['weight_map']
     ascend_root = Path(importlib.util.find_spec('vllm_ascend').origin).parent
-    source_path = ascend_root / 'attention/dsa_v1.py'
+    source_path = ascend_root / 'attention/dsa_v41.py'
     source_file = source_path.read_text()
     impl = next(node for node in ast.parse(source_file).body
-                if isinstance(node, ast.ClassDef) and node.name == 'AscendDSAImpl')
+                if isinstance(node, ast.ClassDef) and node.name == 'DeepseekV41EagerAttentionImpl')
     method = next(node for node in impl.body
-                  if isinstance(node, ast.FunctionDef) and node.name == '_mla_prolog_multistream')
+                  if isinstance(node, ast.FunctionDef) and node.name == 'multistream_preprocess')
     source = ast.get_source_segment(source_file, method)
-    assert 'share_quant' in source and 'main_stream.wait_event(e_kv_matmul_done)' in source
+    assert 'share_quant' in source and 'main_stream.wait_event(kv_matmul_done)' in source
     result = {'completed': False, 'precision_passed': False, 'eligible_for_model_trial': False,
               'scope': 'Independent real replicated Q_a/KV and rank0 Q_b weights; synthetic inputs; '
-                       'bounded prolog excludes RoPE, cache, Q-head normalization, and compressor',
+                       'bounded V4.1 preprocess excludes RoPE/cache and source compressor; '
+                       'floating qr is preserved and V4.1 has no post-Q_b Q RMSNorm',
               'executing_chip': 8, 'physical_chips': args.physical_chips, 'model': str(args.model),
               'checkpoint_config_sha256': hashlib.sha256(config_bytes).hexdigest(),
               'native_multistream_source_sha256': hashlib.sha256(source.encode()).hexdigest(),
@@ -130,8 +131,9 @@ def main():
                 with torch.npu.stream(aux):
                     aux.wait_event(start)
                     kv_out = torch_npu.npu_rms_norm(kv, kv_norm, epsilon=cfg['rms_norm_eps'])[0]
-                qr, qs = torch.ops._C_ascend.npu_rms_norm_dynamic_quant(qa, q_norm, epsilon=cfg['rms_norm_eps'])
-                q = matmul(qr, weights[2], scales[2], qs)
+                qr = torch_npu.npu_rms_norm(qa, q_norm, epsilon=cfg['rms_norm_eps'])[0]
+                q_quant, qs = torch_npu.npu_dynamic_quant(qr)
+                q = matmul(q_quant, weights[2], scales[2], qs)
             else:
                 qa = matmul(x, weights[0], scales[0], token_scale)
                 start = main_stream.record_event()
@@ -139,16 +141,17 @@ def main():
                     aux.wait_event(start)
                     kv = matmul(x, weights[1], scales[1], token_scale)
                     kv_done = aux.record_event()
-                qr, qs = torch.ops._C_ascend.npu_rms_norm_dynamic_quant(qa, q_norm, epsilon=cfg['rms_norm_eps'])
+                qr = torch_npu.npu_rms_norm(qa, q_norm, epsilon=cfg['rms_norm_eps'])[0]
+                q_quant, qs = torch_npu.npu_dynamic_quant(qr)
                 norm_done = main_stream.record_event()
                 main_stream.wait_event(kv_done)
                 with torch.npu.stream(aux):
                     aux.wait_event(norm_done)
                     kv_out = torch_npu.npu_rms_norm(kv, kv_norm, epsilon=cfg['rms_norm_eps'])[0]
-                q = matmul(qr, weights[2], scales[2], qs)
+                q = matmul(q_quant, weights[2], scales[2], qs)
             main_stream.wait_stream(aux)
-            return qa, kv, qr, qs, q, kv_out
-        names = ['q_a', 'kv_raw', 'q_norm_quant', 'q_norm_scale', 'q_b', 'kv_norm']
+            return qa, kv, qr, q_quant, qs, q, kv_out
+        names = ['q_a', 'kv_raw', 'floating_qr', 'q_norm_quant', 'q_norm_scale', 'q_b', 'kv_norm']
         for magnitude in (.001, 1., 100.):
             for style in ('random', 'constant', 'alternating', 'outlier'):
                 torch.manual_seed(20261011 + layer)
