@@ -1,0 +1,235 @@
+{
+  "scope": "CPU double-AOT/current invoke boxing reproduction only; no SDK/NPU",
+  "torch": "2.10.0+cpu",
+  "all_original_inputs_are_tensor": true,
+  "records": [
+    {
+      "boundary": "outer_fw_compile",
+      "example_args": {
+        "type": "list",
+        "length": 19,
+        "items": [
+          {
+            "type": "FakeTensor",
+            "shape": [
+              6,
+              64
+            ],
+            "stride": [
+              64,
+              1
+            ]
+          },
+          {
+            "type": "FakeTensor",
+            "shape": [
+              64,
+              64
+            ],
+            "stride": [
+              64,
+              1
+            ]
+          },
+          {
+            "type": "FakeTensor",
+            "shape": [
+              6,
+              64
+            ],
+            "stride": [
+              64,
+              1
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "boundary": "inner_fw_compile",
+      "example_args": {
+        "type": "list",
+        "length": 19,
+        "items": [
+          {
+            "type": "FakeTensor",
+            "shape": [
+              6,
+              64
+            ],
+            "stride": [
+              64,
+              1
+            ]
+          },
+          {
+            "type": "FakeTensor",
+            "shape": [
+              64,
+              64
+            ],
+            "stride": [
+              64,
+              1
+            ]
+          },
+          {
+            "type": "FakeTensor",
+            "shape": [
+              6,
+              64
+            ],
+            "stride": [
+              64,
+              1
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "boundary": "sdk_backend_return",
+      "boxed": true,
+      "signature": "(*args, **kwargs)"
+    },
+    {
+      "boundary": "outer_backend_return",
+      "boxed": true,
+      "signature": "(actual, **kwargs)"
+    },
+    {
+      "boundary": "copymode_invoke",
+      "runtime_args": {
+        "type": "tuple",
+        "length": 19,
+        "items": [
+          {
+            "type": "Tensor",
+            "shape": [
+              6,
+              64
+            ],
+            "stride": [
+              64,
+              1
+            ]
+          },
+          {
+            "type": "Tensor",
+            "shape": [
+              64,
+              64
+            ],
+            "stride": [
+              64,
+              1
+            ]
+          },
+          {
+            "type": "Tensor",
+            "shape": [
+              6,
+              64
+            ],
+            "stride": [
+              64,
+              1
+            ]
+          }
+        ]
+      },
+      "inner_boxed_now": true
+    },
+    {
+      "boundary": "outer_fw_boxed_adapter",
+      "runtime_args": {
+        "type": "list",
+        "length": 19,
+        "items": [
+          {
+            "type": "Tensor",
+            "shape": [
+              6,
+              64
+            ],
+            "stride": [
+              64,
+              1
+            ]
+          },
+          {
+            "type": "Tensor",
+            "shape": [
+              64,
+              64
+            ],
+            "stride": [
+              64,
+              1
+            ]
+          },
+          {
+            "type": "Tensor",
+            "shape": [
+              6,
+              64
+            ],
+            "stride": [
+              64,
+              1
+            ]
+          }
+        ]
+      },
+      "kwargs": []
+    },
+    {
+      "boundary": "generated_kernel_entry",
+      "runtime_args": {
+        "type": "tuple",
+        "length": 19,
+        "items": [
+          {
+            "type": "Tensor",
+            "shape": [
+              6,
+              64
+            ],
+            "stride": [
+              64,
+              1
+            ]
+          },
+          {
+            "type": "Tensor",
+            "shape": [
+              64,
+              64
+            ],
+            "stride": [
+              64,
+              1
+            ]
+          },
+          {
+            "type": "Tensor",
+            "shape": [
+              6,
+              64
+            ],
+            "stride": [
+              64,
+              1
+            ]
+          }
+        ]
+      },
+      "kwargs": []
+    }
+  ],
+  "npu_jobs": 0,
+  "device_audit_passed": false,
+  "safe_formal_receipt": false,
+  "passed": true,
+  "output_count": 14
+}

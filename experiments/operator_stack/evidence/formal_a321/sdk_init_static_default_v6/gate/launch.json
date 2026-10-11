@@ -1,0 +1,113 @@
+{
+  "scope": "normal-init-only TP8 SDK gate; no model weights loaded or formal performance claim",
+  "audit_job_id": "formal_dspark_sdk_init_static_default_v6",
+  "audit_job_root": "/work/results/formal_dspark_sdk_init_static_default_v6",
+  "driver_output_root": "/work/results/formal_dspark_sdk_init_static_default_v6/gate",
+  "controller_path": "/work/results/formal_dspark_sdk_init_static_default_v6/gate/metadata/controller.json",
+  "controller_nonce": "cc501284b100471e88bdf867203d5203",
+  "variant": "static_default",
+  "checkpoint_config": {
+    "path": "/home/l00886679/models/out/v41-w4a8-engram-dr-vision/config.json",
+    "bytes": 3394,
+    "sha256": "40ebd329d3cb2d99d7176091afb580c182c21f48b88b63b550264a97e9c0d424"
+  },
+  "bootstrap_sources": {
+    "/vllm-workspace/vllm/vllm/v1/worker/worker_base.py": {
+      "path": "/vllm-workspace/vllm/vllm/v1/worker/worker_base.py",
+      "bytes": 13154,
+      "sha256": "7da44338c2645ebf03d23394e452b31a8e3da1011fd1b42fcfcccfe99551b3fe"
+    },
+    "/vllm-workspace/vllm/vllm/v1/executor/multiproc_executor.py": {
+      "path": "/vllm-workspace/vllm/vllm/v1/executor/multiproc_executor.py",
+      "bytes": 43600,
+      "sha256": "ceb3477473bdb1de36e01687e0b2083ad239d42b1ddc2ec8cec16ba2c477efa6"
+    },
+    "/vllm-workspace/vllm/vllm/engine/arg_utils.py": {
+      "path": "/vllm-workspace/vllm/vllm/engine/arg_utils.py",
+      "bytes": 122054,
+      "sha256": "165f9ec6e3b067bb7e6c72d68adedde7fa4d5ed7932fa7568064b9d9086e6830"
+    },
+    "/vllm-workspace/vllm/vllm/config/speculative.py": {
+      "path": "/vllm-workspace/vllm/vllm/config/speculative.py",
+      "bytes": 64455,
+      "sha256": "83cbb26932b9ec0633753b58e8fe666f55c779580b32fba750cf569cde67c40c"
+    },
+    "/vllm-workspace/vllm-ascend/vllm_ascend/worker/worker.py": {
+      "path": "/vllm-workspace/vllm-ascend/vllm_ascend/worker/worker.py",
+      "bytes": 52882,
+      "sha256": "2eb424498fd1a908dece44a56451a2e42bb4697614327aaa91aaa171e3f0f127"
+    }
+  },
+  "model_kwargs": {
+    "model": "/home/l00886679/models/out/v41-w4a8-engram-dr-vision-qrot-mtpq",
+    "tokenizer": "/home/l00886679/models/out/v41-w4a8-engram-dr-vision-qrot-mtpq",
+    "load_format": "auto",
+    "dtype": "bfloat16",
+    "safetensors_load_strategy": "lazy",
+    "model_loader_extra_config": {
+      "enable_multithread_load": true,
+      "num_threads": 128
+    },
+    "worker_cls": "parallel_tiny.dspark_formal_audit.native_initialized_worker_discovery_v6.sdk_worker.InitializedSdkGateWorker",
+    "tensor_parallel_size": 8,
+    "distributed_executor_backend": "mp",
+    "enable_expert_parallel": true,
+    "seed": 0,
+    "trust_remote_code": true,
+    "async_scheduling": false,
+    "limit_mm_per_prompt": {
+      "image": 4
+    },
+    "max_model_len": 8192,
+    "max_num_seqs": 1,
+    "max_num_batched_tokens": 2048,
+    "gpu_memory_utilization": 0.7,
+    "kv_cache_memory_bytes": 4294967296,
+    "block_size": 128,
+    "enable_prefix_caching": false,
+    "enable_return_routed_experts": false,
+    "speculative_config": {
+      "method": "dspark",
+      "num_speculative_tokens": 5,
+      "enforce_eager": true
+    },
+    "compilation_config": {
+      "cudagraph_mode": "FULL_DECODE_ONLY",
+      "cudagraph_capture_sizes": [
+        6
+      ]
+    },
+    "additional_config": {
+      "enable_engram": true,
+      "engram_storage": "int8",
+      "enable_cpu_binding": false,
+      "ascend_compilation_config": {
+        "enable_npugraph_ex": true,
+        "enable_static_kernel": true,
+        "fuse_norm_quant": true,
+        "fuse_qknorm_rope": true,
+        "fuse_muls_add": true
+      },
+      "multistream_dsv4_dsa_overlap": false
+    }
+  },
+  "device_audit_passed": false,
+  "full_consumer_audit_passed": false,
+  "safe_formal_receipt": false,
+  "formal_model_validated": false,
+  "actual_prepack_consumer_order_validated": false,
+  "passed": false,
+  "model_load_called": false,
+  "performance_claim": null,
+  "rank_results": [],
+  "owned_worker_pids": [
+    1466436,
+    1466437,
+    1466438,
+    1466439,
+    1466440,
+    1466441,
+    1466442,
+    1466443
+  ]
+}

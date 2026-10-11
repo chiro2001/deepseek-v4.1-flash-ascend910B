@@ -29,9 +29,15 @@
 
 最新QKV early-kv-tail-v2完整审计通过，但12组性能mask(19.208722ms,A1,52.059685tok/s)、
 QKV(19.307216ms,A1,51.794106tok/s)，0/12更快，拒绝部署；同样关闭DSpark。
-Engram SDK普通NPUGraph32代可行，正式对齐AOT/GraphEx/static/nonstatic仍在callback前TypeError，原型默认关闭。
+Engram SDK普通NPUGraph32代可行；正常TP8初始化的v6 static_default中，5个有完整结果的rank已通过真实双AOT Tensor ABI/warmup，随后cold-capture因默认stream被框架拒绝，完整32代/alias仍未验证，原型默认关闭。其余3rank未取得完整SDK结果，不能套用同因。
 稀疏MSD固定M1/capacity6已在真实E48原参数、synthetic activation的9case数值门通过（SDK/raw/candidate均maxULP0）；planner/canary/seals与输入原地修改生命周期已验证。当前未有性能、实际模型消费者或K5收益证明。正式profile实际target GMM容量36/E48，draft容量15/E16，不能直接推广M1二进制。
 
 用户已清除旧goal并要求重新创建；2026-10-11已成功创建包含DSpark的正式≤20ms/step新goal，
 工具状态为active。当前执行与完成审计以该新goal及本文件为准；旧17ms/无DSpark结论均不是新完成条件。
 新goal尚未达成，不能标记complete。
+
+正式API接线注意：现有`serve_formal_tp8.py`与`run_formal_client_acceptance.py`
+仍显式要求`speculative_decoding=false`和`A=1`，是旧无DSpark验收链，不能直接用于本goal。
+新API链须保留实际external→core request映射、同boot/time namespace的客户端结束时钟，
+从真实worker计数获取rounds并核对initial/terminal及TP8末轮fence/Gloo join。
+最终至少8个串行计数请求，warmup不计入这8个；不能使用`1000/tok/s`替代DSpark ms/step。

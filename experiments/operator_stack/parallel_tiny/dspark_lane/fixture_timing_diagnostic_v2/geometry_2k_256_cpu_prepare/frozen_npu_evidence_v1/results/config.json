@@ -1,0 +1,53 @@
+{
+  "llm": {
+    "model": "/work/dspark_lane_20261011_c4_graph_geometry2k256_v1/model",
+    "tokenizer": "/work/dspark_lane_20261011_c4_graph_geometry2k256_v1/model",
+    "load_format": "dummy",
+    "dtype": "bfloat16",
+    "worker_cls": "geometry_quality_worker.GeometryQualityWorker",
+    "tensor_parallel_size": 1,
+    "enable_expert_parallel": true,
+    "seed": 0,
+    "trust_remote_code": true,
+    "async_scheduling": false,
+    "speculative_config": {
+      "method": "dspark",
+      "num_speculative_tokens": 5,
+      "enforce_eager": false
+    },
+    "limit_mm_per_prompt": {
+      "image": 0
+    },
+    "max_model_len": 4096,
+    "max_num_seqs": 1,
+    "max_num_batched_tokens": 2048,
+    "gpu_memory_utilization": 0.7,
+    "kv_cache_memory_bytes": 2147483648,
+    "block_size": 128,
+    "enable_prefix_caching": false,
+    "enable_return_routed_experts": false,
+    "compilation_config": {
+      "cudagraph_mode": "FULL_DECODE_ONLY",
+      "cudagraph_capture_sizes": [
+        6
+      ]
+    },
+    "additional_config": {
+      "enable_engram": false,
+      "enable_cpu_binding": false,
+      "ascend_compilation_config": {
+        "enable_npugraph_ex": true,
+        "enable_static_kernel": false
+      },
+      "multistream_dsv4_dsa_overlap": false
+    }
+  },
+  "latest_formal_target_ms": 20,
+  "physical_device": 4,
+  "same_model_instance": true,
+  "dummy_weights": true,
+  "target_graph": true,
+  "draft_graph_candidate": true,
+  "actual_entry_replay_required": true,
+  "formal_tp8_claim": false
+}

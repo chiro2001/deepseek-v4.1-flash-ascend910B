@@ -1,0 +1,200 @@
+{
+  "scope": "CPU double-AOT/current invoke boxing reproduction only; no SDK/NPU",
+  "torch": "2.10.0+cpu",
+  "all_original_inputs_are_tensor": true,
+  "records": [
+    {
+      "boundary": "outer_fw_compile",
+      "example_args": {
+        "type": "list",
+        "length": 19,
+        "items": [
+          {
+            "type": "FakeTensor",
+            "shape": [
+              6,
+              64
+            ],
+            "stride": [
+              64,
+              1
+            ]
+          },
+          {
+            "type": "FakeTensor",
+            "shape": [
+              64,
+              64
+            ],
+            "stride": [
+              64,
+              1
+            ]
+          },
+          {
+            "type": "FakeTensor",
+            "shape": [
+              6,
+              64
+            ],
+            "stride": [
+              64,
+              1
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "boundary": "inner_fw_compile",
+      "example_args": {
+        "type": "list",
+        "length": 19,
+        "items": [
+          {
+            "type": "FakeTensor",
+            "shape": [
+              6,
+              64
+            ],
+            "stride": [
+              64,
+              1
+            ]
+          },
+          {
+            "type": "FakeTensor",
+            "shape": [
+              64,
+              64
+            ],
+            "stride": [
+              64,
+              1
+            ]
+          },
+          {
+            "type": "FakeTensor",
+            "shape": [
+              6,
+              64
+            ],
+            "stride": [
+              64,
+              1
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "boundary": "sdk_backend_return",
+      "boxed": true,
+      "signature": "(*args, **kwargs)"
+    },
+    {
+      "boundary": "outer_backend_return",
+      "boxed": true,
+      "signature": "(*args, **kwargs)"
+    },
+    {
+      "boundary": "copymode_invoke",
+      "runtime_args": {
+        "type": "tuple",
+        "length": 19,
+        "items": [
+          {
+            "type": "Tensor",
+            "shape": [
+              6,
+              64
+            ],
+            "stride": [
+              64,
+              1
+            ]
+          },
+          {
+            "type": "Tensor",
+            "shape": [
+              64,
+              64
+            ],
+            "stride": [
+              64,
+              1
+            ]
+          },
+          {
+            "type": "Tensor",
+            "shape": [
+              6,
+              64
+            ],
+            "stride": [
+              64,
+              1
+            ]
+          }
+        ]
+      },
+      "inner_boxed_now": true
+    },
+    {
+      "boundary": "generated_kernel_entry",
+      "runtime_args": {
+        "type": "tuple",
+        "length": 1,
+        "items": [
+          {
+            "type": "list",
+            "length": 19,
+            "items": [
+              {
+                "type": "Tensor",
+                "shape": [
+                  6,
+                  64
+                ],
+                "stride": [
+                  64,
+                  1
+                ]
+              },
+              {
+                "type": "Tensor",
+                "shape": [
+                  64,
+                  64
+                ],
+                "stride": [
+                  64,
+                  1
+                ]
+              },
+              {
+                "type": "Tensor",
+                "shape": [
+                  6,
+                  64
+                ],
+                "stride": [
+                  64,
+                  1
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      "kwargs": []
+    }
+  ],
+  "npu_jobs": 0,
+  "device_audit_passed": false,
+  "safe_formal_receipt": false,
+  "passed": false,
+  "exception_type": "TypeError",
+  "exception": "expected Tensor()",
+  "traceback": "Traceback (most recent call last):\n  File \"<stdin>\", line 61, in <module>\n  File \"/usr/local/python3.12.13/lib/python3.12/site-packages/torch/_dynamo/eval_frame.py\", line 953, in compile_wrapper\n    return fn(*args, **kwargs)\n           ^^^^^^^^^^^^^^^^^^^\n  File \"/CPU-only-v5/program.py\", line 1, in program\n    def program(*actual):\n  File \"/usr/local/python3.12.13/lib/python3.12/site-packages/torch/_dynamo/eval_frame.py\", line 1181, in _fn\n    return fn(*args, **kwargs)\n           ^^^^^^^^^^^^^^^^^^^\n  File \"<stdin>\", line 44, in invoke\n  File \"/usr/local/python3.12.13/lib/python3.12/site-packages/torch/_dynamo/eval_frame.py\", line 1181, in _fn\n    return fn(*args, **kwargs)\n           ^^^^^^^^^^^^^^^^^^^\n  File \"/usr/local/python3.12.13/lib/python3.12/site-packages/torch/_functorch/aot_autograd.py\", line 1148, in forward\n    return compiled_fn(full_args)\n           ^^^^^^^^^^^^^^^^^^^^^^\n  File \"/usr/local/python3.12.13/lib/python3.12/site-packages/torch/_functorch/_aot_autograd/runtime_wrappers.py\", line 357, in runtime_wrapper\n    all_outs = call_func_at_runtime_with_args(\n               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/usr/local/python3.12.13/lib/python3.12/site-packages/torch/_functorch/_aot_autograd/utils.py\", line 134, in call_func_at_runtime_with_args\n    out = normalize_as_list(f(args))\n                            ^^^^^^^\n  File \"/usr/local/python3.12.13/lib/python3.12/site-packages/torch/_functorch/_aot_autograd/runtime_wrappers.py\", line 531, in wrapper\n    return compiled_fn(runtime_args)\n           ^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/usr/local/python3.12.13/lib/python3.12/site-packages/torch/_functorch/_aot_autograd/runtime_wrappers.py\", line 729, in inner_fn\n    outs = compiled_fn(args)\n           ^^^^^^^^^^^^^^^^^\n  File \"/usr/local/python3.12.13/lib/python3.12/site-packages/torch/_functorch/aot_autograd.py\", line 1148, in forward\n    return compiled_fn(full_args)\n           ^^^^^^^^^^^^^^^^^^^^^^\n  File \"/usr/local/python3.12.13/lib/python3.12/site-packages/torch/_functorch/_aot_autograd/runtime_wrappers.py\", line 357, in runtime_wrapper\n    all_outs = call_func_at_runtime_with_args(\n               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/usr/local/python3.12.13/lib/python3.12/site-packages/torch/_functorch/_aot_autograd/utils.py\", line 134, in call_func_at_runtime_with_args\n    out = normalize_as_list(f(args))\n                            ^^^^^^^\n  File \"/usr/local/python3.12.13/lib/python3.12/site-packages/torch/_functorch/_aot_autograd/runtime_wrappers.py\", line 531, in wrapper\n    return compiled_fn(runtime_args)\n           ^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/usr/local/python3.12.13/lib/python3.12/site-packages/torch/_functorch/_aot_autograd/runtime_wrappers.py\", line 729, in inner_fn\n    outs = compiled_fn(args)\n           ^^^^^^^^^^^^^^^^^\n  File \"/usr/local/python3.12.13/lib/python3.12/site-packages/torch/_functorch/_aot_autograd/utils.py\", line 108, in g\n    return f(*args)\n           ^^^^^^^^\n  File \"<stdin>\", line 26, in __call__\nTypeError: expected Tensor()\n"
+}

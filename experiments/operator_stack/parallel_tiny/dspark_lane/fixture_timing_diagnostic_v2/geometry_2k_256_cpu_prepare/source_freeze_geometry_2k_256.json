@@ -1,0 +1,190 @@
+{
+  "scope": "CPU-only independent 2048/256 SWA geometry/cache/numeric gate preparation; no new NPU authorization at freeze",
+  "job": "dspark_lane_20261011_c4_graph_geometry2k256_v1",
+  "cpu_controls_original": 20,
+  "cpu_controls_additional_current_normal_memory_budget": 4,
+  "cpu_controls_total": 24,
+  "cpu_gate_sha256": "9f65194808ca7af8574598dec1994e9b3da40e10efd224590e034c8602ca3ea0",
+  "readiness_sha256": "470b3ae7ecbf617eeac66b9d627059b0059f3140b444a5258f0cb303d669b659",
+  "native_window_command": "python3 launch_geometry_gate.py --job dspark_lane_20261011_c4_graph_geometry2k256_v1 --launch",
+  "parameters": {
+    "physical_device": 4,
+    "logical_device": 0,
+    "input_tokens": 2048,
+    "output_tokens": 256,
+    "max_model_len": 4096,
+    "max_batched_tokens": 2048,
+    "capture_representative_seq_len": 3072,
+    "fresh_memory_budget_required_gpu_fraction": 0.7
+  },
+  "fixture_source_sha256": "7dfa11336f7be4c8c55d0f09eb302673ef31ac51d582686d31cffc432af6fe78",
+  "warmup_requests": 2,
+  "numeric_checks": 9,
+  "expected_owner_buffers": 43,
+  "native_SWA_window": 128,
+  "K": 5,
+  "expected_native_slots_each_group_each_step": 665,
+  "actual_round_count_derived_not_16_or_128_fixed": true,
+  "initial_terminal_full_bookkeeping_replay_and_terminal_fence_required": true,
+  "capture_device_reads": false,
+  "model_math_or_weights_changed": false,
+  "performance_evaluation": false,
+  "tiny_candidate_admitted": false,
+  "formal_candidate_admitted": false,
+  "formal_tp8_claim": false,
+  "current_new_NPU_permission_at_freeze": 0,
+  "per_group_cache_NPU_proof_pending": [
+    "Three actual capture SparseAttnSharedkv input bindings",
+    "Per-group block table in-place refresh and stable native index addresses",
+    "Visible logical pages 15/16 initially and 17/18 at the terminal region",
+    "All 665 native selected slots finite and bitwise equal per group, on every real step"
+  ],
+  "no_old_release_resource_assumption": true,
+  "model_memory_budget_lowering_allowed": false,
+  "old_timing85_and_v40_70_files_unchanged": true,
+  "files": [
+    {
+      "path": "experiments/operator_stack/parallel_tiny/dspark_lane/fixture_timing_diagnostic_v2/geometry_2k_256_cpu_prepare/README.md",
+      "sha256": "190919819b129aba8e5119af5676107568f8afcf8e75204b56d7218c4cff8de0",
+      "bytes": 3979
+    },
+    {
+      "path": "experiments/operator_stack/parallel_tiny/dspark_lane/fixture_timing_diagnostic_v2/geometry_2k_256_cpu_prepare/bench_geometry_gate.py",
+      "sha256": "21c452fdef24e4749ea218f090cc9789b1889b21f905bfdd682f4e46aa67a258",
+      "bytes": 14777
+    },
+    {
+      "path": "experiments/operator_stack/parallel_tiny/dspark_lane/fixture_timing_diagnostic_v2/geometry_2k_256_cpu_prepare/check_geometry_cpu.py",
+      "sha256": "70e7b0ffabedc80f608a1e265a09f5d1cecd717a16a5d61c75f804ddaff582a8",
+      "bytes": 8690
+    },
+    {
+      "path": "experiments/operator_stack/parallel_tiny/dspark_lane/fixture_timing_diagnostic_v2/geometry_2k_256_cpu_prepare/cpu_gate.json",
+      "sha256": "9f65194808ca7af8574598dec1994e9b3da40e10efd224590e034c8602ca3ea0",
+      "bytes": 2406
+    },
+    {
+      "path": "experiments/operator_stack/parallel_tiny/dspark_lane/fixture_timing_diagnostic_v2/geometry_2k_256_cpu_prepare/frozen_quality_shared/bench_draft_graph_candidate.py",
+      "sha256": "6c292864b0437197764eaed0602ca89ab4db1d7be6abfda4e072af1912d34ec8",
+      "bytes": 13183
+    },
+    {
+      "path": "experiments/operator_stack/parallel_tiny/dspark_lane/fixture_timing_diagnostic_v2/geometry_2k_256_cpu_prepare/frozen_quality_shared/draft_graph_observer.py",
+      "sha256": "983c31462b285160c7990390b854e0d07cb546d46b66c3d9cc926e53b1737ac0",
+      "bytes": 3849
+    },
+    {
+      "path": "experiments/operator_stack/parallel_tiny/dspark_lane/fixture_timing_diagnostic_v2/geometry_2k_256_cpu_prepare/frozen_quality_shared/dspark_worker.py",
+      "sha256": "08cdd3ca4b236f75e484797d9959738947223d4723cf998526cb82a4ea3e7f47",
+      "bytes": 8607
+    },
+    {
+      "path": "experiments/operator_stack/parallel_tiny/dspark_lane/fixture_timing_diagnostic_v2/geometry_2k_256_cpu_prepare/frozen_quality_shared/graph_candidate_worker.py",
+      "sha256": "572b71410ec0bed8f9a9f405e3973ddea59abd9cd07163966d38ab610c62f404",
+      "bytes": 2863
+    },
+    {
+      "path": "experiments/operator_stack/parallel_tiny/dspark_lane/fixture_timing_diagnostic_v2/geometry_2k_256_cpu_prepare/frozen_quality_shared/graph_precision_audit.py",
+      "sha256": "a2f4b5d57179aeb392a651957c81b684f1993f4cd7ab95d4d42cdb3285a29df6",
+      "bytes": 22208
+    },
+    {
+      "path": "experiments/operator_stack/parallel_tiny/dspark_lane/fixture_timing_diagnostic_v2/geometry_2k_256_cpu_prepare/frozen_quality_shared/launch_dspark_tiny.py",
+      "sha256": "1080e7144417cd791de9e2f9b5a1a8f9b53520a911ffa07dc5dbdf9db6fd0833",
+      "bytes": 8550
+    },
+    {
+      "path": "experiments/operator_stack/parallel_tiny/dspark_lane/fixture_timing_diagnostic_v2/geometry_2k_256_cpu_prepare/frozen_quality_shared/native_first_value_trace.py",
+      "sha256": "4f254f85499417f543a443c49e43f64dc5992b3df57b336dde846f1b255ea57b",
+      "bytes": 24508
+    },
+    {
+      "path": "experiments/operator_stack/parallel_tiny/dspark_lane/fixture_timing_diagnostic_v2/geometry_2k_256_cpu_prepare/frozen_quality_shared/native_route_diagnostic_worker.py",
+      "sha256": "e782dd256fd336856f6744f3948c8e1b32432deda96f62090583b9914776ba5e",
+      "bytes": 3444
+    },
+    {
+      "path": "experiments/operator_stack/parallel_tiny/dspark_lane/fixture_timing_diagnostic_v2/geometry_2k_256_cpu_prepare/frozen_quality_shared/o_proj_cache_fixture.py",
+      "sha256": "7dfa11336f7be4c8c55d0f09eb302673ef31ac51d582686d31cffc432af6fe78",
+      "bytes": 6611
+    },
+    {
+      "path": "experiments/operator_stack/parallel_tiny/dspark_lane/fixture_timing_diagnostic_v2/geometry_2k_256_cpu_prepare/frozen_quality_shared/o_proj_cache_fixture_worker.py",
+      "sha256": "ecb95df6bb6c829e292f9153de673e69f5cd3edae31791a1984758c0d989f05e",
+      "bytes": 1468
+    },
+    {
+      "path": "experiments/operator_stack/parallel_tiny/dspark_lane/fixture_timing_diagnostic_v2/geometry_2k_256_cpu_prepare/frozen_quality_shared/stage_ids_vendor.py",
+      "sha256": "16da30c77a5658aebb324e371dec4d92dfa3f38b15214d1be10cc98bc51743a4",
+      "bytes": 4268
+    },
+    {
+      "path": "experiments/operator_stack/parallel_tiny/dspark_lane/fixture_timing_diagnostic_v2/geometry_2k_256_cpu_prepare/geometry_cache_probe.py",
+      "sha256": "a16a362ce4f334956780a42151da9025c2ab5a8be4b7dffd91992f30675a9734",
+      "bytes": 10012
+    },
+    {
+      "path": "experiments/operator_stack/parallel_tiny/dspark_lane/fixture_timing_diagnostic_v2/geometry_2k_256_cpu_prepare/geometry_contract.py",
+      "sha256": "35b324c4265e056baf0140ae857c92d36645b57d8d5a659369c4e462d9da5029",
+      "bytes": 4525
+    },
+    {
+      "path": "experiments/operator_stack/parallel_tiny/dspark_lane/fixture_timing_diagnostic_v2/geometry_2k_256_cpu_prepare/geometry_quality_worker.py",
+      "sha256": "e1f23cae1fc36e3b3aacfb0cba32736443b9b8b2f09ea3be9b89cbce3f77c200",
+      "bytes": 443
+    },
+    {
+      "path": "experiments/operator_stack/parallel_tiny/dspark_lane/fixture_timing_diagnostic_v2/geometry_2k_256_cpu_prepare/launch_geometry_gate.py",
+      "sha256": "22524b197ea31e6bbdb1f122d1518b3cb2892d36713dcc5789fba05a956d0a12",
+      "bytes": 8870
+    },
+    {
+      "path": "experiments/operator_stack/parallel_tiny/dspark_lane/fixture_timing_diagnostic_v2/geometry_2k_256_cpu_prepare/native_model_config_read.json",
+      "sha256": "c84f8b403e5d9db4e9cc3473b594c8fddd774010824fae8536fe0b4449ab15fd",
+      "bytes": 3397
+    },
+    {
+      "path": "experiments/operator_stack/parallel_tiny/dspark_lane/fixture_timing_diagnostic_v2/geometry_2k_256_cpu_prepare/native_source_read/block_pool_null_receipt.json",
+      "sha256": "30aa7813eb30a1e26751b2a85a10762bc18777072e6cea85169010ba0cfff970",
+      "bytes": 2676
+    },
+    {
+      "path": "experiments/operator_stack/parallel_tiny/dspark_lane/fixture_timing_diagnostic_v2/geometry_2k_256_cpu_prepare/native_source_read/kv_interface_receipt.json",
+      "sha256": "017d667c4041891aaaff7c3da403d43cf076508cde9cd7cf878bb71d67cf13e9",
+      "bytes": 187
+    },
+    {
+      "path": "experiments/operator_stack/parallel_tiny/dspark_lane/fixture_timing_diagnostic_v2/geometry_2k_256_cpu_prepare/native_source_read/receipt.json",
+      "sha256": "a40f170b17f57a6919fc6e1ecb621a20a7c57c112b01819de687b0d205bcdc99",
+      "bytes": 426
+    },
+    {
+      "path": "experiments/operator_stack/parallel_tiny/dspark_lane/fixture_timing_diagnostic_v2/geometry_2k_256_cpu_prepare/native_source_read/vllm_ascend/core/deepseek_v41.py",
+      "sha256": "d0d89cb4a0ef22672e1de92a80a2846ac86f8fd4ec8e7d14ab050bf1539d7acf",
+      "bytes": 15477
+    },
+    {
+      "path": "experiments/operator_stack/parallel_tiny/dspark_lane/fixture_timing_diagnostic_v2/geometry_2k_256_cpu_prepare/native_source_read/vllm_ascend/core/kv_cache_interface.py",
+      "sha256": "1283cb2f69ba2cc5a4c1a50d6dacfc5e35396203add971bbe998263939081dc1",
+      "bytes": 11078
+    },
+    {
+      "path": "experiments/operator_stack/parallel_tiny/dspark_lane/fixture_timing_diagnostic_v2/geometry_2k_256_cpu_prepare/native_source_read/vllm_ascend/models/deepseek_v4/model.py",
+      "sha256": "9ef83c7c2879f7b6115f5ac64556703858afa3786bab04ee05f9a65a15353061",
+      "bytes": 56275
+    },
+    {
+      "path": "experiments/operator_stack/parallel_tiny/dspark_lane/fixture_timing_diagnostic_v2/geometry_2k_256_cpu_prepare/readiness.json",
+      "sha256": "470b3ae7ecbf617eeac66b9d627059b0059f3140b444a5258f0cb303d669b659",
+      "bytes": 3485
+    },
+    {
+      "path": "experiments/operator_stack/parallel_tiny/dspark_lane/fixture_timing_diagnostic_v2/geometry_2k_256_cpu_prepare/run_cpu_controls.py",
+      "sha256": "137ed26c843c4db90378b89dc1b81d347b2f6fefbb05d14f0e4dffcbe68ec0c1",
+      "bytes": 2356
+    }
+  ],
+  "total_files": 28,
+  "total_bytes": 248618,
+  "no_commit_created": true
+}

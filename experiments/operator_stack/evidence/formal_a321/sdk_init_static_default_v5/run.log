@@ -1,0 +1,259 @@
+INFO 10-11 11:53:27 [__init__.py:52] Available plugins for group vllm.platform_plugins:
+INFO 10-11 11:53:27 [__init__.py:54] - ascend -> vllm_ascend:register
+INFO 10-11 11:53:27 [__init__.py:57] All plugins in this group will be loaded. Set `VLLM_PLUGINS` to control which plugins to load.
+INFO 10-11 11:53:27 [__init__.py:237] Platform plugin ascend is activated
+INFO 10-11 11:53:27 [platform.py:70] Breakable CUDAGraph on Ascend is opt-in; using VLLM_USE_BREAKABLE_CUDAGRAPH=0.
+2026-10-11 11:53:32,027 - 1465517 - ServiceProfiler - INFO - VLLM_USE_V1 not set, auto-detected via vLLM 0.27.1+empty: default 1
+INFO 10-11 11:53:42 [__init__.py:112] Registered model loader `<class 'vllm_ascend.model_loader.netloader.netloader.ModelNetLoaderElastic'>` with load format `netloader`
+INFO 10-11 11:53:42 [__init__.py:112] Registered model loader `<class 'vllm_ascend.model_loader.rfork.rfork_loader.RForkModelLoader'>` with load format `rfork`
+[transformers] Unrecognized keys in `rope_parameters` for 'rope_type'='default': {'beta_slow', 'factor', 'original_max_position_embeddings', 'beta_fast'}
+[transformers] Unrecognized keys in `rope_parameters` for 'rope_type'='default': {'beta_slow', 'factor', 'original_max_position_embeddings', 'beta_fast'}
+INFO 10-11 11:53:56 [model.py:645] Resolved architecture: DeepseekV41ForCausalLM
+INFO 10-11 11:53:57 [model.py:2214] Downcasting torch.float32 to torch.bfloat16.
+INFO 10-11 11:53:57 [model.py:1883] Using max model len 8192
+[transformers] Unrecognized keys in `rope_parameters` for 'rope_type'='default': {'beta_slow', 'factor', 'original_max_position_embeddings', 'beta_fast'}
+[transformers] Unrecognized keys in `rope_parameters` for 'rope_type'='default': {'beta_slow', 'factor', 'original_max_position_embeddings', 'beta_fast'}
+[transformers] Unrecognized keys in `rope_parameters` for 'rope_type'='default': {'beta_slow', 'factor', 'original_max_position_embeddings', 'beta_fast'}
+[transformers] Unrecognized keys in `rope_parameters` for 'rope_type'='default': {'beta_slow', 'factor', 'original_max_position_embeddings', 'beta_fast'}
+INFO 10-11 11:53:58 [model.py:645] Resolved architecture: DeepseekV41ForCausalLM
+INFO 10-11 11:53:59 [model.py:2214] Downcasting torch.float32 to torch.bfloat16.
+INFO 10-11 11:53:59 [model.py:1883] Using max model len 1048576
+[transformers] Unrecognized keys in `rope_parameters` for 'rope_type'='default': {'beta_slow', 'factor', 'original_max_position_embeddings', 'beta_fast'}
+[transformers] Unrecognized keys in `rope_parameters` for 'rope_type'='default': {'beta_slow', 'factor', 'original_max_position_embeddings', 'beta_fast'}
+INFO 10-11 11:54:13 [speculative.py:1157] Overriding draft model max model len from 1048576 to 8192
+INFO 10-11 11:54:27 [scheduler.py:242] Chunked prefill is enabled with max_num_batched_tokens=2048.
+INFO 10-11 11:54:27 [kernel.py:306] Final IR op priority after setting platform defaults: IrOpPriorityConfig(rms_norm=['native'], fused_add_rms_norm=['native'])
+WARNING 10-11 11:54:27 [vllm.py:1757] max_num_scheduled_tokens is set to 2044 based on the speculative decoding settings. This may lead to suboptimal performance. Consider increasing max_num_batched_tokens to accommodate the additional draft token slots, or decrease num_speculative_tokens or max_num_seqs.
+WARNING 10-11 11:54:27 [platform.py:651] GPU-specific parameter is not supported on Ascend. parameter=disable_cascade_attn, value=True, action: resetting to False.
+WARNING 10-11 11:54:27 [platform.py:708] Speculative quantization is set but Ascend automatically uses the main model's quantization method. parameter=quantization, action: resetting to None. 
+INFO 10-11 11:54:27 [platform.py:863] The timeout interval of the HCCL operator is 1836s. Timeout in seconds for execute_model RPC calls in multiprocessing must be greater than 1836s, Set VLLM_EXECUTE_MODEL_TIMEOUT_SECONDS=3000
+INFO 10-11 11:54:27 [ascend_config.py:161] Dynamic EPLB is False
+INFO 10-11 11:54:27 [ascend_config.py:162] The number of redundant experts is 0
+INFO 10-11 11:54:27 [platform.py:1167] FlashComm1 is disabled. Using flashinfer_all2allv as the all2all backend.
+INFO 10-11 11:54:27 [platform.py:1356] Set PYTORCH_NPU_ALLOC_CONF=expandable_segments:True
+INFO 10-11 11:54:27 [compilation.py:329] Enabled custom fusions: norm_quant, act_quant
+INFO 10-11 11:54:33 [__init__.py:52] Available plugins for group vllm.platform_plugins:
+INFO 10-11 11:54:33 [__init__.py:54] - ascend -> vllm_ascend:register
+INFO 10-11 11:54:33 [__init__.py:57] All plugins in this group will be loaded. Set `VLLM_PLUGINS` to control which plugins to load.
+INFO 10-11 11:54:33 [__init__.py:237] Platform plugin ascend is activated
+INFO 10-11 11:54:33 [__init__.py:52] Available plugins for group vllm.platform_plugins:
+INFO 10-11 11:54:33 [__init__.py:54] - ascend -> vllm_ascend:register
+INFO 10-11 11:54:33 [__init__.py:57] All plugins in this group will be loaded. Set `VLLM_PLUGINS` to control which plugins to load.
+INFO 10-11 11:54:33 [__init__.py:237] Platform plugin ascend is activated
+INFO 10-11 11:54:33 [platform.py:70] Breakable CUDAGraph on Ascend is opt-in; using VLLM_USE_BREAKABLE_CUDAGRAPH=0.
+INFO 10-11 11:54:33 [platform.py:70] Breakable CUDAGraph on Ascend is opt-in; using VLLM_USE_BREAKABLE_CUDAGRAPH=0.
+INFO 10-11 11:54:33 [__init__.py:52] Available plugins for group vllm.platform_plugins:
+INFO 10-11 11:54:33 [__init__.py:54] - ascend -> vllm_ascend:register
+INFO 10-11 11:54:33 [__init__.py:57] All plugins in this group will be loaded. Set `VLLM_PLUGINS` to control which plugins to load.
+INFO 10-11 11:54:33 [__init__.py:237] Platform plugin ascend is activated
+INFO 10-11 11:54:33 [platform.py:70] Breakable CUDAGraph on Ascend is opt-in; using VLLM_USE_BREAKABLE_CUDAGRAPH=0.
+INFO 10-11 11:54:33 [__init__.py:52] Available plugins for group vllm.platform_plugins:
+INFO 10-11 11:54:33 [__init__.py:54] - ascend -> vllm_ascend:register
+INFO 10-11 11:54:33 [__init__.py:57] All plugins in this group will be loaded. Set `VLLM_PLUGINS` to control which plugins to load.
+INFO 10-11 11:54:33 [__init__.py:237] Platform plugin ascend is activated
+INFO 10-11 11:54:33 [__init__.py:52] Available plugins for group vllm.platform_plugins:
+INFO 10-11 11:54:33 [__init__.py:54] - ascend -> vllm_ascend:register
+INFO 10-11 11:54:33 [__init__.py:57] All plugins in this group will be loaded. Set `VLLM_PLUGINS` to control which plugins to load.
+INFO 10-11 11:54:33 [__init__.py:237] Platform plugin ascend is activated
+INFO 10-11 11:54:33 [platform.py:70] Breakable CUDAGraph on Ascend is opt-in; using VLLM_USE_BREAKABLE_CUDAGRAPH=0.
+INFO 10-11 11:54:33 [platform.py:70] Breakable CUDAGraph on Ascend is opt-in; using VLLM_USE_BREAKABLE_CUDAGRAPH=0.
+INFO 10-11 11:54:34 [__init__.py:52] Available plugins for group vllm.platform_plugins:
+INFO 10-11 11:54:34 [__init__.py:54] - ascend -> vllm_ascend:register
+INFO 10-11 11:54:34 [__init__.py:57] All plugins in this group will be loaded. Set `VLLM_PLUGINS` to control which plugins to load.
+INFO 10-11 11:54:34 [__init__.py:237] Platform plugin ascend is activated
+INFO 10-11 11:54:34 [platform.py:70] Breakable CUDAGraph on Ascend is opt-in; using VLLM_USE_BREAKABLE_CUDAGRAPH=0.
+INFO 10-11 11:54:34 [__init__.py:52] Available plugins for group vllm.platform_plugins:
+INFO 10-11 11:54:34 [__init__.py:54] - ascend -> vllm_ascend:register
+INFO 10-11 11:54:34 [__init__.py:57] All plugins in this group will be loaded. Set `VLLM_PLUGINS` to control which plugins to load.
+INFO 10-11 11:54:34 [__init__.py:52] Available plugins for group vllm.platform_plugins:
+INFO 10-11 11:54:34 [__init__.py:54] - ascend -> vllm_ascend:register
+INFO 10-11 11:54:34 [__init__.py:57] All plugins in this group will be loaded. Set `VLLM_PLUGINS` to control which plugins to load.
+INFO 10-11 11:54:34 [__init__.py:237] Platform plugin ascend is activated
+INFO 10-11 11:54:34 [__init__.py:237] Platform plugin ascend is activated
+INFO 10-11 11:54:34 [platform.py:70] Breakable CUDAGraph on Ascend is opt-in; using VLLM_USE_BREAKABLE_CUDAGRAPH=0.
+INFO 10-11 11:54:34 [platform.py:70] Breakable CUDAGraph on Ascend is opt-in; using VLLM_USE_BREAKABLE_CUDAGRAPH=0.
+2026-10-11 11:54:40,291 - 1465724 - ServiceProfiler - INFO - VLLM_USE_V1 not set, auto-detected via vLLM 0.27.1+empty: default 1
+INFO 10-11 11:54:40 [__init__.py:112] Registered model loader `<class 'vllm_ascend.model_loader.netloader.netloader.ModelNetLoaderElastic'>` with load format `netloader`
+2026-10-11 11:54:40,310 - 1465722 - ServiceProfiler - INFO - VLLM_USE_V1 not set, auto-detected via vLLM 0.27.1+empty: default 1
+INFO 10-11 11:54:40 [__init__.py:112] Registered model loader `<class 'vllm_ascend.model_loader.netloader.netloader.ModelNetLoaderElastic'>` with load format `netloader`
+2026-10-11 11:54:40,386 - 1465721 - ServiceProfiler - INFO - VLLM_USE_V1 not set, auto-detected via vLLM 0.27.1+empty: default 1
+INFO 10-11 11:54:40 [__init__.py:112] Registered model loader `<class 'vllm_ascend.model_loader.netloader.netloader.ModelNetLoaderElastic'>` with load format `netloader`
+INFO 10-11 11:54:40 [__init__.py:112] Registered model loader `<class 'vllm_ascend.model_loader.rfork.rfork_loader.RForkModelLoader'>` with load format `rfork`
+INFO 10-11 11:54:40 [__init__.py:112] Registered model loader `<class 'vllm_ascend.model_loader.rfork.rfork_loader.RForkModelLoader'>` with load format `rfork`
+2026-10-11 11:54:40,609 - 1465725 - ServiceProfiler - INFO - VLLM_USE_V1 not set, auto-detected via vLLM 0.27.1+empty: default 1
+INFO 10-11 11:54:40 [__init__.py:112] Registered model loader `<class 'vllm_ascend.model_loader.netloader.netloader.ModelNetLoaderElastic'>` with load format `netloader`
+INFO 10-11 11:54:40 [__init__.py:112] Registered model loader `<class 'vllm_ascend.model_loader.rfork.rfork_loader.RForkModelLoader'>` with load format `rfork`
+2026-10-11 11:54:40,739 - 1465723 - ServiceProfiler - INFO - VLLM_USE_V1 not set, auto-detected via vLLM 0.27.1+empty: default 1
+INFO 10-11 11:54:40 [__init__.py:112] Registered model loader `<class 'vllm_ascend.model_loader.netloader.netloader.ModelNetLoaderElastic'>` with load format `netloader`
+INFO 10-11 11:54:40 [__init__.py:112] Registered model loader `<class 'vllm_ascend.model_loader.rfork.rfork_loader.RForkModelLoader'>` with load format `rfork`
+INFO 10-11 11:54:40 [__init__.py:112] Registered model loader `<class 'vllm_ascend.model_loader.rfork.rfork_loader.RForkModelLoader'>` with load format `rfork`
+2026-10-11 11:54:41,059 - 1465726 - ServiceProfiler - INFO - VLLM_USE_V1 not set, auto-detected via vLLM 0.27.1+empty: default 1
+INFO 10-11 11:54:41 [__init__.py:112] Registered model loader `<class 'vllm_ascend.model_loader.netloader.netloader.ModelNetLoaderElastic'>` with load format `netloader`
+2026-10-11 11:54:41,098 - 1465728 - ServiceProfiler - INFO - VLLM_USE_V1 not set, auto-detected via vLLM 0.27.1+empty: default 1
+INFO 10-11 11:54:41 [__init__.py:112] Registered model loader `<class 'vllm_ascend.model_loader.netloader.netloader.ModelNetLoaderElastic'>` with load format `netloader`
+2026-10-11 11:54:41,157 - 1465727 - ServiceProfiler - INFO - VLLM_USE_V1 not set, auto-detected via vLLM 0.27.1+empty: default 1
+INFO 10-11 11:54:41 [__init__.py:112] Registered model loader `<class 'vllm_ascend.model_loader.netloader.netloader.ModelNetLoaderElastic'>` with load format `netloader`
+INFO 10-11 11:54:41 [__init__.py:112] Registered model loader `<class 'vllm_ascend.model_loader.rfork.rfork_loader.RForkModelLoader'>` with load format `rfork`
+INFO 10-11 11:54:41 [__init__.py:112] Registered model loader `<class 'vllm_ascend.model_loader.rfork.rfork_loader.RForkModelLoader'>` with load format `rfork`
+INFO 10-11 11:54:41 [__init__.py:112] Registered model loader `<class 'vllm_ascend.model_loader.rfork.rfork_loader.RForkModelLoader'>` with load format `rfork`
+[transformers] Unrecognized keys in `rope_parameters` for 'rope_type'='default': {'factor', 'beta_fast', 'beta_slow', 'original_max_position_embeddings'}
+[transformers] Unrecognized keys in `rope_parameters` for 'rope_type'='default': {'factor', 'beta_fast', 'beta_slow', 'original_max_position_embeddings'}
+[transformers] Unrecognized keys in `rope_parameters` for 'rope_type'='default': {'factor', 'beta_fast', 'beta_slow', 'original_max_position_embeddings'}
+[transformers] Unrecognized keys in `rope_parameters` for 'rope_type'='default': {'factor', 'beta_fast', 'beta_slow', 'original_max_position_embeddings'}
+[transformers] Unrecognized keys in `rope_parameters` for 'rope_type'='default': {'factor', 'original_max_position_embeddings', 'beta_fast', 'beta_slow'}
+[transformers] Unrecognized keys in `rope_parameters` for 'rope_type'='default': {'factor', 'original_max_position_embeddings', 'beta_fast', 'beta_slow'}
+[transformers] Unrecognized keys in `rope_parameters` for 'rope_type'='default': {'factor', 'beta_slow', 'original_max_position_embeddings', 'beta_fast'}
+[transformers] Unrecognized keys in `rope_parameters` for 'rope_type'='default': {'factor', 'beta_slow', 'original_max_position_embeddings', 'beta_fast'}
+[transformers] Unrecognized keys in `rope_parameters` for 'rope_type'='default': {'beta_slow', 'factor', 'beta_fast', 'original_max_position_embeddings'}
+[transformers] Unrecognized keys in `rope_parameters` for 'rope_type'='default': {'beta_slow', 'factor', 'beta_fast', 'original_max_position_embeddings'}
+[transformers] Unrecognized keys in `rope_parameters` for 'rope_type'='default': {'beta_fast', 'original_max_position_embeddings', 'factor', 'beta_slow'}
+[transformers] Unrecognized keys in `rope_parameters` for 'rope_type'='default': {'beta_fast', 'original_max_position_embeddings', 'beta_slow', 'factor'}
+[transformers] Unrecognized keys in `rope_parameters` for 'rope_type'='default': {'beta_fast', 'original_max_position_embeddings', 'factor', 'beta_slow'}
+[transformers] Unrecognized keys in `rope_parameters` for 'rope_type'='default': {'beta_fast', 'original_max_position_embeddings', 'beta_slow', 'factor'}
+[transformers] Unrecognized keys in `rope_parameters` for 'rope_type'='default': {'factor', 'beta_slow', 'beta_fast', 'original_max_position_embeddings'}
+[transformers] Unrecognized keys in `rope_parameters` for 'rope_type'='default': {'factor', 'beta_slow', 'beta_fast', 'original_max_position_embeddings'}
+WARNING 10-11 11:54:43 [patch_triton.py:332] NPU Triton causal_conv1d_update is unavailable (cannot import name 'causal_conv1d_update_npu' from 'vllm_ascend.ops.triton.mamba.causal_conv1d' (/vllm-workspace/vllm-ascend/vllm_ascend/ops/triton/mamba/causal_conv1d.py)); falling back to the PyTorch implementation, which syncs per request and therefore stalls ACL graph capture at decode-FULL.
+WARNING 10-11 11:54:43 [patch_triton.py:332] NPU Triton causal_conv1d_update is unavailable (cannot import name 'causal_conv1d_update_npu' from 'vllm_ascend.ops.triton.mamba.causal_conv1d' (/vllm-workspace/vllm-ascend/vllm_ascend/ops/triton/mamba/causal_conv1d.py)); falling back to the PyTorch implementation, which syncs per request and therefore stalls ACL graph capture at decode-FULL.
+WARNING 10-11 11:54:43 [patch_triton.py:332] NPU Triton causal_conv1d_update is unavailable (cannot import name 'causal_conv1d_update_npu' from 'vllm_ascend.ops.triton.mamba.causal_conv1d' (/vllm-workspace/vllm-ascend/vllm_ascend/ops/triton/mamba/causal_conv1d.py)); falling back to the PyTorch implementation, which syncs per request and therefore stalls ACL graph capture at decode-FULL.
+INFO 10-11 11:54:43 [ascend_config.py:161] Dynamic EPLB is False
+INFO 10-11 11:54:43 [ascend_config.py:162] The number of redundant experts is 0
+INFO 10-11 11:54:43 [ascend_config.py:161] Dynamic EPLB is False
+INFO 10-11 11:54:43 [ascend_config.py:162] The number of redundant experts is 0
+INFO 10-11 11:54:43 [ascend_config.py:161] Dynamic EPLB is False
+INFO 10-11 11:54:43 [ascend_config.py:162] The number of redundant experts is 0
+WARNING 10-11 11:54:43 [patch_triton.py:332] NPU Triton causal_conv1d_update is unavailable (cannot import name 'causal_conv1d_update_npu' from 'vllm_ascend.ops.triton.mamba.causal_conv1d' (/vllm-workspace/vllm-ascend/vllm_ascend/ops/triton/mamba/causal_conv1d.py)); falling back to the PyTorch implementation, which syncs per request and therefore stalls ACL graph capture at decode-FULL.
+WARNING 10-11 11:54:43 [patch_triton.py:332] NPU Triton causal_conv1d_update is unavailable (cannot import name 'causal_conv1d_update_npu' from 'vllm_ascend.ops.triton.mamba.causal_conv1d' (/vllm-workspace/vllm-ascend/vllm_ascend/ops/triton/mamba/causal_conv1d.py)); falling back to the PyTorch implementation, which syncs per request and therefore stalls ACL graph capture at decode-FULL.
+INFO 10-11 11:54:43 [ascend_config.py:161] Dynamic EPLB is False
+INFO 10-11 11:54:43 [ascend_config.py:162] The number of redundant experts is 0
+INFO 10-11 11:54:43 [ascend_config.py:161] Dynamic EPLB is False
+INFO 10-11 11:54:43 [ascend_config.py:162] The number of redundant experts is 0
+WARNING 10-11 11:54:44 [patch_triton.py:332] NPU Triton causal_conv1d_update is unavailable (cannot import name 'causal_conv1d_update_npu' from 'vllm_ascend.ops.triton.mamba.causal_conv1d' (/vllm-workspace/vllm-ascend/vllm_ascend/ops/triton/mamba/causal_conv1d.py)); falling back to the PyTorch implementation, which syncs per request and therefore stalls ACL graph capture at decode-FULL.
+WARNING 10-11 11:54:44 [patch_triton.py:332] NPU Triton causal_conv1d_update is unavailable (cannot import name 'causal_conv1d_update_npu' from 'vllm_ascend.ops.triton.mamba.causal_conv1d' (/vllm-workspace/vllm-ascend/vllm_ascend/ops/triton/mamba/causal_conv1d.py)); falling back to the PyTorch implementation, which syncs per request and therefore stalls ACL graph capture at decode-FULL.
+WARNING 10-11 11:54:44 [patch_triton.py:332] NPU Triton causal_conv1d_update is unavailable (cannot import name 'causal_conv1d_update_npu' from 'vllm_ascend.ops.triton.mamba.causal_conv1d' (/vllm-workspace/vllm-ascend/vllm_ascend/ops/triton/mamba/causal_conv1d.py)); falling back to the PyTorch implementation, which syncs per request and therefore stalls ACL graph capture at decode-FULL.
+INFO 10-11 11:54:44 [ascend_config.py:161] Dynamic EPLB is False
+INFO 10-11 11:54:44 [ascend_config.py:162] The number of redundant experts is 0
+INFO 10-11 11:54:44 [ascend_config.py:161] Dynamic EPLB is False
+INFO 10-11 11:54:44 [ascend_config.py:162] The number of redundant experts is 0
+INFO 10-11 11:54:44 [ascend_config.py:161] Dynamic EPLB is False
+INFO 10-11 11:54:44 [ascend_config.py:162] The number of redundant experts is 0
+INFO 10-11 11:54:45 [parallel_state.py:1640] world_size=8 rank=4 local_rank=4 distributed_init_method=tcp://127.0.0.1:57431 backend=hccl
+INFO 10-11 11:54:45 [parallel_state.py:1640] world_size=8 rank=5 local_rank=5 distributed_init_method=tcp://127.0.0.1:57431 backend=hccl
+INFO 10-11 11:54:45 [parallel_state.py:1640] world_size=8 rank=7 local_rank=7 distributed_init_method=tcp://127.0.0.1:57431 backend=hccl
+INFO 10-11 11:54:45 [parallel_state.py:1640] world_size=8 rank=6 local_rank=6 distributed_init_method=tcp://127.0.0.1:57431 backend=hccl
+INFO 10-11 11:54:54 [parallel_state.py:1640] world_size=8 rank=3 local_rank=3 distributed_init_method=tcp://127.0.0.1:57431 backend=hccl
+Exception ignored in atexit callback: <function shutdown at 0xffff19ba6de0>
+Traceback (most recent call last):
+  File "/usr/local/python3.12.13/lib/python3.12/site-packages/ray/_private/client_mode_hook.py", line 104, in wrapper
+    return func(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/python3.12.13/lib/python3.12/site-packages/ray/_private/worker.py", line 1989, in shutdown
+    from ray.dag.compiled_dag_node import _shutdown_all_compiled_dags
+  File "/usr/local/python3.12.13/lib/python3.12/site-packages/ray/dag/__init__.py", line 1, in <module>
+    from ray.dag.dag_node import DAGNode
+  File "/usr/local/python3.12.13/lib/python3.12/site-packages/ray/dag/dag_node.py", line 2, in <module>
+    from ray.experimental.channel.auto_transport_type import AutoTransportType
+  File "/usr/local/python3.12.13/lib/python3.12/site-packages/ray/experimental/channel/__init__.py", line 1, in <module>
+    from ray.experimental.channel.cached_channel import CachedChannel
+  File "/usr/local/python3.12.13/lib/python3.12/site-packages/ray/experimental/channel/cached_channel.py", line 4, in <module>
+    from ray.experimental.channel.common import ChannelInterface
+  File "/usr/local/python3.12.13/lib/python3.12/site-packages/ray/experimental/channel/common.py", line 21, in <module>
+    from ray.experimental.channel.communicator import Communicator
+  File "<frozen importlib._bootstrap>", line 1360, in _find_and_load
+  File "<frozen importlib._bootstrap>", line 1331, in _find_and_load_unlocked
+  File "<frozen importlib._bootstrap>", line 935, in _load_unlocked
+  File "<frozen importlib._bootstrap_external>", line 995, in exec_module
+  File "<frozen importlib._bootstrap_external>", line 1091, in get_code
+  File "<frozen importlib._bootstrap_external>", line 1190, in get_data
+  File "/vllm-workspace/vllm-ascend/vllm_ascend/worker/worker.py", line 197, in signal_handler
+    raise SystemExit()
+SystemExit: 
+[W1011 11:54:54.143809510 TCPStore.cpp:340] [c10d] TCP client failed to connect/validate to host 127.0.0.1:57431 - retrying (try=0, timeout=1800000ms, delay=6373ms): Interrupted system call
+Exception raised from delay at /pytorch/torch/csrc/distributed/c10d/socket.cpp:113 (most recent call first):
+frame #0: c10::Error::Error(c10::SourceLocation, std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> >) + 0xc8 (0xffffa29a5978 in /usr/local/python3.12.13/lib/python3.12/site-packages/torch/lib/libc10.so)
+frame #1: <unknown function> + 0x6669fa4 (0xffffa8cd9fa4 in /usr/local/python3.12.13/lib/python3.12/site-packages/torch/lib/libtorch_cpu.so)
+frame #2: <unknown function> + 0x666abd0 (0xffffa8cdabd0 in /usr/local/python3.12.13/lib/python3.12/site-packages/torch/lib/libtorch_cpu.so)
+frame #3: <unknown function> + 0x666b098 (0xffffa8cdb098 in /usr/local/python3.12.13/lib/python3.12/site-packages/torch/lib/libtorch_cpu.so)
+frame #4: <unknown function> + 0x65db50c (0xffffa8c4b50c in /usr/local/python3.12.13/lib/python3.12/site-packages/torch/lib/libtorch_cpu.so)
+frame #5: c10d::TCPStore::TCPStore(std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> >, c10d::TCPStoreOptions const&) + 0x30c (0xffffa8c54a6c in /usr/local/python3.12.13/lib/python3.12/site-packages/torch/lib/libtorch_cpu.so)
+frame #6: <unknown function> + 0x11732b0 (0xffffadec32b0 in /usr/local/python3.12.13/lib/python3.12/site-packages/torch/lib/libtorch_python.so)
+frame #7: <unknown function> + 0x5c724c (0xffffad31724c in /usr/local/python3.12.13/lib/python3.12/site-packages/torch/lib/libtorch_python.so)
+<omitting python frames>
+frame #14: <unknown function> + 0x626f1c (0xffffad376f1c in /usr/local/python3.12.13/lib/python3.12/site-packages/torch/lib/libtorch_python.so)
+frame #31: <unknown function> + 0x27400 (0xffffaffe7400 in /lib/aarch64-linux-gnu/libc.so.6)
+frame #32: __libc_start_main + 0x98 (0xffffaffe74d8 in /lib/aarch64-linux-gnu/libc.so.6)
+frame #33: _start + 0x30 (0xaaaaaff808b0 in /usr/local/python3.12.13/bin/python)
+
+[W1011 11:54:54.143806400 TCPStore.cpp:340] [c10d] TCP client failed to connect/validate to host 127.0.0.1:57431 - retrying (try=0, timeout=1800000ms, delay=699ms): Interrupted system call
+Exception raised from delay at /pytorch/torch/csrc/distributed/c10d/socket.cpp:113 (most recent call first):
+frame #0: c10::Error::Error(c10::SourceLocation, std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> >) + 0xc8 (0xffff7e315978 in /usr/local/python3.12.13/lib/python3.12/site-packages/torch/lib/libc10.so)
+frame #1: <unknown function> + 0x6669fa4 (0xffff84649fa4 in /usr/local/python3.12.13/lib/python3.12/site-packages/torch/lib/libtorch_cpu.so)
+frame #2: <unknown function> + 0x666abd0 (0xffff8464abd0 in /usr/local/python3.12.13/lib/python3.12/site-packages/torch/lib/libtorch_cpu.so)
+frame #3: <unknown function> + 0x666b098 (0xffff8464b098 in /usr/local/python3.12.13/lib/python3.12/site-packages/torch/lib/libtorch_cpu.so)
+frame #4: <unknown function> + 0x65db50c (0xffff845bb50c in /usr/local/python3.12.13/lib/python3.12/site-packages/torch/lib/libtorch_cpu.so)
+frame #5: c10d::TCPStore::TCPStore(std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> >, c10d::TCPStoreOptions const&) + 0x30c (0xffff845c4a6c in /usr/local/python3.12.13/lib/python3.12/site-packages/torch/lib/libtorch_cpu.so)
+frame #6: <unknown function> + 0x11732b0 (0xffff898332b0 in /usr/local/python3.12.13/lib/python3.12/site-packages/torch/lib/libtorch_python.so)
+frame #7: <unknown function> + 0x5c724c (0xffff88c8724c in /usr/local/python3.12.13/lib/python3.12/site-packages/torch/lib/libtorch_python.so)
+<omitting python frames>
+frame #14: <unknown function> + 0x626f1c (0xffff88ce6f1c in /usr/local/python3.12.13/lib/python3.12/site-packages/torch/lib/libtorch_python.so)
+frame #31: <unknown function> + 0x27400 (0xffff8b957400 in /lib/aarch64-linux-gnu/libc.so.6)
+frame #32: __libc_start_main + 0x98 (0xffff8b9574d8 in /lib/aarch64-linux-gnu/libc.so.6)
+frame #33: _start + 0x30 (0xaaaab39108b0 in /usr/local/python3.12.13/bin/python)
+
+[W1011 11:54:54.143882060 TCPStore.cpp:340] [c10d] TCP client failed to connect/validate to host 127.0.0.1:57431 - retrying (try=0, timeout=1800000ms, delay=4716ms): Interrupted system call
+Exception raised from delay at /pytorch/torch/csrc/distributed/c10d/socket.cpp:113 (most recent call first):
+frame #0: c10::Error::Error(c10::SourceLocation, std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> >) + 0xc8 (0xffff96d05978 in /usr/local/python3.12.13/lib/python3.12/site-packages/torch/lib/libc10.so)
+frame #1: <unknown function> + 0x6669fa4 (0xffff9d039fa4 in /usr/local/python3.12.13/lib/python3.12/site-packages/torch/lib/libtorch_cpu.so)
+frame #2: <unknown function> + 0x666abd0 (0xffff9d03abd0 in /usr/local/python3.12.13/lib/python3.12/site-packages/torch/lib/libtorch_cpu.so)
+frame #3: <unknown function> + 0x666b098 (0xffff9d03b098 in /usr/local/python3.12.13/lib/python3.12/site-packages/torch/lib/libtorch_cpu.so)
+frame #4: <unknown function> + 0x65db50c (0xffff9cfab50c in /usr/local/python3.12.13/lib/python3.12/site-packages/torch/lib/libtorch_cpu.so)
+frame #5: c10d::TCPStore::TCPStore(std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> >, c10d::TCPStoreOptions const&) + 0x30c (0xffff9cfb4a6c in /usr/local/python3.12.13/lib/python3.12/site-packages/torch/lib/libtorch_cpu.so)
+frame #6: <unknown function> + 0x11732b0 (0xffffa22232b0 in /usr/local/python3.12.13/lib/python3.12/site-packages/torch/lib/libtorch_python.so)
+frame #7: <unknown function> + 0x5c724c (0xffffa167724c in /usr/local/python3.12.13/lib/python3.12/site-packages/torch/lib/libtorch_python.so)
+<omitting python frames>
+frame #14: <unknown function> + 0x626f1c (0xffffa16d6f1c in /usr/local/python3.12.13/lib/python3.12/site-packages/torch/lib/libtorch_python.so)
+frame #31: <unknown function> + 0x27400 (0xffffa4347400 in /lib/aarch64-linux-gnu/libc.so.6)
+frame #32: __libc_start_main + 0x98 (0xffffa43474d8 in /lib/aarch64-linux-gnu/libc.so.6)
+frame #33: _start + 0x30 (0xaaaae8ff08b0 in /usr/local/python3.12.13/bin/python)
+
+[W1011 11:54:54.143881800 TCPStore.cpp:340] [c10d] TCP client failed to connect/validate to host 127.0.0.1:57431 - retrying (try=0, timeout=1800000ms, delay=4896ms): Interrupted system call
+Exception raised from delay at /pytorch/torch/csrc/distributed/c10d/socket.cpp:113 (most recent call first):
+frame #0: c10::Error::Error(c10::SourceLocation, std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> >) + 0xc8 (0xffff82465978 in /usr/local/python3.12.13/lib/python3.12/site-packages/torch/lib/libc10.so)
+frame #1: <unknown function> + 0x6669fa4 (0xffff88799fa4 in /usr/local/python3.12.13/lib/python3.12/site-packages/torch/lib/libtorch_cpu.so)
+frame #2: <unknown function> + 0x666abd0 (0xffff8879abd0 in /usr/local/python3.12.13/lib/python3.12/site-packages/torch/lib/libtorch_cpu.so)
+frame #3: <unknown function> + 0x666b098 (0xffff8879b098 in /usr/local/python3.12.13/lib/python3.12/site-packages/torch/lib/libtorch_cpu.so)
+frame #4: <unknown function> + 0x65db50c (0xffff8870b50c in /usr/local/python3.12.13/lib/python3.12/site-packages/torch/lib/libtorch_cpu.so)
+frame #5: c10d::TCPStore::TCPStore(std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> >, c10d::TCPStoreOptions const&) + 0x30c (0xffff88714a6c in /usr/local/python3.12.13/lib/python3.12/site-packages/torch/lib/libtorch_cpu.so)
+frame #6: <unknown function> + 0x11732b0 (0xffff8d9832b0 in /usr/local/python3.12.13/lib/python3.12/site-packages/torch/lib/libtorch_python.so)
+frame #7: <unknown function> + 0x5c724c (0xffff8cdd724c in /usr/local/python3.12.13/lib/python3.12/site-packages/torch/lib/libtorch_python.so)
+<omitting python frames>
+frame #14: <unknown function> + 0x626f1c (0xffff8ce36f1c in /usr/local/python3.12.13/lib/python3.12/site-packages/torch/lib/libtorch_python.so)
+frame #31: <unknown function> + 0x27400 (0xffff8faa7400 in /lib/aarch64-linux-gnu/libc.so.6)
+frame #32: __libc_start_main + 0x98 (0xffff8faa74d8 in /lib/aarch64-linux-gnu/libc.so.6)
+frame #33: _start + 0x30 (0xaaaac8d708b0 in /usr/local/python3.12.13/bin/python)
+
+[W1011 11:54:54.143810270 TCPStore.cpp:340] [c10d] TCP client failed to connect/validate to host 127.0.0.1:57431 - retrying (try=0, timeout=1800000ms, delay=4365ms): Interrupted system call
+Exception raised from delay at /pytorch/torch/csrc/distributed/c10d/socket.cpp:113 (most recent call first):
+frame #0: c10::Error::Error(c10::SourceLocation, std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> >) + 0xc8 (0xffffaf1e5978 in /usr/local/python3.12.13/lib/python3.12/site-packages/torch/lib/libc10.so)
+frame #1: <unknown function> + 0x6669fa4 (0xffffb5519fa4 in /usr/local/python3.12.13/lib/python3.12/site-packages/torch/lib/libtorch_cpu.so)
+frame #2: <unknown function> + 0x666abd0 (0xffffb551abd0 in /usr/local/python3.12.13/lib/python3.12/site-packages/torch/lib/libtorch_cpu.so)
+frame #3: <unknown function> + 0x666b098 (0xffffb551b098 in /usr/local/python3.12.13/lib/python3.12/site-packages/torch/lib/libtorch_cpu.so)
+frame #4: <unknown function> + 0x65db50c (0xffffb548b50c in /usr/local/python3.12.13/lib/python3.12/site-packages/torch/lib/libtorch_cpu.so)
+frame #5: c10d::TCPStore::TCPStore(std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> >, c10d::TCPStoreOptions const&) + 0x30c (0xffffb5494a6c in /usr/local/python3.12.13/lib/python3.12/site-packages/torch/lib/libtorch_cpu.so)
+frame #6: <unknown function> + 0x11732b0 (0xffffba7032b0 in /usr/local/python3.12.13/lib/python3.12/site-packages/torch/lib/libtorch_python.so)
+frame #7: <unknown function> + 0x5c724c (0xffffb9b5724c in /usr/local/python3.12.13/lib/python3.12/site-packages/torch/lib/libtorch_python.so)
+<omitting python frames>
+frame #14: <unknown function> + 0x626f1c (0xffffb9bb6f1c in /usr/local/python3.12.13/lib/python3.12/site-packages/torch/lib/libtorch_python.so)
+frame #31: <unknown function> + 0x27400 (0xffffbc827400 in /lib/aarch64-linux-gnu/libc.so.6)
+frame #32: __libc_start_main + 0x98 (0xffffbc8274d8 in /lib/aarch64-linux-gnu/libc.so.6)
+frame #33: _start + 0x30 (0xaaaacf0d08b0 in /usr/local/python3.12.13/bin/python)
+
+{
+  "passed": false,
+  "variant": "static_default",
+  "model_load_called": false,
+  "device_audit_passed": false,
+  "full_consumer_audit_passed": false,
+  "output": "/work/results/formal_dspark_sdk_init_static_default_v5/gate"
+}
+/usr/local/python3.12.13/lib/python3.12/multiprocessing/resource_tracker.py:279: UserWarning: resource_tracker: There appear to be 5 leaked semaphore objects to clean up at shutdown
+  warnings.warn('resource_tracker: There appear to be %d '

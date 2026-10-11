@@ -1,0 +1,339 @@
+{
+  "scope": "CPU double-AOT with exact v5 ABI helper implementation; no SDK/NPU",
+  "torch": "2.10.0+cpu",
+  "all_original_inputs_are_tensor": true,
+  "records": [
+    {
+      "boundary": "outer_fw_compile",
+      "example_args": {
+        "type": "list",
+        "length": 19,
+        "items": [
+          {
+            "type": "FakeTensor",
+            "shape": [
+              6,
+              64
+            ],
+            "stride": [
+              64,
+              1
+            ]
+          },
+          {
+            "type": "FakeTensor",
+            "shape": [
+              64,
+              64
+            ],
+            "stride": [
+              64,
+              1
+            ]
+          },
+          {
+            "type": "FakeTensor",
+            "shape": [
+              6,
+              64
+            ],
+            "stride": [
+              64,
+              1
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "boundary": "inner_fw_compile",
+      "example_args": {
+        "type": "list",
+        "length": 19,
+        "items": [
+          {
+            "type": "FakeTensor",
+            "shape": [
+              6,
+              64
+            ],
+            "stride": [
+              64,
+              1
+            ]
+          },
+          {
+            "type": "FakeTensor",
+            "shape": [
+              64,
+              64
+            ],
+            "stride": [
+              64,
+              1
+            ]
+          },
+          {
+            "type": "FakeTensor",
+            "shape": [
+              6,
+              64
+            ],
+            "stride": [
+              64,
+              1
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "boundary": "sdk_backend_return",
+      "boxed": true,
+      "signature": "(*args, **kwargs)"
+    },
+    {
+      "boundary": "outer_backend_return",
+      "boxed": true,
+      "signature": "(arguments, **kwargs)"
+    },
+    {
+      "boundary": "copymode_invoke",
+      "runtime_args": {
+        "type": "tuple",
+        "length": 19,
+        "items": [
+          {
+            "type": "Tensor",
+            "shape": [
+              6,
+              64
+            ],
+            "stride": [
+              64,
+              1
+            ]
+          },
+          {
+            "type": "Tensor",
+            "shape": [
+              64,
+              64
+            ],
+            "stride": [
+              64,
+              1
+            ]
+          },
+          {
+            "type": "Tensor",
+            "shape": [
+              6,
+              64
+            ],
+            "stride": [
+              64,
+              1
+            ]
+          }
+        ]
+      },
+      "inner_boxed_now": true
+    },
+    {
+      "boundary": "dynamo_unboxed_entry",
+      "container": "tuple",
+      "arity": 19,
+      "types": [
+        "torch.Tensor",
+        "torch.Tensor",
+        "torch.Tensor",
+        "torch.Tensor",
+        "torch.Tensor",
+        "torch.Tensor",
+        "torch.Tensor",
+        "torch.Tensor",
+        "torch.Tensor",
+        "torch.Tensor",
+        "torch.Tensor",
+        "torch.Tensor",
+        "torch.Tensor",
+        "torch.Tensor",
+        "torch.Tensor",
+        "torch.Tensor",
+        "torch.Tensor",
+        "torch.Tensor",
+        "torch.Tensor"
+      ],
+      "tensor_mask": [
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true
+      ],
+      "object_ids": [
+        281473078463136,
+        281473078463216,
+        281473078465216,
+        281473078463296,
+        281473078465296,
+        281473078463456,
+        281473078464976,
+        281473078465376,
+        281473078465456,
+        281473078465696,
+        281473078465776,
+        281473078465136,
+        281473078465056,
+        281473078465856,
+        281473078465936,
+        281473078466016,
+        281473078466096,
+        281473078466176,
+        281473078466256
+      ],
+      "keyword_names": [],
+      "keyword_types": {}
+    },
+    {
+      "boundary": "outer_aot_boxed_fw_to_sdk_unboxed",
+      "container": "tuple",
+      "arity": 19,
+      "types": [
+        "torch.Tensor",
+        "torch.Tensor",
+        "torch.Tensor",
+        "torch.Tensor",
+        "torch.Tensor",
+        "torch.Tensor",
+        "torch.Tensor",
+        "torch.Tensor",
+        "torch.Tensor",
+        "torch.Tensor",
+        "torch.Tensor",
+        "torch.Tensor",
+        "torch.Tensor",
+        "torch.Tensor",
+        "torch.Tensor",
+        "torch.Tensor",
+        "torch.Tensor",
+        "torch.Tensor",
+        "torch.Tensor"
+      ],
+      "tensor_mask": [
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true
+      ],
+      "object_ids": [
+        281473078463136,
+        281473078463216,
+        281473078465216,
+        281473078463296,
+        281473078465296,
+        281473078463456,
+        281473078464976,
+        281473078465376,
+        281473078465456,
+        281473078465696,
+        281473078465776,
+        281473078465136,
+        281473078465056,
+        281473078465856,
+        281473078465936,
+        281473078466016,
+        281473078466096,
+        281473078466176,
+        281473078466256
+      ],
+      "keyword_names": [],
+      "keyword_types": {},
+      "incoming_boxed_container": "list",
+      "sdk_advertised_boxed_call": true,
+      "adapter_boxed_call": true,
+      "sdk_call_abi": "unboxed",
+      "tensor_objects_replaced": false,
+      "tensor_order_changed": false,
+      "kwargs_filtered": false
+    },
+    {
+      "boundary": "generated_kernel_entry",
+      "runtime_args": {
+        "type": "tuple",
+        "length": 19,
+        "items": [
+          {
+            "type": "Tensor",
+            "shape": [
+              6,
+              64
+            ],
+            "stride": [
+              64,
+              1
+            ]
+          },
+          {
+            "type": "Tensor",
+            "shape": [
+              64,
+              64
+            ],
+            "stride": [
+              64,
+              1
+            ]
+          },
+          {
+            "type": "Tensor",
+            "shape": [
+              6,
+              64
+            ],
+            "stride": [
+              64,
+              1
+            ]
+          }
+        ]
+      },
+      "kwargs": []
+    }
+  ],
+  "npu_jobs": 0,
+  "device_audit_passed": false,
+  "safe_formal_receipt": false,
+  "passed": true,
+  "output_count": 14
+}
