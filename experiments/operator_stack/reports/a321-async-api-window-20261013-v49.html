@@ -1,0 +1,231 @@
+<!doctype html><html lang="zh-CN"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>DSpark async 正式 API 窗口：46.49 → 32.97 ms/step（−29.1%），token 逐位不变</title><style>body{margin:32px auto;padding:0 24px;max-width:1060px;font-family:system-ui,sans-serif;color:#172033;line-height:1.65}h1{font-size:28px}h2{margin-top:32px;font-size:21px}table{border-collapse:collapse;width:100%;display:block;overflow:auto}td,th{border:1px solid #d9deea;padding:8px 12px;text-align:left}th{background:#f1f4f9}code{background:#eef1f6;padding:2px 4px;overflow-wrap:anywhere}</style><body><h1>DSpark async 正式 API 窗口：46.49 → 32.97 ms/step（−29.1%），token 逐位不变</h1>
+<p>2026-10-13 · a3-21 physical8–15 · 正式40层/W4A8_DYNAMIC/Engram int8/strict · DSpark 真实 ON（graph）
+· 目标 ≤20ms/step <strong>未达成</strong>（当前 32.9705）</p>
+<h2>1. 长请求配对判定（bench，同快照 <code>src_dspark_native_async_v1</code>）</h2>
+<p>仅差 <code>DSPARK_ASYNC_COUNTER/DSPARK_ASYNC_SCHEDULING</code> 两个 env 门，其余（权重/几何/图/负载/客户端）相同：</p>
+<table>
+<thead>
+<tr>
+<th>arm</th>
+<th>job</th>
+<th style="text-align: right;">exit</th>
+<th style="text-align: right;">ms/step</th>
+<th style="text-align: right;">A</th>
+<th style="text-align: right;">tok/s</th>
+<th style="text-align: right;">rounds</th>
+<th style="text-align: right;">tokens</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>sync@256</td>
+<td><code>formal_dspark_native_graph_sync256_v1</code></td>
+<td style="text-align: right;">0</td>
+<td style="text-align: right;">45.75276821705427</td>
+<td style="text-align: right;">5.930232558139535</td>
+<td style="text-align: right;">129.61472691676502</td>
+<td style="text-align: right;">258</td>
+<td style="text-align: right;">1530</td>
+</tr>
+<tr>
+<td>async@256</td>
+<td><code>formal_dspark_native_graph_async256_v1</code></td>
+<td style="text-align: right;">0</td>
+<td style="text-align: right;"><strong>41.80449965909091</strong></td>
+<td style="text-align: right;">5.795454545454546</td>
+<td style="text-align: right;"><strong>138.6323145287125</strong></td>
+<td style="text-align: right;">264</td>
+<td style="text-align: right;">1530</td>
+</tr>
+</tbody>
+</table>
+<ul>
+<li>数值门：<code>async_reference_passed=True</code>，6/6 请求 token 与 sync 参考<strong>逐位一致</strong>、max logprob delta <strong>0.0</strong>。</li>
+<li>稳态轮中位（receipts）：async 39.4–40.8ms vs sync 42.0–47.2ms；async 每请求多 1 个 overshoot 轮（44 vs 43）。</li>
+<li>证据 <code>evidence/formal_a321/dspark_native_graph_{sync256,async256}_v1/</code>。</li>
+</ul>
+<h2>2. async 正式 API 桥变体</h2>
+<p>新快照 <code>src_dspark_native_graph_api_async_v1</code> = 冻结 api_v1 + async 三件
+（<code>formal_dspark_counters.py 4877900b…</code>、<code>contract.py d9271e2a…</code>、<code>worker.py 8dc2192a…</code>）
++ 桥两处守卫：</p>
+<ul>
+<li><code>runtime_guards.py</code>：<code>COUNTER_SHA256</code>/<code>FORMAL_WORKER_SHA256</code> 换成与快照字节一一绑定的 async 值。</li>
+<li><code>service_bootstrap._guard_config</code>：<code>async_scheduling</code> 只有在 <code>DSPARK_ASYNC_SCHEDULING=1</code> 且
+  <code>DSPARK_ASYNC_COUNTER=1</code> 时才允许；同步合同保持原样（真值表 4/4 正确：sync/async 各自 ACCEPT，
+  交叉 REJECT）。<code>native_api_snapshot.json</code> 五个文件哈希与 <code>frozen_counter_sha256</code> 同步更新。</li>
+</ul>
+<p>CPU 自检：常量与快照字节绑定 True；<code>test_async_counter_cpu.py</code> 容器内 <strong>8/8 通过</strong>。</p>
+<h2>3. 正式 API 客户端窗口（8 串行 × 2K 输入/256 输出，审计/profiler 关）</h2>
+<p>job <code>formal_dspark_native_graph_api_v4_async</code>（端口 18583，自有服务已正常关闭，run.exit=0）：</p>
+<pre><code>(32.97052108069164 ms/step, A=2.9394812680115274, 89.15483200333648 tok/s)
+8 请求 / 694 actual target-verifier rounds / 2040 decoded tokens / decode_elapsed_s_sum=22.88154163
+clean 7/8、复读 1（与 sync 窗口同口径）；窗口内包含 initial 与 terminal fence（async 语义）
+</code></pre>
+<p>对照上一版正式最优（sync graph，<code>formal_dspark_native_graph_api_v1</code>，
+<code>(46.48740792151163, A=2.9651162790697674, 63.783213812996586)</code>）：</p>
+<p><strong>ms/step −13.516886840820159（−29.08%）、tok/s +39.78%、A −0.87%（6 个额外 overshoot 轮）</strong>。</p>
+<p>等价性：本窗口 8/8 请求的 token 流与 sync 正式窗口<strong>逐位一致</strong>
+（<code>client/token_identity_vs_sync.json</code>，逐请求 sha256 相同）。</p>
+<p>证据（本地）：<code>evidence/formal_a321/dspark_native_graph_api_v4_async/</code>（launched/run.exit/client.exit/
+acceptance_small.json/measured_0..7_http.json/warmup_0..1_http.json/service_selection.json/
+token_identity_vs_sync.json）。原始 34.4MB <code>client/acceptance.json</code> 留远端，
+sha256 <code>496ab1923850f86c651bd2f2abcb59524abc1675cb17fffce67157439d339bff</code>；
+launched.json sha256 <code>ac3c048f116daf55aa0b39369f34d5ee10617fa3f619155cec47ffb77325a584</code>。</p>
+<h2>4. 为什么 sync→async 在正式窗口收益（−29%）远大于 A/A 屏幕（−8.6%）</h2>
+<p>正式 API 负载（A≈2.94、86 轮/请求）里宿主是瓶颈；A/A 屏幕（A≈5.9、43 轮）宿主占比更低。
+async 调度把 <code>_prepare_inputs</code>/bookkeeping 等宿主段与设备执行重叠，因此宿主占比越高收益越大。
+结合设备侧事实：整轮设备忙时 ≥27.3ms（见第 5 节），当前 32.97 里宿主暴露已压到约 5–6ms。</p>
+<h2>5. 目标图（model 48）rank0 全谱与底限量化（既有 profile CSV 离线解析）</h2>
+<p>每步 <strong>1986 kernel</strong>、span 23.1ms、union <strong>21.59ms</strong>；前几名：</p>
+<table>
+<thead>
+<tr>
+<th>组成</th>
+<th style="text-align: right;">数量/步</th>
+<th style="text-align: right;">ms/步</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>hcom_allReduce（唯一 collective；40层×2：attn AllReduce + MoE <code>maybe_all_reduce_tensor_model_parallel</code>）</td>
+<td style="text-align: right;">81</td>
+<td style="text-align: right;">3.32</td>
+</tr>
+<tr>
+<td>GroupedMatmulSwigluQuantV2</td>
+<td style="text-align: right;">40</td>
+<td style="text-align: right;">3.16</td>
+</tr>
+<tr>
+<td>HcPre</td>
+<td style="text-align: right;">80</td>
+<td style="text-align: right;">2.30</td>
+</tr>
+<tr>
+<td>MatMulV2</td>
+<td style="text-align: right;">97</td>
+<td style="text-align: right;">2.15</td>
+</tr>
+<tr>
+<td>QuantBatchMatmulV3</td>
+<td style="text-align: right;">208</td>
+<td style="text-align: right;">2.00</td>
+</tr>
+<tr>
+<td>GroupedMatmul</td>
+<td style="text-align: right;">40</td>
+<td style="text-align: right;">1.48</td>
+</tr>
+<tr>
+<td>SparseFlashMla</td>
+<td style="text-align: right;">40</td>
+<td style="text-align: right;">1.31</td>
+</tr>
+</tbody>
+</table>
+<p>整步全流 union <strong>27.29ms</strong>（target 21.59 + draft 2.6 + engram 0.37 + eager 2.76）。
+⇒ <strong>即使宿主暴露全部消除、调度完美重叠，轮时仍 ≥27ms</strong>；≤20ms/step 必须先把 6 行 forward
+从 21.6ms 砍到 ≤15ms，同时把 draft/verify/pre/客户端 5.5ms 全部藏掉。这是结构化重写级差距。</p>
+<p>设备侧最大单块候选 = MoE 通信/融合路径（当前 AllGather 臂的 MoE 相关 ≈7.4ms：GMM+Swiglu+GMM2+
+路由+掩码+MoE AllReduce）。已在 profile 快照上启动 <code>formal_dspark_native_graph_profile_mc2_v1</code>
+（<code>--extra-env V41_MOE_COMM_ALLGATHER=0</code>，即 vendor MC2/MegaMoe 路径；该臂在 audit 模式下受
+路由导出 ceil/floor 合同阻塞，本 job 为 audit-off 的设备时间线诊断，不作性能声明）。</p>
+<h2>6. 下一步（按期望值）</h2>
+<ol>
+<li>读 MC2 profile：若目标图 MoE 段显著下降，则重做路由导出合同（接受 floor 分片）+ 该臂自带
+   A/A 审计与数值/质量门。</li>
+<li>目标图 kernel 融合（RmsNorm+DynamicQuant 配对、HcPre/HcPost、量化链）与 AllReduce 收敛。</li>
+<li>宿主残余 ~5-6ms：<code>.item()</code>/阻塞 H2D 与小算子折叠（需 with_stack 归因）。</li>
+<li>质量门（GSM8K100/100、Vision23/23、模型归属）与正式部署/交付门仍未做。</li>
+</ol>
+<h2>7. MC2（非融合 dispatch/combine）设备诊断：净负，排除</h2>
+<p>job <code>formal_dspark_native_graph_profile_mc2_v1</code>（profile 快照 + <code>--extra-env V41_MOE_COMM_ALLGATHER=0</code>，
+audit-off 设备诊断；<code>enable_fused_mc2</code> 默认 0 ⇒ 实际走的是 MC2=Distribute/Combine 路径，不是
+vendor 的 FUSED_MC2/MegaMoe）。同口径 rank0 与基线 profile 对照：</p>
+<table>
+<thead>
+<tr>
+<th>指标</th>
+<th style="text-align: right;">基线（AllGather 臂）</th>
+<th style="text-align: right;">MC2 臂</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>target 图 union</td>
+<td style="text-align: right;">21.59ms</td>
+<td style="text-align: right;"><strong>24.72ms（+3.13）</strong></td>
+</tr>
+<tr>
+<td>pre_target span</td>
+<td style="text-align: right;">15.90ms</td>
+<td style="text-align: right;">17.28ms</td>
+</tr>
+<tr>
+<td>draft 图 union</td>
+<td style="text-align: right;">2.57–2.85ms</td>
+<td style="text-align: right;">3.88ms</td>
+</tr>
+<tr>
+<td>整步全流 union</td>
+<td style="text-align: right;">27.29ms</td>
+<td style="text-align: right;"><strong>35.65ms（+8.36）</strong></td>
+</tr>
+</tbody>
+</table>
+<p>MC2 臂新增 MoE 侧 <code>MoeDistributeDispatchV2</code> 40×1.68ms + <code>MoeDistributeCombineV2</code> 40×1.34ms +
+<code>hcom_allGather_</code> 40×0.64ms + <code>MemSet</code> 80×0.83ms + <code>PadV3</code> 80×0.44ms，只换回 AllReduce
+3.32→2.40ms。⇒ <strong>净负约 +3.1ms（目标图）/ +8.4ms（整步）</strong>，与团队此前在代码注释里记录的
+"MC2 每 rank 1 token 标量开销"方向一致。<strong>该方向排除</strong>（除未来单独验证 <code>enable_fused_mc2=1</code>
+的 FUSED_MC2，但需要 contract 变更 + 全链重验证）。</p>
+<p>证据：<code>evidence/formal_a321/dspark_native_graph_profile_mc2_v1/</code>（launched/result/
+offline_parse_manifest/mc2_rank0.json）。</p>
+<h2>8. 主线策略更新</h2>
+<p>async 生效后宿主暴露只剩 ~5–6ms（32.97 − 27.3 设备忙），<strong>设备侧省时不再被宿主空转吸收</strong>，
+因此"设备 −1ms ⇒ 客户端 −1ms"的传导条件成立。据此把已数值验证但当时客户端无收益的
+<code>V41_SLOT_MAP_FUSED=1</code>（设备 −1.21ms）重新接入 async 正式窗口：
+job <code>formal_dspark_native_graph_api_v5_async_slotfused</code>（同快照 + 三 env，port 18593）已启动，
+期待 ~31.8ms/step 与 token 逐位不变。</p>
+<p><strong>实测（2026-10-13 06:00）：仍为噪声级、未采纳。</strong></p>
+<table>
+<thead>
+<tr>
+<th>arm</th>
+<th>job</th>
+<th style="text-align: right;">exit</th>
+<th style="text-align: right;">ms/step</th>
+<th style="text-align: right;">A</th>
+<th style="text-align: right;">tok/s</th>
+<th style="text-align: right;">rounds</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>async（基准）</td>
+<td><code>formal_dspark_native_graph_api_v4_async</code></td>
+<td style="text-align: right;">0</td>
+<td style="text-align: right;">32.97052108069164</td>
+<td style="text-align: right;">2.9394812680115274</td>
+<td style="text-align: right;">89.15483200333648</td>
+<td style="text-align: right;">694</td>
+</tr>
+<tr>
+<td>async+slotfused</td>
+<td><code>formal_dspark_native_graph_api_v5_async_slotfused</code></td>
+<td style="text-align: right;">0</td>
+<td style="text-align: right;"><strong>32.89499576368876</strong></td>
+<td style="text-align: right;">2.9394812680115274</td>
+<td style="text-align: right;">89.35952717939799</td>
+<td style="text-align: right;">694</td>
+</tr>
+</tbody>
+</table>
+<ul>
+<li>Δ = −0.0755ms/step（−0.23%），token 8/8 与 v4 逐位一致（<code>client/token_identity_vs_async_base.json</code>），
+  clean 7/8、复读 1 同口径。⇒ 与 sync 时代的结论一致：该开关在客户端无可复现收益（尽管设备侧确曾 −1.21ms），
+  <strong>正式候选保持 <code>V41_SLOT_MAP_FUSED</code> 默认 off</strong>；v5 仅作记录（自有服务已正常关闭，run.exit=0）。</li>
+<li>解释（诚实边界）：async 下设备虽然不再是唯一瓶颈，但 slot mapping 位于"sample→draft→pre_target→target"
+  串行链的宿主段内，其 1.2ms 设备收益落在仍有宿主暴露的窗口里，未能整体前移；要吃到它需先
+  继续压缩该链的宿主段（第 6.3 项）。</li>
+<li>证据：<code>evidence/formal_a321/dspark_native_graph_api_v5_async_slotfused/</code>。</li>
+</ul></body></html>

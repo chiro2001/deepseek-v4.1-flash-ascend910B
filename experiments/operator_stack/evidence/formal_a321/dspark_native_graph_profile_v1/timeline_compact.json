@@ -1,0 +1,232 @@
+{
+ "scope": "actual native full40 TP8 DSpark profile; diagnostic spans/unions only",
+ "actual_complete_steps": 80,
+ "draft_graph": true,
+ "profile_intervals_are_not_recoverable_e2e_budget": true,
+ "rank0_phases_median_us": {
+  "pre_target": {
+   "span_us": 15899.181999999997,
+   "kernel_union_us": 1977.0730000001313,
+   "kernel_duration_sum_us": 1998.6425,
+   "wait_union_us": 8.369999999995343
+  },
+  "target_graph": {
+   "span_us": 22955.5415,
+   "kernel_union_us": 21651.475999999995,
+   "kernel_duration_sum_us": 24907.7965,
+   "wait_union_us": 22953.0115
+  },
+  "verify_and_prepare": {
+   "span_us": 1679.3165000000154,
+   "kernel_union_us": 430.300499999983,
+   "kernel_duration_sum_us": 449.6305,
+   "wait_union_us": 234.14550000004238
+  },
+  "draft_context_projection_cache": {
+   "span_us": 4985.320500000002,
+   "kernel_union_us": 961.8990000000776,
+   "kernel_duration_sum_us": 1246.7335,
+   "wait_union_us": 618.3574999999983
+  },
+  "draft_body_logits": {
+   "span_us": 2295.2340000000186,
+   "kernel_union_us": 2190.465999999953,
+   "kernel_duration_sum_us": 2484.7920000000004,
+   "wait_union_us": 2295.2340000000186
+  }
+ },
+ "rank0_top_operators_per_step": [
+  {
+   "type": "hcom_allReduce_",
+   "state": "N/A",
+   "count_per_step": 88.9,
+   "duration_sum_us_per_step": 4934.846400000006
+  },
+  {
+   "type": "hcom_allReduce_",
+   "state": "static",
+   "count_per_step": 88.0,
+   "duration_sum_us_per_step": 4026.1227000000013
+  },
+  {
+   "type": "GroupedMatmulSwigluQuantV2",
+   "state": "static",
+   "count_per_step": 43.0,
+   "duration_sum_us_per_step": 3300.0386
+  },
+  {
+   "type": "MatMulV2",
+   "state": "static",
+   "count_per_step": 109.0,
+   "duration_sum_us_per_step": 2599.4948000000027
+  },
+  {
+   "type": "HcPre",
+   "state": "static",
+   "count_per_step": 86.0,
+   "duration_sum_us_per_step": 2507.4176000000016
+  },
+  {
+   "type": "QuantBatchMatmulV3",
+   "state": "static",
+   "count_per_step": 226.0,
+   "duration_sum_us_per_step": 2234.9746
+  },
+  {
+   "type": "GroupedMatmul",
+   "state": "static",
+   "count_per_step": 43.0,
+   "duration_sum_us_per_step": 1586.7037000000012
+  },
+  {
+   "type": "SparseFlashMla",
+   "state": "static",
+   "count_per_step": 40.0,
+   "duration_sum_us_per_step": 1307.6229999999996
+  },
+  {
+   "type": "hcom_allReduce_",
+   "state": "dynamic",
+   "count_per_step": 1.0,
+   "duration_sum_us_per_step": 911.2216999999998
+  },
+  {
+   "type": "MatMulV3",
+   "state": "static",
+   "count_per_step": 49.0,
+   "duration_sum_us_per_step": 725.023000000001
+  },
+  {
+   "type": "RmsNorm",
+   "state": "static",
+   "count_per_step": 139.0,
+   "duration_sum_us_per_step": 673.1532000000004
+  },
+  {
+   "type": "MoeInitRoutingV3",
+   "state": "static",
+   "count_per_step": 43.0,
+   "duration_sum_us_per_step": 655.0692999999999
+  },
+  {
+   "type": "HcPost",
+   "state": "static",
+   "count_per_step": 86.0,
+   "duration_sum_us_per_step": 630.3707000000002
+  },
+  {
+   "type": "DynamicQuant",
+   "state": "static",
+   "count_per_step": 181.0,
+   "duration_sum_us_per_step": 594.7125000000019
+  }
+ ],
+ "rank0_unlabelled": {
+  "count": 169,
+  "draft_graph_capture_hc_pre": 6,
+  "draft_graph_capture_attention_readers": 3,
+  "types": {
+   "Tile": 1,
+   "ZerosLike": 4,
+   "Fill": 1,
+   "BroadcastTo": 1,
+   "ViewCopy": 2,
+   "Slice": 1,
+   "HcPre": 6,
+   "RmsNorm": 7,
+   "DynamicQuant": 6,
+   "QuantBatchMatmulV3": 15,
+   "RmsNormDynamicQuant": 3,
+   "InplacePartialRotaryMul": 9,
+   "ScatterNdUpdateSk": 3,
+   "SparseAttnSharedkv": 3,
+   "Neg": 3,
+   "MatMulV2": 12,
+   "hcom_allReduce_": 12,
+   "HcPost": 6,
+   "RmsNormCast": 3,
+   "MatMulV3": 3,
+   "MoeGatingTopKHash": 3,
+   "Less": 3,
+   "GreaterEqual": 3,
+   "LogicalOr": 3,
+   "MaskedFill": 3,
+   "MoeInitRoutingV3": 3,
+   "GroupedMatmulSwigluQuantV2": 3,
+   "GroupedMatmul": 3,
+   "Cast": 10,
+   "Abs": 3,
+   "MoeTokenUnpermute": 3,
+   "DequantSwigluQuant": 3,
+   "Add": 8,
+   "Mul": 1,
+   "ReduceSum": 1,
+   "IndexCheck": 1,
+   "Index": 1,
+   "hcom_allGather_": 2,
+   "Transpose": 1,
+   "GatherV2": 5,
+   "ArgMaxV2": 5
+  },
+  "outside_all_labelled_decode_windows": true,
+  "model_layers_or_draft_cache_readers": 0
+ },
+ "all_ranks_phase_median_span_us": {
+  "0": {
+   "pre_target": 15899.181999999997,
+   "target_graph": 22955.5415,
+   "verify_and_prepare": 1679.3165000000154,
+   "draft_context_projection_cache": 4985.320500000002,
+   "draft_body_logits": 2295.2340000000186
+  },
+  "1": {
+   "pre_target": 15342.859999999997,
+   "target_graph": 23361.97,
+   "verify_and_prepare": 1576.2700000000077,
+   "draft_context_projection_cache": 5141.790000000023,
+   "draft_body_logits": 2298.8599999999897
+  },
+  "2": {
+   "pre_target": 15532.2805,
+   "target_graph": 23357.883499999967,
+   "verify_and_prepare": 1583.8685000000114,
+   "draft_context_projection_cache": 5185.7759999999835,
+   "draft_body_logits": 2298.283999999996
+  },
+  "3": {
+   "pre_target": 15507.21000000001,
+   "target_graph": 23265.394999999986,
+   "verify_and_prepare": 1635.9875000000065,
+   "draft_context_projection_cache": 5178.846500000014,
+   "draft_body_logits": 2295.4145000000135
+  },
+  "4": {
+   "pre_target": 15433.522000000008,
+   "target_graph": 23372.762999999995,
+   "verify_and_prepare": 1615.157499999994,
+   "draft_context_projection_cache": 5187.095999999998,
+   "draft_body_logits": 2296.603999999992
+  },
+  "5": {
+   "pre_target": 15587.250000000002,
+   "target_graph": 23023.92,
+   "verify_and_prepare": 1728.8500000000204,
+   "draft_context_projection_cache": 5043.779999999984,
+   "draft_body_logits": 2298.6699999999946
+  },
+  "6": {
+   "pre_target": 15521.950000000004,
+   "target_graph": 23355.793000000005,
+   "verify_and_prepare": 1669.8164999999863,
+   "draft_context_projection_cache": 5114.66800000002,
+   "draft_body_logits": 2298.8745000000054
+  },
+  "7": {
+   "pre_target": 15398.669999999995,
+   "target_graph": 23369.109999999993,
+   "verify_and_prepare": 1551.929999999993,
+   "draft_context_projection_cache": 5246.410000000011,
+   "draft_body_logits": 2298.219999999983
+  }
+ }
+}

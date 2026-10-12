@@ -1,0 +1,479 @@
+{
+  "CPU_preparation_only": false,
+  "job_id": "formal_dspark_quality_async_v2",
+  "served_model": "dsv41-dspark-quality-formal_dspark_quality_async_v2",
+  "candidate_id": "dsv41_mls_async_v1",
+  "candidate_fingerprint": "a6ab7dfe4a86d7ead0bef9144752a77cb452195bc3870311801d6d02be352a79",
+  "service_instance_id": "dde8009b24e54f9886df6d2dabfc5c27",
+  "identity_before": {
+    "job_id": "formal_dspark_quality_async_v2",
+    "served_model": "dsv41-dspark-quality-formal_dspark_quality_async_v2",
+    "candidate_id": "dsv41_mls_async_v1",
+    "candidate_fingerprint": "a6ab7dfe4a86d7ead0bef9144752a77cb452195bc3870311801d6d02be352a79",
+    "original_model_kwargs_fingerprint": "a31b8dbe8ec51eee35bae5d1b676f80400a3e87df2a23b2163ae83ddcdefffd0",
+    "sdk_source_manifest_sha256": "004de45abf5c00546b3682d89fa06f48ed6b89660c2fca932721273bce118aa4",
+    "service_instance_id": "dde8009b24e54f9886df6d2dabfc5c27",
+    "native_AsyncLLM": true,
+    "private_armed_window_adapter": false,
+    "private_route_whitelist": false,
+    "audit": false,
+    "profiler": "OFF",
+    "rank_descriptions": [
+      {
+        "rank": 0,
+        "counter_sha256": "4877900b492640e292d9daa9755d8699767deeae7eec17a8c2edcf85659b8e8c",
+        "counter_active": false,
+        "audit": false,
+        "scheduler_async": true,
+        "speculative_method": "dspark",
+        "num_speculative_tokens": 5,
+        "full40_config_observed": true,
+        "vision_config_retained": true,
+        "load_format": "auto",
+        "original_candidate_base_worker": "parallel_tiny.dspark_formal_prep.worker.FormalDSparkWorker",
+        "base_worker_source_path": "/work/src_dspark_general_quality_v2/stack/parallel_tiny/dspark_formal_prep/worker.py",
+        "base_worker_source_sha256": "8dc2192a04f44e92081af8b85ae15df2cfcfbd837da38434612553dac2564d3d",
+        "native_counter_sources": {
+          "execute_model": {
+            "path": "/vllm-workspace/vllm-ascend/vllm_ascend/worker/model_runner_v1.py",
+            "file_sha256": "67035d97f1cea4ae2df31adcc33f1de952f4cab6d8421e76df512296e0e3185e",
+            "function": "NPUModelRunner.execute_model",
+            "function_sha256": "f484a70a5ebbbf81a3139af1bb41c8e9d3bd2279715a3a2f2ac5a6dfc9024f15"
+          },
+          "_bookkeeping_sync": {
+            "path": "/vllm-workspace/vllm-ascend/vllm_ascend/worker/model_runner_v1.py",
+            "file_sha256": "67035d97f1cea4ae2df31adcc33f1de952f4cab6d8421e76df512296e0e3185e",
+            "function": "NPUModelRunner._bookkeeping_sync",
+            "function_sha256": "eb16f8758b873f23d6bc6d7b193a447c9047988acce4fe3e202d0047eab482b6"
+          },
+          "sample_tokens": {
+            "path": "/vllm-workspace/vllm-ascend/vllm_ascend/worker/model_runner_v1.py",
+            "file_sha256": "67035d97f1cea4ae2df31adcc33f1de952f4cab6d8421e76df512296e0e3185e",
+            "function": "NPUModelRunner.sample_tokens",
+            "function_sha256": "47cf0140e57df5a5664b4c3ab56a7208068ad6b60ab5f0efead36e36dba88eeb"
+          },
+          "drafter._propose": {
+            "path": "/work/src_dspark_general_quality_v2/stack/draft_graph_files/llm_base_proposer.py",
+            "file_sha256": "36d7c8870538e10e310863f9b628b90b946b534861563542cf7fba4cd88d7c39",
+            "function": "AscendSpecDecodeBaseProposer._propose",
+            "function_sha256": "8e2b2e8ddf9db7be41a07eda7ea6bbc466a42b1511ffa8f0fdd3fecd878f135c"
+          }
+        },
+        "counter_retrieval_does_not_open_window": true,
+        "actual_device_consumer_proof": false,
+        "formal_receipt_granted": false
+      },
+      {
+        "rank": 1,
+        "counter_sha256": "4877900b492640e292d9daa9755d8699767deeae7eec17a8c2edcf85659b8e8c",
+        "counter_active": false,
+        "audit": false,
+        "scheduler_async": true,
+        "speculative_method": "dspark",
+        "num_speculative_tokens": 5,
+        "full40_config_observed": true,
+        "vision_config_retained": true,
+        "load_format": "auto",
+        "original_candidate_base_worker": "parallel_tiny.dspark_formal_prep.worker.FormalDSparkWorker",
+        "base_worker_source_path": "/work/src_dspark_general_quality_v2/stack/parallel_tiny/dspark_formal_prep/worker.py",
+        "base_worker_source_sha256": "8dc2192a04f44e92081af8b85ae15df2cfcfbd837da38434612553dac2564d3d",
+        "native_counter_sources": {
+          "execute_model": {
+            "path": "/vllm-workspace/vllm-ascend/vllm_ascend/worker/model_runner_v1.py",
+            "file_sha256": "67035d97f1cea4ae2df31adcc33f1de952f4cab6d8421e76df512296e0e3185e",
+            "function": "NPUModelRunner.execute_model",
+            "function_sha256": "f484a70a5ebbbf81a3139af1bb41c8e9d3bd2279715a3a2f2ac5a6dfc9024f15"
+          },
+          "_bookkeeping_sync": {
+            "path": "/vllm-workspace/vllm-ascend/vllm_ascend/worker/model_runner_v1.py",
+            "file_sha256": "67035d97f1cea4ae2df31adcc33f1de952f4cab6d8421e76df512296e0e3185e",
+            "function": "NPUModelRunner._bookkeeping_sync",
+            "function_sha256": "eb16f8758b873f23d6bc6d7b193a447c9047988acce4fe3e202d0047eab482b6"
+          },
+          "sample_tokens": {
+            "path": "/vllm-workspace/vllm-ascend/vllm_ascend/worker/model_runner_v1.py",
+            "file_sha256": "67035d97f1cea4ae2df31adcc33f1de952f4cab6d8421e76df512296e0e3185e",
+            "function": "NPUModelRunner.sample_tokens",
+            "function_sha256": "47cf0140e57df5a5664b4c3ab56a7208068ad6b60ab5f0efead36e36dba88eeb"
+          },
+          "drafter._propose": {
+            "path": "/work/src_dspark_general_quality_v2/stack/draft_graph_files/llm_base_proposer.py",
+            "file_sha256": "36d7c8870538e10e310863f9b628b90b946b534861563542cf7fba4cd88d7c39",
+            "function": "AscendSpecDecodeBaseProposer._propose",
+            "function_sha256": "8e2b2e8ddf9db7be41a07eda7ea6bbc466a42b1511ffa8f0fdd3fecd878f135c"
+          }
+        },
+        "counter_retrieval_does_not_open_window": true,
+        "actual_device_consumer_proof": false,
+        "formal_receipt_granted": false
+      },
+      {
+        "rank": 2,
+        "counter_sha256": "4877900b492640e292d9daa9755d8699767deeae7eec17a8c2edcf85659b8e8c",
+        "counter_active": false,
+        "audit": false,
+        "scheduler_async": true,
+        "speculative_method": "dspark",
+        "num_speculative_tokens": 5,
+        "full40_config_observed": true,
+        "vision_config_retained": true,
+        "load_format": "auto",
+        "original_candidate_base_worker": "parallel_tiny.dspark_formal_prep.worker.FormalDSparkWorker",
+        "base_worker_source_path": "/work/src_dspark_general_quality_v2/stack/parallel_tiny/dspark_formal_prep/worker.py",
+        "base_worker_source_sha256": "8dc2192a04f44e92081af8b85ae15df2cfcfbd837da38434612553dac2564d3d",
+        "native_counter_sources": {
+          "execute_model": {
+            "path": "/vllm-workspace/vllm-ascend/vllm_ascend/worker/model_runner_v1.py",
+            "file_sha256": "67035d97f1cea4ae2df31adcc33f1de952f4cab6d8421e76df512296e0e3185e",
+            "function": "NPUModelRunner.execute_model",
+            "function_sha256": "f484a70a5ebbbf81a3139af1bb41c8e9d3bd2279715a3a2f2ac5a6dfc9024f15"
+          },
+          "_bookkeeping_sync": {
+            "path": "/vllm-workspace/vllm-ascend/vllm_ascend/worker/model_runner_v1.py",
+            "file_sha256": "67035d97f1cea4ae2df31adcc33f1de952f4cab6d8421e76df512296e0e3185e",
+            "function": "NPUModelRunner._bookkeeping_sync",
+            "function_sha256": "eb16f8758b873f23d6bc6d7b193a447c9047988acce4fe3e202d0047eab482b6"
+          },
+          "sample_tokens": {
+            "path": "/vllm-workspace/vllm-ascend/vllm_ascend/worker/model_runner_v1.py",
+            "file_sha256": "67035d97f1cea4ae2df31adcc33f1de952f4cab6d8421e76df512296e0e3185e",
+            "function": "NPUModelRunner.sample_tokens",
+            "function_sha256": "47cf0140e57df5a5664b4c3ab56a7208068ad6b60ab5f0efead36e36dba88eeb"
+          },
+          "drafter._propose": {
+            "path": "/work/src_dspark_general_quality_v2/stack/draft_graph_files/llm_base_proposer.py",
+            "file_sha256": "36d7c8870538e10e310863f9b628b90b946b534861563542cf7fba4cd88d7c39",
+            "function": "AscendSpecDecodeBaseProposer._propose",
+            "function_sha256": "8e2b2e8ddf9db7be41a07eda7ea6bbc466a42b1511ffa8f0fdd3fecd878f135c"
+          }
+        },
+        "counter_retrieval_does_not_open_window": true,
+        "actual_device_consumer_proof": false,
+        "formal_receipt_granted": false
+      },
+      {
+        "rank": 3,
+        "counter_sha256": "4877900b492640e292d9daa9755d8699767deeae7eec17a8c2edcf85659b8e8c",
+        "counter_active": false,
+        "audit": false,
+        "scheduler_async": true,
+        "speculative_method": "dspark",
+        "num_speculative_tokens": 5,
+        "full40_config_observed": true,
+        "vision_config_retained": true,
+        "load_format": "auto",
+        "original_candidate_base_worker": "parallel_tiny.dspark_formal_prep.worker.FormalDSparkWorker",
+        "base_worker_source_path": "/work/src_dspark_general_quality_v2/stack/parallel_tiny/dspark_formal_prep/worker.py",
+        "base_worker_source_sha256": "8dc2192a04f44e92081af8b85ae15df2cfcfbd837da38434612553dac2564d3d",
+        "native_counter_sources": {
+          "execute_model": {
+            "path": "/vllm-workspace/vllm-ascend/vllm_ascend/worker/model_runner_v1.py",
+            "file_sha256": "67035d97f1cea4ae2df31adcc33f1de952f4cab6d8421e76df512296e0e3185e",
+            "function": "NPUModelRunner.execute_model",
+            "function_sha256": "f484a70a5ebbbf81a3139af1bb41c8e9d3bd2279715a3a2f2ac5a6dfc9024f15"
+          },
+          "_bookkeeping_sync": {
+            "path": "/vllm-workspace/vllm-ascend/vllm_ascend/worker/model_runner_v1.py",
+            "file_sha256": "67035d97f1cea4ae2df31adcc33f1de952f4cab6d8421e76df512296e0e3185e",
+            "function": "NPUModelRunner._bookkeeping_sync",
+            "function_sha256": "eb16f8758b873f23d6bc6d7b193a447c9047988acce4fe3e202d0047eab482b6"
+          },
+          "sample_tokens": {
+            "path": "/vllm-workspace/vllm-ascend/vllm_ascend/worker/model_runner_v1.py",
+            "file_sha256": "67035d97f1cea4ae2df31adcc33f1de952f4cab6d8421e76df512296e0e3185e",
+            "function": "NPUModelRunner.sample_tokens",
+            "function_sha256": "47cf0140e57df5a5664b4c3ab56a7208068ad6b60ab5f0efead36e36dba88eeb"
+          },
+          "drafter._propose": {
+            "path": "/work/src_dspark_general_quality_v2/stack/draft_graph_files/llm_base_proposer.py",
+            "file_sha256": "36d7c8870538e10e310863f9b628b90b946b534861563542cf7fba4cd88d7c39",
+            "function": "AscendSpecDecodeBaseProposer._propose",
+            "function_sha256": "8e2b2e8ddf9db7be41a07eda7ea6bbc466a42b1511ffa8f0fdd3fecd878f135c"
+          }
+        },
+        "counter_retrieval_does_not_open_window": true,
+        "actual_device_consumer_proof": false,
+        "formal_receipt_granted": false
+      },
+      {
+        "rank": 4,
+        "counter_sha256": "4877900b492640e292d9daa9755d8699767deeae7eec17a8c2edcf85659b8e8c",
+        "counter_active": false,
+        "audit": false,
+        "scheduler_async": true,
+        "speculative_method": "dspark",
+        "num_speculative_tokens": 5,
+        "full40_config_observed": true,
+        "vision_config_retained": true,
+        "load_format": "auto",
+        "original_candidate_base_worker": "parallel_tiny.dspark_formal_prep.worker.FormalDSparkWorker",
+        "base_worker_source_path": "/work/src_dspark_general_quality_v2/stack/parallel_tiny/dspark_formal_prep/worker.py",
+        "base_worker_source_sha256": "8dc2192a04f44e92081af8b85ae15df2cfcfbd837da38434612553dac2564d3d",
+        "native_counter_sources": {
+          "execute_model": {
+            "path": "/vllm-workspace/vllm-ascend/vllm_ascend/worker/model_runner_v1.py",
+            "file_sha256": "67035d97f1cea4ae2df31adcc33f1de952f4cab6d8421e76df512296e0e3185e",
+            "function": "NPUModelRunner.execute_model",
+            "function_sha256": "f484a70a5ebbbf81a3139af1bb41c8e9d3bd2279715a3a2f2ac5a6dfc9024f15"
+          },
+          "_bookkeeping_sync": {
+            "path": "/vllm-workspace/vllm-ascend/vllm_ascend/worker/model_runner_v1.py",
+            "file_sha256": "67035d97f1cea4ae2df31adcc33f1de952f4cab6d8421e76df512296e0e3185e",
+            "function": "NPUModelRunner._bookkeeping_sync",
+            "function_sha256": "eb16f8758b873f23d6bc6d7b193a447c9047988acce4fe3e202d0047eab482b6"
+          },
+          "sample_tokens": {
+            "path": "/vllm-workspace/vllm-ascend/vllm_ascend/worker/model_runner_v1.py",
+            "file_sha256": "67035d97f1cea4ae2df31adcc33f1de952f4cab6d8421e76df512296e0e3185e",
+            "function": "NPUModelRunner.sample_tokens",
+            "function_sha256": "47cf0140e57df5a5664b4c3ab56a7208068ad6b60ab5f0efead36e36dba88eeb"
+          },
+          "drafter._propose": {
+            "path": "/work/src_dspark_general_quality_v2/stack/draft_graph_files/llm_base_proposer.py",
+            "file_sha256": "36d7c8870538e10e310863f9b628b90b946b534861563542cf7fba4cd88d7c39",
+            "function": "AscendSpecDecodeBaseProposer._propose",
+            "function_sha256": "8e2b2e8ddf9db7be41a07eda7ea6bbc466a42b1511ffa8f0fdd3fecd878f135c"
+          }
+        },
+        "counter_retrieval_does_not_open_window": true,
+        "actual_device_consumer_proof": false,
+        "formal_receipt_granted": false
+      },
+      {
+        "rank": 5,
+        "counter_sha256": "4877900b492640e292d9daa9755d8699767deeae7eec17a8c2edcf85659b8e8c",
+        "counter_active": false,
+        "audit": false,
+        "scheduler_async": true,
+        "speculative_method": "dspark",
+        "num_speculative_tokens": 5,
+        "full40_config_observed": true,
+        "vision_config_retained": true,
+        "load_format": "auto",
+        "original_candidate_base_worker": "parallel_tiny.dspark_formal_prep.worker.FormalDSparkWorker",
+        "base_worker_source_path": "/work/src_dspark_general_quality_v2/stack/parallel_tiny/dspark_formal_prep/worker.py",
+        "base_worker_source_sha256": "8dc2192a04f44e92081af8b85ae15df2cfcfbd837da38434612553dac2564d3d",
+        "native_counter_sources": {
+          "execute_model": {
+            "path": "/vllm-workspace/vllm-ascend/vllm_ascend/worker/model_runner_v1.py",
+            "file_sha256": "67035d97f1cea4ae2df31adcc33f1de952f4cab6d8421e76df512296e0e3185e",
+            "function": "NPUModelRunner.execute_model",
+            "function_sha256": "f484a70a5ebbbf81a3139af1bb41c8e9d3bd2279715a3a2f2ac5a6dfc9024f15"
+          },
+          "_bookkeeping_sync": {
+            "path": "/vllm-workspace/vllm-ascend/vllm_ascend/worker/model_runner_v1.py",
+            "file_sha256": "67035d97f1cea4ae2df31adcc33f1de952f4cab6d8421e76df512296e0e3185e",
+            "function": "NPUModelRunner._bookkeeping_sync",
+            "function_sha256": "eb16f8758b873f23d6bc6d7b193a447c9047988acce4fe3e202d0047eab482b6"
+          },
+          "sample_tokens": {
+            "path": "/vllm-workspace/vllm-ascend/vllm_ascend/worker/model_runner_v1.py",
+            "file_sha256": "67035d97f1cea4ae2df31adcc33f1de952f4cab6d8421e76df512296e0e3185e",
+            "function": "NPUModelRunner.sample_tokens",
+            "function_sha256": "47cf0140e57df5a5664b4c3ab56a7208068ad6b60ab5f0efead36e36dba88eeb"
+          },
+          "drafter._propose": {
+            "path": "/work/src_dspark_general_quality_v2/stack/draft_graph_files/llm_base_proposer.py",
+            "file_sha256": "36d7c8870538e10e310863f9b628b90b946b534861563542cf7fba4cd88d7c39",
+            "function": "AscendSpecDecodeBaseProposer._propose",
+            "function_sha256": "8e2b2e8ddf9db7be41a07eda7ea6bbc466a42b1511ffa8f0fdd3fecd878f135c"
+          }
+        },
+        "counter_retrieval_does_not_open_window": true,
+        "actual_device_consumer_proof": false,
+        "formal_receipt_granted": false
+      },
+      {
+        "rank": 6,
+        "counter_sha256": "4877900b492640e292d9daa9755d8699767deeae7eec17a8c2edcf85659b8e8c",
+        "counter_active": false,
+        "audit": false,
+        "scheduler_async": true,
+        "speculative_method": "dspark",
+        "num_speculative_tokens": 5,
+        "full40_config_observed": true,
+        "vision_config_retained": true,
+        "load_format": "auto",
+        "original_candidate_base_worker": "parallel_tiny.dspark_formal_prep.worker.FormalDSparkWorker",
+        "base_worker_source_path": "/work/src_dspark_general_quality_v2/stack/parallel_tiny/dspark_formal_prep/worker.py",
+        "base_worker_source_sha256": "8dc2192a04f44e92081af8b85ae15df2cfcfbd837da38434612553dac2564d3d",
+        "native_counter_sources": {
+          "execute_model": {
+            "path": "/vllm-workspace/vllm-ascend/vllm_ascend/worker/model_runner_v1.py",
+            "file_sha256": "67035d97f1cea4ae2df31adcc33f1de952f4cab6d8421e76df512296e0e3185e",
+            "function": "NPUModelRunner.execute_model",
+            "function_sha256": "f484a70a5ebbbf81a3139af1bb41c8e9d3bd2279715a3a2f2ac5a6dfc9024f15"
+          },
+          "_bookkeeping_sync": {
+            "path": "/vllm-workspace/vllm-ascend/vllm_ascend/worker/model_runner_v1.py",
+            "file_sha256": "67035d97f1cea4ae2df31adcc33f1de952f4cab6d8421e76df512296e0e3185e",
+            "function": "NPUModelRunner._bookkeeping_sync",
+            "function_sha256": "eb16f8758b873f23d6bc6d7b193a447c9047988acce4fe3e202d0047eab482b6"
+          },
+          "sample_tokens": {
+            "path": "/vllm-workspace/vllm-ascend/vllm_ascend/worker/model_runner_v1.py",
+            "file_sha256": "67035d97f1cea4ae2df31adcc33f1de952f4cab6d8421e76df512296e0e3185e",
+            "function": "NPUModelRunner.sample_tokens",
+            "function_sha256": "47cf0140e57df5a5664b4c3ab56a7208068ad6b60ab5f0efead36e36dba88eeb"
+          },
+          "drafter._propose": {
+            "path": "/work/src_dspark_general_quality_v2/stack/draft_graph_files/llm_base_proposer.py",
+            "file_sha256": "36d7c8870538e10e310863f9b628b90b946b534861563542cf7fba4cd88d7c39",
+            "function": "AscendSpecDecodeBaseProposer._propose",
+            "function_sha256": "8e2b2e8ddf9db7be41a07eda7ea6bbc466a42b1511ffa8f0fdd3fecd878f135c"
+          }
+        },
+        "counter_retrieval_does_not_open_window": true,
+        "actual_device_consumer_proof": false,
+        "formal_receipt_granted": false
+      },
+      {
+        "rank": 7,
+        "counter_sha256": "4877900b492640e292d9daa9755d8699767deeae7eec17a8c2edcf85659b8e8c",
+        "counter_active": false,
+        "audit": false,
+        "scheduler_async": true,
+        "speculative_method": "dspark",
+        "num_speculative_tokens": 5,
+        "full40_config_observed": true,
+        "vision_config_retained": true,
+        "load_format": "auto",
+        "original_candidate_base_worker": "parallel_tiny.dspark_formal_prep.worker.FormalDSparkWorker",
+        "base_worker_source_path": "/work/src_dspark_general_quality_v2/stack/parallel_tiny/dspark_formal_prep/worker.py",
+        "base_worker_source_sha256": "8dc2192a04f44e92081af8b85ae15df2cfcfbd837da38434612553dac2564d3d",
+        "native_counter_sources": {
+          "execute_model": {
+            "path": "/vllm-workspace/vllm-ascend/vllm_ascend/worker/model_runner_v1.py",
+            "file_sha256": "67035d97f1cea4ae2df31adcc33f1de952f4cab6d8421e76df512296e0e3185e",
+            "function": "NPUModelRunner.execute_model",
+            "function_sha256": "f484a70a5ebbbf81a3139af1bb41c8e9d3bd2279715a3a2f2ac5a6dfc9024f15"
+          },
+          "_bookkeeping_sync": {
+            "path": "/vllm-workspace/vllm-ascend/vllm_ascend/worker/model_runner_v1.py",
+            "file_sha256": "67035d97f1cea4ae2df31adcc33f1de952f4cab6d8421e76df512296e0e3185e",
+            "function": "NPUModelRunner._bookkeeping_sync",
+            "function_sha256": "eb16f8758b873f23d6bc6d7b193a447c9047988acce4fe3e202d0047eab482b6"
+          },
+          "sample_tokens": {
+            "path": "/vllm-workspace/vllm-ascend/vllm_ascend/worker/model_runner_v1.py",
+            "file_sha256": "67035d97f1cea4ae2df31adcc33f1de952f4cab6d8421e76df512296e0e3185e",
+            "function": "NPUModelRunner.sample_tokens",
+            "function_sha256": "47cf0140e57df5a5664b4c3ab56a7208068ad6b60ab5f0efead36e36dba88eeb"
+          },
+          "drafter._propose": {
+            "path": "/work/src_dspark_general_quality_v2/stack/draft_graph_files/llm_base_proposer.py",
+            "file_sha256": "36d7c8870538e10e310863f9b628b90b946b534861563542cf7fba4cd88d7c39",
+            "function": "AscendSpecDecodeBaseProposer._propose",
+            "function_sha256": "8e2b2e8ddf9db7be41a07eda7ea6bbc466a42b1511ffa8f0fdd3fecd878f135c"
+          }
+        },
+        "counter_retrieval_does_not_open_window": true,
+        "actual_device_consumer_proof": false,
+        "formal_receipt_granted": false
+      }
+    ],
+    "actual_general_API_quality_observed": false,
+    "actual_GSM100_passed": false,
+    "actual_Vision23_passed": false,
+    "actual_client_quality_passed": false,
+    "actual_device_consumer_proof": false,
+    "performance_receipt_granted": false,
+    "formal_receipt_granted": false
+  },
+  "process": {
+    "pid": 2433110,
+    "argv": [
+      "python",
+      "-u",
+      "-m",
+      "parallel_tiny.dspark_general_quality_api_cpu.bootstrap",
+      "--candidate",
+      "/work/src_dspark_general_quality_v2/candidate_contract.json",
+      "--job-id",
+      "formal_dspark_quality_async_v2",
+      "--port",
+      "18653",
+      "--output",
+      "/work/results/formal_dspark_quality_async_v2/service",
+      "--counter-file",
+      "/work/src_dspark_general_quality_v2/stack/parallel_tiny/dspark_general_quality_launcher_cpu/assets/frozen_v4_counter.py",
+      "--execute"
+    ],
+    "cmdline_sha256": "898741a8073d721aee591f64348b4eea033cd87b5850cee76b0125aa04adc0ad"
+  },
+  "canonical_GSM_split_sha256": {
+    "train": "17f347dc51477c50d4efb83959dbb7c56297aba886e5544ee2aaed3024813465",
+    "test": "3730d312f6e3440559ace48831e51066acaca737f6eabec99bccb9e4b3c39d14"
+  },
+  "commands": [
+    {
+      "label": "gsm100",
+      "argv": [
+        "/usr/local/python3.12.13/bin/python",
+        "/work/src_dspark_general_quality_v2/client/tests/acc_eval.py",
+        "--task",
+        "gsm8k",
+        "--limit",
+        "100",
+        "--mode",
+        "chat",
+        "--conc",
+        "1",
+        "--max-tokens",
+        "512",
+        "--serialize-prefill",
+        "1",
+        "--base-url",
+        "http://127.0.0.1:18653",
+        "--model",
+        "dsv41-dspark-quality-formal_dspark_quality_async_v2",
+        "--enc-dir",
+        "/home/l00886679/models/DeepSeek-V4.1-Flash/encoding",
+        "--gsm8k-data-dir",
+        "/work/client_data/gsm8k",
+        "--out",
+        "/work/results/formal_dspark_quality_async_v2/client/gsm100.json",
+        "--tag",
+        "dspark-quality-formal_dspark_quality_async_v2"
+      ],
+      "returncode": 0,
+      "log_sha256": "de4cdcae7e63926a1f0117148a81104011f18faa88a851e731947b50eb17de44"
+    },
+    {
+      "label": "vision23",
+      "argv": [
+        "/usr/local/python3.12.13/bin/python",
+        "/work/src_dspark_general_quality_v2/client/tests/vision_accuracy_check.py",
+        "--server",
+        "http://127.0.0.1:18653",
+        "--model",
+        "dsv41-dspark-quality-formal_dspark_quality_async_v2",
+        "--images-dir",
+        "/home/l00886679/models/DeepSeek-V4.1-Flash/inference/examples/images",
+        "--official-dir",
+        "/home/l00886679/models/DeepSeek-V4.1-Flash",
+        "--max-tokens",
+        "32",
+        "--temperature",
+        "0",
+        "--min-hit-rate",
+        "1.0",
+        "--expect-dspark",
+        "--out",
+        "/work/results/formal_dspark_quality_async_v2/client/vision23.raw.json"
+      ],
+      "returncode": 0,
+      "log_sha256": "178ca663b41f1f5c11dd5142c9c5af00532ebbb43d969a968e4feaef003643b5"
+    }
+  ],
+  "actual_general_API_quality_observed": false,
+  "actual_GSM100_passed": false,
+  "actual_Vision23_passed": false,
+  "actual_client_quality_passed": false,
+  "actual_device_consumer_proof": false,
+  "performance_receipt_granted": false,
+  "formal_receipt_granted": false,
+  "failed": true,
+  "error_type": "ValueError",
+  "error": "GSM requires exact same-source/model 100/100 with zero empty/error"
+}

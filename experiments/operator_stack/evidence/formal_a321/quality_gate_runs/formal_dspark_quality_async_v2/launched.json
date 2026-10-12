@@ -1,0 +1,376 @@
+{
+  "schema": "dspark_general_quality_host_launch_plan_v1",
+  "CPU_preparation_only": false,
+  "source_dir": "/work/src_dspark_general_quality_v2",
+  "job_root": "/work/results/formal_dspark_quality_async_v2",
+  "job_id": "formal_dspark_quality_async_v2",
+  "port": 18653,
+  "served_model": "dsv41-dspark-quality-formal_dspark_quality_async_v2",
+  "candidate_fingerprint": "a6ab7dfe4a86d7ead0bef9144752a77cb452195bc3870311801d6d02be352a79",
+  "snapshot_manifest_sha256": "113c85ed2be33c7cd55fa250c3397304ebe2b46df2ab28228462ca7dcdff3a6a",
+  "environment": {
+    "VLLM_ENABLE_V1_MULTIPROCESSING": "1",
+    "VLLM_WORKER_MULTIPROC_METHOD": "spawn",
+    "VLLM_ALLOW_INSECURE_SERIALIZATION": "1",
+    "VLLM_DISABLE_COMPILE_CACHE": "1",
+    "VLLM_CACHE_ROOT": "/work/results/formal_dspark_quality_async_v2/service/cache",
+    "HCCL_DETERMINISTIC": "strict",
+    "STACK_DSPARK_FORMAL_OUTPUT": "/work/results/formal_dspark_quality_async_v2/service/native",
+    "LOCAL_WORLD_SIZE": "8",
+    "STACK_PHYSICAL_CHIPS": "8,9,10,11,12,13,14,15",
+    "STACK_REAL_WEIGHTS": "1",
+    "STACK_REAL_AUDIT": "0",
+    "STACK_TP8_ARM": "tp8base",
+    "STACK_FP32_DECODE_REDUCTION": "0",
+    "STACK_TINY_PROFILE": "0",
+    "STACK_W4A8_PREFIX_ENABLED": "0",
+    "STACK_WOA_CUBE_ENABLED": "0",
+    "STACK_QKV_MERGE_ENABLED": "0",
+    "STACK_QKV_TAIL_SCHEDULE": "native",
+    "STACK_MOE_MASK_ENABLED": "0",
+    "STACK_METADATA_MANY_SLOTS_ENABLED": "0",
+    "OPT_BLOCKMAP_VERIFY": "0",
+    "DRAFT_FORCE_EAGER": "0",
+    "V41_ENGRAM_WITH_DUMMY": "0",
+    "V41_DUMMY_WO_A_FIX": "0",
+    "DRAFT_GRAPH": "1",
+    "DSPARK_GRAPH_CAPTURE_METADATA": "1",
+    "DSPARK_DRAFT_METADATA_MODE": "sync",
+    "DSPARK_CAPTURE_VALUE_FIX": "1",
+    "DSPARK_SWA_INDICES_RESIDENT": "1",
+    "DSPARK_CAPTURE_NCTX_FIX": "1",
+    "DSPARK_DISPATCH_QUERY_LEN_FIX": "1",
+    "DSPARK_DRAFT_USE_CUDAGRAPH": "1",
+    "DSPARK_HOIST_CONTEXT_KV": "0",
+    "DSPARK_ASYNC_COUNTER": "1",
+    "DSPARK_ASYNC_SCHEDULING": "1",
+    "V41_MLS_SHARED_EXPERT": "1",
+    "V41_MLS_DSA_OVERLAP": "1",
+    "DSPARK_QUALITY_ASYNC_ARM": "1",
+    "STACK_SRC_ROOT": "/work/src_dspark_general_quality_v2",
+    "ASCEND_RT_VISIBLE_DEVICES": "8,9,10,11,12,13,14,15",
+    "ASCEND_VISIBLE_DEVICES": "8,9,10,11,12,13,14,15",
+    "ASCEND_MAX_OP_CACHE_SIZE": "-1",
+    "HCCL_BUFFSIZE": "1024",
+    "HCCL_NPU_SOCKET_PORT_RANGE": "auto",
+    "HCCL_OP_EXPANSION_MODE": "AIV",
+    "NUMBA_CACHE_DIR": "/work/cache/numba",
+    "PYTORCH_NPU_ALLOC_CONF": "expandable_segments:True",
+    "TASK_QUEUE_ENABLE": "1",
+    "V41_ENGRAM_DEVICE_FALLBACK": "0",
+    "V41_ENGRAM_DEVICE_INDEX": "1",
+    "V41_ENGRAM_GATE_CHUNK": "0",
+    "V41_ENGRAM_GATE_HOIST": "0",
+    "V41_ENGRAM_GATE_MAX_TOKENS": "4096",
+    "V41_ENGRAM_HOST_RESIDENT": "1",
+    "V41_ENGRAM_JIT": "1",
+    "V41_ENGRAM_REUSE_EP_GROUP": "1",
+    "V41_ENGRAM_ROUTE_PROBE": "0",
+    "V41_MOE_COMM_ALLGATHER": "1",
+    "V41_MOE_MASK_RANGE": "1",
+    "V41_MOE_ZERO_INVALID": "0",
+    "V41_MOE_ZERO_NONFINITE": "0",
+    "V41_O_PROJ_2D": "1",
+    "V41_QLI_NO_CANDIDATE": "1",
+    "V41_ROPE_IDXSEL": "1",
+    "DSPARK_QUALITY_BASE_WORKER": "parallel_tiny.dspark_formal_prep.worker.FormalDSparkWorker",
+    "DSPARK_API_FROZEN_COUNTER": "/work/src_dspark_general_quality_v2/stack/parallel_tiny/dspark_general_quality_launcher_cpu/assets/frozen_v4_counter.py",
+    "DSPARK_QUALITY_CANDIDATE_CONTRACT": "/work/results/formal_dspark_quality_async_v2/service/candidate_contract.json"
+  },
+  "bootstrap": [
+    "bash",
+    "/work/src_dspark_general_quality_v2/stack/parallel_tiny/dspark_general_quality_launcher_cpu/run_general.sh",
+    "parallel_tiny.dspark_general_quality_api_cpu.bootstrap",
+    "--candidate",
+    "/work/src_dspark_general_quality_v2/candidate_contract.json",
+    "--job-id",
+    "formal_dspark_quality_async_v2",
+    "--port",
+    "18653",
+    "--output",
+    "/work/results/formal_dspark_quality_async_v2/service",
+    "--counter-file",
+    "/work/src_dspark_general_quality_v2/stack/parallel_tiny/dspark_general_quality_launcher_cpu/assets/frozen_v4_counter.py",
+    "--execute"
+  ],
+  "evaluate_when_ready": [
+    "bash",
+    "/work/src_dspark_general_quality_v2/stack/parallel_tiny/dspark_general_quality_launcher_cpu/run_general.sh",
+    "parallel_tiny.dspark_general_quality_launcher_cpu.evaluate_when_ready",
+    "--source",
+    "/work/src_dspark_general_quality_v2",
+    "--snapshot-manifest-sha256",
+    "113c85ed2be33c7cd55fa250c3397304ebe2b46df2ab28228462ca7dcdff3a6a",
+    "--job-id",
+    "formal_dspark_quality_async_v2",
+    "--port",
+    "18653",
+    "--job-root",
+    "/work/results/formal_dspark_quality_async_v2",
+    "--ready-timeout",
+    "1800",
+    "--execute",
+    "--stop-after"
+  ],
+  "start_service": [
+    "docker",
+    "exec",
+    "-d",
+    "dsv41-real-stack-tp8-20261010-a321",
+    "setsid",
+    "bash",
+    "/work/results/formal_dspark_quality_async_v2/runner.sh"
+  ],
+  "start_evaluator": [
+    "docker",
+    "exec",
+    "-d",
+    "dsv41-real-stack-tp8-20261010-a321",
+    "bash",
+    "/work/results/formal_dspark_quality_async_v2/evaluator.sh"
+  ],
+  "fresh_occupancy_checks_required": 2,
+  "physical_chips": [
+    8,
+    9,
+    10,
+    11,
+    12,
+    13,
+    14,
+    15
+  ],
+  "allow_only_known_alarm_80C98001": true,
+  "stop_after": true,
+  "actual_general_API_quality_observed": false,
+  "actual_GSM100_passed": false,
+  "actual_Vision23_passed": false,
+  "actual_client_quality_passed": false,
+  "actual_device_consumer_proof": false,
+  "performance_receipt_granted": false,
+  "formal_receipt_granted": false,
+  "container": "dsv41-real-stack-tp8-20261010-a321",
+  "container_id": "b1aa15d8800346aff8f755a049feaae148b9d6e315e92bd32dcdf1063b429eb0",
+  "container_environment": {
+    "STACK_PHYSICAL_CHIPS": "8,9,10,11,12,13,14,15",
+    "HCCL_CONNECT_TIMEOUT": "120",
+    "ASCEND_RT_VISIBLE_DEVICES": "8,9,10,11,12,13,14,15",
+    "STACK_EXPECTED_CHIPS": "8,9,10,11,12,13,14,15",
+    "PATH": "/usr/local/Ascend/nnal/atb/latest/atb/cxx_abi_1/bin:/usr/local/Ascend/ascend-toolkit/latest/bin:/usr/local/Ascend/ascend-toolkit/latest/compiler/ccec_compiler/bin:/usr/local/Ascend/ascend-toolkit/latest/tools/ccec_compiler/bin:/usr/local/Ascend/cann-9.1.0/tools/show_kernel_debug_data:/usr/local/Ascend/cann-9.1.0/tools/msobjdump:/usr/local/Ascend/cann-9.1.0/bin:/usr/local/Ascend/cann-9.1.0/tools/ccec_compiler/bin:/usr/local/Ascend/cann-9.1.0/tools/profiler/bin:/usr/local/Ascend/cann-9.1.0/tools/ascend_system_advisor/asys:/usr/local/python3.12.13/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
+    "LD_LIBRARY_PATH": "/usr/local/Ascend/cann-9.1.0/lib64:/usr/local/Ascend/cann-9.1.0/lib64/plugin/opskernel:/usr/local/Ascend/cann-9.1.0/lib64/plugin/nnengine:/usr/local/Ascend/cann-9.1.0/opp/built-in/op_impl/ai_core/tbe/op_tiling:/usr/local/Ascend/driver/lib64:/usr/local/Ascend/driver/lib64/common:/usr/local/Ascend/driver/lib64/driver:/usr/local/Ascend/nnal/atb/latest/atb/cxx_abi_1/lib:/usr/local/Ascend/nnal/atb/latest/atb/cxx_abi_1/examples:/usr/local/Ascend/nnal/atb/latest/atb/cxx_abi_1/tests/atbopstest:/usr/local/Ascend/ascend-toolkit/latest/tools/aml/lib64:/usr/local/Ascend/ascend-toolkit/latest/tools/aml/lib64/plugin:/usr/local/Ascend/ascend-toolkit/latest/lib64:/usr/local/Ascend/ascend-toolkit/latest/lib64/plugin/opskernel:/usr/local/Ascend/ascend-toolkit/latest/lib64/plugin/nnengine:/usr/local/Ascend/ascend-toolkit/latest/opp/built-in/op_impl/ai_core/tbe/op_tiling:/usr/local/python3.12.13/lib:",
+    "ASCEND_TOOLKIT_HOME": "/usr/local/Ascend/cann-9.1.0",
+    "ASCEND_TOOLKIT_LATEST_HOME": "/usr/local/Ascend/ascend-toolkit/latest",
+    "PYTHONPATH": "/usr/local/Ascend/ascend-toolkit/latest/python/site-packages:/usr/local/Ascend/ascend-toolkit/latest/opp/built-in/op_impl/ai_core/tbe:/usr/local/Ascend/cann-9.1.0/python/site-packages:/usr/local/Ascend/cann-9.1.0/opp/built-in/op_impl/ai_core/tbe:",
+    "ASCEND_AICPU_PATH": "/usr/local/Ascend/cann-9.1.0",
+    "ASCEND_OPP_PATH": "/usr/local/Ascend/cann-9.1.0/opp",
+    "TOOLCHAIN_HOME": "/usr/local/Ascend/cann-9.1.0/toolkit",
+    "ASCEND_HOME_PATH": "/usr/local/Ascend/cann-9.1.0",
+    "CMAKE_PREFIX_PATH": "/usr/local/Ascend/cann-9.1.0/toolkit/tools/tikicpulib/lib/cmake:/usr/local/Ascend/cann-9.1.0/lib64/cmake",
+    "ATB_HOME_PATH": "/usr/local/Ascend/nnal/atb/latest/atb/cxx_abi_1",
+    "ATB_STREAM_SYNC_EVERY_KERNEL_ENABLE": "0",
+    "ATB_STREAM_SYNC_EVERY_RUNNER_ENABLE": "0",
+    "ATB_STREAM_SYNC_EVERY_OPERATION_ENABLE": "0",
+    "ATB_OPSRUNNER_KERNEL_CACHE_LOCAL_COUNT": "1",
+    "ATB_OPSRUNNER_KERNEL_CACHE_GLOABL_COUNT": "5",
+    "ATB_WORKSPACE_MEM_ALLOC_ALG_TYPE": "1",
+    "ATB_COMPARE_TILING_EVERY_KERNEL": "0",
+    "ATB_SHARE_MEMORY_NAME_SUFFIX": "",
+    "ATB_MATMUL_SHUFFLE_K_ENABLE": "1",
+    "LCCL_DETERMINISTIC": "0",
+    "LCCL_PARALLEL": "0",
+    "ATB_CXX_ABI": "1",
+    "DEBIAN_FRONTEND": "noninteractive",
+    "SOC_VERSION": "ascend910_9391",
+    "TASK_QUEUE_ENABLE": "1",
+    "OMP_NUM_THREADS": "1"
+  },
+  "prelaunch_CPU_guard": {
+    "CPU_source_checkpoint_assets_verified": true,
+    "official_source_receipt": {
+      "source_guard_sha256": "780fbedb134f27dc53ca155f394821dd85019e74ac11a2fde7cabba9d0f9602d",
+      "guarded_files": 7
+    }
+  },
+  "initial_resources": {
+    "0": {
+      "health": "OK",
+      "processes": [
+        {
+          "pid": 1275592,
+          "name": "VLLMWorker_DP"
+        }
+      ]
+    },
+    "1": {
+      "health": "OK",
+      "processes": [
+        {
+          "pid": 1275591,
+          "name": "VLLMWorker_DP"
+        }
+      ]
+    },
+    "2": {
+      "health": "OK",
+      "processes": []
+    },
+    "3": {
+      "health": "OK",
+      "processes": []
+    },
+    "4": {
+      "health": "OK",
+      "processes": [
+        {
+          "pid": 1978245,
+          "name": "VLLMEngineCor"
+        }
+      ]
+    },
+    "5": {
+      "health": "OK",
+      "processes": [
+        {
+          "pid": 38304,
+          "name": "VLLMEngineCor"
+        }
+      ]
+    },
+    "8": {
+      "health": "Alarm",
+      "processes": []
+    },
+    "9": {
+      "health": "Alarm",
+      "processes": []
+    },
+    "10": {
+      "health": "Alarm",
+      "processes": []
+    },
+    "11": {
+      "health": "Alarm",
+      "processes": []
+    },
+    "12": {
+      "health": "Alarm",
+      "processes": []
+    },
+    "13": {
+      "health": "Alarm",
+      "processes": []
+    },
+    "14": {
+      "health": "Alarm",
+      "processes": []
+    },
+    "15": {
+      "health": "Alarm",
+      "processes": []
+    }
+  },
+  "health_details": {
+    "8": "\tHealth Status                  : Alarm\n\tError Code                     : 80C98001\n\tError Information              : node type=AIC, sensor type=RAS State, event state=module error can not be fixed\n",
+    "9": "\tHealth Status                  : Alarm\n\tError Code                     : 80C98001\n\tError Information              : node type=AIC, sensor type=RAS State, event state=module error can not be fixed\n",
+    "10": "\tHealth Status                  : Alarm\n\tError Code                     : 80C98001\n\tError Information              : node type=AIC, sensor type=RAS State, event state=module error can not be fixed\n",
+    "11": "\tHealth Status                  : Alarm\n\tError Code                     : 80C98001\n\tError Information              : node type=AIC, sensor type=RAS State, event state=module error can not be fixed\n",
+    "12": "\tHealth Status                  : Alarm\n\tError Code                     : 80C98001\n\tError Information              : node type=AIC, sensor type=RAS State, event state=module error can not be fixed\n",
+    "13": "\tHealth Status                  : Alarm\n\tError Code                     : 80C98001\n\tError Information              : node type=AIC, sensor type=RAS State, event state=module error can not be fixed\n",
+    "14": "\tHealth Status                  : Alarm\n\tError Code                     : 80C98001\n\tError Information              : node type=AIC, sensor type=RAS State, event state=module error can not be fixed\n",
+    "15": "\tHealth Status                  : Alarm\n\tError Code                     : 80C98001\n\tError Information              : node type=AIC, sensor type=RAS State, event state=module error can not be fixed\n"
+  },
+  "runner_sha256": "d6304b6de1995fbcf42ba42fbe5d8a60f88ee055e3d28f5598c632cc1e87e115",
+  "evaluator_sha256": "cb053b5878b76d4d572292cd990afb399deb8967bc812568038bd87cab1975ee",
+  "service_started": false,
+  "HTTP_readiness_verified": false,
+  "launch_requested": true,
+  "fresh_resources": {
+    "0": {
+      "health": "OK",
+      "processes": [
+        {
+          "pid": 1275592,
+          "name": "VLLMWorker_DP"
+        }
+      ]
+    },
+    "1": {
+      "health": "OK",
+      "processes": [
+        {
+          "pid": 1275591,
+          "name": "VLLMWorker_DP"
+        }
+      ]
+    },
+    "2": {
+      "health": "OK",
+      "processes": []
+    },
+    "3": {
+      "health": "OK",
+      "processes": []
+    },
+    "4": {
+      "health": "OK",
+      "processes": [
+        {
+          "pid": 1978245,
+          "name": "VLLMEngineCor"
+        }
+      ]
+    },
+    "5": {
+      "health": "OK",
+      "processes": [
+        {
+          "pid": 38304,
+          "name": "VLLMEngineCor"
+        }
+      ]
+    },
+    "8": {
+      "health": "Alarm",
+      "processes": []
+    },
+    "9": {
+      "health": "Alarm",
+      "processes": []
+    },
+    "10": {
+      "health": "Alarm",
+      "processes": []
+    },
+    "11": {
+      "health": "Alarm",
+      "processes": []
+    },
+    "12": {
+      "health": "Alarm",
+      "processes": []
+    },
+    "13": {
+      "health": "Alarm",
+      "processes": []
+    },
+    "14": {
+      "health": "Alarm",
+      "processes": []
+    },
+    "15": {
+      "health": "Alarm",
+      "processes": []
+    }
+  },
+  "fresh_health_details": {
+    "8": "\tHealth Status                  : Alarm\n\tError Code                     : 80C98001\n\tError Information              : node type=AIC, sensor type=RAS State, event state=module error can not be fixed\n",
+    "9": "\tHealth Status                  : Alarm\n\tError Code                     : 80C98001\n\tError Information              : node type=AIC, sensor type=RAS State, event state=module error can not be fixed\n",
+    "10": "\tHealth Status                  : Alarm\n\tError Code                     : 80C98001\n\tError Information              : node type=AIC, sensor type=RAS State, event state=module error can not be fixed\n",
+    "11": "\tHealth Status                  : Alarm\n\tError Code                     : 80C98001\n\tError Information              : node type=AIC, sensor type=RAS State, event state=module error can not be fixed\n",
+    "12": "\tHealth Status                  : Alarm\n\tError Code                     : 80C98001\n\tError Information              : node type=AIC, sensor type=RAS State, event state=module error can not be fixed\n",
+    "13": "\tHealth Status                  : Alarm\n\tError Code                     : 80C98001\n\tError Information              : node type=AIC, sensor type=RAS State, event state=module error can not be fixed\n",
+    "14": "\tHealth Status                  : Alarm\n\tError Code                     : 80C98001\n\tError Information              : node type=AIC, sensor type=RAS State, event state=module error can not be fixed\n",
+    "15": "\tHealth Status                  : Alarm\n\tError Code                     : 80C98001\n\tError Information              : node type=AIC, sensor type=RAS State, event state=module error can not be fixed\n"
+  },
+  "fresh_occupancy_timestamp_unix": 1791793941.9497557
+}

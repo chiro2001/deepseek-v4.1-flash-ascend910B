@@ -1,0 +1,175 @@
+{
+ "aggregate": {
+  "samples": 8,
+  "concurrency": 1,
+  "prompt_tokens": 2048,
+  "emitted_output_tokens_per_request": 256,
+  "decoded_tokens_per_request": 255,
+  "total_actual_rounds": 688,
+  "total_decoded_tokens": 2040,
+  "decode_elapsed_s_sum": 31.983336650000002,
+  "A": 2.9651162790697674,
+  "ms_per_step": 46.48740792151163,
+  "tokens_per_second": 63.783213812996586,
+  "aggregation": "sum measured decode elapsed / sum actual rounds; warmup excluded",
+  "ms_per_step_median": 46.60531867058824,
+  "per_stream_tokens_per_second_median": 72.82615668152735,
+  "clean_count": 7,
+  "repetition_count": 1,
+  "acceptance_length_review_required": true,
+  "clean_rate": 0.875
+ },
+ "flags": {
+  "actual_api_performance_observed": true,
+  "actual_api_quality_observed": true,
+  "actual_client_quality_passed": false,
+  "actual_device_consumer_proof": false,
+  "performance_receipt_granted": false,
+  "formal_receipt_granted": false,
+  "performance_target_observed": false,
+  "serial_requests": true,
+  "service_id": "577fd26a3da94bd08e15a948315f74d3"
+ },
+ "measured": [
+  {
+   "index": 0,
+   "phase": "measured",
+   "client_end_ns": 2911039203803390,
+   "metrics": null
+  },
+  {
+   "index": 1,
+   "phase": "measured",
+   "client_end_ns": 2911046872080560,
+   "metrics": null
+  },
+  {
+   "index": 2,
+   "phase": "measured",
+   "client_end_ns": 2911051610629600,
+   "metrics": null
+  },
+  {
+   "index": 3,
+   "phase": "measured",
+   "client_end_ns": 2911057656754130,
+   "metrics": null
+  },
+  {
+   "index": 4,
+   "phase": "measured",
+   "client_end_ns": 2911066529081610,
+   "metrics": null
+  },
+  {
+   "index": 5,
+   "phase": "measured",
+   "client_end_ns": 2911072505715750,
+   "metrics": null
+  },
+  {
+   "index": 6,
+   "phase": "measured",
+   "client_end_ns": 2911078980328710,
+   "metrics": null
+  },
+  {
+   "index": 7,
+   "phase": "measured",
+   "client_end_ns": 2911087905224650,
+   "metrics": null
+  }
+ ],
+ "rank0_draft_call0": {
+  "k": 5,
+  "output_shape": [
+   1,
+   5
+  ],
+  "runtime_graph": true,
+  "method": "dspark",
+  "actual_execution_evidence": {
+   "actual_graph_submission": true,
+   "events": [
+    {
+     "role": "draft",
+     "wrapper_id_matches_tracked": true,
+     "runtime_mode": "FULL",
+     "wrapper_runtime_mode": "FULL",
+     "capturing": false,
+     "is_draft_model": true,
+     "descriptor": "BatchDescriptor(num_tokens=6, num_reqs=1, uniform=True, has_lora=False, num_active_loras=0)",
+     "wrapper_id": 281467535127664,
+     "graph_id": 281200023643504,
+     "existing_graph_entry": true,
+     "replay_returned": true,
+     "input_addresses_actual": [],
+     "input_addresses_captured": [],
+     "input_addresses_match": true,
+     "address_scope": "stock wrapper positional Tensor inputs only; not hidden cache/value proof",
+     "submission_stream": 187651452205320
+    }
+   ],
+   "sources": {
+    "stock_proposer": {
+     "path": "/work/src_dspark_native_graph_api_v1/stack/draft_graph_files/llm_base_proposer.py",
+     "sha256": "36d7c8870538e10e310863f9b628b90b946b534861563542cf7fba4cd88d7c39",
+     "function": "AscendSpecDecodeBaseProposer._propose",
+     "function_sha256": "8e2b2e8ddf9db7be41a07eda7ea6bbc466a42b1511ffa8f0fdd3fecd878f135c",
+     "served_by_overlay": true,
+     "overlay_gate_active": true
+    },
+    "acl_wrapper": {
+     "path": "/vllm-workspace/vllm-ascend/vllm_ascend/compilation/acl_graph.py",
+     "sha256": "c8ab2fe6aaae034b03e9e34b9c07fd445046564acd5d45e2c24b5ea5232c5a74",
+     "function": "ACLGraphWrapper.__call__",
+     "function_sha256": "0b1b1e48b2bcc25973108350d43124cf219b090cc845c3fc56f56fd07921e72a",
+     "served_by_overlay": false,
+     "overlay_gate_active": true
+    },
+    "npu_graph_replay": {
+     "path": "/usr/local/python3.12.13/lib/python3.12/site-packages/torch_npu/npu/graphs.py",
+     "sha256": "eb11cac181087766e8489cf3a1da0c0fa150933b7e74454dba4a47db6114164e",
+     "function": "NPUGraph.replay",
+     "function_sha256": "296b98230fdb99a2e46b479aef83a5812f63db00d53982d31549b44b998de90f",
+     "served_by_overlay": false,
+     "overlay_gate_active": true
+    },
+    "actual_draft_wrapper": {
+     "wrapper_id": 281467535127664,
+     "runtime_mode": "FULL",
+     "object_scope": "runner.drafter._runnable in this private worker only"
+    }
+   },
+   "device_consumer_proof": false,
+   "scope": "actual existing NPUGraph replay submission; no layer/cache device coverage"
+  }
+ },
+ "rounds_per_request": [
+  48,
+  148,
+  50,
+  85,
+  142,
+  46,
+  61,
+  108
+ ],
+ "timing_split_ms_per_round": {
+  "initial": 0.195,
+  "execute_to_bookkeeping": 34.319,
+  "bookkeeping_to_sample": 3.677,
+  "between_rounds": 3.061,
+  "terminal": 5.235,
+  "scope": "sum of exact host intervals over 688 rounds from the source-verified per-round receipts (same method as analyze_native_api_raw_timing.py)"
+ },
+ "comparison_vs_eager_baseline": {
+  "eager_api_v2_ms_per_step": 57.5816614535,
+  "graph_api_v1_ms_per_step": 46.48740792151163,
+  "delta_ms_per_step": -11.094253531988,
+  "A_eager": 2.9651162791,
+  "A_graph": 2.9651162790697674,
+  "clean_eager": "7/8",
+  "clean_graph": "7/8"
+ }
+}

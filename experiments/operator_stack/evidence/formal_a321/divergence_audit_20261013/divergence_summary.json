@@ -1,0 +1,52 @@
+{
+ "scope": "gsm8k-12 divergence evidence across DSpark and A1 arms (diagnostic)",
+ "arms": {
+  "dspark_async_mls": {
+   "pred": "12",
+   "gold": "13",
+   "raw_sha256": "3b88bee1c73f3524fefba95b65c1c7641c517a9d64d71828997fc66b2c37073b",
+   "raw_tail": "y years will it take before he starts earning money on the lemon tree?*  \nThat means: after how many years does he start making a profit?  \nHe starts earning money (net positive overall) after 12 years.\n\n**Final answer:**  \n\\[\n\\boxed{12}\n\\]"
+  },
+  "dspark_sync_frozen": {
+   "pred": "12",
+   "gold": "13",
+   "raw_sha256": "3b88bee1c73f3524fefba95b65c1c7641c517a9d64d71828997fc66b2c37073b",
+   "raw_tail": "y years will it take before he starts earning money on the lemon tree?*  \nThat means: after how many years does he start making a profit?  \nHe starts earning money (net positive overall) after 12 years.\n\n**Final answer:**  \n\\[\n\\boxed{12}\n\\]"
+  },
+  "a1_current_pipeline": {
+   "pred": "13",
+   "gold": "13",
+   "raw_sha256": "8b1d9db18309960161cafda7a04b9abd0824a9a2115ddbcf2e4020b1d44c87df",
+   "raw_tail": " how many years does his total profit exceed the initial cost? That’s 12 years (break even at end of year 12), so he starts earning in year 13. But many such problems treat \"starts earning\" as the break-even year count.\n\nLet’s check: At end"
+  }
+ },
+ "first_char_divergence": {
+  "dspark_async_mls__vs__a1_current_pipeline": {
+   "first_char_diff": 61,
+   "len_a": 1167,
+   "len_b": 1903,
+   "identical": false
+  },
+  "dspark_sync_frozen__vs__a1_current_pipeline": {
+   "first_char_diff": 61,
+   "len_a": 1167,
+   "len_b": 1903,
+   "identical": false
+  },
+  "dspark_async_mls__vs__dspark_sync_frozen": {
+   "first_char_diff": 1167,
+   "len_a": 1167,
+   "len_b": 1167,
+   "identical": true
+  }
+ },
+ "prompt": "canonical GSM8K test item 12 (8-shot, official chat encoder); prompt_tokens=4113",
+ "answer_token_divergence": {
+  "index": 19,
+  "dspark_token": 671,
+  "dspark_text": "The",
+  "a1_token": 58559,
+  "a1_text": "Carl",
+  "note": "tokens 0..18 identical; divergence at the first content sentence"
+ }
+}

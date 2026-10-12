@@ -1,0 +1,104 @@
+{
+  "scope": "formal full40 TP8 native DSpark preparation/control",
+  "mode": "audit",
+  "target_ms_per_step": 20.0,
+  "physical_chips": "8,9,10,11,12,13,14,15",
+  "cpu_prepared": true,
+  "npu_validated": false,
+  "passed": false,
+  "full_consumer_audit_passed": false,
+  "formal_model_validated": false,
+  "safe_formal_receipt": false,
+  "performance_claim": null,
+  "phase": "native-aa-device-proof-pending",
+  "checkpoint_config_sha256": "40ebd329d3cb2d99d7176091afb580c182c21f48b88b63b550264a97e9c0d424",
+  "source_hashes": {
+    "bench_formal_dspark.py": "e93582adf78029b092baacd9f7f9ae80fc451f13554bcc70209fa4721c527888",
+    "formal_dspark_counters.py": "da845a5891557f21e80eac06d96aec1955263d1ae93afbc4d84e86dd9585dbec",
+    "formal_model_contract.py": "681bcbe1aa1f0b9e3d1ea4046fd2cab9b8ccc3fbad1af29899c82863708a805b",
+    "formal_comparison.py": "fb6d9472ac155db9a6104d366b5fda767cb1b807cdc6bde4b228fec4f125bfe9",
+    "route_capture_patch.py": "e955fd72b7365befb0179d65f9a1bc5d076b4e13385a5a15b364a652efa8ba59",
+    "parallel_tiny/dspark_formal_prep/contract.py": "10b7a698785da75c0b85ae0c4d5e5eb59eff768f8c1e3b4c26b4ab7c6c0a054d",
+    "parallel_tiny/dspark_formal_prep/worker.py": "00811b9b83e69f6fd359e2577c2536875ce46e5effb21938f25b90cb5426ac5c",
+    "parallel_tiny/dspark_formal_prep/sdk_gate.py": "a7db28ca4c4e31f3855893fab7ecbdeace76c487a7461d9176bdb09b70ca81bc",
+    "parallel_tiny/dspark_formal_audit/stock_graph_observer.py": "33fda19564ebb2affdcd6e7c6ca15cfb5523fc5898e4d5b7cf11a219c315a47b"
+  },
+  "speculative_config": {
+    "method": "dspark",
+    "num_speculative_tokens": 5,
+    "enforce_eager": false
+  },
+  "hot_flags": {},
+  "bank_complete": true,
+  "native_dspark_loaded": true,
+  "bank_path": "banks.json",
+  "native_aa_passed": true,
+  "acceptance_zero_diagnostic_required": false,
+  "counter_triplets": [
+    {
+      "tag": "pair-0-a",
+      "ms_per_step": 44.65436375,
+      "A": 5.75,
+      "tokens_per_second": 128.76681061209834,
+      "decoded_tokens": 46,
+      "rounds": 8
+    },
+    {
+      "tag": "pair-0-b",
+      "ms_per_step": 44.80140875,
+      "A": 5.75,
+      "tokens_per_second": 128.34417846291495,
+      "decoded_tokens": 46,
+      "rounds": 8
+    },
+    {
+      "tag": "pair-1-a",
+      "ms_per_step": 45.80397875,
+      "A": 5.75,
+      "tokens_per_second": 125.53494602256578,
+      "decoded_tokens": 46,
+      "rounds": 8
+    },
+    {
+      "tag": "pair-1-b",
+      "ms_per_step": 44.484175,
+      "A": 5.75,
+      "tokens_per_second": 129.25945013029914,
+      "decoded_tokens": 46,
+      "rounds": 8
+    },
+    {
+      "tag": "pair-2-a",
+      "ms_per_step": 44.61543875,
+      "A": 5.75,
+      "tokens_per_second": 128.87915396775068,
+      "decoded_tokens": 46,
+      "rounds": 8
+    },
+    {
+      "tag": "pair-2-b",
+      "ms_per_step": 44.951808750000005,
+      "A": 5.75,
+      "tokens_per_second": 127.91476383027634,
+      "decoded_tokens": 46,
+      "rounds": 8
+    }
+  ],
+  "median_ms_per_step": 44.72788625,
+  "pending_consumer_proofs": [
+    "draft per-layer device routes/consumer coverage",
+    "main/draft cache write/read and graph binding",
+    "complete actual consumer marker receipt"
+  ],
+  "meaning": "A/A and counters are diagnostic until complete actual main/draft/verifier/cache consumer proof passes",
+  "actual_npu_requests_executed": 8,
+  "actual_target_verifier_rounds_observed": 48,
+  "aggregate_triplet": {
+    "ms_per_step": 44.885195625,
+    "A": 5.75,
+    "tokens_per_second": 128.10459929904783,
+    "decoded_tokens": 276,
+    "rounds": 48,
+    "decode_elapsed_s": 2.15448939
+  }
+}

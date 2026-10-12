@@ -1,0 +1,128 @@
+<!doctype html><html lang="zh-CN"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>DSpark 正式轮预算：宿主/设备分解与结构性差距（2026-10-13 v47）</title><style>body{margin:32px auto;padding:0 24px;max-width:1060px;font-family:system-ui,sans-serif;color:#172033;line-height:1.65}h1{font-size:28px}h2{margin-top:32px;font-size:21px}table{border-collapse:collapse;width:100%;display:block;overflow:auto}td,th{border:1px solid #d9deea;padding:8px 12px;text-align:left}th{background:#f1f4f9}code{background:#eef1f6;padding:2px 4px;overflow-wrap:anywhere}</style><body><h1>DSpark 正式轮预算：宿主/设备分解与结构性差距（2026-10-13 v47）</h1>
+<p>本轮目标仍是「包含 DSpark 全部开销 ≤20ms/step」，<strong>未达成</strong>。本轮完成三件事：
+宿主相位探针（新的可复验诊断）、逐轮预算分解、两个候选的实测结论（一个中性、一个被合同阻塞）。</p>
+<h2>1. 宿主相位探针（新增诊断设施，env 门控、零数学改动）</h2>
+<p>新快照 <code>src_dspark_native_hostprobe_v1</code>（= draft-graph 快照 + 探针）：</p>
+<ul>
+<li><code>stack/host_span_probe.py</code>：在 counter 安装后<strong>外层</strong>包裹 <code>execute_model / sample_tokens /
+  _prepare_inputs / _calc_spec_decode_metadata / _bookkeeping_sync / propose_draft_token_ids /
+  _sample / drafter._propose / block_table.compute_slot_mapping</code>，只做 <code>time.monotonic_ns()</code>
+  计时与调用序列记录；<strong>不读张量、不同步设备、不改数学</strong>。</li>
+<li>门控 <code>DSPARK_HOST_SPANS=1</code>；调用序列（含起止纳秒）随 counter 收据一起返回，可与每轮
+  <code>execute_start_ns..sample_end_ns</code> 窗口离线对齐（<code>align_round_spans.py</code>）。</li>
+<li>冻结：freeze 17 文件（新 counters <code>3dcc924d…</code>、probe <code>c1ee90f0…</code>）。</li>
+</ul>
+<p>AA 审计屏在带探针下仍然通过（3/3 对、tokens/routes/logprobs 全等），证明探针不改变语义。</p>
+<h2>2. 逐轮分解（AA 审计屏 rank0，8 个解码轮，A=5.75，探针开启）</h2>
+<table>
+<thead>
+<tr>
+<th>项</th>
+<th style="text-align: right;">每轮 ms</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>轮窗口</td>
+<td style="text-align: right;">40.298</td>
+<td>execute_start→sample_end</td>
+</tr>
+<tr>
+<td><code>execute_model</code> 宿主跨度</td>
+<td style="text-align: right;">11.579</td>
+<td>内含下面两项</td>
+</tr>
+<tr>
+<td>├ <code>_prepare_inputs</code></td>
+<td style="text-align: right;">2.240</td>
+<td>槽位映射 12 组、位置、块表等</td>
+</tr>
+<tr>
+<td>├ <code>_calc_spec_decode_metadata</code></td>
+<td style="text-align: right;">0.418</td>
+<td></td>
+</tr>
+<tr>
+<td>└ 其余（目标图提交/前段设备）</td>
+<td style="text-align: right;">8.921</td>
+<td></td>
+</tr>
+<tr>
+<td><code>sample_tokens</code> 宿主跨度</td>
+<td style="text-align: right;">28.565</td>
+<td></td>
+</tr>
+<tr>
+<td>├ <code>_bookkeeping_sync</code></td>
+<td style="text-align: right;">1.106</td>
+<td>D2H（已采样 token 回读）</td>
+</tr>
+<tr>
+<td>├ <code>propose_draft_token_ids</code></td>
+<td style="text-align: right;">3.676</td>
+<td>其中 <code>drafter._propose</code> 2.963</td>
+</tr>
+<tr>
+<td>└ 其余（<code>_sample</code> 等待与拒绝采样、终端 fence）</td>
+<td style="text-align: right;">23.783</td>
+<td></td>
+</tr>
+<tr>
+<td>步间 gap</td>
+<td style="text-align: right;">0.154</td>
+<td>很小</td>
+</tr>
+</tbody>
+</table>
+<p>补充：<code>_sample</code>（采样+拒绝采样入口）本身平均 18.5ms/次——它包含<strong>等待目标图 logits 的设备时间</strong>，
+不是纯宿主。结合设备侧剖析（上轮）：目标图 21.6ms、草稿 6.8ms、验证 0.4ms、准备核 2.8ms。</p>
+<p><strong>结论</strong>：每轮 ≈ 设备 30–33ms + 宿主可串行段 ≈ 6.5–7.5ms + 设备等待间隙。轮窗口以设备为主，
+宿主暴露量 ~7ms（其中 <code>_prepare_inputs</code> 2.2、<code>_propose</code>/<code>propose_draft</code> 3.7、其余 ~1）。</p>
+<h2>3. 与无 DSpark 基线的对照（量级标尺）</h2>
+<ul>
+<li>无 DSpark mask 服务：<code>[bneck] hp=19.226</code>、客户端 <code>(19.289956, A=1, 51.840451)</code>（n=1 行图）。</li>
+<li>本 DSpark 候选：<code>[bneck] hp=41.006</code>、客户端 <code>(46.48740792151163, A=2.9651162790697674, 63.783213812996586)</code>（n=6 行图）。</li>
+<li><strong>每 token</strong>：DSpark 15.68ms/token &lt; mask 19.29ms/token（已更优）；
+  但 ≤20ms/step 且 A≈2.97 ⇒ <strong>6.74ms/token</strong>，比现状再快 2.3×。</li>
+<li>结构性门槛：即使把宿主暴露全部消除（−7ms），轮窗口仍 ≈33ms；≤20ms 必须让设备侧
+  （目标图 21.6 + 草稿 6.8 + 验证/准备 3.2）整体减半。这是一项结构化工程
+  （通信次数、MC2/融合算子、草稿图瘦身），不是单开关可达。</li>
+</ul>
+<h2>4. 候选实测账</h2>
+<table>
+<thead>
+<tr>
+<th>候选</th>
+<th>结果</th>
+<th>处置</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>V41_SLOT_MAP_FUSED=verify</code></td>
+<td>融合/逐组双跑逐元素一致；8×256 token 与基线逐位一致</td>
+<td>数值门通过</td>
+</tr>
+<tr>
+<td><code>V41_SLOT_MAP_FUSED=1</code></td>
+<td>设备 <code>hp</code> 41.006→39.797（−1.21ms），客户端 46.504 vs 46.487（<strong>噪声级无收益</strong>）</td>
+<td><strong>不部署</strong>（新增宿主侧融合准备抵消设备收益）</td>
+</tr>
+<tr>
+<td><code>V41_MOE_COMM_ALLGATHER=0</code>（走 MC2/FUSED_MC2）</td>
+<td>在 <code>route_capture_patch.capture</code> 断言 <code>(255, 2044)</code> 失败：MC2 把 prefill 2044 token 按 floor 分片（255/rank），而正式路由审计合同要求 <code>ceil(total/tp)</code> 的完整路由分片</td>
+<td><strong>被审计合同阻塞</strong>；要测需先重做路由导出合同（新快照+重新验证），本轮未做</td>
+</tr>
+</tbody>
+</table>
+<p>证据：<code>evidence/formal_a321/hostsplit_hspan/</code>（探针脚本、aa_v5/v6 回执与请求）、
+<code>evidence/formal_a321/dspark_native_graph_aa_v7_moecomm_rejected/</code>（MC2 失败原文）。</p>
+<h2>5. 下一步（按期望值排序，均需设备验证）</h2>
+<ol>
+<li><strong>目标图通信收缩</strong>（最大单块 6.12ms/160 次 allReduce）：评估把 4 次/层收敛为 2 次（
+   共享专家与路由专家合并归约）或改走融合 MC2；需先解决路由审计合同的自适应（接受 floor/ceil 分片）。</li>
+<li><strong>草稿图瘦身</strong>（6.8ms/轮）：草稿 3 层 × 4 collectives；评估更少通信或 K 自适应。</li>
+<li><strong>宿主 7ms</strong>：<code>.item()</code>/阻塞 H2D 清理（storm 归因，0.3–1ms）与 <code>_propose</code> 宿主路径简化。</li>
+<li>保持：draft-graph 候选（46.49）为当前最优；slot-map 融合默认关。</li>
+</ol></body></html>

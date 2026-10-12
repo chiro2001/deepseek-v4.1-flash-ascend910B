@@ -1,0 +1,193 @@
+{
+  "timestamp_unix": 1791779322.753217,
+  "container": "dsv41-real-stack-tp8-20261010-a321",
+  "container_id": "b1aa15d8800346aff8f755a049feaae148b9d6e315e92bd32dcdf1063b429eb0",
+  "image_digest": "sha256:b69e58820f929ac7a77f93774a3d96da1961f507628239e9c7d7b24066b7a8ea",
+  "chips": [
+    8,
+    9,
+    10,
+    11,
+    12,
+    13,
+    14,
+    15
+  ],
+  "resources": {
+    "0": {
+      "health": "OK",
+      "processes": [
+        {
+          "pid": 1089421,
+          "name": "VLLMWorker_DP"
+        }
+      ]
+    },
+    "1": {
+      "health": "OK",
+      "processes": [
+        {
+          "pid": 1089422,
+          "name": "VLLMWorker_DP"
+        }
+      ]
+    },
+    "2": {
+      "health": "OK",
+      "processes": []
+    },
+    "3": {
+      "health": "OK",
+      "processes": []
+    },
+    "4": {
+      "health": "OK",
+      "processes": [
+        {
+          "pid": 652737,
+          "name": "VLLMEngineCor"
+        }
+      ]
+    },
+    "5": {
+      "health": "OK",
+      "processes": [
+        {
+          "pid": 38304,
+          "name": "VLLMEngineCor"
+        }
+      ]
+    },
+    "8": {
+      "health": "Alarm",
+      "processes": []
+    },
+    "9": {
+      "health": "Alarm",
+      "processes": []
+    },
+    "10": {
+      "health": "Alarm",
+      "processes": []
+    },
+    "11": {
+      "health": "Alarm",
+      "processes": []
+    },
+    "12": {
+      "health": "Alarm",
+      "processes": []
+    },
+    "13": {
+      "health": "Alarm",
+      "processes": []
+    },
+    "14": {
+      "health": "Alarm",
+      "processes": []
+    },
+    "15": {
+      "health": "Alarm",
+      "processes": []
+    }
+  },
+  "alarm_details": {
+    "8": "\tHealth Status                  : Alarm\n\tError Code                     : 80C98001\n\tError Information              : node type=AIC, sensor type=RAS State, event state=module error can not be fixed\n",
+    "9": "\tHealth Status                  : Alarm\n\tError Code                     : 80C98001\n\tError Information              : node type=AIC, sensor type=RAS State, event state=module error can not be fixed\n",
+    "10": "\tHealth Status                  : Alarm\n\tError Code                     : 80C98001\n\tError Information              : node type=AIC, sensor type=RAS State, event state=module error can not be fixed\n",
+    "11": "\tHealth Status                  : Alarm\n\tError Code                     : 80C98001\n\tError Information              : node type=AIC, sensor type=RAS State, event state=module error can not be fixed\n",
+    "12": "\tHealth Status                  : Alarm\n\tError Code                     : 80C98001\n\tError Information              : node type=AIC, sensor type=RAS State, event state=module error can not be fixed\n",
+    "13": "\tHealth Status                  : Alarm\n\tError Code                     : 80C98001\n\tError Information              : node type=AIC, sensor type=RAS State, event state=module error can not be fixed\n",
+    "14": "\tHealth Status                  : Alarm\n\tError Code                     : 80C98001\n\tError Information              : node type=AIC, sensor type=RAS State, event state=module error can not be fixed\n",
+    "15": "\tHealth Status                  : Alarm\n\tError Code                     : 80C98001\n\tError Information              : node type=AIC, sensor type=RAS State, event state=module error can not be fixed\n"
+  },
+  "env": {
+    "STACK_SRC_ROOT": "/work/src_dspark_native_async_v1",
+    "STACK_PHYSICAL_CHIPS": "8,9,10,11,12,13,14,15",
+    "ASCEND_RT_VISIBLE_DEVICES": "8,9,10,11,12,13,14,15",
+    "ASCEND_VISIBLE_DEVICES": "8,9,10,11,12,13,14,15",
+    "HCCL_DETERMINISTIC": "strict",
+    "HCCL_NPU_SOCKET_PORT_RANGE": "auto",
+    "LOCAL_WORLD_SIZE": "8",
+    "TASK_QUEUE_ENABLE": "1",
+    "HCCL_OP_EXPANSION_MODE": "AIV",
+    "HCCL_BUFFSIZE": "1024",
+    "ASCEND_MAX_OP_CACHE_SIZE": "-1",
+    "PYTORCH_NPU_ALLOC_CONF": "expandable_segments:True",
+    "V41_ENGRAM_HOST_RESIDENT": "1",
+    "V41_ENGRAM_REUSE_EP_GROUP": "1",
+    "V41_ENGRAM_GATE_CHUNK": "0",
+    "V41_ENGRAM_GATE_MAX_TOKENS": "4096",
+    "V41_ENGRAM_GATE_HOIST": "0",
+    "V41_ENGRAM_JIT": "1",
+    "V41_ENGRAM_DEVICE_INDEX": "1",
+    "V41_ENGRAM_DEVICE_FALLBACK": "0",
+    "V41_QLI_NO_CANDIDATE": "1",
+    "V41_MOE_COMM_ALLGATHER": "1",
+    "V41_MOE_MASK_RANGE": "1",
+    "V41_ROPE_IDXSEL": "1",
+    "V41_O_PROJ_2D": "1",
+    "V41_MOE_ZERO_INVALID": "0",
+    "V41_MOE_ZERO_NONFINITE": "0",
+    "V41_ENGRAM_ROUTE_PROBE": "0",
+    "NUMBA_CACHE_DIR": "/work/cache/numba",
+    "DSPARK_ASYNC_COUNTER": "1",
+    "DSPARK_ASYNC_SCHEDULING": "1",
+    "DSPARK_HOST_SPANS": "1"
+  },
+  "argv": [
+    "bash",
+    "/work/src_dspark_native_async_v1/stack/run_stack.sh",
+    "bench_formal_dspark.py",
+    "--model",
+    "/home/l00886679/models/out/v41-w4a8-engram-dr-vision-qrot-mtpq",
+    "--physical-chips",
+    "8,9,10,11,12,13,14,15",
+    "--output",
+    "/work/results/formal_dspark_native_graph_aa_v16_async",
+    "--mode",
+    "async",
+    "--pairs",
+    "3",
+    "--speculative-tokens",
+    "5",
+    "--draft-graph",
+    "1",
+    "--sync-reference",
+    "/work/results/formal_dspark_native_graph_aa_v4"
+  ],
+  "source_dir": "/work/src_dspark_native_async_v1",
+  "source_hashes": {
+    "bench_formal_dspark.py": "8a045bcfab9df068fad42bc9d01dd7e0accd3373bd60625974d17952576e3e09",
+    "draft_graph_files/dsa_v1.py": "99ce66d31f1e7cdb9348ac473a06c259c5aac0eca5f3526e5c79ffa901f815eb",
+    "draft_graph_files/dspark_proposer.py": "56943080f99da2f2dee516aa3e76605c5150408df9a26691cc6529f327ae29b4",
+    "draft_graph_files/llm_base_proposer.py": "36d7c8870538e10e310863f9b628b90b946b534861563542cf7fba4cd88d7c39",
+    "draft_graph_overlay.py": "9f464b86a554f57a962f43b7dd15ba3f8e9973dc36d406eb8d52ede249412e03",
+    "formal_dspark_counters.py": "4877900b492640e292d9daa9755d8699767deeae7eec17a8c2edcf85659b8e8c",
+    "host_span_probe.py": "c1ee90f09e7798acf507280bcf056c44d6ef395b27d656b718ce5f658568dc25",
+    "parallel_tiny/dspark_formal_audit/stock_graph_observer.py": "33fda19564ebb2affdcd6e7c6ca15cfb5523fc5898e4d5b7cf11a219c315a47b",
+    "parallel_tiny/dspark_formal_prep/README.md": "ccc56f0b0a9f56f2c56e0554a54283e4569551d95c3fe2b6ecd252275f0d138b",
+    "parallel_tiny/dspark_formal_prep/__init__.py": "c545170a8c67395c241dd60cb105f45684d8bfeb0824cbe655b351b28a609a75",
+    "parallel_tiny/dspark_formal_prep/contract.py": "d9271e2ab0e4000b62051039c3484cd021b8e4dfc424b56be683fc8e652c3ddb",
+    "parallel_tiny/dspark_formal_prep/discovery/c6_checkpoint_missing.json": "d8e5183ae4d5b5e800870d09032df1272edcd1fdf4647b36ba9a0b60653091cc",
+    "parallel_tiny/dspark_formal_prep/discovery/formal_checkpoint_cpu.json": "9ad53fb6a3e5d2c2945553fbb250164a49352e0e758f229ec9e1675b6fa4bc23",
+    "parallel_tiny/dspark_formal_prep/sdk_gate.py": "a7db28ca4c4e31f3855893fab7ecbdeace76c487a7461d9176bdb09b70ca81bc",
+    "parallel_tiny/dspark_formal_prep/test_counters.py": "1d9c4087028dd88c525aba9e1f6a9fe44c6097ef9cec1977202d7f775e5a5cc1",
+    "parallel_tiny/dspark_formal_prep/worker.py": "8dc2192a04f44e92081af8b85ae15df2cfcfbd837da38434612553dac2564d3d",
+    "sitecustomize.py": "aa868ced6ea445b50fca890a58b7c728ef2a8077c2748d19cb40d717fd415625",
+    "test_async_counter_cpu.py": "fa474275c390ba831ce4936a41e026b1089e811eab1c1c39ebefe88f136a90f4"
+  },
+  "script_sha256": "7f8bf0634fe7cdf39370bcb85b87fbd9566ec5a8690843d0e439bb77ef9ff22b",
+  "scope": "Native DSpark ON A/A control; no formal performance/consumer pass inferred",
+  "draft_graph_requested": true,
+  "extra_env": {
+    "DSPARK_ASYNC_COUNTER": "1",
+    "DSPARK_ASYNC_SCHEDULING": "1",
+    "DSPARK_HOST_SPANS": "1"
+  },
+  "native_profile_aa_job": null,
+  "bench_mode": "async",
+  "sync_reference": "formal_dspark_native_graph_aa_v4",
+  "target_ms_per_step": 20,
+  "launcher_sha256": "b29f257185112564e1d3c898c749ae2c1d294e605babd9d79c5f551b46ef4ae8"
+}

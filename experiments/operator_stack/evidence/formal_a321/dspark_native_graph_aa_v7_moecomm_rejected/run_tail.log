@@ -1,0 +1,60 @@
+(Worker_TP7_EP7 pid=1933141) ERROR 10-12 02:23:28 [multiproc_executor.py:1018]     topk_weights, topk_ids = self.router._select_experts(
+(Worker_TP7_EP7 pid=1933141) ERROR 10-12 02:23:28 [multiproc_executor.py:1018]                              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+(Worker_TP7_EP7 pid=1933141) ERROR 10-12 02:23:28 [multiproc_executor.py:1018]   File "/vllm-workspace/vllm/vllm/model_executor/layers/fused_moe/router/base_router.py", line 297, in _select_experts
+(Worker_TP7_EP7 pid=1933141) ERROR 10-12 02:23:28 [multiproc_executor.py:1018]     self.capture_fn(topk_ids)
+(Worker_TP7_EP7 pid=1933141) ERROR 10-12 02:23:28 [multiproc_executor.py:1018]   File "/vllm-workspace/vllm/vllm/v1/worker/gpu_model_runner.py", line 7754, in _capture_fn
+(Worker_TP7_EP7 pid=1933141) ERROR 10-12 02:23:28 [multiproc_executor.py:1018]     _capturer.capture(_layer_id, topk_ids)
+(Worker_TP7_EP7 pid=1933141) ERROR 10-12 02:23:28 [multiproc_executor.py:1018]   File "/work/src_dspark_native_hostprobe_v1/stack/route_capture_patch.py", line 30, in capture
+(Worker_TP7_EP7 pid=1933141) ERROR 10-12 02:23:28 [multiproc_executor.py:1018]     assert local == (total+self.tp_size-1)//self.tp_size, (local,total)
+(Worker_TP7_EP7 pid=1933141) ERROR 10-12 02:23:28 [multiproc_executor.py:1018]            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+(Worker_TP7_EP7 pid=1933141) ERROR 10-12 02:23:28 [multiproc_executor.py:1018] AssertionError: (255, 2044)
+(Worker_TP7_EP7 pid=1933141) ERROR 10-12 02:23:28 [multiproc_executor.py:1018] 
+(Worker_TP6_EP6 pid=1933095) ERROR 10-12 02:23:28 [multiproc_executor.py:1018]   File "/usr/local/python3.12.13/lib/python3.12/site-packages/torch/nn/modules/module.py", line 1776, in _wrapped_call_impl
+(Worker_TP6_EP6 pid=1933095) ERROR 10-12 02:23:28 [multiproc_executor.py:1018]     return self._call_impl(*args, **kwargs)
+(Worker_TP6_EP6 pid=1933095) ERROR 10-12 02:23:28 [multiproc_executor.py:1018]            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+(Worker_TP6_EP6 pid=1933095) ERROR 10-12 02:23:28 [multiproc_executor.py:1018]   File "/usr/local/python3.12.13/lib/python3.12/site-packages/torch/nn/modules/module.py", line 1787, in _call_impl
+(Worker_TP6_EP6 pid=1933095) ERROR 10-12 02:23:28 [multiproc_executor.py:1018]     return forward_call(*args, **kwargs)
+(Worker_TP6_EP6 pid=1933095) ERROR 10-12 02:23:28 [multiproc_executor.py:1018]            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+(Worker_TP6_EP6 pid=1933095) ERROR 10-12 02:23:28 [multiproc_executor.py:1018]   File "/vllm-workspace/vllm-ascend/vllm_ascend/models/deepseek_v4/model.py", line 400, in forward
+(Worker_TP6_EP6 pid=1933095) ERROR 10-12 02:23:28 [multiproc_executor.py:1018]     fused_moe_out = self.experts(
+(Worker_TP6_EP6 pid=1933095) ERROR 10-12 02:23:28 [multiproc_executor.py:1018]                     ^^^^^^^^^^^^^
+(Worker_TP6_EP6 pid=1933095) ERROR 10-12 02:23:28 [multiproc_executor.py:1018]   File "/usr/local/python3.12.13/lib/python3.12/site-packages/torch/nn/modules/module.py", line 1776, in _wrapped_call_impl
+(Worker_TP6_EP6 pid=1933095) ERROR 10-12 02:23:28 [multiproc_executor.py:1018]     return self._call_impl(*args, **kwargs)
+(Worker_TP6_EP6 pid=1933095) ERROR 10-12 02:23:28 [multiproc_executor.py:1018]            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+(Worker_TP6_EP6 pid=1933095) ERROR 10-12 02:23:28 [multiproc_executor.py:1018]   File "/usr/local/python3.12.13/lib/python3.12/site-packages/torch/nn/modules/module.py", line 1787, in _call_impl
+(Worker_TP6_EP6 pid=1933095) ERROR 10-12 02:23:28 [multiproc_executor.py:1018]     return forward_call(*args, **kwargs)
+(Worker_TP6_EP6 pid=1933095) ERROR 10-12 02:23:28 [multiproc_executor.py:1018]            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+(Worker_TP6_EP6 pid=1933095) ERROR 10-12 02:23:28 [multiproc_executor.py:1018]   File "/vllm-workspace/vllm/vllm/model_executor/layers/fused_moe/runner/moe_runner.py", line 721, in forward
+(Worker_TP6_EP6 pid=1933095) ERROR 10-12 02:23:28 [multiproc_executor.py:1018]     result = self._forward_entry(
+(Worker_TP6_EP6 pid=1933095) ERROR 10-12 02:23:28 [multiproc_executor.py:1018]              ^^^^^^^^^^^^^^^^^^^^
+(Worker_TP6_EP6 pid=1933095) ERROR 10-12 02:23:28 [multiproc_executor.py:1018]   File "/usr/local/python3.12.13/lib/python3.12/site-packages/torch/_ops.py", line 1209, in __call__
+(Worker_TP6_EP6 pid=1933095) ERROR 10-12 02:23:28 [multiproc_executor.py:1018]     return self._op(*args, **kwargs)
+(Worker_TP6_EP6 pid=1933095) ERROR 10-12 02:23:28 [multiproc_executor.py:1018]            ^^^^^^^^^^^^^^^^^^^^^^^^^
+(Worker_TP6_EP6 pid=1933095) ERROR 10-12 02:23:28 [multiproc_executor.py:1018]   File "/vllm-workspace/vllm/vllm/model_executor/layers/fused_moe/runner/moe_runner.py", line 161, in _moe_forward_shared
+(Worker_TP6_EP6 pid=1933095) ERROR 10-12 02:23:28 [multiproc_executor.py:1018]     return layer._forward_impl(
+(Worker_TP6_EP6 pid=1933095) ERROR 10-12 02:23:28 [multiproc_executor.py:1018]            ^^^^^^^^^^^^^^^^^^^^
+(Worker_TP6_EP6 pid=1933095) ERROR 10-12 02:23:28 [multiproc_executor.py:1018]   File "/vllm-workspace/vllm-ascend/vllm_ascend/ops/fused_moe/fused_moe.py", line 261, in _forward_impl
+(Worker_TP6_EP6 pid=1933095) ERROR 10-12 02:23:28 [multiproc_executor.py:1018]     routed_out, fused_moe_events = self.routed_experts.forward_impl(
+(Worker_TP6_EP6 pid=1933095) ERROR 10-12 02:23:28 [multiproc_executor.py:1018]                                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+(Worker_TP6_EP6 pid=1933095) ERROR 10-12 02:23:28 [multiproc_executor.py:1018]   File "/vllm-workspace/vllm-ascend/vllm_ascend/ops/fused_moe/routed_experts.py", line 649, in forward_impl
+(Worker_TP6_EP6 pid=1933095) ERROR 10-12 02:23:28 [multiproc_executor.py:1018]     topk_weights, topk_ids = self._select_experts(
+(Worker_TP6_EP6 pid=1933095) ERROR 10-12 02:23:28 [multiproc_executor.py:1018]                              ^^^^^^^^^^^^^^^^^^^^^
+(Worker_TP6_EP6 pid=1933095) ERROR 10-12 02:23:28 [multiproc_executor.py:1018]   File "/vllm-workspace/vllm-ascend/vllm_ascend/ops/fused_moe/routed_experts.py", line 563, in _select_experts
+(Worker_TP6_EP6 pid=1933095) ERROR 10-12 02:23:28 [multiproc_executor.py:1018]     topk_weights, topk_ids = self.router._select_experts(
+(Worker_TP6_EP6 pid=1933095) ERROR 10-12 02:23:28 [multiproc_executor.py:1018]                              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+(Worker_TP6_EP6 pid=1933095) ERROR 10-12 02:23:28 [multiproc_executor.py:1018]   File "/vllm-workspace/vllm/vllm/model_executor/layers/fused_moe/router/base_router.py", line 297, in _select_experts
+(Worker_TP6_EP6 pid=1933095) ERROR 10-12 02:23:28 [multiproc_executor.py:1018]     self.capture_fn(topk_ids)
+(Worker_TP6_EP6 pid=1933095) ERROR 10-12 02:23:28 [multiproc_executor.py:1018]   File "/vllm-workspace/vllm/vllm/v1/worker/gpu_model_runner.py", line 7754, in _capture_fn
+(Worker_TP6_EP6 pid=1933095) ERROR 10-12 02:23:28 [multiproc_executor.py:1018]     _capturer.capture(_layer_id, topk_ids)
+(Worker_TP6_EP6 pid=1933095) ERROR 10-12 02:23:28 [multiproc_executor.py:1018]   File "/work/src_dspark_native_hostprobe_v1/stack/route_capture_patch.py", line 30, in capture
+(Worker_TP6_EP6 pid=1933095) ERROR 10-12 02:23:28 [multiproc_executor.py:1018]     assert local == (total+self.tp_size-1)//self.tp_size, (local,total)
+(Worker_TP6_EP6 pid=1933095) ERROR 10-12 02:23:28 [multiproc_executor.py:1018]            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+(Worker_TP6_EP6 pid=1933095) ERROR 10-12 02:23:28 [multiproc_executor.py:1018] AssertionError: (255, 2044)
+(Worker_TP6_EP6 pid=1933095) ERROR 10-12 02:23:28 [multiproc_executor.py:1018] 
+(EngineCore pid=1932821) INFO 10-12 02:24:28 [shm_broadcast.py:802] No available shared memory broadcast block found in 60 seconds. This typically happens when some processes are hanging or doing some time-consuming work (e.g. compilation, weight/kv cache quantization).
+(EngineCore pid=1932821) INFO 10-12 02:25:28 [shm_broadcast.py:802] No available shared memory broadcast block found in 60 seconds. This typically happens when some processes are hanging or doing some time-consuming work (e.g. compilation, weight/kv cache quantization).
+(EngineCore pid=1932821) INFO 10-12 02:26:28 [shm_broadcast.py:802] No available shared memory broadcast block found in 60 seconds. This typically happens when some processes are hanging or doing some time-consuming work (e.g. compilation, weight/kv cache quantization).
+(EngineCore pid=1932821) INFO 10-12 02:27:28 [shm_broadcast.py:802] No available shared memory broadcast block found in 60 seconds. This typically happens when some processes are hanging or doing some time-consuming work (e.g. compilation, weight/kv cache quantization).
+(EngineCore pid=1932821) INFO 10-12 02:27:56 [core.py:1332] [shutdown] EngineCore: trigger received signal=SIGTERM
+(EngineCore pid=1932821) INFO 10-12 02:28:28 [shm_broadcast.py:802] No available shared memory broadcast block found in 60 seconds. This typically happens when some processes are hanging or doing some time-consuming work (e.g. compilation, weight/kv cache quantization).
+(EngineCore pid=1932821) INFO 10-12 02:28:57 [core.py:1332] [shutdown] EngineCore: trigger received signal=SIGTERM

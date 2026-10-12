@@ -1,0 +1,86 @@
+<!doctype html><html lang="zh-CN"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>DSpark async-scheduling 候选臂：全门通过、短请求持平、长请求待判（v48）</title><style>body{margin:32px auto;padding:0 24px;max-width:1060px;font-family:system-ui,sans-serif;color:#172033;line-height:1.65}h1{font-size:28px}h2{margin-top:32px;font-size:21px}table{border-collapse:collapse;width:100%;display:block;overflow:auto}td,th{border:1px solid #d9deea;padding:8px 12px;text-align:left}th{background:#f1f4f9}code{background:#eef1f6;padding:2px 4px;overflow-wrap:anywhere}</style><body><h1>DSpark async-scheduling 候选臂：全门通过、短请求持平、长请求待判（v48）</h1>
+<p>2026-10-13 · a3-21 physical8–15 · 完整40层/hidden5120/384top6/W4A8/Engram int8/视觉/MTP3 · HCCL strict</p>
+<p>本轮把 vLLM 的 <strong>async scheduling</strong> 接到 DSpark 正式栈（env 门控、默认关），
+在 AA 审计 harness 上完成了从"能否跑"到"数值等价 + 计时"的全链条验证。
+目标 ≤20ms/step <strong>未达成</strong>；本报告是候选臂的实测账。</p>
+<h2>1. 上游依据与门控</h2>
+<ul>
+<li><code>vllm/config/vllm.py</code> 对 <code>async_scheduling</code> 的硬校验<strong>显式放行 <code>dspark</code></strong>
+  （<code>method not in (...EAGLE..., "draft_model", "dspark")</code> 才拒绝）；<code>MultiprocExecutor.supports_async_scheduling()=True</code>。</li>
+<li><code>vllm-ascend model_runner_v1.py</code> 实现 <code>use_async_spec_decode</code> 与 optimistic seq_lens 输入准备；
+  <code>_bookkeeping_sync</code> 的 async 分支返回<strong>空</strong> token 列表（这是计数器原先拒绝 async 的原因）。</li>
+<li>我方三处门控（全部默认关、同步路径字节不变）：
+  <code>formal_dspark_counters.install_runner</code>（env <code>DSPARK_ASYNC_COUNTER=1</code> 才放行 async 并进入 async 模式）、
+  <code>dspark_formal_prep/worker.py</code>（两个 env 同时置位才放行）、<code>contract.model_kwargs</code>
+  （<code>async_scheduling</code> 由 <code>DSPARK_ASYNC_SCHEDULING</code> 决定）。API 桥保持冻结未改。</li>
+</ul>
+<h2>2. async 臂的计数语义（CPU 契约 8/8 通过）</h2>
+<ul>
+<li>轮次 = 每请求<strong>实际执行的 target/verifier decode 轮</strong>（含 async 特有的 overshoot 轮，见 §4）；
+  <code>A = 客户端 tokens-1 / rounds</code>；窗口 = <code>[terminal-prefill bookkeeping, max(client_end, terminal fence)]</code>。</li>
+<li>每轮 CPU token 不物化（stock async ABI），per-round 接受数显式记 <code>None</code>、<code>async_per_round_tokens_available=False</code>。</li>
+<li>终止边界：优先在引擎为本请求发出的 <strong>zero-token cleanup execute</strong> 上做设备 fence（含 terminal 已提交 draft），
+  否则 <code>finish()</code> 前做 post_client fence；随后执行与同步臂相同的 TP8 CPU Gloo join；晚于 client 50ms 以上 fail-closed。</li>
+<li><code>test_async_counter_cpu.py</code>（容器内）：8/8（含占位符轮、overshoot 轮计数、fence 缺失/rank 分歧/eager draft 拒绝、sync 路径回归）。</li>
+</ul>
+<h2>3. AA 审计臂结果（47 token 请求，6 个计数请求）</h2>
+<p><code>formal_dspark_native_graph_aa_v16_async</code>：exit0、<code>passed=True</code>、<code>async_reference_passed=True</code>；
+<strong>6/6 请求 token 与同步参考逐位一致、Top5 logprob 最大差 0.0</strong>（async 语义正确）。</p>
+<table>
+<thead>
+<tr>
+<th>臂</th>
+<th style="text-align: right;">ms/step</th>
+<th style="text-align: right;">A</th>
+<th style="text-align: right;">tok/s</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>sync v4（同 harness）</td>
+<td style="text-align: right;">44.885</td>
+<td style="text-align: right;">5.75</td>
+<td style="text-align: right;">128.10</td>
+<td>8 轮/请求</td>
+</tr>
+<tr>
+<td>sync v6（同 harness）</td>
+<td style="text-align: right;">46.603</td>
+<td style="text-align: right;">5.75</td>
+<td style="text-align: right;">~123.4</td>
+<td>8 轮/请求</td>
+</tr>
+<tr>
+<td><strong>async v16</strong></td>
+<td style="text-align: right;"><strong>45.875</strong></td>
+<td style="text-align: right;"><strong>5.111</strong></td>
+<td style="text-align: right;"><strong>111.41</strong></td>
+<td>9 轮/请求（含 overshoot）</td>
+</tr>
+</tbody>
+</table>
+<h2>4. 结构发现：稳态更快、但每请求多一轮</h2>
+<p>逐轮（rank0，宿主探针）：</p>
+<ul>
+<li><strong>稳态轮</strong>：async ≈ 39.7ms（execute 12.3 + sample 26.7 + draft 2.8）；
+  同步 ≈ 42.9ms（execute 11.3 + sample 28.2 + draft 2.9）⇒ <strong>async 稳态快 ~3.2ms/轮</strong>（host 重叠确实生效）。</li>
+<li><strong>每请求多一轮</strong>：async 在客户端已收到输出后仍执行一轮已被丢弃的 target decode（overshoot），
+  该轮是真实设备工作；本臂按"实际执行轮"计入分母（A 由 5.75→5.11），窗口延至其 fence。</li>
+<li>结论：短请求（8–9 轮）下 overlap 收益（~26ms）小于 overshoot（~40ms）+ 首轮略慢，净持平略负；
+  按稳态差线性外推，<strong>2K/256（约86轮/请求）时 async 可能净赢 ~6–8%</strong>。</li>
+</ul>
+<h2>5. 证据</h2>
+<ul>
+<li><code>evidence/formal_a321/dspark_native_graph_aa_v16_async/</code>：<code>launched.json</code>、<code>result.json</code>、
+  <code>async_reference_comparison.json</code>（6/6 token_equal、delta 0.0）、<code>requests.json</code>、<code>pair-0-a_compact.json</code>。</li>
+<li>源码与门控：<code>evidence/formal_a321/async_arm_prep/</code>（NOTE.md + counters/bench/contract/worker/launcher 冻结件 + SHA256SUMS）。</li>
+<li>远端快照 <code>src_dspark_native_async_v1</code>（freeze 18 文件）。</li>
+</ul>
+<h2>6. 判定与下一步</h2>
+<ul>
+<li>async 语义<strong>已验证正确</strong>（token/logprob 逐位等价），拥有可复用的计数器/启动器/门控基础设施。</li>
+<li>短请求无收益；<strong>判定其价值取决于 2K/256 长请求</strong>：已启动同步 <code>sync256_v1</code> 与随后的 async @256 对照
+  （同 harness、同快照、同提示，token 逐位门 + 三元组）。若长请求净赢稳定 ≥3%，再考虑为正式 API 桥
+  重新冻结 async 通道；若不达，则按"已验证但无收益"归档，回到宿主/目标图优化主线。</li>
+</ul></body></html>

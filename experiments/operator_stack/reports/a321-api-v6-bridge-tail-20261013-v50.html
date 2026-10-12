@@ -1,0 +1,321 @@
+<!doctype html><html lang="zh-CN"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>正式 API 窗口 32.97→28.09 ms/step：桥状态写尾部伪影修复（−14.8%）</title><style>body{margin:32px auto;padding:0 24px;max-width:1060px;font-family:system-ui,sans-serif;color:#172033;line-height:1.65}h1{font-size:28px}h2{margin-top:32px;font-size:21px}table{border-collapse:collapse;width:100%;display:block;overflow:auto}td,th{border:1px solid #d9deea;padding:8px 12px;text-align:left}th{background:#f1f4f9}code{background:#eef1f6;padding:2px 4px;overflow-wrap:anywhere}</style><body><h1>正式 API 窗口 32.97→28.09 ms/step：桥状态写尾部伪影修复（−14.8%）</h1>
+<p>2026-10-13 · a3-21 physical8–15 · 正式40层/W4A8_DYNAMIC/Engram int8/strict · DSpark 真实 ON（graph+async）
+· 目标 ≤20ms/step <strong>未达成</strong>（当前 28.0921）</p>
+<h2>1. 发现：每请求 133–725ms 的窗口内尾部伪影</h2>
+<p>对既有正式窗口（v4 async、v5 async、api_v1 sync）逐请求做窗口分解
+（<code>decode_start → 首轮 execute_start</code> = pre；<code>Σ 逐轮 span</code> = rounds；<code>末轮 sample_end → client_end</code> = post）：</p>
+<table>
+<thead>
+<tr>
+<th>窗口</th>
+<th style="text-align: right;">pre 合计</th>
+<th style="text-align: right;">rounds 逐轮中位</th>
+<th style="text-align: right;">post 合计（8 请求）</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>v4 async（32.97）</td>
+<td style="text-align: right;">238ms</td>
+<td style="text-align: right;">27.1–28.1ms</td>
+<td style="text-align: right;"><strong>3533ms</strong></td>
+</tr>
+<tr>
+<td>v5 async（32.89）</td>
+<td style="text-align: right;">254ms</td>
+<td style="text-align: right;">26.9–28.0ms</td>
+<td style="text-align: right;"><strong>3514ms</strong></td>
+</tr>
+<tr>
+<td>api_v1 sync（46.49）</td>
+<td style="text-align: right;">134ms</td>
+<td style="text-align: right;">37.1–39.1ms</td>
+<td style="text-align: right;"><strong>3602ms</strong></td>
+</tr>
+</tbody>
+</table>
+<p>post 逐请求 133、182、336、391、458、645、664、725ms（两臂几乎相同、随请求序号递增）——
+定位到桥的状态机：<code>CounterBridge._write()</code> 每个事件把<strong>全部历史窗口（含 8 rank 全量 receipts）</strong>
+以 <code>indent=2</code> 同步重写 <code>bridge_windows.json</code>，运行结束时该文件 <strong>33.2MB</strong>；随着历史增长，
+每次同步序列化阻塞 ASGI 事件循环数百毫秒，表现为"响应就绪 → http_output_send_begin"之间的空洞
+（v5 窗口 5：+21.7ms 响应就绪 → +643.9ms 才开始发送）以及随后客户端 finish RPC 同样被推迟。</p>
+<p><strong>结论：post 是诊断 harness 自身的证据写开销，不是模型/引擎/解码工作</strong>；它在两臂等量存在，
+不改变 async 相对收益，但把 ms/step 抬高约 5.1ms。</p>
+<h2>2. 修复（新快照 <code>src_dspark_native_graph_api_async_v2</code>）</h2>
+<p>仅改 <code>_write()</code> 的序列化视图：状态文件里每个窗口剥离 <code>rank_receipts</code>
+（全量 receipts 仍原样经 HTTP finish 返回并由客户端落盘）；stage 机、校验、事件、收据字节全部不变。
+CPU 自检：8 窗口历史 + 全量 receipts（内存）时 <code>_write</code> = <strong>0.17ms / 1716 字节</strong>（原 33MB 级）。
+基线 <code>api_async_v1</code> 快照及其全部历史证据保持字节不变。</p>
+<h2>3. v6 正式窗口结果（同负载 8 串行 × 2K/256、审计/profiler 关）</h2>
+<p>job <code>formal_dspark_native_graph_api_v6_async_states</code>（快照 api_async_v2、async 三 env、<code>--draft-graph</code>），
+客户端 exit0、服务正常关闭（run.exit=0）：</p>
+<pre><code>(28.092118429394812 ms/step, A=2.9394812680115274, 104.63722326244132 tok/s)
+694 actual rounds / 2040 decoded tokens / decode_elapsed_s_sum=19.49593019
+clean 7/8、复读 1（与基线同口径）；窗口=pre 386ms + rounds 18849ms + post 61ms
+</code></pre>
+<p>对照：</p>
+<table>
+<thead>
+<tr>
+<th>版本</th>
+<th style="text-align: right;">ms/step</th>
+<th style="text-align: right;">A</th>
+<th style="text-align: right;">tok/s</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>v4 async（含伪影）</td>
+<td style="text-align: right;">32.9705</td>
+<td style="text-align: right;">2.9395</td>
+<td style="text-align: right;">89.155</td>
+<td>旧最优</td>
+</tr>
+<tr>
+<td><strong>v6 async（修复后）</strong></td>
+<td style="text-align: right;"><strong>28.0921</strong></td>
+<td style="text-align: right;">2.9395</td>
+<td style="text-align: right;"><strong>104.637</strong></td>
+<td>−14.8%</td>
+</tr>
+<tr>
+<td>api_v1 sync（历史基线）</td>
+<td style="text-align: right;">46.4874</td>
+<td style="text-align: right;">2.9651</td>
+<td style="text-align: right;">63.783</td>
+<td>参考</td>
+</tr>
+</tbody>
+</table>
+<p><strong>等价性</strong>：v6 的 8/8 请求 token 流与冻结 sync 基线窗口逐位一致
+（<code>client/token_identity_vs_sync_baseline.json</code>，逐请求 sha256 相同）。</p>
+<h2>4. 剩余差距的精确位置（设备侧）</h2>
+<p>逐轮 span 中位 27.2–27.4ms，且 post 已压到 0–30ms/请求 ⇒ <strong>轮时 ≈ 设备忙时</strong>
+（既有 profile：整步全流 union 27.29ms、目标图 21.59ms）。⇒ 到 ≤20ms/step 需把每轮设备工作
+再砍约 <strong>7.2ms（−26%）</strong>：目标图 21.6→约14.5、draft/verify/engram/eager 约5.7→约5，
+并保持宿主已隐藏的现状。已排除方向：MC2 非融合（+3.1ms/目标图）、slot-map 融合（客户端噪声级）。</p>
+<h2>5. 下一步（进行中）</h2>
+<ul>
+<li>候选 A（已启动）：<code>V41_MLS_SHARED_EXPERT=1</code>（vendor <code>multistream_overlap_shared_expert</code>，把共享专家
+  gate_up 投影搬到辅助流与路由专家重叠；模型确有 1 个共享专家）。job
+  <code>formal_dspark_native_graph_api_v7_mls_shared</code>（快照 api_mls_v1，env 门控，默认关闭时
+  additional_config 逐字节不变）。</li>
+<li>候选 B（准备中）：<code>V41_MLS_DSA_OVERLAP=1</code>（vendor <code>multistream_dsv4_dsa_overlap</code>，冻结合同此前显式
+  置 False；其 MLA prolog/compressor 在辅助流上与主计算重叠）。</li>
+<li>每个候选以 API 窗口做筛选（token 必须与冻结基线逐位一致），胜出者再跑 bench async 数值门
+  （token/logprob vs sync256 参考）与同实例配对，最后提交正式窗口与质量门。</li>
+</ul>
+<h2>6. 候选 A 结果：shared-expert 多流重叠 <strong>有效（−1.14ms）</strong></h2>
+<p>job <code>formal_dspark_native_graph_api_v7_mls_shared</code>（快照 <code>api_mls_v1</code> = api_async_v2 + env 门控
+<code>V41_MLS_SHARED_EXPERT=1</code>；其余 env 与 v6 相同）exit0、服务正常关闭：</p>
+<table>
+<thead>
+<tr>
+<th>版本</th>
+<th style="text-align: right;">ms/step</th>
+<th style="text-align: right;">A</th>
+<th style="text-align: right;">tok/s</th>
+<th style="text-align: right;">rounds</th>
+<th style="text-align: right;">逐轮 span 中位</th>
+<th style="text-align: right;">clean</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>v6 async</td>
+<td style="text-align: right;">28.0921</td>
+<td style="text-align: right;">2.9395</td>
+<td style="text-align: right;">104.637</td>
+<td style="text-align: right;">694</td>
+<td style="text-align: right;">27.2–27.4ms</td>
+<td style="text-align: right;">7/8</td>
+</tr>
+<tr>
+<td><strong>v7 +shared重叠</strong></td>
+<td style="text-align: right;"><strong>26.9477</strong></td>
+<td style="text-align: right;">2.9395</td>
+<td style="text-align: right;"><strong>109.081</strong></td>
+<td style="text-align: right;">694</td>
+<td style="text-align: right;"><strong>26.3–26.5ms</strong></td>
+<td style="text-align: right;">7/8</td>
+</tr>
+</tbody>
+</table>
+<ul>
+<li><strong>Δ −1.1445 ms/step（−4.07%）</strong>，A 完全不变（694 轮、2040 token 相同）；
+  token 8/8 与冻结 sync 基线逐位一致（<code>client/token_identity_vs_sync_baseline.json</code>）。</li>
+<li>与预期机制一致：共享专家（n_shared_experts=1）的 gate_up 投影移到辅助流，与路由专家
+  dispatch/combine 重叠，节省的正是其在串行链上的暴露时间。</li>
+<li>证据：<code>evidence/formal_a321/dspark_native_graph_api_v7_mls_shared/</code>。</li>
+</ul>
+<p>候选 B（<code>V41_MLS_DSA_OVERLAP=1</code>）已启动：<code>formal_dspark_native_graph_api_v8_mls_dsa</code>（port 18623）。</p>
+<h2>7. 候选 B 结果：DSA 多流重叠 <strong>也有效（−0.77ms）</strong></h2>
+<p>job <code>formal_dspark_native_graph_api_v8_mls_dsa</code>（同快照 + <code>V41_MLS_DSA_OVERLAP=1</code>）exit0、服务正常关闭：</p>
+<table>
+<thead>
+<tr>
+<th>版本</th>
+<th style="text-align: right;">ms/step</th>
+<th style="text-align: right;">A</th>
+<th style="text-align: right;">tok/s</th>
+<th style="text-align: right;">rounds</th>
+<th style="text-align: right;">clean</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>v6 async（基准）</td>
+<td style="text-align: right;">28.0921</td>
+<td style="text-align: right;">2.9395</td>
+<td style="text-align: right;">104.637</td>
+<td style="text-align: right;">694</td>
+<td style="text-align: right;">7/8</td>
+</tr>
+<tr>
+<td>v7 +shared重叠</td>
+<td style="text-align: right;">26.9477</td>
+<td style="text-align: right;">2.9395</td>
+<td style="text-align: right;">109.081</td>
+<td style="text-align: right;">694</td>
+<td style="text-align: right;">7/8</td>
+</tr>
+<tr>
+<td><strong>v8 +DSA重叠</strong></td>
+<td style="text-align: right;"><strong>27.3195</strong></td>
+<td style="text-align: right;">2.9395</td>
+<td style="text-align: right;">107.596</td>
+<td style="text-align: right;">694</td>
+<td style="text-align: right;">7/8</td>
+</tr>
+</tbody>
+</table>
+<ul>
+<li>v8 Δ = <strong>−0.7726 ms/step（−2.75%）</strong>；token 8/8 与冻结 sync 基线逐位一致；A/轮数/token 数均不变。</li>
+<li>两个开关机制不同、路径不同（共享专家 gate_up 辅助流 vs MLA prolog/compressor 辅助流），
+  组合臂 v9（<code>V41_MLS_SHARED_EXPERT=1</code> + <code>V41_MLS_DSA_OVERLAP=1</code>）已启动
+  （<code>formal_dspark_native_graph_api_v9_mls_both</code>，port 18633），预期再加性收益。</li>
+<li>证据：<code>evidence/formal_a321/dspark_native_graph_api_v8_mls_dsa/</code>。</li>
+</ul>
+<h2>8. 当前正式最优序列</h2>
+<table>
+<thead>
+<tr>
+<th>版本</th>
+<th style="text-align: right;">ms/step</th>
+<th style="text-align: right;">A</th>
+<th style="text-align: right;">tok/s</th>
+<th style="text-align: right;">相对上一步</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>api_v1 sync（历史）</td>
+<td style="text-align: right;">46.4874</td>
+<td style="text-align: right;">2.9651</td>
+<td style="text-align: right;">63.783</td>
+<td style="text-align: right;">—</td>
+</tr>
+<tr>
+<td>v4 async（含桥伪影）</td>
+<td style="text-align: right;">32.9705</td>
+<td style="text-align: right;">2.9395</td>
+<td style="text-align: right;">89.155</td>
+<td style="text-align: right;">−29.1%</td>
+</tr>
+<tr>
+<td>v6 async（桥修复）</td>
+<td style="text-align: right;">28.0921</td>
+<td style="text-align: right;">2.9395</td>
+<td style="text-align: right;">104.637</td>
+<td style="text-align: right;">−14.8%</td>
+</tr>
+<tr>
+<td>v7 +shared重叠</td>
+<td style="text-align: right;">26.9477</td>
+<td style="text-align: right;">2.9395</td>
+<td style="text-align: right;">109.081</td>
+<td style="text-align: right;">−4.1%</td>
+</tr>
+<tr>
+<td>v8 +DSA重叠</td>
+<td style="text-align: right;">27.3195</td>
+<td style="text-align: right;">2.9395</td>
+<td style="text-align: right;">107.596</td>
+<td style="text-align: right;">−2.8%</td>
+</tr>
+<tr>
+<td><strong>v9 两者全开（当前最优）</strong></td>
+<td style="text-align: right;"><strong>26.6134</strong></td>
+<td style="text-align: right;">2.9395</td>
+<td style="text-align: right;"><strong>110.451</strong></td>
+<td style="text-align: right;">—</td>
+</tr>
+</tbody>
+</table>
+<p>目标 ≤20ms/step 仍需<strong>再砍约 7.0ms</strong>，全部在设备侧（逐轮 span≈设备 union）。</p>
+<h2>9. 组合臂 v9（当前最优）与数值门</h2>
+<p>job <code>formal_dspark_native_graph_api_v9_mls_both</code>（<code>V41_MLS_SHARED_EXPERT=1</code> + <code>V41_MLS_DSA_OVERLAP=1</code>）
+exit0、服务正常关闭：</p>
+<pre><code>(26.613435590778096 ms/step, A=2.9394812680115274, 110.45102606106579 tok/s)
+694 rounds / 2040 tokens / decode_elapsed_s_sum=18.4697243；clean 7/8、复读1；token 8/8 与冻结 sync 基线逐位一致
+</code></pre>
+<ul>
+<li>相对 v6 −1.4787ms（−5.26%）；两个开关的贡献近似可加（−1.144 与 −0.773 → 实测 −1.479）。</li>
+<li>A、轮数、token 数完全不变 ⇒ 只是把重叠隐藏的设备时间从串行链上拿掉。</li>
+<li>证据：<code>evidence/formal_a321/dspark_native_graph_api_v9_mls_both/</code>。</li>
+<li>数值门（bench async vs sync256 参考，token 逐位 + Top5 logprob delta&lt;1e-3）：
+  job <code>formal_dspark_native_mls_gate_v1</code> 已启动（快照 <code>src_dspark_native_mls_v1</code>，freeze 18/18 自检 0 mismatch）。</li>
+</ul>
+<h2>10. 本轮累计</h2>
+<p>32.97 → <strong>26.61 ms/step</strong>（−19.3%）、tok/s 89.2 → 110.5（+23.9%），全部建立在
+token 逐位一致（8/8）之上；A/复读/clean 口径不变。距 ≤20ms 仍差 6.6ms（−24.8%），
+且差距全部在设备侧（目标图 21.6ms + draft/verify/pre_target 设备 ≈5.7ms）。</p>
+<h2>11. 数值门（v9 配置）通过</h2>
+<p>job <code>formal_dspark_native_mls_gate_v2</code>（bench async，<code>V41_MLS_SHARED_EXPERT=1</code> + <code>V41_MLS_DSA_OVERLAP=1</code>，
+<code>--sync-reference formal_dspark_native_graph_sync256_v1</code>）：exit0、
+<code>async_reference_passed=True</code>、<code>passed=True</code>；<strong>6/6 请求 token 逐位一致、max logprob delta 0.0</strong>
+（Top-5 logprob 门 &lt;1e-3）；同 job 三元组 <code>(42.13495041666667, A=5.795454545454546, 137.545066225167)</code>。
+证据：<code>evidence/formal_a321/dspark_native_mls_gate_v2/</code>。</p>
+<p>备注（透明记录）：gate v1 因设备显存未完全回落（前一窗口 workers 尚在释放）在权重加载阶段 OOM，
+job <code>formal_dspark_native_mls_gate_v1</code> exit=1；清理自有残留 worker、确认 physical8–15 无进程且
+HBM 归零后重发 v2 通过。失败原文保留在远端该 job 目录。</p>
+<h2>12. 下一步（进行中）</h2>
+<ul>
+<li><code>formal_dspark_native_mls_aa_v1</code>：mls 配置的 <strong>A/A 审计</strong>（audit 模式，route/token/Top5/logprob
+  完整门 + 同臂 A/A），既是 goal 要求的审计证据，也用于解锁下一步设备时间线剖析
+  （profile 启动器要求同源 AA 收据；新快照 <code>src_dspark_native_mls_profile_v1</code> 已建，freeze 23/23 自检 0 mismatch）。</li>
+<li>之后：对 v9 配置做设备时间线（比较 pre_target/target/draft/verify/engram 与 15899/21591/… 基线），
+  定位剩余 ~6.6ms 的下一个可执行切点。</li>
+</ul>
+<h2>13. A/A 审计（v9 配置）通过</h2>
+<p>job <code>formal_dspark_native_mls_aa_v1</code>（audit 模式、<code>V41_MLS_SHARED_EXPERT=1</code>+<code>V41_MLS_DSA_OVERLAP=1</code>，
+draft-graph、45-token 逻辑、3 对 A/A）exit0、<code>native_aa_passed=True</code>：</p>
+<table>
+<thead>
+<tr>
+<th>对</th>
+<th>tokens_equal</th>
+<th>routes_equal（2094×40×6）</th>
+<th>route_set_differing</th>
+<th>prefill/decode differing</th>
+<th>max logprob delta</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>pair-0/1/2</td>
+<td>true</td>
+<td>true</td>
+<td>0</td>
+<td>0 / 0</td>
+<td><strong>0.0</strong></td>
+</tr>
+</tbody>
+</table>
+<p>⇒ 多流重叠配置通过 route/token/Top5/logprob 全套审计门；配合数值门（gate_v2 6/6 与冻结参考逐位一致）
+与正式窗口 token 8/8 一致，v9 配置的数值等价链完整。证据
+<code>evidence/formal_a321/dspark_native_mls_aa_v1/</code>。</p>
+<p>设备时间线剖析 <code>formal_dspark_native_mls_profile_v2</code>（同配置、profiler 开启、15 步）已启动，
+用于对比基线 profile（pre_target 15899us / target union 21591us / draft 2.6ms / engram 0.37ms）
+并定位剩余 ~6.6ms 的下一批切点。</p></body></html>

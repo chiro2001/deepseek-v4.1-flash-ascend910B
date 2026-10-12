@@ -1,0 +1,106 @@
+{
+  "scope": "formal full40 TP8 native DSpark preparation/control",
+  "mode": "async",
+  "target_ms_per_step": 20.0,
+  "physical_chips": "8,9,10,11,12,13,14,15",
+  "cpu_prepared": true,
+  "npu_validated": false,
+  "passed": true,
+  "full_consumer_audit_passed": false,
+  "formal_model_validated": false,
+  "safe_formal_receipt": false,
+  "performance_claim": null,
+  "phase": "async-diagnostic-complete",
+  "checkpoint_config_sha256": "40ebd329d3cb2d99d7176091afb580c182c21f48b88b63b550264a97e9c0d424",
+  "source_hashes": {
+    "bench_formal_dspark.py": "8a045bcfab9df068fad42bc9d01dd7e0accd3373bd60625974d17952576e3e09",
+    "formal_dspark_counters.py": "4877900b492640e292d9daa9755d8699767deeae7eec17a8c2edcf85659b8e8c",
+    "formal_model_contract.py": "681bcbe1aa1f0b9e3d1ea4046fd2cab9b8ccc3fbad1af29899c82863708a805b",
+    "formal_comparison.py": "fb6d9472ac155db9a6104d366b5fda767cb1b807cdc6bde4b228fec4f125bfe9",
+    "route_capture_patch.py": "e955fd72b7365befb0179d65f9a1bc5d076b4e13385a5a15b364a652efa8ba59",
+    "parallel_tiny/dspark_formal_prep/contract.py": "703ae002b7907a863fb1dbc86f85d56a3810d01953d44ad8b50bec06dd692b9a",
+    "parallel_tiny/dspark_formal_prep/worker.py": "8dc2192a04f44e92081af8b85ae15df2cfcfbd837da38434612553dac2564d3d",
+    "parallel_tiny/dspark_formal_prep/sdk_gate.py": "a7db28ca4c4e31f3855893fab7ecbdeace76c487a7461d9176bdb09b70ca81bc",
+    "parallel_tiny/dspark_formal_audit/stock_graph_observer.py": "33fda19564ebb2affdcd6e7c6ca15cfb5523fc5898e4d5b7cf11a219c315a47b"
+  },
+  "speculative_config": {
+    "method": "dspark",
+    "num_speculative_tokens": 5,
+    "enforce_eager": false
+  },
+  "hot_flags": {},
+  "bank_complete": true,
+  "native_dspark_loaded": true,
+  "bank_path": "banks.json",
+  "async_reference_root": "/work/results/formal_dspark_native_graph_sync256_v1",
+  "async_reference_passed": true,
+  "native_aa_passed": null,
+  "acceptance_zero_diagnostic_required": false,
+  "counter_triplets": [
+    {
+      "tag": "pair-0-a",
+      "ms_per_step": 44.45021818181818,
+      "A": 5.795454545454546,
+      "tokens_per_second": 130.38078962287534,
+      "decoded_tokens": 255,
+      "rounds": 44
+    },
+    {
+      "tag": "pair-0-b",
+      "ms_per_step": 39.91000522727273,
+      "A": 5.795454545454546,
+      "tokens_per_second": 145.21307407632682,
+      "decoded_tokens": 255,
+      "rounds": 44
+    },
+    {
+      "tag": "pair-1-a",
+      "ms_per_step": 45.03531909090909,
+      "A": 5.795454545454546,
+      "tokens_per_second": 128.68687648811232,
+      "decoded_tokens": 255,
+      "rounds": 44
+    },
+    {
+      "tag": "pair-1-b",
+      "ms_per_step": 43.37487590909091,
+      "A": 5.795454545454546,
+      "tokens_per_second": 133.61316716158905,
+      "decoded_tokens": 255,
+      "rounds": 44
+    },
+    {
+      "tag": "pair-2-a",
+      "ms_per_step": 40.21804636363637,
+      "A": 5.795454545454546,
+      "tokens_per_second": 144.10084699426315,
+      "decoded_tokens": 255,
+      "rounds": 44
+    },
+    {
+      "tag": "pair-2-b",
+      "ms_per_step": 39.821237727272724,
+      "A": 5.795454545454546,
+      "tokens_per_second": 145.53677575635376,
+      "decoded_tokens": 255,
+      "rounds": 44
+    }
+  ],
+  "median_ms_per_step": 41.79646113636364,
+  "pending_consumer_proofs": [
+    "draft per-layer device routes/consumer coverage",
+    "main/draft cache write/read and graph binding",
+    "complete actual consumer marker receipt"
+  ],
+  "meaning": "Async arm passed the synchronous token/logprob equivalence gate; timing is a same-harness candidate measurement, not a formal receipt",
+  "actual_npu_requests_executed": 8,
+  "actual_target_verifier_rounds_observed": 264,
+  "aggregate_triplet": {
+    "ms_per_step": 42.13495041666667,
+    "A": 5.795454545454546,
+    "tokens_per_second": 137.545066225167,
+    "decoded_tokens": 1530,
+    "rounds": 264,
+    "decode_elapsed_s": 11.12362691
+  }
+}

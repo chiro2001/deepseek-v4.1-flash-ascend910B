@@ -283,6 +283,7 @@ python3 tools/check_checksums.py        # 期望：三方一致 ✅
 | 大文件传输 | 走 `scripts/cos-put.sh`（**在 dsv41 仓根，不在 dsv41-release 里**）；**禁止 ssh 传 ≥1 MB** |
 | 发布纪律 | 发布仓远端 = `chiro2001/deepseek-v4.1-flash-ascend910B`；ModelScope 的 README 源在 `../ms_readme.md`（用 `tools/repack_to_modelscope_layout.sh` 打包） |
 | 时区/时钟 | A3-node1 与本机**可能有几分钟时钟差**，判断"卡住"前先 `date` 对齐 |
+| 本地临时目录 | 用户于2026-10-12指定：使用 `~/tmp/dsv41-<合适的任务名>`；新建目录后显式设置任务 `TMPDIR` 或 `TemporaryDirectory(dir=...)`，避免写入 `/tmp`。历史产物迁移保留内容/SHA及路径映射，活跃任务沿用当前路径。 |
 
 ---
 

@@ -1,0 +1,6210 @@
+{
+ "meta": {
+  "task": "storm_probe",
+  "date": "2026-10-13",
+  "scope": "CPU/offline attribution of the rank0 pre_target storm in the frozen graph-arm profile",
+  "boundaries": "read-only; no NPU jobs, no container/service restarts, no physical4, no cache clears, no remote deletes, no git push; offline estimates are not performance quotes",
+  "sources": {
+   "graph_arm_rank0_kernel_details.csv": "a25ceb5b015e506f30bcd5f1a6f7df7dcdcb69b3f5684ae936283d93d4952c52",
+   "graph_arm_rank0_task_time.csv": "7e84ff686388cb2449198459f96bbf62a8d1ca73d365d1d08e5b2df3175b7b8b",
+   "eager_arm_rank0_kernel_details.csv": "41f5deb73774f1f8d1b6a554f7625e6311c08585a7c3d0dbcfb67780f4f8158b",
+   "eager_arm_rank0_task_time.csv": "001d52c0fc45ba76c94fdd825301864129e39c6034a18d8702a2926f2d05f823",
+   "local_timeline_compact.json": "b383ff2ed257aac7fd5da098a9a12b4d5c4128aa46e3166da437fc0731492ece",
+   "analyze_timeline_graph.py": "0aafbe46fe5d154d38497b00798eb7e92c65b2b72c85762cb3628176db58da54",
+   "api_statistic_rank0.csv": "4a38e23b65cc551c83c6e960c7efbd11db1cdffe750a605cc44836b93c39b68d",
+   "pretarget_rank0.json": "515b6762987a842be40df575c2df6ca1eeb779a7924581ecbea541228a8159ae",
+   "pretarget_perstep.json": "4b5403ef9ebb9c4eea1c1ff2202b7044e0ef242b6373bb8467c7a7f95db6631f",
+   "eager_rank0.json": "3bf4d5214bf7911f80bf68d337c53653c40e544fc091979e49e17480c2ff6501"
+  },
+  "local_workdir": "/home/chiro/tmp/dsv41-storm-probe"
+ },
+ "window_definition": {
+  "labelled_steps": [
+   5,
+   6,
+   7,
+   8,
+   9,
+   10,
+   11,
+   12,
+   13,
+   14
+  ],
+  "w1_frozen_parser": "kernels with start < min(start of target-graph-model rows); 405 kernels/step on all 10 steps",
+  "w2_parent_narrative": "kernels with start < first target HcPre(6,4,5120) start; 431 kernels/step on all 10 steps",
+  "reconciliation": "431 vs 405 = 26 target-graph entry kernels (model id 48) that start before the first target HcPre but belong to the captured target graph; the frozen parser and local timeline_compact.json use W1 (W1 10-step span median 15899.5us ~= local timeline_compact rank0 pre_target 15899.18us)",
+  "step_summaries_w1": {
+   "5": {
+    "first_us": 3650.247,
+    "graph_start_us": 19098.298,
+    "graph_end_us": 42191.337,
+    "last_end_us": 50509.931000000004,
+    "pre_span_us": 15448.051,
+    "pre_count": 405,
+    "pre_duration_sum_us": 2322.257,
+    "pre_wait_count": 3,
+    "pre_wait_sum_us": 157.33699999999953
+   },
+   "6": {
+    "first_us": 51792.245,
+    "graph_start_us": 67896.763,
+    "graph_end_us": 90765.56599999999,
+    "last_end_us": 99268.99699999999,
+    "pre_span_us": 16104.518000000004,
+    "pre_count": 405,
+    "pre_duration_sum_us": 1995.163,
+    "pre_wait_count": 3,
+    "pre_wait_sum_us": 0.040000000000873115
+   },
+   "7": {
+    "first_us": 100712.588,
+    "graph_start_us": 115752.067,
+    "graph_end_us": 138760.568,
+    "last_end_us": 147229.498,
+    "pre_span_us": 15039.478999999992,
+    "pre_count": 405,
+    "pre_duration_sum_us": 2266.774,
+    "pre_wait_count": 3,
+    "pre_wait_sum_us": 109.97699999999895
+   },
+   "8": {
+    "first_us": 148515.093,
+    "graph_start_us": 163528.113,
+    "graph_end_us": 186411.475,
+    "last_end_us": 194732.669,
+    "pre_span_us": 15013.020000000019,
+    "pre_count": 405,
+    "pre_duration_sum_us": 1947.258,
+    "pre_wait_count": 3,
+    "pre_wait_sum_us": 0.05999999996856786
+   },
+   "9": {
+    "first_us": 196120.502,
+    "graph_start_us": 211313.918,
+    "graph_end_us": 234216.5,
+    "last_end_us": 242622.452,
+    "pre_span_us": 15193.415999999997,
+    "pre_count": 405,
+    "pre_duration_sum_us": 1981.196,
+    "pre_wait_count": 3,
+    "pre_wait_sum_us": 0.05999999996856786
+   },
+   "10": {
+    "first_us": 243941.166,
+    "graph_start_us": 259635.012,
+    "graph_end_us": 282486.816,
+    "last_end_us": 292309.2,
+    "pre_span_us": 15693.84599999999,
+    "pre_count": 405,
+    "pre_duration_sum_us": 1985.165,
+    "pre_wait_count": 3,
+    "pre_wait_sum_us": 4.179999999993015
+   },
+   "11": {
+    "first_us": 293669.852,
+    "graph_start_us": 312819.29,
+    "graph_end_us": 336209.303,
+    "last_end_us": 345890.809,
+    "pre_span_us": 19149.437999999966,
+    "pre_count": 405,
+    "pre_duration_sum_us": 10623.488,
+    "pre_wait_count": 3,
+    "pre_wait_sum_us": 4277.274000000034
+   },
+   "12": {
+    "first_us": 347229.322,
+    "graph_start_us": 366432.399,
+    "graph_end_us": 389981.62799999997,
+    "last_end_us": 399656.27499999997,
+    "pre_span_us": 19203.07699999999,
+    "pre_count": 405,
+    "pre_duration_sum_us": 10556.773000000001,
+    "pre_wait_count": 3,
+    "pre_wait_sum_us": 4229.235000000044
+   },
+   "13": {
+    "first_us": 401223.404,
+    "graph_start_us": 420640.916,
+    "graph_end_us": 443678.995,
+    "last_end_us": 453631.376,
+    "pre_span_us": 19417.512000000046,
+    "pre_count": 405,
+    "pre_duration_sum_us": 2002.122,
+    "pre_wait_count": 3,
+    "pre_wait_sum_us": 12.559999999997672
+   },
+   "14": {
+    "first_us": 455190.425,
+    "graph_start_us": 474961.57,
+    "graph_end_us": 497818.554,
+    "last_end_us": 507540.01900000003,
+    "pre_span_us": 19771.14500000002,
+    "pre_count": 405,
+    "pre_duration_sum_us": 1966.304,
+    "pre_wait_count": 3,
+    "pre_wait_sum_us": 2.980000000039581
+   }
+  },
+  "per_step_w1_w2": {
+   "5": {
+    "w1_count": 405,
+    "w1_span_us": 15448.051,
+    "w1_sum_us": 2322.257,
+    "w1_union_us": 2112.7209999999914,
+    "w2_count": 431,
+    "w2_span_us": 15769.685000000001,
+    "w2_sum_us": 2906.986,
+    "w2_union_us": 2429.295000000003,
+    "wait_sum_us": 157.33699999999953,
+    "streams": {
+     "47": 273,
+     "37": 37,
+     "N/A": 1,
+     "40": 1,
+     "141": 93
+    }
+   },
+   "6": {
+    "w1_count": 405,
+    "w1_span_us": 16104.518000000004,
+    "w1_sum_us": 1995.163,
+    "w1_union_us": 1973.5830000000642,
+    "w2_count": 431,
+    "w2_span_us": 16193.076999999997,
+    "w2_sum_us": 2113.9610000000002,
+    "w2_union_us": 2057.062000000071,
+    "wait_sum_us": 0.040000000000873115,
+    "streams": {
+     "47": 273,
+     "37": 37,
+     "40": 1,
+     "N/A": 1,
+     "141": 93
+    }
+   },
+   "7": {
+    "w1_count": 405,
+    "w1_span_us": 15039.478999999992,
+    "w1_sum_us": 2266.774,
+    "w1_union_us": 2097.2170000001206,
+    "w2_count": 431,
+    "w2_span_us": 15354.93299999999,
+    "w2_sum_us": 2838.622,
+    "w2_union_us": 2407.6110000000917,
+    "wait_sum_us": 109.97699999999895,
+    "streams": {
+     "47": 273,
+     "37": 37,
+     "N/A": 1,
+     "40": 1,
+     "141": 93
+    }
+   },
+   "8": {
+    "w1_count": 405,
+    "w1_span_us": 15013.020000000019,
+    "w1_sum_us": 1947.258,
+    "w1_union_us": 1925.759000000282,
+    "w2_count": 431,
+    "w2_span_us": 15102.578000000009,
+    "w2_sum_us": 2067.195,
+    "w2_union_us": 2009.9970000003232,
+    "wait_sum_us": 0.05999999996856786,
+    "streams": {
+     "47": 273,
+     "37": 37,
+     "40": 1,
+     "N/A": 1,
+     "141": 93
+    }
+   },
+   "9": {
+    "w1_count": 405,
+    "w1_span_us": 15193.415999999997,
+    "w1_sum_us": 1981.196,
+    "w1_union_us": 1959.2969999998168,
+    "w2_count": 431,
+    "w2_span_us": 15282.713999999978,
+    "w2_sum_us": 2100.214,
+    "w2_union_us": 2042.934999999823,
+    "wait_sum_us": 0.05999999996856786,
+    "streams": {
+     "47": 273,
+     "37": 37,
+     "N/A": 1,
+     "40": 1,
+     "141": 93
+    }
+   },
+   "10": {
+    "w1_count": 405,
+    "w1_span_us": 15693.84599999999,
+    "w1_sum_us": 1985.165,
+    "w1_union_us": 1963.1450000000768,
+    "w2_count": 431,
+    "w2_span_us": 15782.985000000015,
+    "w2_sum_us": 2103.623,
+    "w2_union_us": 2046.4040000000678,
+    "wait_sum_us": 4.179999999993015,
+    "streams": {
+     "47": 273,
+     "37": 37,
+     "N/A": 1,
+     "40": 1,
+     "141": 93
+    }
+   },
+   "11": {
+    "w1_count": 405,
+    "w1_span_us": 19149.437999999966,
+    "w1_sum_us": 10623.488,
+    "w1_union_us": 6298.09500000003,
+    "w2_count": 431,
+    "w2_span_us": 19898.24299999996,
+    "w2_sum_us": 12063.759,
+    "w2_union_us": 7042.100000000093,
+    "wait_sum_us": 4277.274000000034,
+    "streams": {
+     "47": 273,
+     "37": 37,
+     "40": 1,
+     "N/A": 1,
+     "141": 93
+    }
+   },
+   "12": {
+    "w1_count": 405,
+    "w1_span_us": 19203.07699999999,
+    "w1_sum_us": 10556.773000000001,
+    "w1_union_us": 6279.0979999998235,
+    "w2_count": 431,
+    "w2_span_us": 19935.641999999993,
+    "w2_sum_us": 11964.025,
+    "w2_union_us": 7006.842999999702,
+    "wait_sum_us": 4229.235000000044,
+    "streams": {
+     "47": 273,
+     "37": 37,
+     "40": 1,
+     "N/A": 1,
+     "141": 93
+    }
+   },
+   "13": {
+    "w1_count": 405,
+    "w1_span_us": 19417.512000000046,
+    "w1_sum_us": 2002.122,
+    "w1_union_us": 1980.5630000001984,
+    "w2_count": 431,
+    "w2_span_us": 19705.486000000034,
+    "w2_sum_us": 2519.111,
+    "w2_union_us": 2263.357000000251,
+    "wait_sum_us": 12.559999999997672,
+    "streams": {
+     "47": 273,
+     "37": 37,
+     "40": 1,
+     "N/A": 1,
+     "141": 93
+    }
+   },
+   "14": {
+    "w1_count": 405,
+    "w1_span_us": 19771.14500000002,
+    "w1_sum_us": 1966.304,
+    "w1_union_us": 1944.804999999178,
+    "w2_count": 431,
+    "w2_span_us": 19860.703000000038,
+    "w2_sum_us": 2086.801,
+    "w2_union_us": 2029.1429999991087,
+    "wait_sum_us": 2.980000000039581,
+    "streams": {
+     "47": 273,
+     "37": 37,
+     "40": 1,
+     "N/A": 1,
+     "141": 93
+    }
+   }
+  }
+ },
+ "distribution": {
+  "cluster_key": "(Type, OP State, Input Shapes, Stream ID)",
+  "cluster_count": 128,
+  "clusters": [
+   {
+    "type": "hcom_allReduce_",
+    "state": "N/A",
+    "shape": "N/A",
+    "stream": "N/A",
+    "count_per_step": 1.0,
+    "duration_sum_us_total": 9112.216999999999,
+    "duration_median_us": 21.9595,
+    "gap_prev_median_us": -21.49900000001071,
+    "same_stream_gap_median_us": null,
+    "class_start_delta_median_us": null,
+    "offset_in_window_median_us": 14081.928499999996,
+    "names": [
+     "hcom_allReduce__503_88_1"
+    ]
+   },
+   {
+    "type": "hcom_allReduce_",
+    "state": "dynamic",
+    "shape": "N/A",
+    "stream": "40",
+    "count_per_step": 1.0,
+    "duration_sum_us_total": 9112.216999999999,
+    "duration_median_us": 21.9595,
+    "gap_prev_median_us": 128.25699999998324,
+    "same_stream_gap_median_us": null,
+    "class_start_delta_median_us": null,
+    "offset_in_window_median_us": 14081.928499999996,
+    "names": [
+     "AivKernel"
+    ]
+   },
+   {
+    "type": "ViewCopy",
+    "state": "dynamic",
+    "shape": "4096;1;1;1;6;1;1;1",
+    "stream": "47",
+    "count_per_step": 24.0,
+    "duration_sum_us_total": 1922.505000000001,
+    "duration_median_us": 8.04,
+    "gap_prev_median_us": 15.649000000001251,
+    "same_stream_gap_median_us": 15.649000000001251,
+    "class_start_delta_median_us": 171.16649999999208,
+    "offset_in_window_median_us": 7558.3794999999955,
+    "names": [
+     "aclnnInplaceCopy_ViewCopyAiCore_ViewCopy"
+    ]
+   },
+   {
+    "type": "ScatterElements",
+    "state": "N/A",
+    "shape": "N/A",
+    "stream": "141",
+    "count_per_step": 1.0,
+    "duration_sum_us_total": 1428.7499999999998,
+    "duration_median_us": 140.67700000000002,
+    "gap_prev_median_us": 0.02000000001862645,
+    "same_stream_gap_median_us": 0.02000000001862645,
+    "class_start_delta_median_us": null,
+    "offset_in_window_median_us": 15226.215999999997,
+    "names": [
+     "ScatterElements"
+    ]
+   },
+   {
+    "type": "MaskedFill",
+    "state": "N/A",
+    "shape": "N/A",
+    "stream": "141",
+    "count_per_step": 3.0,
+    "duration_sum_us_total": 1375.7529999999997,
+    "duration_median_us": 44.6195,
+    "gap_prev_median_us": 0.7600000000093132,
+    "same_stream_gap_median_us": 0.7600000000093132,
+    "class_start_delta_median_us": 205.666000000012,
+    "offset_in_window_median_us": 15335.433500000003,
+    "names": [
+     "MaskedFill"
+    ]
+   },
+   {
+    "type": "SparseFlashMlaMetadata",
+    "state": "dynamic",
+    "shape": "2;;;;1;1;1;;",
+    "stream": "37",
+    "count_per_step": 1.0,
+    "duration_sum_us_total": 793.224,
+    "duration_median_us": 75.57849999999999,
+    "gap_prev_median_us": 110.09700000000885,
+    "same_stream_gap_median_us": 110.09700000000885,
+    "class_start_delta_median_us": null,
+    "offset_in_window_median_us": 12946.641499999998,
+    "names": [
+     "aclnnSparseFlashMlaMetadata_SparseFlashMlaMetadata_SparseFlashMlaMetadata"
+    ]
+   },
+   {
+    "type": "SparseFlashMlaMetadata",
+    "state": "dynamic",
+    "shape": "2;;;;1;1;;;",
+    "stream": "37",
+    "count_per_step": 1.0,
+    "duration_sum_us_total": 772.923,
+    "duration_median_us": 75.00800000000001,
+    "gap_prev_median_us": 81.77850000000035,
+    "same_stream_gap_median_us": 81.77850000000035,
+    "class_start_delta_median_us": null,
+    "offset_in_window_median_us": 13112.048499999999,
+    "names": [
+     "aclnnSparseFlashMlaMetadata_SparseFlashMlaMetadata_SparseFlashMlaMetadata"
+    ]
+   },
+   {
+    "type": "QuantLightningIndexerV2Metadata",
+    "state": "dynamic",
+    "shape": "2;;;1;1",
+    "stream": "37",
+    "count_per_step": 1.0,
+    "duration_sum_us_total": 761.8839999999999,
+    "duration_median_us": 71.77850000000001,
+    "gap_prev_median_us": 162.3569999999745,
+    "same_stream_gap_median_us": 162.3569999999745,
+    "class_start_delta_median_us": null,
+    "offset_in_window_median_us": 12575.438999999991,
+    "names": [
+     "aclnnQuantLightningIndexerV2Metadata_QuantLightningIndexerV2Metadata_QuantLightningIndexerV2Meta"
+    ]
+   },
+   {
+    "type": "SparseFlashMlaMetadata",
+    "state": "dynamic",
+    "shape": "2;;;;1;;;;",
+    "stream": "37",
+    "count_per_step": 1.0,
+    "duration_sum_us_total": 674.7269999999999,
+    "duration_median_us": 63.6285,
+    "gap_prev_median_us": 84.7980000000025,
+    "same_stream_gap_median_us": 84.7980000000025,
+    "class_start_delta_median_us": null,
+    "offset_in_window_median_us": 13282.494499999997,
+    "names": [
+     "aclnnSparseFlashMlaMetadata_SparseFlashMlaMetadata_SparseFlashMlaMetadata"
+    ]
+   },
+   {
+    "type": "QuantLightningIndexerV2Metadata",
+    "state": "dynamic",
+    "shape": "2;;;1;",
+    "stream": "37",
+    "count_per_step": 1.0,
+    "duration_sum_us_total": 652.7890000000001,
+    "duration_median_us": 58.689,
+    "gap_prev_median_us": 100.03800000000774,
+    "same_stream_gap_median_us": 100.03800000000774,
+    "class_start_delta_median_us": null,
+    "offset_in_window_median_us": 12772.41500000001,
+    "names": [
+     "aclnnQuantLightningIndexerV2Metadata_QuantLightningIndexerV2Metadata_QuantLightningIndexerV2Meta"
+    ]
+   },
+   {
+    "type": "SearchSorted",
+    "state": "N/A",
+    "shape": "N/A",
+    "stream": "141",
+    "count_per_step": 1.0,
+    "duration_sum_us_total": 631.5070000000001,
+    "duration_median_us": 60.119,
+    "gap_prev_median_us": 0.01999999999679858,
+    "same_stream_gap_median_us": 0.01999999999679858,
+    "class_start_delta_median_us": null,
+    "offset_in_window_median_us": 15056.409499999998,
+    "names": [
+     "SearchSorted"
+    ]
+   },
+   {
+    "type": "Cast",
+    "state": "dynamic",
+    "shape": "6",
+    "stream": "47",
+    "count_per_step": 49.0,
+    "duration_sum_us_total": 575.9489999999996,
+    "duration_median_us": 1.14,
+    "gap_prev_median_us": 45.29899999998452,
+    "same_stream_gap_median_us": 45.29899999998452,
+    "class_start_delta_median_us": 65.29850000000442,
+    "offset_in_window_median_us": 7944.681499999994,
+    "names": [
+     "aclnnDivMods_CastAiCore_Cast"
+    ]
+   },
+   {
+    "type": "SparseAttnSharedkvMetadata",
+    "state": "dynamic",
+    "shape": "2;;;;1",
+    "stream": "37",
+    "count_per_step": 1.0,
+    "duration_sum_us_total": 552.1500000000001,
+    "duration_median_us": 55.339,
+    "gap_prev_median_us": 106.21799999999348,
+    "same_stream_gap_median_us": 106.21799999999348,
+    "class_start_delta_median_us": null,
+    "offset_in_window_median_us": 13449.86150000002,
+    "names": [
+     "aclnnSparseAttnSharedkvMetadata_SparseAttnSharedkvMetadata_SparseAttnSharedkvMetadata"
+    ]
+   },
+   {
+    "type": "SelectV2",
+    "state": "dynamic",
+    "shape": "6;6;",
+    "stream": "47",
+    "count_per_step": 25.0,
+    "duration_sum_us_total": 476.6530000000001,
+    "duration_median_us": 1.7,
+    "gap_prev_median_us": 17.74949999999717,
+    "same_stream_gap_median_us": 17.74949999999717,
+    "class_start_delta_median_us": 213.80600000000413,
+    "offset_in_window_median_us": 7444.400999999998,
+    "names": [
+     "aclnnSWhere_SelectV2AiCore_SelectV2"
+    ]
+   },
+   {
+    "type": "Cummin",
+    "state": "N/A",
+    "shape": "N/A",
+    "stream": "141",
+    "count_per_step": 1.0,
+    "duration_sum_us_total": 425.77,
+    "duration_median_us": 43.089,
+    "gap_prev_median_us": 0.02000000001862645,
+    "same_stream_gap_median_us": 0.02000000001862645,
+    "class_start_delta_median_us": null,
+    "offset_in_window_median_us": 15516.570000000003,
+    "names": [
+     "Cummin"
+    ]
+   },
+   {
+    "type": "StridedSlice",
+    "state": "static",
+    "shape": "6,8;2;2;2",
+    "stream": "141",
+    "count_per_step": 4.0,
+    "duration_sum_us_total": 378.18899999999985,
+    "duration_median_us": 9.399999999999999,
+    "gap_prev_median_us": 0.02000000001862645,
+    "same_stream_gap_median_us": 0.02000000001862645,
+    "class_start_delta_median_us": 21.028999999994994,
+    "offset_in_window_median_us": 15636.217499999995,
+    "names": [
+     "aclnnBitwiseXorTensor_StridedSliceAiCore_StridedSlice"
+    ]
+   },
+   {
+    "type": "GatherV3",
+    "state": "dynamic",
+    "shape": "1048576,1,1,64;6;1",
+    "stream": "47",
+    "count_per_step": 12.0,
+    "duration_sum_us_total": 368.09299999999996,
+    "duration_median_us": 3.06,
+    "gap_prev_median_us": 41.929499999991094,
+    "same_stream_gap_median_us": 41.929499999991094,
+    "class_start_delta_median_us": 43.93900000001304,
+    "offset_in_window_median_us": 8890.642500000009,
+    "names": [
+     "aclnnIndexSelect_GatherV3AiCore_GatherV3"
+    ]
+   },
+   {
+    "type": "_compute_slot_mapping_kernel",
+    "state": "static",
+    "shape": "2;6;1,64",
+    "stream": "47",
+    "count_per_step": 12.0,
+    "duration_sum_us_total": 364.99699999999996,
+    "duration_median_us": 2.96,
+    "gap_prev_median_us": 91.42850000000544,
+    "same_stream_gap_median_us": 91.42850000000544,
+    "class_start_delta_median_us": 93.65849999999955,
+    "offset_in_window_median_us": 1392.69200000001,
+    "names": [
+     "_compute_slot_mapping_kernel"
+    ]
+   },
+   {
+    "type": "Fill",
+    "state": "dynamic",
+    "shape": "1;",
+    "stream": "47",
+    "count_per_step": 32.0,
+    "duration_sum_us_total": 363.63400000000024,
+    "duration_median_us": 1.1,
+    "gap_prev_median_us": 19.539000000004307,
+    "same_stream_gap_median_us": 19.62949999999546,
+    "class_start_delta_median_us": 330.19349999999395,
+    "offset_in_window_median_us": 7520.899999999994,
+    "names": [
+     "aclnnInplaceFillScalar_FillAiCore_Fill"
+    ]
+   },
+   {
+    "type": "FloorMod",
+    "state": "dynamic",
+    "shape": "6;6",
+    "stream": "47",
+    "count_per_step": 15.0,
+    "duration_sum_us_total": 337.1989999999999,
+    "duration_median_us": 2.13,
+    "gap_prev_median_us": 1.540000000008149,
+    "same_stream_gap_median_us": 1.540000000008149,
+    "class_start_delta_median_us": 522.7295000000013,
+    "offset_in_window_median_us": 7398.031499999997,
+    "names": [
+     "aclnnRemainderTensorScalar_FloorModAiCore_FloorMod"
+    ]
+   },
+   {
+    "type": "GreaterEqual",
+    "state": "dynamic",
+    "shape": "6;",
+    "stream": "47",
+    "count_per_step": 15.0,
+    "duration_sum_us_total": 328.5550000000002,
+    "duration_median_us": 2.16,
+    "gap_prev_median_us": 1.5399999999935972,
+    "same_stream_gap_median_us": 1.5399999999935972,
+    "class_start_delta_median_us": 582.6489999999903,
+    "offset_in_window_median_us": 7747.644999999997,
+    "names": [
+     "aclnnGeScalar_GreaterEqual_GreaterEqual"
+    ]
+   },
+   {
+    "type": "Mul",
+    "state": "static",
+    "shape": "144,8,32;144,8,1",
+    "stream": "141",
+    "count_per_step": 2.0,
+    "duration_sum_us_total": 291.53600000000006,
+    "duration_median_us": 14.4495,
+    "gap_prev_median_us": 0.02000000001862645,
+    "same_stream_gap_median_us": 0.02000000001862645,
+    "class_start_delta_median_us": 60.22899999999936,
+    "offset_in_window_median_us": 15766.285000000007,
+    "names": [
+     "aclnnInplaceMul_MulAiCore_Mul"
+    ]
+   },
+   {
+    "type": "Cast",
+    "state": "static",
+    "shape": "144,256",
+    "stream": "141",
+    "count_per_step": 4.0,
+    "duration_sum_us_total": 287.416,
+    "duration_median_us": 7.15,
+    "gap_prev_median_us": 0.020000000011350494,
+    "same_stream_gap_median_us": 0.020000000011350494,
+    "class_start_delta_median_us": 22.569499999997788,
+    "offset_in_window_median_us": 15769.475000000002,
+    "names": [
+     "aclnnInplaceCopy_CastAiCore_Cast"
+    ]
+   },
+   {
+    "type": "ZerosLike",
+    "state": "dynamic",
+    "shape": "2048,6144",
+    "stream": "47",
+    "count_per_step": 2.0,
+    "duration_sum_us_total": 252.37400000000002,
+    "duration_median_us": 12.5595,
+    "gap_prev_median_us": 0.6799999999711872,
+    "same_stream_gap_median_us": 0.6799999999711872,
+    "class_start_delta_median_us": 15.849499999982072,
+    "offset_in_window_median_us": 15828.343999999994,
+    "names": [
+     "aclnnInplaceZero_ZerosLikeAiCore_ZerosLike"
+    ]
+   },
+   {
+    "type": "ClipByValueV2",
+    "state": "dynamic",
+    "shape": "6;;",
+    "stream": "47",
+    "count_per_step": 13.0,
+    "duration_sum_us_total": 240.055,
+    "duration_median_us": 1.72,
+    "gap_prev_median_us": 0.8700000000098953,
+    "same_stream_gap_median_us": 0.8700000000098953,
+    "class_start_delta_median_us": 553.578999999997,
+    "offset_in_window_median_us": 7755.845000000001,
+    "names": [
+     "aclnnClampMin_ClipByValueV2AiCore_ClipByValueV2"
+    ]
+   },
+   {
+    "type": "FloorDiv",
+    "state": "dynamic",
+    "shape": "6;",
+    "stream": "47",
+    "count_per_step": 14.0,
+    "duration_sum_us_total": 231.0730000000001,
+    "duration_median_us": 1.54,
+    "gap_prev_median_us": 1.61000000000422,
+    "same_stream_gap_median_us": 1.61000000000422,
+    "class_start_delta_median_us": 541.5490000000136,
+    "offset_in_window_median_us": 7423.401999999973,
+    "names": [
+     "aclnnDivMods_FloorDivAiCore_FloorDiv"
+    ]
+   },
+   {
+    "type": "BroadcastTo",
+    "state": "dynamic",
+    "shape": ";1",
+    "stream": "47",
+    "count_per_step": 16.0,
+    "duration_sum_us_total": 212.93099999999993,
+    "duration_median_us": 1.33,
+    "gap_prev_median_us": 37.01900000004389,
+    "same_stream_gap_median_us": 37.01900000004389,
+    "class_start_delta_median_us": 475.42050000000745,
+    "offset_in_window_median_us": 7048.089000000022,
+    "names": [
+     "aclnnRemainderTensorScalar_BroadcastToAiCore_BroadcastTo"
+    ]
+   },
+   {
+    "type": "GatherV3",
+    "state": "static",
+    "shape": "384006168,8;144;1",
+    "stream": "141",
+    "count_per_step": 1.0,
+    "duration_sum_us_total": 209.25400000000002,
+    "duration_median_us": 20.959,
+    "gap_prev_median_us": 0.020000000002255547,
+    "same_stream_gap_median_us": 0.020000000002255547,
+    "class_start_delta_median_us": null,
+    "offset_in_window_median_us": 15708.545999999998,
+    "names": [
+     "aclnnIndexSelect_GatherV3AiCore_GatherV3"
+    ]
+   },
+   {
+    "type": "GatherElementsV2",
+    "state": "dynamic",
+    "shape": "1048576,1,1,64;6,1,1,64",
+    "stream": "37",
+    "count_per_step": 2.0,
+    "duration_sum_us_total": 187.51500000000001,
+    "duration_median_us": 9.6,
+    "gap_prev_median_us": 0.5499999999992724,
+    "same_stream_gap_median_us": 0.5499999999992724,
+    "class_start_delta_median_us": 30.149499999999534,
+    "offset_in_window_median_us": 12388.532500000003,
+    "names": [
+     "aclnnGather_GatherElementsV2_GatherElementsV2"
+    ]
+   },
+   {
+    "type": "Range",
+    "state": "static",
+    "shape": ";;",
+    "stream": "141",
+    "count_per_step": 2.0,
+    "duration_sum_us_total": 167.15800000000002,
+    "duration_median_us": 8.41,
+    "gap_prev_median_us": 1.570000000006985,
+    "same_stream_gap_median_us": 0.029999999998835847,
+    "class_start_delta_median_us": 320.6940000000104,
+    "offset_in_window_median_us": 15209.05650000001,
+    "names": [
+     "aclnnArange_ArangeAiCore_Range"
+    ]
+   },
+   {
+    "type": "GatherV3",
+    "state": "static",
+    "shape": "384006168,256;144;1",
+    "stream": "141",
+    "count_per_step": 1.0,
+    "duration_sum_us_total": 149.25799999999998,
+    "duration_median_us": 14.8,
+    "gap_prev_median_us": 0.020000000011350494,
+    "same_stream_gap_median_us": 0.020000000011350494,
+    "class_start_delta_median_us": null,
+    "offset_in_window_median_us": 15693.3265,
+    "names": [
+     "aclnnIndexSelect_GatherV3AiCore_GatherV3"
+    ]
+   },
+   {
+    "type": "GatherV3",
+    "state": "static",
+    "shape": "384016682,8;144;1",
+    "stream": "141",
+    "count_per_step": 1.0,
+    "duration_sum_us_total": 142.49699999999999,
+    "duration_median_us": 14.3595,
+    "gap_prev_median_us": 0.020000000011350494,
+    "same_stream_gap_median_us": 0.020000000011350494,
+    "class_start_delta_median_us": null,
+    "offset_in_window_median_us": 15775.284999999993,
+    "names": [
+     "aclnnIndexSelect_GatherV3AiCore_GatherV3"
+    ]
+   },
+   {
+    "type": "GatherV3",
+    "state": "static",
+    "shape": "384016682,256;144;1",
+    "stream": "141",
+    "count_per_step": 1.0,
+    "duration_sum_us_total": 135.49599999999998,
+    "duration_median_us": 13.6095,
+    "gap_prev_median_us": 0.020000000011350494,
+    "same_stream_gap_median_us": 0.020000000011350494,
+    "class_start_delta_median_us": null,
+    "offset_in_window_median_us": 15761.764999999996,
+    "names": [
+     "aclnnIndexSelect_GatherV3AiCore_GatherV3"
+    ]
+   },
+   {
+    "type": "Range",
+    "state": "dynamic",
+    "shape": ";;",
+    "stream": "37",
+    "count_per_step": 2.0,
+    "duration_sum_us_total": 134.438,
+    "duration_median_us": 6.91,
+    "gap_prev_median_us": 22.479499999957625,
+    "same_stream_gap_median_us": 22.479499999957625,
+    "class_start_delta_median_us": 496.1000000000022,
+    "offset_in_window_median_us": 11844.093500000003,
+    "names": [
+     "aclnnArange_ArangeAiCore_Range"
+    ]
+   },
+   {
+    "type": "IndexCheck",
+    "state": "static",
+    "shape": "2;6,4;6,4",
+    "stream": "141",
+    "count_per_step": 2.0,
+    "duration_sum_us_total": 124.417,
+    "duration_median_us": 6.31,
+    "gap_prev_median_us": 0.02000000001862645,
+    "same_stream_gap_median_us": 0.02000000001862645,
+    "class_start_delta_median_us": 37.69949999998789,
+    "offset_in_window_median_us": 15433.231500000005,
+    "names": [
+     "aclnnIndex_IndexCheck_IndexCheck"
+    ]
+   },
+   {
+    "type": "FloorMod",
+    "state": "static",
+    "shape": "6,2,8;6,2,8",
+    "stream": "141",
+    "count_per_step": 3.0,
+    "duration_sum_us_total": 121.898,
+    "duration_median_us": 4.05,
+    "gap_prev_median_us": 0.020000000004074536,
+    "same_stream_gap_median_us": 0.020000000004074536,
+    "class_start_delta_median_us": 20.519499999994878,
+    "offset_in_window_median_us": 15657.857500000002,
+    "names": [
+     "aclnnRemainderTensorTensor_FloorModAiCore_FloorMod"
+    ]
+   },
+   {
+    "type": "Index",
+    "state": "dynamic",
+    "shape": "1;1;1;6",
+    "stream": "47",
+    "count_per_step": 1.0,
+    "duration_sum_us_total": 97.977,
+    "duration_median_us": 9.76,
+    "gap_prev_median_us": 0.020000000011350494,
+    "same_stream_gap_median_us": 0.020000000011350494,
+    "class_start_delta_median_us": null,
+    "offset_in_window_median_us": 350.26299999999173,
+    "names": [
+     "aclnnIndex_IndexAiCore_Index"
+    ]
+   },
+   {
+    "type": "Index",
+    "state": "static",
+    "shape": "1,64;2;1;6;6",
+    "stream": "141",
+    "count_per_step": 1.0,
+    "duration_sum_us_total": 97.198,
+    "duration_median_us": 9.709499999999998,
+    "gap_prev_median_us": 0.020000000011350494,
+    "same_stream_gap_median_us": 0.020000000011350494,
+    "class_start_delta_median_us": null,
+    "offset_in_window_median_us": 15195.136499999997,
+    "names": [
+     "aclnnIndex_IndexAiCore_Index"
+    ]
+   },
+   {
+    "type": "Mul",
+    "state": "static",
+    "shape": "6,1,4;1,2,4",
+    "stream": "141",
+    "count_per_step": 1.0,
+    "duration_sum_us_total": 96.43900000000001,
+    "duration_median_us": 9.7,
+    "gap_prev_median_us": 0.01999999999497959,
+    "same_stream_gap_median_us": 0.01999999999497959,
+    "class_start_delta_median_us": null,
+    "offset_in_window_median_us": 15600.118500000008,
+    "names": [
+     "aclnnMul_MulAiCore_Mul"
+    ]
+   },
+   {
+    "type": "Index",
+    "state": "dynamic",
+    "shape": "6;1;1;5",
+    "stream": "47",
+    "count_per_step": 1.0,
+    "duration_sum_us_total": 94.05800000000002,
+    "duration_median_us": 9.3895,
+    "gap_prev_median_us": 0.02000000001862645,
+    "same_stream_gap_median_us": 0.02000000001862645,
+    "class_start_delta_median_us": null,
+    "offset_in_window_median_us": 2504.539999999979,
+    "names": [
+     "aclnnIndex_IndexAiCore_Index"
+    ]
+   },
+   {
+    "type": "Range",
+    "state": "dynamic",
+    "shape": ";;",
+    "stream": "47",
+    "count_per_step": 1.0,
+    "duration_sum_us_total": 92.16,
+    "duration_median_us": 9.03,
+    "gap_prev_median_us": 20.76950000002398,
+    "same_stream_gap_median_us": 20.76950000002398,
+    "class_start_delta_median_us": null,
+    "offset_in_window_median_us": 3749.8044999999984,
+    "names": [
+     "aclnnArange_ArangeAiCore_Range"
+    ]
+   },
+   {
+    "type": "Sub",
+    "state": "static",
+    "shape": "6,1;4",
+    "stream": "141",
+    "count_per_step": 1.0,
+    "duration_sum_us_total": 90.418,
+    "duration_median_us": 9.01,
+    "gap_prev_median_us": 0.01999999999497959,
+    "same_stream_gap_median_us": 0.01999999999497959,
+    "class_start_delta_median_us": null,
+    "offset_in_window_median_us": 15389.963000000007,
+    "names": [
+     "aclnnSub_SubAiCore_Sub"
+    ]
+   },
+   {
+    "type": "Index",
+    "state": "static",
+    "shape": "8193,128;2;2;6,4;6,4",
+    "stream": "141",
+    "count_per_step": 1.0,
+    "duration_sum_us_total": 87.43999999999998,
+    "duration_median_us": 8.67,
+    "gap_prev_median_us": 0.020000000004074536,
+    "same_stream_gap_median_us": 0.020000000004074536,
+    "class_start_delta_median_us": null,
+    "offset_in_window_median_us": 15458.580999999995,
+    "names": [
+     "aclnnIndex_IndexAiCore_Index"
+    ]
+   },
+   {
+    "type": "Index",
+    "state": "dynamic",
+    "shape": "2048;1;1;6",
+    "stream": "47",
+    "count_per_step": 1.0,
+    "duration_sum_us_total": 80.519,
+    "duration_median_us": 7.93,
+    "gap_prev_median_us": 0.019999999998617568,
+    "same_stream_gap_median_us": 0.019999999998617568,
+    "class_start_delta_median_us": null,
+    "offset_in_window_median_us": 2437.731499999987,
+    "names": [
+     "aclnnIndex_IndexAiCore_Index"
+    ]
+   },
+   {
+    "type": "Less",
+    "state": "static",
+    "shape": "6,4;",
+    "stream": "141",
+    "count_per_step": 3.0,
+    "duration_sum_us_total": 68.399,
+    "duration_median_us": 2.22,
+    "gap_prev_median_us": 0.020000000002255547,
+    "same_stream_gap_median_us": 0.020000000002255547,
+    "class_start_delta_median_us": 56.25849999999991,
+    "offset_in_window_median_us": 15497.020499999995,
+    "names": [
+     "aclnnLtScalar_LessAiCore_Less"
+    ]
+   },
+   {
+    "type": "Slice",
+    "state": "static",
+    "shape": "2,24;2;2",
+    "stream": "141",
+    "count_per_step": 3.0,
+    "duration_sum_us_total": 66.959,
+    "duration_median_us": 2.16,
+    "gap_prev_median_us": 0.02000000001862645,
+    "same_stream_gap_median_us": 0.02000000001862645,
+    "class_start_delta_median_us": 21.0199999999968,
+    "offset_in_window_median_us": 15651.8875,
+    "names": [
+     "aclnnRemainderTensorTensor_SliceAiCore_Slice"
+    ]
+   },
+   {
+    "type": "IndexCheck",
+    "state": "dynamic",
+    "shape": "1;6",
+    "stream": "47",
+    "count_per_step": 2.0,
+    "duration_sum_us_total": 66.01900000000002,
+    "duration_median_us": 3.29,
+    "gap_prev_median_us": 436.8714999999793,
+    "same_stream_gap_median_us": 436.8714999999793,
+    "class_start_delta_median_us": 2096.398000000001,
+    "offset_in_window_median_us": 1435.7409999999945,
+    "names": [
+     "aclnnIndex_IndexCheck_IndexCheck"
+    ]
+   },
+   {
+    "type": "MaskedFill",
+    "state": "dynamic",
+    "shape": "6,5120;6,1;",
+    "stream": "47",
+    "count_per_step": 1.0,
+    "duration_sum_us_total": 60.678,
+    "duration_median_us": 5.77,
+    "gap_prev_median_us": 20.89000000001397,
+    "same_stream_gap_median_us": 20.89000000001397,
+    "class_start_delta_median_us": null,
+    "offset_in_window_median_us": 13940.671500000022,
+    "names": [
+     "aclnnInplaceMaskedFillScalar_MaskedFillAiCore_MaskedFill"
+    ]
+   },
+   {
+    "type": "Index",
+    "state": "static",
+    "shape": "1,64;2;2;6,4;6,4",
+    "stream": "141",
+    "count_per_step": 1.0,
+    "duration_sum_us_total": 60.05899999999999,
+    "duration_median_us": 5.84,
+    "gap_prev_median_us": 0.020000000011350494,
+    "same_stream_gap_median_us": 0.020000000011350494,
+    "class_start_delta_median_us": null,
+    "offset_in_window_median_us": 15422.832000000006,
+    "names": [
+     "aclnnIndex_IndexAiCore_Index"
+    ]
+   },
+   {
+    "type": "BroadcastTo",
+    "state": "static",
+    "shape": "6,2,1;3",
+    "stream": "141",
+    "count_per_step": 3.0,
+    "duration_sum_us_total": 58.178000000000004,
+    "duration_median_us": 1.94,
+    "gap_prev_median_us": 0.020000000002255547,
+    "same_stream_gap_median_us": 0.020000000002255547,
+    "class_start_delta_median_us": 20.629500000024564,
+    "offset_in_window_median_us": 15654.077499999996,
+    "names": [
+     "aclnnRemainderTensorTensor_BroadcastToAiCore_BroadcastTo"
+    ]
+   },
+   {
+    "type": "ClipByValueV2",
+    "state": "static",
+    "shape": "6;;",
+    "stream": "141",
+    "count_per_step": 1.0,
+    "duration_sum_us_total": 54.6,
+    "duration_median_us": 5.48,
+    "gap_prev_median_us": 0.020000000011350494,
+    "same_stream_gap_median_us": 0.020000000011350494,
+    "class_start_delta_median_us": null,
+    "offset_in_window_median_us": 15185.856499999998,
+    "names": [
+     "aclnnClamp_ClipByValueV2AiCore_ClipByValueV2"
+    ]
+   },
+   {
+    "type": "Cast",
+    "state": "dynamic",
+    "shape": "1",
+    "stream": "47",
+    "count_per_step": 4.0,
+    "duration_sum_us_total": 54.179,
+    "duration_median_us": 1.36,
+    "gap_prev_median_us": 19.159499999994296,
+    "same_stream_gap_median_us": 19.159499999994296,
+    "class_start_delta_median_us": 41.12900000000809,
+    "offset_in_window_median_us": 9688.176000000007,
+    "names": [
+     "aclnnDivMods_CastAiCore_Cast"
+    ]
+   },
+   {
+    "type": "Fill",
+    "state": "static",
+    "shape": "1;",
+    "stream": "141",
+    "count_per_step": 4.0,
+    "duration_sum_us_total": 53.919999999999995,
+    "duration_median_us": 1.33,
+    "gap_prev_median_us": 0.020000000004074536,
+    "same_stream_gap_median_us": 0.020000000004074536,
+    "class_start_delta_median_us": 34.76949999999488,
+    "offset_in_window_median_us": 15325.64350000001,
+    "names": [
+     "aclnnInplaceFillScalar_FillAiCore_Fill"
+    ]
+   },
+   {
+    "type": "SelectV2",
+    "state": "static",
+    "shape": "6,4;6,4;",
+    "stream": "141",
+    "count_per_step": 2.0,
+    "duration_sum_us_total": 53.85899999999999,
+    "duration_median_us": 2.7,
+    "gap_prev_median_us": 0.02000000001862645,
+    "same_stream_gap_median_us": 0.02000000001862645,
+    "class_start_delta_median_us": 3.8699999999953434,
+    "offset_in_window_median_us": 15446.891499999994,
+    "names": [
+     "aclnnSWhere_SelectV2AiCore_SelectV2"
+    ]
+   },
+   {
+    "type": "Slice",
+    "state": "static",
+    "shape": "6,48;2;2",
+    "stream": "141",
+    "count_per_step": 2.0,
+    "duration_sum_us_total": 53.61899999999999,
+    "duration_median_us": 2.62,
+    "gap_prev_median_us": 0.02000000001862645,
+    "same_stream_gap_median_us": 0.02000000001862645,
+    "class_start_delta_median_us": 69.20899999998801,
+    "offset_in_window_median_us": 15724.586,
+    "names": [
+     "aclnnInplaceCopy_SliceAiCore_Slice"
+    ]
+   },
+   {
+    "type": "BroadcastTo",
+    "state": "static",
+    "shape": "2,8;3",
+    "stream": "141",
+    "count_per_step": 3.0,
+    "duration_sum_us_total": 50.68,
+    "duration_median_us": 1.62,
+    "gap_prev_median_us": 0.020000000004074536,
+    "same_stream_gap_median_us": 0.020000000004074536,
+    "class_start_delta_median_us": 20.669499999974505,
+    "offset_in_window_median_us": 15656.017499999998,
+    "names": [
+     "aclnnRemainderTensorTensor_BroadcastToAiCore_BroadcastTo"
+    ]
+   },
+   {
+    "type": "ClipByValueV2",
+    "state": "dynamic",
+    "shape": "1;;",
+    "stream": "37",
+    "count_per_step": 3.0,
+    "duration_sum_us_total": 49.41800000000001,
+    "duration_median_us": 1.61,
+    "gap_prev_median_us": 13.45999999995911,
+    "same_stream_gap_median_us": 13.45999999995911,
+    "class_start_delta_median_us": 61.568499999979394,
+    "offset_in_window_median_us": 11620.798,
+    "names": [
+     "aclnnClampMax_ClipByValueV2AiCore_ClipByValueV2"
+    ]
+   },
+   {
+    "type": "LogicalAnd",
+    "state": "dynamic",
+    "shape": "6;6",
+    "stream": "47",
+    "count_per_step": 4.0,
+    "duration_sum_us_total": 49.238,
+    "duration_median_us": 1.2294999999999998,
+    "gap_prev_median_us": 7.51949999999988,
+    "same_stream_gap_median_us": 7.51949999999988,
+    "class_start_delta_median_us": 190.07599999998638,
+    "offset_in_window_median_us": 3856.5625,
+    "names": [
+     "aclnnBitwiseAndTensor_LogicalAndAiCore_LogicalAnd"
+    ]
+   },
+   {
+    "type": "Equal",
+    "state": "dynamic",
+    "shape": "6;",
+    "stream": "47",
+    "count_per_step": 3.0,
+    "duration_sum_us_total": 48.879,
+    "duration_median_us": 1.32,
+    "gap_prev_median_us": 19.87999999999738,
+    "same_stream_gap_median_us": 19.87999999999738,
+    "class_start_delta_median_us": 4961.771000000001,
+    "offset_in_window_median_us": 3929.391500000019,
+    "names": [
+     "aclnnEqScalar_EqualAiCore_Equal"
+    ]
+   },
+   {
+    "type": "BroadcastTo",
+    "state": "dynamic",
+    "shape": "6,1,1,1;4",
+    "stream": "37",
+    "count_per_step": 2.0,
+    "duration_sum_us_total": 47.559999999999995,
+    "duration_median_us": 2.38,
+    "gap_prev_median_us": 60.76900000000023,
+    "same_stream_gap_median_us": 60.76900000000023,
+    "class_start_delta_median_us": 26.220000000001164,
+    "offset_in_window_median_us": 12383.73249999998,
+    "names": [
+     "aclnnGather_BroadcastToAiCore_BroadcastTo"
+    ]
+   },
+   {
+    "type": "GreaterEqual",
+    "state": "static",
+    "shape": "6,4;",
+    "stream": "141",
+    "count_per_step": 2.0,
+    "duration_sum_us_total": 47.279,
+    "duration_median_us": 2.3499999999999996,
+    "gap_prev_median_us": 0.020000000004074536,
+    "same_stream_gap_median_us": 0.020000000004074536,
+    "class_start_delta_median_us": 35.00999999999112,
+    "offset_in_window_median_us": 15416.432499999999,
+    "names": [
+     "aclnnGeScalar_GreaterEqual_GreaterEqual"
+    ]
+   },
+   {
+    "type": "BitwiseXor",
+    "state": "static",
+    "shape": "6,2;6,2",
+    "stream": "141",
+    "count_per_step": 3.0,
+    "duration_sum_us_total": 46.87899999999999,
+    "duration_median_us": 1.52,
+    "gap_prev_median_us": 0.020000000002255547,
+    "same_stream_gap_median_us": 0.020000000002255547,
+    "class_start_delta_median_us": 21.138999999995576,
+    "offset_in_window_median_us": 15650.297499999997,
+    "names": [
+     "aclnnBitwiseXorTensor_BitwiseXorAiCore_BitwiseXor"
+    ]
+   },
+   {
+    "type": "Sub",
+    "state": "dynamic",
+    "shape": "1;1",
+    "stream": "37",
+    "count_per_step": 3.0,
+    "duration_sum_us_total": 45.297999999999995,
+    "duration_median_us": 1.4,
+    "gap_prev_median_us": 35.548999999989064,
+    "same_stream_gap_median_us": 21.119000000006054,
+    "class_start_delta_median_us": 86.48799999999756,
+    "offset_in_window_median_us": 11591.9485,
+    "names": [
+     "aclnnSub_SubAiCore_Sub"
+    ]
+   },
+   {
+    "type": "Less",
+    "state": "dynamic",
+    "shape": "6;",
+    "stream": "47",
+    "count_per_step": 2.0,
+    "duration_sum_us_total": 42.898999999999994,
+    "duration_median_us": 2.1,
+    "gap_prev_median_us": 3.4699999999720603,
+    "same_stream_gap_median_us": 3.4699999999720603,
+    "class_start_delta_median_us": 9918.371500000001,
+    "offset_in_window_median_us": 9164.277000000002,
+    "names": [
+     "aclnnLtScalar_LessAiCore_Less"
+    ]
+   },
+   {
+    "type": "ClipByValueV2",
+    "state": "static",
+    "shape": "6,4;;",
+    "stream": "141",
+    "count_per_step": 1.0,
+    "duration_sum_us_total": 42.278999999999996,
+    "duration_median_us": 4.1899999999999995,
+    "gap_prev_median_us": 0.020000000009531504,
+    "same_stream_gap_median_us": 0.020000000009531504,
+    "class_start_delta_median_us": null,
+    "offset_in_window_median_us": 15401.322000000004,
+    "names": [
+     "aclnnClampMin_ClipByValueV2AiCore_ClipByValueV2"
+    ]
+   },
+   {
+    "type": "Add",
+    "state": "static",
+    "shape": "6,2,24;2,24",
+    "stream": "141",
+    "count_per_step": 1.0,
+    "duration_sum_us_total": 40.38,
+    "duration_median_us": 4.04,
+    "gap_prev_median_us": 0.02000000001862645,
+    "same_stream_gap_median_us": 0.02000000001862645,
+    "class_start_delta_median_us": null,
+    "offset_in_window_median_us": 15686.226999999995,
+    "names": [
+     "aclnnAdd_AddAiCore_Add"
+    ]
+   },
+   {
+    "type": "Cast",
+    "state": "static",
+    "shape": "6,4",
+    "stream": "141",
+    "count_per_step": 3.0,
+    "duration_sum_us_total": 40.260000000000005,
+    "duration_median_us": 1.33,
+    "gap_prev_median_us": 0.020000000004074536,
+    "same_stream_gap_median_us": 0.020000000004074536,
+    "class_start_delta_median_us": 8.999500000012631,
+    "offset_in_window_median_us": 15442.791499999996,
+    "names": [
+     "aclnnGeScalar_CastAiCore_Cast"
+    ]
+   },
+   {
+    "type": "GatherV3",
+    "state": "static",
+    "shape": "129280;6;1",
+    "stream": "141",
+    "count_per_step": 1.0,
+    "duration_sum_us_total": 39.697,
+    "duration_median_us": 3.98,
+    "gap_prev_median_us": 0.020000000002255547,
+    "same_stream_gap_median_us": 0.020000000002255547,
+    "class_start_delta_median_us": null,
+    "offset_in_window_median_us": 15118.577999999998,
+    "names": [
+     "aclnnIndexSelect_GatherV3AiCore_GatherV3"
+    ]
+   },
+   {
+    "type": "BroadcastTo",
+    "state": "static",
+    "shape": "6,1;2",
+    "stream": "141",
+    "count_per_step": 2.0,
+    "duration_sum_us_total": 37.74,
+    "duration_median_us": 1.86,
+    "gap_prev_median_us": 0.020000000004074536,
+    "same_stream_gap_median_us": 0.020000000004074536,
+    "class_start_delta_median_us": 8.530000000013388,
+    "offset_in_window_median_us": 15416.632000000001,
+    "names": [
+     "aclnnIndex_BroadcastToAiCore_BroadcastTo"
+    ]
+   },
+   {
+    "type": "Cast",
+    "state": "static",
+    "shape": "6",
+    "stream": "141",
+    "count_per_step": 3.0,
+    "duration_sum_us_total": 37.579,
+    "duration_median_us": 1.26,
+    "gap_prev_median_us": 0.020000000011350494,
+    "same_stream_gap_median_us": 0.020000000011350494,
+    "class_start_delta_median_us": 7.4500000000116415,
+    "offset_in_window_median_us": 15215.466499999999,
+    "names": [
+     "aclnnAdd_CastAiCore_Cast"
+    ]
+   },
+   {
+    "type": "SelectV2",
+    "state": "dynamic",
+    "shape": "1;1;",
+    "stream": "37",
+    "count_per_step": 2.0,
+    "duration_sum_us_total": 36.900000000000006,
+    "duration_median_us": 1.79,
+    "gap_prev_median_us": 12.789500000042608,
+    "same_stream_gap_median_us": 12.789500000042608,
+    "class_start_delta_median_us": 296.64400000000023,
+    "offset_in_window_median_us": 11819.884000000005,
+    "names": [
+     "aclnnSWhere_SelectV2AiCore_SelectV2"
+    ]
+   },
+   {
+    "type": "ConcatD",
+    "state": "static",
+    "shape": "6,2,8;6,2,8;6,2,8",
+    "stream": "141",
+    "count_per_step": 1.0,
+    "duration_sum_us_total": 36.38,
+    "duration_median_us": 3.6100000000000003,
+    "gap_prev_median_us": 0.01999999999497959,
+    "same_stream_gap_median_us": 0.01999999999497959,
+    "class_start_delta_median_us": null,
+    "offset_in_window_median_us": 15682.567,
+    "names": [
+     "aclnnCat_ConcatD_ConcatD"
+    ]
+   },
+   {
+    "type": "GatherV2",
+    "state": "dynamic",
+    "shape": "16160,5120;6;1",
+    "stream": "47",
+    "count_per_step": 1.0,
+    "duration_sum_us_total": 36.120000000000005,
+    "duration_median_us": 3.55,
+    "gap_prev_median_us": 27.29949999996461,
+    "same_stream_gap_median_us": 27.29949999996461,
+    "class_start_delta_median_us": null,
+    "offset_in_window_median_us": 13907.33250000001,
+    "names": [
+     "aclnnEmbedding_GatherV2AiCore_GatherV2"
+    ]
+   },
+   {
+    "type": "SelectV2",
+    "state": "dynamic",
+    "shape": "6;6;6",
+    "stream": "47",
+    "count_per_step": 2.0,
+    "duration_sum_us_total": 35.998999999999995,
+    "duration_median_us": 1.77,
+    "gap_prev_median_us": 9.569999999977881,
+    "same_stream_gap_median_us": 9.569999999977881,
+    "class_start_delta_median_us": 38.17949999999837,
+    "offset_in_window_median_us": 10766.364999999983,
+    "names": [
+     "aclnnSWhere_SelectV2AiCore_SelectV2"
+    ]
+   },
+   {
+    "type": "IndexCheck",
+    "state": "static",
+    "shape": "2;6;6",
+    "stream": "141",
+    "count_per_step": 1.0,
+    "duration_sum_us_total": 35.54,
+    "duration_median_us": 3.54,
+    "gap_prev_median_us": 0.02000000001862645,
+    "same_stream_gap_median_us": 0.02000000001862645,
+    "class_start_delta_median_us": null,
+    "offset_in_window_median_us": 15191.486500000003,
+    "names": [
+     "aclnnIndex_IndexCheck_IndexCheck"
+    ]
+   },
+   {
+    "type": "IndexCheck",
+    "state": "dynamic",
+    "shape": "1;5",
+    "stream": "47",
+    "count_per_step": 1.0,
+    "duration_sum_us_total": 35.019999999999996,
+    "duration_median_us": 3.5,
+    "gap_prev_median_us": 33.08900000000722,
+    "same_stream_gap_median_us": 33.08900000000722,
+    "class_start_delta_median_us": null,
+    "offset_in_window_median_us": 2501.109999999986,
+    "names": [
+     "aclnnIndex_IndexCheck_IndexCheck"
+    ]
+   },
+   {
+    "type": "NotEqual",
+    "state": "static",
+    "shape": "6;",
+    "stream": "141",
+    "count_per_step": 2.0,
+    "duration_sum_us_total": 32.9,
+    "duration_median_us": 1.6,
+    "gap_prev_median_us": 0.020000000002255547,
+    "same_stream_gap_median_us": 0.020000000002255547,
+    "class_start_delta_median_us": 1.7300000000032014,
+    "offset_in_window_median_us": 15114.467999999997,
+    "names": [
+     "aclnnNeScalar_NotEqualAiCore_NotEqual"
+    ]
+   },
+   {
+    "type": "Minimum",
+    "state": "static",
+    "shape": "6,4;",
+    "stream": "141",
+    "count_per_step": 1.0,
+    "duration_sum_us_total": 32.78000000000001,
+    "duration_median_us": 3.26,
+    "gap_prev_median_us": 0.02000000001862645,
+    "same_stream_gap_median_us": 0.02000000001862645,
+    "class_start_delta_median_us": null,
+    "offset_in_window_median_us": 15409.222000000005,
+    "names": [
+     "aclnnMinimum_MinimumAiCore_Minimum"
+    ]
+   },
+   {
+    "type": "Greater",
+    "state": "dynamic",
+    "shape": "1;",
+    "stream": "37",
+    "count_per_step": 1.0,
+    "duration_sum_us_total": 31.958999999999996,
+    "duration_median_us": 3.13,
+    "gap_prev_median_us": 1.3000000000029104,
+    "same_stream_gap_median_us": 1.3000000000029104,
+    "class_start_delta_median_us": null,
+    "offset_in_window_median_us": 11885.482999999993,
+    "names": [
+     "aclnnGtScalar_GreaterAiCore_Greater"
+    ]
+   },
+   {
+    "type": "Sub",
+    "state": "dynamic",
+    "shape": "6;",
+    "stream": "37",
+    "count_per_step": 1.0,
+    "duration_sum_us_total": 31.200000000000003,
+    "duration_median_us": 3.1,
+    "gap_prev_median_us": 93.60800000001109,
+    "same_stream_gap_median_us": 93.60800000001109,
+    "class_start_delta_median_us": null,
+    "offset_in_window_median_us": 12207.166499999988,
+    "names": [
+     "aclnnSubs_SubAiCore_Sub"
+    ]
+   },
+   {
+    "type": "LogicalAnd",
+    "state": "static",
+    "shape": "6;6",
+    "stream": "141",
+    "count_per_step": 2.0,
+    "duration_sum_us_total": 30.76,
+    "duration_median_us": 1.57,
+    "gap_prev_median_us": 0.02000000001862645,
+    "same_stream_gap_median_us": 0.02000000001862645,
+    "class_start_delta_median_us": 91.28799999997682,
+    "offset_in_window_median_us": 15166.867000000002,
+    "names": [
+     "aclnnBitwiseAndTensor_LogicalAndAiCore_LogicalAnd"
+    ]
+   },
+   {
+    "type": "Less",
+    "state": "dynamic",
+    "shape": "1;",
+    "stream": "37",
+    "count_per_step": 1.0,
+    "duration_sum_us_total": 30.16,
+    "duration_median_us": 2.98,
+    "gap_prev_median_us": 11.720000000001164,
+    "same_stream_gap_median_us": 11.720000000001164,
+    "class_start_delta_median_us": null,
+    "offset_in_window_median_us": 11557.958999999988,
+    "names": [
+     "aclnnLtScalar_LessAiCore_Less"
+    ]
+   },
+   {
+    "type": "Cast",
+    "state": "dynamic",
+    "shape": "6,1,1,64",
+    "stream": "37",
+    "count_per_step": 2.0,
+    "duration_sum_us_total": 29.879,
+    "duration_median_us": 1.44,
+    "gap_prev_median_us": 0.03000000003794412,
+    "same_stream_gap_median_us": 0.03000000003794412,
+    "class_start_delta_median_us": 28.520000000018626,
+    "offset_in_window_median_us": 12386.692499999994,
+    "names": [
+     "aclnnGather_CastAiCore_Cast"
+    ]
+   },
+   {
+    "type": "GreaterEqual",
+    "state": "static",
+    "shape": "6;",
+    "stream": "141",
+    "count_per_step": 1.0,
+    "duration_sum_us_total": 29.679,
+    "duration_median_us": 2.92,
+    "gap_prev_median_us": 0.01999999999497959,
+    "same_stream_gap_median_us": 0.01999999999497959,
+    "class_start_delta_median_us": null,
+    "offset_in_window_median_us": 15209.246499999997,
+    "names": [
+     "aclnnGeScalar_GreaterEqual_GreaterEqual"
+    ]
+   },
+   {
+    "type": "Sub",
+    "state": "dynamic",
+    "shape": "1;1",
+    "stream": "47",
+    "count_per_step": 2.0,
+    "duration_sum_us_total": 28.738000000000007,
+    "duration_median_us": 1.42,
+    "gap_prev_median_us": 79.08849999998347,
+    "same_stream_gap_median_us": 79.08849999998347,
+    "class_start_delta_median_us": 84.63799999999173,
+    "offset_in_window_median_us": 11023.159999999985,
+    "names": [
+     "aclnnSub_SubAiCore_Sub"
+    ]
+   },
+   {
+    "type": "BroadcastTo",
+    "state": "dynamic",
+    "shape": "1;1",
+    "stream": "47",
+    "count_per_step": 2.0,
+    "duration_sum_us_total": 27.52,
+    "duration_median_us": 1.36,
+    "gap_prev_median_us": 1.2000000000116415,
+    "same_stream_gap_median_us": 1.2000000000116415,
+    "class_start_delta_median_us": 41.33900000000722,
+    "offset_in_window_median_us": 14840.914000000008,
+    "names": [
+     "aclnnInplaceCopy_BroadcastToAiCore_BroadcastTo"
+    ]
+   },
+   {
+    "type": "LogicalAnd",
+    "state": "static",
+    "shape": "6,4;6,4",
+    "stream": "141",
+    "count_per_step": 2.0,
+    "duration_sum_us_total": 27.218,
+    "duration_median_us": 1.37,
+    "gap_prev_median_us": 0.02000000001862645,
+    "same_stream_gap_median_us": 0.02000000001862645,
+    "class_start_delta_median_us": 1.4095000000106666,
+    "offset_in_window_median_us": 15441.511499999997,
+    "names": [
+     "aclnnBitwiseAndTensor_LogicalAndAiCore_LogicalAnd"
+    ]
+   },
+   {
+    "type": "SelectV2",
+    "state": "dynamic",
+    "shape": "6;6;6",
+    "stream": "37",
+    "count_per_step": 1.0,
+    "duration_sum_us_total": 26.740000000000002,
+    "duration_median_us": 2.62,
+    "gap_prev_median_us": 19.210000000006403,
+    "same_stream_gap_median_us": 19.210000000006403,
+    "class_start_delta_median_us": null,
+    "offset_in_window_median_us": 12257.275499999996,
+    "names": [
+     "aclnnSWhere_SelectV2AiCore_SelectV2"
+    ]
+   },
+   {
+    "type": "Less",
+    "state": "static",
+    "shape": "6;",
+    "stream": "141",
+    "count_per_step": 1.0,
+    "duration_sum_us_total": 26.519000000000002,
+    "duration_median_us": 2.62,
+    "gap_prev_median_us": 0.02000000001862645,
+    "same_stream_gap_median_us": 0.02000000001862645,
+    "class_start_delta_median_us": null,
+    "offset_in_window_median_us": 15213.336500000001,
+    "names": [
+     "aclnnLtScalar_LessAiCore_Less"
+    ]
+   },
+   {
+    "type": "Fill",
+    "state": "dynamic",
+    "shape": "1;",
+    "stream": "37",
+    "count_per_step": 2.0,
+    "duration_sum_us_total": 24.299,
+    "duration_median_us": 1.1595,
+    "gap_prev_median_us": 31.249499999990803,
+    "same_stream_gap_median_us": 31.249499999990803,
+    "class_start_delta_median_us": 294.10399999999936,
+    "offset_in_window_median_us": 11805.294500000004,
+    "names": [
+     "aclnnInplaceFillScalar_FillAiCore_Fill"
+    ]
+   },
+   {
+    "type": "Add",
+    "state": "dynamic",
+    "shape": "6;6",
+    "stream": "47",
+    "count_per_step": 1.0,
+    "duration_sum_us_total": 24.060000000000002,
+    "duration_median_us": 2.3899999999999997,
+    "gap_prev_median_us": 29.309500000003027,
+    "same_stream_gap_median_us": 29.309500000003027,
+    "class_start_delta_median_us": null,
+    "offset_in_window_median_us": 420.8220000000074,
+    "names": [
+     "aclnnAdd_AddAiCore_Add"
+    ]
+   },
+   {
+    "type": "FloorMod",
+    "state": "dynamic",
+    "shape": "1;1",
+    "stream": "47",
+    "count_per_step": 1.0,
+    "duration_sum_us_total": 23.72,
+    "duration_median_us": 2.37,
+    "gap_prev_median_us": 1.3599999999642023,
+    "same_stream_gap_median_us": 1.3599999999642023,
+    "class_start_delta_median_us": null,
+    "offset_in_window_median_us": 4149.6069999999745,
+    "names": [
+     "aclnnRemainderTensorScalar_FloorModAiCore_FloorMod"
+    ]
+   },
+   {
+    "type": "FloorDiv",
+    "state": "static",
+    "shape": "6,4;",
+    "stream": "141",
+    "count_per_step": 1.0,
+    "duration_sum_us_total": 23.62,
+    "duration_median_us": 2.3499999999999996,
+    "gap_prev_median_us": 0.02000000001862645,
+    "same_stream_gap_median_us": 0.02000000001862645,
+    "class_start_delta_median_us": null,
+    "offset_in_window_median_us": 15405.531999999996,
+    "names": [
+     "aclnnFloorDivides_FloorDivAiCore_FloorDiv"
+    ]
+   },
+   {
+    "type": "Pack",
+    "state": "dynamic",
+    "shape": "6;6",
+    "stream": "47",
+    "count_per_step": 1.0,
+    "duration_sum_us_total": 23.5,
+    "duration_median_us": 2.33,
+    "gap_prev_median_us": 24.95950000002631,
+    "same_stream_gap_median_us": 24.95950000002631,
+    "class_start_delta_median_us": null,
+    "offset_in_window_median_us": 10808.2245,
+    "names": [
+     "aclnnStack_PackAiCore_Pack"
+    ]
+   },
+   {
+    "type": "SelectV2",
+    "state": "static",
+    "shape": "6;6;",
+    "stream": "141",
+    "count_per_step": 1.0,
+    "duration_sum_us_total": 23.499999999999996,
+    "duration_median_us": 2.3499999999999996,
+    "gap_prev_median_us": 0.0199999999931606,
+    "same_stream_gap_median_us": 0.0199999999931606,
+    "class_start_delta_median_us": null,
+    "offset_in_window_median_us": 15218.776000000002,
+    "names": [
+     "aclnnSWhere_SelectV2AiCore_SelectV2"
+    ]
+   },
+   {
+    "type": "Sub",
+    "state": "static",
+    "shape": "6;",
+    "stream": "141",
+    "count_per_step": 1.0,
+    "duration_sum_us_total": 23.199,
+    "duration_median_us": 2.3099999999999996,
+    "gap_prev_median_us": 0.02000000001862645,
+    "same_stream_gap_median_us": 0.02000000001862645,
+    "class_start_delta_median_us": null,
+    "offset_in_window_median_us": 15111.338500000009,
+    "names": [
+     "aclnnSubs_SubAiCore_Sub"
+    ]
+   },
+   {
+    "type": "FloorDiv",
+    "state": "dynamic",
+    "shape": "1;",
+    "stream": "47",
+    "count_per_step": 1.0,
+    "duration_sum_us_total": 22.479999999999997,
+    "duration_median_us": 2.24,
+    "gap_prev_median_us": 1.430000000022119,
+    "same_stream_gap_median_us": 1.430000000022119,
+    "class_start_delta_median_us": null,
+    "offset_in_window_median_us": 4114.9375,
+    "names": [
+     "aclnnDivMods_FloorDivAiCore_FloorDiv"
+    ]
+   },
+   {
+    "type": "MaskedFill",
+    "state": "dynamic",
+    "shape": "6;6;",
+    "stream": "47",
+    "count_per_step": 1.0,
+    "duration_sum_us_total": 21.919999999999998,
+    "duration_median_us": 2.2,
+    "gap_prev_median_us": 43.348999999972875,
+    "same_stream_gap_median_us": 43.348999999972875,
+    "class_start_delta_median_us": null,
+    "offset_in_window_median_us": 13711.316500000012,
+    "names": [
+     "aclnnInplaceMaskedFillScalar_MaskedFillAiCore_MaskedFill"
+    ]
+   },
+   {
+    "type": "ZerosLike",
+    "state": "dynamic",
+    "shape": "6",
+    "stream": "37",
+    "count_per_step": 1.0,
+    "duration_sum_us_total": 21.878999999999998,
+    "duration_median_us": 2.1494999999999997,
+    "gap_prev_median_us": 31.039500000013504,
+    "same_stream_gap_median_us": 31.039500000013504,
+    "class_start_delta_median_us": null,
+    "offset_in_window_median_us": 12243.5455,
+    "names": [
+     "aclnnInplaceZero_ZerosLikeAiCore_ZerosLike"
+    ]
+   },
+   {
+    "type": "Less",
+    "state": "dynamic",
+    "shape": "6;",
+    "stream": "37",
+    "count_per_step": 1.0,
+    "duration_sum_us_total": 21.34,
+    "duration_median_us": 2.09,
+    "gap_prev_median_us": 8.959500000004482,
+    "same_stream_gap_median_us": 8.959500000004482,
+    "class_start_delta_median_us": null,
+    "offset_in_window_median_us": 12067.238999999987,
+    "names": [
+     "aclnnLtTensor_LessAiCore_Less"
+    ]
+   },
+   {
+    "type": "Equal",
+    "state": "dynamic",
+    "shape": "6;",
+    "stream": "37",
+    "count_per_step": 1.0,
+    "duration_sum_us_total": 20.4,
+    "duration_median_us": 2.0300000000000002,
+    "gap_prev_median_us": 15.860000000015134,
+    "same_stream_gap_median_us": 15.860000000015134,
+    "class_start_delta_median_us": null,
+    "offset_in_window_median_us": 12088.268999999984,
+    "names": [
+     "aclnnEqScalar_EqualAiCore_Equal"
+    ]
+   },
+   {
+    "type": "Add",
+    "state": "static",
+    "shape": "6;6",
+    "stream": "141",
+    "count_per_step": 1.0,
+    "duration_sum_us_total": 20.28,
+    "duration_median_us": 1.99,
+    "gap_prev_median_us": 0.020000000004074536,
+    "same_stream_gap_median_us": 0.020000000004074536,
+    "class_start_delta_median_us": null,
+    "offset_in_window_median_us": 15223.975999999999,
+    "names": [
+     "aclnnAdd_AddAiCore_Add"
+    ]
+   },
+   {
+    "type": "FloorMod",
+    "state": "static",
+    "shape": "6,4;6,4",
+    "stream": "141",
+    "count_per_step": 1.0,
+    "duration_sum_us_total": 19.058,
+    "duration_median_us": 1.8895,
+    "gap_prev_median_us": 0.02000000001862645,
+    "same_stream_gap_median_us": 0.02000000001862645,
+    "class_start_delta_median_us": null,
+    "offset_in_window_median_us": 15431.492000000002,
+    "names": [
+     "aclnnRemainderTensorScalar_FloorModAiCore_FloorMod"
+    ]
+   },
+   {
+    "type": "ClipByValueV2",
+    "state": "dynamic",
+    "shape": ";;",
+    "stream": "47",
+    "count_per_step": 1.0,
+    "duration_sum_us_total": 17.959,
+    "duration_median_us": 1.76,
+    "gap_prev_median_us": 23.289999999993597,
+    "same_stream_gap_median_us": 23.289999999993597,
+    "class_start_delta_median_us": null,
+    "offset_in_window_median_us": 3728.0554999999877,
+    "names": [
+     "aclnnClampMax_ClipByValueV2AiCore_ClipByValueV2"
+    ]
+   },
+   {
+    "type": "FloorDiv",
+    "state": "static",
+    "shape": "6;",
+    "stream": "141",
+    "count_per_step": 1.0,
+    "duration_sum_us_total": 17.358999999999998,
+    "duration_median_us": 1.74,
+    "gap_prev_median_us": 0.020000000002255547,
+    "same_stream_gap_median_us": 0.020000000002255547,
+    "class_start_delta_median_us": null,
+    "offset_in_window_median_us": 15184.0765,
+    "names": [
+     "aclnnFloorDivides_FloorDivAiCore_FloorDiv"
+    ]
+   },
+   {
+    "type": "ClipByValueV2",
+    "state": "dynamic",
+    "shape": ";;",
+    "stream": "37",
+    "count_per_step": 1.0,
+    "duration_sum_us_total": 17.08,
+    "duration_median_us": 1.6400000000000001,
+    "gap_prev_median_us": 61.78899999999976,
+    "same_stream_gap_median_us": 61.78899999999976,
+    "class_start_delta_median_us": null,
+    "offset_in_window_median_us": 12007.380499999981,
+    "names": [
+     "aclnnClampMax_ClipByValueV2AiCore_ClipByValueV2"
+    ]
+   },
+   {
+    "type": "Sub",
+    "state": "dynamic",
+    "shape": "6;6",
+    "stream": "47",
+    "count_per_step": 1.0,
+    "duration_sum_us_total": 17.06,
+    "duration_median_us": 1.7,
+    "gap_prev_median_us": 1.7299999999959255,
+    "same_stream_gap_median_us": 1.7299999999959255,
+    "class_start_delta_median_us": null,
+    "offset_in_window_median_us": 13847.223500000007,
+    "names": [
+     "aclnnSub_SubAiCore_Sub"
+    ]
+   },
+   {
+    "type": "FloorMod",
+    "state": "dynamic",
+    "shape": "6;6",
+    "stream": "37",
+    "count_per_step": 1.0,
+    "duration_sum_us_total": 16.939999999999998,
+    "duration_median_us": 1.7,
+    "gap_prev_median_us": 1.3999999999941792,
+    "same_stream_gap_median_us": 1.3999999999941792,
+    "class_start_delta_median_us": null,
+    "offset_in_window_median_us": 12071.568999999992,
+    "names": [
+     "aclnnRemainderTensorScalar_FloorModAiCore_FloorMod"
+    ]
+   },
+   {
+    "type": "LogicalNot",
+    "state": "static",
+    "shape": "6",
+    "stream": "141",
+    "count_per_step": 1.0,
+    "duration_sum_us_total": 16.62,
+    "duration_median_us": 1.68,
+    "gap_prev_median_us": 0.02000000001862645,
+    "same_stream_gap_median_us": 0.02000000001862645,
+    "class_start_delta_median_us": null,
+    "offset_in_window_median_us": 15122.577999999998,
+    "names": [
+     "aclnnBitwiseNot_LogicalNotAiCore_LogicalNot"
+    ]
+   },
+   {
+    "type": "FloorMod",
+    "state": "static",
+    "shape": "6;6",
+    "stream": "141",
+    "count_per_step": 1.0,
+    "duration_sum_us_total": 16.62,
+    "duration_median_us": 1.64,
+    "gap_prev_median_us": 0.020000000002255547,
+    "same_stream_gap_median_us": 0.020000000002255547,
+    "class_start_delta_median_us": null,
+    "offset_in_window_median_us": 15206.346500000003,
+    "names": [
+     "aclnnRemainderTensorScalar_FloorModAiCore_FloorMod"
+    ]
+   },
+   {
+    "type": "LogicalOr",
+    "state": "static",
+    "shape": "6,4;6,4",
+    "stream": "141",
+    "count_per_step": 1.0,
+    "duration_sum_us_total": 16.439999999999998,
+    "duration_median_us": 1.67,
+    "gap_prev_median_us": 0.020000000011350494,
+    "same_stream_gap_median_us": 0.020000000011350494,
+    "class_start_delta_median_us": null,
+    "offset_in_window_median_us": 15471.330999999995,
+    "names": [
+     "aclnnBitwiseOrTensor_LogicalOrAiCore_LogicalOr"
+    ]
+   },
+   {
+    "type": "BroadcastTo",
+    "state": "dynamic",
+    "shape": ";1",
+    "stream": "37",
+    "count_per_step": 1.0,
+    "duration_sum_us_total": 16.419999999999998,
+    "duration_median_us": 1.64,
+    "gap_prev_median_us": 17.389500000019325,
+    "same_stream_gap_median_us": 17.389500000019325,
+    "class_start_delta_median_us": null,
+    "offset_in_window_median_us": 12069.518999999978,
+    "names": [
+     "aclnnRemainderTensorScalar_BroadcastToAiCore_BroadcastTo"
+    ]
+   },
+   {
+    "type": "Add",
+    "state": "dynamic",
+    "shape": "5;",
+    "stream": "47",
+    "count_per_step": 1.0,
+    "duration_sum_us_total": 16.3,
+    "duration_median_us": 1.61,
+    "gap_prev_median_us": 18.349500000011176,
+    "same_stream_gap_median_us": 18.349500000011176,
+    "class_start_delta_median_us": null,
+    "offset_in_window_median_us": 2459.900999999998,
+    "names": [
+     "aclnnAdds_AddAiCore_Add"
+    ]
+   },
+   {
+    "type": "ZerosLike",
+    "state": "dynamic",
+    "shape": "2048",
+    "stream": "47",
+    "count_per_step": 1.0,
+    "duration_sum_us_total": 16.299,
+    "duration_median_us": 1.67,
+    "gap_prev_median_us": 1.0899999999874126,
+    "same_stream_gap_median_us": 914.3820000000123,
+    "class_start_delta_median_us": null,
+    "offset_in_window_median_us": 15818.183999999997,
+    "names": [
+     "aclnnInplaceZero_ZerosLikeAiCore_ZerosLike"
+    ]
+   },
+   {
+    "type": "Mul",
+    "state": "dynamic",
+    "shape": "6;6",
+    "stream": "47",
+    "count_per_step": 1.0,
+    "duration_sum_us_total": 16.06,
+    "duration_median_us": 1.59,
+    "gap_prev_median_us": 1.5100000000238651,
+    "same_stream_gap_median_us": 1.5100000000238651,
+    "class_start_delta_median_us": null,
+    "offset_in_window_median_us": 13870.593000000003,
+    "names": [
+     "aclnnMul_MulAiCore_Mul"
+    ]
+   },
+   {
+    "type": "BroadcastTo",
+    "state": "static",
+    "shape": ";2",
+    "stream": "141",
+    "count_per_step": 1.0,
+    "duration_sum_us_total": 15.639,
+    "duration_median_us": 1.55,
+    "gap_prev_median_us": 0.02000000001862645,
+    "same_stream_gap_median_us": 0.02000000001862645,
+    "class_start_delta_median_us": null,
+    "offset_in_window_median_us": 15429.891999999996,
+    "names": [
+     "aclnnRemainderTensorScalar_BroadcastToAiCore_BroadcastTo"
+    ]
+   },
+   {
+    "type": "Mul",
+    "state": "dynamic",
+    "shape": "6;",
+    "stream": "47",
+    "count_per_step": 1.0,
+    "duration_sum_us_total": 15.519,
+    "duration_median_us": 1.53,
+    "gap_prev_median_us": 1.7699999999604188,
+    "same_stream_gap_median_us": 1.7699999999604188,
+    "class_start_delta_median_us": null,
+    "offset_in_window_median_us": 13841.573500000011,
+    "names": [
+     "aclnnMuls_MulAiCore_Mul"
+    ]
+   },
+   {
+    "type": "Add",
+    "state": "dynamic",
+    "shape": "1;1",
+    "stream": "47",
+    "count_per_step": 1.0,
+    "duration_sum_us_total": 15.48,
+    "duration_median_us": 1.56,
+    "gap_prev_median_us": 74.32800000000861,
+    "same_stream_gap_median_us": 74.32800000000861,
+    "class_start_delta_median_us": null,
+    "offset_in_window_median_us": 501.82999999997264,
+    "names": [
+     "aclnnAdd_AddAiCore_Add"
+    ]
+   },
+   {
+    "type": "BroadcastTo",
+    "state": "static",
+    "shape": ";1",
+    "stream": "141",
+    "count_per_step": 1.0,
+    "duration_sum_us_total": 14.879000000000001,
+    "duration_median_us": 1.4995,
+    "gap_prev_median_us": 0.02000000001862645,
+    "same_stream_gap_median_us": 0.02000000001862645,
+    "class_start_delta_median_us": null,
+    "offset_in_window_median_us": 15204.8665,
+    "names": [
+     "aclnnRemainderTensorScalar_BroadcastToAiCore_BroadcastTo"
+    ]
+   },
+   {
+    "type": "Mul",
+    "state": "static",
+    "shape": "6;",
+    "stream": "141",
+    "count_per_step": 1.0,
+    "duration_sum_us_total": 14.579999999999998,
+    "duration_median_us": 1.42,
+    "gap_prev_median_us": 0.01999999999679858,
+    "same_stream_gap_median_us": 0.01999999999679858,
+    "class_start_delta_median_us": null,
+    "offset_in_window_median_us": 15221.215999999997,
+    "names": [
+     "aclnnMuls_MulAiCore_Mul"
+    ]
+   },
+   {
+    "type": "Add",
+    "state": "dynamic",
+    "shape": "6;",
+    "stream": "47",
+    "count_per_step": 1.0,
+    "duration_sum_us_total": 14.0,
+    "duration_median_us": 1.4,
+    "gap_prev_median_us": 18.799500000008265,
+    "same_stream_gap_median_us": 18.799500000008265,
+    "class_start_delta_median_us": null,
+    "offset_in_window_median_us": 3517.969499999992,
+    "names": [
+     "aclnnAdds_AddAiCore_Add"
+    ]
+   },
+   {
+    "type": "Cast",
+    "state": "dynamic",
+    "shape": "1",
+    "stream": "37",
+    "count_per_step": 1.0,
+    "duration_sum_us_total": 14.0,
+    "duration_median_us": 1.35,
+    "gap_prev_median_us": 193.1460000000061,
+    "same_stream_gap_median_us": 193.1460000000061,
+    "class_start_delta_median_us": null,
+    "offset_in_window_median_us": 11881.122999999985,
+    "names": [
+     "aclnnGtScalar_CastAiCore_Cast"
+    ]
+   },
+   {
+    "type": "LogicalNot",
+    "state": "static",
+    "shape": "6,4",
+    "stream": "141",
+    "count_per_step": 1.0,
+    "duration_sum_us_total": 13.498999999999999,
+    "duration_median_us": 1.34,
+    "gap_prev_median_us": 0.02000000001862645,
+    "same_stream_gap_median_us": 0.02000000001862645,
+    "class_start_delta_median_us": null,
+    "offset_in_window_median_us": 15467.630999999998,
+    "names": [
+     "aclnnBitwiseNot_LogicalNotAiCore_LogicalNot"
+    ]
+   },
+   {
+    "type": "LogicalNot",
+    "state": "dynamic",
+    "shape": "6",
+    "stream": "47",
+    "count_per_step": 1.0,
+    "duration_sum_us_total": 13.219000000000001,
+    "duration_median_us": 1.32,
+    "gap_prev_median_us": 9.60899999999674,
+    "same_stream_gap_median_us": 9.60899999999674,
+    "class_start_delta_median_us": null,
+    "offset_in_window_median_us": 13885.472500000022,
+    "names": [
+     "aclnnBitwiseNot_LogicalNotAiCore_LogicalNot"
+    ]
+   },
+   {
+    "type": "Cast",
+    "state": "dynamic",
+    "shape": "2",
+    "stream": "47",
+    "count_per_step": 1.0,
+    "duration_sum_us_total": 13.019,
+    "duration_median_us": 1.28,
+    "gap_prev_median_us": 0.6299999999901047,
+    "same_stream_gap_median_us": 0.6299999999901047,
+    "class_start_delta_median_us": null,
+    "offset_in_window_median_us": 14867.593499999992,
+    "names": [
+     "aclnnInplaceCopy_CastAiCore_Cast"
+    ]
+   },
+   {
+    "type": "Cast",
+    "state": "dynamic",
+    "shape": "",
+    "stream": "37",
+    "count_per_step": 1.0,
+    "duration_sum_us_total": 12.539,
+    "duration_median_us": 1.2694999999999999,
+    "gap_prev_median_us": 0.12000000000261934,
+    "same_stream_gap_median_us": 0.12000000000261934,
+    "class_start_delta_median_us": null,
+    "offset_in_window_median_us": 12044.829499999983,
+    "names": [
+     "aclnnLtTensor_CastAiCore_Cast"
+    ]
+   },
+   {
+    "type": "LogicalAnd",
+    "state": "dynamic",
+    "shape": "6;6",
+    "stream": "37",
+    "count_per_step": 1.0,
+    "duration_sum_us_total": 12.099999999999998,
+    "duration_median_us": 1.21,
+    "gap_prev_median_us": 18.44949999999153,
+    "same_stream_gap_median_us": 18.44949999999153,
+    "class_start_delta_median_us": null,
+    "offset_in_window_median_us": 12112.38849999999,
+    "names": [
+     "aclnnBitwiseAndTensor_LogicalAndAiCore_LogicalAnd"
+    ]
+   },
+   {
+    "type": "Cast",
+    "state": "dynamic",
+    "shape": "",
+    "stream": "47",
+    "count_per_step": 1.0,
+    "duration_sum_us_total": 11.86,
+    "duration_median_us": 1.18,
+    "gap_prev_median_us": 4.629999999975553,
+    "same_stream_gap_median_us": 4.629999999975553,
+    "class_start_delta_median_us": null,
+    "offset_in_window_median_us": 3777.6744999999937,
+    "names": [
+     "aclnnLtTensor_CastAiCore_Cast"
+    ]
+   }
+  ],
+  "step5_ordered_sequence": {
+   "columns": [
+    "t_us",
+    "dur_us",
+    "stream",
+    "state",
+    "type",
+    "shape",
+    "name"
+   ],
+   "rows": [
+    [
+     0.0,
+     1.3,
+     "47",
+     "dynamic",
+     "Fill",
+     "1;",
+     "aclnnInplaceFillScalar_FillAiCore_Fill"
+    ],
+    [
+     165.64,
+     1.02,
+     "47",
+     "dynamic",
+     "Fill",
+     "1;",
+     "aclnnInplaceFillScalar_FillAiCore_Fill"
+    ],
+    [
+     367.75,
+     3.74,
+     "47",
+     "dynamic",
+     "IndexCheck",
+     "1;6",
+     "aclnnIndex_IndexCheck_IndexCheck"
+    ],
+    [
+     371.51,
+     9.759,
+     "47",
+     "dynamic",
+     "Index",
+     "1;1;1;6",
+     "aclnnIndex_IndexAiCore_Index"
+    ],
+    [
+     396.77,
+     1.28,
+     "47",
+     "dynamic",
+     "Cast",
+     "6",
+     "aclnnInplaceCopy_CastAiCore_Cast"
+    ],
+    [
+     448.21,
+     2.56,
+     "47",
+     "dynamic",
+     "Add",
+     "6;6",
+     "aclnnAdd_AddAiCore_Add"
+    ],
+    [
+     522.87,
+     1.58,
+     "47",
+     "dynamic",
+     "Add",
+     "1;1",
+     "aclnnAdd_AddAiCore_Add"
+    ],
+    [
+     810.9,
+     3.58,
+     "47",
+     "static",
+     "_compute_slot_mapping_kernel",
+     "2;6;1,64",
+     "_compute_slot_mapping_kernel"
+    ],
+    [
+     835.82,
+     1.7,
+     "47",
+     "dynamic",
+     "Fill",
+     "1;",
+     "aclnnInplaceFillScalar_FillAiCore_Fill"
+    ],
+    [
+     959.2,
+     2.98,
+     "47",
+     "static",
+     "_compute_slot_mapping_kernel",
+     "2;6;1,64",
+     "_compute_slot_mapping_kernel"
+    ],
+    [
+     1063.12,
+     3.34,
+     "47",
+     "static",
+     "_compute_slot_mapping_kernel",
+     "2;6;1,64",
+     "_compute_slot_mapping_kernel"
+    ],
+    [
+     1156.84,
+     2.98,
+     "47",
+     "static",
+     "_compute_slot_mapping_kernel",
+     "2;6;1,64",
+     "_compute_slot_mapping_kernel"
+    ],
+    [
+     1261.46,
+     3.4,
+     "47",
+     "static",
+     "_compute_slot_mapping_kernel",
+     "2;6;1,64",
+     "_compute_slot_mapping_kernel"
+    ],
+    [
+     1330.59,
+     2.9,
+     "47",
+     "static",
+     "_compute_slot_mapping_kernel",
+     "2;6;1,64",
+     "_compute_slot_mapping_kernel"
+    ],
+    [
+     1433.45,
+     2.98,
+     "47",
+     "static",
+     "_compute_slot_mapping_kernel",
+     "2;6;1,64",
+     "_compute_slot_mapping_kernel"
+    ],
+    [
+     1527.05,
+     2.979,
+     "47",
+     "static",
+     "_compute_slot_mapping_kernel",
+     "2;6;1,64",
+     "_compute_slot_mapping_kernel"
+    ],
+    [
+     1599.99,
+     3.1,
+     "47",
+     "static",
+     "_compute_slot_mapping_kernel",
+     "2;6;1,64",
+     "_compute_slot_mapping_kernel"
+    ],
+    [
+     1690.11,
+     3.06,
+     "47",
+     "static",
+     "_compute_slot_mapping_kernel",
+     "2;6;1,64",
+     "_compute_slot_mapping_kernel"
+    ],
+    [
+     1781.46,
+     3.28,
+     "47",
+     "static",
+     "_compute_slot_mapping_kernel",
+     "2;6;1,64",
+     "_compute_slot_mapping_kernel"
+    ],
+    [
+     1850.38,
+     3.0,
+     "47",
+     "static",
+     "_compute_slot_mapping_kernel",
+     "2;6;1,64",
+     "_compute_slot_mapping_kernel"
+    ],
+    [
+     2517.57,
+     2.94,
+     "47",
+     "dynamic",
+     "IndexCheck",
+     "1;6",
+     "aclnnIndex_IndexCheck_IndexCheck"
+    ],
+    [
+     2520.53,
+     7.66,
+     "47",
+     "dynamic",
+     "Index",
+     "2048;1;1;6",
+     "aclnnIndex_IndexAiCore_Index"
+    ],
+    [
+     2550.27,
+     1.82,
+     "47",
+     "dynamic",
+     "Add",
+     "5;",
+     "aclnnAdds_AddAiCore_Add"
+    ],
+    [
+     2574.29,
+     3.58,
+     "47",
+     "dynamic",
+     "IndexCheck",
+     "1;5",
+     "aclnnIndex_IndexCheck_IndexCheck"
+    ],
+    [
+     2587.41,
+     9.5,
+     "47",
+     "dynamic",
+     "Index",
+     "6;1;1;5",
+     "aclnnIndex_IndexAiCore_Index"
+    ],
+    [
+     3674.67,
+     1.24,
+     "47",
+     "dynamic",
+     "Cast",
+     "6",
+     "aclnnGeScalar_CastAiCore_Cast"
+    ],
+    [
+     3677.63,
+     2.58,
+     "47",
+     "dynamic",
+     "GreaterEqual",
+     "6;",
+     "aclnnGeScalar_GreaterEqual_GreaterEqual"
+    ],
+    [
+     3692.41,
+     1.4,
+     "47",
+     "dynamic",
+     "Add",
+     "6;",
+     "aclnnAdds_AddAiCore_Add"
+    ],
+    [
+     3721.25,
+     1.4,
+     "47",
+     "dynamic",
+     "BroadcastTo",
+     ";1",
+     "aclnnRemainderTensorScalar_BroadcastToAiCore_BroadcastTo"
+    ],
+    [
+     3723.97,
+     3.22,
+     "47",
+     "dynamic",
+     "FloorMod",
+     "6;6",
+     "aclnnRemainderTensorScalar_FloorModAiCore_FloorMod"
+    ],
+    [
+     3737.17,
+     1.32,
+     "47",
+     "dynamic",
+     "Equal",
+     "6;",
+     "aclnnEqScalar_EqualAiCore_Equal"
+    ],
+    [
+     3757.97,
+     1.26,
+     "47",
+     "dynamic",
+     "LogicalAnd",
+     "6;6",
+     "aclnnBitwiseAndTensor_LogicalAndAiCore_LogicalAnd"
+    ],
+    [
+     3793.14,
+     1.34,
+     "47",
+     "dynamic",
+     "Cast",
+     "6",
+     "aclnnFloorDivides_CastAiCore_Cast"
+    ],
+    [
+     3795.24,
+     2.32,
+     "47",
+     "dynamic",
+     "FloorDiv",
+     "6;",
+     "aclnnFloorDivides_FloorDivAiCore_FloorDiv"
+    ],
+    [
+     3797.58,
+     1.62,
+     "47",
+     "dynamic",
+     "Cast",
+     "6",
+     "aclnnFloorDivides_CastAiCore_Cast"
+    ],
+    [
+     3822.08,
+     1.0,
+     "47",
+     "dynamic",
+     "Fill",
+     "1;",
+     "aclnnInplaceFillScalar_FillAiCore_Fill"
+    ],
+    [
+     3836.68,
+     2.8,
+     "47",
+     "dynamic",
+     "SelectV2",
+     "6;6;",
+     "aclnnSWhere_SelectV2AiCore_SelectV2"
+    ],
+    [
+     3851.68,
+     1.06,
+     "47",
+     "dynamic",
+     "Cast",
+     "6",
+     "aclnnGeScalar_CastAiCore_Cast"
+    ],
+    [
+     3869.22,
+     2.16,
+     "47",
+     "dynamic",
+     "GreaterEqual",
+     "6;",
+     "aclnnGeScalar_GreaterEqual_GreaterEqual"
+    ],
+    [
+     3899.28,
+     1.68,
+     "47",
+     "dynamic",
+     "ClipByValueV2",
+     ";;",
+     "aclnnClampMax_ClipByValueV2AiCore_ClipByValueV2"
+    ],
+    [
+     3906.18,
+     9.14,
+     "47",
+     "dynamic",
+     "Range",
+     ";;",
+     "aclnnArange_ArangeAiCore_Range"
+    ],
+    [
+     3925.8,
+     1.18,
+     "47",
+     "dynamic",
+     "Cast",
+     "",
+     "aclnnLtTensor_CastAiCore_Cast"
+    ],
+    [
+     3928.38,
+     2.64,
+     "47",
+     "dynamic",
+     "Less",
+     "6;",
+     "aclnnLtTensor_LessAiCore_Less"
+    ],
+    [
+     3939.74,
+     1.2,
+     "47",
+     "dynamic",
+     "LogicalAnd",
+     "6;6",
+     "aclnnBitwiseAndTensor_LogicalAndAiCore_LogicalAnd"
+    ],
+    [
+     3964.12,
+     1.88,
+     "47",
+     "dynamic",
+     "BroadcastTo",
+     ";1",
+     "aclnnRemainderTensorScalar_BroadcastToAiCore_BroadcastTo"
+    ],
+    [
+     3968.4,
+     1.96,
+     "47",
+     "dynamic",
+     "FloorMod",
+     "6;6",
+     "aclnnRemainderTensorScalar_FloorModAiCore_FloorMod"
+    ],
+    [
+     3982.58,
+     2.44,
+     "47",
+     "dynamic",
+     "Equal",
+     "6;",
+     "aclnnEqScalar_EqualAiCore_Equal"
+    ],
+    [
+     3994.2,
+     1.28,
+     "47",
+     "dynamic",
+     "LogicalAnd",
+     "6;6",
+     "aclnnBitwiseAndTensor_LogicalAndAiCore_LogicalAnd"
+    ],
+    [
+     4006.12,
+     2.64,
+     "47",
+     "dynamic",
+     "ClipByValueV2",
+     "6;;",
+     "aclnnClampMin_ClipByValueV2AiCore_ClipByValueV2"
+    ],
+    [
+     4052.62,
+     1.2,
+     "47",
+     "dynamic",
+     "Cast",
+     "6",
+     "aclnnDivMods_CastAiCore_Cast"
+    ],
+    [
+     4062.8,
+     1.94,
+     "47",
+     "dynamic",
+     "FloorDiv",
+     "6;",
+     "aclnnDivMods_FloorDivAiCore_FloorDiv"
+    ],
+    [
+     4064.76,
+     1.36,
+     "47",
+     "dynamic",
+     "Cast",
+     "6",
+     "aclnnDivMods_CastAiCore_Cast"
+    ],
+    [
+     4080.36,
+     1.14,
+     "47",
+     "dynamic",
+     "Fill",
+     "1;",
+     "aclnnInplaceFillScalar_FillAiCore_Fill"
+    ],
+    [
+     4100.22,
+     2.26,
+     "47",
+     "dynamic",
+     "SelectV2",
+     "6;6;",
+     "aclnnSWhere_SelectV2AiCore_SelectV2"
+    ],
+    [
+     4116.32,
+     9.14,
+     "47",
+     "dynamic",
+     "ViewCopy",
+     "4096;1;1;1;6;1;1;1",
+     "aclnnInplaceCopy_ViewCopyAiCore_ViewCopy"
+    ],
+    [
+     4152.48,
+     1.42,
+     "47",
+     "dynamic",
+     "BroadcastTo",
+     ";1",
+     "aclnnRemainderTensorScalar_BroadcastToAiCore_BroadcastTo"
+    ],
+    [
+     4155.78,
+     2.54,
+     "47",
+     "dynamic",
+     "FloorMod",
+     "6;6",
+     "aclnnRemainderTensorScalar_FloorModAiCore_FloorMod"
+    ],
+    [
+     4158.36,
+     1.08,
+     "47",
+     "dynamic",
+     "Fill",
+     "1;",
+     "aclnnInplaceFillScalar_FillAiCore_Fill"
+    ],
+    [
+     4181.04,
+     2.399,
+     "47",
+     "dynamic",
+     "SelectV2",
+     "6;6;",
+     "aclnnSWhere_SelectV2AiCore_SelectV2"
+    ],
+    [
+     4185.44,
+     6.9,
+     "47",
+     "dynamic",
+     "ViewCopy",
+     "4096;1;1;1;6;1;1;1",
+     "aclnnInplaceCopy_ViewCopyAiCore_ViewCopy"
+    ],
+    [
+     4238.09,
+     1.42,
+     "47",
+     "dynamic",
+     "Cast",
+     "1",
+     "aclnnDivMods_CastAiCore_Cast"
+    ],
+    [
+     4240.19,
+     2.24,
+     "47",
+     "dynamic",
+     "FloorDiv",
+     "1;",
+     "aclnnDivMods_FloorDivAiCore_FloorDiv"
+    ],
+    [
+     4242.48,
+     1.42,
+     "47",
+     "dynamic",
+     "Cast",
+     "1",
+     "aclnnDivMods_CastAiCore_Cast"
+    ],
+    [
+     4283.15,
+     1.28,
+     "47",
+     "dynamic",
+     "BroadcastTo",
+     ";1",
+     "aclnnRemainderTensorScalar_BroadcastToAiCore_BroadcastTo"
+    ],
+    [
+     4284.67,
+     2.4,
+     "47",
+     "dynamic",
+     "FloorMod",
+     "1;1",
+     "aclnnRemainderTensorScalar_FloorModAiCore_FloorMod"
+    ],
+    [
+     4492.31,
+     1.12,
+     "47",
+     "dynamic",
+     "Cast",
+     "6",
+     "aclnnGeScalar_CastAiCore_Cast"
+    ],
+    [
+     4495.51,
+     2.16,
+     "47",
+     "dynamic",
+     "GreaterEqual",
+     "6;",
+     "aclnnGeScalar_GreaterEqual_GreaterEqual"
+    ],
+    [
+     4497.91,
+     1.96,
+     "47",
+     "dynamic",
+     "ClipByValueV2",
+     "6;;",
+     "aclnnClampMin_ClipByValueV2AiCore_ClipByValueV2"
+    ],
+    [
+     4537.43,
+     1.14,
+     "47",
+     "dynamic",
+     "Cast",
+     "6",
+     "aclnnDivMods_CastAiCore_Cast"
+    ],
+    [
+     4540.05,
+     1.88,
+     "47",
+     "dynamic",
+     "FloorDiv",
+     "6;",
+     "aclnnDivMods_FloorDivAiCore_FloorDiv"
+    ],
+    [
+     4542.41,
+     1.42,
+     "47",
+     "dynamic",
+     "Cast",
+     "6",
+     "aclnnDivMods_CastAiCore_Cast"
+    ],
+    [
+     4554.55,
+     1.14,
+     "47",
+     "dynamic",
+     "Fill",
+     "1;",
+     "aclnnInplaceFillScalar_FillAiCore_Fill"
+    ],
+    [
+     4581.99,
+     2.199,
+     "47",
+     "dynamic",
+     "SelectV2",
+     "6;6;",
+     "aclnnSWhere_SelectV2AiCore_SelectV2"
+    ],
+    [
+     4584.73,
+     8.7,
+     "47",
+     "dynamic",
+     "ViewCopy",
+     "4096;1;1;1;6;1;1;1",
+     "aclnnInplaceCopy_ViewCopyAiCore_ViewCopy"
+    ],
+    [
+     4637.03,
+     1.44,
+     "47",
+     "dynamic",
+     "BroadcastTo",
+     ";1",
+     "aclnnRemainderTensorScalar_BroadcastToAiCore_BroadcastTo"
+    ],
+    [
+     4640.15,
+     2.6,
+     "47",
+     "dynamic",
+     "FloorMod",
+     "6;6",
+     "aclnnRemainderTensorScalar_FloorModAiCore_FloorMod"
+    ],
+    [
+     4642.79,
+     1.12,
+     "47",
+     "dynamic",
+     "Fill",
+     "1;",
+     "aclnnInplaceFillScalar_FillAiCore_Fill"
+    ],
+    [
+     4686.17,
+     2.02,
+     "47",
+     "dynamic",
+     "SelectV2",
+     "6;6;",
+     "aclnnSWhere_SelectV2AiCore_SelectV2"
+    ],
+    [
+     4703.69,
+     7.26,
+     "47",
+     "dynamic",
+     "ViewCopy",
+     "4096;1;1;1;6;1;1;1",
+     "aclnnInplaceCopy_ViewCopyAiCore_ViewCopy"
+    ],
+    [
+     5194.72,
+     1.08,
+     "47",
+     "dynamic",
+     "Cast",
+     "6",
+     "aclnnGeScalar_CastAiCore_Cast"
+    ],
+    [
+     5197.1,
+     2.34,
+     "47",
+     "dynamic",
+     "GreaterEqual",
+     "6;",
+     "aclnnGeScalar_GreaterEqual_GreaterEqual"
+    ],
+    [
+     5199.74,
+     1.84,
+     "47",
+     "dynamic",
+     "ClipByValueV2",
+     "6;;",
+     "aclnnClampMin_ClipByValueV2AiCore_ClipByValueV2"
+    ],
+    [
+     5268.94,
+     1.16,
+     "47",
+     "dynamic",
+     "Cast",
+     "6",
+     "aclnnDivMods_CastAiCore_Cast"
+    ],
+    [
+     5271.94,
+     1.7,
+     "47",
+     "dynamic",
+     "FloorDiv",
+     "6;",
+     "aclnnDivMods_FloorDivAiCore_FloorDiv"
+    ],
+    [
+     5274.19,
+     1.48,
+     "47",
+     "dynamic",
+     "Cast",
+     "6",
+     "aclnnDivMods_CastAiCore_Cast"
+    ],
+    [
+     5297.19,
+     1.14,
+     "47",
+     "dynamic",
+     "Fill",
+     "1;",
+     "aclnnInplaceFillScalar_FillAiCore_Fill"
+    ],
+    [
+     5309.71,
+     2.4,
+     "47",
+     "dynamic",
+     "SelectV2",
+     "6;6;",
+     "aclnnSWhere_SelectV2AiCore_SelectV2"
+    ],
+    [
+     5322.99,
+     6.98,
+     "47",
+     "dynamic",
+     "ViewCopy",
+     "4096;1;1;1;6;1;1;1",
+     "aclnnInplaceCopy_ViewCopyAiCore_ViewCopy"
+    ],
+    [
+     5369.91,
+     1.34,
+     "47",
+     "dynamic",
+     "BroadcastTo",
+     ";1",
+     "aclnnRemainderTensorScalar_BroadcastToAiCore_BroadcastTo"
+    ],
+    [
+     5390.75,
+     2.4,
+     "47",
+     "dynamic",
+     "FloorMod",
+     "6;6",
+     "aclnnRemainderTensorScalar_FloorModAiCore_FloorMod"
+    ],
+    [
+     5414.47,
+     1.04,
+     "47",
+     "dynamic",
+     "Fill",
+     "1;",
+     "aclnnInplaceFillScalar_FillAiCore_Fill"
+    ],
+    [
+     5417.15,
+     2.16,
+     "47",
+     "dynamic",
+     "SelectV2",
+     "6;6;",
+     "aclnnSWhere_SelectV2AiCore_SelectV2"
+    ],
+    [
+     5440.75,
+     7.98,
+     "47",
+     "dynamic",
+     "ViewCopy",
+     "4096;1;1;1;6;1;1;1",
+     "aclnnInplaceCopy_ViewCopyAiCore_ViewCopy"
+    ],
+    [
+     5510.83,
+     3.94,
+     "47",
+     "dynamic",
+     "GatherV3",
+     "1048576,1,1,64;6;1",
+     "aclnnIndexSelect_GatherV3AiCore_GatherV3"
+    ],
+    [
+     5541.29,
+     3.66,
+     "47",
+     "dynamic",
+     "GatherV3",
+     "1048576,1,1,64;6;1",
+     "aclnnIndexSelect_GatherV3AiCore_GatherV3"
+    ],
+    [
+     5585.45,
+     3.74,
+     "47",
+     "dynamic",
+     "GatherV3",
+     "1048576,1,1,64;6;1",
+     "aclnnIndexSelect_GatherV3AiCore_GatherV3"
+    ],
+    [
+     5618.63,
+     3.58,
+     "47",
+     "dynamic",
+     "GatherV3",
+     "1048576,1,1,64;6;1",
+     "aclnnIndexSelect_GatherV3AiCore_GatherV3"
+    ],
+    [
+     5677.91,
+     3.44,
+     "47",
+     "dynamic",
+     "GatherV3",
+     "1048576,1,1,64;6;1",
+     "aclnnIndexSelect_GatherV3AiCore_GatherV3"
+    ],
+    [
+     5704.31,
+     3.52,
+     "47",
+     "dynamic",
+     "GatherV3",
+     "1048576,1,1,64;6;1",
+     "aclnnIndexSelect_GatherV3AiCore_GatherV3"
+    ],
+    [
+     6041.02,
+     0.94,
+     "47",
+     "dynamic",
+     "Cast",
+     "6",
+     "aclnnGeScalar_CastAiCore_Cast"
+    ],
+    [
+     6043.16,
+     2.12,
+     "47",
+     "dynamic",
+     "GreaterEqual",
+     "6;",
+     "aclnnGeScalar_GreaterEqual_GreaterEqual"
+    ],
+    [
+     6045.3,
+     1.56,
+     "47",
+     "dynamic",
+     "ClipByValueV2",
+     "6;;",
+     "aclnnClampMin_ClipByValueV2AiCore_ClipByValueV2"
+    ],
+    [
+     6117.22,
+     1.02,
+     "47",
+     "dynamic",
+     "Cast",
+     "6",
+     "aclnnDivMods_CastAiCore_Cast"
+    ],
+    [
+     6119.78,
+     1.5,
+     "47",
+     "dynamic",
+     "FloorDiv",
+     "6;",
+     "aclnnDivMods_FloorDivAiCore_FloorDiv"
+    ],
+    [
+     6122.34,
+     1.24,
+     "47",
+     "dynamic",
+     "Cast",
+     "6",
+     "aclnnDivMods_CastAiCore_Cast"
+    ],
+    [
+     6156.46,
+     1.06,
+     "47",
+     "dynamic",
+     "Fill",
+     "1;",
+     "aclnnInplaceFillScalar_FillAiCore_Fill"
+    ],
+    [
+     6175.88,
+     1.56,
+     "47",
+     "dynamic",
+     "SelectV2",
+     "6;6;",
+     "aclnnSWhere_SelectV2AiCore_SelectV2"
+    ],
+    [
+     6201.66,
+     7.8,
+     "47",
+     "dynamic",
+     "ViewCopy",
+     "4096;1;1;1;6;1;1;1",
+     "aclnnInplaceCopy_ViewCopyAiCore_ViewCopy"
+    ],
+    [
+     6245.53,
+     1.22,
+     "47",
+     "dynamic",
+     "BroadcastTo",
+     ";1",
+     "aclnnRemainderTensorScalar_BroadcastToAiCore_BroadcastTo"
+    ],
+    [
+     6248.88,
+     1.94,
+     "47",
+     "dynamic",
+     "FloorMod",
+     "6;6",
+     "aclnnRemainderTensorScalar_FloorModAiCore_FloorMod"
+    ],
+    [
+     6273.78,
+     1.04,
+     "47",
+     "dynamic",
+     "Fill",
+     "1;",
+     "aclnnInplaceFillScalar_FillAiCore_Fill"
+    ],
+    [
+     6303.29,
+     1.62,
+     "47",
+     "dynamic",
+     "SelectV2",
+     "6;6;",
+     "aclnnSWhere_SelectV2AiCore_SelectV2"
+    ],
+    [
+     6305.97,
+     8.06,
+     "47",
+     "dynamic",
+     "ViewCopy",
+     "4096;1;1;1;6;1;1;1",
+     "aclnnInplaceCopy_ViewCopyAiCore_ViewCopy"
+    ],
+    [
+     6620.85,
+     1.06,
+     "47",
+     "dynamic",
+     "Cast",
+     "6",
+     "aclnnGeScalar_CastAiCore_Cast"
+    ],
+    [
+     6624.21,
+     2.24,
+     "47",
+     "dynamic",
+     "GreaterEqual",
+     "6;",
+     "aclnnGeScalar_GreaterEqual_GreaterEqual"
+    ],
+    [
+     6626.47,
+     1.94,
+     "47",
+     "dynamic",
+     "ClipByValueV2",
+     "6;;",
+     "aclnnClampMin_ClipByValueV2AiCore_ClipByValueV2"
+    ],
+    [
+     6691.89,
+     1.22,
+     "47",
+     "dynamic",
+     "Cast",
+     "6",
+     "aclnnDivMods_CastAiCore_Cast"
+    ],
+    [
+     6694.61,
+     1.86,
+     "47",
+     "dynamic",
+     "FloorDiv",
+     "6;",
+     "aclnnDivMods_FloorDivAiCore_FloorDiv"
+    ],
+    [
+     6696.49,
+     1.44,
+     "47",
+     "dynamic",
+     "Cast",
+     "6",
+     "aclnnDivMods_CastAiCore_Cast"
+    ],
+    [
+     6728.29,
+     1.14,
+     "47",
+     "dynamic",
+     "Fill",
+     "1;",
+     "aclnnInplaceFillScalar_FillAiCore_Fill"
+    ],
+    [
+     6730.05,
+     2.48,
+     "47",
+     "dynamic",
+     "SelectV2",
+     "6;6;",
+     "aclnnSWhere_SelectV2AiCore_SelectV2"
+    ],
+    [
+     6747.05,
+     8.16,
+     "47",
+     "dynamic",
+     "ViewCopy",
+     "4096;1;1;1;6;1;1;1",
+     "aclnnInplaceCopy_ViewCopyAiCore_ViewCopy"
+    ],
+    [
+     6788.22,
+     1.38,
+     "47",
+     "dynamic",
+     "BroadcastTo",
+     ";1",
+     "aclnnRemainderTensorScalar_BroadcastToAiCore_BroadcastTo"
+    ],
+    [
+     6791.5,
+     2.46,
+     "47",
+     "dynamic",
+     "FloorMod",
+     "6;6",
+     "aclnnRemainderTensorScalar_FloorModAiCore_FloorMod"
+    ],
+    [
+     6803.6,
+     1.04,
+     "47",
+     "dynamic",
+     "Fill",
+     "1;",
+     "aclnnInplaceFillScalar_FillAiCore_Fill"
+    ],
+    [
+     6819.48,
+     2.2,
+     "47",
+     "dynamic",
+     "SelectV2",
+     "6;6;",
+     "aclnnSWhere_SelectV2AiCore_SelectV2"
+    ],
+    [
+     6836.12,
+     7.78,
+     "47",
+     "dynamic",
+     "ViewCopy",
+     "4096;1;1;1;6;1;1;1",
+     "aclnnInplaceCopy_ViewCopyAiCore_ViewCopy"
+    ],
+    [
+     7080.5,
+     1.28,
+     "47",
+     "dynamic",
+     "Cast",
+     "6",
+     "aclnnGeScalar_CastAiCore_Cast"
+    ],
+    [
+     7082.3,
+     2.16,
+     "47",
+     "dynamic",
+     "GreaterEqual",
+     "6;",
+     "aclnnGeScalar_GreaterEqual_GreaterEqual"
+    ],
+    [
+     7084.86,
+     2.099,
+     "47",
+     "dynamic",
+     "ClipByValueV2",
+     "6;;",
+     "aclnnClampMin_ClipByValueV2AiCore_ClipByValueV2"
+    ],
+    [
+     7138.72,
+     1.1,
+     "47",
+     "dynamic",
+     "Cast",
+     "6",
+     "aclnnDivMods_CastAiCore_Cast"
+    ],
+    [
+     7142.44,
+     1.84,
+     "47",
+     "dynamic",
+     "FloorDiv",
+     "6;",
+     "aclnnDivMods_FloorDivAiCore_FloorDiv"
+    ],
+    [
+     7145.54,
+     1.46,
+     "47",
+     "dynamic",
+     "Cast",
+     "6",
+     "aclnnDivMods_CastAiCore_Cast"
+    ],
+    [
+     7171.86,
+     1.18,
+     "47",
+     "dynamic",
+     "Fill",
+     "1;",
+     "aclnnInplaceFillScalar_FillAiCore_Fill"
+    ],
+    [
+     7188.6,
+     2.32,
+     "47",
+     "dynamic",
+     "SelectV2",
+     "6;6;",
+     "aclnnSWhere_SelectV2AiCore_SelectV2"
+    ],
+    [
+     7190.96,
+     7.98,
+     "47",
+     "dynamic",
+     "ViewCopy",
+     "4096;1;1;1;6;1;1;1",
+     "aclnnInplaceCopy_ViewCopyAiCore_ViewCopy"
+    ],
+    [
+     7246.36,
+     1.36,
+     "47",
+     "dynamic",
+     "BroadcastTo",
+     ";1",
+     "aclnnRemainderTensorScalar_BroadcastToAiCore_BroadcastTo"
+    ],
+    [
+     7249.16,
+     2.42,
+     "47",
+     "dynamic",
+     "FloorMod",
+     "6;6",
+     "aclnnRemainderTensorScalar_FloorModAiCore_FloorMod"
+    ],
+    [
+     7251.61,
+     1.14,
+     "47",
+     "dynamic",
+     "Fill",
+     "1;",
+     "aclnnInplaceFillScalar_FillAiCore_Fill"
+    ],
+    [
+     7273.38,
+     2.18,
+     "47",
+     "dynamic",
+     "SelectV2",
+     "6;6;",
+     "aclnnSWhere_SelectV2AiCore_SelectV2"
+    ],
+    [
+     7291.11,
+     9.1,
+     "47",
+     "dynamic",
+     "ViewCopy",
+     "4096;1;1;1;6;1;1;1",
+     "aclnnInplaceCopy_ViewCopyAiCore_ViewCopy"
+    ],
+    [
+     7520.19,
+     1.12,
+     "47",
+     "dynamic",
+     "Cast",
+     "6",
+     "aclnnGeScalar_CastAiCore_Cast"
+    ],
+    [
+     7521.91,
+     2.18,
+     "47",
+     "dynamic",
+     "GreaterEqual",
+     "6;",
+     "aclnnGeScalar_GreaterEqual_GreaterEqual"
+    ],
+    [
+     7528.45,
+     1.64,
+     "47",
+     "dynamic",
+     "ClipByValueV2",
+     "6;;",
+     "aclnnClampMin_ClipByValueV2AiCore_ClipByValueV2"
+    ],
+    [
+     7585.75,
+     1.1,
+     "47",
+     "dynamic",
+     "Cast",
+     "6",
+     "aclnnDivMods_CastAiCore_Cast"
+    ],
+    [
+     7589.61,
+     1.42,
+     "47",
+     "dynamic",
+     "FloorDiv",
+     "6;",
+     "aclnnDivMods_FloorDivAiCore_FloorDiv"
+    ],
+    [
+     7592.27,
+     1.28,
+     "47",
+     "dynamic",
+     "Cast",
+     "6",
+     "aclnnDivMods_CastAiCore_Cast"
+    ],
+    [
+     7593.97,
+     1.06,
+     "47",
+     "dynamic",
+     "Fill",
+     "1;",
+     "aclnnInplaceFillScalar_FillAiCore_Fill"
+    ],
+    [
+     7623.49,
+     1.76,
+     "47",
+     "dynamic",
+     "SelectV2",
+     "6;6;",
+     "aclnnSWhere_SelectV2AiCore_SelectV2"
+    ],
+    [
+     7625.43,
+     7.92,
+     "47",
+     "dynamic",
+     "ViewCopy",
+     "4096;1;1;1;6;1;1;1",
+     "aclnnInplaceCopy_ViewCopyAiCore_ViewCopy"
+    ],
+    [
+     7668.81,
+     1.36,
+     "47",
+     "dynamic",
+     "BroadcastTo",
+     ";1",
+     "aclnnRemainderTensorScalar_BroadcastToAiCore_BroadcastTo"
+    ],
+    [
+     7671.57,
+     2.1,
+     "47",
+     "dynamic",
+     "FloorMod",
+     "6;6",
+     "aclnnRemainderTensorScalar_FloorModAiCore_FloorMod"
+    ],
+    [
+     7683.31,
+     1.1,
+     "47",
+     "dynamic",
+     "Fill",
+     "1;",
+     "aclnnInplaceFillScalar_FillAiCore_Fill"
+    ],
+    [
+     7702.29,
+     1.6,
+     "47",
+     "dynamic",
+     "SelectV2",
+     "6;6;",
+     "aclnnSWhere_SelectV2AiCore_SelectV2"
+    ],
+    [
+     7722.57,
+     7.18,
+     "47",
+     "dynamic",
+     "ViewCopy",
+     "4096;1;1;1;6;1;1;1",
+     "aclnnInplaceCopy_ViewCopyAiCore_ViewCopy"
+    ],
+    [
+     7949.6,
+     0.96,
+     "47",
+     "dynamic",
+     "Cast",
+     "6",
+     "aclnnGeScalar_CastAiCore_Cast"
+    ],
+    [
+     7951.78,
+     2.0,
+     "47",
+     "dynamic",
+     "GreaterEqual",
+     "6;",
+     "aclnnGeScalar_GreaterEqual_GreaterEqual"
+    ],
+    [
+     7954.16,
+     1.52,
+     "47",
+     "dynamic",
+     "ClipByValueV2",
+     "6;;",
+     "aclnnClampMin_ClipByValueV2AiCore_ClipByValueV2"
+    ],
+    [
+     8008.32,
+     1.06,
+     "47",
+     "dynamic",
+     "Cast",
+     "6",
+     "aclnnDivMods_CastAiCore_Cast"
+    ],
+    [
+     8011.56,
+     1.52,
+     "47",
+     "dynamic",
+     "FloorDiv",
+     "6;",
+     "aclnnDivMods_FloorDivAiCore_FloorDiv"
+    ],
+    [
+     8013.32,
+     1.12,
+     "47",
+     "dynamic",
+     "Cast",
+     "6",
+     "aclnnDivMods_CastAiCore_Cast"
+    ],
+    [
+     8015.14,
+     1.06,
+     "47",
+     "dynamic",
+     "Fill",
+     "1;",
+     "aclnnInplaceFillScalar_FillAiCore_Fill"
+    ],
+    [
+     8033.1,
+     1.54,
+     "47",
+     "dynamic",
+     "SelectV2",
+     "6;6;",
+     "aclnnSWhere_SelectV2AiCore_SelectV2"
+    ],
+    [
+     8047.7,
+     7.66,
+     "47",
+     "dynamic",
+     "ViewCopy",
+     "4096;1;1;1;6;1;1;1",
+     "aclnnInplaceCopy_ViewCopyAiCore_ViewCopy"
+    ],
+    [
+     8082.38,
+     1.14,
+     "47",
+     "dynamic",
+     "BroadcastTo",
+     ";1",
+     "aclnnRemainderTensorScalar_BroadcastToAiCore_BroadcastTo"
+    ],
+    [
+     8093.1,
+     1.86,
+     "47",
+     "dynamic",
+     "FloorMod",
+     "6;6",
+     "aclnnRemainderTensorScalar_FloorModAiCore_FloorMod"
+    ],
+    [
+     8116.72,
+     1.0,
+     "47",
+     "dynamic",
+     "Fill",
+     "1;",
+     "aclnnInplaceFillScalar_FillAiCore_Fill"
+    ],
+    [
+     8120.1,
+     1.5,
+     "47",
+     "dynamic",
+     "SelectV2",
+     "6;6;",
+     "aclnnSWhere_SelectV2AiCore_SelectV2"
+    ],
+    [
+     8136.14,
+     9.16,
+     "47",
+     "dynamic",
+     "ViewCopy",
+     "4096;1;1;1;6;1;1;1",
+     "aclnnInplaceCopy_ViewCopyAiCore_ViewCopy"
+    ],
+    [
+     8360.97,
+     1.02,
+     "47",
+     "dynamic",
+     "Cast",
+     "6",
+     "aclnnGeScalar_CastAiCore_Cast"
+    ],
+    [
+     8363.55,
+     2.1,
+     "47",
+     "dynamic",
+     "GreaterEqual",
+     "6;",
+     "aclnnGeScalar_GreaterEqual_GreaterEqual"
+    ],
+    [
+     8365.67,
+     1.64,
+     "47",
+     "dynamic",
+     "ClipByValueV2",
+     "6;;",
+     "aclnnClampMin_ClipByValueV2AiCore_ClipByValueV2"
+    ],
+    [
+     8418.77,
+     1.02,
+     "47",
+     "dynamic",
+     "Cast",
+     "6",
+     "aclnnDivMods_CastAiCore_Cast"
+    ],
+    [
+     8420.81,
+     1.54,
+     "47",
+     "dynamic",
+     "FloorDiv",
+     "6;",
+     "aclnnDivMods_FloorDivAiCore_FloorDiv"
+    ],
+    [
+     8423.59,
+     1.22,
+     "47",
+     "dynamic",
+     "Cast",
+     "6",
+     "aclnnDivMods_CastAiCore_Cast"
+    ],
+    [
+     8452.13,
+     1.06,
+     "47",
+     "dynamic",
+     "Fill",
+     "1;",
+     "aclnnInplaceFillScalar_FillAiCore_Fill"
+    ],
+    [
+     8461.73,
+     1.66,
+     "47",
+     "dynamic",
+     "SelectV2",
+     "6;6;",
+     "aclnnSWhere_SelectV2AiCore_SelectV2"
+    ],
+    [
+     8478.45,
+     7.92,
+     "47",
+     "dynamic",
+     "ViewCopy",
+     "4096;1;1;1;6;1;1;1",
+     "aclnnInplaceCopy_ViewCopyAiCore_ViewCopy"
+    ],
+    [
+     8533.35,
+     1.1,
+     "47",
+     "dynamic",
+     "BroadcastTo",
+     ";1",
+     "aclnnRemainderTensorScalar_BroadcastToAiCore_BroadcastTo"
+    ],
+    [
+     8535.87,
+     1.899,
+     "47",
+     "dynamic",
+     "FloorMod",
+     "6;6",
+     "aclnnRemainderTensorScalar_FloorModAiCore_FloorMod"
+    ],
+    [
+     8561.39,
+     1.0,
+     "47",
+     "dynamic",
+     "Fill",
+     "1;",
+     "aclnnInplaceFillScalar_FillAiCore_Fill"
+    ],
+    [
+     8564.57,
+     1.54,
+     "47",
+     "dynamic",
+     "SelectV2",
+     "6;6;",
+     "aclnnSWhere_SelectV2AiCore_SelectV2"
+    ],
+    [
+     8589.67,
+     7.14,
+     "47",
+     "dynamic",
+     "ViewCopy",
+     "4096;1;1;1;6;1;1;1",
+     "aclnnInplaceCopy_ViewCopyAiCore_ViewCopy"
+    ],
+    [
+     8893.64,
+     1.04,
+     "47",
+     "dynamic",
+     "Cast",
+     "6",
+     "aclnnGeScalar_CastAiCore_Cast"
+    ],
+    [
+     8897.04,
+     2.22,
+     "47",
+     "dynamic",
+     "GreaterEqual",
+     "6;",
+     "aclnnGeScalar_GreaterEqual_GreaterEqual"
+    ],
+    [
+     8916.66,
+     1.54,
+     "47",
+     "dynamic",
+     "ClipByValueV2",
+     "6;;",
+     "aclnnClampMin_ClipByValueV2AiCore_ClipByValueV2"
+    ],
+    [
+     8985.58,
+     1.12,
+     "47",
+     "dynamic",
+     "Cast",
+     "6",
+     "aclnnDivMods_CastAiCore_Cast"
+    ],
+    [
+     8989.02,
+     1.52,
+     "47",
+     "dynamic",
+     "FloorDiv",
+     "6;",
+     "aclnnDivMods_FloorDivAiCore_FloorDiv"
+    ],
+    [
+     8991.3,
+     1.14,
+     "47",
+     "dynamic",
+     "Cast",
+     "6",
+     "aclnnDivMods_CastAiCore_Cast"
+    ],
+    [
+     9003.66,
+     1.02,
+     "47",
+     "dynamic",
+     "Fill",
+     "1;",
+     "aclnnInplaceFillScalar_FillAiCore_Fill"
+    ],
+    [
+     9019.92,
+     1.68,
+     "47",
+     "dynamic",
+     "SelectV2",
+     "6;6;",
+     "aclnnSWhere_SelectV2AiCore_SelectV2"
+    ],
+    [
+     9041.84,
+     7.64,
+     "47",
+     "dynamic",
+     "ViewCopy",
+     "4096;1;1;1;6;1;1;1",
+     "aclnnInplaceCopy_ViewCopyAiCore_ViewCopy"
+    ],
+    [
+     9082.8,
+     1.16,
+     "47",
+     "dynamic",
+     "BroadcastTo",
+     ";1",
+     "aclnnRemainderTensorScalar_BroadcastToAiCore_BroadcastTo"
+    ],
+    [
+     9098.2,
+     1.86,
+     "47",
+     "dynamic",
+     "FloorMod",
+     "6;6",
+     "aclnnRemainderTensorScalar_FloorModAiCore_FloorMod"
+    ],
+    [
+     9112.34,
+     0.94,
+     "47",
+     "dynamic",
+     "Fill",
+     "1;",
+     "aclnnInplaceFillScalar_FillAiCore_Fill"
+    ],
+    [
+     9123.56,
+     1.54,
+     "47",
+     "dynamic",
+     "SelectV2",
+     "6;6;",
+     "aclnnSWhere_SelectV2AiCore_SelectV2"
+    ],
+    [
+     9144.3,
+     8.66,
+     "47",
+     "dynamic",
+     "ViewCopy",
+     "4096;1;1;1;6;1;1;1",
+     "aclnnInplaceCopy_ViewCopyAiCore_ViewCopy"
+    ],
+    [
+     9457.09,
+     0.96,
+     "47",
+     "dynamic",
+     "Cast",
+     "6",
+     "aclnnGeScalar_CastAiCore_Cast"
+    ],
+    [
+     9459.93,
+     1.98,
+     "47",
+     "dynamic",
+     "GreaterEqual",
+     "6;",
+     "aclnnGeScalar_GreaterEqual_GreaterEqual"
+    ],
+    [
+     9462.07,
+     1.5,
+     "47",
+     "dynamic",
+     "ClipByValueV2",
+     "6;;",
+     "aclnnClampMin_ClipByValueV2AiCore_ClipByValueV2"
+    ],
+    [
+     9553.83,
+     1.04,
+     "47",
+     "dynamic",
+     "Cast",
+     "6",
+     "aclnnDivMods_CastAiCore_Cast"
+    ],
+    [
+     9556.45,
+     1.52,
+     "47",
+     "dynamic",
+     "FloorDiv",
+     "6;",
+     "aclnnDivMods_FloorDivAiCore_FloorDiv"
+    ],
+    [
+     9558.21,
+     1.3,
+     "47",
+     "dynamic",
+     "Cast",
+     "6",
+     "aclnnDivMods_CastAiCore_Cast"
+    ],
+    [
+     9584.51,
+     1.06,
+     "47",
+     "dynamic",
+     "Fill",
+     "1;",
+     "aclnnInplaceFillScalar_FillAiCore_Fill"
+    ],
+    [
+     9591.25,
+     1.58,
+     "47",
+     "dynamic",
+     "SelectV2",
+     "6;6;",
+     "aclnnSWhere_SelectV2AiCore_SelectV2"
+    ],
+    [
+     9608.67,
+     9.1,
+     "47",
+     "dynamic",
+     "ViewCopy",
+     "4096;1;1;1;6;1;1;1",
+     "aclnnInplaceCopy_ViewCopyAiCore_ViewCopy"
+    ],
+    [
+     9655.25,
+     1.32,
+     "47",
+     "dynamic",
+     "BroadcastTo",
+     ";1",
+     "aclnnRemainderTensorScalar_BroadcastToAiCore_BroadcastTo"
+    ],
+    [
+     9658.41,
+     2.08,
+     "47",
+     "dynamic",
+     "FloorMod",
+     "6;6",
+     "aclnnRemainderTensorScalar_FloorModAiCore_FloorMod"
+    ],
+    [
+     9681.97,
+     0.88,
+     "47",
+     "dynamic",
+     "Fill",
+     "1;",
+     "aclnnInplaceFillScalar_FillAiCore_Fill"
+    ],
+    [
+     9713.77,
+     1.5,
+     "47",
+     "dynamic",
+     "SelectV2",
+     "6;6;",
+     "aclnnSWhere_SelectV2AiCore_SelectV2"
+    ],
+    [
+     9743.75,
+     6.82,
+     "47",
+     "dynamic",
+     "ViewCopy",
+     "4096;1;1;1;6;1;1;1",
+     "aclnnInplaceCopy_ViewCopyAiCore_ViewCopy"
+    ],
+    [
+     9982.04,
+     1.06,
+     "47",
+     "dynamic",
+     "Cast",
+     "6",
+     "aclnnGeScalar_CastAiCore_Cast"
+    ],
+    [
+     9985.02,
+     1.94,
+     "47",
+     "dynamic",
+     "GreaterEqual",
+     "6;",
+     "aclnnGeScalar_GreaterEqual_GreaterEqual"
+    ],
+    [
+     9987.34,
+     1.519,
+     "47",
+     "dynamic",
+     "ClipByValueV2",
+     "6;;",
+     "aclnnClampMin_ClipByValueV2AiCore_ClipByValueV2"
+    ],
+    [
+     10055.28,
+     1.0,
+     "47",
+     "dynamic",
+     "Cast",
+     "6",
+     "aclnnDivMods_CastAiCore_Cast"
+    ],
+    [
+     10057.96,
+     1.46,
+     "47",
+     "dynamic",
+     "FloorDiv",
+     "6;",
+     "aclnnDivMods_FloorDivAiCore_FloorDiv"
+    ],
+    [
+     10059.52,
+     1.1,
+     "47",
+     "dynamic",
+     "Cast",
+     "6",
+     "aclnnDivMods_CastAiCore_Cast"
+    ],
+    [
+     10078.78,
+     1.02,
+     "47",
+     "dynamic",
+     "Fill",
+     "1;",
+     "aclnnInplaceFillScalar_FillAiCore_Fill"
+    ],
+    [
+     10081.42,
+     1.6,
+     "47",
+     "dynamic",
+     "SelectV2",
+     "6;6;",
+     "aclnnSWhere_SelectV2AiCore_SelectV2"
+    ],
+    [
+     10107.22,
+     7.06,
+     "47",
+     "dynamic",
+     "ViewCopy",
+     "4096;1;1;1;6;1;1;1",
+     "aclnnInplaceCopy_ViewCopyAiCore_ViewCopy"
+    ],
+    [
+     10146.32,
+     1.14,
+     "47",
+     "dynamic",
+     "BroadcastTo",
+     ";1",
+     "aclnnRemainderTensorScalar_BroadcastToAiCore_BroadcastTo"
+    ],
+    [
+     10150.1,
+     1.92,
+     "47",
+     "dynamic",
+     "FloorMod",
+     "6;6",
+     "aclnnRemainderTensorScalar_FloorModAiCore_FloorMod"
+    ],
+    [
+     10164.26,
+     0.98,
+     "47",
+     "dynamic",
+     "Fill",
+     "1;",
+     "aclnnInplaceFillScalar_FillAiCore_Fill"
+    ],
+    [
+     10178.06,
+     1.52,
+     "47",
+     "dynamic",
+     "SelectV2",
+     "6;6;",
+     "aclnnSWhere_SelectV2AiCore_SelectV2"
+    ],
+    [
+     10191.26,
+     8.62,
+     "47",
+     "dynamic",
+     "ViewCopy",
+     "4096;1;1;1;6;1;1;1",
+     "aclnnInplaceCopy_ViewCopyAiCore_ViewCopy"
+    ],
+    [
+     10483.81,
+     2.48,
+     "47",
+     "dynamic",
+     "GatherV3",
+     "1048576,1,1,64;6;1",
+     "aclnnIndexSelect_GatherV3AiCore_GatherV3"
+    ],
+    [
+     10510.21,
+     2.46,
+     "47",
+     "dynamic",
+     "GatherV3",
+     "1048576,1,1,64;6;1",
+     "aclnnIndexSelect_GatherV3AiCore_GatherV3"
+    ],
+    [
+     10573.79,
+     2.38,
+     "47",
+     "dynamic",
+     "GatherV3",
+     "1048576,1,1,64;6;1",
+     "aclnnIndexSelect_GatherV3AiCore_GatherV3"
+    ],
+    [
+     10594.43,
+     2.66,
+     "47",
+     "dynamic",
+     "GatherV3",
+     "1048576,1,1,64;6;1",
+     "aclnnIndexSelect_GatherV3AiCore_GatherV3"
+    ],
+    [
+     10650.65,
+     2.42,
+     "47",
+     "dynamic",
+     "GatherV3",
+     "1048576,1,1,64;6;1",
+     "aclnnIndexSelect_GatherV3AiCore_GatherV3"
+    ],
+    [
+     10673.53,
+     2.4,
+     "47",
+     "dynamic",
+     "GatherV3",
+     "1048576,1,1,64;6;1",
+     "aclnnIndexSelect_GatherV3AiCore_GatherV3"
+    ],
+    [
+     10753.53,
+     0.94,
+     "47",
+     "dynamic",
+     "Cast",
+     "6",
+     "aclnnGeScalar_CastAiCore_Cast"
+    ],
+    [
+     10756.55,
+     2.0,
+     "47",
+     "dynamic",
+     "GreaterEqual",
+     "6;",
+     "aclnnGeScalar_GreaterEqual_GreaterEqual"
+    ],
+    [
+     10780.03,
+     1.38,
+     "47",
+     "dynamic",
+     "Fill",
+     "1;",
+     "aclnnInplaceFillScalar_FillAiCore_Fill"
+    ],
+    [
+     10809.92,
+     1.0,
+     "47",
+     "dynamic",
+     "Cast",
+     "6",
+     "aclnnDivMods_CastAiCore_Cast"
+    ],
+    [
+     10813.66,
+     1.52,
+     "47",
+     "dynamic",
+     "FloorDiv",
+     "6;",
+     "aclnnDivMods_FloorDivAiCore_FloorDiv"
+    ],
+    [
+     10815.84,
+     1.1,
+     "47",
+     "dynamic",
+     "Cast",
+     "6",
+     "aclnnDivMods_CastAiCore_Cast"
+    ],
+    [
+     10818.56,
+     1.9,
+     "47",
+     "dynamic",
+     "SelectV2",
+     "6;6;6",
+     "aclnnSWhere_SelectV2AiCore_SelectV2"
+    ],
+    [
+     10836.28,
+     1.42,
+     "47",
+     "dynamic",
+     "BroadcastTo",
+     ";1",
+     "aclnnRemainderTensorScalar_BroadcastToAiCore_BroadcastTo"
+    ],
+    [
+     10847.84,
+     2.46,
+     "47",
+     "dynamic",
+     "FloorMod",
+     "6;6",
+     "aclnnRemainderTensorScalar_FloorModAiCore_FloorMod"
+    ],
+    [
+     10862.62,
+     1.64,
+     "47",
+     "dynamic",
+     "SelectV2",
+     "6;6;6",
+     "aclnnSWhere_SelectV2AiCore_SelectV2"
+    ],
+    [
+     10877.06,
+     2.3,
+     "47",
+     "dynamic",
+     "Pack",
+     "6;6",
+     "aclnnStack_PackAiCore_Pack"
+    ],
+    [
+     11020.54,
+     1.44,
+     "47",
+     "dynamic",
+     "Sub",
+     "1;1",
+     "aclnnSub_SubAiCore_Sub"
+    ],
+    [
+     11099.3,
+     1.06,
+     "47",
+     "dynamic",
+     "Fill",
+     "1;",
+     "aclnnInplaceFillScalar_FillAiCore_Fill"
+    ],
+    [
+     11102.02,
+     1.34,
+     "47",
+     "dynamic",
+     "Sub",
+     "1;1",
+     "aclnnSub_SubAiCore_Sub"
+    ],
+    [
+     11559.61,
+     1.34,
+     "37",
+     "dynamic",
+     "Sub",
+     "1;1",
+     "aclnnSub_SubAiCore_Sub"
+    ],
+    [
+     11589.03,
+     7.999,
+     "37",
+     "dynamic",
+     "Range",
+     ";;",
+     "aclnnArange_ArangeAiCore_Range"
+    ],
+    [
+     11597.07,
+     3.28,
+     "37",
+     "dynamic",
+     "Less",
+     "1;",
+     "aclnnLtScalar_LessAiCore_Less"
+    ],
+    [
+     11603.41,
+     1.66,
+     "37",
+     "dynamic",
+     "ClipByValueV2",
+     "1;;",
+     "aclnnClampMax_ClipByValueV2AiCore_ClipByValueV2"
+    ],
+    [
+     11624.29,
+     1.4,
+     "37",
+     "dynamic",
+     "Sub",
+     "1;1",
+     "aclnnSub_SubAiCore_Sub"
+    ],
+    [
+     11638.19,
+     2.139,
+     "37",
+     "dynamic",
+     "ClipByValueV2",
+     "1;;",
+     "aclnnClampMin_ClipByValueV2AiCore_ClipByValueV2"
+    ],
+    [
+     11674.23,
+     1.16,
+     "37",
+     "dynamic",
+     "Fill",
+     "1;",
+     "aclnnInplaceFillScalar_FillAiCore_Fill"
+    ],
+    [
+     11678.99,
+     1.8,
+     "37",
+     "dynamic",
+     "SelectV2",
+     "1;1;",
+     "aclnnSWhere_SelectV2AiCore_SelectV2"
+    ],
+    [
+     11717.05,
+     1.4,
+     "37",
+     "dynamic",
+     "Sub",
+     "1;1",
+     "aclnnSub_SubAiCore_Sub"
+    ],
+    [
+     11720.65,
+     1.44,
+     "37",
+     "dynamic",
+     "ClipByValueV2",
+     "1;;",
+     "aclnnClampMin_ClipByValueV2AiCore_ClipByValueV2"
+    ],
+    [
+     11910.1,
+     1.36,
+     "37",
+     "dynamic",
+     "Cast",
+     "1",
+     "aclnnGtScalar_CastAiCore_Cast"
+    ],
+    [
+     11912.68,
+     3.08,
+     "37",
+     "dynamic",
+     "Greater",
+     "1;",
+     "aclnnGtScalar_GreaterAiCore_Greater"
+    ],
+    [
+     11955.3,
+     1.1,
+     "37",
+     "dynamic",
+     "Fill",
+     "1;",
+     "aclnnInplaceFillScalar_FillAiCore_Fill"
+    ],
+    [
+     11993.52,
+     1.76,
+     "37",
+     "dynamic",
+     "SelectV2",
+     "1;1;",
+     "aclnnSWhere_SelectV2AiCore_SelectV2"
+    ],
+    [
+     12056.34,
+     1.66,
+     "37",
+     "dynamic",
+     "ClipByValueV2",
+     ";;",
+     "aclnnClampMax_ClipByValueV2AiCore_ClipByValueV2"
+    ],
+    [
+     12081.96,
+     5.34,
+     "37",
+     "dynamic",
+     "Range",
+     ";;",
+     "aclnnArange_ArangeAiCore_Range"
+    ],
+    [
+     12090.06,
+     1.32,
+     "37",
+     "dynamic",
+     "Cast",
+     "",
+     "aclnnLtTensor_CastAiCore_Cast"
+    ],
+    [
+     12115.82,
+     2.1,
+     "37",
+     "dynamic",
+     "Less",
+     "6;",
+     "aclnnLtTensor_LessAiCore_Less"
+    ],
+    [
+     12117.96,
+     1.74,
+     "37",
+     "dynamic",
+     "BroadcastTo",
+     ";1",
+     "aclnnRemainderTensorScalar_BroadcastToAiCore_BroadcastTo"
+    ],
+    [
+     12119.72,
+     1.8,
+     "37",
+     "dynamic",
+     "FloorMod",
+     "6;6",
+     "aclnnRemainderTensorScalar_FloorModAiCore_FloorMod"
+    ],
+    [
+     12136.2,
+     2.1,
+     "37",
+     "dynamic",
+     "Equal",
+     "6;",
+     "aclnnEqScalar_EqualAiCore_Equal"
+    ],
+    [
+     12170.18,
+     1.18,
+     "37",
+     "dynamic",
+     "LogicalAnd",
+     "6;6",
+     "aclnnBitwiseAndTensor_LogicalAndAiCore_LogicalAnd"
+    ],
+    [
+     12266.14,
+     3.64,
+     "37",
+     "dynamic",
+     "Sub",
+     "6;",
+     "aclnnSubs_SubAiCore_Sub"
+    ],
+    [
+     12306.81,
+     1.92,
+     "37",
+     "dynamic",
+     "ZerosLike",
+     "6",
+     "aclnnInplaceZero_ZerosLikeAiCore_ZerosLike"
+    ],
+    [
+     12331.03,
+     2.4,
+     "37",
+     "dynamic",
+     "SelectV2",
+     "6;6;6",
+     "aclnnSWhere_SelectV2AiCore_SelectV2"
+    ],
+    [
+     12450.27,
+     2.54,
+     "37",
+     "dynamic",
+     "BroadcastTo",
+     "6,1,1,1;4",
+     "aclnnGather_BroadcastToAiCore_BroadcastTo"
+    ],
+    [
+     12452.85,
+     1.7,
+     "37",
+     "dynamic",
+     "Cast",
+     "6,1,1,64",
+     "aclnnGather_CastAiCore_Cast"
+    ],
+    [
+     12454.57,
+     10.72,
+     "37",
+     "dynamic",
+     "GatherElementsV2",
+     "1048576,1,1,64;6,1,1,64",
+     "aclnnGather_GatherElementsV2_GatherElementsV2"
+    ],
+    [
+     12481.83,
+     2.14,
+     "37",
+     "dynamic",
+     "BroadcastTo",
+     "6,1,1,1;4",
+     "aclnnGather_BroadcastToAiCore_BroadcastTo"
+    ],
+    [
+     12484.59,
+     1.66,
+     "37",
+     "dynamic",
+     "Cast",
+     "6,1,1,64",
+     "aclnnGather_CastAiCore_Cast"
+    ],
+    [
+     12487.69,
+     7.839,
+     "37",
+     "dynamic",
+     "GatherElementsV2",
+     "1048576,1,1,64;6,1,1,64",
+     "aclnnGather_GatherElementsV2_GatherElementsV2"
+    ],
+    [
+     12657.45,
+     66.119,
+     "37",
+     "dynamic",
+     "QuantLightningIndexerV2Metadata",
+     "2;;;1;1",
+     "aclnnQuantLightningIndexerV2Metadata_QuantLightningIndexerV2Metadata_QuantLightn"
+    ],
+    [
+     12869.28,
+     70.659,
+     "37",
+     "dynamic",
+     "QuantLightningIndexerV2Metadata",
+     "2;;;1;",
+     "aclnnQuantLightningIndexerV2Metadata_QuantLightningIndexerV2Metadata_QuantLightn"
+    ],
+    [
+     13028.94,
+     69.818,
+     "37",
+     "dynamic",
+     "SparseFlashMlaMetadata",
+     "2;;;;1;1;1;;",
+     "aclnnSparseFlashMlaMetadata_SparseFlashMlaMetadata_SparseFlashMlaMetadata"
+    ],
+    [
+     13189.04,
+     67.138,
+     "37",
+     "dynamic",
+     "SparseFlashMlaMetadata",
+     "2;;;;1;1;;;",
+     "aclnnSparseFlashMlaMetadata_SparseFlashMlaMetadata_SparseFlashMlaMetadata"
+    ],
+    [
+     13353.73,
+     61.479,
+     "37",
+     "dynamic",
+     "SparseFlashMlaMetadata",
+     "2;;;;1;;;;",
+     "aclnnSparseFlashMlaMetadata_SparseFlashMlaMetadata_SparseFlashMlaMetadata"
+    ],
+    [
+     13516.89,
+     61.959,
+     "37",
+     "dynamic",
+     "SparseAttnSharedkvMetadata",
+     "2;;;;1",
+     "aclnnSparseAttnSharedkvMetadata_SparseAttnSharedkvMetadata_SparseAttnSharedkvMet"
+    ],
+    [
+     13639.81,
+     2.059,
+     "47",
+     "dynamic",
+     "ClipByValueV2",
+     "6;;",
+     "aclnnClamp_ClipByValueV2AiCore_ClipByValueV2"
+    ],
+    [
+     13734.71,
+     1.18,
+     "47",
+     "dynamic",
+     "Equal",
+     "6;",
+     "aclnnEqScalar_EqualAiCore_Equal"
+    ],
+    [
+     13778.89,
+     2.12,
+     "47",
+     "dynamic",
+     "MaskedFill",
+     "6;6;",
+     "aclnnInplaceMaskedFillScalar_MaskedFillAiCore_MaskedFill"
+    ],
+    [
+     13828.32,
+     1.2,
+     "47",
+     "dynamic",
+     "Cast",
+     "6",
+     "aclnnGeScalar_CastAiCore_Cast"
+    ],
+    [
+     13830.8,
+     2.22,
+     "47",
+     "dynamic",
+     "GreaterEqual",
+     "6;",
+     "aclnnGeScalar_GreaterEqual_GreaterEqual"
+    ],
+    [
+     13848.86,
+     1.26,
+     "47",
+     "dynamic",
+     "Cast",
+     "6",
+     "aclnnLtScalar_CastAiCore_Cast"
+    ],
+    [
+     13852.28,
+     1.86,
+     "47",
+     "dynamic",
+     "Less",
+     "6;",
+     "aclnnLtScalar_LessAiCore_Less"
+    ],
+    [
+     13860.46,
+     1.1,
+     "47",
+     "dynamic",
+     "LogicalAnd",
+     "6;6",
+     "aclnnBitwiseAndTensor_LogicalAndAiCore_LogicalAnd"
+    ],
+    [
+     13897.86,
+     1.34,
+     "47",
+     "dynamic",
+     "Cast",
+     "6",
+     "aclnnMuls_CastAiCore_Cast"
+    ],
+    [
+     13900.62,
+     1.48,
+     "47",
+     "dynamic",
+     "Mul",
+     "6;",
+     "aclnnMuls_MulAiCore_Mul"
+    ],
+    [
+     13902.58,
+     1.12,
+     "47",
+     "dynamic",
+     "Cast",
+     "6",
+     "aclnnSub_CastAiCore_Cast"
+    ],
+    [
+     13908.18,
+     1.62,
+     "47",
+     "dynamic",
+     "Sub",
+     "6;6",
+     "aclnnSub_SubAiCore_Sub"
+    ],
+    [
+     13928.06,
+     1.24,
+     "47",
+     "dynamic",
+     "Cast",
+     "6",
+     "aclnnMul_CastAiCore_Cast"
+    ],
+    [
+     13930.38,
+     1.64,
+     "47",
+     "dynamic",
+     "Mul",
+     "6;6",
+     "aclnnMul_MulAiCore_Mul"
+    ],
+    [
+     13957.16,
+     1.32,
+     "47",
+     "dynamic",
+     "LogicalNot",
+     "6",
+     "aclnnBitwiseNot_LogicalNotAiCore_LogicalNot"
+    ],
+    [
+     13969.78,
+     3.42,
+     "47",
+     "dynamic",
+     "GatherV2",
+     "16160,5120;6;1",
+     "aclnnEmbedding_GatherV2AiCore_GatherV2"
+    ],
+    [
+     13993.76,
+     5.76,
+     "47",
+     "dynamic",
+     "MaskedFill",
+     "6,5120;6,1;",
+     "aclnnInplaceMaskedFillScalar_MaskedFillAiCore_MaskedFill"
+    ],
+    [
+     14144.12,
+     209.536,
+     "N/A",
+     "N/A",
+     "hcom_allReduce_",
+     "N/A",
+     "hcom_allReduce__503_88_1"
+    ],
+    [
+     14144.12,
+     209.536,
+     "40",
+     "dynamic",
+     "hcom_allReduce_",
+     "N/A",
+     "AivKernel"
+    ],
+    [
+     14384.17,
+     1.34,
+     "47",
+     "dynamic",
+     "Fill",
+     "1;",
+     "aclnnInplaceFillScalar_FillAiCore_Fill"
+    ],
+    [
+     14410.55,
+     1.3,
+     "47",
+     "dynamic",
+     "Cast",
+     "1",
+     "aclnnInplaceCopy_CastAiCore_Cast"
+    ],
+    [
+     14413.55,
+     1.28,
+     "47",
+     "dynamic",
+     "BroadcastTo",
+     "1;1",
+     "aclnnInplaceCopy_BroadcastToAiCore_BroadcastTo"
+    ],
+    [
+     14415.27,
+     1.34,
+     "47",
+     "dynamic",
+     "Cast",
+     "6",
+     "aclnnInplaceCopy_CastAiCore_Cast"
+    ],
+    [
+     14440.15,
+     1.32,
+     "47",
+     "dynamic",
+     "Fill",
+     "1;",
+     "aclnnInplaceFillScalar_FillAiCore_Fill"
+    ],
+    [
+     14442.53,
+     1.24,
+     "47",
+     "dynamic",
+     "Cast",
+     "1",
+     "aclnnInplaceCopy_CastAiCore_Cast"
+    ],
+    [
+     14444.51,
+     1.36,
+     "47",
+     "dynamic",
+     "BroadcastTo",
+     "1;1",
+     "aclnnInplaceCopy_BroadcastToAiCore_BroadcastTo"
+    ],
+    [
+     14459.53,
+     1.36,
+     "47",
+     "dynamic",
+     "Cast",
+     "2",
+     "aclnnInplaceCopy_CastAiCore_Cast"
+    ],
+    [
+     14614.57,
+     8.48,
+     "141",
+     "static",
+     "Range",
+     ";;",
+     "aclnnArange_ArangeAiCore_Range"
+    ],
+    [
+     14623.09,
+     78.738,
+     "141",
+     "N/A",
+     "SearchSorted",
+     "N/A",
+     "SearchSorted"
+    ],
+    [
+     14701.85,
+     2.26,
+     "141",
+     "static",
+     "Sub",
+     "6;",
+     "aclnnSubs_SubAiCore_Sub"
+    ],
+    [
+     14704.15,
+     1.94,
+     "141",
+     "static",
+     "NotEqual",
+     "6;",
+     "aclnnNeScalar_NotEqualAiCore_NotEqual"
+    ],
+    [
+     14706.11,
+     1.54,
+     "141",
+     "static",
+     "NotEqual",
+     "6;",
+     "aclnnNeScalar_NotEqualAiCore_NotEqual"
+    ],
+    [
+     14707.67,
+     1.68,
+     "141",
+     "static",
+     "LogicalAnd",
+     "6;6",
+     "aclnnBitwiseAndTensor_LogicalAndAiCore_LogicalAnd"
+    ],
+    [
+     14709.37,
+     3.84,
+     "141",
+     "static",
+     "GatherV3",
+     "129280;6;1",
+     "aclnnIndexSelect_GatherV3AiCore_GatherV3"
+    ],
+    [
+     14713.25,
+     1.72,
+     "141",
+     "static",
+     "LogicalNot",
+     "6",
+     "aclnnBitwiseNot_LogicalNotAiCore_LogicalNot"
+    ],
+    [
+     14715.75,
+     51.079,
+     "141",
+     "N/A",
+     "MaskedFill",
+     "N/A",
+     "MaskedFill"
+    ],
+    [
+     14766.85,
+     1.74,
+     "141",
+     "static",
+     "FloorDiv",
+     "6;",
+     "aclnnFloorDivides_FloorDivAiCore_FloorDiv"
+    ],
+    [
+     14768.6,
+     5.44,
+     "141",
+     "static",
+     "ClipByValueV2",
+     "6;;",
+     "aclnnClamp_ClipByValueV2AiCore_ClipByValueV2"
+    ],
+    [
+     14774.07,
+     3.54,
+     "141",
+     "static",
+     "IndexCheck",
+     "2;6;6",
+     "aclnnIndex_IndexCheck_IndexCheck"
+    ],
+    [
+     14777.62,
+     9.82,
+     "141",
+     "static",
+     "Index",
+     "1,64;2;1;6;6",
+     "aclnnIndex_IndexAiCore_Index"
+    ],
+    [
+     14787.49,
+     1.44,
+     "141",
+     "static",
+     "BroadcastTo",
+     ";1",
+     "aclnnRemainderTensorScalar_BroadcastToAiCore_BroadcastTo"
+    ],
+    [
+     14788.94,
+     1.84,
+     "141",
+     "static",
+     "FloorMod",
+     "6;6",
+     "aclnnRemainderTensorScalar_FloorModAiCore_FloorMod"
+    ],
+    [
+     14790.81,
+     1.42,
+     "141",
+     "static",
+     "Cast",
+     "6",
+     "aclnnGeScalar_CastAiCore_Cast"
+    ],
+    [
+     14792.24,
+     3.139,
+     "141",
+     "static",
+     "GreaterEqual",
+     "6;",
+     "aclnnGeScalar_GreaterEqual_GreaterEqual"
+    ],
+    [
+     14795.4,
+     1.28,
+     "141",
+     "static",
+     "Cast",
+     "6",
+     "aclnnLtScalar_CastAiCore_Cast"
+    ],
+    [
+     14796.7,
+     2.78,
+     "141",
+     "static",
+     "Less",
+     "6;",
+     "aclnnLtScalar_LessAiCore_Less"
+    ],
+    [
+     14799.5,
+     1.54,
+     "141",
+     "static",
+     "LogicalAnd",
+     "6;6",
+     "aclnnBitwiseAndTensor_LogicalAndAiCore_LogicalAnd"
+    ],
+    [
+     14801.06,
+     1.36,
+     "141",
+     "static",
+     "Fill",
+     "1;",
+     "aclnnInplaceFillScalar_FillAiCore_Fill"
+    ],
+    [
+     14802.44,
+     2.36,
+     "141",
+     "static",
+     "SelectV2",
+     "6;6;",
+     "aclnnSWhere_SelectV2AiCore_SelectV2"
+    ],
+    [
+     14804.84,
+     1.34,
+     "141",
+     "static",
+     "Mul",
+     "6;",
+     "aclnnMuls_MulAiCore_Mul"
+    ],
+    [
+     14806.22,
+     1.2,
+     "141",
+     "static",
+     "Cast",
+     "6",
+     "aclnnAdd_CastAiCore_Cast"
+    ],
+    [
+     14807.44,
+     1.96,
+     "141",
+     "static",
+     "Add",
+     "6;6",
+     "aclnnAdd_AddAiCore_Add"
+    ],
+    [
+     14809.44,
+     124.138,
+     "141",
+     "N/A",
+     "ScatterElements",
+     "N/A",
+     "ScatterElements"
+    ],
+    [
+     14933.6,
+     8.14,
+     "141",
+     "static",
+     "Range",
+     ";;",
+     "aclnnArange_ArangeAiCore_Range"
+    ],
+    [
+     14941.76,
+     8.999,
+     "141",
+     "static",
+     "Sub",
+     "6,1;4",
+     "aclnnSub_SubAiCore_Sub"
+    ],
+    [
+     14950.78,
+     2.38,
+     "141",
+     "static",
+     "GreaterEqual",
+     "6,4;",
+     "aclnnGeScalar_GreaterEqual_GreaterEqual"
+    ],
+    [
+     14953.18,
+     4.1,
+     "141",
+     "static",
+     "ClipByValueV2",
+     "6,4;;",
+     "aclnnClampMin_ClipByValueV2AiCore_ClipByValueV2"
+    ],
+    [
+     14957.3,
+     2.34,
+     "141",
+     "static",
+     "FloorDiv",
+     "6,4;",
+     "aclnnFloorDivides_FloorDivAiCore_FloorDiv"
+    ],
+    [
+     14959.66,
+     1.52,
+     "141",
+     "static",
+     "Fill",
+     "1;",
+     "aclnnInplaceFillScalar_FillAiCore_Fill"
+    ],
+    [
+     14961.22,
+     3.4,
+     "141",
+     "static",
+     "Minimum",
+     "6,4;",
+     "aclnnMinimum_MinimumAiCore_Minimum"
+    ],
+    [
+     14964.66,
+     1.78,
+     "141",
+     "static",
+     "BroadcastTo",
+     "6,1;2",
+     "aclnnIndex_BroadcastToAiCore_BroadcastTo"
+    ],
+    [
+     14966.46,
+     6.6,
+     "141",
+     "static",
+     "IndexCheck",
+     "2;6,4;6,4",
+     "aclnnIndex_IndexCheck_IndexCheck"
+    ],
+    [
+     14973.08,
+     2.04,
+     "141",
+     "static",
+     "BroadcastTo",
+     "6,1;2",
+     "aclnnIndex_BroadcastToAiCore_BroadcastTo"
+    ],
+    [
+     14975.16,
+     5.82,
+     "141",
+     "static",
+     "Index",
+     "1,64;2;2;6,4;6,4",
+     "aclnnIndex_IndexAiCore_Index"
+    ],
+    [
+     14981.02,
+     1.54,
+     "141",
+     "static",
+     "BroadcastTo",
+     ";2",
+     "aclnnRemainderTensorScalar_BroadcastToAiCore_BroadcastTo"
+    ],
+    [
+     14982.58,
+     1.86,
+     "141",
+     "static",
+     "FloorMod",
+     "6,4;6,4",
+     "aclnnRemainderTensorScalar_FloorModAiCore_FloorMod"
+    ],
+    [
+     14984.46,
+     1.34,
+     "141",
+     "static",
+     "Cast",
+     "6,4",
+     "aclnnGeScalar_CastAiCore_Cast"
+    ],
+    [
+     14985.82,
+     2.38,
+     "141",
+     "static",
+     "GreaterEqual",
+     "6,4;",
+     "aclnnGeScalar_GreaterEqual_GreaterEqual"
+    ],
+    [
+     14988.22,
+     1.42,
+     "141",
+     "static",
+     "Cast",
+     "6,4",
+     "aclnnLtScalar_CastAiCore_Cast"
+    ],
+    [
+     14989.66,
+     2.24,
+     "141",
+     "static",
+     "Less",
+     "6,4;",
+     "aclnnLtScalar_LessAiCore_Less"
+    ],
+    [
+     14991.92,
+     1.399,
+     "141",
+     "static",
+     "LogicalAnd",
+     "6,4;6,4",
+     "aclnnBitwiseAndTensor_LogicalAndAiCore_LogicalAnd"
+    ],
+    [
+     14993.34,
+     1.44,
+     "141",
+     "static",
+     "LogicalAnd",
+     "6,4;6,4",
+     "aclnnBitwiseAndTensor_LogicalAndAiCore_LogicalAnd"
+    ],
+    [
+     14994.8,
+     1.24,
+     "141",
+     "static",
+     "Fill",
+     "1;",
+     "aclnnInplaceFillScalar_FillAiCore_Fill"
+    ],
+    [
+     14996.06,
+     2.64,
+     "141",
+     "static",
+     "SelectV2",
+     "6,4;6,4;",
+     "aclnnSWhere_SelectV2AiCore_SelectV2"
+    ],
+    [
+     14998.72,
+     1.44,
+     "141",
+     "static",
+     "Fill",
+     "1;",
+     "aclnnInplaceFillScalar_FillAiCore_Fill"
+    ],
+    [
+     15000.18,
+     2.98,
+     "141",
+     "static",
+     "SelectV2",
+     "6,4;6,4;",
+     "aclnnSWhere_SelectV2AiCore_SelectV2"
+    ],
+    [
+     15003.18,
+     1.28,
+     "141",
+     "static",
+     "Cast",
+     "6,4",
+     "aclnnInplaceCopy_CastAiCore_Cast"
+    ],
+    [
+     15004.5,
+     6.02,
+     "141",
+     "static",
+     "IndexCheck",
+     "2;6,4;6,4",
+     "aclnnIndex_IndexCheck_IndexCheck"
+    ],
+    [
+     15010.54,
+     8.54,
+     "141",
+     "static",
+     "Index",
+     "8193,128;2;2;6,4;6,4",
+     "aclnnIndex_IndexAiCore_Index"
+    ],
+    [
+     15019.12,
+     1.3,
+     "141",
+     "static",
+     "LogicalNot",
+     "6,4",
+     "aclnnBitwiseNot_LogicalNotAiCore_LogicalNot"
+    ],
+    [
+     15020.44,
+     2.14,
+     "141",
+     "static",
+     "Less",
+     "6,4;",
+     "aclnnLtScalar_LessAiCore_Less"
+    ],
+    [
+     15022.6,
+     1.74,
+     "141",
+     "static",
+     "LogicalOr",
+     "6,4;6,4",
+     "aclnnBitwiseOrTensor_LogicalOrAiCore_LogicalOr"
+    ],
+    [
+     15025.1,
+     44.299,
+     "141",
+     "N/A",
+     "MaskedFill",
+     "N/A",
+     "MaskedFill"
+    ],
+    [
+     15069.44,
+     37.359,
+     "141",
+     "N/A",
+     "Cummin",
+     "N/A",
+     "Cummin"
+    ],
+    [
+     15106.82,
+     2.36,
+     "141",
+     "static",
+     "Less",
+     "6,4;",
+     "aclnnLtScalar_LessAiCore_Less"
+    ],
+    [
+     15109.94,
+     37.259,
+     "141",
+     "N/A",
+     "MaskedFill",
+     "N/A",
+     "MaskedFill"
+    ],
+    [
+     15147.22,
+     9.36,
+     "141",
+     "static",
+     "Mul",
+     "6,1,4;1,2,4",
+     "aclnnMul_MulAiCore_Mul"
+    ],
+    [
+     15156.62,
+     10.46,
+     "141",
+     "static",
+     "StridedSlice",
+     "6,8;2;2;2",
+     "aclnnBitwiseXorTensor_StridedSliceAiCore_StridedSlice"
+    ],
+    [
+     15167.1,
+     8.82,
+     "141",
+     "static",
+     "StridedSlice",
+     "6,8;2;2;2",
+     "aclnnBitwiseXorTensor_StridedSliceAiCore_StridedSlice"
+    ],
+    [
+     15175.96,
+     1.76,
+     "141",
+     "static",
+     "BitwiseXor",
+     "6,2;6,2",
+     "aclnnBitwiseXorTensor_BitwiseXorAiCore_BitwiseXor"
+    ],
+    [
+     15177.76,
+     2.9,
+     "141",
+     "static",
+     "Slice",
+     "2,24;2;2",
+     "aclnnRemainderTensorTensor_SliceAiCore_Slice"
+    ],
+    [
+     15180.68,
+     2.06,
+     "141",
+     "static",
+     "BroadcastTo",
+     "6,2,1;3",
+     "aclnnRemainderTensorTensor_BroadcastToAiCore_BroadcastTo"
+    ],
+    [
+     15182.76,
+     2.16,
+     "141",
+     "static",
+     "BroadcastTo",
+     "2,8;3",
+     "aclnnRemainderTensorTensor_BroadcastToAiCore_BroadcastTo"
+    ],
+    [
+     15184.94,
+     4.14,
+     "141",
+     "static",
+     "FloorMod",
+     "6,2,8;6,2,8",
+     "aclnnRemainderTensorTensor_FloorModAiCore_FloorMod"
+    ],
+    [
+     15189.1,
+     9.959,
+     "141",
+     "static",
+     "StridedSlice",
+     "6,8;2;2;2",
+     "aclnnBitwiseXorTensor_StridedSliceAiCore_StridedSlice"
+    ],
+    [
+     15199.08,
+     1.44,
+     "141",
+     "static",
+     "BitwiseXor",
+     "6,2;6,2",
+     "aclnnBitwiseXorTensor_BitwiseXorAiCore_BitwiseXor"
+    ],
+    [
+     15200.54,
+     2.14,
+     "141",
+     "static",
+     "Slice",
+     "2,24;2;2",
+     "aclnnRemainderTensorTensor_SliceAiCore_Slice"
+    ],
+    [
+     15202.7,
+     1.92,
+     "141",
+     "static",
+     "BroadcastTo",
+     "6,2,1;3",
+     "aclnnRemainderTensorTensor_BroadcastToAiCore_BroadcastTo"
+    ],
+    [
+     15204.64,
+     1.54,
+     "141",
+     "static",
+     "BroadcastTo",
+     "2,8;3",
+     "aclnnRemainderTensorTensor_BroadcastToAiCore_BroadcastTo"
+    ],
+    [
+     15206.2,
+     4.06,
+     "141",
+     "static",
+     "FloorMod",
+     "6,2,8;6,2,8",
+     "aclnnRemainderTensorTensor_FloorModAiCore_FloorMod"
+    ],
+    [
+     15210.28,
+     8.72,
+     "141",
+     "static",
+     "StridedSlice",
+     "6,8;2;2;2",
+     "aclnnBitwiseXorTensor_StridedSliceAiCore_StridedSlice"
+    ],
+    [
+     15219.02,
+     1.42,
+     "141",
+     "static",
+     "BitwiseXor",
+     "6,2;6,2",
+     "aclnnBitwiseXorTensor_BitwiseXorAiCore_BitwiseXor"
+    ],
+    [
+     15220.46,
+     2.16,
+     "141",
+     "static",
+     "Slice",
+     "2,24;2;2",
+     "aclnnRemainderTensorTensor_SliceAiCore_Slice"
+    ],
+    [
+     15222.64,
+     1.96,
+     "141",
+     "static",
+     "BroadcastTo",
+     "6,2,1;3",
+     "aclnnRemainderTensorTensor_BroadcastToAiCore_BroadcastTo"
+    ],
+    [
+     15224.64,
+     1.66,
+     "141",
+     "static",
+     "BroadcastTo",
+     "2,8;3",
+     "aclnnRemainderTensorTensor_BroadcastToAiCore_BroadcastTo"
+    ],
+    [
+     15226.32,
+     4.04,
+     "141",
+     "static",
+     "FloorMod",
+     "6,2,8;6,2,8",
+     "aclnnRemainderTensorTensor_FloorModAiCore_FloorMod"
+    ],
+    [
+     15230.38,
+     3.72,
+     "141",
+     "static",
+     "ConcatD",
+     "6,2,8;6,2,8;6,2,8",
+     "aclnnCat_ConcatD_ConcatD"
+    ],
+    [
+     15234.12,
+     4.2,
+     "141",
+     "static",
+     "Add",
+     "6,2,24;2,24",
+     "aclnnAdd_AddAiCore_Add"
+    ],
+    [
+     15238.36,
+     2.68,
+     "141",
+     "static",
+     "Slice",
+     "6,48;2;2",
+     "aclnnInplaceCopy_SliceAiCore_Slice"
+    ],
+    [
+     15241.06,
+     15.219,
+     "141",
+     "static",
+     "GatherV3",
+     "384006168,256;144;1",
+     "aclnnIndexSelect_GatherV3AiCore_GatherV3"
+    ],
+    [
+     15256.3,
+     20.82,
+     "141",
+     "static",
+     "GatherV3",
+     "384006168,8;144;1",
+     "aclnnIndexSelect_GatherV3AiCore_GatherV3"
+    ],
+    [
+     15277.15,
+     7.38,
+     "141",
+     "static",
+     "Cast",
+     "144,256",
+     "aclnnInplaceCopy_CastAiCore_Cast"
+    ],
+    [
+     15284.56,
+     14.859,
+     "141",
+     "static",
+     "Mul",
+     "144,8,32;144,8,1",
+     "aclnnInplaceMul_MulAiCore_Mul"
+    ],
+    [
+     15299.43,
+     7.8,
+     "141",
+     "static",
+     "Cast",
+     "144,256",
+     "aclnnInplaceCopy_CastAiCore_Cast"
+    ],
+    [
+     15307.25,
+     2.38,
+     "141",
+     "static",
+     "Slice",
+     "6,48;2;2",
+     "aclnnInplaceCopy_SliceAiCore_Slice"
+    ],
+    [
+     15309.65,
+     13.08,
+     "141",
+     "static",
+     "GatherV3",
+     "384016682,256;144;1",
+     "aclnnIndexSelect_GatherV3AiCore_GatherV3"
+    ],
+    [
+     15322.75,
+     14.46,
+     "141",
+     "static",
+     "GatherV3",
+     "384016682,8;144;1",
+     "aclnnIndexSelect_GatherV3AiCore_GatherV3"
+    ],
+    [
+     15337.23,
+     6.639,
+     "141",
+     "static",
+     "Cast",
+     "144,256",
+     "aclnnInplaceCopy_CastAiCore_Cast"
+    ],
+    [
+     15343.89,
+     13.9,
+     "141",
+     "static",
+     "Mul",
+     "144,8,32;144,8,1",
+     "aclnnInplaceMul_MulAiCore_Mul"
+    ],
+    [
+     15357.83,
+     7.14,
+     "141",
+     "static",
+     "Cast",
+     "144,256",
+     "aclnnInplaceCopy_CastAiCore_Cast"
+    ],
+    [
+     15366.05,
+     1.52,
+     "47",
+     "dynamic",
+     "ZerosLike",
+     "2048",
+     "aclnnInplaceZero_ZerosLikeAiCore_ZerosLike"
+    ],
+    [
+     15368.15,
+     15.2,
+     "47",
+     "dynamic",
+     "ZerosLike",
+     "2048,6144",
+     "aclnnInplaceZero_ZerosLikeAiCore_ZerosLike"
+    ],
+    [
+     15384.09,
+     9.759,
+     "47",
+     "dynamic",
+     "ZerosLike",
+     "2048,6144",
+     "aclnnInplaceZero_ZerosLikeAiCore_ZerosLike"
+    ]
+   ]
+  },
+  "invariance": "cluster key set, per-key counts and per-key durations are identical across all 10 steps within +-50us; the only cross-step difference is the hcom_allReduce_ duration"
+ },
+ "chain_attribution": [
+  {
+   "chain": "eager slot mapping (12x _compute_slot_mapping_kernel/step, stream 47, OP state static)",
+   "evidence_count": 12,
+   "source": [
+    "vllm-ascend/vllm_ascend/worker/block_table.py:19-20 (_compute_slot_mapping_kernel import)",
+    "vllm-ascend/vllm_ascend/worker/block_table.py:26-42 (team comment: 12 launches = KV cache group count, ~0.8ms host serial, V41_SLOT_MAP_FUSED)",
+    "vllm-ascend/vllm_ascend/worker/block_table.py:260-303 compute_slot_mapping; :616 fused multi-group kernel; :656/691-712 per-group loop",
+    "vllm-ascend/vllm_ascend/worker/model_runner_v1.py:1488 input_batch.block_table.compute_slot_mapping(...)"
+   ],
+   "value_source": "positions + block_table of the current step (depends on previous step's accepted tokens)"
+  },
+  {
+   "chain": "Engram device lookup ACLGraph replay (Model ID 49; 87 kernels) + 6 eager stragglers",
+   "evidence": "stream 141 block t+14.5-15.45ms; model id 49 rows are OP state static; 6 rows (SearchSorted/ScatterElements/MaskedFill x3/Cummin) carry model id 4294967295",
+   "source": [
+    "vllm-ascend/vllm_ascend/models/deepseek_v41/model.py:1069 EngramGraphCache(...) creation",
+    "vllm-ascend/vllm_ascend/models/deepseek_v41/model.py:1180-1201 zero-copy device graph run/replay",
+    "vllm-ascend/vllm_ascend/models/deepseek_v41/engram_graph.py:126-140 node(): searchsorted + hash_impl + table lookups",
+    "vllm-ascend/vllm_ascend/models/deepseek_v41/engram_hash.py:436-507 and :650-711 (bitwise_xor/%primes/cat/add, clamp_min, block_table index, masked_fill, cummin running-min)",
+    "vllm-ascend/vllm_ascend/models/deepseek_v41/engram_device_index.py:1082-1119 (token_map index_select, masked_fill, //, clamp_, where, scatter_ page mirror)",
+    "vllm-ascend/vllm_ascend/models/deepseek_v41/engram_hbm.py:558-576 HostMappedEngramTable.lookup_local (index_select / fused gather_dequantize)"
+   ],
+   "runtime_evidence": [
+    "run.log:309 [DEVICE-INDEX] L1=384006168 rows, L14=384016682 rows, 256B/row (matches GatherV3 table dims 384006168/384016682)",
+    "run.log:876-883 [bneck] graphs=2 replays=38 captures=2 eager_fallbacks=1 ptr_mismatch=0 keys=[(4,1,64),(6,1,64)]",
+    "config: engram_layer_ids=[1,14], n_heads=8, head_dim=256, max_ngram=4 -> cols=(4-1)*8=24; 6 tokens x 24 = 144 (index length of the four GatherV3 rows)"
+   ],
+   "value_source": "hash of (input_ids, positions) -> table rows; the mask uses block_table pages; changes every step"
+  },
+  {
+   "chain": "Engram pad/prepare copies (ZerosLike 2048x6144 x2, mask zero, copy_ into capacity buffers; stream 47, dynamic)",
+   "source": [
+    "vllm-ascend/vllm_ascend/models/deepseek_v41/model.py:1368-1398 prepare_engram_inputs buffers/zero/copy",
+    "vllm-ascend/vllm_ascend/models/deepseek_v41/model.py:973-975 _engram_max_tokens = max(max_num_batched_tokens, max_cudagraph_capture_size) = 2048",
+    "bneck log pad=0.12-0.14ms/step (run.log:876-883)"
+   ],
+   "value_source": "lookups values from Engram graph; shapes static at capacity; every step rewrites the head of the buffers"
+  },
+  {
+   "chain": "DSA sparse attention metadata builders (stream 37, 37 ops: SparseFlashMlaMetadata x3 = 224us/step, QuantLightningIndexerV2Metadata x2 = 141us/step, SparseAttnSharedkvMetadata x1 = 55us/step + 31 small glue ops)",
+   "source": [
+    "vllm-ascend/vllm_ascend/attention/dsa_v41.py:873 npu_sparse_flash_mla_metadata",
+    "vllm-ascend/vllm_ascend/attention/dsa_v41.py:911 npu_quant_lightning_indexer_v2_metadata",
+    "vllm-ascend/vllm_ascend/attention/dsa_attn_kv_plan.py:148 npu_sparse_attn_sharedkv_metadata"
+   ],
+   "host_trace_evidence": "cpu_op events t+12.5-13.5ms: npu_sparse_flash_mla_metadata 72/69/72us, npu_quant_lightning_indexer_v2_metadata 74/60us, npu_sparse_attn_sharedkv_metadata 48us",
+   "value_source": "seq_lens/block tables (seq len grows every step)"
+  },
+  {
+   "chain": "eager vocab-parallel embedding + TP allreduce (GatherV2 16160,5120;6;1 + MaskedFill 6,5120;6,1 + vllm::all_reduce)",
+   "source": [
+    "vllm-ascend/vllm_ascend/ops/vocab_parallel_embedding.py:229-257 mask -> embedding -> masked_fill_ -> torch.ops.vllm.all_reduce",
+    "vllm-ascend/vllm_ascend/spec_decode/llm_base_proposer.py:789-794 / 1026-1031 / 1512 (inputs_embeds prebuild via embed_input_ids)"
+   ],
+   "host_trace_evidence": "t+14.0ms cpu_op vllm::all_reduce 123us + c10d::allreduce_ 62us; device hcom_allReduce_ 22-210us normal, 4325/4278us at steps 11/12; followed by aclrtSynchronizeStreamWithTimeout 0.45-0.53ms (4.32/4.33ms at steps 11/12)",
+   "value_source": "6 token ids of the current step"
+  },
+  {
+   "chain": "remaining ~250 eager small ops (divmods/where/copy_/fill_/index_select 1M x 64 in a 12-24x repeating pattern; stream 47, dynamic)",
+   "confidence": "medium",
+   "source_candidates": [
+    "target-side input preparation glue in vllm_ascend/worker/model_runner_v1.py (slot/positions/attention metadata path)",
+    "DSpark/Dflash proposer input buffers (vllm_ascend/spec_decode/dspark_proposer.py:223-344, dflash buffers; llm_base_proposer.py:2477-2493 _pad_draft_buffers fill_)",
+    "engram page mirror writers (engram_device_index.py:1082-1119)"
+   ],
+   "open_question": "no python stack in trace_view.json; exact caller of the 12-24x mini-blocks and of the 26 .item() reads needs a with_stack profile or py-spy sampling"
+  }
+ ],
+ "static_vs_dynamic": {
+  "geometry_static": "all 405 (W1) / 431 (W2) operators are geometry-static across the 10 steps: identical (Type, OP State, Shape, Stream) multisets and identical per-key counts/durations (+-50us). Criteria: 10-step key diff is empty; no N/A-shape kernels except hcom; no shape growth with seq len",
+  "value_dynamic": {
+   "depends_on_previous_accept_result": [
+    "engram hash/lookup (input_ids = last accepted + draft tokens; positions)",
+    "slot mapping (positions, block table)",
+    "DSA metadata (seq_lens grows)",
+    "draft seed buffers (next_token_ids copy)",
+    "embedding of the current 6 token ids"
+   ],
+   "host_control_flow_reads": "26x aten::item/_local_scalar_dense per step inside the pre window (each 0.6-5.5us host; forces a D2H sync point)",
+   "address_static": "engram zero-copy graph requires stable data_ptr of input_ids/positions/query_start_loc/block_table (engram_graph.py:29-33, 160-175); ptr_mismatch=0 this run"
+  }
+ },
+ "host_budget": {
+  "per_step_host_api_us": {
+   "aclrtSynchronizeStream": 14594.8,
+   "launch": 1750.6,
+   "aclrtSynchronizeEvent": 1473.5,
+   "aclrtLaunchKernelWithHostArgs": 1355.3,
+   "aclrtSynchronizeStreamWithTimeout": 844.7,
+   "aclnnInplaceCopy": 505.2,
+   "aclnnInplaceFillScalar": 302.9,
+   "aclrtMemcpyAsync": 258.0,
+   "aclnnInplaceCopyGetWorkspaceSize": 229.8,
+   "aclnnSWhere": 195.2,
+   "aclnnRemainderTensorScalar": 176.1,
+   "aclnnDivMods": 169.9,
+   "aclrtSynchronizeDeviceWithTimeout": 151.0,
+   "aclnnGeScalar": 140.4,
+   "aclnnIndex": 122.6,
+   "aclnnIndexSelect": 104.2,
+   "aclrtGetStreamAttribute": 94.2,
+   "aclnnClampMin": 93.3,
+   "aclrtRecordEvent": 86.6,
+   "hcom_allGather_": 81.9,
+   "aclnnSub": 79.0,
+   "aclrtPointerGetAttributes": 75.1,
+   "AivKernel": 60.9,
+   "aclnnGather": 48.9,
+   "hcom_allReduce_": 48.0,
+   "aclnnSparseFlashMlaMetadataGetWorkspaceSize": 41.4,
+   "aclnnSparseFlashMlaMetadata": 36.3,
+   "aclrtStreamWaitEvent": 33.4,
+   "aclnnAdd": 32.8,
+   "aclnnLtTensor": 30.2,
+   "aclrtGetResInCurrentThread": 30.2
+  },
+  "pre_window_step5": {
+   "window_us": 15448,
+   "device_kernel_union_us": 2113,
+   "leaf_cpu_op_self_time_us": 3280,
+   "aclnn_api_events": 653,
+   "aclnn_api_time_us": 2640,
+   "untraced_host_glue_us_approx": 10600
+  },
+  "pre_window_step11": {
+   "window_us": 19149,
+   "device_kernel_union_us": 6298,
+   "aclnn_api_events": 652,
+   "aclnn_api_time_us": 2800,
+   "note": "the extra 4.2ms of device time vs step5 is the embedding allreduce straggler wait (4325us)"
+  },
+  "sync_timeline": "aclrtSynchronizeStreamWithTimeout at t+14.9ms (0.4-0.5ms; 4.3ms at steps 11/12, waits on the embedding allreduce); aclrtSynchronizeStream ~21.6-22.3ms at t+16.9-21.5ms (right after the target graph starts; likely harness measurement - formal_dspark_counters.py:359 has torch.npu.synchronize() - flagged as unverified)"
+ },
+ "eager_arm_diff": {
+  "graph_arm_cluster_count": 128,
+  "eager_arm_cluster_count": 128,
+  "keys_only_in_graph_arm": 0,
+  "keys_only_in_eager_arm": 0,
+  "only_delta": "hcom_allReduce_ duration (device): graph arm ~911us/step cumulative (median 22us; steps 5&7 ~210us; steps 11/12 ~4.3ms) vs eager arm ~2179us/step",
+  "per_step_pre_counts_eager": {
+   "5": 405,
+   "6": 405,
+   "7": 405,
+   "8": 405,
+   "9": 405,
+   "10": 405,
+   "11": 405,
+   "12": 405,
+   "13": 405,
+   "14": 405
+  },
+  "eager_gap_note": "eager arm target graph model id=48, draft rows dynamic; identical pre-target multiset"
+ },
+ "model_id_map": {
+  "48": "target graph (80 HcPre 6,4,5120; 1986 kernels; static)",
+  "47": "draft graph (6 HcPre 5,4,5120; 282 static + 8 N/A)",
+  "49": "Engram lookup graph (87 static)",
+  "4294967295": "eager / not captured (415 dynamic + 15 static + 31 N/A in step5)"
+ },
+ "open_questions": [
+  "exact python caller of the ~250 eager mini-ops and of the 26 .item() reads (needs with_stack trace or py-spy)",
+  "whether the 22ms aclrtSynchronizeStream once per step is harness measurement cost or engine cost",
+  "the 4096-dim ViewCopy buffer identity (4096 = engram pages boot capacity; unverified)"
+ ]
+}

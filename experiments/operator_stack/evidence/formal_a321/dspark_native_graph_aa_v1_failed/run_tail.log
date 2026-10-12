@@ -1,0 +1,40 @@
+(EngineCore pid=1814038) WARNING 10-11 22:58:52 [serial_utils.py:79] Allowing insecure serialization using pickle due to VLLM_ALLOW_INSECURE_SERIALIZATION=1
+WARNING 10-11 22:58:52 [serial_utils.py:79] Allowing insecure serialization using pickle due to VLLM_ALLOW_INSECURE_SERIALIZATION=1
+(EngineCore pid=1814038) INFO 10-11 22:58:52 [kernel.py:306] Final IR op priority after setting platform defaults: IrOpPriorityConfig(rms_norm=['native'], fused_add_rms_norm=['native'])
+(EngineCore pid=1814038) WARNING 10-11 22:58:52 [vllm.py:1757] max_num_scheduled_tokens is set to 2044 based on the speculative decoding settings. This may lead to suboptimal performance. Consider increasing max_num_batched_tokens to accommodate the additional draft token slots, or decrease num_speculative_tokens or max_num_seqs.
+(EngineCore pid=1814038) INFO 10-11 22:58:52 [platform.py:863] The timeout interval of the HCCL operator is 1836s. Timeout in seconds for execute_model RPC calls in multiprocessing must be greater than 1836s, Set VLLM_EXECUTE_MODEL_TIMEOUT_SECONDS=3000
+(EngineCore pid=1814038) INFO 10-11 22:58:52 [platform.py:1167] FlashComm1 is disabled. Using flashinfer_all2allv as the all2all backend.
+(EngineCore pid=1814038) INFO 10-11 22:58:52 [utils.py:1221] Block size is set to 128 if prefix cache or chunked prefill is enabled.
+(EngineCore pid=1814038) INFO 10-11 22:58:52 [platform.py:1356] Set PYTORCH_NPU_ALLOC_CONF=expandable_segments:True
+(EngineCore pid=1814038) INFO 10-11 22:58:52 [compilation.py:329] Enabled custom fusions: norm_quant, act_quant
+[transformers] Unrecognized keys in `rope_parameters` for 'rope_type'='default': {'original_max_position_embeddings', 'factor', 'beta_fast', 'beta_slow'}
+[transformers] Unrecognized keys in `rope_parameters` for 'rope_type'='default': {'original_max_position_embeddings', 'factor', 'beta_fast', 'beta_slow'}
+[transformers] Unrecognized keys in `rope_parameters` for 'rope_type'='default': {'original_max_position_embeddings', 'factor', 'beta_fast', 'beta_slow'}
+[transformers] Unrecognized keys in `rope_parameters` for 'rope_type'='default': {'original_max_position_embeddings', 'factor', 'beta_fast', 'beta_slow'}
+INFO 10-11 22:58:53 [hf.py:540] Detected the chat template content format to be 'string'. You can set `--chat-template-content-format` to override this.
+INFO 10-11 22:58:55 [base.py:235] Multi-modal warmup completed in 2.217s
+INFO 10-11 22:58:55 [base.py:235] Readonly multi-modal warmup completed in 0.027s
+(Worker_TP0_EP0 pid=1814065) INFO 10-11 22:58:57 [acl_graph.py:252] Replaying aclgraph
+FORMAL_DSPARK_REQUEST warmup-0 warmup
+(Worker_TP7_EP7 pid=1814462) [bneck] mode=stock steps=20 dec=17 hp=668.945 pad=0.133 route=124.192 total=124.405 n=6 padded=6 max=2048 lookup=(2048, 6144) fake=0 mirror=0/0 | graphs=2 replays=17 captures=2 eager_fallbacks=2 ptr_mismatch=0 keys=[(4, 1, 64), (6, 1, 64)] last_fallback='n=2044 exceeds max_tokens=192'
+(Worker_TP2_EP2 pid=1814128) [bneck] mode=stock steps=20 dec=17 hp=675.900 pad=0.131 route=74.005 total=74.217 n=6 padded=6 max=2048 lookup=(2048, 6144) fake=0 mirror=0/0 | graphs=2 replays=17 captures=2 eager_fallbacks=2 ptr_mismatch=0 keys=[(4, 1, 64), (6, 1, 64)] last_fallback='n=2044 exceeds max_tokens=192'
+(Worker_TP6_EP6 pid=1814312) [bneck] mode=stock steps=20 dec=17 hp=674.452 pad=0.131 route=129.914 total=130.123 n=6 padded=6 max=2048 lookup=(2048, 6144) fake=0 mirror=0/0 | graphs=2 replays=17 captures=2 eager_fallbacks=2 ptr_mismatch=0 keys=[(4, 1, 64), (6, 1, 64)] last_fallback='n=2044 exceeds max_tokens=192'
+(Worker_TP5_EP5 pid=1814266) [bneck] mode=stock steps=20 dec=17 hp=670.611 pad=0.131 route=63.388 total=63.599 n=6 padded=6 max=2048 lookup=(2048, 6144) fake=0 mirror=0/0 | graphs=2 replays=17 captures=2 eager_fallbacks=2 ptr_mismatch=0 keys=[(4, 1, 64), (6, 1, 64)] last_fallback='n=2044 exceeds max_tokens=192'
+(Worker_TP1_EP1 pid=1814084) [bneck] mode=stock steps=20 dec=17 hp=678.419 pad=0.137 route=46.805 total=47.024 n=6 padded=6 max=2048 lookup=(2048, 6144) fake=0 mirror=0/0 | graphs=2 replays=17 captures=2 eager_fallbacks=2 ptr_mismatch=0 keys=[(4, 1, 64), (6, 1, 64)] last_fallback='n=2044 exceeds max_tokens=192'
+(Worker_TP0_EP0 pid=1814065) [bneck] mode=stock steps=20 dec=17 hp=643.396 pad=0.140 route=41.913 total=42.136 n=6 padded=6 max=2048 lookup=(2048, 6144) fake=0 mirror=0/0 | graphs=2 replays=17 captures=2 eager_fallbacks=2 ptr_mismatch=0 keys=[(4, 1, 64), (6, 1, 64)] last_fallback='n=2044 exceeds max_tokens=192'
+(Worker_TP4_EP4 pid=1814220) [bneck] mode=stock steps=20 dec=17 hp=678.687 pad=0.140 route=71.371 total=71.601 n=6 padded=6 max=2048 lookup=(2048, 6144) fake=0 mirror=0/0 | graphs=2 replays=17 captures=2 eager_fallbacks=2 ptr_mismatch=0 keys=[(4, 1, 64), (6, 1, 64)] last_fallback='n=2044 exceeds max_tokens=192'
+(Worker_TP3_EP3 pid=1814174) [bneck] mode=stock steps=20 dec=17 hp=677.790 pad=0.138 route=75.735 total=75.955 n=6 padded=6 max=2048 lookup=(2048, 6144) fake=0 mirror=0/0 | graphs=2 replays=17 captures=2 eager_fallbacks=2 ptr_mismatch=0 keys=[(4, 1, 64), (6, 1, 64)] last_fallback='n=2044 exceeds max_tokens=192'
+FORMAL_DSPARK_REQUEST warmup-1 warmup
+FORMAL_DSPARK_TERMINAL_REJECTION Draft graph is not configured; actual replay is checked for every real proposal
+INFO 10-11 22:58:58 [utils.py:612] [shutdown] Process manager: send sigterm to process EngineCore
+(EngineCore pid=1814038) INFO 10-11 22:58:58 [core.py:1332] [shutdown] EngineCore: trigger received signal=SIGTERM
+(EngineCore pid=1814038) INFO 10-11 22:58:58 [core.py:1468] [shutdown] EngineCore: start mode=abort timeout=0s
+(EngineCore pid=1814038) INFO 10-11 22:58:58 [core.py:1499] [shutdown] EngineCore: request processing complete; starting resource teardown
+(EngineCore pid=1814038) INFO 10-11 22:58:58 [core.py:1345] [shutdown] EngineCore: exiting busy loop
+(EngineCore pid=1814038) INFO 10-11 22:58:58 [multiproc_executor.py:440] [shutdown] Executor: waiting for worker exit count=8
+(Worker_TP0_EP0 pid=1814065) INFO 10-11 22:58:58 [multiproc_executor.py:804] Parent process exited, terminating worker queues
+WARNING 10-11 22:59:03 [utils.py:632] [shutdown] Process manager: force killing remaining processes count=1
+WARNING 10-11 22:59:03 [utils.py:637] [shutdown] Process manager: force killing remaining process EngineCore pid 1814038
+(EngineCore pid=1814038) WARNING 10-11 22:59:03 [multiproc_executor.py:452] [shutdown] Executor: workers still running after grace period; sending SIGTERM count=8
+/usr/local/python3.12.13/lib/python3.12/multiprocessing/resource_tracker.py:279: UserWarning: resource_tracker: There appear to be 1 leaked shared_memory objects to clean up at shutdown
+  warnings.warn('resource_tracker: There appear to be %d '
