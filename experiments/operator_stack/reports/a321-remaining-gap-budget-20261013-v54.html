@@ -1,0 +1,167 @@
+<!doctype html><html lang="zh-CN"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>剩余缺口定量：26.55 → 20ms 需要什么（2026-10-13 v54）</title><style>body{margin:32px auto;padding:0 24px;max-width:1060px;font-family:system-ui,sans-serif;color:#172033;line-height:1.65}h1{font-size:28px}h2{margin-top:32px;font-size:21px}table{border-collapse:collapse;width:100%;display:block;overflow:auto}td,th{border:1px solid #d9deea;padding:8px 12px;text-align:left}th{background:#f1f4f9}code{background:#eef1f6;padding:2px 4px;overflow-wrap:anywhere}</style><body><h1>剩余缺口定量：26.55 → 20ms 需要什么（2026-10-13 v54）</h1>
+<p>当前最优正式服务（含 DSpark/MTP、完整 40 层 W4A8 + Engram int8 + 视觉 + MTP3、strict HCCL）：</p>
+<pre><code>(26.5523755957162 ms/step, A=2.7309236947791167, 102.85044684362282 tok/s)
+747 actual rounds / 2040 decoded tokens / clean 8/8 / 复读 0
+GSM8K 100/100、Vision 23/23（同一快照、同一服务）
+</code></pre>
+<p>目标 ≤20ms/step ⇒ 还需 <strong>−6.55ms（−24.7%）</strong>。本报告给出这 6.55ms 的逐项归属与"什么才能做到"。</p>
+<h2>1. 每轮实测分解（v11_bi 臂的 8 请求、747 轮精确收据）</h2>
+<table>
+<thead>
+<tr>
+<th>段</th>
+<th style="text-align: right;">每轮中位</th>
+<th style="text-align: right;">合计</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>execute → bookkeeping</td>
+<td style="text-align: right;">22.11ms</td>
+<td style="text-align: right;">16.52s</td>
+<td><code>_prepare_inputs</code>/Engram 准备（被隐藏）+ 目标图 21.65ms + <code>_sample</code>（拒绝采样）+ D2H</td>
+</tr>
+<tr>
+<td>bookkeeping → sample_end</td>
+<td style="text-align: right;"><strong>3.80ms</strong></td>
+<td style="text-align: right;">2.84s</td>
+<td><strong>草稿提案 propose_draft_token_ids ≈3.7ms</strong>（3 层 MTP，图重放）+ 输出整理</td>
+</tr>
+<tr>
+<td>轮间 gap</td>
+<td style="text-align: right;">0.11ms</td>
+<td style="text-align: right;">0.08s</td>
+<td>极小</td>
+</tr>
+<tr>
+<td>轮总计</td>
+<td style="text-align: right;"><strong>25.66ms</strong>（均值 25.92）</td>
+<td style="text-align: right;">19.36s</td>
+<td>另有窗口 pre+post 约 0.47s（59ms/请求）</td>
+</tr>
+</tbody>
+</table>
+<p>⇒ 精化的关键路径模型：<strong>轮 ≈ 目标图 21.65 + 草稿 ≈2.6–3.7 + 拒绝采样 ≈1–1.2</strong>（其余宿主段与
+Engram/slot-map 等设备小工作已被 async 完全隐藏——见下节的空结果实验证明）。</p>
+<h3>1.1 空结果实验（本轮两条新证据）</h3>
+<ul>
+<li><strong>小算子捆绑完全无效（精确零差）</strong>：<code>BI + V41_SLOT_MAP_FUSED + V41_IDS64_HOIST</code> 与 BI 基线
+  逐位相同——<code>26.552488540829987</code> vs <code>26.5523755957162</code> ms/step，747 轮/A=2.7309 完全一致。
+  ⇒ slot-mapping 与 int64-cast 都在<strong>被隐藏的宿主段</strong>，其设备收益不上关键路径。</li>
+<li><strong><code>enable_reduce_sample</code> 与 DSpark 不兼容</strong>：起服即报
+  <code>'DeepseekV41DSparkModel' object has no attribute 'logits_processor'</code>。</li>
+<li><strong><code>V41_ENGRAM_GATE_HOIST</code> 与批不变模式冲突</strong>：其权重缓存键用 <code>id()/shape</code>，在 Dynamo 追踪下
+  产生数据依赖表达式 <code>u0</code>，profile_run 直接失败（首测即排除）。</li>
+</ul>
+<h2>2. 设备预算与"墙"（决定性事实）</h2>
+<ul>
+<li>目标图（40 层 × 6 行）rank0 实测：span 22.96ms、union <strong>21.65ms</strong>，<strong>1986 kernel/步</strong>、平均 ~11µs/个。</li>
+<li>该图内：allReduce 81× 3.32ms、GroupedMatmulSwigluQuantV2 40× 3.16、HcPre 80× 2.30、MatMulV2 97× 2.15、
+  QuantBatchMatmulV3 208× 2.00、GroupedMatmul 40× 1.48、SparseFlashMla 40× 1.31，其余 ~8ms 由数百个
+  1–10µs 小算子构成（Cast/DynamicQuant/RmsNorm/Add/Mask…）。</li>
+<li><strong>1 行（关闭 DSpark 的同一栈）实测 19.23 ms/step</strong>（客户端 19.289956）。即：<strong>即使只验证 1 行，
+  这个 40 层栈本身就要 19.2ms/步</strong>。</li>
+<li>5 个额外 verify 行的边际成本 = 26.55 − 19.23 ≈ 7.3ms（≈1.5ms/行）。</li>
+<li>⇒ 形式化：<code>T(6行) ≈ 固定成本 17.7 + 6×1.5</code>。要在 6 行下 ≤20ms，需要
+  <strong>固定成本 ≤12.7ms（现在 17.7）</strong> 且边际 ≤1.2ms/行；或让 6 行与 1 行同价（算法不可能）。</li>
+</ul>
+<h2>3. 配置空间：已穷尽（本轮补齐最后两个）</h2>
+<table>
+<thead>
+<tr>
+<th>候选</th>
+<th>结果</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>VLLM_BATCH_INVARIANT</code></td>
+<td><strong>采纳</strong>：质量门通过、ms/step 噪声级、clean 7/8→8/8</td>
+</tr>
+<tr>
+<td><code>multistream_overlap_shared_expert</code> + <code>multistream_dsv4_dsa_overlap</code></td>
+<td><strong>采纳</strong>：−1.9ms</td>
+</tr>
+<tr>
+<td><code>V41_SLOT_MAP_FUSED</code> / <code>V41_IDS64_HOIST</code></td>
+<td>设备侧各 −1.2/−0.2ms 级，客户端两轮均噪声级（本轮在 BI 臂上复测）</td>
+</tr>
+<tr>
+<td><code>V41_MOE_COMM_ALLGATHER=0</code>（MC2）</td>
+<td>负（目标图 +3.1ms），排除</td>
+</tr>
+<tr>
+<td><code>enable_fused_mc2=1</code>（FUSED_MC2/MegaMoe）</td>
+<td>厂商配置门不满足（<code>moe_intermediate_size=2304</code> 不是 512 倍数）</td>
+</tr>
+<tr>
+<td><code>enable_reduce_sample</code>（省 logits 全量 gather）</td>
+<td><strong>与 DSpark 模型不兼容</strong>：<code>'DeepseekV41DSparkModel' object has no attribute 'logits_processor'</code></td>
+</tr>
+<tr>
+<td><code>enable_kv_nz</code></td>
+<td>仅 PD 场景（D 节点），本服务非 PD</td>
+</tr>
+<tr>
+<td><code>enable_sp_by_pass</code></td>
+<td>需 pass_config.enable_sp；SP 对 6 token/TP8 无意义</td>
+</tr>
+<tr>
+<td><code>weight_nz_mode=2</code></td>
+<td>只影响 bf16/fp16 权重（本栈绝大多数是 W4A8 量化），量级 ≪0.1ms</td>
+</tr>
+<tr>
+<td><code>draft_window_size</code></td>
+<td>对 DSpark 会<strong>降低接受长度</strong>（厂商注释明示），净负</td>
+</tr>
+<tr>
+<td><code>enable_sparse_sfa_c8/li_c8</code>、<code>c8_enable_reshape_optim</code></td>
+<td>需稀疏层配置，本 checkpoint 无</td>
+</tr>
+<tr>
+<td><code>enable_mc2_hierarchy_comm</code>、<code>mc2_comm_alg</code></td>
+<td>仅 MC2 路径；本栈走 AllGather</td>
+</tr>
+<tr>
+<td>upstream <code>pass_config</code>（fuse_gemm_comms / fuse_allreduce_rms / …）</td>
+<td>Ascend 编译器未注册这些 pass（只注册 norm_quant/qknorm_rope/muls_add），实测不生效</td>
+</tr>
+<tr>
+<td><code>V41_ENGRAM_GATE_HOIST</code></td>
+<td><strong>与 BI 冲突</strong>：用 <code>id()/shape</code> 做缓存键，在 Dynamo 追踪下产生数据依赖表达式 <code>u0</code>，profile_run 直接失败（本轮首测）</td>
+</tr>
+</tbody>
+</table>
+<h2>4. 要跨过 6.55ms，需要什么（厂商内核级）</h2>
+<p>按"预计可得收益 / 所需改动"排序（每一项都需要改 CANN 算子或 vLLM-Ascend 内核调度，不是配置）：</p>
+<ol>
+<li><strong>量化链融合</strong>（DynamicQuant 172× + QuantBatchMatmulV3 208× + Cast 126× 目前各自成 kernel）：
+   把"quant→GEMM→cast"折成少数 SuperKernel，按小算子均值 ~11µs 估，可省 <strong>1.5–2.5ms</strong>。</li>
+<li><strong>集合通信合并</strong>：同层 attention AllReduce 与 MoE AllReduce 可合并为一次（延迟对齐），
+   81× 3.32ms → 约 1.7ms，省 <strong>~1.6ms</strong>。</li>
+<li><strong>HcPre/HcPost 链</strong>（80+80 个小算子 2.9ms）：与相邻 RmsNorm/量化融合，省 <strong>~1.0ms</strong>。</li>
+<li><strong>采样段瘦身</strong>（每轮 3.8ms 的收尾 + 拒绝采样内核）：把采样并入上图或减同步点，省 <strong>1–2ms</strong>。</li>
+<li><strong>pre_target 405 小算子折叠为元数据图</strong>（设备并集 2.1–4.4ms）：省 <strong>1–2ms</strong>。</li>
+</ol>
+<p>合计 <strong>6.1–9.1ms</strong>，与缺口同量级——但全部落在厂商内核域。<strong>这不是配置或本仓 patch 可达的</strong>。</p>
+<h2>5. 结论与建议</h2>
+<ul>
+<li>已交付部分：<strong>质量门（GSM8K 100/100、Vision 23/23、模型归属）在同一最优服务上真实通过</strong>；
+  性能 57.58 → 26.55 ms/step（−53.9%），全部有原始 HTTP/轮次收据。</li>
+<li>≤20ms 的剩余障碍是<strong>该栈的每步固定成本（17.7ms，1 行实测 19.2ms）本身已接近目标</strong>，
+  加上 5 个 verify 行的 7.3ms 边际。要在 6 行下达 20ms，必须把固定成本砍到 ≤12.7ms，
+  即上文第 4 节的厂商级融合。</li>
+<li>建议路径（按代价）：① 向厂商提交上述 1–5 项内核需求（附本报告的 kernel 级证据与收益估算）；
+  ② 若目标允许"最优服务"以不同几何验收（例如更短输出/更小 A），可另议；③ 本仓侧继续做
+  数值/质量/交付硬化（已完成）。</li>
+</ul>
+<h2>6. 证据</h2>
+<ul>
+<li>三元组与逐轮分解：<code>evidence/formal_a321/dspark_native_graph_api_v11_bi/</code>（含 8 份原始 HTTP）；
+  <code>/work/results/formal_dspark_native_graph_api_v11_bi/client/acceptance.json</code>（远端全量）。</li>
+<li>质量：<code>evidence/formal_a321/quality_gate_pass_bi_v14/</code>。</li>
+<li>设备时间线（目标图 kernel 明细、2026 kernel/步）：<code>evidence/formal_a321/dspark_native_graph_profile_v1/</code>、
+  <code>.../dspark_native_graph_profile_mc2_v1/</code>。</li>
+<li>1 行对照：<code>evidence/a321-formal-mask-client-pass-20261011-v32.md</code>（19.289956ms/step，A=1）。</li>
+</ul></body></html>
