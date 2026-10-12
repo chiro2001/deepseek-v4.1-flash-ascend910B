@@ -551,3 +551,35 @@ tiny同一PID/job当前13请求/5项数值门通过，新增首seed OFF/ON与ON 
 - 证据：`evidence/formal_a321/dspark_native_graph_api_v10_hoist_slotfused/`（196KB）。
 - 服务收口：wrapper 先被 TERM 未带走 python 子进程，随后直接 TERM entry 成功；
   physical 8–15 复核 4/4 空闲，无我方残留。
+
+2026-10-13第二十轮更新（**批不变模式攻关：找到并修复厂商 3 处缺陷**）：
+- 目标缺口（GSM8K 99/100，gsm8k-12 的 12 vs 13）根因是 6 行 verify 与 1 行 decode 的
+  **批形状数值差异**。找到厂商正解：`VLLM_BATCH_INVARIANT=1`（worker init 自动注册
+  batch-invariant mm/matmul/softmax/attention/add_rms_norm/reduce_sum；另有独立 CANN 算子包
+  `cann-ops-batch_invariant`）。逐层打通三处厂商缺陷：
+  1) **`reduce_sum` 拒绝 `axis=` 别名**（`vllm_ascend.batch_invariant` 影子 `torch.sum`，
+     而厂商自家 W4A8 权重加载用 `.sum(axis=1)`）⇒ 快照新增 `stack/bi_axis_compat.py`（env 门控，
+     axis→dim 映射；非末维回退原生 sum：厂商算子只实现最后一维，且加载期求和不属服务路径）。
+  2) **CANN 侧算子包缺失**：容器只装了 torch 扩展（`batch_invariant_ops`），
+     opapi 库 `libopapi_batchinvariant.so` 不存在。首次误装 910b 变体（报
+     `aclnnReduceSumBatchInvariant not in libopapi_batchinvariant.so`），
+     经 `get_soc_version()=253 / Ascend910_9382` 确认本机是 **910_93（A3）**，
+     卸载后改装 `cann-ops-batch_invariant-A3-1.0.0`（run 包，--quiet --install-for-all），
+     并以容器环境变量 `ASCEND_CUSTOM_OPP_PATH=/usr/local/Ascend/cann-9.1.0/opp/vendors/batch_invariant`
+     接入（不能改 LD_LIBRARY_PATH：会破坏 set_env.sh 的 libhccl 解析）。设备级验证通过：
+     6 行与 1 行 reduce **逐位一致**、reduce_sum 支持负 dim/last dim。
+  3) **A3 算子包缺 Meta（fake tensor）内核**：`npu_reduce_sum_batch_invariant` 在 meta 张量上
+     返回输入形状而不是归约形状 ⇒ Dynamo 假张量追踪在 engram gate 的 `.sum(-1)` 处形状失配
+     （`(s72,4,5120) 与 (s72,4) 相乘`报错）。`bi_axis_compat.install_meta_kernels()` 为 7 个算子
+     注册正确的 Meta 形状（含 reduce/sum/mean/softmax/log_softmax/mm/matmul/add_rms_norm），
+     容器内直测：`[BI-META] installed=7 skipped=` 且 fake 张量形状正确。
+- 质量快照流水线沿用 v2 门控（`DSPARK_QUALITY_ASYNC_ARM=1`）：v5/v6/v7/v8/v9/v9b 六轮迭代，
+  每轮修复一处厂商缺陷（v9b = 当前完整修复版，snapshot sha `9f9f6c36365bf8758923e420b3b0d341
+  243077aea8be48351fe90df18da6374f`）。另发现并修复自身工具链问题：seed 内嵌 source map 与
+  独立 manifest 需同步重钉（否则 `Seed candidate differs from its pinned frozen source manifest`）。
+- **启动受阻（外部占用）**：physical14 被其他租户 qwen3-30B 测试进程占用（20:33 起，非我方），
+  资源门正确拒绝启动（`Requested chip is occupied: 14`）；未触碰对方。待其释放后立即启动
+  `formal_dspark_quality_async_v9c_bi`（命令已固定：source-dir /work/src_dspark_general_quality_v9b，
+  manifest sha 9f9f6c36…，port 18773，--allow-known-alarm --stop-after）。
+- 判据：若批不变模式生效，则 6 行 verify 与 1 行 decode 数值一致 ⇒ gsm8k-12 应给出与 A1 相同的
+  13 ⇒ GSM8K 100/100；同时需复核 Vision 23/23 与（另起的）性能窗口是否受影响。
