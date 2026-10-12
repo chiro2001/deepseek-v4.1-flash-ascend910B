@@ -661,3 +661,27 @@ tiny同一PID/job当前13请求/5项数值门通过，新增首seed OFF/ON与ON 
   距 ≤20ms 仍差 **6.55ms**；该缺口与 v50 判定一致（目标图 1986 kernel/21.6ms、81×allReduce 3.3ms、
   量化/HcPre 融合），属厂商内核级结构化工作。**后续性能优化应直接在 BI 臂上进行**
   （BI 代价≈0 且质量更好，避免为性能牺牲质量的两难）。
+
+2026-10-13第二十五轮更新（**配置空间穷尽 + 关键路径精确化 + v54 报告发布**）：
+- **关键路径精确化**（v11_bi 的 747 轮精确收据 + 逐段分解）：
+  `轮 25.66ms ≈ 目标图 21.65 + 草稿 ≈2.6–3.7 + 拒绝采样 ≈1–1.2`；
+  `bookkeeping→sample_end 的 3.80ms` 经查**就是草稿提案**（`propose_draft_token_ids` 位于
+  `_bookkeeping_sync` 之后），pre_target/slot-map/Engram 等全被 async 隐藏。
+- **两条新否定证据**：
+  ① `BI + V41_SLOT_MAP_FUSED + V41_IDS64_HOIST`（v14_bi_smallops2）与 BI 基线**逐位相同的空结果**
+  （26.552488540829987 vs 26.5523755957162，747 轮/A=2.7309 一致）⇒ 这些设备侧小节省不上关键路径；
+  ② `enable_reduce_sample` 与 DSpark 模型不兼容（起服报 `'DeepseekV41DSparkModel' object has no
+  attribute 'logits_processor'`）；`V41_ENGRAM_GATE_HOIST` 与批不变模式冲突（缓存键含 `id()/shape`，
+  Dynamo 追踪下产生数据依赖表达式 `u0`，profile_run 失败）。
+- **配置空间总表**（报告 v54 第 3 节）：BI/多流（采纳）、slot-fused/ids64-hoist（空）、MC2（负）、
+  FUSED_MC2（配置门不满足）、reduce_sample（不兼容）、kv_nz（PD 专属）、sp_by_pass（需 SP）、
+  nz_mode2（仅 bf16）、draft_window（降低接受率）、c8 稀疏系列（需稀疏层）、upstream pass_config（Ascend 未注册）。
+- **定量结论**：1 行（关 DSpark）实测 19.23ms/step ⇒ 该栈每步固定成本≈17.7ms、边际≈1.5ms/行；
+  6 行要 ≤20ms 需把固定成本砍到 ≤12.7ms。报告 v54 给出 5 项厂商内核级融合清单与收益估算
+  （量化链融合 1.5–2.5、allReduce 合并 ~1.6、HcPre/Post 链 ~1.0、采样段 1–2、pre_target 折叠 1–2，
+  合计 6.1–9.1ms），并明确这不是配置或本仓 patch 可达。
+- 交付：报告 `a321-remaining-gap-budget-20261013-v54`（MD 7142B / HTML 9772B）发布 COS+links
+  （回执 `publication_v49.json`，下载校验 true）；证据目录
+  `evidence/formal_a321/remaining_gap_20261013/`（逐轮分解 v11_bi/v9 对照、v14 空结果收据、
+  RS 不兼容原文）；提交 `e8d4a3f`。
+  （BI 代价≈0 且质量更好，避免为性能牺牲质量的两难）。
