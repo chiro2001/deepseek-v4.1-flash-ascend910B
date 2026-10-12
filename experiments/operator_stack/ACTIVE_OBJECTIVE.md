@@ -684,4 +684,33 @@ tiny同一PID/job当前13请求/5项数值门通过，新增首seed OFF/ON与ON 
   （回执 `publication_v49.json`，下载校验 true）；证据目录
   `evidence/formal_a321/remaining_gap_20261013/`（逐轮分解 v11_bi/v9 对照、v14 空结果收据、
   RS 不兼容原文）；提交 `e8d4a3f`。
+
+2026-10-13第二十六轮更新（**融合扫描 + 厂商需求 v55 + buf200/c8 最后排除 + v56 状态总览**）：
+- **融合扫描子代理交付**（离线只读、可复现；脚本两跑 JSON 逐字节一致）：CSV 去重口径修正
+  （`Stream N/A` 通信行与具体 stream 行 926/926 全配对，target 图 **1,906 kernel/步**）；
+  Top 邻接候选：MoE 段（上界 5.37 / 保守 1.88–3.22ms）、HcPre/HcPost 链（4.60 / 1.61–2.76）、
+  量化链 core（2.72 / 0.95–1.63）、allReduce 图级成对合并（1.55 / 0.54–0.93）；
+  三类并集（945 kernel/步=49.6%）上界 12.50 / 保守 **4.38–7.50**（并通信 4.92–8.43）。
+  **重要修正**：allReduce "成对合并"在实测中**不存在紧邻形态**（同流相邻 gap 中位 234µs、
+  ≤10µs 的对为 0）⇒ 只能图级合并。
+  证据 `evidence/formal_a321/fusion_scan_20261013/`（md 15.3KB + json 91KB + 脚本 32.5KB）。
+- **厂商需求 v55 发布**：R1–R6 六项（含邻接证据、gap、收益区间、"新增 vs 扩展"判定）+ 开关对照总表；
+  COS+links 回执 `publication_v50.json`。报告 `reports/a321-vendor-kernel-fusion-request-20261013-v55.md`。
+- **可复现最优服务套件**：`evidence/formal_a321/best_service_20261013/`（`env_exports.sh` 逐字 35 项 env +
+  `env_manifest.json`（快照/收据 SHA、命令、期望值）+ `BEST_SERVICE.md`）。
+- **最后两项候选排除**（本轮实测/核对）：
+  ① `HCCL_BUFFSIZE=200`（job `formal_dspark_native_graph_api_v15_bi_buf200`）：
+  **26.431290870147254 ms/step**（A=2.7309、clean 8/8）vs 基线 26.5524 ⇒ **−0.12ms 但逐请求分解
+  显示收益只来自单个离群请求（28.93→27.27），其余 7 项在 ±0.15ms 内 ⇒ 噪声级**；
+  ② `enable_sparse_sfa_c8/li_c8`：本 checkpoint `config.json` **含 `compress_ratios`（43 项）**
+  ⇒ `model_uses_sfa_sparse=False` ⇒ 厂商代码强制置 False（`ascend_config.py:643-644`）⇒ 不可用。
+  证据 `evidence/formal_a321/v15_buf200_20261013/`。
+- **v56 状态总览发布**（MD 5915B / HTML 7954B，COS+links 回执 `publication_v51.json`）：
+  12 项验收逐项对照——**质量/归属/数值门/交付全达成；唯一未达成 = ≤20ms（26.55，缺口 6.55ms）**。
+- 交付：提交链 `4efb8f0`（v55+套件）→ `585e838`…`bc31b2b`（MANIFEST 6051、自检 0 失败、双推）
+  → `6e91114`（v56+buf200 证据）→ `8a5f01f`/`1e43f84`/`d3484ad`（MANIFEST 6059、自检 0 失败、双推
+  `d3484ad82b12`，origin 与 a321 一致）。
+- **结论（连续三轮同一阻塞）**：本仓侧对 ≤20ms 的可执行候选已全部枚举并排除
+  （配置三表 + 融合扫描 + buf200 + c8）；剩余 6.55ms 需厂商按 R1–R6 落地内核融合，
+  或由用户调整验收口径。质量/交付链保持完好。
   （BI 代价≈0 且质量更好，避免为性能牺牲质量的两难）。
