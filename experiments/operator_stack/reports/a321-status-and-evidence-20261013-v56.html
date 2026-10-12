@@ -1,0 +1,148 @@
+<!doctype html><html lang="zh-CN"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>正式状态与证据总览（a3-21 DeepSeek V4.1 + DSpark）2026-10-13 v56</title><style>body{margin:32px auto;padding:0 24px;max-width:1060px;font-family:system-ui,sans-serif;color:#172033;line-height:1.65}h1{font-size:28px}h2{margin-top:32px;font-size:21px}table{border-collapse:collapse;width:100%;display:block;overflow:auto}td,th{border:1px solid #d9deea;padding:8px 12px;text-align:left}th{background:#f1f4f9}code{background:#eef1f6;padding:2px 4px;overflow-wrap:anywhere}</style><body><h1>正式状态与证据总览（a3-21 DeepSeek V4.1 + DSpark）2026-10-13 v56</h1>
+<p>一页纸回答三个问题：<strong>做到哪了、还差什么、证据在哪</strong>。</p>
+<h2>1. 目标验收清单（逐项）</h2>
+<table>
+<thead>
+<tr>
+<th>#</th>
+<th>要求</th>
+<th>状态</th>
+<th>证据</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>1</td>
+<td>完整 40 层/hidden5120/384 专家 top6/W4A8_DYNAMIC/Engram int8/完整视觉/MTP3 真实权重</td>
+<td>✅</td>
+<td>质量收据绑定 <code>candidate_id=dsv41_mls_async_bi_v1</code> + checkpoint config sha <code>40ebd329…</code>（<code>quality_gate_pass_bi_v14/launched.json</code>）</td>
+</tr>
+<tr>
+<td>2</td>
+<td>DSpark 真实 ON、全部实际开销计入</td>
+<td>✅</td>
+<td><code>speculative_config={method:dspark,K:5,enforce_eager:false}</code>；每请求 actual verifier rounds 由 8 rank 收据统计（747 rounds / 8 请求）</td>
+</tr>
+<tr>
+<td>3</td>
+<td>串行 ≥8 请求、固定 2K 输入/256 输出、审计/profiler 关</td>
+<td>✅</td>
+<td><code>acceptance_small.json</code>（8 samples、2048/255+1、audit/profiler off）</td>
+</tr>
+<tr>
+<td>4</td>
+<td>按实际 target/verifier 轮次计 step；自洽三元组</td>
+<td>✅</td>
+<td><strong>(26.5524 ms/step, A=2.7309, 102.85 tok/s)</strong>，747 rounds/2040 tokens</td>
+</tr>
+<tr>
+<td>5</td>
+<td>clean-rate / 复读 / 空答</td>
+<td>✅</td>
+<td>clean <strong>8/8</strong>、复读 <strong>0</strong>、空答 0</td>
+</tr>
+<tr>
+<td>6</td>
+<td>HCCL_DETERMINISTIC=strict 与原数值门（A/A、路由/token/Top5/logprob、接受前缀/rollback）</td>
+<td>✅</td>
+<td>AA v4/v16 审计（routes 2094×40×6 逐位、logprob delta 0）；v51 分叉审计（含逐轮接受/回滚 trail）</td>
+</tr>
+<tr>
+<td>7</td>
+<td>模型归属</td>
+<td>✅</td>
+<td><code>strict_quality_receipt.json</code>：candidate 指纹/checkpoint/source/8 rank 描述全绑定</td>
+</tr>
+<tr>
+<td>8</td>
+<td>GSM8K 100/100</td>
+<td>✅</td>
+<td><code>gsm100.json</code>：n=100, correct=100, empty=0, errors=0（决定性题 gsm8k-12 = 13）</td>
+</tr>
+<tr>
+<td>9</td>
+<td>Vision 23/23</td>
+<td>✅</td>
+<td><code>vision23.raw.json</code> + <code>strict_quality_receipt.actual_Vision23_passed=True</code>（含 3 negative）</td>
+</tr>
+<tr>
+<td>10</td>
+<td><strong>包含 DSpark 的 ≤20ms 客户端验收</strong></td>
+<td>❌ <strong>26.55 &gt; 20</strong>（缺口 6.55ms）</td>
+<td>见 §3</td>
+</tr>
+<tr>
+<td>11</td>
+<td>最优部署</td>
+<td>⚠️ 已产出可复现套件（26.55 版），≤20ms 版待厂商内核</td>
+<td><code>best_service_20261013/</code></td>
+</tr>
+<tr>
+<td>12</td>
+<td>交付：COS/links 发布 + 源码/证据提交 + MANIFEST + 自检 + 双推</td>
+<td>✅（持续）</td>
+<td>见 §4</td>
+</tr>
+</tbody>
+</table>
+<h2>2. 最优服务的定义（可复现）</h2>
+<pre><code>(26.5523755957162 ms/step, A=2.7309236947791167, 102.85044684362282 tok/s)
+747 actual rounds / 2040 decoded tokens / clean 8/8 / 复读 0 / GSM100/100 / Vision23/23
+快照：/work/src_dspark_native_graph_api_bi_v1（性能） + /work/src_dspark_general_quality_v11（质量）
+关键开关：VLLM_BATCH_INVARIANT=1（质量关键）、async 调度、shared-expert 与 DSA 多流重叠
+</code></pre>
+<p>一键复现见 <code>evidence/formal_a321/best_service_20261013/BEST_SERVICE.md</code>（含逐字 env 与期望值）。</p>
+<h2>3. 缺口 6.55ms 的定量结论（本轮新增两条否定证据）</h2>
+<p><strong>新增证据（2026-10-13 晚）</strong></p>
+<table>
+<thead>
+<tr>
+<th>候选</th>
+<th>结果</th>
+<th>判定</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>HCCL_BUFFSIZE=200</code>（默认 1024）</td>
+<td>26.4313 vs 26.5524 ms/step（−0.12ms），但逐请求分解显示收益<strong>只来自单个离群请求</strong>（28.93→27.27），其余 7 个请求在 ±0.15ms 内</td>
+<td><strong>噪声级</strong>，不采纳也不拒绝（无负效果）；记录为 <code>v15_bi_buf200</code></td>
+</tr>
+<tr>
+<td><code>enable_sparse_sfa_c8</code> / <code>enable_sparse_li_c8</code></td>
+<td>只读核对：本 checkpoint <code>config.json</code> <strong>含 <code>compress_ratios</code></strong>（长度 43）⇒ <code>model_uses_sfa_sparse=False</code> ⇒ 厂商代码把两开关强制置 False（<code>ascend_config.py:643-644</code>）</td>
+<td><strong>不可用</strong>（确认 v54 判定）</td>
+</tr>
+</tbody>
+</table>
+<p><strong>已建立的量化结论</strong>（详见 v54/v55 报告）</p>
+<ul>
+<li>轮 ≈ 目标图 21.65 + 草稿 2.6–3.7 + 拒绝采样 ≈1–1.2；pre_target/Engram/slot-map 已被 async 隐藏。</li>
+<li>1 行（关 DSpark 同栈）实测 19.23ms ⇒ 固定成本≈17.7ms、边际≈1.5ms/行；6 行要 ≤20ms 需固定成本 ≤12.7ms。</li>
+<li>配置空间已穷尽（v50/v54/v55 三张表）：MC2 负、FUSED_MC2 配置门不满足、reduce_sample 与 DSpark 不兼容、
+  kv_nz 需 PD、sp_by_pass 需 SP、slot-fused/ids64-hoist 空结果、gate_hoist 与 BI 冲突、
+  upstream pass_config 未在 Ascend 注册、c8 系列不可用（本轮）、buf200 噪声级（本轮）。</li>
+<li><strong>厂商需求已提交</strong>：R1 MoE 段长融合（保守 1.9–3.2ms）、R2 HcPre/HcPost 链（1.6–2.8）、
+  R3 量化链三段一体（0.95–1.6，或扩展 dynamic pattern 先做）、R4 allReduce 图级成对合并（0.54–0.93）、
+  R5 草稿/采样段、R6 pre_target 折叠；三类并集保守 <strong>4.38–7.50ms</strong>（并通信 4.9–8.4），覆盖缺口。
+  文档 <code>reports/a321-vendor-kernel-fusion-request-20261013-v55.md</code>（含邻接级证据与"新增 vs 扩展"判定）。</li>
+</ul>
+<h2>4. 交付状态</h2>
+<ul>
+<li><strong>报告</strong>（COS + links-server，均回读校验 true）：
+  v50（async+多流窗口）、v51（分叉归因）、v52（批不变四处缺陷）、v53（质量门通过+代价≈0）、
+  v54（缺口定量）、v55（厂商需求）；回执 <code>publication_v46..v50.json</code>。</li>
+<li><strong>提交</strong>：分支 <code>feat/operator-stack-tp8-20261010</code>（origin GitHub 与 a321 内网镜像同步至最新 HEAD）。</li>
+<li><strong>MANIFEST/自检</strong>：每次提交从 HEAD 重生成 MANIFEST（当前 6051 项），对 HEAD 全量 <code>git archive</code> 逐项
+  <code>sha256sum -c</code> 0 失败，<code>tools/selfcheck_pkg.sh</code> exit 0；回执 <code>selfcheck_v4{6,7,8}…v55_archive.json</code>。</li>
+<li><strong>最优服务套件</strong>：<code>evidence/formal_a321/best_service_20261013/</code>（env_exports.sh + env_manifest.json + BEST_SERVICE.md）。</li>
+</ul>
+<h2>5. 结论与建议</h2>
+<ul>
+<li>质量、归属、数值门、交付路径<strong>全部实际达成并有收据</strong>；</li>
+<li><strong>唯一未达成项是 ≤20ms</strong>：当前 26.55，缺口 6.55ms，其根源是该栈"每步固定成本 17.7ms（1 行实测 19.2）"
+  加 5 个 verify 行的 7.3ms 边际——需要厂商按 R1–R6 落地内核融合；</li>
+<li>建议：把 v55 作为厂商工单提交（附 <code>fusion_scan_20261013/</code> 的 CSV 级证据）；
+  本仓侧在厂商内核可用前，持续维护"质量/交付/可复现"三条链，并对任何新内核按
+  <strong>A/A → 数值门 → 同实例配对 → 质量门 → 正式窗口</strong> 的顺序复验。</li>
+</ul></body></html>
