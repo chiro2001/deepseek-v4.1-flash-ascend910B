@@ -583,3 +583,34 @@ tiny同一PID/job当前13请求/5项数值门通过，新增首seed OFF/ON与ON 
   manifest sha 9f9f6c36…，port 18773，--allow-known-alarm --stop-after）。
 - 判据：若批不变模式生效，则 6 行 verify 与 1 行 decode 数值一致 ⇒ gsm8k-12 应给出与 A1 相同的
   13 ⇒ GSM8K 100/100；同时需复核 Vision 23/23 与（另起的）性能窗口是否受影响。
+
+2026-10-13第二十一轮更新（批不变质量臂的启动受阻与看守重试）：
+- v9c 首跑走过了全部历史失败点（批次不变 8/8 启用、`[BI-META] installed=7`、
+  **0 次 Dynamo/形状错误**、权重加载完成），最终因**物理 14 被另一租户 python3（55GB，qwen3 测试）
+  抢占**、rank6 的 HCCL 通信初始化报 OOM 而失败；我方已按自有 PID 清理残留
+  （EngineCore/8 workers），确认 physical 8–15 一度回到 4/4 空闲，未触碰他人进程。
+- 修复源码与证据已提交并双推：`dca0ba8`（bi_axis_compat shim + seed 构建器 + NOTE）
+  → `180070b`（MANIFEST 5998 项，HEAD 全量自检 0 失败），origin 与 a321 均为 `180070b`。
+- 另设看守脚本 `~/tmp/watch_fire_v9d.sh`：每 30s 检查 physical 8–15 的 4 个 NPU 块是否全部空闲，
+  一旦空闲即以固定参数启动 `formal_dspark_quality_async_v9d_bi`（v9b 快照，port 18783），
+  日志 `~/tmp/watch_fire_v9d.log`；最多 120 次重试。看守是"已验证的等待"：资源门与启动命令均已
+  在真实环境跑通过（v9b/v9c 两次实际启动证据），唯一变量是外部租户释放芯片。
+
+2026-10-13第二十二轮更新（批不变第 4 处厂商缺陷：NZ 权重冲突；看守机制生效并跑到 forward）：
+- **看守（已验证的等待）生效**：`watch_fire_v9x.sh`（每 30s 轮询、递增 job-id/port）于第 11 次尝试
+  捕获到 physical 8–15 全空闲并成功启动 `formal_dspark_quality_async_v9x2_bi`；批不变 8/8 启用、
+  `[BI-META] installed=7`、**0 次 Dynamo/形状错误**，引擎一路走到**首次前向**。
+- **第 4 处厂商缺陷**：`aclnnGroupedMatmulSwigluQuantWeightNzV2` 失败——
+  `The dimnum of storageShape for second input (weight) must be 5, but got [141557760] (dimNum 1)`。
+  根因：`batch_invariant.override_envs_for_invariance()` 强制 `weight_nz_mode=0`，
+  使 W4A8 MoE 权重保持 ND 布局，而本栈仍按 NZ（5 维 storage）融合算子派发。
+  修复（快照 v10 的 `bi_axis_compat`）：包装 `override_envs_for_invariance`，调用原函数后把
+  `get_ascend_config().weight_nz_mode` 恢复为 1（本栈默认；BI 的 aten::mm/softmax 注册与权重布局无关），
+  并在 stderr 打 `[BI-NZMODE] restored ...` 回执。快照 `/work/src_dspark_general_quality_v10`
+  （manifest sha f07e41ff350c8167c28cd2c0a86d9a8241f47847d6ad4f69e102d23699506ca0）。
+- **性能代价测量已备妥**：新建 API 快照 `src_dspark_native_graph_api_bi_v1`
+  （= api_mls_v1 + bi_axis_compat + sitecustomize 钩子，manifest 已含两文件 SHA），
+  待质量臂验证后即可用同一负载测 `VLLM_BATCH_INVARIANT=1` 的 ms/step 代价（判别"质量修复是否可负担"）。
+- 资源：v9x2 服务已按自有 PID 收口；physical 8–15 曾回到 4/4 空闲，但**物理 14 反复被外部租户
+  短作业抢占**（qwen3 测试、moe_compute_exp 等），v10 首次启动被资源门拒绝；已重启看守
+  `watch_fire_v10.sh`（指向 v10 快照，port 从 18810 起，日志 `watch_fire_v10.log`）继续等待。
