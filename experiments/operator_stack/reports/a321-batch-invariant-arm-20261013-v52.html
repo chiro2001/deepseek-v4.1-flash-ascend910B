@@ -1,0 +1,97 @@
+<!doctype html><html lang="zh-CN"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>批不变（batch-invariant）质量臂：四处厂商缺陷与修复（2026-10-13 v52）</title><style>body{margin:32px auto;padding:0 24px;max-width:1060px;font-family:system-ui,sans-serif;color:#172033;line-height:1.65}h1{font-size:28px}h2{margin-top:32px;font-size:21px}table{border-collapse:collapse;width:100%;display:block;overflow:auto}td,th{border:1px solid #d9deea;padding:8px 12px;text-align:left}th{background:#f1f4f9}code{background:#eef1f6;padding:2px 4px;overflow-wrap:anywhere}</style><body><h1>批不变（batch-invariant）质量臂：四处厂商缺陷与修复（2026-10-13 v52）</h1>
+<p>目标不变：正式 TP8/40 层 DSpark 全开销 ≤20ms/step，且最优服务须通过
+GSM8K 100/100 + Vision 23/23 + 模型归属。当前状态：性能最优 <strong>26.44–26.61 ms/step</strong>
+（A=2.9395，clean 7/8，token 与冻结基线逐位一致）；质量侧 Vision 23/23 通过、GSM8K 99/100。
+本报告说明 GSM 缺口的根因、厂商正解以及为跑通它必须修复的四处厂商缺陷。</p>
+<h2>1. 缺口根因（承 v51 分叉审计）</h2>
+<ul>
+<li>同一 checkpoint/同一官方编码器/同一 canonical 8-shot：<strong>1 行 decode（A1）答 13 → 100/100</strong>；
+  <strong>6 行 verify（DSpark，K=5）答 12 → 99/100</strong>；两 DSpark 臂（async+mls 与冻结 sync）逐字节一致。</li>
+<li>分叉点=回答第 19 个 token，为 verifier 的 bonus token；该步 DSpark 上报分布
+  top-1/top-2 <strong>精确并列</strong>（671 与 58559 同为 −0.918505），A1 侧 top-1 领先 0.25。
+  两条路径的 logprob 均落在同一 <strong>0.125 量化网格</strong>上 ⇒ 批形状数值差异把"2 步领先"变成"0 步并列"。</li>
+<li>逐轮 accept/rollback 收据一致（发出 token 均为自身上报 top-1；accepted 位置=draft 值、
+  bonus 位置=回退采样），<strong>不存在接受语义错误</strong> ⇒ 需要的是数值一致性，而不是改接受逻辑。</li>
+</ul>
+<h2>2. 厂商正解：<code>VLLM_BATCH_INVARIANT=1</code></h2>
+<p>vLLM-Ascend 在 worker 初始化时提供 <code>init_batch_invariance()</code>（<code>vllm_ascend/batch_invariant.py</code>）：
+当 <code>VLLM_BATCH_INVARIANT=1</code> 且 AscendC 批不变算子可用时，覆盖 <code>weight_nz_mode</code>/确定性环境、
+并注册 <strong>批不变实现</strong>：<code>aten::mm</code>/<code>aten::matmul</code>/<code>aten::softmax</code>/<code>npu_fused_infer_attention_score</code>/
+<code>npu_add_rms_norm</code>/<code>torch.sum</code>。这正是让"6 行 verify"与"1 行 decode"数值一致的机制。
+配套 CANN 算子包 <code>cann-ops-batch_invariant-&lt;soc&gt;-1.0.0-linux.aarch64.run</code>（提供
+<code>libopapi_batchinvariant.so</code>）由 vllm-ascend <code>csrc/build_batch_invariant_ops.sh</code> 安装。</p>
+<h2>3. 跑通它必须修复的四处厂商缺陷</h2>
+<table>
+<thead>
+<tr>
+<th>#</th>
+<th>现象</th>
+<th>根因</th>
+<th>我们的修复（快照内、env 门控）</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>1</td>
+<td><code>TypeError: reduce_sum() got an unexpected keyword argument 'axis'</code>（权重后处理期）</td>
+<td><code>batch_invariant</code> 影子 <code>torch.sum</code>/<code>Tensor.sum</code>，而厂商自家 W4A8 加载器调用 <code>.sum(axis=1)</code></td>
+<td><code>bi_axis_compat.py</code>：<code>axis</code>→<code>dim</code> 映射；<strong>非末维回退原生 sum</strong>（厂商批不变 reduce 只实现最后一维，且这些调用只在加载期发生，不在服务前向）</td>
+</tr>
+<tr>
+<td>2</td>
+<td><code>aclnnReduceSumBatchInvariant ... not in libopapi_batchinvariant.so</code></td>
+<td>容器只有 torch 扩展，缺 CANN 侧算子包；且首装误用 <strong>910b</strong> 变体</td>
+<td>用 <code>get_soc_version()=253 / Ascend910_9382</code> 判定本机为 <strong>910_93（A3）</strong>，卸载 910b 后安装 <code>cann-ops-batch_invariant-A3-1.0.0</code>（<code>--quiet --nox11 --install-for-all</code>），以 <code>ASCEND_CUSTOM_OPP_PATH=/usr/local/Ascend/cann-9.1.0/opp/vendors/batch_invariant</code> 接入。（不可改 <code>LD_LIBRARY_PATH</code>：会破坏 <code>set_env.sh</code> 对 <code>libhccl.so</code> 的解析。）设备验证：<strong>6 行与 1 行 reduce 逐位一致</strong></td>
+</tr>
+<tr>
+<td>3</td>
+<td>Dynamo：<code>mul</code> 假张量形状失配（engram gate <code>.sum(-1)</code> 保持输入形状）</td>
+<td>A3 算子包的 <strong>Meta（fake tensor）内核形状错误</strong>（<code>npu_reduce_sum_batch_invariant</code> 返回输入形状）</td>
+<td><code>bi_axis_compat.install_meta_kernels()</code> 为 7 个算子注册正确 Meta 形状（reduce_sum/reduce_mean/softmax/log_softmax/mm/matmul/add_rms_norm）；容器自检 <code>[BI-META] installed=7 skipped=</code>，fake 张量形状正确</td>
+</tr>
+<tr>
+<td>4</td>
+<td><code>aclnnGroupedMatmulSwigluQuantWeightNzV2</code>：weight storageShape 需 5 维，实得 1 维</td>
+<td><code>override_envs_for_invariance()</code> 强制 <code>weight_nz_mode=0</code>，使 W4A8 MoE 权重留在 ND 布局，而本栈按 NZ 融合算子派发</td>
+<td>包装 <code>override_envs_for_invariance</code>：调用原函数后恢复 <code>weight_nz_mode=1</code>（本栈默认；BI 的算子注册与权重布局无关），stderr 打 <code>[BI-NZMODE]</code> 回执</td>
+</tr>
+</tbody>
+</table>
+<p>四处修复后，批不变臂已能通过：引擎初始化 → 权重加载 → Dynamo 图捕获 → <strong>首次前向</strong>
+（<code>[BI-META] installed=7</code>、0 次 Dynamo/形状错误、8/8 worker 启用批不变）。</p>
+<h2>4. 启动环境的现实约束（外部租户抖动）</h2>
+<ul>
+<li>physical 8–15 被多个外部租户的高频短作业反复占用（qwen3-30B 测试、moe_compute_exp 等），
+  多次出现"看守检查通过后数秒内被抢"→ 加载期 OOM。</li>
+<li>已采用<strong>看守脚本</strong>（每 20–30s 检查"4 个 NPU 块无进程 + 8 卡 HBM 占用 &lt;8GiB"，
+  命中即以固定参数启动一次并在成功后退出；失败自动递增 job-id/port 规避残留目录）。
+  本轮看守确实捕获过两次真实空闲窗口并成功启动（v9x2、v11x1）；
+  看守自身曾因成功判据写错（匹配 <code>performance_receipt_granted</code>，而回执字段是
+  <code>formal_receipt_granted</code>）未退出而重复尝试，已修正为匹配
+  <code>"service_launch_requested": true</code> 且单次成功后退出。</li>
+</ul>
+<h2>5. 判据与后续</h2>
+<ul>
+<li>判据：批不变臂若生效，6 行 verify 与 1 行 decode 数值一致 ⇒ <code>gsm8k-12</code> 应给出与 A1 相同的
+  <strong>13</strong> ⇒ <strong>GSM8K 100/100</strong>；同一作业的 orchestrator 会随后跑 Vision 23/23。</li>
+<li>性能代价：已备妥 <code>src_dspark_native_graph_api_bi_v1</code>（API 快照 + 同一 shim），
+  待质量臂通过后用同一 2K/256 负载测 <code>VLLM_BATCH_INVARIANT=1</code> 的 ms/step，
+  判断"质量修复"与"≤20ms"能否在同一服务上共存。</li>
+</ul>
+<h2>6. 证据（本地仓库）</h2>
+<ul>
+<li><code>evidence/formal_a321/quality_bi_prep/</code>：<code>bi_axis_compat.py</code>（shim 全文）、
+  <code>build_bi_seed_v9.py</code>（快照/种子构建器）、<code>patch_v9_manifest.py</code>/<code>patch_v9_seed.py</code>
+  （seed 与 manifest 双钉一致性）、<code>NOTE.md</code>（本报告的精简版+文件说明）。</li>
+<li><code>evidence/formal_a321/quality_async_prep/</code>：v1 质量候选合同与快照清单（对照基线）。</li>
+<li><code>evidence/formal_a321/quality_gate_runs/</code>：两 DSpark 臂的 GSM/Vision 原始结果（99/100、23/23）。</li>
+<li><code>evidence/formal_a321/divergence_audit_20261013/</code>：分叉审计（两侧 top-8 logprobs 等）。</li>
+</ul>
+<h2>7. 诚实边界</h2>
+<ul>
+<li>批不变臂<strong>尚未</strong>产出实际的 100/100 结果（芯片抖动导致未跑到评测完成）；
+  本报告只声明"机制已跑通到首次前向"与"四处缺陷的修复及证据"。</li>
+<li><code>VLLM_BATCH_INVARIANT</code> 的<strong>性能代价未知</strong>（待测）；若代价过大，质量与 ≤20ms 的共存
+  将需要额外权衡（届时如实报告，不用 A1 结果替代）。</li>
+<li>本报告不构成 ≤20ms 或质量门的通过声明；两者仍是目标。</li>
+</ul></body></html>
