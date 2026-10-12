@@ -614,3 +614,28 @@ tiny同一PID/job当前13请求/5项数值门通过，新增首seed OFF/ON与ON 
 - 资源：v9x2 服务已按自有 PID 收口；physical 8–15 曾回到 4/4 空闲，但**物理 14 反复被外部租户
   短作业抢占**（qwen3 测试、moe_compute_exp 等），v10 首次启动被资源门拒绝；已重启看守
   `watch_fire_v10.sh`（指向 v10 快照，port 从 18810 起，日志 `watch_fire_v10.log`）继续等待。
+
+2026-10-13第二十三轮更新（节点重启 + 批不变第 5 处缺陷 + v52 报告发布）：
+- **a3-21 于 ~13:56 UTC 重启**（SSH 拒连约 2 小时；`up 2 min` 确认）。重启后：我方容器
+  `dsv41-real-stack-tp8-20261010-a321`（restart policy=no）需手动 `docker start`；
+  **容器可写层内的 CANN 批不变算子包与 /work 全部快照/种子均持久保留**；全机 16 卡零进程、
+  physical 8–15 health=OK。
+- **第 5 处厂商缺陷（bool dtype）**：v13x1 批不变臂首次跑到"服务就绪 + 首个 HTTP 200"，
+  但首个 decode step 抛 `aclnnReduceSumBatchInvariant ... Tensor self not implemented for DT_BOOL`：
+  BI 把全局 `torch.sum`/`Tensor.sum` 换成只支持浮点的实现，而 engram 设备路径用 **bool 掩码求和**。
+  该异常从 forward 逃出、正好落在引擎 device-metadata submit/release 之间，把
+  `_submission_in_flight` 永久锁死（厂商注释已文档化该机制），后续请求全部报
+  "The previous device metadata submission has not been released"。
+  修复：`bi_axis_compat.reduce_sum` 对非 `float16/float32/bfloat16` dtype 回退原生 sum
+  （加载期/辅助求和不在批不变契约内）。快照 v11（manifest sha
+  `aac6ab23a2c3b9abc89d46e13a0f00350c5d05a2cc6cdb374e19200c671c0a05`），job
+  `formal_dspark_quality_async_v14_bi`（port 18960）已启动。
+- **看守机制三处教训（已修正）**：① 成功判据必须匹配 `"service_launch_requested": true`
+  （曾误用 `performance_receipt_granted`，回执里只有 `formal_receipt_granted`，导致看守不退出、
+  连环启动旧快照作业——已全部按自有 PID 清理）；② **容器内 npu-smi 看不到其他租户的进程**，
+  占用判断必须用宿主 `npu-smi`；③ 即使"无进程"也可能被瞬抢，需接受"启动后 OOM→重试"循环。
+- **v52 交付**：报告 `a321-batch-invariant-arm-20261013-v52`（MD 6579B / HTML 8536B）发布到
+  COS + links（回执 `publication_v47.json`，4/4 下载逐字节校验 true）；提交 `881cd77`
+  （报告+回执+quality_bi_prep）→ `c054e83`（MANIFEST 6001）→ `9363506`/`f181254`
+  （v52 自检回执 + MANIFEST 6003；HEAD 归档全量 sha 校验 0 失败、`tools/selfcheck_pkg.sh` exit 0）；
+  origin 已推至 `f181254`；a321 镜像待节点稳定后补推。
