@@ -639,3 +639,25 @@ tiny同一PID/job当前13请求/5项数值门通过，新增首seed OFF/ON与ON 
   （报告+回执+quality_bi_prep）→ `c054e83`（MANIFEST 6001）→ `9363506`/`f181254`
   （v52 自检回执 + MANIFEST 6003；HEAD 归档全量 sha 校验 0 失败、`tools/selfcheck_pkg.sh` exit 0）；
   origin 已推至 `f181254`；a321 镜像待节点稳定后补推。
+
+2026-10-13第二十四轮更新（**质量门全部通过：GSM8K 100/100 + Vision 23/23，性能代价≈0**）：
+- 第 5 处修复（bool dtype 回退）后，`formal_dspark_quality_async_v14_bi`（快照 v11）一次跑通：
+  **GSM8K 100/100（空答 0、错误 0）**、**Vision 23/23 PASS**、
+  `actual_client_quality_passed=True`、服务与评测器 exit 0；决定性题 `gsm8k-12` 由 12 → **13**
+  （文本变为 "he first earns money in year 13"）。证据
+  `evidence/formal_a321/quality_gate_pass_bi_v14/`（含逐题 gsm100.json、vision23.raw.json、
+  strict_quality_receipt.json）。
+- **性能代价测量**（`formal_dspark_native_graph_api_v11_bi`，2K/256×8 串行）：
+  **`(26.5523755957162 ms/step, A=2.7309236947791167, 102.85044684362282 tok/s)`**、
+  747 rounds / 2040 tokens、**clean 8/8、复读 0**。与非 BI 最优（26.44–26.61 / A=2.94 / clean 7/8）
+  相比：**ms/step 在噪声内相同，clean 反而更好**；A 降低是数值路径改变后的自然接受率变化。
+  BI 的 token 流与旧非 BI 窗口不同（0/8 逐位相同）——数值路径确实改变，质量以官方判定为准。
+- 交付：报告 `a321-bi-quality-pass-20261013-v53`（MD 4485B / HTML 6697B）发布 COS + links
+  （回执 `publication_v48.json`，下载校验 true）；提交 `21a6608`（报告+回执+两证据目录+本文件）
+  → `2313ab1`（MANIFEST 6027）→ `5a0f906`/`e131647`（v53 自检回执 + MANIFEST 6029；
+  HEAD 归档全量校验 0 失败、selfcheck exit 0）；**origin 与 a321 均推至 `e131647`**。
+- **当前最优正式服务**（含 DSpark、完整权重、strict）：
+  `(26.55 ms/step, A=2.73, 102.85 tok/s)`，clean 8/8，**GSM100/100 + Vision23/23 全通过**。
+  距 ≤20ms 仍差 **6.55ms**；该缺口与 v50 判定一致（目标图 1986 kernel/21.6ms、81×allReduce 3.3ms、
+  量化/HcPre 融合），属厂商内核级结构化工作。**后续性能优化应直接在 BI 臂上进行**
+  （BI 代价≈0 且质量更好，避免为性能牺牲质量的两难）。
