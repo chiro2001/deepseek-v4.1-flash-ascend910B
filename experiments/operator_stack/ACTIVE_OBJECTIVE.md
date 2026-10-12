@@ -512,3 +512,42 @@ tiny同一PID/job当前13请求/5项数值门通过，新增首seed OFF/ON与ON 
   ④继续排查是否存在可关闭的 logits 量化开关（本轮未发现显式配置）。
 - 资源：三个诊断服务全部退出，physical 8–15 无我方残留；期间因**自身遗留 EngineCore/workers**
   造成一次显存门失败，已用容器内 PID 正确清理（教训：宿主机 PID 与容器内 PID 不同命名空间）。
+
+2026-10-13第十八轮更新（**v46 交付链完成：COS/links 发布、提交、MANIFEST、自检、双推**）：
+- **报告发布**（COS + links-server，下载回读 SHA 逐字节核验 true，登记 4/4）：
+  `a321-api-v6-bridge-tail-20261013-v50`（.md 10666B sha 3e5a1cdf… / .html 16397B sha 7ea329b7…）、
+  `a321-dspark-greedy-divergence-20261013-v51`（.md 5007B sha 955bb209… / .html 6724B sha 4db8567a…）；
+  回执 `evidence/formal_a321/publication_v46.json`。
+- **提交** `8ac7ec8`（272 文件 / +154291 行 / 5.5MB）：本批次报告 v46–v51（含 HTML）、
+  DSpark native graph API/AA/profile 证据 26 个目录（async/窗口/slot-fused/桥修复/mls 三臂/sync256/
+  async256/gate/AA/MC2 profile/hostsplit/storm_probe/quality_gate_runs/a1_control/divergence_audit）、
+  新源码（profile launcher v2/v3、API launcher v3/v4、draft_graph overlay+sitecustomize、
+  full43 overlay v12–v26、dspark_lane 4 个脚本）、**质量包 v2**（api 17 文本 + launcher 21 文本，
+  repo 内重生成冻结清单：api manifest 16280381…、launcher manifest a3bd1e99…，CPU 门 9/38 与 14/59 复核通过）。
+- **MANIFEST**：从 HEAD 重生成 5981 项（`61a0f1f`），核对旧文件 0 漂移；**自检**：对 HEAD 全量
+  `git archive` 逐项 sha256sum -c **5980/5980 OK（exit 0）**，`tools/selfcheck_pkg.sh` 在归档内
+  **全部通过（exit 0，19 组含负控）**；回执 `evidence/formal_a321/selfcheck_v46_archive.{json,log}`
+  经 `477cae5` 入库并刷新 manifest（`6ea6fbe`，5981 项，最终归档复核 0 失败）。
+- **双推**：origin（GitHub）与 a321 内网镜像均 `e608030..6ea6fbe`，`ls-remote` 复核两远端同为 `6ea6fbe`。
+- 说明：`full43_diag_v1..v17`（~11MB）与 sdk_init 原始目录等历史大件继续留在工作区（未入库，
+  与既往"只提交紧凑件"纪律一致）；`coscli.log/coscli_output/` 为本地传输日志，保持未跟踪。
+- **继续性能主线**：physical 8–15 空闲，已启动组合臂 v10（v9 + `V41_IDS64_HOIST=1` +
+  `V41_SLOT_MAP_FUSED=1`；两者均为数值恒等类开关：前者把 40 层重复的 int64 cast 提升为一次
+  〔注释称 ~0.20ms/步〕，后者此前实测设备 −1.21ms）。同时记录：`enable_fused_mc2=1`
+  经查配置门 `moe_intermediate_size % 512 == 0` 判定**本模型不满足**（2304 % 512 = 256），
+  该路径被厂商代码自动降级关闭，故 FUSED_MC2/MegaMoe 不可用（无需再试）。
+
+2026-10-13第十九轮更新（**v10 组合臂：仍为噪声级；配置级调优判定触顶**）：
+- job `formal_dspark_native_graph_api_v10_hoist_slotfused`（v9 + `V41_IDS64_HOIST=1` +
+  `V41_SLOT_MAP_FUSED=1`）实跑：
+  **`(26.435513501440923 ms/step, A=2.9394812680115274, 111.19440777465151 tok/s)`**、
+  694 rounds/2040 tokens、clean 7/8、复读1、**token 8/8 与冻结 sync 基线逐位一致**。
+- 相对 v9（26.6134）名义 −0.178ms，但**逐请求分解显示增益集中在 v9 的 2 个离群请求**
+  （28.28/28.24 → 26.74/26.68）；其余 6 个请求两臂基本持平。按纪律记**噪声级、不作为稳定收益**。
+- 配置级候选已穷尽：MC2（+3.1ms 负）、FUSED_MC2（配置门不满足）、slot-map（两轮均噪声）、
+  IDS64_HOIST（≤0.2ms 级）、upstream pass_config（Ascend 不生效）、DSA/shared-expert 多流（已取 −1.9ms）、
+  c8 系列（依赖 sparse_li_c8，非本注意力路径）。**距 ≤20ms 的 6.4ms 缺口属厂商内核级**
+  （目标图 1986 kernel/21.6ms、81 次 allReduce 3.3ms、量化/HcPre 链融合），非开关可达。
+- 证据：`evidence/formal_a321/dspark_native_graph_api_v10_hoist_slotfused/`（196KB）。
+- 服务收口：wrapper 先被 TERM 未带走 python 子进程，随后直接 TERM entry 成功；
+  physical 8–15 复核 4/4 空闲，无我方残留。
