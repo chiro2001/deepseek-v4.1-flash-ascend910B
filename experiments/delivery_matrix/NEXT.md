@@ -35,6 +35,9 @@ root已async请求用户协调释放/预留8–15；NPU probe/v5 init/所有新�
 保留于 `/home/chiro/tmp/dsv41-dp-matrix-20261013/client-v4`；现场只能stage不execute。
 最终v5/cl4已stage、包/source/native门与CPU helper通过；host09:03:04 UTC唯一复查
 外部CID仍占8–15。site已结束现场操作，不后台poll；本项目容器running，无readyAPI。
+用户随后明确选择“暂不释放，先保存当前进展”。本回合不再发起任何实机测试或
+等待占卡进程退出；保留全部服务包、客户端、原始收据和容器。待新授权窗口再重核现场门，
+不能根据当前staging直接自动启动，也不把CPU自检或初始化历史当成三布局精度/性能完成。
 v4 init归档与后续OOM独立收据见 `../dp_matrix/evidence/ARCHIVE.md` 及
 `V4_OOM_AND_RECOVERY.md`。恢复时重核native/source/OPP/ports/chips/NUMA，再小继承
 probe→v5init→identity/Engram/capacity→每DP canary→四质量suite及地火/编程性能。
