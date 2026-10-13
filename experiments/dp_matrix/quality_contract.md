@@ -4,7 +4,8 @@
 
 ## 范围与隔离
 
-本合同适用于新矩阵的三种八芯片几何，均限于 physical chip 8–15：
+本合同适用于新矩阵的三种八芯片几何。历史窗口为 physical chip8–15；用户随后
+明确授权接下来的窗口改用 chip0–7。每个新窗口显式选取两组中的一组，不混用：
 
 | layout | DP | TP | DCP |
 |---|---:|---:|---:|
@@ -12,7 +13,7 @@
 | dp4-tp2 | 4 | 2 | 1 |
 | dp4-tp2-dcp2 | 4 | 2 | 2 |
 
-每种几何必须以自己的实际服务实例、served model、service-instance ID（SID）、runtime fingerprint 和 layout 身份独立验收。每个 suite 前后读取只读 GET /dp/identity；所有 suite 的身份必须一致。身份中的实际 worker/rank、TP/DCP/EP 通信组必须与该几何相符；physical 8–15 的映射另以 PID、NPU 与 cgroup 现场证据确认，配置声明或旧计划本身不算实机证明。
+每种几何必须以自己的实际服务实例、served model、service-instance ID（SID）、runtime fingerprint 和 layout 身份独立验收。每个 suite 前后读取只读 GET /dp/identity；所有 suite 的身份必须一致。身份中的实际 worker/rank、TP/DCP/EP 通信组必须与该几何相符；所选 physical chip 组的映射另以 PID、NPU 与 cgroup 现场证据确认，配置声明或旧计划本身不算实机证明。新服务与测量/质量客户端使用同一显式 `--physical-chips 0,1,2,3,4,5,6,7`（历史窗口为8–15），不得用另一组的身份通过校验。
 
 已有 A2-sim TP8 质量结果只可作为旧服务上的测试口径与输入溯源，不能替代任一新 DP 几何的验收，也不能向其他 SID、fingerprint 或 layout 借用 PASS。三个 layout 之间同样不得互相继承质量结论。
 

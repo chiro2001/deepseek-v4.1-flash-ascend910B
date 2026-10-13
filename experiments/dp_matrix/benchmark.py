@@ -17,7 +17,7 @@ import urllib.request
 import uuid
 
 from .measurement import request_metrics, wave_metrics
-from .topology import Topology, validate_identity
+from .topology import topology_from_args, validate_identity, DEFAULT_CHIP_LIST
 from .code8_replay import load_inputs, MANIFEST_SHA256 as CODE8_MANIFEST_SHA256
 
 if __package__.startswith("experiments."):
@@ -119,7 +119,7 @@ def metrics_after(base, rank, tag, timeout):
 
 
 def run(args):
-    topology = Topology.named(args.layout)
+    topology = topology_from_args(args)
     # Historical measurements and answers are never inherited from these inputs.
     workload = getattr(args, "workload", "dihuo")
     if workload == "code":
@@ -189,6 +189,7 @@ def run(args):
                                 "request_scope": "armed_performance",
                                 "service_instance_id": args.sid, "runtime_fingerprint": args.fingerprint,
                                 "served_model": args.model, "layout": args.layout,
+                                "physical_chips": list(topology.chips),
                                 "sample_id": sample["sample_id"], "task_id": sample["task_id"],
                                 "split_artifact_sha256": sample["artifact_sha256"],
                                 "prompt_sha256": sample["prompt_sha256"],
@@ -214,6 +215,7 @@ def run(args):
     (output / "identity_after.json").write_text(json.dumps(after, indent=2) + "\n")
     final = {"service_instance_id": args.sid, "runtime_fingerprint": args.fingerprint,
              "layout": args.layout, "mode": args.mode, "requests": len(results),
+             "physical_chips": list(topology.chips),
              "workload": workload, "ignore_eos": ignore_eos,
              "rounds": args.rounds, "all_metrics_verified": True,
              "clean_requests": sum(r["stream"]["clean"]["clean"] for r in results),
@@ -235,6 +237,7 @@ def main():
     parser.add_argument("--output-tokens", type=int, default=256)
     parser.add_argument("--rounds", type=int, default=3)
     parser.add_argument("--timeout", type=float, default=1800)
+    parser.add_argument("--physical-chips", default=DEFAULT_CHIP_LIST)
     args = parser.parse_args()
     if not 1 <= args.rounds <= 10:
         parser.error("Explicit bounded rounds 1..10 required")

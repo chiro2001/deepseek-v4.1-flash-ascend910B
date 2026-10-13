@@ -2,13 +2,18 @@
 from __future__ import annotations
 
 import hashlib
+import io
+import json
 import os
 from pathlib import Path
 import subprocess
 import sys
 import tempfile
 import unittest
+from contextlib import redirect_stdout
+from unittest.mock import patch
 
+from experiments.dp_matrix import freeze_package, service as dp_service
 from experiments.delivery_matrix.service import fingerprint
 from experiments.dp_matrix.launch_plan import WORKER, DCP2_DRAFT_MANIFEST_SHA256
 from experiments.dp_matrix.prepare_launch import CLEAR, shell
@@ -16,6 +21,7 @@ from experiments.dp_matrix.service import verify_native_files
 
 
 NATIVE_NAMES = ("core_client.py", "input_processor.py", "serving.py")
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
 
 
 def _candidate():
@@ -96,6 +102,111 @@ class PrepareLaunchTests(unittest.TestCase):
         default_body, default_plan = _call_shell()
         self.assertNotIn("--loading-threads", default_body)
         self.assertEqual(default_plan["model_kwargs"]["model_loader_extra_config"]["num_threads"], 128)
+
+    def test_explicit_physical_chips_cli_and_launch_environment_are_consistent(self):
+        candidate = _candidate()
+        before = json.loads(json.dumps(candidate))
+        selected = "0,1,2,3,4,5,6,7"
+        body, plan = shell(
+            candidate, layout="dp2-tp4", source="/frozen/source",
+            package="/new/package/dp_matrix", generic_package="/pinned/generic",
+            runtime="/new/package/runtime", native_guards="/new/guards.json",
+            job_root="/new/job", served_model="dsv41-dp-test-physical", port=18960,
+            physical_chips=selected,
+        )
+        self.assertEqual(candidate, before)
+        self.assertIn(f"--physical-chips {selected}", body)
+        self.assertEqual(plan["topology"]["physical_chips"], list(range(8)))
+        for key in (
+            "STACK_PHYSICAL_CHIPS", "STACK_EXPECTED_CHIPS",
+            "ASCEND_RT_VISIBLE_DEVICES", "ASCEND_VISIBLE_DEVICES",
+        ):
+            with self.subTest(key=key):
+                self.assertIn(f"export {key}={selected}", body)
+                self.assertEqual(plan["environment"][key], selected)
+
+    def test_prepare_launch_command_line_accepts_and_propagates_physical_chips(self):
+        selected = "0,1,2,3,4,5,6,7"
+        with tempfile.TemporaryDirectory(dir=os.environ.get("TMPDIR")) as directory:
+            root = Path(directory)
+            candidate_path = root / "candidate.json"
+            candidate_path.write_text(json.dumps(_candidate()))
+            output = root / "launch.sh"
+            command = [
+                sys.executable, "-m", "experiments.dp_matrix.prepare_launch",
+                "--candidate", str(candidate_path), "--source", "/frozen/source",
+                "--package", "/new/package/dp_matrix", "--generic-package", "/pinned/generic",
+                "--runtime", "/new/package/runtime", "--native-guards", "/new/guards.json",
+                "--job-root", "/new/job", "--served-model", "dsv41-dp-cli-physical",
+                "--output", str(output), "--layout", "dp2-tp4", "--port", "18960",
+                "--physical-chips", selected,
+            ]
+            env = dict(os.environ)
+            env["PYTHONDONTWRITEBYTECODE"] = "1"
+            result = subprocess.run(command, cwd=PROJECT_ROOT, env=env, text=True,
+                                    capture_output=True, check=False)
+            self.assertEqual(result.returncode, 0, result.stderr or result.stdout)
+            body = output.read_text()
+        self.assertIn(f"--physical-chips {selected}", body)
+        for key in (
+            "STACK_PHYSICAL_CHIPS", "STACK_EXPECTED_CHIPS",
+            "ASCEND_RT_VISIBLE_DEVICES", "ASCEND_VISIBLE_DEVICES",
+        ):
+            self.assertIn(f"export {key}={selected}", body)
+
+    def test_freeze_package_cli_binds_explicit_physical_chips(self):
+        selected = "0,1,2,3,4,5,6,7"
+        with tempfile.TemporaryDirectory(dir=os.environ.get("TMPDIR")) as directory:
+            root = Path(directory)
+            candidate_path = root / "candidate.json"
+            candidate_path.write_text(json.dumps(_candidate()))
+            guard_map = {}
+            for index, name in enumerate(NATIVE_NAMES):
+                path = root / f"guard-{index}" / name
+                path.parent.mkdir()
+                path.write_text(f"# CPU fixture for {name}\n")
+                guard_map[str(path.resolve())] = hashlib.sha256(path.read_bytes()).hexdigest()
+            guards_path = root / "native-guards.json"
+            guards_path.write_text(json.dumps(guard_map))
+            output = root / "frozen-package"
+            arguments = [
+                "--output", str(output), "--native-guards", str(guards_path),
+                "--candidate", str(candidate_path), "--remote-package", "/remote/package",
+                "--remote-job", "/remote/job", "--source", "/frozen/source",
+                "--generic-package", "/generic/package", "--served-model", "dsv41-dp-freeze",
+                "--layout", "dp2-tp4", "--port", "18960", "--physical-chips", selected,
+            ]
+            with patch.object(sys, "argv", ["freeze-package", *arguments]), \
+                    redirect_stdout(io.StringIO()):
+                freeze_package.main()
+            plan = json.loads((output / "prepared_plan.json").read_text())
+            launch = (output / "launch.sh").read_text()
+        self.assertEqual(plan["topology"]["physical_chips"], list(range(8)))
+        self.assertIn(f"--physical-chips {selected}", launch)
+        for key in (
+            "STACK_PHYSICAL_CHIPS", "STACK_EXPECTED_CHIPS",
+            "ASCEND_RT_VISIBLE_DEVICES", "ASCEND_VISIBLE_DEVICES",
+        ):
+            self.assertEqual(plan["environment"][key], selected)
+            self.assertIn(f"export {key}={selected}", launch)
+
+    def test_service_cli_rejects_environment_not_matching_explicit_chip_argument(self):
+        selected = "0,1,2,3,4,5,6,7"
+        legacy = "8,9,10,11,12,13,14,15"
+        arguments = [
+            "--source", "/missing/source", "--output", "/missing/output",
+            "--runtime", "/missing/runtime", "--native-source-guards", "/missing/guards.json",
+            "--layout", "dp2-tp4", "--served-model", "dsv41-dp-service-cli",
+            "--port", "18960", "--physical-chips", selected,
+        ]
+        environment = {
+            "STACK_PHYSICAL_CHIPS": legacy, "STACK_EXPECTED_CHIPS": legacy,
+            "ASCEND_RT_VISIBLE_DEVICES": legacy, "ASCEND_VISIBLE_DEVICES": legacy,
+        }
+        with patch.dict(os.environ, environment, clear=True), \
+                patch.object(sys, "argv", ["dp-service", *arguments]):
+            with self.assertRaisesRegex(ValueError, "Physical launch environment and service CLI differ"):
+                dp_service.main()
 
     def test_dcp2_clears_inherited_settings_then_reexports_only_pinned_dcp_plan(self):
         body, plan = shell(_candidate(), layout="dp4-tp2-dcp2", source="/frozen/source",

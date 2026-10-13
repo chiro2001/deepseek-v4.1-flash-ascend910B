@@ -2,7 +2,9 @@
 import copy
 import unittest
 
-from experiments.dp_matrix.topology import CHIPS, Topology, validate_identity
+from experiments.dp_matrix.topology import (
+    CHIPS, LOW_CHIPS, Topology, parse_chips, validate_identity,
+)
 
 
 class TopologyTests(unittest.TestCase):
@@ -39,6 +41,59 @@ class TopologyTests(unittest.TestCase):
                 self.assertFalse(plan["placement_observed"])
                 topology.validate_workers(self.observed(topology))
 
+    def test_low_physical_group_preserves_all_layout_geometries_and_identity(self):
+        for name in ("dp2-tp4", "dp4-tp2", "dp4-tp2-dcp2"):
+            with self.subTest(name=name):
+                topology = Topology.named(name, chips=LOW_CHIPS)
+                plan = topology.plan()
+                self.assertEqual(plan["physical_chips"], list(range(8)))
+                self.assertEqual(len(plan["expected_workers"]), 8)
+                self.assertEqual(
+                    [row["physical_chip"] for row in plan["expected_workers"]],
+                    list(range(8)),
+                )
+                observed = self.observed(topology)
+                topology.validate_workers(observed)
+                identity = {
+                    "served_model": "new-model",
+                    "service_instance_id": "a" * 32,
+                    "runtime_fingerprint": "b" * 64,
+                    "layout": name,
+                    "engine_initialized": True,
+                    "ASGI_startup_completed": True,
+                    "rank_descriptions": observed,
+                }
+                validate_identity(
+                    identity, topology, served_model="new-model",
+                    sid="a" * 32, fingerprint="b" * 64,
+                )
+
+    def test_physical_chip_parser_only_admits_the_two_complete_ordered_groups(self):
+        self.assertEqual(parse_chips("0,1,2,3,4,5,6,7"), LOW_CHIPS)
+        self.assertEqual(parse_chips("8,9,10,11,12,13,14,15"), CHIPS)
+        self.assertEqual(parse_chips(tuple(range(8))), LOW_CHIPS)
+        for invalid in (
+            "0,1,2,3,4,5,6,8",       # mixed groups
+            "0,1,2,3,4,5,6,15",      # mixed endpoints
+            "8,9,10,11,12,13,14,14", # duplicate
+            "9,8,10,11,12,13,14,15", # non-canonical order
+            "8,9,10,11,12,13,14",    # incomplete group
+            "0,1,2,3,4,5,6,7,8",     # oversized group
+            (False, 1, 2, 3, 4, 5, 6, 7),
+        ):
+            with self.subTest(invalid=invalid), self.assertRaises(ValueError):
+                parse_chips(invalid)
+
+    def test_low_and_legacy_chip_identities_are_not_interchangeable(self):
+        for name in ("dp2-tp4", "dp4-tp2", "dp4-tp2-dcp2"):
+            low = Topology.named(name, chips=LOW_CHIPS)
+            legacy = Topology.named(name)
+            with self.subTest(name=name):
+                with self.assertRaises(ValueError):
+                    low.validate_workers(self.observed(legacy))
+                with self.assertRaises(ValueError):
+                    legacy.validate_workers(self.observed(low))
+
     def test_dcp_is_inside_tp_not_additional_workers(self):
         topology = Topology(4, 2, 2)
         self.assertEqual(topology.plan()["expected_tp_groups"],
@@ -56,7 +111,7 @@ class TopologyTests(unittest.TestCase):
             with self.subTest(dims=dims), self.assertRaises(ValueError):
                 Topology(*dims)
         with self.assertRaises(ValueError):
-            Topology(2, 4, chips=tuple(range(8)))
+            Topology(2, 4, chips=tuple(range(7)))
         with self.assertRaises(ValueError):
             Topology.named("tp8")
 

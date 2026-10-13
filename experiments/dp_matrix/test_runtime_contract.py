@@ -9,7 +9,7 @@ from types import SimpleNamespace
 from unittest.mock import patch
 
 from experiments.dp_matrix.runtime_contract import expected_tp_size, validate_worker_config
-from experiments.dp_matrix.topology import CHIPS
+from experiments.dp_matrix.topology import CHIPS, LOW_CHIPS
 
 
 def _parallel(layout: str, **changes):
@@ -31,10 +31,10 @@ def _parallel(layout: str, **changes):
     return SimpleNamespace(**values)
 
 
-def _environment(layout: str, **changes):
+def _environment(layout: str, *, physical_chips=None, **changes):
     values = {
         "DP_MATRIX_LAYOUT": layout,
-        "STACK_PHYSICAL_CHIPS": ",".join(map(str, CHIPS)),
+        "STACK_PHYSICAL_CHIPS": ",".join(map(str, physical_chips or CHIPS)),
     }
     values.update(changes)
     return values
@@ -49,6 +49,16 @@ class RuntimeContractTests(unittest.TestCase):
                     _environment(layout),
                 )
                 self.assertEqual(result.name, layout)
+
+    def test_accepts_both_complete_physical_groups_for_each_layout(self):
+        for layout in ("dp2-tp4", "dp4-tp2", "dp4-tp2-dcp2"):
+            for chips in (LOW_CHIPS, CHIPS):
+                with self.subTest(layout=layout, chips=chips):
+                    result = validate_worker_config(
+                        SimpleNamespace(parallel_config=_parallel(layout)),
+                        _environment(layout, physical_chips=chips),
+                    )
+                    self.assertEqual(result.chips, chips)
 
     def test_expected_tp_size_uses_explicit_layout(self):
         for layout, expected in (("dp2-tp4", 4), ("dp4-tp2", 2), ("dp4-tp2-dcp2", 2)):
@@ -117,19 +127,29 @@ class RuntimeContractTests(unittest.TestCase):
                     _environment("dp2-tp4"),
                 )
 
-    def test_rejects_noncanonical_or_foreign_chip_placement(self):
+    def test_rejects_mixed_duplicate_reordered_or_incomplete_chip_placement(self):
         for chips in (
-            "0,1,2,3,4,5,6,7",
+            "0,1,2,3,4,5,6,8",
+            "0,1,2,3,4,5,6,15",
             "8,9,10,11,12,13,14,14",
             "9,8,10,11,12,13,14,15",
             "8,9,10,11,12,13,14",
         ):
             with self.subTest(chips=chips), self.assertRaisesRegex(
-                ValueError, "Explicit eight-chip DP placement"
+                ValueError, "Physical chips must be exactly"
             ):
                 validate_worker_config(
                     SimpleNamespace(parallel_config=_parallel("dp2-tp4")),
                     _environment("dp2-tp4", STACK_PHYSICAL_CHIPS=chips),
+                )
+
+    def test_rejects_visible_device_variables_that_disagree_with_selected_group(self):
+        for key in ("STACK_EXPECTED_CHIPS", "ASCEND_RT_VISIBLE_DEVICES",
+                    "ASCEND_VISIBLE_DEVICES"):
+            with self.subTest(key=key), self.assertRaisesRegex(ValueError, "visible-device"):
+                validate_worker_config(
+                    SimpleNamespace(parallel_config=_parallel("dp2-tp4")),
+                    _environment("dp2-tp4", physical_chips=LOW_CHIPS, **{key: ",".join(map(str, CHIPS))}),
                 )
 
     def test_module_import_is_cpu_only(self):

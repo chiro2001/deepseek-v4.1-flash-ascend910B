@@ -10,7 +10,7 @@ import sys
 
 from .code8_replay import (MANIFEST_SHA256, WORKLOADS_SHA256, canonical_sha, load_inputs, sha)
 from .quality_audit import audit as audit_wire, artifact
-from .topology import Topology, validate_identity
+from .topology import topology_from_args, validate_identity, DEFAULT_CHIP_LIST
 import gzip
 
 
@@ -45,6 +45,7 @@ def load_frozen_workloads(path):
 
 
 def score(args):
+    topology = topology_from_args(args)
     if (args.manifest_sha256 != MANIFEST_SHA256
             or (args.timeout, args.memory_mb, args.cpu_seconds) != (3.0, 512, 2)):
         raise ValueError("Strict Code8 scoring requires the frozen inputs and 3s/512MiB/2CPU limits")
@@ -60,11 +61,11 @@ def score(args):
         journal = [json.loads(line) for line in (args.proxy_root / "attempts.jsonl").read_text().splitlines()]
         for phase in ("before", "after"):
             identity = json.loads((output_root / f"identity_{phase}.json").read_text())
-            validate_identity(identity, Topology.named(args.layout), served_model=args.model,
+            validate_identity(identity, topology, served_model=args.model,
                               sid=args.sid, fingerprint=args.fingerprint)
         expected_hashes = [json.loads((output_root / f"request-{index:02d}.json").read_text())["request_body_sha256"]
                            for index in range(8)]
-        wire_result = audit_wire(args.proxy_root, dp_count=Topology.named(args.layout).dp,
+        wire_result = audit_wire(args.proxy_root, dp_count=topology.dp,
                                  min_requests=8, min_unique=8, expected_hashes=expected_hashes)
     results = []
     for sample in inputs["samples"]:
@@ -76,6 +77,8 @@ def score(args):
             raise ValueError("Code8 response schema differs")
         if response.get("request_scope") != args.scope:
             raise ValueError("Quality and armed performance outputs must be scored under their own scope")
+        if ("physical_chips" in response and response["physical_chips"] != list(topology.chips)):
+            raise ValueError("Code8 response physical-chip placement differs from the explicit run")
         if response.get("error") is not None or response.get("sse_error_event") is not None:
             raise ValueError("Code8 response contains an HTTP/SSE error event")
         for key, value in (("sample_id", sample["sample_id"]),
@@ -139,6 +142,7 @@ def score(args):
     summary = {"schema": "native_dp_code8_score_v1",
                "service_instance_id": args.sid, "runtime_fingerprint": args.fingerprint,
                "served_model": args.model, "layout": args.layout,
+               "physical_chips": list(topology.chips),
                "split_manifest_sha256": inputs["manifest_sha256"],
                "workloads_source_sha256": WORKLOADS_SHA256,
                "tasks": len(results), "passed_tasks": passed_tasks,
@@ -173,6 +177,7 @@ def main():
     parser.add_argument("--timeout", type=float, default=3.0)
     parser.add_argument("--memory-mb", type=int, default=512)
     parser.add_argument("--cpu-seconds", type=int, default=2)
+    parser.add_argument("--physical-chips", default=DEFAULT_CHIP_LIST)
     args = parser.parse_args()
     if args.timeout <= 0 or args.memory_mb <= 0 or args.cpu_seconds <= 0:
         parser.error("Scorer resource limits must be positive")

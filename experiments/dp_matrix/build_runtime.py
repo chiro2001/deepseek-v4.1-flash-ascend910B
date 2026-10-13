@@ -24,6 +24,11 @@ WORKER_EDIT = (
     "        validate_worker_config(self.vllm_config, os.environ)\n",
     1,
 )
+WORKER_PHYSICAL_EDIT = (
+    "        assert os.environ['STACK_PHYSICAL_CHIPS']=='8,9,10,11,12,13,14,15'\n",
+    "        # Exact physical placement is checked by validate_worker_config below.\n",
+    1,
+)
 COUNTER_EDITS = (
     ("    if len(receipts) != 8 or {r['rank'] for r in receipts} != set(range(8)):\n",
      "    from dp_matrix.runtime_contract import expected_tp_size\n"
@@ -49,7 +54,7 @@ def derive(name, data):
     if name not in BASE_HASHES or digest(data) != BASE_HASHES[name]:
         raise ValueError("Only the exact actual best async source can be derived")
     text = data.decode()
-    edits = (WORKER_EDIT,) if name == "worker.py" else COUNTER_EDITS
+    edits = (WORKER_EDIT, WORKER_PHYSICAL_EDIT) if name == "worker.py" else COUNTER_EDITS
     for old, new, count in edits:
         if text.count(old) != count:
             raise ValueError("Unexpected derivation anchor count: " + old)

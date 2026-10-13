@@ -112,7 +112,8 @@ class BuildRuntimeTests(unittest.TestCase):
             build_runtime.derive("unreviewed.py", b"source")
 
     def test_every_worker_and_counter_patch_anchor_is_pinned(self):
-        cases = [("worker.py", build_runtime.WORKER_EDIT[0])]
+        cases = [("worker.py", build_runtime.WORKER_EDIT[0]),
+                 ("worker.py", build_runtime.WORKER_PHYSICAL_EDIT[0])]
         cases.extend(("formal_dspark_counters.py", old)
                      for old, _new, _count in build_runtime.COUNTER_EDITS)
         for name, anchor in cases:
@@ -139,7 +140,20 @@ class BuildRuntimeTests(unittest.TestCase):
 
         worker = (output / "worker.py").read_text()
         self.assertNotIn("STACK_TP8_ARM", worker)
+        self.assertNotIn("assert os.environ['STACK_PHYSICAL_CHIPS']=='8,9,10,11,12,13,14,15'", worker)
         self.assertIn("validate_worker_config(self.vllm_config, os.environ)", worker)
+        for retained_quality_fence in (
+            "assert cfg.hidden_size==5120 and cfg.num_hidden_layers==40",
+            "assert cfg.n_routed_experts==384 and cfg.num_experts_per_tok==6",
+            "assert spec is not None and spec.method=='dspark'",
+            "assert os.environ['HCCL_DETERMINISTIC']=='strict'",
+            "assert os.getenv('STACK_FP32_DECODE_REDUCTION')=='0'",
+            "inspect_native_factory()",
+            "route_capture_patch.install()",
+            "formal_dspark_counters.install_runner(runner",
+        ):
+            with self.subTest(fence=retained_quality_fence):
+                self.assertIn(retained_quality_fence, worker)
         counter = (output / "formal_dspark_counters.py").read_text()
         self.assertIn("Expected all actual active-DP TP ranks", counter)
         self.assertIn("CPU Gloo active-DP TP join (not a global EP barrier)", counter)

@@ -2,6 +2,15 @@
 
 ## 最新目标：八 chip 原生 DP 矩阵（2026-10-13）
 
+**最新范围覆盖下面旧的8–15约束：**用户选择保存上一窗口后，又明确授权接下来改用
+a3-21 physical0–7；goal active。三种布局、精度/性能/容量目标不变，旧CED/DRAM仍不恢复。
+主代理已接入显式physical-chips选择到拓扑/服务/launch/客户端，并从原SHA冻结worker
+做新的限定物理guard派生；不改旧原件/旧包，不继承8–15或旧A2的质量PASS。
+site仍为唯一远端操作者，只读0–7占用/容器可见性/source/OPP/native/NUMA/ports；
+首轮chip4有外部 `/xh-mk` python3 PID2223861，未触碰。全部当前门通过后才执行新的0–7包，
+不占8–15、不停止外部任务、不重启容器/清pagecache。新临时根
+`~/tmp/dsv41-dp-matrix-chips0-7-20261013`，显式TMPDIR；历史任务目录/证据保留。
+
 上一轮算子核查已完成，HEAD `23015f3` 已在 origin/a321 双端核对。
 用户随后新授权在 a3-21 physical8–15 测 DP2TP4、DP4TP2、DP4TP2DCP2 的精度
 （尽可能解决）、prefill/decode 和 HBM KV 容量，并要求重新 create goal；新 goal 已 active。

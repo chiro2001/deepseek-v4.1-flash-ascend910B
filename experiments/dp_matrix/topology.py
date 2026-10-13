@@ -10,6 +10,9 @@ import re
 
 
 CHIPS = tuple(range(8, 16))
+LOW_CHIPS = tuple(range(8))
+CHIP_GROUPS = (LOW_CHIPS, CHIPS)
+DEFAULT_CHIP_LIST = ",".join(map(str, CHIPS))
 LAYOUTS = {
     "dp2-tp4": (2, 4, 1),
     "dp4-tp2": (4, 2, 1),
@@ -20,6 +23,21 @@ LAYOUTS = {
 def integer(value, name, *, minimum=0):
     if type(value) is not int or value < minimum:
         raise ValueError(f"{name} must be an integer >= {minimum}")
+    return value
+
+
+def parse_chips(value):
+    """Only the two explicitly authorized contiguous eight-chip groups."""
+    if isinstance(value, str):
+        if value not in (",".join(map(str, group)) for group in CHIP_GROUPS):
+            raise ValueError("Physical chips must be exactly 0..7 or 8..15, in order")
+        value = tuple(int(part) for part in value.split(","))
+    elif isinstance(value, (list, tuple)):
+        value = tuple(value)
+    else:
+        raise ValueError("An explicit eight-chip group is required")
+    if value not in CHIP_GROUPS or any(type(chip) is not int for chip in value):
+        raise ValueError("Physical chips must be exactly 0..7 or 8..15, in order")
     return value
 
 
@@ -37,14 +55,14 @@ class Topology:
             raise ValueError("Only the three requested eight-chip layouts are admitted")
         if self.dp * self.tp != 8 or self.tp % self.dcp:
             raise ValueError("DP*TP must equal eight; DCP must divide TP")
-        if self.chips != CHIPS or any(type(chip) is not int for chip in self.chips):
-            raise ValueError("This experiment is explicitly limited to physical chips 8..15")
+        if parse_chips(self.chips) != self.chips:
+            raise ValueError("Topology requires a canonical physical-chip tuple")
 
     @classmethod
-    def named(cls, name):
+    def named(cls, name, *, chips=CHIPS):
         if name not in LAYOUTS:
             raise ValueError("Unknown requested layout")
-        return cls(*LAYOUTS[name])
+        return cls(*LAYOUTS[name], chips=parse_chips(chips))
 
     @property
     def name(self):
@@ -149,3 +167,7 @@ def validate_identity(identity, topology, *, served_model, sid, fingerprint):
         raise ValueError("Native engine and ASGI must both be ready")
     topology.validate_workers(identity.get("rank_descriptions"))
     return identity
+
+
+def topology_from_args(args):
+    return Topology.named(args.layout, chips=getattr(args, "physical_chips", CHIPS))

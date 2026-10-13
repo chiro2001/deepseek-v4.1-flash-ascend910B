@@ -15,6 +15,7 @@ from urllib.parse import parse_qs, urlsplit
 
 from experiments.dp_matrix import benchmark
 from experiments.dp_matrix.code8_replay import MANIFEST_SHA256 as CODE8_MANIFEST_SHA256
+from experiments.dp_matrix.topology import LOW_CHIPS, Topology, topology_from_args
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
@@ -42,7 +43,7 @@ class NativeDPBenchmarkTests(unittest.TestCase):
 
     def args(self, *, workload, layout="dp2-tp4", mode="serial", input_tokens=2048,
              output_tokens=None, manifest=None, manifest_sha256=None, requests=None,
-             output="result"):
+             output="result", physical_chips="8,9,10,11,12,13,14,15"):
         if workload == "code":
             manifest = manifest or CODE8_ROOT / "manifest.json"
             manifest_sha256 = manifest_sha256 or CODE8_MANIFEST_SHA256
@@ -58,9 +59,33 @@ class NativeDPBenchmarkTests(unittest.TestCase):
             manifest_sha256=manifest_sha256, requests=None if requests is None else str(requests),
             input_tokens=input_tokens, output_tokens=output_tokens, workload=workload,
             output=str(self.root / output), mode=mode, rounds=1, timeout=5.0,
+            physical_chips=physical_chips,
         )
 
-    def run_with_fake_service(self, args):
+    @staticmethod
+    def identity(args, *, physical_chips=None):
+        chips = args.physical_chips if physical_chips is None else physical_chips
+        topology = Topology.named(args.layout, chips=chips)
+        rows = []
+        for index, row in enumerate(topology.workers()):
+            tp_start = row["dp_rank"] * topology.tp
+            dcp_start = tp_start + (row["tp_rank"] // topology.dcp) * topology.dcp
+            rows.append({
+                **row, "dp": topology.dp, "tp": topology.tp, "dcp": topology.dcp,
+                "ep_world_size": 8, "enable_expert_parallel": True,
+                "worker_pid": 100 + index,
+                "tp_group_ranks": list(range(tp_start, tp_start + topology.tp)),
+                "dcp_group_ranks": list(range(dcp_start, dcp_start + topology.dcp)),
+                "ep_group_ranks": list(range(8)),
+            })
+        return {
+            "served_model": args.model, "service_instance_id": args.sid,
+            "runtime_fingerprint": args.fingerprint, "layout": args.layout,
+            "engine_initialized": True, "ASGI_startup_completed": True,
+            "rank_descriptions": rows,
+        }
+
+    def run_with_fake_service(self, args, *, identity_chips=None):
         http_calls = []
         arm_payloads = []
         streams = []
@@ -68,7 +93,7 @@ class NativeDPBenchmarkTests(unittest.TestCase):
         def http_json(base, path, *, payload=None, timeout=120):
             http_calls.append((path, payload))
             if path == "/dp/identity":
-                return {"served_model": args.model}
+                return self.identity(args, physical_chips=identity_chips)
             if path == "/v1/models":
                 return {"data": [{"id": args.model}]}
             if path == "/dp/arm":
@@ -111,8 +136,7 @@ class NativeDPBenchmarkTests(unittest.TestCase):
 
         with (patch.object(benchmark, "http_json", side_effect=http_json),
               patch.object(benchmark, "stream", side_effect=stream),
-              patch.object(benchmark, "request_metrics", side_effect=request_metrics),
-              patch.object(benchmark, "validate_identity", side_effect=lambda *a, **k: a[0])):
+              patch.object(benchmark, "request_metrics", side_effect=request_metrics)):
             with redirect_stdout(io.StringIO()):
                 benchmark.run(args)
         return http_calls, arm_payloads, streams
@@ -167,6 +191,22 @@ class NativeDPBenchmarkTests(unittest.TestCase):
                 with self.assertRaises(ValueError):
                     benchmark.run(args)
                 self.assertFalse(Path(args.output).exists())
+
+    def test_explicit_low_chip_group_binds_benchmark_identity(self):
+        args = self.args(workload="dihuo", physical_chips=",".join(map(str, LOW_CHIPS)),
+                         output="low-chips")
+        self.assertEqual(topology_from_args(args).chips, LOW_CHIPS)
+        self.run_with_fake_service(args)
+        identity_doc = json.loads((Path(args.output) / "identity.json").read_text())
+        self.assertEqual(
+            [row["physical_chip"] for row in identity_doc["rank_descriptions"]], list(LOW_CHIPS)
+        )
+
+    def test_low_chip_benchmark_refuses_legacy_eight_through_fifteen_identity(self):
+        args = self.args(workload="dihuo", physical_chips=",".join(map(str, LOW_CHIPS)),
+                         output="wrong-chip-identity")
+        with self.assertRaisesRegex(ValueError, "Unexpected worker physical_chip"):
+            self.run_with_fake_service(args, identity_chips=tuple(range(8, 16)))
 
 
 if __name__ == "__main__":

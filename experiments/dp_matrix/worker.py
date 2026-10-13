@@ -70,7 +70,8 @@ class DPWorker(Base):
     def _dp_fields(self):
         from vllm.distributed import get_tp_group, get_dcp_group, get_ep_group
         import torch
-        topology = Topology.named(os.environ["DP_MATRIX_LAYOUT"])
+        topology = Topology.named(os.environ["DP_MATRIX_LAYOUT"],
+                                  chips=os.environ["STACK_PHYSICAL_CHIPS"])
         tp, dcp, ep = get_tp_group(), get_dcp_group(), get_ep_group()
         dp_rank = self.vllm_config.parallel_config.data_parallel_rank
         local_index = int(torch.npu.current_device())

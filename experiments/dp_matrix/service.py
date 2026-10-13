@@ -14,7 +14,7 @@ from .build_runtime import verify
 from .launch_plan import make_plan
 from .native_rpc import NativeDPRPC
 from .metrics_contract import validate_metrics, validate_status
-from .topology import Topology, integer
+from .topology import topology_from_args, integer, DEFAULT_CHIP_LIST
 
 
 def verify_native_files(guards):
@@ -72,7 +72,7 @@ async def serve(args, candidate, plan):
 
     save()
     _, sock = official.setup_server(config, reuse_port=False)
-    topology = Topology.named(args.layout)
+    topology = topology_from_args(args)
     try:
         async with official.build_async_engine_client(config) as engine:
             selection["engine_initialized"] = True
@@ -199,6 +199,7 @@ def main():
     parser.add_argument("--gpu-memory-utilization", type=float, default=0.90)
     parser.add_argument("--loading-threads", type=int)
     parser.add_argument("--host-numa-nodes")
+    parser.add_argument("--physical-chips", default=DEFAULT_CHIP_LIST)
     parser.add_argument("--dcp2-overlay", type=Path)
     parser.add_argument("--dcp-draft", type=Path)
     parser.add_argument("--execute", action="store_true")
@@ -207,6 +208,11 @@ def main():
     if os.environ.get(NUMA_ENV) != args.host_numa_nodes:
         raise ValueError("NUMA launch environment and service CLI differ")
     host_policy = verify_interleave(args.host_numa_nodes)
+    topology = topology_from_args(args)
+    chip_list = ",".join(map(str, topology.chips))
+    for key in ("STACK_PHYSICAL_CHIPS", "STACK_EXPECTED_CHIPS", "ASCEND_RT_VISIBLE_DEVICES", "ASCEND_VISIBLE_DEVICES"):
+        if os.environ.get(key) != chip_list:
+            raise ValueError("Physical launch environment and service CLI differ: " + key)
     candidate = json.loads((args.source / "candidate_contract.json").read_text())
     dcp_options = {}
     if args.layout == "dp4-tp2-dcp2":
@@ -227,7 +233,8 @@ def main():
                      served_model=args.served_model, max_model_len=args.max_model_len,
                      gpu_memory_utilization=args.gpu_memory_utilization,
                      loading_threads=args.loading_threads,
-                     host_numa_nodes=args.host_numa_nodes, **dcp_options)
+                     host_numa_nodes=args.host_numa_nodes,
+                     physical_chips=args.physical_chips, **dcp_options)
     plan["host_memory_policy_receipt"] = host_policy
     verify(args.runtime)
     guards = json.loads(args.native_source_guards.read_text())

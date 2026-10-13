@@ -6,11 +6,11 @@ import uuid
 
 from .benchmark import http_json, load_frozen_dihuo_inputs, metrics_after, stream
 from .measurement import request_metrics
-from .topology import Topology, validate_identity
+from .topology import topology_from_args, validate_identity, DEFAULT_CHIP_LIST
 
 
 def run(args):
-    topology = Topology.named(args.layout)
+    topology = topology_from_args(args)
     inputs = load_frozen_dihuo_inputs(args.manifest, args.manifest_sha256, 2048, 256)
     output = Path(args.output)
     output.mkdir(parents=True, exist_ok=False)
@@ -51,6 +51,7 @@ def run(args):
                       sid=args.sid, fingerprint=args.fingerprint)
     (output / "identity_after.json").write_text(json.dumps(after, indent=2) + "\n")
     result = {"layout": args.layout, "service_instance_id": args.sid,
+              "physical_chips": list(topology.chips),
               "runtime_fingerprint": args.fingerprint, "canary_requests": len(results),
               "all_canaries_verified": True, "formal_quality_passed": False}
     (output / "result.json").write_text(json.dumps(result, indent=2) + "\n")
@@ -63,6 +64,7 @@ def main():
                  "manifest", "manifest-sha256", "output"):
         parser.add_argument("--" + name, required=True)
     parser.add_argument("--timeout", type=float, default=1800)
+    parser.add_argument("--physical-chips", default=DEFAULT_CHIP_LIST)
     run(parser.parse_args())
 
 

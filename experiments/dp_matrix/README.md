@@ -1,9 +1,17 @@
 # 八 chip 原生 DP 测试（2026-10-13）
 
-用户新授权范围为 a3-21 physical8–15 的 DP2TP4、DP4TP2、DP4TP2DCP2。
+用户最新授权范围为 a3-21 physical0–7 的 DP2TP4、DP4TP2、DP4TP2DCP2；
+此前8–15窗口及下面的v3/v4/v5均保留为历史，不能继承到新的0–7 SID。
 旧 CED-PD/DRAM 大目标仍暂停。现有 TP8 结果仅作历史参照，不继承精度或性能验收。
 
 三种几何的 `DP × TP = 8`；DCP2 在 TP2 组内部划分 KV，不额外占用芯片。
+
+服务/prepare/freeze/canary/benchmark/Code8 replay/score均提供 `--physical-chips`；
+只准两组完整、顺序固定的0–7或8–15，拒重复/混杂/自动选卡。为兼容旧入口默认仍为8–15，
+本轮命令必须明确 `--physical-chips 0,1,2,3,4,5,6,7`。
+SDK/model/draft/counter/fence原件不变；新derivedworker仅把旧硬编码物理assert替换为
+严格runtime guard，并保存源SHA/manifest。实际PID/NPU/cgroup仍独立取证。
+当前0–7首轮chip4有外部 `xh-mk` 进程，未启动NPU探针或新服务；容器/source门正在核对。
 沿用基线已有的 EP 开关，预期 expert 通信组跨八个 rank，不能用独立 TP 副本冒充
 原生 DP。实际通信组、PID/cgroup、路由及每个副本的质量必须在新服务中核验。
 

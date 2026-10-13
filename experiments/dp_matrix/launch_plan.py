@@ -15,7 +15,7 @@ if __package__.startswith("experiments."):
     from experiments.delivery_matrix.service import fingerprint, make_plan as tp8_plan
 else:
     from delivery_matrix.service import fingerprint, make_plan as tp8_plan
-from .topology import Topology, integer
+from .topology import Topology, integer, DEFAULT_CHIP_LIST
 from .host_memory import ENV as NUMA_ENV, node_list
 
 
@@ -26,10 +26,11 @@ DCP2_CONTRACT_SHA256 = hashlib.sha256(Path(__file__).with_name("dcp2_contract.py
 
 def make_plan(candidate, *, layout, source, output, served_model,
               max_model_len=8192, batched_tokens=8192, gpu_memory_utilization=0.90,
-              loading_threads=None, host_numa_nodes=None,
+              loading_threads=None, host_numa_nodes=None, physical_chips=DEFAULT_CHIP_LIST,
               kv_cache_memory_bytes=None, dcp_overlay=None, dcp_draft=None,
               dcp2_overlay_manifest_sha256=None, dcp_draft_manifest_sha256=None):
-    topology = Topology.named(layout)
+    topology = Topology.named(layout, chips=physical_chips)
+    selected_chips = ",".join(map(str, topology.chips))
     integer(max_model_len, "max_model_len", minimum=512)
     integer(batched_tokens, "batched_tokens", minimum=128)
     if (type(gpu_memory_utilization) not in (int, float)
@@ -60,11 +61,16 @@ def make_plan(candidate, *, layout, source, output, served_model,
         source=Path(source), output=Path(output), form="a2-tp8-a3sim",
         served_model=served_model, max_model_len=max_model_len,
         batched_tokens=batched_tokens, device_index=0,
-        physical_chips="8,9,10,11,12,13,14,15", physical_worker=None,
+        # Obtain the immutable TP8 baseline first, without using its independent
+        # TP8-only placement derivation. Our SHA-pinned DP worker has its own
+        # bounded physical guard derivation, validated before loading weights.
+        physical_chips=None, physical_worker=None,
         dcp_det_reduce=None,
     )
     base = tp8_plan(candidate, args)
     kw, env = copy.deepcopy(base["model_kwargs"]), copy.deepcopy(base["environment"])
+    env.update(STACK_PHYSICAL_CHIPS=selected_chips, STACK_EXPECTED_CHIPS=selected_chips,
+               ASCEND_RT_VISIBLE_DEVICES=selected_chips, ASCEND_VISIBLE_DEVICES=selected_chips)
     env.pop(NUMA_ENV, None)
     if host_numa_nodes is not None:
         env[NUMA_ENV] = host_numa_nodes
@@ -108,6 +114,11 @@ def make_plan(candidate, *, layout, source, output, served_model,
         "served_model": served_model, "source_root": str(source),
         "source_candidate_fingerprint": fingerprint(candidate),
         "base_tp8_plan_fingerprint": base["runtime_fingerprint"],
+        "physical_placement_derivation": {
+            "source": candidate["startup_env"].get("STACK_PHYSICAL_CHIPS"),
+            "selected": selected_chips,
+            "admission": "SHA-pinned bounded DP worker derivation and exact runtime placement guard",
+        },
         "topology": topology.plan(), "model_kwargs": kw, "environment": env,
         "model_kwargs_derivation": changes,
         "dcp2_overlay_manifest_sha256": dcp2_overlay_manifest_sha256,

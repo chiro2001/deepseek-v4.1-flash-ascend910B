@@ -12,7 +12,7 @@ import time
 import urllib.request
 import uuid
 
-from .topology import Topology, validate_identity
+from .topology import topology_from_args, validate_identity, DEFAULT_CHIP_LIST
 
 
 MANIFEST_SHA256 = "6ec9d9267695a4b6e7d5e27a1beaf0823df8498c9762b4c7204d2892474a8704"
@@ -127,7 +127,7 @@ def load_frozen_client(source_root):
 
 
 def replay(args):
-    topology = Topology.named(args.layout)
+    topology = topology_from_args(args)
     inputs = load_inputs(args.manifest, args.requests)
     benchmark = load_frozen_client(args.source_root)
     output = Path(args.output)
@@ -151,6 +151,7 @@ def replay(args):
                "request_scope": "ordinary_quality",
                "service_instance_id": args.sid, "runtime_fingerprint": args.fingerprint,
                "served_model": args.model, "layout": args.layout,
+               "physical_chips": list(topology.chips),
                "request_id": request_id, "task_id": sample["task_id"],
                "split_artifact": sample["artifact"],
                "split_artifact_sha256": sample["artifact_sha256"],
@@ -182,6 +183,7 @@ def replay(args):
         raise ValueError("Service identity changed during the Code8 suite")
     (output / "identity_after.json").write_text(json.dumps(identity_after, indent=2) + "\n")
     result = {"schema": "native_dp_code8_replay_v1", "layout": args.layout,
+              "physical_chips": list(topology.chips),
               "served_model": args.model, "service_instance_id": args.sid,
               "runtime_fingerprint": args.fingerprint,
               "split_manifest_sha256": inputs["manifest_sha256"],
@@ -200,6 +202,7 @@ def main():
                  "requests", "source-root", "output"):
         parser.add_argument("--" + name, required=True)
     parser.add_argument("--timeout", type=float, default=1800)
+    parser.add_argument("--physical-chips", default=DEFAULT_CHIP_LIST)
     args = parser.parse_args()
     if args.timeout <= 0:
         parser.error("A positive request timeout is required")

@@ -5,6 +5,7 @@ from pathlib import Path
 import shlex
 
 from .launch_plan import make_plan
+from .topology import DEFAULT_CHIP_LIST
 
 
 CLEAR = (
@@ -23,6 +24,7 @@ CLEAR = (
 def shell(candidate, *, layout, source, package, generic_package, runtime,
           native_guards, job_root, served_model, port, max_model_len=196608,
           gpu_memory_utilization=0.90, loading_threads=None, host_numa_nodes=None,
+          physical_chips=DEFAULT_CHIP_LIST,
           dcp_overlay=None, dcp_draft=None,
           dcp2_overlay_manifest_sha256=None, dcp_draft_manifest_sha256=None):
     if type(port) is not int or not 1024 <= port <= 65535:
@@ -33,6 +35,7 @@ def shell(candidate, *, layout, source, package, generic_package, runtime,
                      gpu_memory_utilization=gpu_memory_utilization,
                      loading_threads=loading_threads,
                      host_numa_nodes=host_numa_nodes,
+                     physical_chips=physical_chips,
                      dcp_overlay=dcp_overlay, dcp_draft=dcp_draft,
                      dcp2_overlay_manifest_sha256=dcp2_overlay_manifest_sha256,
                      dcp_draft_manifest_sha256=dcp_draft_manifest_sha256)
@@ -56,6 +59,7 @@ def shell(candidate, *, layout, source, package, generic_package, runtime,
                "--served-model", served_model, "--port", str(port),
                "--max-model-len", str(max_model_len),
                "--gpu-memory-utilization", str(gpu_memory_utilization), "--execute"]
+    command.extend(["--physical-chips", ",".join(map(str, plan["topology"]["physical_chips"]))])
     if loading_threads is not None:
         command.extend(["--loading-threads", str(loading_threads)])
     if host_numa_nodes is not None:
@@ -85,6 +89,7 @@ def main():
     parser.add_argument("--gpu-memory-utilization", type=float, default=0.90)
     parser.add_argument("--loading-threads", type=int)
     parser.add_argument("--host-numa-nodes")
+    parser.add_argument("--physical-chips", default=DEFAULT_CHIP_LIST)
     parser.add_argument("--dcp2-overlay")
     parser.add_argument("--dcp-draft")
     parser.add_argument("--dcp2-overlay-manifest-sha256")
@@ -99,6 +104,7 @@ def main():
                        gpu_memory_utilization=args.gpu_memory_utilization,
                        loading_threads=args.loading_threads,
                        host_numa_nodes=args.host_numa_nodes,
+                       physical_chips=args.physical_chips,
                        dcp_overlay=args.dcp2_overlay, dcp_draft=args.dcp_draft,
                        dcp2_overlay_manifest_sha256=args.dcp2_overlay_manifest_sha256,
                        dcp_draft_manifest_sha256=args.dcp_draft_manifest_sha256)

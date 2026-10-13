@@ -8,6 +8,7 @@ import tarfile
 
 from .build_runtime import build
 from .prepare_launch import shell
+from .topology import DEFAULT_CHIP_LIST
 
 
 def main():
@@ -21,6 +22,7 @@ def main():
     parser.add_argument("--gpu-memory-utilization", type=float, default=0.90)
     parser.add_argument("--loading-threads", type=int)
     parser.add_argument("--host-numa-nodes")
+    parser.add_argument("--physical-chips", default=DEFAULT_CHIP_LIST)
     parser.add_argument("--dcp2-base", type=Path)
     parser.add_argument("--dcp-draft-base", type=Path)
     args = parser.parse_args()
@@ -85,7 +87,8 @@ def main():
                          port=args.port, max_model_len=args.max_model_len,
                          gpu_memory_utilization=args.gpu_memory_utilization,
                          loading_threads=args.loading_threads,
-                         host_numa_nodes=args.host_numa_nodes, **dcp_options)
+                         host_numa_nodes=args.host_numa_nodes,
+                         physical_chips=args.physical_chips, **dcp_options)
     launch_path = output / "launch.sh"
     launch_path.write_text(launch)
     (output / "prepared_plan.json").write_text(json.dumps(plan, indent=2) + "\n")

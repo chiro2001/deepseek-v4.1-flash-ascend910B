@@ -9,7 +9,8 @@ def expected_tp_size():
 
 
 def validate_worker_config(config, environment):
-    topology = Topology.named(environment.get("DP_MATRIX_LAYOUT"))
+    topology = Topology.named(environment.get("DP_MATRIX_LAYOUT"),
+                              chips=environment.get("STACK_PHYSICAL_CHIPS"))
     parallel = config.parallel_config
     for key, value in (("data_parallel_size", topology.dp),
                        ("data_parallel_size_local", topology.dp),
@@ -22,7 +23,10 @@ def validate_worker_config(config, environment):
     rank = integer(parallel.data_parallel_rank, "data_parallel_rank")
     if rank >= topology.dp:
         raise ValueError("Foreign data-parallel rank")
-    if (environment.get("STACK_PHYSICAL_CHIPS") != "8,9,10,11,12,13,14,15"
-            or environment.get("STACK_TP8_ARM") is not None):
+    if environment.get("STACK_TP8_ARM") is not None:
         raise ValueError("Explicit eight-chip DP placement must not inherit the TP8 arm tag")
+    chip_list = ",".join(map(str, topology.chips))
+    for key in ("STACK_EXPECTED_CHIPS", "ASCEND_RT_VISIBLE_DEVICES", "ASCEND_VISIBLE_DEVICES"):
+        if key in environment and environment[key] != chip_list:
+            raise ValueError("Actual worker visible-device setting differs from explicit placement: " + key)
     return topology

@@ -45,6 +45,31 @@ class LaunchPlanTests(unittest.TestCase):
             self.assertFalse(plan[key])
         self.assertEqual(plan["environment"]["V41_ENGRAM_DEVICE_INDEX"], "0")
 
+    def test_explicit_low_chip_plan_overwrites_all_visible_envs_and_binds_fingerprint(self):
+        candidate = self.candidate()
+        before = copy.deepcopy(candidate)
+        selected = "0,1,2,3,4,5,6,7"
+        legacy = self.plan(candidate)
+        low = self.plan(candidate, physical_chips=selected)
+
+        self.assertEqual(candidate, before)
+        self.assertEqual(low["topology"]["physical_chips"], list(range(8)))
+        for key in (
+            "STACK_PHYSICAL_CHIPS", "STACK_EXPECTED_CHIPS",
+            "ASCEND_RT_VISIBLE_DEVICES", "ASCEND_VISIBLE_DEVICES",
+        ):
+            with self.subTest(key=key):
+                self.assertEqual(low["environment"][key], selected)
+                self.assertEqual(legacy["environment"][key], "8,9,10,11,12,13,14,15")
+        self.assertNotEqual(low["runtime_fingerprint"], legacy["runtime_fingerprint"])
+        self.assertFalse(low["actual_quality_passed"])
+
+    def test_explicit_chip_plan_rejects_mixed_or_noncanonical_group(self):
+        for selected in ("0,1,2,3,4,5,6,8", "8,9,10,11,12,13,14,14",
+                         "9,8,10,11,12,13,14,15"):
+            with self.subTest(selected=selected), self.assertRaises(ValueError):
+                self.plan(physical_chips=selected)
+
     def test_stale_env_kv_pin_is_not_reintroduced(self):
         candidate = self.candidate()
         candidate["startup_env"]["KV_CACHE_MEMORY_BYTES"] = "4294967296"

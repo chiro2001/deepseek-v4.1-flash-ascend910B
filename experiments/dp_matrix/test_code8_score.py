@@ -18,7 +18,7 @@ from unittest.mock import patch
 
 from experiments.dp_matrix import code8_score
 from experiments.dp_matrix.code8_replay import MANIFEST_SHA256, load_inputs
-from experiments.dp_matrix.topology import Topology
+from experiments.dp_matrix.topology import LOW_CHIPS, Topology
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
@@ -90,8 +90,8 @@ class Code8ScoreGateTests(unittest.TestCase):
     def tearDown(self):
         self.temp.cleanup()
 
-    def write_identity(self):
-        doc = identity(self.topology)
+    def write_identity(self, topology=None):
+        doc = identity(self.topology if topology is None else topology)
         (self.responses / "identity_before.json").write_text(json.dumps(doc) + "\n")
         (self.responses / "identity_after.json").write_text(json.dumps(doc) + "\n")
 
@@ -157,7 +157,8 @@ class Code8ScoreGateTests(unittest.TestCase):
         (self.proxy / "attempts.jsonl").write_text(
             "".join(json.dumps(row) + "\n" for row in journal))
 
-    def args(self, *, scope="ordinary_quality", sid=SID, output="score.json"):
+    def args(self, *, scope="ordinary_quality", sid=SID, output="score.json",
+             physical_chips="8,9,10,11,12,13,14,15"):
         return SimpleNamespace(
             manifest=EVIDENCE / "manifest.json", manifest_sha256=MANIFEST_SHA256,
             requests=EVIDENCE / "requests", workloads=WORKLOADS,
@@ -165,6 +166,7 @@ class Code8ScoreGateTests(unittest.TestCase):
             sid=sid, fingerprint=FINGERPRINT, model=MODEL, layout=LAYOUT,
             scope=scope, proxy_root=self.proxy,
             timeout=3.0, memory_mb=512, cpu_seconds=2,
+            physical_chips=physical_chips,
         )
 
     def run_with_fake_scorer(self, args):
@@ -179,6 +181,22 @@ class Code8ScoreGateTests(unittest.TestCase):
         self.assertTrue(result["summary"]["code8_quality_gate_passed"])
         self.assertTrue(result["wire_audit"]["wire_audit_passed"])
         self.assertEqual(result["summary"]["request_scope"], "ordinary_quality")
+
+    def test_scorer_accepts_only_identity_for_explicit_low_chip_group(self):
+        low_topology = Topology.named(LAYOUT, chips=LOW_CHIPS)
+        self.write_identity(low_topology)
+        args = self.args(output="score-low-chips.json",
+                         physical_chips=",".join(map(str, LOW_CHIPS)))
+        self.run_with_fake_scorer(args)
+        result = json.loads((self.root / "score-low-chips.json").read_text())
+        self.assertTrue(result["summary"]["code8_quality_gate_passed"])
+
+        self.write_identity(self.topology)
+        self.scorer_calls.clear()
+        with patch.object(code8_score, "load_frozen_workloads", return_value=self.workloads):
+            with self.assertRaisesRegex(ValueError, "Unexpected worker physical_chip"):
+                code8_score.score(args)
+        self.assertEqual(self.scorer_calls, [])
 
     def test_bad_identity_and_scope_are_rejected_before_scorer(self):
         after = json.loads((self.responses / "identity_after.json").read_text())
