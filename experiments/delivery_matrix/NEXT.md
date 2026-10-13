@@ -1,5 +1,28 @@
 # 接续工作检查点（三形态主目标已暂停）
 
+## 2026-10-14 恢复：先整合、再 DP2TP4
+
+用户授权恢复 physical0–7 的三种原生 DP 测试，并要求重建 goal；新 goal 已 active。
+已保存0–7代码为 `eee747b`，合入其他 Agent 整理的 `origin/main@889a6a9` 为
+`7a6b75a`，随后 `5f78159` 刷新干净 HEAD 的 MANIFEST。原任务分支继续，不改主线或
+其他 worktree；无关 untracked 和历史运行产物保留。
+CPU **166 passed / 400 subtests**、包自检全通过、`git archive HEAD` 的9004文件
+MANIFEST 全匹配。整理/配置边界见
+[恢复审查收据](../dp_matrix/evidence/RESUME_CONSOLIDATION_20261014.md)。
+
+当前唯一现场操作者为 `site_resume_audit`（gpt-6-luna[max]）；新只读第一快照：
+physical0–7 均 Health=OK、无 NPU 进程，8–15 外部任务继续占用，不触碰。
+目标 P 容器 `16d30453…` running/restart=0，测试端口无监听。
+旧 job 根不可见，不能复用；新候选独立包 `/work/dp07_20261014_v7`、job `/work/j24a`。
+新 DP2TP4 v7 只在本地冻结：model `dsv41-dp-dp2tp4-0-7-v7`、18960、
+BAT8192/util0.85/loader16/interleave0,1,2,3，Engram on/index off、真draft图、BI/async。
+tgz SHA `8217371e44c781d5828da26a9f3fdc71d044ab66e1530f364b5f021a64afbed7`，
+launch SHA `207c5899608b7d09651e13e9f74cfa07f92f7ba601205db145b027292e733648`。
+源/native/完整OPP/模型与Engram/NUMA门仍在核验；尚未stage或初始化服务。
+新本地根 `~/tmp/dsv41-dp-resume-20261014`；旧证据不迁移/不改SHA。
+
+下面保留2026-10-13原始检查点；其中占用、服务和旧goal描述不是当前现场结论。
+
 ## 最新目标：八 chip 原生 DP 矩阵（2026-10-13）
 
 **最新范围覆盖下面旧的8–15约束：**用户选择保存上一窗口后，又明确授权接下来改用

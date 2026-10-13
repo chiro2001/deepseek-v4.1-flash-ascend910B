@@ -192,8 +192,9 @@ proposal selector计数为808 graph/8 eager。selector不等于逐次底层repla
 DP2TP4、DP4TP2、DP4TP2DCP2；下表已有实测均属于历史8–15，不能借给新窗口。
 服务及 canary/性能/编程客户端新增显式 `--physical-chips`，按所选组验证实际身份；
 冻结原件不改写，新包从原SHA约束派生物理guard，不把配置声明当成设备映射。
-0–7 首轮只读检查发现 chip4 被外部 `xh-mk` 的 python3 进程占用，正在重核；
-未启动新服务，不停止外部任务。
+2026-10-13 首轮只读检查发现 chip4 被外部 `xh-mk` 占用后暂停；
+2026-10-14 用户授权恢复，当前第一快照0–7已无 NPU 进程，正在核验源/NUMA/路径门。
+尚未启动新服务，不停止外部任务；见[恢复审查与配置边界](experiments/dp_matrix/evidence/RESUME_CONSOLIDATION_20261014.md)。
 
 历史范围是 a3-21 physical8–15：DP2TP4、DP4TP2、DP4TP2DCP2，三者均 `DP×TP=8`，
 DCP 在 TP 内划分，EP 保持跨八 rank。Engram 开启；`V41_ENGRAM_DEVICE_INDEX=0`
