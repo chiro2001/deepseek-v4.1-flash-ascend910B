@@ -1,9 +1,11 @@
 """CPU-only tensor/collective spies; no vendor imports or NPU execution."""
 import ast
 import importlib.util
+import json
 import os
 from pathlib import Path
 import sys
+import shutil
 from tempfile import TemporaryDirectory
 from types import ModuleType, SimpleNamespace as NS
 import unittest
@@ -160,15 +162,36 @@ class StableReductionTests(unittest.TestCase):
             with self.assertRaises(ValueError): builder.verify_bounded_branches(mutant)
 
     def test_source_drift_is_rejected_and_original_overlay_stays_frozen(self):
-        source = (HERE / "dcp_runtime_20261013_v3/vllm_ascend/attention/dsa_v41.py").read_text()
+        original = HERE / "dcp_runtime_20261013_v3"
+        original_dsa = original / "vllm_ascend/attention/dsa_v41.py"
+        original_manifest = original / "manifest.json"
+        source = original_dsa.read_text()
         with self.assertRaises(ValueError): builder.derive(source + "\n# drift\n")
-        before = builder.sha(HERE / "dcp_runtime_20261013_v3/manifest.json")
+        before_manifest = builder.sha(original_manifest)
+        before_dsa = builder.sha(original_dsa)
         with TemporaryDirectory(dir=os.environ["TMPDIR"], prefix="dcp-stability-") as task:
-            result = builder.build(HERE / "dcp_runtime_20261013_v3", Path(task) / "candidate")
+            base = Path(task) / "base"
+            dsa_relative = "vllm_ascend/attention/dsa_v41.py"
+            fixture_dsa = base / dsa_relative
+            fixture_dsa.parent.mkdir(parents=True)
+            shutil.copy2(original_dsa, fixture_dsa)
+            manifest = {
+                "schema": "delivery_dcp_overlay_v2",
+                "files": {dsa_relative: {"sha256": builder.sha(fixture_dsa)}},
+                "modules": {"vllm_ascend.attention.dsa_v41": dsa_relative},
+            }
+            fixture_manifest = base / "manifest.json"
+            fixture_manifest.write_text(json.dumps(manifest))
+            before_fixture_manifest = builder.sha(fixture_manifest)
+            before_fixture_dsa = builder.sha(fixture_dsa)
+            result = builder.build(base, Path(task) / "candidate")
             self.assertFalse(result["actual_quality_passed"])
             self.assertFalse(result["service_launch_requested"])
             self.assertTrue(builder.verify_candidate(Path(task) / "candidate")["all_five_reduction_gates_covered"])
-        self.assertEqual(builder.sha(HERE / "dcp_runtime_20261013_v3/manifest.json"), before)
+            self.assertEqual(builder.sha(fixture_manifest), before_fixture_manifest)
+            self.assertEqual(builder.sha(fixture_dsa), before_fixture_dsa)
+        self.assertEqual(builder.sha(original_manifest), before_manifest)
+        self.assertEqual(builder.sha(original_dsa), before_dsa)
 
     def test_old_partial_unbounded_candidate_cannot_enable_software_ordering(self):
         with self.assertRaises(ValueError):

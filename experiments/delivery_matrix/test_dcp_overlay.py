@@ -65,10 +65,21 @@ class OverlayTests(unittest.TestCase):
         self.assertTrue(manifest["best_QLI_no_candidate_preserved"])
 
     def test_platform_import_before_overlay_is_rejected(self):
-        root = Path(__file__).with_name("dcp_runtime_20261013_v3")
-        with patch.dict(sys.modules, {"vllm_ascend.platform": ModuleType("vllm_ascend.platform")}):
-            with self.assertRaises(RuntimeError):
-                overlay.install(root)
+        task_tmp = Path(os.environ.get("TMPDIR", Path.home() / "tmp/dsv41-delivery-matrix"))
+        task_tmp.mkdir(parents=True, exist_ok=True)
+        with tempfile.TemporaryDirectory(dir=task_tmp, prefix="dcp-overlay-import-order-") as directory:
+            root = Path(directory)
+            manifest = {
+                "schema": "delivery_dcp_overlay_v2",
+                "best_model_unchanged": True,
+                "best_engram_lookup_algorithm_preserved": True,
+                "files": {},
+                "modules": {},
+            }
+            (root / "manifest.json").write_text(json.dumps(manifest))
+            with patch.dict(sys.modules, {"vllm_ascend.platform": ModuleType("vllm_ascend.platform")}):
+                with self.assertRaisesRegex(RuntimeError, "installed before vendor module imports"):
+                    overlay.install(root)
 
     def test_pinned_payload_tampering_is_rejected(self):
         task_tmp = Path(os.environ.get("TMPDIR", Path.home() / "tmp/dsv41-delivery-matrix"))
