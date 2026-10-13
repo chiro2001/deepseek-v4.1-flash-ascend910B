@@ -62,6 +62,18 @@ export PORT=${PORT:-8020}
 export SERVED_NAME=${SERVED_NAME:-deepseek-v41}
 export TOOL_CALLING=${TOOL_CALLING:-1}
 export MAX_SEQS=${MAX_SEQS:-32}
+
+# [A3-DELIVERABLE-DEFAULTS 2026-10-04] A3 单实例的三个交付默认（都经本机多轮实测：
+# `docs/TP8-DELIVERABLE-CONFIG-20261004.md` + `docs/CAPTURE-BUCKET-6N-20261004.md`）：
+#   · DRAFT_GRAPH=1 —— N=1 +15%（95.1 → 109.5）、N=8/16 无回退。
+#     serve_a2.sh 的默认仍保守为 0（历史上撞过一次未查明根因的静默失效 A≈1.06），
+#     所以这里显式给。**起服后务必用 tools/draft_graph_guard.sh 断言 A ≥ 1.3**。
+#     本机连续多轮 DRAFT_GRAPH=1 实测 A 稳定在 3.4–3.7，且 144K/1M 四针 + regress2 全过。
+#   · GPU_UTIL=0.92 / BAT_TOKENS=8192 —— 与容量实测口径一致（KV 2.82M tokens）。
+#   · SP_TOKENS=5 保持默认（K=5 在 N=1/2/4/8 全面优于 K=7）。
+export DRAFT_GRAPH=${DRAFT_GRAPH:-1}
+export GPU_UTIL=${GPU_UTIL:-0.92}
+export BAT_TOKENS=${BAT_TOKENS:-8192}
 export DP=${DP:-1}
 # [绑核] 外部**不做** CPU/NUMA 绑定：容器不设 --cpuset-cpus/--cpuset-mems，
 #   由 vllm-ascend 内部的 cpu_binding 按 NPU 拓扑给每个 rank 自己绑
@@ -71,6 +83,21 @@ export DP=${DP:-1}
 export CPUSET=${CPUSET:--1}
 export MEMS=${MEMS:--1}
 export CPU_BIND=${CPU_BIND:-1}
+
+# [ENGRAM-DEVICE-INDEX 2026-10-04] A3 默认开启 Engram **设备侧索引**（=1）：
+# 它用驱动 host_mem_pool 把两张 engram 表直接映射成设备可寻址（HBM 占用 0），
+# 从而**整条替换** host lookup 路径（D2H / CPU gather / pack H2D / all_to_all / broadcast）。
+# 实测（同机 A/B，同一套 1024/256 地火口径）：
+#   · `[bneck]` 的 `d2h` 从 p50 25.3ms 降到**消失**；
+#   · 每步时间按 batch 全面下降：n=6 26.15→25.34ms、n=12 29.24→28.17、n=18 32.92→31.68、
+#     n=48 42.60→41.54（**−2.5%~−3.8%**）；
+#   · 端到端 N=2 +5.3%、N=16 +3.4%、N=1 +1.6%（N=8 单轮 A 抽签偏低，按步时口径是 −9%）；
+#   · 容量不变（KV 2,821,446 vs 2,823,080 tokens，差 0.06% = profiling 噪声）；
+#   · 正确性：144K 四针 + 流式 + 多轮 + prefix **11/11 PASS**、regress2 5/6（与基线同）。
+# 回退：`ENGRAM_DEVICE_INDEX=0`（回到 host 路径；A2 目标机上 host_mem_pool 不可用，
+#   那里必须用 0 —— 所以这只改 A3 入口，`serve_a2.sh` 的默认仍是 `auto`）。
+# ⚠️ CED-PD（deploy/a3-ced-pd）**未**验证该路径，其 _common.sh 显式设 0，保持不动。
+export ENGRAM_DEVICE_INDEX=${ENGRAM_DEVICE_INDEX:-1}
 # [PGO] A2 的 PGO 产物是针对 **A2 镜像** 的 libpython 编译的：
 #   A2 镜像 md5(libpython3.12.so.1.0) = f1ebbee1405d0e31136aa4480b57b3dc
 #   A3 镜像 md5(libpython3.12.so.1.0) = eaea156ea8ddf85b0b2d71f77872991e   ← 不同

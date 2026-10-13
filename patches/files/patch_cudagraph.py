@@ -89,6 +89,23 @@ def _v41_extra_query_lens(self) -> tuple[int, ...]:
     if cached is None:
         cached = _dynamic_decode_query_lens(self.vllm_config) or ()
         self._v41_qlens_cache = cached
+        # [DYNSPEC-ALIAS 2026-10-03] ★ 这是"动态 K 在 req>2 掉到 ~10 tok/s"的根因修复。
+        #
+        # runner 侧读的是 **`_dynamic_decode_query_lens`**（见 model_runner_v1.py 的
+        #   `_udql_set = getattr(self.cudagraph_dispatcher, "_dynamic_decode_query_lens", None)`
+        # `_udql_set` 用来做"max_num_scheduled_tokens ∈ {1,8}"的**集合成员**判定），
+        # 而这里原来只写了 `_v41_qlens_cache` ⇒ runner 永远拿到 None ⇒ 退回等值比较
+        # `max_num_scheduled_tokens == uniform_decode_query_len`（= 1+7 = 8）
+        # ⇒ K=0 的步（1 != 8）被判成**非 uniform** ⇒ BatchDescriptor(uniform=False)
+        # 与捕获键（全部 uniform=True）不匹配 ⇒ `dispatch()` 找不到 FULL 键时
+        # **静默** 返回 CUDAGraphMode.NONE（上游代码里就是 `return NONE`，不打日志）
+        # ⇒ 整步 eager ⇒ 每步 87 次 allreduce 各约 2 ms ⇒ ~175 ms/step ⇒ ~10 tok/s。
+        #
+        # 实测证据（2026-10-03，a3-21 dies 8-15，同实例 A/B 两次 profiler）：
+        #   K=7/ql=8 步：allreduce 在图内（stream 225，80.5 次/步，avg 44 us）
+        #   K=0/ql=1 步：allreduce 在图外（stream 38，89.8 次/步，avg 1962 us）
+        #   两者调用次数几乎相同 ⇒ 差别只在"有没有进图"。
+        self._dynamic_decode_query_lens = cached
     return cached
 
 
@@ -275,6 +292,68 @@ def adjust_cudagraph_sizes_for_spec_decode(
     return _orig_adjust_cudagraph_sizes(
         self, uniform_decode_query_len, tensor_parallel_size
     )
+
+
+_DYNSPEC_MISS_WARNED = False
+_DYNSPEC_MISS_SEEN: dict = {}
+
+
+_orig_dispatch = CudagraphDispatcher.dispatch
+
+
+def dispatch(
+    self,
+    num_tokens: int,
+    uniform_decode: bool = False,
+    has_lora: bool = False,
+    num_active_loras: int = 0,
+    valid_modes=None,
+    invalid_modes=None,
+):
+    """[DYNSPEC-GUARD 2026-10-03] 给"静默回落 eager"加一个响亮判据。
+
+    上游 `dispatch()` 在 FULL 键查不到时**直接 `return CUDAGraphMode.NONE`，一行日志都不打**
+    —— 2026-10-03 那个"req>=2 掉到 ~10 tok/s"就是靠人肉读 profiler 才发现的
+    （见 `_dynamic_decode_query_lens` 别名那段注释）。这里在"动态 SD 开着、
+    调用方明确说这是 uniform-decode 步、结果却拿到 NONE"时告警**一次**。
+    """
+    global _DYNSPEC_MISS_WARNED
+    mode, desc = _orig_dispatch(
+        self,
+        num_tokens=num_tokens,
+        uniform_decode=uniform_decode,
+        has_lora=has_lora,
+        num_active_loras=num_active_loras,
+        valid_modes=valid_modes,
+        invalid_modes=invalid_modes,
+    )
+    _miss_key = (int(num_tokens), int(getattr(self, "_step_uniform_query_len", -1) or -1))
+    if (
+        uniform_decode
+        and mode == CUDAGraphMode.NONE
+        and 0 <= _DYNSPEC_MISS_SEEN.get(_miss_key, 0) < 3
+        # [DYNSPEC-GUARD-EXT 2026-10-04] **去掉 `_v41_dynamic_sd_enabled` 限制**。
+        # 原来只对"显式开启多 ql 建图"的 dispatcher 告警，而 **draft proposer 用的是
+        # 自己的 dispatcher 实例、没有这个标记**（见本文件 [OPT-IN] 注释）
+        # ⇒ 如果 draft 也在退 eager，原来的守卫**照样静默**。
+        # 现在对所有 dispatcher 都告警（每个 (num_tokens, step_ql) 组合一次，不会刷屏）。
+    ):
+        _DYNSPEC_MISS_SEEN[_miss_key] = _DYNSPEC_MISS_SEEN.get(_miss_key, 0) + 1
+        _DYNSPEC_MISS_WARNED = True
+        logger.warning(
+            "[DYNSPEC-GUARD] ★ uniform-decode 步**没有**匹配到 FULL 图 ⇒ 静默回落 eager"
+            "（num_tokens=%s step_ql=%s desc=%s dyn_enabled=%s 第%s次）。"
+            "这就是 req>=2 时 ~10 tok/s 的失效模式；也用于定位 draft 段的同类回落。",
+            num_tokens,
+            getattr(self, "_step_uniform_query_len", None),
+            repr(desc),
+            getattr(self, "_v41_dynamic_sd_enabled", None),
+            _DYNSPEC_MISS_SEEN.get(_miss_key, 0),
+        )
+    return mode, desc
+
+
+CudagraphDispatcher.dispatch = dispatch
 
 
 # 注意：**不再 patch `CudagraphDispatcher.__init__`**。实测它的 import 时机晚于

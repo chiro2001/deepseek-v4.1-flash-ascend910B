@@ -615,6 +615,17 @@ def build_dspark_swa_indices(
     # out-of-range columns (their results are discarded by col_mask anyway).
     safe_nums = block_nums.clamp(min=0, max=int(block_table.shape[1]) - 1)
     block_offsets = pos % block_size
+    # [DYNSPEC-DIAG] gather 前先断言行数一致，把"1 行 vs 2 行"这种失败
+    # 变成带全部形状的可读报错（原来只有 aclnn 的 dim 0 尺寸不匹配）。
+    if block_table.shape[0] != safe_nums.shape[0]:
+        raise RuntimeError(
+            "[DYNSPEC-DIAG] build_dspark_swa_indices 行数不一致: "
+            f"block_table={tuple(block_table.shape)} "
+            f"safe_nums={tuple(safe_nums.shape)} "
+            f"seq_lens={tuple(seq_lens.shape)} "
+            f"query_start_loc={tuple(query_start_loc.shape)} "
+            f"num_decode_tokens={num_decode_tokens} index_width={index_width}"
+        )
     block_ids = torch.gather(block_table, 1, safe_nums)
     slot_ids = (block_ids * block_size + block_offsets).to(torch.int32)
     slot_ids = slot_ids.where(col_mask, torch.full_like(slot_ids, -1))
