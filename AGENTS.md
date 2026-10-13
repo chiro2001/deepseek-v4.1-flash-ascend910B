@@ -264,6 +264,7 @@ python3 tools/check_checksums.py        # 期望：三方一致 ✅
 | CED-PD 的 **ms/step**（用 `HcPre` 定步） | `python3 experiments/dspark/step_period.py <kernel_details.csv> 86` |
 | CED-PD 逐算子 A/B（归一到 ms/step） | `python3 tools/ced_prof_ab.py a.csv:80:1.9 b.csv:86:1.9:4.55` |
 | 静态核真生效？（判据见 §3.11） | `bash experiments/dspark/check_static_kernel.sh <run_dir>` |
+| **连不上 a3 / 内网链路排查** | [`docs/NETWORK-RUNBOOK.md`](docs/NETWORK-RUNBOOK.md)：拓扑 / 逐跳排查命令 / 已知故障特征 |
 
 ---
 
@@ -344,6 +345,9 @@ python3 tools/check_checksums.py        # 期望：三方一致 ✅
 | 补丁明细、调试入口、陷阱清单、口径纪律、自检工具 | **`AGENTS.md`**（本文件） |
 | 逐项 md5 / 门控 / 收益 | `patches/PATCHES.md` |
 | 设计与故障史 | `docs/` `reports/` |
+
+> ⚠️ **运维/排障手册（如 `docs/NETWORK-RUNBOOK.md`）不进 `README.md`** ——
+> 它们面向动手排障的人，入口统一挂在本文 §4「调试入口」。
 
 ## 6. 已知的"看起来像 bug 但不是"
 
