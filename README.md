@@ -133,15 +133,61 @@ proposal selector计数为808 graph/8 eager。selector不等于逐次底层repla
 [结果与口径](experiments/operator_stack/evidence/operator_revalidation_20261013/baseline2_client/RESULT.md)及
 [draft图证据](experiments/operator_stack/evidence/operator_revalidation_20261013/draft_graph_evidence/README.md)已保留。
 
-当前服务入口为 `a3-21:18960`（localhost绑定），SID `3cbd844d9f684c43867b4b85c9c78ebe`；
+该历史 TP8 服务入口为 `a3-21:18960`（localhost绑定），SID `3cbd844d9f684c43867b4b85c9c78ebe`；
 配置指纹 `79513a0f…0da4319` 与计划一致，实际运行身份另由SID/八rank/PID映射绑定。
 最终只读快照（2026-10-13 12:15–12:17，Asia/Shanghai）确认目标容器running/restart=0、
 端口LISTEN、physical8–15 Health均OK，八个worker的NSpid/cgroup均匹配目标容器；
-两个身份GET各一次通过。服务未重启或停止，未追加生成请求，见
+两个身份GET各一次通过。该快照窗口内服务未重启或停止，未追加生成请求，见
 [最终在线快照及SHA清单](experiments/operator_stack/evidence/operator_revalidation_20261013/final_live/final_live_snapshot_20261013.md)。
 保留 `a2-tp8-a3sim` 适配器form只是复用TP8入口，**不是新的910B硬件或三形态验收**；本轮不重跑GSM/Vision/编程。
+此后为下述原生 DP 矩阵受控停掉 TP8；历史在线快照不代表当前服务状态。
 
-#### 1.2.3 历史交付配置（不同口径）
+#### 1.2.3 2026-10-13 八 chip 原生 DP 矩阵（实测进行中）
+
+范围是 a3-21 physical8–15：DP2TP4、DP4TP2、DP4TP2DCP2，三者均 `DP×TP=8`，
+DCP 在 TP 内划分，EP 保持跨八 rank。Engram 开启；`V41_ENGRAM_DEVICE_INDEX=0`
+表示关闭 device-index 快路径，**不是选择 NPU ordinal 0**。保留 DSpark5 draft图、BI、async。
+
+| 拓扑/候选 | 启动/质量/性能状态 | 自动 profile KV backing/物理 rank | 每 DP 逻辑 token 等价容量 |
+|---|---|---:|---:|
+| DP2TP4 v3，util0.85 | 两副本已初始化；唯一 DP0 canary HTTP输出完整，但旧测量校验报 FAIL；无正式质量/性能结论 | DP0 6,936,860,672 B；DP1 6,936,319,744 B | 启动日志 DP0 849,714；DP1 849,648 |
+| DP2TP4 v4 | 权重加载/worker-ready 阶段初始化失败，未到新增 RPC；无可用 API，未发 canary | 待实测 | 待实测 |
+| DP2TP4 v5 | 加载线程16、host NUMA interleave0–3的恢复候选；仅 CPU 验证，外部占卡未启动 | 待实测 | 待实测 |
+| DP4TP2 | 独立候选准备，未启动 | 待实测 | 待实测 |
+| DP4TP2DCP2 | 独立 Engram/DCP/draft 接线候选，仅 CPU 验证 | 待实测 | 待实测 |
+
+DP2TP4 v3 的两副本分别有 12,824/12,823 个 global block IDs；启动日志对
+196,608-token 请求给出 4.32x KV 并发等价容量。该数值含多 KV group 账本，
+TP/DCP rank 不再作为逻辑容量倍数；SEQ1 仍只允许每副本一个活动请求。
+这里记录的是 util0.85 的实际自动分配池及启动账，不是长请求成功或全显存上限。
+
+旧 canary 四 TP 都记录 135 verifier rounds、135 graph calls、1 eager call，HTTP200、
+完整 DONE、usage2048/256/2304、clean=true；DP1 没有请求。旧 reducer 把 prefill 初始提案
+和 decode 的 eager 总数一并要求为零而拒绝，因此不发布该 canary 性能数字。
+v4 增加来自真实 counter.requests 的 phase proof，要求每个 decode round 实际入图且
+无 eager fallback，initial prefill 单独对账；原 FAIL 保留，不因诊断改写。
+
+v3 已受控停止，v4 的 `run.exit=1`、engine/ASGI ready 均为 false；目标容器仍运行，
+不能把容器在线当成推理 API 在线。故障发生在权重加载阶段：DP1 父进程先进入 shutdown，
+其后三个 worker 的 `terminated` 及 DP0 的 `BrokenPipe` 属于退出链后果；
+DP1/TP1/EP5 的日志提前截止且无 Python traceback。后续只读 kernel 日志确认：
+08:23:20 UTC，目标容器的 host PID1509209 被 NUMA node6 的 `global_oom` 杀死，
+约束为 `CONSTRAINT_MEMORY_POLICY,nodemask=6`；因未保留完整 PID 对应表，不能精确
+将该 host PID 指认到某个 TP rank。事件的触发 `cpuset` 属于外部容器，而被杀的
+`task_memcg` 属于本项目；不能由此反推本项目 worker 自己设置了 node6 绑定。
+全机可用约1.48 TiB不代表每个 NUMA 节点有余量；一次复查 node6 free约6.3 GiB，
+但 free 也不等同于 available。恢复需先核内存策略与外部 OOM 风险，不清 pagecache。
+
+后续 CPU-only 内存策略探针已验证 interleave0–3可执行、1MiB页面均匀分布；
+v5 保留原数学配置，仅降低 loader线程并显式绑定 host 分配策略，加载前及 describe
+校验实际策略，失败不回退。最新 CPU 回归148 passed /349 subtests；不是设备验收。
+最新 chip8–15 被外部 `dsv4-flash-tp8ep8-npu4-7-20261013` 占用（每 chip约55GiB），
+因此未启动 v5，未运行 NPU探针，不操作外部任务。见[故障及恢复边界](experiments/dp_matrix/evidence/V4_OOM_AND_RECOVERY.md)。
+
+新精度门、地火/编程单流与副本并发、长请求验证均须取得各自新 SID 的原始收据。
+当前状态与复现入口见[原生 DP 实验](experiments/dp_matrix/README.md)。
+
+#### 1.2.4 历史交付配置（不同口径）
 
 **PD 分离 + CED vs 全 40 层同置**（同机同请求，唯一变量是 P 的层数）：
 

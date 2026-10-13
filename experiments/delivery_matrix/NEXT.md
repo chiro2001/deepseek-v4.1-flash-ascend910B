@@ -1,5 +1,44 @@
 # 接续工作检查点（三形态主目标已暂停）
 
+## 最新目标：八 chip 原生 DP 矩阵（2026-10-13）
+
+上一轮算子核查已完成，HEAD `23015f3` 已在 origin/a321 双端核对。
+用户随后新授权在 a3-21 physical8–15 测 DP2TP4、DP4TP2、DP4TP2DCP2 的精度
+（尽可能解决）、prefill/decode 和 HBM KV 容量，并要求重新 create goal；新 goal 已 active。
+本目标不恢复旧 CED-PD/DRAM 任务；以下旧窗口的“一次客户端”限制只约束已结束的
+TP8 校准，不能重跑旧计划，也不构成本轮新 DP 测试的身份/精度证明。
+
+新入口与 CPU 合同在 [`../dp_matrix/`](../dp_matrix/README.md)。主代理负责复杂实现，
+现有 gpt-6-luna[max] 子代理分工现场监督、支持/历史研究和测试合同。先只读 preflight，
+旧 TP8 已受控停止；替换仅限已匹配 SID/PID/cgroup 的本项目服务，保留容器与证据。
+不占用 0–7、不操作外部任务、不清 pagecache。DP*TP=8，DCP 在 TP 内划分，EP 保持
+基线已有的 true；独立 TP 副本不得假称 native DP，新身份必须覆盖每个 `(dp_rank,tp_rank)`。
+DP2TP4 v3 曾完成真实初始化及自动 KV profiling，唯一 DP0 canary 的旧 reducer FAIL
+保留；v3 后已受控停止。v4 在权重加载/worker-ready 阶段失败，未到新增 RPC，未发
+HTTP/canary，目前没有 ready API；目标容器 running 不等于服务 ready。
+DP4TP2、DP4TP2DCP2 尚未启动；旧 SPEC=0/手工 KV 记录只能作历史趋势。
+v4 原件在 `/home/chiro/tmp/dsv41-dp-matrix-20261013/v4-preflight`；kernel 已确认
+08:23:20 UTC 本 CID host PID1509209 被 NUMA6 memory-policy global OOM 杀死，
+精确 TP 映射缺原件不做断言；其余 terminated/BrokenPipe 是退出链后果。
+NPU8–15自然释放，但node6 free仅约6.3GiB；下一步核继承/native NUMA策略及安全
+跨node分配，不杀未知/僵尸，不操作外部容器/chip0–7，不清cache。
+主代理已接入可选 `--loading-threads`（只降低原lazy multithread线程预算，默认128不变），
+新候选必须单独冻结plan/fp，不认为降低线程本身能解决持续的NUMA局部约束。
+
+本回合新进展：v5单独冻结（jobd24k/modeldsv41-dp-dp2tp4-v5），threads16与host NUMA
+interleave0,1,2,3，policy进入env/fp，service/worker实际get_mempolicy门失败不回退。
+CPU148/349subtests通过；现场CPU-only interleave/≤1MiB均匀页分布通过，不是NPU验证。
+最新8–15全部被外部CID31b1f424…容器 `dsv4-flash-tp8ep8-npu4-7-20261013` 八TP worker
+占用、每chip约55GiB；已只读核NSpid/cgroup/CID，未signal/stop/请求其API。
+root已async请求用户协调释放/预留8–15；NPU probe/v5 init/所有新质量性能均未运行。
+最新client-v4三包已冻结（仅客户端，不包含服务源码），CPU143/336subtests门与SHA清单
+保留于 `/home/chiro/tmp/dsv41-dp-matrix-20261013/client-v4`；现场只能stage不execute。
+最终v5/cl4已stage、包/source/native门与CPU helper通过；host09:03:04 UTC唯一复查
+外部CID仍占8–15。site已结束现场操作，不后台poll；本项目容器running，无readyAPI。
+v4 init归档与后续OOM独立收据见 `../dp_matrix/evidence/ARCHIVE.md` 及
+`V4_OOM_AND_RECOVERY.md`。恢复时重核native/source/OPP/ports/chips/NUMA，再小继承
+probe→v5init→identity/Engram/capacity→每DP canary→四质量suite及地火/编程性能。
+
 ## 当前任务与授权边界（2026-10-13）
 
 用户已明确暂停三形态交付与 DRAM 接线主目标；旧goal后来被清除，并按用户要求重建为仅算子核查的goal。
@@ -11,8 +50,8 @@ README 已更新 A2 v4 完整实测数据与 CED/DCP 的失败/待验边界。
 共享 Engram 接线候选和内容唯一 KV 池仍只有 CPU 验证，不能标为设备验收通过。
 当前算子核查产物独立保存在 `../operator_stack/evidence/operator_revalidation_20261013/`。
 
-最新算子窗口：首次base1启动失败原件保留；同参数仅换新jobroot的base2已就绪，
-SID `3cbd844d9f684c43867b4b85c9c78ebe`，physical8–15，18960，服务按用户要求保持在线。
+历史算子窗口：首次base1启动失败原件保留；同参数仅换新jobroot的base2当时已就绪，
+SID `3cbd844d9f684c43867b4b85c9c78ebe`，physical8–15，18960；之后为新 DP 目标受控停止。
 唯一1 warmup+8 measured的冻结地火2K/256窗口已经结束，不能再次执行旧client计划：
 HTTP `(28.634374913,2.524752475,88.172082781)`，server-fenced `30.292077426`，
 prefill合计`1.591584930s`，TTFT均值`0.321815077s`；8/8 clean/usage/length，
