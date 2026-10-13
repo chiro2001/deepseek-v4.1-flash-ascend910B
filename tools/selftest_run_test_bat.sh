@@ -43,12 +43,18 @@ SV=$PKG/scripts/serve_a2.sh
 [ -f "$RT" ] || { echo "⛔ 缺 $RT" >&2; exit 9; }
 [ -f "$SV" ] || { echo "⛔ 缺 $SV" >&2; exit 9; }
 
-say "① run_test.sh 的 prefill batch 默认值必须 == 8192"
+# ★ 2026-10-14 更正：本条原先断言 8192，理由是"2048 是长上下文退化的已知开关"。
+#   该理由**已作废** —— 退化根因是"降 BAT 后的容量增益把池推过 32 位块边界"
+#   （见 docs/KV32-OVERFLOW-DOSE-RESPONSE-20261006.md §6），修法是 slot 重排 + 上限夹取。
+#   但**本自检仍锁 8192**：run_test.sh 走的是 serve_a2.sh（A2 口径），
+#   A2 上 repack 尚未实测 ⇒ A2 侧继续用 8192；容量优先是 **A3 入口（serve_a3.sh）**
+#   的默认，由 tools/audit_fresh_clone.sh 单独断言。
+say "① run_test.sh 的 prefill batch 默认值必须 == 8192（A2 口径；A3 的容量优先默认见 audit_fresh_clone.sh）"
 _rt=$(bat_default_of "$RT")
 if [ "${_rt:-}" = "8192" ]; then
     ok "run_test.sh BAT_TOKENS 默认 = $_rt"
 else
-    bad "run_test.sh BAT_TOKENS 默认 = ${_rt:-读不到}（期望 8192；2048 是长上下文退化的已知开关）"
+    bad "run_test.sh BAT_TOKENS 默认 = ${_rt:-读不到}（期望 8192，与 serve_a2.sh/A2 口径一致；改它请先同步本自检与 A2 实测）"
 fi
 
 say "② run_test.sh 必须**真的把它传下去**（否则默认值只是摆设）"

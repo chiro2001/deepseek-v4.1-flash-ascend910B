@@ -264,6 +264,8 @@ python3 tools/check_checksums.py        # 期望：三方一致 ✅
 | CED-PD 的 **ms/step**（用 `HcPre` 定步） | `python3 experiments/dspark/step_period.py <kernel_details.csv> 86` |
 | CED-PD 逐算子 A/B（归一到 ms/step） | `python3 tools/ced_prof_ab.py a.csv:80:1.9 b.csv:86:1.9:4.55` |
 | 静态核真生效？（判据见 §3.11） | `bash experiments/dspark/check_static_kernel.sh <run_dir>` |
+| **连不上 a3 / 内网链路排查** | [`docs/NETWORK-RUNBOOK.md`](docs/NETWORK-RUNBOOK.md)：拓扑 / 逐跳排查命令 / 已知故障特征 |
+| **KV 容量 / slot 重排是否真生效**（A3 交付默认已开） | `grep -aE "V41-KV32-CAP\|GPU KV cache size" <serve.log> \| tail -3` —— 期望 `4,010,585 tokens`；起服日志里 `pool stride` 应为 **524288**（旧几何是 540928 ⇒ 重排没生效） |
 
 ---
 
@@ -276,6 +278,7 @@ python3 tools/check_checksums.py        # 期望：三方一致 ✅
 | 默认口径 | A3 开 Engram 算子入图（`ENGRAM_DEVICE_INDEX` 自动）｜**A2 关**（`=0` 走 host 路径）—— A2 上整表 host_register 会 `ret=207001`，见 `CHANGELOG.md` v8 §3 |
 | 性能口径 | `MAX_SEQS=4 PREFIX=0` |
 | 生产口径 | `MAX_SEQS=32 PREFIX=1` |
+| **A3 交付默认 = 容量优先** | `BAT_TOKENS=2048` + `V41_KV32_REPACK=1`（2026-10-14 起）⇒ KV **4,010,585** tokens。两条**必须成对**（只降 BAT ⇒ 池越过 32 位边界 ⇒ 长文静默读错）。**A2 入口仍是 8192**（repack 未在 A2 实测）。回退：`BAT_TOKENS=8192 V41_KV32_REPACK=0` |
 | 长 prompt 首 token 的命门 | `GPU_UTIL`：**0.92 是默认**，0.94 会让 8K prefill 从 1.14 s 掉到 8.0–8.6 s（`docs/prefill-memory-headroom.md`） |
 | **CED-PD 形态的卡分配** | **P = die 0–7 / D = die 8–15**（16 个 die = **8 块卡全用**）；全部实测参数在 `deploy/a3-ced-pd/launch/_common.sh` |
 | **CED-PD 的 D 必须关多流** | `MULTISTREAM=0 DSA_OVERLAP=0` —— 开了长上下文**静默算错**（实测 144K 四针 0/4） |
@@ -345,6 +348,9 @@ python3 tools/check_checksums.py        # 期望：三方一致 ✅
 | 逐项 md5 / 门控 / 收益 | `patches/PATCHES.md` |
 | 设计与故障史 | `docs/` `reports/` |
 
+> ⚠️ **运维/排障手册（如 `docs/NETWORK-RUNBOOK.md`）不进 `README.md`** ——
+> 它们面向动手排障的人，入口统一挂在本文 §4「调试入口」。
+
 ## 6. 已知的"看起来像 bug 但不是"
 
 | 现象 | 真相 |
@@ -357,3 +363,46 @@ python3 tools/check_checksums.py        # 期望：三方一致 ✅
 | **CED-PD 的 `A≈1.0`**（看着像"没开推测解码"） | 草稿图**静默无 attention** —— 缺 `DSPARK_GRAPH_CAPTURE_METADATA=1`（见 §3.4）。`ms/step` 此时反而更好看 |
 | CED-PD 的 `u_fffd` 全是 0，但文本明显是乱的 | **预期**：乱码来自 token 层面（族 B/C），不是 UTF-8 解码问题 ⇒ `u_fffd` 从来不是判据 |
 | CED-PD 单流 `tok/s` 与历史差 14–21% | **语料不同**：`A` 是内容驱动的（同样配置下《地火》A=2.76 vs 《红楼梦》A=2.32，而 `ms/step` 几乎一样）。跨语料比 `tok/s` 没有意义 |
+
+---
+
+## `deploy/a3-tp8-fusion/` —— 解码路径融合**实验包**（2026-10-08；⛔ 不发布）
+
+> ⛔ **不对外发布，也不建议启用**（2026-10-14）：实测**无收益** —— §0 声称的 −0.90%
+> 经查是**噪声**（三层静默失效使融合从未真正执行），地火口径两臂无差异，见
+> [`docs/LNORM-FUSE-RCA-20261008.md`](docs/LNORM-FUSE-RCA-20261008.md)。
+> 本节保留的是**工具入口与踩坑经验**（三个坑对"给 vLLM 加自定义算子"通用）；
+> `package_release.sh` 仅供内部复现打包，**不要**再挂 Release。
+
+**叠加**在任意 A3 TP8 单实例（或 CED-PD 形态）之上的解码实验，不是独立部署形态。
+新增自研算子 `RmsNormDynamicQuantBf16`（三输出：bf16 + int8 + scale），
+把 `input_layernorm` + `wq_a.quantize`（43 层）合成一次下发。
+
+| 入口 | 命令 |
+|---|---|
+| 组装 payload | `bash deploy/a3-tp8-fusion/build_payload.sh --from-container <ct>` （或 `--artifacts <tgz>`） |
+| 装进容器 | `bash deploy/a3-tp8-fusion/install.sh <ct>` （`--dry-run` / `--rollback`） |
+| **一致性判据** | `bash deploy/a3-tp8-fusion/verify_consistency.sh <ct>` （逐文件 sha256） |
+| 本地打包（内部复现用，**不对外发布**） | `bash deploy/a3-tp8-fusion/package_release.sh build` （`verify` / `selftest`） |
+| **从源码重建二进制** | `deploy/a3-tp8-fusion/REPRODUCE.md` |
+
+**三个开关**（全部只在进程启动时读一次 ⇒ 改完必须重启）：
+
+| 变量 | 取值 | 默认 | 说明 |
+|---|---|---|---|
+| `ASCEND_CUSTOM_OPP_PATH` | `/vllm-workspace/3out_opp/vendors/custom_transformer` | 无 | 让 CANN 找到自研算子 |
+| `V41_LNORM_FUSE` | `1` | 关 | 融合点 B（本包新增，43 层） |
+| `V41_QNORM_FUSE` | `1` | 关 | 融合点 A（上游已有，35 层） |
+
+**★ 融合失效是静默的**（输出正常、无报错、只是没收益）——开发中因此白测两轮。
+验收**必须看 `bneck hp p50` 数字**（期望 ≤24.5 ms，关闭时 ~24.67 ms），
+不能只看"没崩"。完整语义与失效模式见 `SWITCHES.md`。
+
+**必踩的三个打包坑**（已在脚本里规避，改脚本时别退回去）：
+
+1. `docker cp` 在带符号链接/紧权限目录上会**静默漏文件**
+   （实测 84 文件被取成 55 个，顶层目录一个不少）⇒ 目录一律走**容器内 tar 管道**。
+2. `PAYLOAD.sha256` 的 shell 重定向会**先创建空文件**，被 `find` 收进清单
+   ⇒ 必须 `! -name 'PAYLOAD.sha256'` 并在生成后立刻 `sha256sum -c` 自检。
+3. `V41_LNORM_FUSE` 的读侧是 `forward_context.no_compile_layers[prefix]`
+   （= `layer.self_attn.dsa_attn`），写到 `self.self_attn` 上读不到 ⇒ 静默失效。

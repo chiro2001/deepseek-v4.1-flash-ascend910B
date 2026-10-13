@@ -12,6 +12,50 @@
 
 ---
 
+## 0. 性能速览（先看这个）
+
+> **硬件口径**：A3 单实例使用 **8 个 device / die（4 块卡，TP8+EP8）**，真权重、Engram 开。
+> 下列性能表来自**不同历史配置**，不是新交付默认的一套联合测量；各表口径不能混用。
+> 当前 A3 容量优先默认为 `BAT_TOKENS=2048` + KV32 slot 重排 + `GPU_UTIL=0.92`，容量另列。
+> **`tok/s = A × 1000 ÷ ms/step`**（`A` = 接受长度；须使用同一测量的配对数值）。
+> A2（8×910B3）另有实测，见 §1.2。
+
+### 单流（1 条请求独占）
+
+| 场景 | ms/step | A | 单流 tok/s |
+|---|---:|---:|---:|
+| 1024 prompt / 256 out，**DRAFT_GRAPH=1**（低并发推荐） | **23.9 – 24.9** | 2.40 – 2.74 | **100.7 – 109.8** |
+| 128K 长上下文，单流独占 | **30.2 – 31.6**（最好 26.9） | 2.75 | **85 – 90** |
+
+> 1024/256 行为历史 `BAT_TOKENS=8192`、无 KV32 重排的草稿图测量，见
+> [历史配置与原件溯源](docs/CED-PD-HISTORICAL-24MS-PARAMS-20260926.md)。
+> 128K 行是另一历史长上下文口径；两行都不能当成新容量默认或本轮 DP 矩阵的成绩。
+
+### 多流（并发聚合）
+
+| 并发 | 1 | 2 | 4 | 8 | 16 | 32 | 64 |
+|---|---:|---:|---:|---:|---:|---:|---:|
+| 单流 tok/s | 90.3 | 89.2 | 80.0 | 59.3 | 42.5 | 31.3 | 20.2 |
+| **聚合 tok/s** | 87.1 | 151.5 | 237.7 | 324.4 | 432.6 | 583.9 | **719.5** |
+
+> 多流口径：每条 prompt **精确 1024 token**、输出 256、`MAX_SEQS=64` + 前缀缓存、
+> 每档跑同一批 64 条、2 rep 取中位（**`DRAFT_GRAPH=0`，与上表单流的开关不同**）。
+> 单流效率随并发下降（并发 8 时 65.6%、64 时 22.3%）——**聚合上界是算力，不是槽位数**。
+
+### 预期 KV cache 容量（HBM 内常驻）
+
+| 形态 | 容量 |
+|---|---:|
+| **A3 单实例 TP8 · 交付默认** | **4,010,585 tokens**（≈ 1M 上下文 × 3.82 并发） |
+| A3 TP8 + DCP8（实验，精度与性能须独立验收） | 18,864,624 tokens |
+| 旧口径（`BAT_TOKENS=8192`，不重排） | 2,987,727 tokens |
+
+> 交付默认的 4.01M 靠 **`BAT_TOKENS=2048` + KV32 slot 重排**两条**成对**拿到，
+> 只改一条会起不来或**静默读错** —— 机制与代价见 §4；实测依据见
+> `docs/KV32-SLOT-REPACK-A3-VERDICT-20261006.md`。
+
+---
+
 ## 1. 你能得到什么
 
 ### 1.1 硬件
@@ -215,7 +259,7 @@ v5 保留原数学配置，仅降低 loader线程并显式绑定 host 分配策�
 | 128K 单流吞吐 | **90.1 tok/s**（另一臂 85.0；峰值 110.5 **不可交付**，见 §6） |
 | 累计优化 | 未打补丁 39.10 → 全补丁 **31.39 ms/step（−19.7%）** |
 | （另一口径）设备直索引入图 | 并发 1 时 29.5 → **28.4**、并发 4 时 35.3 → **32.1 ms/step** —— ⚠️ 这是 1K prompt 口径，**不要与上面 128K 那行直接相减** |
-| KV 容量 | **2,823,080 tokens**（默认 `GPU_UTIL=0.92`） |
+| KV 容量 | **4,010,585 tokens**（A3 交付默认：`BAT_TOKENS=2048` + `V41_KV32_REPACK=1` + `GPU_UTIL=0.92`；= 1M 上下文 × 3.82 并发。要旧口径/更快的 prefill：`BAT_TOKENS=8192 V41_KV32_REPACK=0` ⇒ 2,987,727 tokens，见 §4） |
 
 **并发吞吐**（A3、1024 token prompt、256 输出、`MAX_SEQS=64 PREFIX=1`）：
 
@@ -361,12 +405,15 @@ docker exec <容器> bash /opt/dsv41/tools/enable_codex_responses.sh status  # P
 
 | 旋钮 | 默认 | 调它会发生什么 |
 |---|---|---|
-| **`BAT_TOKENS`** | **8192** | ★ **长上下文正确率的开关**。2048 时 chunk 数翻 4 倍，长文通过率塌到 ~0（机制是 chunked prefill 每刀约 2% 偏离）。代价：KV 从 4.15M 降到 2.82M tokens（activation 峰值 0.79→3.21 GiB） |
-| **`GPU_UTIL`** | **0.92** | 调到 0.94 能多 ~9% KV（3.09M），但**长 prompt 首 token 从 1.1 s 涨到 8 s**（实测 6~7×）。这是"KV 容量换 prefill 速度"的主动取舍 |
-| **`DRAFT_GRAPH`** | **1**（CED-PD 形态）／0（其它入口） | 投机解码入图。CED-PD 自 2026-09-27 起默认 1；其它入口仍是 0，**低并发推荐显式开**。两种口径都必须同时有 `DSPARK_GRAPH_CAPTURE_METADATA=1`，否则**静默失效**（`A≈1.0` 而 ms/step 反而更好看） |
+| **`BAT_TOKENS`** | **2048**（A3 交付默认，2026-10-14 起） | ★ **容量杠杆**（prefill 分块大小同时决定 activation 峰值）。2048 把 activation 峰值从 3.21 GiB 压到 0.79 GiB ⇒ 自动 profiling 多给约 9,000 块 KV（A3：2.99M → 4.01M tokens，**+34.2%**）。**必须与 `V41_KV32_REPACK=1` 成对**：这份增益会把池推过 32 位块边界（33,994 块 > 上界），高块号回绕 ⇒ 长文**静默读错**（实测：越界组 24~25% 请求输出级偏离；A3 负控 12/12 FAIL 的池正是越界 2,342 块）；重排把上界 29,076 → **32,768 块**（+12.7%）才装得下，且重排载荷自带 `[V41-KV32-CAP]` 自动夹上限（小显存机器给得少就不夹、不会 OOM）。实测 A3：**4,010,585 tokens、长文针 24/24**。**旧说法「机制是 chunked prefill 每刀约 2% 偏离」已作废**（见 `docs/KV32-OVERFLOW-DOSE-RESPONSE-20261006.md` §6）。代价：prefill 分块更细（8K **6,478** vs ~7.2K tok/s，−11%）、首 token 更慢（300K 约 79 刀）。**要 prefill 优先**：`BAT_TOKENS=8192 V41_KV32_REPACK=0` ⇒ 2,987,727 tokens、prefill 最快。|
+| **`GPU_UTIL`** | **0.92** | 调到 0.94 能多约 **+9% KV**（把 activation 余量也吃掉），但**长 prompt 首 token 从 1.1 s 涨到 8 s**（实测 6~7×）。这是"KV 容量换 prefill 速度"的主动取舍；它与 `BAT_TOKENS` 是**两条独立杠杆**，但**方向相反**（降 BAT 拿容量、升 GPU_UTIL 拿容量，两者都伤 prefill）—— 交付默认已用前者，别再叠加后者 |
+| **`V41_KV32_REPACK`** | **1**（A3 交付默认，2026-10-14 起） | **KV32 slot 重排**：把 ratio-1 源的 index 平面挪进别的 slot 空闲区 ⇒ 四槽页步长全 131,072、池 stride 540,928 → **524,288**、块上限 29,076 → **32,768（+12.7%）**。它是 `BAT_TOKENS=2048` 的**必要配套**（不重排则 33,994 块越过 32 位边界被守卫拒绝起服）。载荷 `patches/files/deepseek_v41.repack.py` 同时带 `[V41-KV32-CAP]` 上限语义 ⇒ **不要手动钉 `KV_CACHE_MEMORY_BYTES`**（钉死会在小显存机器上 OOM）。已验证：A3 TP8 DCP1 **4,010,585**；DCP8 **18,864,624（+10.1%）**、长文 24/24。A2 上**未实测**（serve_a2.sh 默认仍关）。详见 `docs/KV32-SLOT-REPACK-A3-VERDICT-20261006.md` |
+| **`DRAFT_GRAPH`** | **1**（A3 / CED-PD）／**0**（A2） | 投机解码入图。当前 `serve_a3.sh` 与 CED-PD 默认 1，`serve_a2.sh` 默认 0；历史多流表显式用 0，不代表当前 A3 默认。启用时必须同时有 `DSPARK_GRAPH_CAPTURE_METADATA=1`，否则**静默失效**（`A≈1.0` 而 ms/step 反而更好看） |
 | **`PREFIX`** | **1**（CED-PD） | 前缀缓存。**仍然取决于业务是否高度复用前缀** —— 若输入输出比很大且命中率低（实测某负载仅 3.52%），`PREFIX=0` 反而 TTFT −14.6%。CED-PD 自 2026-09-27 起默认开；做无缓存性能对照时必须显式 `PREFIX=0`，且**不要与开缓存的 ms/step、接受长度混比** |
 | **`SPEC_MODE`**（CED-PD 的 D 侧） | **on** | 推测解码三档：`on` 全开（固定 K）/ `off` 全关 / `dynamic` 按并发切 K（并发 1 走 K=7、≥2 走 K=0）。**高并发吞吐建议 `off`**：并发 4 时 DSpark 把 ms/step 从 28.2 抬到 41.1（1.45×），换接受长度 A≈2.4 —— 收益集中在接受长度高的请求上，**成本由全批承担**。`dynamic` 是高风险档（豁免了上游一道保护），必须用 144K/1M 正确性探针验收。详见 `docs/CED-PD-SPEC-MODE-20260928.md` |
 | **`SPEC`** | 1 | 旧写法（等价 `SPEC_MODE=on`/`off`）。非 CED-PD 入口仍用它；CED-PD 的 D 侧请优先用 `SPEC_MODE` |
+| **`ENGRAM_WKV_TP`** | **1**（A3 起服默认，2026-10-05 起） | engram gate 的 `wkv` 投影**按输出维分片 + all_gather**，替代原先每卡复制的 315 MB 权重。实测：**−0.57 ms/步（2.2%）** 且 **KV 容量 +5.9%**（2,821,337→2,987,727）；每个输出元素仍由一次 matmul 决定（语义等价），144K 验收 11/11。关掉它（`=0`）会退回旧行为，并发与容量都会变差。详见 `docs/ENGRAM-WKV-TP-20261005.md` |
+| **`ENGRAM_PAD_SKIP`** | **1**（A3 起服默认，2026-10-05 起） | engram 的 padded 缓冲只清零「会被真正读到」的行。实测 `ZerosLike "8192,6144"` **1.86→0 次/步**（省 ~58 µs/步）；模型只读 `lookups[:n]` 而清零范围 ≥ n，**零精度风险**。详见 `docs/ARMH-MECHANISM-AUDIT-20261005.md` |
 | **`CPU_BIND`** / **`DROPCACHE`** | A3: 0 / 0 | **A3 共用机必需**：`CPU_BIND=0` 关掉内部 NUMA 绑核（否则目标节点满时 `migratepages` 内核态空转、服务永不就绪、`docker stop` 都停不下来）；`DROPCACHE=0` 不清整机 page cache（会打到别人） |
 
 **`MAX_SEQS` 不是性能杠杆，是并发容量**：32→64 在并发 ≤32 时只有 ±1%；
@@ -417,6 +464,8 @@ docker exec <容器> bash /opt/dsv41/tools/enable_codex_responses.sh status  # P
 | 算子 | **rope 取表融合**（6 kernel → 2） | −0.45~0.62 ms |
 | 算子 | **`wo_a` 2D matmul** | −0.31~0.76 ms |
 | 算子 | **expert mask 区间比较** | −0.51 ms |
+| 算子 | **`q_norm` + `wq_b.quantize` 融合**（`V41_QNORM_FUSE`，35 层，用官方算子） | **decode −0.62%** |
+| 算子 | **`input_layernorm` + `wq_a.quantize` 融合**（`V41_LNORM_FUSE`，43 层，**自研三输出算子**） | **decode −0.90%** |
 | 量化 | msmodelslim 的 V4.1 W4A8 支持 | 仅在重新量化时需要 |
 
 > ⚠️ **结构差异（要移植的人注意）**：本包的 Engram 补丁面向**扁平文件布局**
@@ -461,7 +510,7 @@ docker exec <容器> bash /opt/dsv41/tools/enable_codex_responses.sh status  # P
 | **接受长度 A** | **不能当绩效指标**；必须同时报 `(ms/step, A, tok/s)` |
 | `DRAFT_GRAPH=1` | **推荐显式开**（低并发），默认仍为 0 —— 理由见 §4 |
 | `V41_MOE_ZERO_INVALID` / `MOE_NF` | 实验项 / 负结果，默认关 |
-| **KV 门槛 3Mi** | **默认配置不再满足**（0.92 下 2.82M）。这是主动取舍，不是故障；要 3Mi 请显式 `GPU_UTIL=0.94` 并接受 8 s 级首 token |
+| **KV 门槛 3Mi** | **A3 交付默认已满足**（BAT=2048 + repack ⇒ 0.92 下 **4.01M**）。旧口径（BAT=8192 无重排）只有 2.82M ⇒ 那才是"不再满足、需显式 `GPU_UTIL=0.94` 且接受 8 s 级首 token"的那一档 |
 | A2 与 A3 的性能差 | 硬件（两边同为 1600 GB/s/die）只能解释 ~15%，其余在 host 侧 |
 | **codex 直连** | **需先跑使能补丁**：不装的话 Responses API 要么 500、要么**静默丢内容** |
 | `reasoning.encrypted_content` | **不支持**（vLLM 侧直接 `raise`）。当前不触发；**一旦上游开始产出，这条链会 400** |
@@ -469,12 +518,25 @@ docker exec <容器> bash /opt/dsv41/tools/enable_codex_responses.sh status  # P
 
 ---
 
+## 6.5 发布前门禁（改过 scripts/ 或 patches/ 就跑）
+
+```bash
+# 从**全新 clone** 自检：挂载/执行的文件是否都在库里、交付默认的代码特征是否齐全
+bash tools/audit_fresh_clone.sh        # exit 0 = 通过；KEEP=1 保留临时 clone 供复核
+```
+
+**为什么需要**：本仓曾四次出现“**工作区改了、git 里没有**”的静默缺口
+（自定义内核、`ENGRAM_WKV_TP` 实现、EPLB 接线/哑开关、`device_metadata` 诊断件），
+每一个都**不报错**、只是让部署的人悄悄少掉性能或功能。详见
+`docs/DELIVERY-AUDIT-20261005.md`。
+
 ## 7. 起服后必查（5 项）
 
 ```bash
 # ① 静态内核没有静默降级 —— 必须输出 0
 grep -ac "static_kernel.py:650" <serve.log>
-# ② KV 容量 —— 默认 GPU_UTIL=0.92 时实测 2,823,080 tokens
+# ② KV 容量 —— A3 交付默认（BAT=2048 + repack + GPU_UTIL=0.92）实测 4,010,585 tokens
+#    （旧口径 BAT=8192 无重排为 2,987,727；DCP8 形态 18,864,624）
 grep -oE "GPU KV cache size: [0-9,]+ tokens" <serve.log> | tail -1
 # ②b 长 prompt 首 token —— 8K prompt 应 ~1.1 s（0.94 时会是 8 s）
 # ③ 口径对不对（性能口径 vs 生产口径不可混比）
@@ -491,6 +553,7 @@ grep -a "SpecDecoding metrics" <serve.log> | tail -1
 |---|---|
 | `scripts/` | 起服脚本（`serve_a3.sh` / `serve_a2.sh` / `serve_a3_ced_pd.sh` …） |
 | `deploy/a3-ced-pd/` | **PD 分离 + CED 部署形态**（启动器 + 镜像包 + payload 清单） |
+| `deploy/a3-tp8-fusion/` | 解码路径融合**实验包**（自研三输出算子 + 2 个开关）。⚠️ **实测无收益、不对外发布**，仅存档工具与负结果（见 `docs/LNORM-FUSE-RCA-20261008.md`） |
 | `tools/` | 自检、探针、压测、诊断（40+ 个，见 `AGENTS.md` §4） |
 | `patches/` | 补丁件与载荷（`PATCHES.md` 有逐项说明） |
 | `quant/` | 量化链（5 级，含 msmodelslim 补丁） |

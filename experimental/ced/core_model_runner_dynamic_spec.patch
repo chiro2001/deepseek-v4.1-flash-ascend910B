@@ -1,5 +1,5 @@
 diff --git a/vllm_ascend/worker/model_runner_v1.py b/vllm_ascend/worker/model_runner_v1.py
-index c3f5373..5e61324 100644
+index c3f5373..d875bca 100644
 --- a/vllm_ascend/worker/model_runner_v1.py
 +++ b/vllm_ascend/worker/model_runner_v1.py
 @@ -929,6 +929,21 @@ class NPUModelRunner(GPUModelRunner):
@@ -47,7 +47,38 @@ index c3f5373..5e61324 100644
              )
          else:
              # Mixed-batch case: num_reqs must equal num_reqs_padded
-@@ -3101,15 +3120,33 @@ class NPUModelRunner(GPUModelRunner):
+@@ -2027,6 +2046,30 @@ class NPUModelRunner(GPUModelRunner):
+             self.prev_num_spec_tokens = self._draft_token_ids.shape[1]  # type: ignore[has-type]
+         if not self.num_spec_tokens:
+             return
++        # [DYNSpec-K0-COPY 2026-10-03] dynamic SD 下，`self.num_spec_tokens` 是
++        # **配置的最大 K**（本部署 =7），不是**本步**的 K。K=0 的步里
++        # `_propose` 已经提前返回了 `[batch, 0]` 的空 draft，但这里仍会往下走：
++        # 做一次 `copy_stream.wait_stream(default_stream)` + `event.record()`
++        # 的**跨流往返**（拷贝本身是空张量，但要等主流的图 replay 做完）。
++        # 实测（a3-21，TP8，2026-10-03）：N=2 的 K=0 步 `[bneck] hp=25.5 ms/step`，
++        # 而静态 SPEC=0 同档按聚合吞吐反算是 21.6 ms/step ⇒ **差 3.9 ms/step**，
++        # 且 N=16 差 3.1 ms/step（近乎常数）。这条跨流往返是候选之一。
++        #
++        # 注意：**必须放在 `prev_num_spec_tokens` 记账之后** —— 那个记账是下一步
++        # 解包上一步草稿张量用的 stride 依据，跳过它会让 stride 变陈旧。
++        # 仅当本步 draft 宽度确为 0 时跳过（宽度 >0 的正常 K 步完全不受影响）。
++        # 门控默认关（=保留旧行为），便于单变量 A/B；转正前必须跑全量正确性探针。
++        # 【必须局部导入】独立 TP8 走的是 **base 基线**（`import os` 由 prompt-tail
++        # 补丁引入，而空角色不打那个补丁）⇒ 用模块级 `os` 会 NameError。
++        # 与本文件 `_v41_shape_probe` 的写法保持一致。
++        import os as _os_k0copy
++
++        if (
++            _os_k0copy.environ.get("V41_DYNSPEC_SKIP_K0_DRAFT_COPY", "0") == "1"
++            and torch.is_tensor(self._draft_token_ids)  # type: ignore[has-type]
++            and self._draft_token_ids.shape[1] == 0  # type: ignore[has-type]
++        ):
++            return
+         if self.use_async_scheduling and not (
+             scheduler_output.has_structured_output_requests
+             or self.input_batch.sampling_metadata.output_token_ids
+@@ -3101,15 +3144,33 @@ class NPUModelRunner(GPUModelRunner):
          # A stateful P/D handoff can use a uniform decode graph even at
          # prompt_len - 1 computed tokens. Keep first-token prefills out.
          has_initial_state = np.all(self.input_batch.num_computed_tokens_cpu[:num_reqs] > 0)
@@ -82,7 +113,7 @@ index c3f5373..5e61324 100644
          # Encoder-decoder models only support CG for decoder_step > 0 (no enc_output
          # is present). Also, chunked-prefill is disabled, so batch are uniform.
          has_encoder_output = self.model_config.is_encoder_decoder and num_encoder_reqs > 0
-@@ -3125,14 +3162,24 @@ class NPUModelRunner(GPUModelRunner):
+@@ -3125,14 +3186,24 @@ class NPUModelRunner(GPUModelRunner):
              if force_eager:
                  return (CUDAGraphMode.NONE, BatchDescriptor(num_tokens_padded))
  
@@ -115,7 +146,7 @@ index c3f5373..5e61324 100644
  
          cudagraph_mode, batch_descriptor = dispatch_cudagraph(num_tokens_padded, use_cascade_attn or has_encoder_output)
          num_tokens_padded = batch_descriptor.num_tokens
-@@ -3605,6 +3652,33 @@ class NPUModelRunner(GPUModelRunner):
+@@ -3605,6 +3676,33 @@ class NPUModelRunner(GPUModelRunner):
          return force_attention or cudagraph_runtime_mode == CUDAGraphMode.FULL
  
      @torch.inference_mode()
@@ -149,7 +180,7 @@ index c3f5373..5e61324 100644
      def _dummy_run(
          self,
          num_tokens: int,
-@@ -3638,7 +3712,10 @@ class NPUModelRunner(GPUModelRunner):
+@@ -3638,7 +3736,10 @@ class NPUModelRunner(GPUModelRunner):
          # When setting max_query_len = 1, we switch to and capture the optimized
          # routine of FA2 for pure decode, i.e., Flashdecode + an optimization
          # for GQA/MQA.
@@ -161,7 +192,7 @@ index c3f5373..5e61324 100644
          # Set num_scheduled_tokens based on num_tokens and max_num_seqs
          # for dummy run with LoRA so that the num_reqs collectively
          # has num_tokens in total.
-@@ -5566,6 +5643,23 @@ class NPUModelRunner(GPUModelRunner):
+@@ -5566,6 +5667,23 @@ class NPUModelRunner(GPUModelRunner):
                      and all(size % graph_alignment == 0 for size in capture_sizes)
                  ):
                      resolver_tensor_parallel_size = 1

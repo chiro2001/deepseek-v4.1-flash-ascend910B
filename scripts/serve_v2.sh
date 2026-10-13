@@ -48,6 +48,11 @@ MC2=${MC2:-0}; MC2_HIER=${MC2_HIER:-0}
 FUSED_MC2=${FUSED_MC2:-0}; MC2_ALG=${MC2_ALG:-}; REDUCE_SAMPLE=${REDUCE_SAMPLE:-0}
 WEIGHT_NZ=${WEIGHT_NZ:-}
 FORCE_EPLB=${FORCE_EPLB:-0}; DSA_CP=${DSA_CP:-0}; ENGRAM_HOST_RESTORE=${ENGRAM_HOST_RESTORE:-0}
+# [EPLB] 动态专家负载均衡（2026-10-05 接入）。
+#   ★ 与 FORCE_EPLB 互斥（同时开会 ValueError）；dynamic 需要 env DYNAMIC_EPLB=true（否则启动断言失败）。
+#   代价：num_redundant_experts 个冗余专家会占 HBM（每专家约 49 MB/全网 ⇒ 8 个 ≈ 400 MB ≈ 3% KV）。
+EPLB_DYNAMIC=${EPLB_DYNAMIC:-0}; EPLB_REDUNDANT=${EPLB_REDUNDANT:-0}
+EPLB_STAGE=${EPLB_STAGE:-all}; EPLB_INTERVAL=${EPLB_INTERVAL:-50}; EPLB_HEAT=${EPLB_HEAT:-600}
 CAPTURE_SIZES=${CAPTURE_SIZES:-}
 LOADER_MT=${LOADER_MT:-1}; LAZY=${LAZY:-1}
 VISION=${VISION:-0}; CHAT_TEMPLATE=${CHAT_TEMPLATE:-}
@@ -82,6 +87,10 @@ EXTRA_KEYS=""
 [ "$REDUCE_SAMPLE" = "1" ] && EXTRA_KEYS="$EXTRA_KEYS,\"enable_reduce_sample\":true"
 [ -n "$WEIGHT_NZ" ] && EXTRA_KEYS="$EXTRA_KEYS,\"weight_nz_mode\":$WEIGHT_NZ"
 [ "$FORCE_EPLB" = "1" ] && EXTRA_KEYS="$EXTRA_KEYS,\"enable_force_eplb\":true"
+if [ "$EPLB_DYNAMIC" = "1" ]; then
+  export DYNAMIC_EPLB=true
+  EXTRA_KEYS="$EXTRA_KEYS,\"eplb_config\":{\"dynamic_eplb\":true,\"num_redundant_experts\":$EPLB_REDUNDANT,\"algorithm_execution_interval\":$EPLB_INTERVAL,\"expert_heat_collection_interval\":$EPLB_HEAT,\"eplb_heat_collection_stage\":\"$EPLB_STAGE\"}"
+fi
 [ "$DSA_CP" = "1" ] && EXTRA_KEYS="$EXTRA_KEYS,\"enable_dsa_cp\":true"
 [ "${MIX_PLACEMENT:-0}" = "1" ] && EXTRA_KEYS="$EXTRA_KEYS,\"mix_placement\":true"
 [ -n "${DRAFT_WINDOW:-}" ] && EXTRA_KEYS="$EXTRA_KEYS,\"draft_window_size\":$DRAFT_WINDOW"

@@ -198,6 +198,16 @@ MOE_AG=${MOE_AG:-1}            # MoE AllGather            −4.25 ms @128K
 O_PROJ_2D=${O_PROJ_2D:-1}      # F3 wo_a 2D matmul        −0.31~0.76 ms
 MOE_MASK=${MOE_MASK:-1}        # moe-mask-range           −0.51 ms
 ROPE_IDXSEL=${ROPE_IDXSEL:-1}  # rope-idxsel              −0.45~0.62 ms
+IDS64_HOIST=${IDS64_HOIST:-0}  # [IDS64-HOIST] ★ 2026-10-05 实测：本配置下**无可优化对象**
+#   —— 它 targeting 的 `input_ids.to(int64)`（fused_topk_router.py:164）只在
+#   `tid2eid`/`bias_vl` 非空（视觉/哈希路由）时执行；纯文本交付实例两者都是 None。
+#   逐算子族计数两臂逐项相同（Cast 253.1 vs 252.4/步）⇒ 保持默认 0，不必再验。
+PAD_SKIP=${PAD_SKIP:-1}        # [ENGRAM-PAD-SKIP] ★ 已转默认：只清零会被读到的 padded 行
+ENGRAM_WKV_TP=${ENGRAM_WKV_TP:-1}  # [ENGRAM-WKV-TP] ★ 已转默认：engram gate 的 wkv 按输出维分片
+#   机制实测：全量 matmul 0.709ms/步 → 分片 0.071 + all_gather ~0.07 ⇒ 净省 ~0.57ms/步（2.2%）。
+#   受控 A/B（同 bench 参数、各 1 run）：n=6/12/24/48 全部更快 −0.40~−0.66 ms（p10 同向）；144K 11/11 PASS。
+#   实测（零噪声判据）：`ZerosLike "8192,6144"` 1.86→0 /步 ⇒ 省 ~58 µs/步（0.22%）；
+#   模型只读 lookups[:n]，而清零范围 ≥ n ⇒ 可读区仍被清零；144K 验收 11/11 PASS。
 ENGRAM_JIT=${ENGRAM_JIT:-1}    # hash/plan numba JIT      −0.54 / −0.11 ms
 
 # [DEVICE-INDEX] Engram 端到端设备化（表仍常驻 host DRAM，但由 device 算子直索）。
@@ -333,10 +343,20 @@ CAND_MODE=${CAND_MODE:-0}           # 诊断用，0=不挂 indexer.py
 # [CPU_BIND] 1 = 打开 vllm-ascend 内部绑核（additional-config 的 enable_cpu_binding）。
 # 外部不再设 cpuset/mems（CPUSET/MEMS 默认 -1），绑核位置完全由内部按 NPU 拓扑决定。
 CPU_BIND=${CPU_BIND:-1}
+# [GATE-MULTIPREFILL 2026-10-04] admission gate 的一个 prefill-only 步里最多放几个
+# prefill 请求。1 = 历史行为（每步只放一个）；8 = 实测 N=8 交付吞吐 +11.0%、N=4 +6.6%、
+# N=1 不变、TTFT −29%，且 144K/1M 四针 + 混布 [C] + 多轮全部通过。
+# 硬不变量未变：prefill-only 步仍然不含任何 decode token。
+# 回退：V41_GATE_MAX_PREFILL=1。CED-PD/P-D 分离场景**未做端到端验证**，如需保守可在
+# deploy/a3-ced-pd 的 launcher 里显式设 1。
+V41_GATE_MAX_PREFILL=${V41_GATE_MAX_PREFILL:-8}
 MULTISTREAM=${MULTISTREAM:-1}
 # [MC2-PARAM] 这几个原本在 inner.sh 里硬编码为 0；改成可参数化，
 # 以便复现 2026-09-16 的"已知good"配置（FUSED_MC2=1 MULTISTREAM=0 SP_TOKENS=7）。
 FUSED_MC2=${FUSED_MC2:-0}
+# [EPLB 2026-10-05] 动态专家负载均衡（透传给 serve_v2.sh；与 FORCE_EPLB 互斥）
+EPLB_DYNAMIC=${EPLB_DYNAMIC:-0}; EPLB_REDUNDANT=${EPLB_REDUNDANT:-0}
+EPLB_STAGE=${EPLB_STAGE:-all}; EPLB_INTERVAL=${EPLB_INTERVAL:-50}; EPLB_HEAT=${EPLB_HEAT:-600}
 MC2=${MC2:-0}
 MC2_HIER=${MC2_HIER:-0}
 REDUCE_SAMPLE=${REDUCE_SAMPLE:-0}
@@ -471,8 +491,19 @@ if [ "${V41_CED_ALLOW_32BIT_OVERFLOW:-0}" = "1" ]; then
 fi
 # 兼容 CED 角色脚本历史上用的 D 前缀变量名（两处默认值相同，收敛后仍认它，
 #   避免外部按旧名字调参时静默失效）。
-_ced_max_blocks=${CED_MAX_NUM_BLOCKS:-29076}
-_ced_bytes_per_block=${CED_BYTES_PER_BLOCK:-${CED_D_BYTES_PER_BLOCK:-540928}}
+# ★ [V41-KV32-REPACK] 重排后每槽页步长全为 131072 ⇒ 真实 32 位上界 = ⌊2³²/131072⌋ = 32768 块；
+#   池 stride = 4 × 131072 = 524288 ⇒ 32768 × 524288 = 16 GiB 恰好顶到上界（不再有 12.7% 损耗）。
+#   旧默认（29076 / 540928）在这里会把 16 GiB 钳回 14.65 GiB，**静默废掉重排收益**。
+#   显式给 CED_MAX_NUM_BLOCKS / CED_BYTES_PER_BLOCK 仍然优先。
+if [ "${V41_KV32_REPACK:-0}" = "1" ]; then
+  _kv32_def_blocks=32768
+  _kv32_def_bpb=524288
+else
+  _kv32_def_blocks=29076
+  _kv32_def_bpb=540928
+fi
+_ced_max_blocks=${CED_MAX_NUM_BLOCKS:-$_kv32_def_blocks}
+_ced_bytes_per_block=${CED_BYTES_PER_BLOCK:-${CED_D_BYTES_PER_BLOCK:-$_kv32_def_bpb}}
 _ced_cap=$(( _ced_max_blocks * _ced_bytes_per_block ))
 _kv32_pinned=0
 # 记录"调用方**显式**给过值" —— 显式给值说明调用方自己管池大小，
@@ -905,12 +936,33 @@ if [ -z "${CAPTURE_SIZES:-}" ]; then
   # 桶列故意稀疏（几何级数）：每个桶要多花 ~10-30 s 捕获，32 个桶不现实。
   _cap_max=$(( MAX_SEQS * _step_tokens ))
   [ "$_cap_max" -lt 32 ] && _cap_max=32
-  for _c in 6 8 12 16 20 24 32 40 48; do
+  # [CAPTURE-BUCKET-6N 2026-10-04] ★ 用 `N × (SP_TOKENS+1)` 对齐的桶，替换原来的
+  # 几何级数（2 的幂/整十）。为什么：静态 K 下每步行数恒为 `T = N × (1+K)`，
+  # 几何表里没有 T=18/30/36/42（N=3/5/6/7），会被 padding 到 20/32/40/48 ——
+  # 白算 6.7%~14% 的行。而 8 路并发**不是同时进 decode 的**（admission gate 把 prefill
+  # 串行化 ⇒ 每个窗口都有 1→N 爬升与 N→1 回落），所以这些档真的会被走到。
+  # 受控 A/B（同脚本同 4 rep、两轮相隔 33 分钟、冷启值逐位相同）：**N=8 +4.3%、N=16 +0.7%**。
+  # 见 docs/CAPTURE-BUCKET-6N-20261004.md。
+  # 覆盖的并发档是**稀疏但完整覆盖关键档**的集合（桶数 ~16，与几何表相当，
+  # 起服捕获时间几乎不变；实测 9:56）。其余档 padding 到最近的上方桶。
+  _n_list="1 2 3 4 5 6 7 8 10 12 16"
+  # [CAPTURE-BUCKET-EXT 2026-10-07] ★ MAX_SEQS>32 时必须**补中间档**，否则 N=17..MAX_SEQS-1
+  # 全部被 padding 到最大桶，性能断崖。实测（`docs/MAXSEQS-128-MEASURED-20261007.md`）：
+  #   · MAX_SEQS=64 ：旧表只有 `…,96,384` ⇒ conc=17 的 102 token 被 padding 到 **384（+276%）**；
+  #                    补齐 144/192/240/288/336 后 conc=64 实测 **2210~2290 tok/s**；
+  #   · MAX_SEQS=128：旧表只有 `…,96,768` ⇒ 最坏 **+653%**；补齐后 conc=128 实测 **2768~2853 tok/s**。
+  # **门控条件故意写成 `MAX_SEQS>32`**（而不是 `_cap_max>96`）：交付基线 MAX_SEQS=32 时
+  # 桶表与历史**逐字节相同**（已用仿真核对 `tools/capture_sizes_sim.py`），
+  # 只有显式提高 MAX_SEQS 的场景才会多捕几个桶（每桶 ~10-30 s 捕获）。
+  if [ "$MAX_SEQS" -gt 32 ]; then
+    _n_list="$_n_list 20 24 32 40 48 56 64 72 80 96 112 128 144 160 192 224 256"
+  fi
+  for _n in $_n_list; do
+    _c=$(( _n * _step_tokens ))
     if [ "$_c" -ge "$_step_tokens" ] && [ "$_c" -le "$_cap_max" ]; then CAPTURE_SIZES="$CAPTURE_SIZES,$_c"; fi
   done
-  # 48 以上按 2 倍增长（桶越少捕获越快；padding 只浪费算力，不影响正确性）。
-  _b=96
-  while [ "$_b" -le "$_cap_max" ]; do CAPTURE_SIZES="$CAPTURE_SIZES,$_b"; _b=$(( _b * 2 )); done
+  # 覆盖到 MAX_SEQS 档（大 batch 若没有桶会被判为不可图 ⇒ 退 eager）。
+  # 固定的下方 `case` 已保证 `_cap_max` 在表内 ⇒ 这里不再重复追加（否则会出现重复项）。
   case ",$CAPTURE_SIZES," in
     *",$_step_tokens,"*) : ;;
     *) CAPTURE_SIZES="$CAPTURE_SIZES,$_step_tokens" ;;
@@ -1010,6 +1062,59 @@ MOUNTS+=(-v "$PKG/scripts:/opt/dsv41/scripts:ro")
 if [ -f "$PKG/patches/files/v41_decode_guard.py" ]; then
   MOUNTS+=(-v "$PKG/patches/files/v41_decode_guard.py:/opt/dsv41/guards/v41_decode_guard.py:ro")
 fi
+# [DCP-DEV] V4.1 DCP 开发用的**整文件覆盖挂载**（2026-09-29）。
+#   §动机：DCP 需要替换 `vllm_ascend/core/deepseek_v41.py`（cache spec 与分配）、
+#   `attention/dsa_v41.py`（attention 执行）、以及新增 `attention/context_parallel/*_dcp.py`。
+#   每改一行就重打镜像不现实；这个开关把一棵**镜像容器路径布局**的目录整棵挂进去，
+#   让「改文件 → 重启服务」闭环，而不用动生产路径（默认不设 = 完全不生效）。
+#
+#   用法：
+#     mkdir -p ~/dcpw/vllm_ascend/core && cp <image>/.../deepseek_v41.py ~/dcpw/vllm_ascend/core/
+#     V41_DCP_MOUNT=$HOME/dcpw bash scripts/serve_a3.sh ...
+#   目录里的相对路径 = 相对 `/vllm-workspace/vllm-ascend/` 的路径。
+#   ★ 判据落在「实际生效」：起服日志会打印每个被挂的文件；挂载了不存在的容器路径
+#     docker 会自己建目录（静默），所以这里**逐个校验**相对路径在镜像里存在。
+if [ -n "${V41_DCP_MOUNT:-}" ]; then
+  [ -d "$V41_DCP_MOUNT" ] || die "V41_DCP_MOUNT=$V41_DCP_MOUNT 不是目录"
+  _dcp_n=0
+  # ★ 先收进**独立数组**，不要直接进 MOUNTS：下面 mount 模式还可能挂同一路径，
+  #   而去重时若不分家，就会把 overlay 自己删掉（2026-09-29 实踩）。
+  DCP_MOUNTS=()
+  while IFS= read -r _rel; do
+    _rel=${_rel#./}
+    case "$_rel" in
+      *.py) ;;
+      # ★★★ [V41-DCP-SO-MOUNT 2026-10-01] 同时挂 `.so`。
+      #   为什么需要：AscendC 融合算子（`v41_merge_kernel.so`）与 `.py` 同目录，
+      #   原来这里只放行 `*.py` ⇒ 容器里看不到 `.so` ⇒
+      #   `v41_merge_kernel.available()` 恒为 False，融合算子**静默退回
+      #   Python 路径**（不报错、只是没有加速，极难发现）。
+      *.so) ;;
+      *) continue ;;
+    esac
+    _dst="/vllm-workspace/vllm-ascend/$_rel"
+    DCP_MOUNTS+=(-v "$V41_DCP_MOUNT/$_rel:$_dst:rw")
+    _dcp_n=$((_dcp_n + 1))
+    echo "[serve_a2][DCP] mount $_rel → $_dst"
+  done < <(cd "$V41_DCP_MOUNT" && find . -type f \( -name '*.py' -o -name '*.so' \) | sort)
+  [ "$_dcp_n" -gt 0 ] || die "V41_DCP_MOUNT=$V41_DCP_MOUNT 下没有 .py/.so 文件"
+  echo "[serve_a2][DCP] 共挂 $_dcp_n 个文件（覆盖镜像内对应模块）"
+  # ★ 挂载本身不构成证据：`-v SRC:DST` 在 DST 是文件、SRC 是文件时才有意义；
+  #   写错路径 docker 会在宿主机建目录，容器里静默变成目录。所以把清单**写进
+  #   serve_cmd.txt**（那个文件不会被 `: > $LOG` 截断），起服后据此核对。
+  DCP_MOUNT_LIST=$(cd "$V41_DCP_MOUNT" && find . -type f \( -name '*.py' -o -name '*.so' \) | sed 's|^\./||' | sort | tr '\n' ' ')
+  # 后面 mount 模式还会挂 patches/files/*，二者可能指向同一容器路径
+  # （实测：engram_hbm.py）。docker 对重复的目的地直接报
+  # `Duplicate mount point` 并拒绝起容器，所以这里记下 DCP 的目的地集合，
+  # 在 mount 模式那一段结束后**移除冲突项**，让开发期 overlay 优先。
+  DCP_MOUNT_DSTS=" $(cd "$V41_DCP_MOUNT" && find . -type f \( -name '*.py' -o -name '*.so' \) | sed 's|^\./||' | sed 's|^|/vllm-workspace/vllm-ascend/|' | sort | tr '\n' ' ')"
+  echo "[serve_a2][DCP] MOUNT_LIST=$DCP_MOUNT_LIST"
+  # 开发期需要透传给容器的 env（DCP 各阶段开关）：DCP_EXTRA_ENV="A=1 B=2"
+  for _kv in ${DCP_EXTRA_ENV:-}; do
+    MOUNTS+=(-e "$_kv")
+    echo "[serve_a2][DCP] -e $_kv"
+  done
+fi
 if [ "$PATCH_MODE" = "mount" ]; then
   F=$PKG/patches/files
   # [ADMISSION-GATE] vLLM core 的 admission gate 是**补丁**（不是整文件），
@@ -1033,7 +1138,19 @@ if [ "$PATCH_MODE" = "mount" ]; then
   MOUNTS+=(-v "$F/engram_jit_kernel.py:/vllm-workspace/vllm-ascend/vllm_ascend/models/deepseek_v41/engram_jit_kernel.py:ro")
   MOUNTS+=(-v "$F/engram_plan_kernel.py:/vllm-workspace/vllm-ascend/vllm_ascend/models/deepseek_v41/engram_plan_kernel.py:ro")
   MOUNTS+=(-v "$F/engram_gate.py:/vllm-workspace/vllm-ascend/vllm_ascend/models/deepseek_v41/engram_gate.py:ro")
-  MOUNTS+=(-v "$F/model.py:/vllm-workspace/vllm-ascend/vllm_ascend/models/deepseek_v41/model.py:rw")
+  # [V41-HCFUSE-MOUNT] HcPre+RMSNorm 融合（Track B）的 A/B 用：交付的 model.py
+  # 打上 trackB/apply_overlay_hcfuse.py 那几处补丁后，用本 env 指过去覆盖，
+  # **不动交付文件** ⇒ 随时可以切回 `V41_HCFUSE_MOUNT=` 空值跑基线。
+  #   V41_HCFUSE_MOUNT=<宿主 model.py 路径>
+  # ⚠️ 该路径也必须**同时**挂载 libhc_pre_norm_ops.so 与 custom OPP 包（见 V41_HC_OPP_PKG），
+  #    否则 overlay 会在 import 期 load_library 失败。
+  _model_py="$F/model.py"
+  if [ -n "${V41_HCFUSE_MOUNT:-}" ]; then
+    [ -f "$V41_HCFUSE_MOUNT" ] || die "V41_HCFUSE_MOUNT=$V41_HCFUSE_MOUNT 不存在"
+    _model_py="$V41_HCFUSE_MOUNT"
+    say "[V41-HCFUSE-MOUNT] model.py <- $V41_HCFUSE_MOUNT（交付文件未被改动）"
+  fi
+  MOUNTS+=(-v "$_model_py:/vllm-workspace/vllm-ascend/vllm_ascend/models/deepseek_v41/model.py:rw")
   # [DMQ-GUARD-REMOVED] 曾在这里挂 patches/files/model_runner_v1.py（device_metadata
   # 的 submit/release 自愈护栏）。**已撤销**：该护栏在正常运行中也会误触发，
   # 提前释放 device metadata ⇒ 64 并发实测 57/64 + 服务挂（ScatterElements 0x91 →
@@ -1041,8 +1158,38 @@ if [ "$PATCH_MODE" = "mount" ]; then
   # 不要恢复这个挂载 —— 整文件覆盖 model_runner_v1.py 的风险远大于收益。
   MOUNTS+=(-v "$F/ascend_forward_context.py:/vllm-workspace/vllm-ascend/vllm_ascend/ascend_forward_context.py:ro")
   MOUNTS+=(-v "$F/rope_dsv4.py:/vllm-workspace/vllm-ascend/vllm_ascend/ops/rope_dsv4.py:ro")
+  # [V41-KV32-REPACK] core/deepseek_v41.py：把 ratio-1 源的 index 平面挪到另一个 slot 的
+  #   空闲区 ⇒ 四个 slot 页步长全为 131072 ⇒ 块上限 29076 → 32768（+12.7% 容量，零精度风险）。
+  #   门控默认关：只有 V41_KV32_REPACK=1 且 patches/files/deepseek_v41.repack.py 存在才挂。
+  if [ "${V41_KV32_REPACK:-0}" = "1" ]; then
+    if [ -f "$F/deepseek_v41.repack.py" ]; then
+      MOUNTS+=(-v "$F/deepseek_v41.repack.py:/vllm-workspace/vllm-ascend/vllm_ascend/core/deepseek_v41.py:ro")
+      say "[V41-KV32-REPACK] 已挂载 slot 重排版 deepseek_v41.py（四 slot 全 131072）"
+    else
+      die "V41_KV32_REPACK=1 但缺 patches/files/deepseek_v41.repack.py"
+    fi
+  fi
+  # [META-HOST-SLEEP] 2026-10-04：device_metadata.py 的 host 侧 sleep 注入（**诊断用**）。
+  #   背景：api_statistic 显示三件套 GetWorkspaceSize 合计 919.7ms/4396 次
+  #         （平均 209µs，是算子入队 21µs 的 10 倍），但它在 host CPU 上跑，
+  #         **可能被其它线程盖住** ⇒ 必须实测才能判定是否在关键路径上。
+  #   用法：echo 300 > /tmp/v41_meta_host_sleep_us （单位 µs；0.25s 热切，无需重启）
+  #         缺文件 / 非法值 / 未设 ⇒ 恒 0 ⇒ 行为与 stock 相同。
+  #   来源：metadata 线子代理；见 docs/METADATA-AICPU-AUDIT-20261004.md。
+  if [ -f "$F/device_metadata.py" ]; then
+    MOUNTS+=(-v "$F/device_metadata.py:/vllm-workspace/vllm-ascend/vllm_ascend/worker/device_metadata.py:ro")
+    say "[META-HOST-SLEEP] device_metadata.py 已挂载（host 侧 sleep 注入，默认 0 = 与 stock 相同）"
+  fi
   # [V41-SLOT-MAP-FUSED] block_table.py：12 次 slot-mapping 启动 → 1 次。
-  # 由 env `V41_SLOT_MAP_FUSED` 门控（默认 0/关 = 与 stock 完全一致）。
+  # 由 env `V41_SLOT_MAP_FUSED` 门控。
+  #
+  # ★ 2026-10-02：**DCP>1 时默认改成 on**（见 docs/V41-DCP8-DECODE-PERF-20261002.md）。
+  #   只对 DCP>1 改默认，不动 DCP=1（A2 生产）的既有行为；显式传值优先。
+  case "${KV_ARGS_EXTRA:-}" in
+    *--decode-context-parallel-size\ 1|*--decode-context-parallel-size\ 0|"") : ;;
+    *--decode-context-parallel-size\ *) : "${V41_SLOT_MAP_FUSED:=on}" ;;
+  esac
+  export V41_SLOT_MAP_FUSED="${V41_SLOT_MAP_FUSED:-0}"
   # 缺文件不致命（回落 stock），但要**响亮地**告诉用户门控会静默失效。
   if [ -f "$F/block_table.py" ]; then
     MOUNTS+=(-v "$F/block_table.py:/vllm-workspace/vllm-ascend/vllm_ascend/worker/block_table.py:rw")
@@ -1057,6 +1204,39 @@ if [ "$PATCH_MODE" = "mount" ]; then
     MOUNTS+=(-v "$F/draft/llm_base_proposer.py:/vllm-workspace/vllm-ascend/vllm_ascend/spec_decode/llm_base_proposer.py:ro")
   else
     MOUNTS+=(-v "$F/dsa_v1.py:/vllm-workspace/vllm-ascend/vllm_ascend/attention/dsa_v1.py:rw")
+  fi
+
+  # [V41-MAINPY-MOUNT] 主层（40 层）的 prolog 不在 dsa_v1.py 里，而在**镜像自带的**
+  # attention/dsa_v41.py（1092 行）与 models/deepseek_v41/indexer.py（244 行）。
+  # 这两个文件**默认不被挂载** ⇒ 想改主层路径就必须重建镜像。
+  # 本开关把它们纳入挂载，从而可以「改文件 + 重启」迭代（无需重建镜像）。
+  #
+  #   V41_MAINPY_MOUNT=1 → 挂 patches/files/mainpy/{dsa_v41.py,indexer.py}
+  #
+  # ⚠️ 基线是**从镜像逐字节抽出**的（dsa_v41.py md5 6e60fc4d…、indexer.py md5 eabbce97…），
+  #    所以只开这个开关而文件不改 ⇒ 行为与镜像完全一致（可作为 A/B 的 A 臂）。
+  # ⚠️ 与 CED decode 路径冲突（那里也挂 dsa_v41.py，同一目标会 duplicate mount）。
+  if [ "${V41_MAINPY_MOUNT:-0}" = "1" ]; then
+    [ "${V41_CED_ROLE:-}" != "decode" ] || die "V41_MAINPY_MOUNT=1 与 CED decode 冲突（两者都挂 dsa_v41.py）"
+    _mainpy_dsa="$F/mainpy/dsa_v41.py"
+    _mainpy_idx="$F/mainpy/indexer.py"
+    [ -f "$_mainpy_dsa" ] || die "V41_MAINPY_MOUNT=1 但缺 $_mainpy_dsa"
+    [ -f "$_mainpy_idx" ] || die "V41_MAINPY_MOUNT=1 但缺 $_mainpy_idx"
+    MOUNTS+=(-v "$_mainpy_dsa:/vllm-workspace/vllm-ascend/vllm_ascend/attention/dsa_v41.py:ro")
+    MOUNTS+=(-v "$_mainpy_idx:/vllm-workspace/vllm-ascend/vllm_ascend/models/deepseek_v41/indexer.py:ro")
+    echo "[serve_a2] [V41-MAINPY-MOUNT] 已挂 patches/files/mainpy/{dsa_v41.py,indexer.py}（主层路径可迭代）"
+  fi
+
+  # [V41-HC-FUSE] 自定义融合算子包：hc_pre_norm 需要 ASCEND_CUSTOM_OPP_PATH 指向它。
+  # 用法：V41_HC_OPP_PKG=<宿主目录，内含 vendors/custom_transformer>。
+  if [ -n "${V41_HC_OPP_PKG:-}" ]; then
+    if [ -d "$V41_HC_OPP_PKG/vendors/custom_transformer" ]; then
+      MOUNTS+=(-v "$V41_HC_OPP_PKG:/opt/dsv41/hcfuse_opp:ro")
+      export ASCEND_CUSTOM_OPP_PATH=/opt/dsv41/hcfuse_opp/vendors/custom_transformer
+      say "[V41-HC-FUSE] opp pkg: $V41_HC_OPP_PKG -> /opt/dsv41/hcfuse_opp（ASCEND_CUSTOM_OPP_PATH 已设）"
+    else
+      echo "[serve_a2] WARNING: V41_HC_OPP_PKG=$V41_HC_OPP_PKG 缺少 vendors/custom_transformer；跳过" >&2
+    fi
   fi
   if [ "$MOE_NF" != "0" ]; then
     # 负结果臂（不采纳）：只零化非有限元素；文件缺失时退回 moemask 版并告警
@@ -1074,6 +1254,38 @@ if [ "$PATCH_MODE" = "mount" ]; then
   if [ "$CAND_MODE" != "0" ]; then
     MOUNTS+=(-v "$F/indexer.py:/vllm-workspace/vllm-ascend/vllm_ascend/models/deepseek_v41/indexer.py:rw")
   fi
+fi
+# [DCP-DEV] 去重：开发期 overlay 与 patches/files 可能覆盖**同一个容器路径**，
+# 而 docker 对重复目的地直接报 `Duplicate mount point` 并拒绝起容器。
+# 语义定为 **overlay 优先**（开发期改的就是它），在这里把冲突的旧挂载项整对剔除。
+if [ -n "${DCP_MOUNT_DSTS:-}" ]; then
+  _new_mounts=()
+  _mi=0
+  _dropped=0
+  while [ "$_mi" -lt "${#MOUNTS[@]}" ]; do
+    if [ "${MOUNTS[$_mi]}" = "-v" ] && [ $((_mi + 1)) -lt "${#MOUNTS[@]}" ]; then
+      _spec="${MOUNTS[$((_mi + 1))]}"
+      _dst="${_spec#*:}"
+      _dst="${_dst%%:*}"
+      case "$DCP_MOUNT_DSTS" in
+        *" $_dst "*)
+          say "[DCP-DEV] 移除与 overlay 冲突的挂载：$_dst"
+          _dropped=$((_dropped + 1))
+          _mi=$((_mi + 2))
+          continue
+          ;;
+      esac
+      _new_mounts+=("${MOUNTS[$_mi]}" "${MOUNTS[$((_mi + 1))]}")
+      _mi=$((_mi + 2))
+      continue
+    fi
+    _new_mounts+=("${MOUNTS[$_mi]}")
+    _mi=$((_mi + 1))
+  done
+  MOUNTS=("${_new_mounts[@]}")
+  [ "$_dropped" = "0" ] || say "[DCP-DEV] 共移除 $_dropped 项冲突挂载（overlay 优先）"
+  MOUNTS+=("${DCP_MOUNTS[@]}")
+  say "[DCP-DEV] overlay 挂载已追加（${#DCP_MOUNTS[@]} 项，最后生效）"
 fi
 if [ -n "${V41_CED_ROLE:-}" ]; then
   # [PATCH_MODE] 两条路都支持：
@@ -1214,7 +1426,7 @@ if [ "$DRY_RUN" = "1" ]; then
   echo "[a2-dry] TP=$TP DP=$DP MAX_SEQS=$MAX_SEQS PREFIX=$PREFIX SP_TOKENS=$SP_TOKENS BAT_TOKENS=$BAT_TOKENS"
   echo "[a2-dry] GRAPH=$GRAPH EAGER=$EAGER"
   echo "[a2-dry] CAPTURE_SIZES=$CAPTURE_SIZES"
-  echo "[a2-dry] MOE_AG=$MOE_AG O_PROJ_2D=$O_PROJ_2D MOE_MASK=$MOE_MASK ROPE_IDXSEL=$ROPE_IDXSEL ENGRAM_JIT=$ENGRAM_JIT QLI_NOCAND=$QLI_NOCAND LOCAL_OWNER=$LOCAL_OWNER"
+  echo "[a2-dry] MOE_AG=$MOE_AG O_PROJ_2D=$O_PROJ_2D MOE_MASK=$MOE_MASK ROPE_IDXSEL=$ROPE_IDXSEL ENGRAM_JIT=$ENGRAM_JIT QLI_NOCAND=$QLI_NOCAND LOCAL_OWNER=$LOCAL_OWNER IDS64_HOIST=$IDS64_HOIST PAD_SKIP=$PAD_SKIP ENGRAM_WKV_TP=$ENGRAM_WKV_TP"
   echo "[a2-dry] PROFILE=$V41_PROFILE ENGRAM_DEVICE_INDEX=$ENGRAM_DEVICE_INDEX ENGRAM_DEVICE_FALLBACK=$ENGRAM_DEVICE_FALLBACK"
   echo "[a2-dry] KV_ARGS_EXTRA=${KV_ARGS_EXTRA:-<none>}（inner.sh 会原样透传）"
   echo "[a2-dry] DROPCACHE=$DROPCACHE（起服前清 page cache；0 关闭）"
@@ -1309,6 +1521,11 @@ $DOCKER rm -f "$NAME" >/dev/null 2>&1 || true
 #    `docker run ... -e DSPARK_HOIST_CONTEXT_KV=0` 而丢掉 IMAGE 参数，报
 #    `"docker run" requires at least 1 argument` + `-e: command not found`。
 #    `bash -n` **抓不到**这种错（语法合法），所以已加 `tools/check_serve_run_chain.py` 回归。
+  # [V41-HC-FUSE] HcPre+RMSNorm 融合（Track B，env 门控，默认关）：V41_HC_FUSE_NORM / V41_HC_NORM_LIB / ASCEND_CUSTOM_OPP_PATH
+  # [V41-HC-LIMITCORE] HcPre 核数预算实验（纯 Python，不改数值路径）：
+  #   V41_HC_LIMIT_AIC / V41_HC_LIMIT_AIV —— 见 trackB 的 limit_core 实验说明。
+  #   ⚠️ 这两个 env **必须显式透传**：启动器只转发白名单里的变量，
+  #      2026-10-07 实测漏了它们 ⇒ 容器内读到 0 ⇒ 整臂静默变成空操作（浪费一次 10 min 重启）。
 $DOCKER run -d --name "$NAME" --net=host --shm-size=512g --privileged=true \
   --ulimit memlock=-1 \
   "${CGROUP_ARGS[@]}" \
@@ -1336,11 +1553,11 @@ $DOCKER run -d --name "$NAME" --net=host --shm-size=512g --privileged=true \
   -e HCCL_BUFFSIZE="$HCCL_BUFFSIZE" \
   -e PYTORCH_NPU_ALLOC_CONF=expandable_segments:True \
   -e TASK_QUEUE_ENABLE=1 \
-  -e HCCL_OP_EXPANSION_MODE=AIV \
+  -e HCCL_OP_EXPANSION_MODE="${HCCL_OP_EXPANSION_MODE:-AIV}" \
   -e ASCEND_MAX_OP_CACHE_SIZE=-1 \
   -e CAPTURE_SIZES="$CAPTURE_SIZES" \
   -e NUMBA_CACHE_DIR=/numba_cache \
-  -e VLLM_ADMISSION_GATE=1 \
+  -e VLLM_ADMISSION_GATE="${VLLM_ADMISSION_GATE:-1}" \
   -e V41_ENGRAM_HOST_RESIDENT=1 -e V41_ENGRAM_REUSE_EP_GROUP=1 \
   -e V41_ENGRAM_GATE_CHUNK="$GATE_CHUNK" -e V41_ENGRAM_GATE_MAX_TOKENS="$GATE_MAX_TOKENS" -e MAX_TOKENS="$GATE_MAX_TOKENS" \
   -e V41_ENGRAM_GATE_HOIST=0 \
@@ -1385,6 +1602,9 @@ $DOCKER run -d --name "$NAME" --net=host --shm-size=512g --privileged=true \
   -e V41_MOE_COMM_ALLGATHER="$MOE_AG" \
   -e V41_MOE_MASK_RANGE="$MOE_MASK" \
   -e V41_ROPE_IDXSEL="$ROPE_IDXSEL" \
+  -e V41_IDS64_HOIST="$IDS64_HOIST" \
+  -e V41_ENGRAM_PAD_SKIP="$PAD_SKIP" \
+  -e V41_ENGRAM_WKV_TP="$ENGRAM_WKV_TP" \
   -e V41_O_PROJ_2D="$O_PROJ_2D" \
   -e V41_ENGRAM_ROUTE_PROBE="$ROUTE_PROBE" \
   -e V41_MOE_ZERO_INVALID="$MOE_ZERO" -e V41_MOE_ZERO_INVALID_FILE=/tmp/v41_moe_zero_file \
@@ -1413,6 +1633,17 @@ $DOCKER run -d --name "$NAME" --net=host --shm-size=512g --privileged=true \
   -e V41_DECODE_API_GUARD="${V41_DECODE_API_GUARD:-1}" \
   -e SP_SCHEDULE="${SP_SCHEDULE:-}" \
   -e V41_CED_DYNAMIC_SPEC_FULL_GRAPHS="${V41_CED_DYNAMIC_SPEC_FULL_GRAPHS:-0}" \
+  ${VLLM_ENGINE_READY_TIMEOUT_S:+-e VLLM_ENGINE_READY_TIMEOUT_S="$VLLM_ENGINE_READY_TIMEOUT_S"} \
+  ${V41_DYNSPEC_BT_PERSIST:+-e V41_DYNSPEC_BT_PERSIST="$V41_DYNSPEC_BT_PERSIST"} \
+  ${V41_DYNSPEC_SKIP_K0_DRAFT_COPY:+-e V41_DYNSPEC_SKIP_K0_DRAFT_COPY="$V41_DYNSPEC_SKIP_K0_DRAFT_COPY"} \
+  ${V41_HC_FUSE_NORM:+-e V41_HC_FUSE_NORM="$V41_HC_FUSE_NORM"} \
+  ${V41_GATE_MAX_PREFILL:+-e V41_GATE_MAX_PREFILL="$V41_GATE_MAX_PREFILL"} \
+  ${V41_HC_FUSE_ATTN_FP32:+-e V41_HC_FUSE_ATTN_FP32="$V41_HC_FUSE_ATTN_FP32"} \
+  ${V41_HC_NORM_LIB:+-e V41_HC_NORM_LIB="$V41_HC_NORM_LIB"} \
+  ${V41_HC_LIMIT_FILE:+-e V41_HC_LIMIT_FILE="$V41_HC_LIMIT_FILE"} \
+  ${V41_HC_LIMIT_AIC:+-e V41_HC_LIMIT_AIC="$V41_HC_LIMIT_AIC"} \
+  ${V41_HC_LIMIT_AIV:+-e V41_HC_LIMIT_AIV="$V41_HC_LIMIT_AIV"} \
+  ${ASCEND_CUSTOM_OPP_PATH:+-e ASCEND_CUSTOM_OPP_PATH="$ASCEND_CUSTOM_OPP_PATH"} \
   -e LOAD_FORMAT="$LOAD_FORMAT" \
   -e KV_ARGS_EXTRA="$KV_ARGS_EXTRA" \
   ${HCCL_ENV_ARGS[@]+"${HCCL_ENV_ARGS[@]}"} \
@@ -1425,6 +1656,27 @@ _CONTAINER_STARTED=1     # [FAIL-CLEANUP] 之后任何 die() 都会删掉这个�
 $DOCKER exec "$NAME" bash -lc "printf '%s' '$LOCAL_OWNER' > /tmp/v41_engram_localowner; printf '%s' 'fast' > /tmp/v41_hash_mode" || true
 
 # ---------- [ADMISSION-GATE] mount 模式下现场打 vLLM core 补丁 ----------
+# ---------- [DCP-MOUNT-GUARD] DCP 覆盖挂载必须**逐个证明**真的换掉了文件 ----------
+# 判据不能落在"我传了 V41_DCP_MOUNT"：`-v SRC:DST` 在 DST 不存在时 docker 会
+# 创建目录；而 DST 写错一层（例如少了 `vllm_ascend/`）时容器里那份代码根本没变，
+# 起服照样成功、行为却完全不同（2026-09-29 容量探针已因此白跑一轮）。
+# 这里比对**容器内 md5 vs 宿主 md5**，不一致就直接 die。
+if [ -n "${V41_DCP_MOUNT:-}" ] && [ "${DCP_MOUNT_SKIP_VERIFY:-0}" != "1" ]; then
+  _dfail=0
+  while IFS= read -r _rel; do
+    _dst="/vllm-workspace/vllm-ascend/$_rel"
+    _want=$(md5sum "$V41_DCP_MOUNT/$_rel" | awk '{print $1}')
+    _got=$($DOCKER exec "$NAME" bash -lc "test -f '$_dst' && md5sum '$_dst' | awk '{print \$1}' || echo NOT_A_FILE" 2>/dev/null | tail -1)
+    if [ "$_got" != "$_want" ]; then
+      echo "[serve_a2][DCP][FAIL] $_rel：容器内=$_got 宿主=$_want（挂载未生效）" >&2
+      _dfail=1
+    else
+      say "[DCP-MOUNT-GUARD] $_rel ✓ md5=${_want:0:8}"
+    fi
+  done < <(cd "$V41_DCP_MOUNT" && find . -type f \( -name '*.py' -o -name '*.so' \) | sed 's|^\./||' | sort)
+  [ "$_dfail" = "0" ] || die "DCP 覆盖挂载未生效（见上）；不要在该状态下做任何结论"
+fi
+
 if [ "$PATCH_MODE" = "mount" ]; then
   say "[ADMISSION-GATE] mount 模式：在容器内现场应用 admission_gate.patch"
   _gate=$($DOCKER exec "$NAME" bash -lc '
@@ -1529,7 +1781,16 @@ fi
 # （base 是 67035d97…）。这与仓库里踩过的 durian 坑同源：拿错基线会让
 # `git apply --check` 失败，或者在容器里 `git checkout` 把 prompt-tail 抹掉。
 if [ -n "${SP_SCHEDULE:-}" ]; then
-  [ "${V41_CED_ROLE:-}" = "decode" ] || die "SP_SCHEDULE（按并发切 K）只对 decode 角色有意义"
+  # [DYNSPEC-ROLE-GATE 2026-10-03] 原来只允许 CED 的 decode 角色。现放宽到
+  # **空角色（独立 TP8/非 PD 形态）** 也允许 —— 动态 K 在单实例上同样成立
+  # （见 docs/PLAN-DYNAMIC-SPEC-AND-FUSION-20261003.md Track A）。
+  # **CED 的 prefill 角色仍然被拒**（P 侧恒关推测是架构性的，不是配置问题）。
+  # 这个放宽**不放宽安全门**：下面那条 `V41_CED_DYNAMIC_SPEC_FULL_GRAPHS=1`
+  # 的显式承担依旧强制（否则模型构造期就会炸）。
+  case "${V41_CED_ROLE:-}" in
+    ""|decode) : ;;
+    *) die "SP_SCHEDULE（按并发切 K）只对 decode 角色或非 PD（空角色）有意义，当前 V41_CED_ROLE=$V41_CED_ROLE" ;;
+  esac
   [ "$PATCH_MODE" = "mount" ] || die "SP_SCHEDULE 目前只支持 PATCH_MODE=mount（baked 镜像不含该补丁）"
   # [UPSTREAM-GUARD] 上游在 MRV1 上会**无条件**把 dynamic SD 的 cudagraph_mode
   # 降级成 PIECEWISE（vllm/config/vllm.py::_maybe_override_dynamic_sd_cudagraph_mode，
@@ -1578,7 +1839,21 @@ if [ -n "${SP_SCHEDULE:-}" ]; then
   _dynspec=$($DOCKER exec "$NAME" bash -lc '
     cd /vllm-workspace/vllm-ascend || exit 1
     _base=$(sha256sum vllm_ascend/worker/model_runner_v1.py | cut -d " " -f1)
-    [ "$_base" = bd250a59819dd806d16706177840c057416944c762264f2a291c608d915c2aff ] || exit 1
+    # [DYNSPEC-BASE 2026-10-03] 原来只接受 **CED prompt-tail 之后**的 bd250a59…，
+    # 于是独立 TP8（空角色、不打 prompt-tail）永远过不了这道门 —— 尽管补丁本身
+    # 在两条基线上都能干净应用。已用 A/B 双路验证（见
+    # docs/PLAN-DYNAMIC-SPEC-AND-FUSION-20261003.md Track A）：
+    #   A 路 = prompt-tail + dynamic-spec，B 路 = 只 dynamic-spec；
+    #   两者 diff 只有 25 行，且**全部是 prompt-tail 自己的改动**
+    #   （import os / ced_prompt_tail_eager 18 行 / 一处 force_eager），
+    #   ⇒ dynamic-spec 的 8 个 hunk 与 prompt-tail 无耦合。
+    # 所以这里接受**两个**基线；仍然要求 sha 命中（镜像换版照样 fail-closed），
+    # 并且应用后照旧断言可观测痕迹（[DYNAMIC-SPEC] + _v41_effective_udql + py_compile）。
+    case "$_base" in
+      bd250a59819dd806d16706177840c057416944c762264f2a291c608d915c2aff) : ;;   # CED prompt-tail 之后
+      67035d97f1cea4ae2df31adcc33f1de952f4cab6d8421e76df512296e0e3185e) : ;;   # 原始基线（独立 TP8）
+      *) echo "BASE_SHA_UNKNOWN:$_base"; exit 1 ;;
+    esac
     if grep -Fq "[DYNAMIC-SPEC]" vllm_ascend/worker/model_runner_v1.py; then
       echo ALREADY; exit 0
     fi
@@ -1590,11 +1865,12 @@ if [ -n "${SP_SCHEDULE:-}" ]; then
   case "${_dynspec:-}" in
     APPLIED) say "[DYNAMIC-SPEC] runner 补丁已应用 ✓" ;;
     ALREADY) say "[DYNAMIC-SPEC] runner 补丁已存在 ✓" ;;
-    *) die "DYNAMIC-SPEC runner 补丁未应用（$_dynspec）。两个常见原因：
-      ① 没开图模式 ⇒ 本补丁的前置补丁（prompt-tail）没打，文件仍是 base 的
-         67035d97… 而不是 bd250a59… ⇒ SP_SCHEDULE 需要
-         V41_CED_GRAPH_PROMPT_TAIL_EAGER=1 + GRAPH=1 EAGER=0；
-      ② 镜像换版导致 sha 门不匹配。两种情况都不要带着它起服。" ;;
+    BASE_SHA_UNKNOWN:*) die "DYNAMIC-SPEC runner 补丁未应用：model_runner_v1.py 的 sha 不在允许列表里（${_dynspec}）——
+      镜像换版了。不要在未知基线上带着它起服；确认新基线后再扩列表。" ;;
+    *) die "DYNAMIC-SPEC runner 补丁未应用（$_dynspec）。常见原因：
+      ① sha 门通过但 \`git apply --check\` 失败 ⇒ 基线被别的补丁改过；
+      ② patch_cudagraph.py 或 runner 补丁文件缺失。
+      两种情况都不要带着它起服。" ;;
   esac
   # 效果断言：patch_cudagraph.py 也必须在位（否则 runner 传的 query_len 没人消费）
   _dynspec_pc_hit=$($DOCKER exec "$NAME" bash -lc '
@@ -1682,7 +1958,7 @@ mkdir -p "$OUT"
   echo "[serve_a2] run_id=$RUN_ID image=$IMAGE model=$MODEL"
   echo "[serve_a2] port=$PORT served_name=$SERVED_NAME tp=$TP dp=$DP util=$GPU_UTIL max_len=$MAX_LEN max_seqs=$MAX_SEQS bat=$BAT_TOKENS"
   echo "[serve_a2] sptok=$SP_TOKENS capture_sizes=$CAPTURE_SIZES"
-  echo "[serve_a2] MOE_AG=$MOE_AG O_PROJ_2D=$O_PROJ_2D MOE_MASK=$MOE_MASK ROPE_IDXSEL=$ROPE_IDXSEL"
+  echo "[serve_a2] MOE_AG=$MOE_AG O_PROJ_2D=$O_PROJ_2D MOE_MASK=$MOE_MASK ROPE_IDXSEL=$ROPE_IDXSEL IDS64_HOIST=$IDS64_HOIST PAD_SKIP=$PAD_SKIP ENGRAM_WKV_TP=$ENGRAM_WKV_TP"
   echo "[serve_a2] ENGRAM_JIT=$ENGRAM_JIT QLI_NOCAND=$QLI_NOCAND LOCAL_OWNER=$LOCAL_OWNER GATE_CHUNK=$GATE_CHUNK"
   echo "[serve_a2] PYTHON_PGO=$PYTHON_PGO pgo_target=${PGO_LIB:-none} STATIC_KERNEL=$STATIC_KERNEL NPUGRAPH_EX=$NPUGRAPH_EX"
   echo "[serve_a2] LOAD_FORMAT=${LOAD_FORMAT:-<real weights>} MOE_ZERO=$MOE_ZERO(unverified) MOE_NF=$MOE_NF(negative-result) DRAFT_GRAPH=$DRAFT_GRAPH(unverified)"
@@ -1710,6 +1986,12 @@ export ENGRAM=$ENGRAM ENGRAM_STORAGE=int8 VISION=$VISION
 export MM_LIMIT_IMAGES=$MM_LIMIT_IMAGES HOST=$HOST
 export NPUGRAPH_EX=$NPUGRAPH_EX STATIC_KERNEL=$STATIC_KERNEL CPU_BIND=$CPU_BIND
 export MULTISTREAM=$MULTISTREAM DSA_OVERLAP=$DSA_OVERLAP FUSED_MC2=$FUSED_MC2 MC2=$MC2 MC2_HIER=$MC2_HIER REDUCE_SAMPLE=$REDUCE_SAMPLE
+# ★ [DUMB-KNOBS 2026-10-05] 这 5 个开关 serve_v2.sh 会读、但本脚本从不设置 ⇒ 从启动器设它们
+#   是静默无效的（实测：FORCE_EPLB=1 起的臂，additional-config 里根本没有 enable_force_eplb，
+#   于是那次 A/B 其实是同配置对同配置）。这里补齐透传；默认值与 serve_v2.sh 的内建默认一致。
+#   ⚠️ 本 heredoc 不加引号：**禁止在此块内使用反引号或 $() 形式**（会被当命令替换执行，set -e 下会毁掉 inner.sh）。
+export FORCE_EPLB=${FORCE_EPLB:-0} DSA_CP=${DSA_CP:-0} ENGRAM_HOST_RESTORE=${ENGRAM_HOST_RESTORE:-0}
+export MC2_ALG=${MC2_ALG:-} WEIGHT_NZ=${WEIGHT_NZ:-}
 export LOADER_MT=1 LAZY=1
 export V41_KV_TIER=off
 export V41_ENGRAM_LOCAL_OWNER_FILE=/tmp/v41_engram_localowner
@@ -1750,6 +2032,62 @@ md5sum /vllm-workspace/vllm-ascend/vllm_ascend/models/deepseek_v41/engram_hbm.py
        /vllm-workspace/vllm-ascend/vllm_ascend/models/deepseek_v41/engram_hash.py 2>/dev/null
 exec bash /opt/dsv41/scripts/serve_v2.sh
 INNER_EOF
+# [OPP-OVERRIDE 2026-10-04] 把自定义 vendor 复制覆盖到**镜像 vendor 路径**，再起服务。
+# 必须这样做：vllm_ascend.utils.bootstrap_custom_op_env() 会把镜像自带 vendor 路径**前插**
+# 到 ASCEND_CUSTOM_OPP_PATH（utils.py:323-332）⇒ 只设 env 时镜像内同名 kernel 优先，
+# 改 kernel 不生效（实测 profile 逐字段相同）；而 -v 覆盖挂载（:ro）会让内核启动期报
+# aicore exception/IndexCheck 507015。所以用"起服前复制"。
+# ★ 注入点刻意放在生成之后（不在 heredoc 内）：往该 heredoc 里插任何块都会让生成的
+#   inner.sh 变成 0 字节（实测复现 3 次，原因未查明），放在这里完全避开。
+if [ -n "${V41_HC_OPP_PKG:-}" ] && [ -f "$PKG/patches/opp_override_block.sh" ]; then
+  _blkf=$(mktemp)
+  cat "$PKG/patches/opp_override_block.sh" > "$_blkf"
+  awk -v blk="$(cat "$_blkf")" '
+    /^exec bash \/opt\/dsv41\/scripts\/serve_v2\.sh/ && !done {print blk; done=1}
+    {print}' "$OUT/inner.sh" > "$OUT/inner.sh.tmp" \
+    && mv "$OUT/inner.sh.tmp" "$OUT/inner.sh"
+  mv "$_blkf" "$_blkf.used" 2>/dev/null || true
+  say "[OPP-OVERRIDE] 已注入 inner.sh 覆盖块（$V41_HC_OPP_PKG/vendors/custom_transformer）"
+
+  # ★★ [SKCACHE-STALE 2026-10-04] 换 kernel 时**必须**同时让 static kernel 缓存失效，
+  # 否则运行时可能复用旧内核 ⇒ 改动静默不生效（实测：HcPre A1 的 .o 已在容器里、
+  # md5 已校验，但服务执行的仍是旧内核 —— 用 `aic_mac_time` 指纹 1.282 vs 1.282 判定）。
+  # 为什么单靠 .o 不够：static kernel 的缓存 key **不含被替换 .o 的内容**
+  # （文件哈希只由 op 定义决定），所以换 vendor 里的 .o 不会让它失效。
+  # 自动清 13GB 缓存会让起服多花 ~18 分钟（重编译），所以默认只**响亮警告**；
+  # 做 kernel A/B 时请显式 `V41_OPP_CLEAR_SKCACHE=1`。
+  if [ "${V41_OPP_CLEAR_SKCACHE:-0}" = "1" ]; then
+    for _d in "$CACHE/skcache/compile_outputs" "$CACHE/skcache/install"; do
+      if [ -d "$_d" ]; then
+        _ts=$(date +%Y%m%d_%H%M%S)
+        mv "$_d" "${_d}.stale_$_ts" 2>/dev/null && say "[OPP-OVERRIDE] 已让缓存失效：$_d → ${_d}.stale_$_ts"
+      fi
+    done
+    say "[OPP-OVERRIDE] static kernel 缓存已失效 ⇒ 本次会重编译（起服约 +18 min）"
+  else
+    echo "[serve_a2][OPP-OVERRIDE] ⚠️  static kernel 缓存**未清**（cache/skcache/compile_outputs）"
+    echo "[serve_a2][OPP-OVERRIDE]     若本次改了 kernel，运行时可能**复用旧内核**导致改动静默不生效。"
+    echo "[serve_a2][OPP-OVERRIDE]     kernel A/B 请改用 V41_OPP_CLEAR_SKCACHE=1。"
+    echo "[serve_a2][OPP-OVERRIDE]     起服后必须验执行：用资源计数指纹（aic_mac_time / cycles /"
+    echo "[serve_a2][OPP-OVERRIDE]     目标算子 Duration）与基线比对，看不到预期变化即判"内核没换"。"
+  fi
+fi
+# [OPP-OVERRIDE-SAFETY 2026-10-04] 自定义 kernel 若在**图捕获/重放**下不兼容，症状是
+# 服务"看起来在启动"但永远不 ready（EngineCore 每 60s 报 shm broadcast 超时），
+# 实测一次 35 分钟才被默认 READY_TIMEOUT 收掉，且现场没有指向 kernel 的线索。
+# 这里：只要启用了 OPP-OVERRIDE 就把 ready 上限收到 10 分钟，并在失败信息里点名。
+if [ -n "${V41_HC_OPP_PKG:-}" ]; then
+  # ★ 2026-10-04 修正：原先这里把上限收到 600s，**把一次合法的启动杀掉了** ——
+  # 实测"静态内核编译(≈8min) + 121 桶图捕获(≈10min)"合法地超过 600s，
+  # 于是服务在 100% 捕获完成后被 die() 清掉，日志里只有一句"等待超时"。
+  # 教训：**安全闸不能短于合法的最慢路径**。改为 1800s（仍短于默认 2100s，
+  # 真·挂死的 kernel 会更快失败），并在失败信息里点名 kernel 是第一嫌疑。
+  : "${V41_OPP_READY_TIMEOUT:=1800}"
+  READY_TIMEOUT="$V41_OPP_READY_TIMEOUT"
+  echo "[serve_a2][OPP-OVERRIDE] ⚠️ 已启用自定义 kernel（$V41_HC_OPP_PKG）"
+  echo "[serve_a2][OPP-OVERRIDE]    ready 上限 ${READY_TIMEOUT}s（覆盖静态编译+图捕获）；"
+  echo "[serve_a2][OPP-OVERRIDE]    若仍起不来，第一嫌疑是该 kernel（回退：不设 V41_HC_OPP_PKG）"
+fi
 chmod +x "$OUT/inner.sh"
 
 $DOCKER exec -d "$NAME" bash -lc "bash $INNER > /opt/dsv41/results/$RUN_ID/serve.log 2>&1"
@@ -1814,17 +2152,103 @@ kv32_pool_blocks_from_log() {   # <logfile> <bytes_per_block> → 打印最小 r
   awk -v g="$_g" -v bpb="$_bpb" 'BEGIN{printf "%d", (g*1073741824)/bpb}'
   return 0
 }
+# ★★ [KV32-CHECK 2026-10-06] 从日志解出"池块数"并**取两个来源的最大值**（防漏报）。
+#
+# 为什么不能只用 `GPU KV cache size ÷ BLOCK`（旧做法）：那条恒等式只在
+#   `num_blocks_per_request == BLOCK` 时成立。实测反例（交付实例，非 DCP）：
+#   BAT=8192 ⇒ tokens 2,988,163、BLOCK=128 ⇒ 23,345 块，而真实块数是
+#   `Available KV cache memory 13.82 GiB ÷ 540,928` ≈ 27,433 块 —— 旧做法**低报 14%**，
+#   一个真越界的池可能因此被放行（正是本守卫要堵的"静默回绕"）。
+# 两个来源的偏小方向：
+#   · 常数估算 在 DCP 形态偏小（每块字节数被 dcp 分片，常数偏大 ⇒ 块数偏小）；
+#   · tokens÷BLOCK 在 npr > BLOCK 时偏小（非 DCP 恒有 npr ≥ 8193 > 128… 见上例）。
+# ⇒ 取 max：非 DCP 下等价于常数估算（正确），DCP 下取到 tokens 口径（偏大但保守）。
+kv32_resolve_blocks() {   # <logfile> <bytes_per_block> <block_size> → "blocks<TAB>source"
+  local _log=$1 _bpb=$2 _blk=$3 _a=0 _b=0 _g _t
+  _g=$(grep -aoE 'Available KV cache memory: [0-9.]+ GiB' "$_log" 2>/dev/null \
+       | awk '{print $(NF-1)}' | sort -g | head -1)
+  if [ -n "$_g" ]; then
+    _a=$(awk -v g="$_g" -v bpb="$_bpb" 'BEGIN{printf "%d", (g*1073741824)/bpb}')
+  fi
+  # ★ [2026-10-06] 先看 [V41-KV32-CAP]：它给出**夹取后的真实块数**。
+  #   没有这行时（未启用 cap）再退回"profiling 估算 vs tokens÷block 取大"的旧逻辑。
+  _cap=$(grep -aoE '\[V41-KV32-CAP\] 块数 [0-9]+ → [0-9]+' "$_log" 2>/dev/null | tail -1 | grep -oE '[0-9]+$')
+  if [ -n "${_cap:-}" ]; then
+    printf '%s\t精确块数（[V41-KV32-CAP] 夹取后）\n' "$_cap"
+    return 0
+  fi
+  _t=$(grep -aoE 'GPU KV cache size: [0-9,]+ tokens' "$_log" 2>/dev/null \
+       | tail -1 | grep -oE '[0-9,]+' | tr -d ',' | head -1)
+  if [ -n "${_t:-}" ] && [ "${_blk:-0}" -gt 0 ] 2>/dev/null; then
+    _b=$(( _t / _blk ))
+  fi
+  if [ "$_a" -ge "$_b" ] && [ "$_a" -gt 0 ]; then
+    printf '%d\t估算（%s GiB ÷ %s B/块）\n' "$_a" "$_g" "$_bpb"
+  elif [ "$_b" -gt 0 ]; then
+    printf '%d\t精确块数（GPU KV cache size %s tokens ÷ block %s）\n' "$_b" "$_t" "$_blk"
+  else
+    printf '0\t无数据\n'
+  fi
+}
+# 显式 KV_CACHE_MEMORY_BYTES 形态下的块数：**确定值**（引擎按 字节数 ÷ 每块字节数 分配）。
+# 单独成函数是为了能在离线自检里正/负控（例如 16 GiB 在 540,928 的旧几何下 = 31,758 块 > 29,076 ⇒ 必须判越界）。
+kv32_blocks_explicit() {   # <kv_bytes> <bytes_per_block> → 块数
+  local _b=$1 _bpb=$2
+  [ "${_bpb:-0}" -gt 0 ] || { printf '0'; return; }
+  awk -v b="$_b" -v bpb="$_bpb" 'BEGIN{printf "%d", b/bpb}'
+}
 # --- [KV32] 辅助函数结束（selftest 按这两行标记抽取本函数）---
 
-if [ "$_kv32_enforce" = "1" ] && [ "$_kv32_pinned" != "1" ] && [ "$_kv32_user_set" != "1" ]; then
+if [ "$_kv32_enforce" = "1" ] && [ "$_kv32_pinned" != "1" ]; then
+  # ★ [KV32-CHECK-EXPLICIT 2026-10-06] **显式给值也要复核**：显式只保证"池 = 我给的字节数"，
+  #   不保证"块数 ≤ 上界"。显式形态下块数是确定值（引擎按 KV_CACHE_MEMORY_BYTES ÷ 每块字节数分配），
+  #   所以直接精确相除，不依赖日志。旧版在显式形态**整段跳过复核** ⇒ 给错值没人查。
+  if [ "$_kv32_user_set" = "1" ]; then
+    _kv32_blocks=$(kv32_blocks_explicit "$KV_CACHE_MEMORY_BYTES" "$_ced_bytes_per_block")
+    _kv32_src="精确块数（显式 KV_CACHE_MEMORY_BYTES ${KV_CACHE_MEMORY_BYTES} B ÷ ${_ced_bytes_per_block} B/块）"
+  fi
   _kv32_avail=$(grep -aoE 'Available KV cache memory: [0-9.]+ GiB' "$LOG" 2>/dev/null | awk '{print $(NF-1)}' | sort -g | head -1 || true)
-  if [ -z "$_kv32_avail" ]; then
-    echo "  [KV32] 复核跳过：日志里没有 'Available KV cache memory'（pinned 路径或旧镜像）"
-  else
-    _kv32_blocks=$(kv32_pool_blocks_from_log "$LOG" "$_ced_bytes_per_block" || echo 0)
-    if [ "${_kv32_blocks:-0}" -gt "$_ced_max_blocks" ]; then
+  # ★★ [KV32-DCP 2026-10-05] DCP 形态下**不要**用固定 bytes_per_block 估算：
+  # DCP 把每个 KV group 按 decode_context_parallel_size 路分片 ⇒ 每块字节数变小，
+  # 用非 DCP 的常数会**假通过**。实测（DCP8，GPU_UTIL=0.85）：真值 92,363 B/块，
+  # 而常数 540,928 ⇒ 估出 22,863 块（<= 上界 29,076，放行），实际 133,924 块（5.9×）。
+  # 修法：**优先用 vLLM 自己打印的 `GPU KV cache size: <N> tokens` 反算块数**（精确，
+  # 不依赖任何常数）；只有拿不到那行时才退回常数估算（并明确标注是估算）。
+  _kv32_tokens=$(grep -aoE 'GPU KV cache size: [0-9,]+ tokens' "$LOG" 2>/dev/null | tail -1 | grep -oE '[0-9,]+' | tr -d ',' | head -1)
+  if [ "$_kv32_user_set" != "1" ]; then
+    # 自动 profiling 形态：块数只能从日志反解 ⇒ 用 kv32_resolve_blocks 取两个来源的最大值。
+    _kv32_resolved=$(kv32_resolve_blocks "$LOG" "$_ced_bytes_per_block" "${BLOCK:-0}" || printf '0\t无数据\n')
+    _kv32_blocks=${_kv32_resolved%%$'\t'*}
+    _kv32_src=${_kv32_resolved#*$'\t'}
+    if [ -z "${_kv32_src:-}" ] || [ "${_kv32_blocks:-0}" = "0" ]; then
+      echo "  [KV32] 复核跳过：日志里既没有 'GPU KV cache size' 也没有 'Available KV cache memory'"
+      _kv32_blocks=0
+      _kv32_src=""
+    fi
+  fi
+  if [ -n "${_kv32_src:-}" ]; then
+    echo "  [KV32] 池大小来源：$_kv32_src"
+  fi
+    # ★★ [KV32-DCP-WARN 2026-10-05] DCP 形态下**只警告不拦截**：
+    # 上界 29076 是用 **CED 的单组页步长 147712 B** 校准的，对 DCP 不适用 ——
+    # **实测**（DCP8，4 条并发 × 960K = 3,840,166 tokens ≈ 30,001 块）**超过 29,076 仍全部正确**，
+    # 说明 DCP 的页步长更小、真实上界更高（按 92,363 B/块 推 ≈46,498 块）。
+    # 但 DCP 的真实上界**尚未实测确定** ⇒ 不静默放行，也不误拦已证可用的配置，
+    # 而是**响亮警告**并打印精确块数与已验证的观测上限。
+    _kv32_is_dcp=0
+    case "${KV_ARGS_EXTRA:-}" in *--decode-context-parallel-size\ *) _kv32_is_dcp=1 ;; esac
+    if [ "${_kv32_blocks:-0}" -gt "$_ced_max_blocks" ] && [ "$_kv32_is_dcp" = "1" ]; then
       echo
-      echo "  \033[31m✗ [KV32] KV 池超出 4 GiB 寻址上界：最小 rank 可用 ${_kv32_avail} GiB ⇒ 约 ${_kv32_blocks} 块 > 上界 ${_ced_max_blocks}\033[0m"
+      echo -e "  \033[33m⚠️  [KV32] DCP 形态：池 ${_kv32_blocks} 块 > 非 DCP 上界 ${_ced_max_blocks}（$_kv32_src）\033[0m"
+      echo "    该上界由 **CED 单组页步长 147712 B** 校准，**对 DCP 不适用**：实测 4 条并发 960K"
+      echo "    （≈30,001 块）**超过 29,076 仍 4/4 正确** ⇒ DCP 的页步长更小、真实上界更高"
+      echo "    （按 92,363 B/块 推 ≈46,498 块）。**但 DCP 真实上界尚未实测确定。**"
+      echo "    ⇒ 若要把池用满到 >30,001 块，请先跑长上下文边界测试；否则按实测上限使用。"
+      echo "    已知风险症状：块号回绕 ⇒ HTTP 200 + 1 token（EOS）的**静默**空答。"
+      echo "    关闭本警告：V41_KV32_POOL_GUARD=off（同时关掉 pin/clamp/本复核）"
+    elif [ "${_kv32_blocks:-0}" -gt "$_ced_max_blocks" ]; then
+      echo
+      echo -e "  \033[31m✗ [KV32] KV 池超出 4 GiB 寻址上界：${_kv32_blocks} 块 > 上界 ${_ced_max_blocks}（$_kv32_src）\033[0m"
       echo "    该配置下块号 ≥ ${_ced_max_blocks} 的访问会 32 位回绕，长上下文请求会**静默**变成 1 token（EOS）。"
       echo "    处置（任选其一）："
       echo "      1) 显式压池：KV_CACHE_MEMORY_BYTES=$(( _ced_max_blocks * _ced_bytes_per_block ))"
@@ -1832,8 +2256,11 @@ if [ "$_kv32_enforce" = "1" ] && [ "$_kv32_pinned" != "1" ] && [ "$_kv32_user_se
       echo "      3) 确知风险仍要跑：V41_KV32_POOL_GUARD=off（会同时关掉 pin/clamp/本复核）"
       die "[KV32] 拒绝以越界池起服（避免长上下文静默空答）"
     fi
-    echo "  ✓ [KV32] 池上界复核：最小 rank 可用 ${_kv32_avail} GiB ⇒ 约 ${_kv32_blocks} 块 ≤ 上界 ${_ced_max_blocks}（用到 $(( _kv32_blocks * 100 / _ced_max_blocks ))%）"
-  fi
+    if [ -n "${_kv32_src:-}" ] && [ "${_kv32_blocks:-0}" -le "$_ced_max_blocks" ]; then
+      echo "  ✓ [KV32] 池上界复核：${_kv32_blocks} 块 ≤ 上界 ${_ced_max_blocks}（用到 $(( _kv32_blocks * 100 / _ced_max_blocks ))%；来源见上）"
+    elif [ "${_kv32_blocks:-0}" -gt "$_ced_max_blocks" ]; then
+      echo "  ⚠️  [KV32] 池上界复核：${_kv32_blocks} 块 **超过** 上界 ${_ced_max_blocks}（用到 $(( _kv32_blocks * 100 / _ced_max_blocks ))%）—— 见上方警告/拒绝说明"
+    fi
 fi
 # 镜像指纹落到结果目录（make_report.sh 会读它）
 $DOCKER exec "$NAME" bash -lc 'cat /opt/dsv41/BUILD_INFO.txt 2>/dev/null' > "$OUT/BUILD_INFO.txt" 2>/dev/null || true

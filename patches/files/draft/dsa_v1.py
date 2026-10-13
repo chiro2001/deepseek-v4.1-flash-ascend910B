@@ -615,6 +615,23 @@ def build_dspark_swa_indices(
     # out-of-range columns (their results are discarded by col_mask anyway).
     safe_nums = block_nums.clamp(min=0, max=int(block_table.shape[1]) - 1)
     block_offsets = pos % block_size
+    # [DYNSPEC-DIAG 2026-10-03] gather 前先断言行数一致，把"1 行 vs 2 行"这种失败
+    # 变成带全部形状的可读报错（原来只有 aclnn 那句含糊的 dim-0 尺寸不匹配）。
+    # 触发场景：动态 K 的 ql=1 步真进图后，`_propose` 的 `_pad_query_start_loc_for_fia`
+    # 可能**补一个 dummy 请求并把 num_reqs_padded +1**，而 block_table 只按目标侧的
+    # 行数传来 ⇒ 行数不匹配。只在不一致时抛错，正常路径零开销。
+    _v41_bt_parent = getattr(self, "block_table", block_table)
+    if block_table.shape[0] != safe_nums.shape[0]:
+        raise RuntimeError(
+            "[DYNSPEC-DIAG] build_dspark_swa_indices 行数不一致: "
+            f"block_table={tuple(block_table.shape)} "
+            f"safe_nums={tuple(safe_nums.shape)} "
+            f"seq_lens={tuple(seq_lens.shape)} "
+            f"query_start_loc={tuple(query_start_loc.shape)} "
+            f"num_decode_tokens={num_decode_tokens} index_width={index_width} "
+            f"parent_self_block_table={tuple(_v41_bt_parent.shape)} "
+            f"parent_num_actual_tokens={getattr(self, 'num_actual_tokens', None)}"
+        )
     block_ids = torch.gather(block_table, 1, safe_nums)
     slot_ids = (block_ids * block_size + block_offsets).to(torch.int32)
     slot_ids = slot_ids.where(col_mask, torch.full_like(slot_ids, -1))

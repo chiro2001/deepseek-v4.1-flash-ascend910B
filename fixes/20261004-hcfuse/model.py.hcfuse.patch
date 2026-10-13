@@ -1,0 +1,113 @@
+--- patches/files/model.py.bak_prehcfuse	2026-10-04 06:53:05.069150210 +0800
++++ patches/files/model.py.fused_keep	2026-10-04 08:16:49.165150210 +0800
+@@ -54,6 +54,21 @@
+ _ENGRAM_WITH_DUMMY = _os_egd.environ.get("V41_ENGRAM_WITH_DUMMY", "0") == "1"
+ _ENGRAM_PAD_SKIP = _os_egd.environ.get("V41_ENGRAM_PAD_SKIP", "0") == "1"
+ 
++# [V41-HC-FUSE] HcPre + input_layernorm(RMSNorm) 融合（Track B）。默认关。
++#   实测坑：vLLM 编译缓存不以本 env 为 key => 换开关必须同时改本文件内容（或清 ~/.cache/vllm）。
++_V41_HC_FUSE_NORM = _os_ids.environ.get("V41_HC_FUSE_NORM", "0") == "1"
++_V41_HC_FUSE_ATTN_FP32 = _os_ids.environ.get("V41_HC_FUSE_ATTN_FP32", "0") == "1"
++if _V41_HC_FUSE_NORM:
++    import torch as _torch_hcfuse
++
++    _torch_hcfuse.ops.load_library(
++        _os_ids.environ.get(
++            "V41_HC_NORM_LIB",
++            "/vllm-workspace/vllm-ascend/vllm_ascend/libhc_pre_norm_ops.so",
++        )
++    )
++    print("[V41-HC-FUSE] overlay in effect: V41_HC_FUSE_NORM=1, hc_pre_norm loaded", flush=True)
++
+ _IDS64_HOIST = _os_ids.environ.get("V41_IDS64_HOIST", "0") == "1"
+ _CED_PREFILL_ROLE = _os_ids.environ.get("V41_CED_ROLE", "") == "prefill"
+ _CED_H20_SNAPSHOT_POS = _os_ids.environ.get("V41_CED_H20_SNAPSHOT_POS", "")
+@@ -790,7 +805,7 @@
+     def hc_collapse(x, pre_mix):
+         return (pre_mix.unsqueeze(-1) * x.float()).sum(-2).to(x.dtype)
+ 
+-    def hc_pre(self, x, hc_fn, hc_scale, hc_base, pre_mix=None):
++    def _hc_pre_raw(self, x, hc_fn, hc_scale, hc_base, pre_mix=None):
+         return torch.ops._C_ascend.npu_hc_pre_v2(
+             x,
+             hc_fn,
+@@ -803,6 +818,34 @@
+             hc_eps=self.hc_eps,
+         )
+ 
++    def hc_pre(self, x, hc_fn, hc_scale, hc_base, pre_mix=None, rms_gamma=None,
++               rms_eps=None):
++        # [V41-HC-FUSE] rms_gamma 非 None 时融合 input_layernorm（y 即归一化结果）。
++        # 契约保持 4 元组不变（CED 的 write_global_source_from_encoder 等调用点依赖它）。
++        if rms_gamma is not None and _V41_HC_FUSE_NORM:
++            y, post, comb, pre, _ = torch.ops.dsv41_ops.hc_pre_norm(
++                x, hc_fn, hc_scale, hc_base, pre_mix, rms_gamma,
++                self.hc_mult, self.hc_sinkhorn_iters, self.norm_eps, self.hc_eps,
++                self.norm_eps if rms_eps is None else rms_eps,
++                _V41_HC_FUSE_ATTN_FP32,
++            )
++            return y, post, comb, pre
++        return self._hc_pre_raw(x, hc_fn, hc_scale, hc_base, pre_mix)
++
++    def hc_pre_fp32(self, x, hc_fn, hc_scale, hc_base, pre_mix=None, rms_gamma=None,
++                    rms_eps=None):
++        # [V41-HC-FUSE] FFN 路径：额外交付 fp32 路由输入，语义与
++        # npu_rms_norm_cast 的第二输出逐位一致（= 加宽已舍入的 bf16 结果）。
++        if rms_gamma is not None and _V41_HC_FUSE_NORM:
++            return torch.ops.dsv41_ops.hc_pre_norm(
++                x, hc_fn, hc_scale, hc_base, pre_mix, rms_gamma,
++                self.hc_mult, self.hc_sinkhorn_iters, self.norm_eps, self.hc_eps,
++                self.norm_eps if rms_eps is None else rms_eps,
++                True,
++            )
++        y, post, comb, pre = self._hc_pre_raw(x, hc_fn, hc_scale, hc_base, pre_mix)
++        return y, post, comb, pre, None
++
+     def hc_post(self, x, residual, post, comb):
+         return torch.ops._C_ascend.npu_hc_post(
+             x.unsqueeze(0),
+@@ -841,26 +884,41 @@
+         if self.layer_idx >= 20 and _CED_PREFILL_ROLE:
+             raise RuntimeError("CED producer executed a decoder layer instead of source-only projection")
+         residual = hidden_states
++        # [V41-HC-FUSE] 开融合时 hc_pre 已做完 input_layernorm
++        _hc_gamma = self.input_layernorm.weight if _V41_HC_FUSE_NORM else None
++        _hc_rms_eps = getattr(self.input_layernorm, 'variance_epsilon', None)
+         x, attn_post, attn_comb, attn_pre = self.hc_pre(
+             hidden_states,
+             self.hc_attn_fn,
+             self.hc_attn_scale,
+             self.hc_attn_base,
+             pre_mix,
++            _hc_gamma,
++            _hc_rms_eps,
+         )
+-        x = self.input_layernorm(x)
++        if _hc_gamma is None:
++            x = self.input_layernorm(x)
+         x = self.self_attn(positions, x, llama_4_scaling)
+         hidden_states = self.hc_post(x, residual, attn_post, attn_comb)
+ 
+         residual = hidden_states
+-        x, ffn_post, ffn_comb, ffn_pre = self.hc_pre(
++        # [V41-HC-FUSE] 开融合时 hc_pre 已做完 post_attention_layernorm，
++        # 并直接给出 fp32 路由输入（= rms_norm_cast 的第二输出），省掉整个 rms_norm_cast。
++        _ffn_gamma = self.post_attention_layernorm.weight if _V41_HC_FUSE_NORM else None
++        _ffn_eps = getattr(self.post_attention_layernorm, 'variance_epsilon', None)
++        x, ffn_post, ffn_comb, ffn_pre, _x_fp32_fused = self.hc_pre_fp32(
+             hidden_states,
+             self.hc_ffn_fn,
+             self.hc_ffn_scale,
+             self.hc_ffn_base,
+             attn_pre,
++            _ffn_gamma,
++            _ffn_eps,
+         )
+-        x, x_fp32 = self.rms_norm_cast(x)
++        if _ffn_gamma is None:
++            x, x_fp32 = self.rms_norm_cast(x)
++        else:
++            x_fp32 = _x_fp32_fused
+         x = self.mlp(x, input_ids=input_ids, hidden_states_fp32=x_fp32)
+         hidden_states = self.hc_post(x, residual, ffn_post, ffn_comb)
+         return hidden_states, ffn_pre

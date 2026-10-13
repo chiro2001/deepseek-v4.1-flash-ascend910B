@@ -1,0 +1,179 @@
+# allreduce 是**纯固定延迟**、且 HCCL 旋钮救不了它（三个负结果，2026-10-05）
+
+> 背景：decode 的 allreduce 在 N=1 占 **2.49 ms/步**、N=8 占 **4.67 ms/步（11.6%）**，
+> 且**完全暴露在主图关键路径上**（主图每个对应空隙 = allreduce 自身时长 + ~1 µs）。
+> 它是 ②（N=4~8）里**第二大**的单项。本文回答"能不能把它压下去"。
+> 数据：a3-22（8 die 空闲）+ a3-21 交付实例。标注：【实测】。
+
+## 0. 结论（一句话）
+
+**不能（在配置层）。** 三个可用的 HCCL 旋钮全部无效或更差；而且消息大小在
+60 KB–2 MB 之间**耗时几乎不变** ⇒ 这是**每调用一次的固定延迟**问题，
+**唯一的出路是减少调用次数**（81 次/步，结构性的），不是调参。
+
+## 1. 带宽扫描：60 KB → 2 MB 耗时**不变**
+
+a3-22，8 die，`torchrun`，AIV 模式，每档 50 次流水化 × 3 轮取中位（充分预热）：
+
+| 消息 | 基线（AIV） | 有效带宽 |
+|---|---:|---:|
+| 61 KB | **49.7 µs** | 1.2 GB/s |
+| 491 KB | **83.6 µs** | 5.9 GB/s |
+| 2 MB | **84.3 µs** | 24.9 GB/s |
+| 8 MB | 292 µs | 28.7 GB/s |
+| 32 MB | 422 µs | 79.5 GB/s |
+| 128 MB | 1201 µs | **111.7 GB/s** |
+
+**读法**：61 KB → 2 MB 是**平的一段（~50–85 µs）**，说明这段完全由**固定延迟**决定；
+链路本身没问题（128 MB 时 111.7 GB/s，等效收发 195 GB/s）。
+我们服务里的消息是 **61 KB（N=1）到 491 KB（N=8）**，**整段落在纯延迟区**。
+
+> 补充：服务里单次只要 **32–73 µs**（比这里的 50–85 µs 更快），因为服务是**图内**下发、
+> 省掉主机往返。也就是说 **服务侧已经把这条路的显性开销吃掉了**。
+
+## 2. 三个旋钮的判决（全部负结果）
+
+| 旋钮 | 结果 | 证据 |
+|---|---|---|
+| **`HCCL_OP_EXPANSION_MODE=AICPU`**（当前是 AIV） | ❌ **服务根本起不来** | 8 个 WorkerProc 全部 `WorkerProc failed to start`，根因是 `recvBytes`（c10d）连接失败 ⇒ AICPU 扩展模式在本栈不可用 |
+| **`HCCL_ENABLE_OPEN_AIV=1`** | ❌ **小消息慢 2×** | 61 KB：190.8 µs（基线 89.1）；491 KB：109.7（基线 85.5） |
+| **`HCCL_INTRA_PCIE_ENABLE=0` + `HCCL_INTRA_ROCE_ENABLE=0`**（强制 HCCS-only） | ❌ **无差异**（且首测的 −32% 是噪声） | 首测 491 KB 58.0 vs 85.5 µs 看似**−32%**；但**加大预热后复测**：基线 83.6 µs vs 禁用后 90.8 µs（三轮 103.8/89.4/90.8）⇒ **差异消失** |
+
+> ⚠️ 第 3 条是本轮的一个重要**方法论教训**：小消息延迟实验的**预热不足会产生 ±100% 的假象**
+> （我第一次只热身 5+10 次，就"测出"了 32% 的收益）。**必须 ≥50 次预热 + ≥3 轮取中位**，
+> 并对比**同一档位的多轮离散度**（本例基线三轮 84.0/83.6/83.5 非常稳，禁用版 103.8/89.4/90.8 明显抖）。
+
+## 3. 两个 allreduce 的**不对称**（仍未解释，记录待查）
+
+服务稳态（N=8，40 层）里两个 allreduce 的单次中位时长差 2.3×：
+
+| 位置（主图前驱 → 后继） | 次数/步 | 单次中位 | ms/步 |
+|---|---:|---:|---:|
+| `Add`（MoE+共享专家）→ `HcPost` | 40 | **73 µs** | **3.04** |
+| `Matmul`（o_proj）→ `TensorMove` | 40 | **32 µs** | **1.46** |
+| `MaskedFill` → `Repeat_Tile` | 1 | 121 µs | 0.12 |
+| `Matmul` → `Transpose` | 2 | 29 µs | 0.06 |
+
+两者承载的 payload 相同（`[48,5120]` bf16 = 491 KB），却差 2.3×。
+【推断】可能是 (a) MoE 侧那个与共享专家做了某种合并，(b) 或 AIV 核在 MoE 阶段被别的
+MIX 算子占用导致自旋等待计入时长。**未验证**；若将来能证实是 (b)，则"给 allreduce 让出 AIV"
+可能是一条真杠杆（潜在 40×41 µs = **1.6 ms/步**）。
+
+## 3.5 ★ 用 HCCL 自己的账 + 跨 rank 对比，把 2.3× 不对称拆到"到达偏差"
+
+`communication.json` 里每个集合通信都有 HCCL 自己的四项分解
+（`Elapse / Transit / Wait / Synchronization / Idle`）。把主图的 allreduce 窗口
+与这些记录按时间戳对齐（同一时钟），得到：
+
+| 位置 | 配对数（稳态 8 步） | gap 中位 | **HCCL Elapse 中位** | Wait | Sync | **Idle** |
+|---|---:|---:|---:|---:|---:|---:|
+| **MoE 侧**（`Add` → `HcPost`） | 292（36.5/步） | 79.2 µs | **77.3 µs** | 0 | 0 | **77.3 µs（100%）** |
+| **attention 侧**（`Matmul` → `TensorMove`） | 652（81.5/步） | 27.5 µs | **31.6 µs** | 0 | 0 | 31.6 µs |
+
+⇒ 两处都**没有 transit/wait/sync**，**100% 记在 "Idle"** —— 即"已经在集合通信里、
+但还没能开始搬运"。这排除了"带宽不够"，指向**到达偏差 / 核占用**。
+
+**跨 rank 对比**（同一捕获、rank0 vs rank5 的 allReduce 稳态分布）：
+
+| rank | n | 中位 | p25 | p75 | p95 |
+|---|---:|---:|---:|---:|---:|
+| rank0 | 4271 | **63.7 µs** | 39.1 | 98.1 | 180.7 |
+| rank5 | 4271 | **47.6 µs** | 30.6 | 78.9 | 154.7 |
+
+**读法**：若纯粹是"等最慢的 rank"，所有 rank 测到的 **elapse 应该相同**（都等到最后一个到达）；
+实测 rank0 比 rank5 **慢 34%** ⇒ **各 rank 的到达时间本身有偏斜（skew）**，
+且两个 rank 都呈**双峰**（p25~30-39 / p75~79-98，正对应 MoE 侧 / attention 侧两族）。
+
+**结论与可动的量**：
+* 这 4.67 ms/步（N=8）里，**相当一部分是等同伴**；能压它的只有
+  **减小各 rank 的到达偏斜**（负载均衡）或**减少通信次数**；
+* 与 §4.1 给出的"专家负载不均衡"方向一致 —— 但本栈的
+  **Dynamic EPLB = False、冗余专家 = 0**（`serve.log` 实测），
+  即**当前没有开启任何专家负载均衡**。这是一条**尚未验证的候选**（需要 EPLB 权重搬运支持）。
+
+## 3.6 ⚠️ 更正：EPLB 的两种形态**都不能用**（2026-10-05 二次核实）
+
+**① `enable_force_eplb`** —— **不是负载均衡，是"绕过门控"**：
+它用一张"形状轮转"表替换 `topk_ids`（`force_eplb.py:108-143`，只依赖 shape/ep_rank），
+而 `topk_weights` 仍是门控权重 ⇒ **模型输出是错的**。它只能当**负载均衡压测工具**。
+（我曾据此得出"单流 +17.6%"，已撤回：见 `FORCE-EPLB-IS-DIAGNOSTIC-20261005.md`。）
+
+**② 动态 EPLB（`eplb_config.dynamic_eplb`）** —— **结构性受阻**：
+
+实测（`armEP_eplb`，redundancy=8、以及 redundancy=0 的对照）都在 `profile_run` 阶段崩溃：
+
+```
+model_runner_v1.py:3987   self.eplb_adaptor = VllmEplbAdaptor(model=self.model)
+eplb/adaptor/vllm_adaptor.py:105   self.init_expert_param_per_layer()
+eplb/adaptor/vllm_adaptor.py:163   self.param_dict[...][local_expert_id]
+IndexError: list index out of range
+```
+
+**根因（已定位到适配器的两个"同构假设"）**：`VllmEplbAdaptor` 假定**所有 MoE 层同构** ——
+
+1. `self.num_local_experts = self.moe_layers[0].local_num_experts`（取**第一层**的专家数，
+   再对所有层用它索引"每专家权重列表"）；
+2. `self.buffer_tensor_list` 以 `expert_weight_key` 为键，并 **assert 各层同键权重形状相同**。
+
+而我们的部署里 **DSpark draft（`dspark_n_routed_experts=128` ⇒ 16/rank）与主模型（384 ⇒ 48/rank）
+注册进了同一张表**（`routed_experts.py:494` 的 `VllmEplbAdaptor.register_layer(self)` 是**无条件**调用，
+注释只提 PP/`PPMissingLayer`）⇒ 假设 1 必然失败；即便修好假设 1，假设 2 也会因权重形状不同而断言失败。
+（`redundancy=0` 的对照臂同样崩溃 ⇒ **与"冗余专家数"无关**，纯属层异质性。）
+
+**要打通需要**：把适配器改成 **per-layer 视角**（每层各自的专家数 + 以 `(layer, weight_key)` 为缓冲键），
+属对 vendor 打补丁的中等工作量，且必须重验 144K 正确性（专家映射会变）。
+
+**收益/代价重估**：rank 间 gmm1 负载偏差实测仅 **4.7%**（rank0 8.06 ms vs rank5 8.44 ms，各 50 步），
+MoE 约占步长 32% ⇒ **完美均衡的理论上限 ≈1.5% 步时**；代价是 **−4% KV 容量** + 周期性权重搬运。
+
+⇒ **结论：暂不做**（收益 1.5% / 中等工作量 / 触及 vendor + 需重验正确性）。
+若将来要做，从"per-layer 适配器"这一条开始，且**必须先过正确性探针**。
+
+## 3.6.1 原 §3.6 内容（供追溯）
+
+既然 allreduce 的耗时里包含"等同伴到达"，而 MoE 侧比 attention 侧慢 2.3×，
+那"让各 rank 的 MoE 完成时刻更齐"就是唯一的优化方向。
+
+**现状**：`serve.log` 实测 `Dynamic EPLB is False` / `The number of redundant experts is 0`
+⇒ **当前完全没有开专家负载均衡**。
+
+**可配置面**（读 `vllm_ascend/ascend_config.py:105-160`）：
+
+```python
+additional_config = {"eplb_config": {
+    "dynamic_eplb": True,            # 还需 env DYNAMIC_EPLB=true（否则启动断言失败）
+    "num_redundant_experts": N,      # 每个 rank 多放的冗余专家数
+    "eplb_policy_type": 2,           # 0/1/2/3
+    "expert_heat_collection_stage": "decode",   # 只收 decode 的热度（更贴我们的负载）
+}}
+```
+
+**代价（必须一起算）**：
+* 冗余专家要占 HBM。按 `39.5 GiB 权重 / (40 层 × 384 专家) ≈ 2 MB/专家` 估，
+  8 个冗余专家 × 40 层 ≈ **640 MB ⇒ KV 容量约 −4%**（当前 2,987,727 → ~2.87M）；
+* `algorithm_execution_interval` 默认 50 步会触发一次权重搬运，**搬运期间有额外开销**；
+* 需要重新验证 144K 正确性（专家映射变了）。
+
+**收益（未验证）**：若能把两 rank 之间 34% 的到达偏差压掉一半，
+N=8 的 MoE 侧 allreduce（3.04 ms/步）大约能省 **0.5–1.0 ms/步（1.2–2.5%）**。
+**这是一条"用 4% 容量换 1–2.5% 速度"的取舍**，且需要实机 A/B 才能定价；
+在 ④ 维度已经达标（2.99M）的前提下**值得一试**，但排在
+"自研 attention 内核"之后（后者量级更大但成本更高）。
+
+## 4. 复现
+
+```bash
+# 带宽/延迟扫描（a3-22，8 张空闲 die）
+scp tools/hccl_bw_sweep.py a3-22:/tmp/hccl_bw.py
+# 用官方底座镜像 + driver 挂载起一次性容器，然后：
+torchrun --nproc_per_node=8 /tmp/hccl_bw.py 20
+# 变体：加 -e HCCL_ENABLE_OPEN_AIV=1 / -e HCCL_INTRA_PCIE_ENABLE=0 ...
+
+# AICPU 臂（会起不来，属负结果）
+sed 's|HCCL_OP_EXPANSION_MODE=AIV|HCCL_OP_EXPANSION_MODE=AICPU|' ...
+```
+
+## 5. 顺带：`serve_a2.sh` 里那个硬编码已参数化
+
+`HCCL_OP_EXPANSION_MODE` 原先**硬编码**为 `AIV`（外部 export 无效）——
+现已改为 `${HCCL_OP_EXPANSION_MODE:-AIV}`（默认不变），这样后续任何 A/B 都能从启动器覆盖。

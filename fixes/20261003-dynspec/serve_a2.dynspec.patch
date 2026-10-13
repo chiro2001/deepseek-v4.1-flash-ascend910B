@@ -1,0 +1,43 @@
+--- scripts/serve_a2.sh.bak_sha_gate	2026-10-03 13:05:12.925150210 +0800
++++ scripts/serve_a2.sh	2026-10-03 13:05:12.937150210 +0800
+@@ -1702,7 +1702,21 @@
+   _dynspec=$($DOCKER exec "$NAME" bash -lc '
+     cd /vllm-workspace/vllm-ascend || exit 1
+     _base=$(sha256sum vllm_ascend/worker/model_runner_v1.py | cut -d " " -f1)
+-    [ "$_base" = bd250a59819dd806d16706177840c057416944c762264f2a291c608d915c2aff ] || exit 1
++    # [DYNSPEC-BASE 2026-10-03] 原来只接受 **CED prompt-tail 之后**的 bd250a59…，
++    # 于是独立 TP8（空角色、不打 prompt-tail）永远过不了这道门 —— 尽管补丁本身
++    # 在两条基线上都能干净应用。已用 A/B 双路验证（见
++    # docs/PLAN-DYNAMIC-SPEC-AND-FUSION-20261003.md Track A）：
++    #   A 路 = prompt-tail + dynamic-spec，B 路 = 只 dynamic-spec；
++    #   两者 diff 只有 25 行，且**全部是 prompt-tail 自己的改动**
++    #   （import os / ced_prompt_tail_eager 18 行 / 一处 force_eager），
++    #   ⇒ dynamic-spec 的 8 个 hunk 与 prompt-tail 无耦合。
++    # 所以这里接受**两个**基线；仍然要求 sha 命中（镜像换版照样 fail-closed），
++    # 并且应用后照旧断言可观测痕迹（[DYNAMIC-SPEC] + _v41_effective_udql + py_compile）。
++    case "$_base" in
++      bd250a59819dd806d16706177840c057416944c762264f2a291c608d915c2aff) : ;;   # CED prompt-tail 之后
++      67035d97f1cea4ae2df31adcc33f1de952f4cab6d8421e76df512296e0e3185e) : ;;   # 原始基线（独立 TP8）
++      *) echo "BASE_SHA_UNKNOWN:$_base"; exit 1 ;;
++    esac
+     if grep -Fq "[DYNAMIC-SPEC]" vllm_ascend/worker/model_runner_v1.py; then
+       echo ALREADY; exit 0
+     fi
+@@ -1714,11 +1728,12 @@
+   case "${_dynspec:-}" in
+     APPLIED) say "[DYNAMIC-SPEC] runner 补丁已应用 ✓" ;;
+     ALREADY) say "[DYNAMIC-SPEC] runner 补丁已存在 ✓" ;;
+-    *) die "DYNAMIC-SPEC runner 补丁未应用（$_dynspec）。两个常见原因：
+-      ① 没开图模式 ⇒ 本补丁的前置补丁（prompt-tail）没打，文件仍是 base 的
+-         67035d97… 而不是 bd250a59… ⇒ SP_SCHEDULE 需要
+-         V41_CED_GRAPH_PROMPT_TAIL_EAGER=1 + GRAPH=1 EAGER=0；
+-      ② 镜像换版导致 sha 门不匹配。两种情况都不要带着它起服。" ;;
++    BASE_SHA_UNKNOWN:*) die "DYNAMIC-SPEC runner 补丁未应用：model_runner_v1.py 的 sha 不在允许列表里（${_dynspec}）——
++      镜像换版了。不要在未知基线上带着它起服；确认新基线后再扩列表。" ;;
++    *) die "DYNAMIC-SPEC runner 补丁未应用（$_dynspec）。常见原因：
++      ① sha 门通过但 \`git apply --check\` 失败 ⇒ 基线被别的补丁改过；
++      ② patch_cudagraph.py 或 runner 补丁文件缺失。
++      两种情况都不要带着它起服。" ;;
+   esac
+   # 效果断言：patch_cudagraph.py 也必须在位（否则 runner 传的 query_len 没人消费）
+   _dynspec_pc_hit=$($DOCKER exec "$NAME" bash -lc '

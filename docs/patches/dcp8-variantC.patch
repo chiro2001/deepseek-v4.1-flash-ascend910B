@@ -1,0 +1,35 @@
+diff -u /home/chiro/tmp/kfix/base_op_kernel/arch22/sparse_flash_mla_csa_kernel.h /home/chiro/tmp/kfix/vc/sparse_flash_mla_csa_kernel.h
+--- /home/chiro/tmp/kfix/base_op_kernel/arch22/sparse_flash_mla_csa_kernel.h	2026-09-11 09:19:46.000000000 +0800
++++ /home/chiro/tmp/kfix/vc/sparse_flash_mla_csa_kernel.h	2026-09-30 21:38:00.023083945 +0800
+@@ -445,14 +445,24 @@
+                    constInfo.kvHeadNum * constInfo.sparseBlockCount +
+                static_cast<int64_t>(tempLoopInfo.n2Idx) * constInfo.sparseBlockCount;
+     }
++    // ===== [DCP8-FIX C] count exactly what the gather will copy =====
++    // The old implementation counted the leading run of non-negative entries, but the
++    // gather (GetKeyGmOffset -> CopyInSingleKv) additionally SKIPS every entry whose
++    // value is >= s2IdLimit. The declared count therefore exceeded the number of rows
++    // actually written into kvMergeGm_, and the cube stage read a hole -> NaN.
++    // Here we count with the very same predicate as the gather, so
++    //     declared rows  ==  rows actually written
++    // and the hole disappears. The loop bound (`bound`) is deliberately left untouched
++    // so the metadata-driven task split stays valid.
++    int32_t s2IdLimit = (tempLoopInfo.cmpMaskRight + tempLoopInfo.s1EndIdx + 1) / constInfo.cmpRatio;
+     int32_t lo = 0;
+-    int32_t hi = maxLen;
+-    while (lo < hi) {
+-        int32_t mid = (lo + hi) >> 1;
+-        if (topKGm.GetValue(base + mid) < 0) {
+-            hi = mid;
+-        } else {
+-            lo = mid + 1;
++    for (int32_t i = 0; i < maxLen; i++) {
++        int32_t v = topKGm.GetValue(base + i);
++        if (v < 0) {
++            break;                      // padding marks the end of the valid prefix
++        }
++        if (v < s2IdLimit) {
++            ++lo;                       // only these are actually gathered
+         }
+     }
+     return lo;

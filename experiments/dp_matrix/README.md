@@ -4,6 +4,11 @@
 此前8–15窗口及下面的v3/v4/v5均保留为历史，不能继承到新的0–7 SID。
 旧 CED-PD/DRAM 大目标仍暂停。现有 TP8 结果仅作历史参照，不继承精度或性能验收。
 
+2026-10-14 用户授权恢复本轮任务，先审查其他 Agent 的主线整理并重新核实现场。
+已保存 0–7 改动并合并整理后的 `origin/main@889a6a9`；DP 冻结源码/数学配置不随
+发布入口的新默认值改变。恢复时 CPU 自检为 **166 passed / 400 subtests passed**，
+仍不是实机 PASS；下文占用、API 与候选状态均为历史检查点，当前现场以新收据为准。
+
 三种几何的 `DP × TP = 8`；DCP2 在 TP2 组内部划分 KV，不额外占用芯片。
 
 服务/prepare/freeze/canary/benchmark/Code8 replay/score均提供 `--physical-chips`；
