@@ -193,6 +193,10 @@ def main(argv: list[str] | None = None) -> int:
         # 由 serve_a2.sh 的门控在**运行时以 host 挂载**方式提供的实验载荷（不进镜像）
         "token_dispatcher_moennf.py": "serve_a2.sh 的 MOE_NF=1 分支按需挂载（host 侧 patches/files/）",
         "v41_decode_guard.py": "serve_a2.sh 的 [DECODE-API-GUARD] 无条件挂到 /opt/dsv41/guards/（仅 decode 角色启用）",
+        "deepseek_v41.repack.py": "serve_a2.sh 的 V41_KV32_REPACK=1 分支挂到 vllm_ascend/core/deepseek_v41.py（默认关）",
+        "device_metadata.py": "serve_a2.sh 的 [META-HOST-SLEEP] 诊断件挂到 vllm_ascend/worker/device_metadata.py（默认恒 0）",
+        "mainpy/dsa_v41.py": "serve_a2.sh 的 V41_MAINPY_MOUNT=1 分支挂到 vllm_ascend/attention/dsa_v41.py（默认关）",
+        "mainpy/indexer.py": "serve_a2.sh 的 V41_MAINPY_MOUNT=1 分支挂到 vllm_ascend/models/deepseek_v41/indexer.py（默认关）",
     }
     for kind, mid, dst in entries:
         src = bake_map.get(mid, mid)
