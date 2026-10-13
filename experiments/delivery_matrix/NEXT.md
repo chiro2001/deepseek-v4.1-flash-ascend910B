@@ -2,7 +2,7 @@
 
 ## 当前任务与授权边界（2026-10-13）
 
-用户已明确暂停三形态交付与 DRAM 接线主目标；目标工具状态为 `paused`。
+用户已明确暂停三形态交付与 DRAM 接线主目标；旧goal后来被清除，并按用户要求重建为仅算子核查的goal。
 用户随后要求只使用 a3-21 physical chip8–15 核查/补测既有算子优化，以及提交并 push 已有代码。
 这不是恢复 CED、DCP 或完整交付矩阵的授权。现场必须重新核查宿主完整 NPU 进程表；
 不操作外部容器，不由旧启动配方自动恢复服务。
@@ -10,6 +10,17 @@
 README 已更新 A2 v4 完整实测数据与 CED/DCP 的失败/待验边界。
 共享 Engram 接线候选和内容唯一 KV 池仍只有 CPU 验证，不能标为设备验收通过。
 当前算子核查产物独立保存在 `../operator_stack/evidence/operator_revalidation_20261013/`。
+
+最新算子窗口：首次base1启动失败原件保留；同参数仅换新jobroot的base2已就绪，
+SID `3cbd844d9f684c43867b4b85c9c78ebe`，physical8–15，18960，服务按用户要求保持在线。
+唯一1 warmup+8 measured的冻结地火2K/256窗口已经结束，不能再次执行旧client计划：
+HTTP `(28.634374913,2.524752475,88.172082781)`，server-fenced `30.292077426`，
+prefill合计`1.591584930s`，TTFT均值`0.321815077s`；8/8 clean/usage/length，
+输入messages及输出文本SHA均8/8匹配历史A2v4。主代理已从原始8件重算counter/fence/三元组。
+详情见 `../operator_stack/evidence/operator_revalidation_20261013/baseline2_client/`；
+草稿图包装/metadata捕获及selector计数证据在同级 `draft_graph_evidence/`。
+这些是当前基线，不是旧n=1候选在DSpark六行的兑现；slot/mask候选仍未接入/关闭。
+任何后续起停/bench都先重新核实际PID/SID，不能根据此快照盲目重启或抢其他组。
 
 ## 历史检查点（以下 active/启动授权已被上面的暂停覆盖）
 

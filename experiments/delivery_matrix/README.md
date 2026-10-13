@@ -22,7 +22,8 @@ TMPDIR="$HOME/tmp/dsv41-delivery-cpu-tests" \
   python3 -m unittest discover -s experiments/delivery_matrix -p 'test_*.py'
 ```
 
-2026-10-13 提交前复验：142 项通过。此命令使用目录发现模式；部分历史测试共享
+2026-10-13 最新复验：151 项 unittest 通过；显式把本目录加入 PYTHONPATH 后 pytest
+全目录 172 项、64 subtests 通过。此命令使用目录发现模式；部分历史测试共享
 同目录的 stub，因此不能简单改用 `-t .` 而不同时调整导入方式。
 
 ## 证据与发布范围
@@ -31,4 +32,5 @@ Git 保存源码、测试、文档和文本收据；本地压缩包、目标文�
 压缩原始请求以及外部测试语料/图片不纳入此次代码 push，均保留原位置，不删除或迁移。
 收据中的旧路径与 SHA 是历史证据锚点，不代表所有原件均随 Git clone 提供。
 独立算子重验位于 `../operator_stack/evidence/operator_revalidation_20261013/`，
-当前仍在生成，不属于此次已完成代码快照。
+已包含历史分层、当前2K×8校准及独立raw审计。新增 frozen-input CLI 只回放已pin的输入消息，
+不继承旧计时/输出/质量；其manifest/SID/配置指纹失败关闭门在所有请求前执行。

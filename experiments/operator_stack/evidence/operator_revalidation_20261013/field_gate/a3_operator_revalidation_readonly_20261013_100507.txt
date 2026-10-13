@@ -1,0 +1,143 @@
+2026-10-13T10:05:07+08:00
+== selected D container status only (no Env) ==
+/dsv41-real-stack-tp8-20261010-a321 id=b1aa15d8800346aff8f755a049feaae148b9d6e315e92bd32dcdf1063b429eb0 status=running running=true restart=0 started=2026-10-12T17:15:46.71157919Z
+== D /work mount only ==
+source=/home/l00886679/projects/dsv41-real-stack-tp8-20261010 destination=/work rw=true
+== complete NPU table ==
++------------------------------------------------------------------------------------------------------------------+
+| npu-smi 26.1.1                              Version: 26.1.1                                                      |
++---------------------------+---------------+----------------------------------------------------------------------+
+| NPU   Name                | Health        | Power(W)             Temp(C)                 Hugepages-Usage(page)   |
+| Chip  Phy-ID              | Bus-Id        | AICore(%)            Memory-Usage(MB)        HBM-Usage(MB)           |
++===========================+===============+======================================================================+
+| 0     Ascend910           | OK            | 169.0                51                      0    / 0                |
+| 0     0                   | 0000:9D:00.0  | 0                    0    / 0                3110 / 65536            |
++------------------------------------------------------------------------------------------------------------------+
+| 0     Ascend910           | OK            | -                    51                      0    / 0                |
+| 1     1                   | 0000:9F:00.0  | 0                    0    / 0                2885 / 65536            |
++===========================+===============+======================================================================+
+| 1     Ascend910           | OK            | 165.9                51                      0    / 0                |
+| 0     2                   | 0000:99:00.0  | 0                    0    / 0                3122 / 65536            |
++------------------------------------------------------------------------------------------------------------------+
+| 1     Ascend910           | OK            | -                    50                      0    / 0                |
+| 1     3                   | 0000:9B:00.0  | 0                    0    / 0                2875 / 65536            |
++===========================+===============+======================================================================+
+| 2     Ascend910           | OK            | 176.1                48                      0    / 0                |
+| 0     4                   | 0000:95:00.0  | 0                    0    / 0                3118 / 65536            |
++------------------------------------------------------------------------------------------------------------------+
+| 2     Ascend910           | OK            | -                    49                      0    / 0                |
+| 1     5                   | 0000:97:00.0  | 0                    0    / 0                2890 / 65536            |
++===========================+===============+======================================================================+
+| 3     Ascend910           | OK            | 164.0                48                      0    / 0                |
+| 0     6                   | 0000:91:00.0  | 0                    0    / 0                3112 / 65536            |
++------------------------------------------------------------------------------------------------------------------+
+| 3     Ascend910           | OK            | -                    48                      0    / 0                |
+| 1     7                   | 0000:93:00.0  | 0                    0    / 0                2890 / 65536            |
++===========================+===============+======================================================================+
+| 4     Ascend910           | OK            | 176.6                51                      0    / 0                |
+| 0     8                   | 0000:8D:00.0  | 0                    0    / 0                3130 / 65536            |
++------------------------------------------------------------------------------------------------------------------+
+| 4     Ascend910           | OK            | -                    50                      0    / 0                |
+| 1     9                   | 0000:8F:00.0  | 0                    0    / 0                2879 / 65536            |
++===========================+===============+======================================================================+
+| 5     Ascend910           | OK            | 167.9                49                      0    / 0                |
+| 0     10                  | 0000:89:00.0  | 0                    0    / 0                3127 / 65536            |
++------------------------------------------------------------------------------------------------------------------+
+| 5     Ascend910           | OK            | -                    50                      0    / 0                |
+| 1     11                  | 0000:8B:00.0  | 0                    0    / 0                2880 / 65536            |
++===========================+===============+======================================================================+
+| 6     Ascend910           | OK            | 168.6                51                      0    / 0                |
+| 0     12                  | 0000:85:00.0  | 0                    0    / 0                3128 / 65536            |
++------------------------------------------------------------------------------------------------------------------+
+| 6     Ascend910           | OK            | -                    49                      0    / 0                |
+| 1     13                  | 0000:87:00.0  | 0                    0    / 0                2877 / 65536            |
++===========================+===============+======================================================================+
+| 7     Ascend910           | OK            | 167.2                48                      0    / 0                |
+| 0     14                  | 0000:81:00.0  | 0                    0    / 0                3127 / 65536            |
++------------------------------------------------------------------------------------------------------------------+
+| 7     Ascend910           | OK            | -                    48                      0    / 0                |
+| 1     15                  | 0000:83:00.0  | 0                    0    / 0                2879 / 65536            |
++===========================+===============+======================================================================+
++---------------------------+---------------+----------------------------------------------------------------------+
+| NPU     Chip              | Process id    | Process name       | Process memory(MB)    | Process id in container |
++===========================+===============+======================================================================+
+| No running processes found in NPU 0                                                                              |
++===========================+===============+======================================================================+
+| No running processes found in NPU 1                                                                              |
++===========================+===============+======================================================================+
+| No running processes found in NPU 2                                                                              |
++===========================+===============+======================================================================+
+| No running processes found in NPU 3                                                                              |
++===========================+===============+======================================================================+
+| No running processes found in NPU 4                                                                              |
++===========================+===============+======================================================================+
+| No running processes found in NPU 5                                                                              |
++===========================+===============+======================================================================+
+| No running processes found in NPU 6                                                                              |
++===========================+===============+======================================================================+
+| No running processes found in NPU 7                                                                              |
++===========================+===============+======================================================================+
+== NPU process rows on physical 8-15 ==
+NO_NPU_PROCESS_ROWS_PHYSICAL_8_15
+== fyf_1009 metadata and process tree (no Args) ==
+f7f117abc17e338d8051fc253d412dd60ae56f170f8fd3b1dd7c8451958b5419 fyf_1009 Up About an hour
+PID                 PPID                S                   ELAPSED             COMMAND
+3209171             3209153             S                   01:20:17            bash
+3211549             3209153             S                   01:16:48            bash
+3211651             3209171             S                   01:16:40            MainThread
+3243631             3209153             S                   43:23               bash
+3244547             3243631             S                   42:36               claude
+3276247             3209153             S                   37:58               claude
+3395449             3276247             S                   00:12               bash
+3395986             3395449             S                   00:02               moe_gating_topk
+3395987             3395449             S                   00:02               head
+== D container top (no Args) ==
+PID                 PPID                S                   ELAPSED             COMMAND
+585275              585257              S                   08:49:21            sleep
+== host target listeners ==
+NO_TARGET_LISTENERS
+== D loopback connect_ex ==
+18960 111
+18980 111
+18990 111
+18991 111
+18992 111
+19090 111
+19091 111
+19092 111
+19093 111
+19094 111
+19095 111
+19096 111
+19097 111
+== frozen source/package/model availability and hashes ==
+PRESENT /work/src_dspark_general_quality_v11
+PRESENT /work/src_dspark_general_quality_v11/candidate_contract.json
+PRESENT /work/src_dspark_general_quality_v11/stack/parallel_tiny/dspark_formal_prep/worker.py
+PRESENT /work/delivery_matrix_generic_20261013_v7/delivery_matrix
+PRESENT /work/delivery_matrix_generic_20261013_v7/delivery_matrix/prepare_launch.py
+PRESENT /work/delivery_matrix_generic_20261013_v7/delivery_matrix/service.py
+PRESENT /work/delivery_matrix_generic_20261013_v7/delivery_matrix/run_service.sh
+PRESENT /work/delivery_matrix_generic_20261013_v7/delivery_matrix/worker.py
+PRESENT /work/delivery_matrix_generic_20261013_v7/delivery_matrix/tp8_physical_0_7_20261013_v1/worker.py
+PRESENT /home/l00886679/models/out/v41-w4a8-engram-dr-vision-qrot-mtpq/config.json
+5ed2e17c2057caee65a17195a4e13f92187b3c8e93dd03b63de8269b3c745cf2  /work/src_dspark_general_quality_v11/candidate_contract.json
+8dc2192a04f44e92081af8b85ae15df2cfcfbd837da38434612553dac2564d3d  /work/src_dspark_general_quality_v11/stack/parallel_tiny/dspark_formal_prep/worker.py
+700e2a86ff9af5b9f16d937fbf4369f86babfcc4a8ec5d8ffe8116c088eacdfa  /work/delivery_matrix_generic_20261013_v7/delivery_matrix/prepare_launch.py
+c464aceae5fa789027334dc6222cfa47112bcf20ae700f1d4ac8c95d6c6f13c9  /work/delivery_matrix_generic_20261013_v7/delivery_matrix/service.py
+cc5bcd644c78e5259b82f2cfc8aff3627ab6482b52fb36e8bd7f197ec5a1cdd9  /work/delivery_matrix_generic_20261013_v7/delivery_matrix/run_service.sh
+c95dba705cff3ed6978a4e9a1047cefa3004af1a8b933a247b45288e065b71a7  /work/delivery_matrix_generic_20261013_v7/delivery_matrix/worker.py
+7cabe528dc5df34d8851637deb1cd4ea2f13624ba5dbd427455d6d0fe5dc9ad0  /work/delivery_matrix_generic_20261013_v7/delivery_matrix/tp8_physical_0_7_20261013_v1/worker.py
+40ebd329d3cb2d99d7176091afb580c182c21f48b88b63b550264a97e9c0d424  /home/l00886679/models/out/v41-w4a8-engram-dr-vision-qrot-mtpq/config.json
+== frozen full43 launcher/source availability only ==
+PRESENT /work/offline_tools/full43_launcher_v1/prepare_full43_audit_snapshot.py
+f106aab5c96d6c75622eda458896c12f377787e0523b5a1f282ba75dc32a9036  /work/offline_tools/full43_launcher_v1/prepare_full43_audit_snapshot.py
+PRESENT /work/offline_tools/full43_launcher_v1/launch_full43_audit.py
+f8ffd161323ae7f7aa31f5dafda71b4c7ce061901512fbe89771b4cf99f8b572  /work/offline_tools/full43_launcher_v1/launch_full43_audit.py
+PRESENT /work/offline_tools/full43_launcher_v1/launch_healthy_probe.py
+68e102ef24adb1c152c8382425a959e70454faa67bc728456b411d033e59f6cb  /work/offline_tools/full43_launcher_v1/launch_healthy_probe.py
+ABSENT /work/offline_tools/full43_launcher_v2/launch_full43_audit_v2.py
+PRESENT /work/src_dspark_full43_diag_v17/full43_snapshot.json
+ee9827e93689fdcc1bd5d976c999a259bbd064251097502b00b944719238baa5  /work/src_dspark_full43_diag_v17/full43_snapshot.json
+PRESENT /work/results/formal_dspark_native_api_v2/launched.json
+f645edab59417b14f02aa8035cf88f98233ed5d9a5476218bf921868c8b1038f  /work/results/formal_dspark_native_api_v2/launched.json

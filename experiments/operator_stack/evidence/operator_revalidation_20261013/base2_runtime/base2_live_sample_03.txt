@@ -1,0 +1,339 @@
+WALL_TIME=2026-10-13T11:00:06.218544+08:00
+TARGET_D_INSPECT rc=0
+b1aa15d8800346aff8f755a049feaae148b9d6e315e92bd32dcdf1063b429eb0 running restart=0
+PORT_18960 rc=0
+State Recv-Q Send-Q Local Address:Port Peer Address:PortProcess
+NPU_SMI rc=0
++------------------------------------------------------------------------------------------------------------------+
+| npu-smi 26.1.1                              Version: 26.1.1                                                      |
++---------------------------+---------------+----------------------------------------------------------------------+
+| NPU   Name                | Health        | Power(W)             Temp(C)                 Hugepages-Usage(page)   |
+| Chip  Phy-ID              | Bus-Id        | AICore(%)            Memory-Usage(MB)        HBM-Usage(MB)           |
++===========================+===============+======================================================================+
+| 0     Ascend910           | OK            | 169.7                51                      0    / 0                |
+| 0     0                   | 0000:9D:00.0  | 0                    0    / 0                3110 / 65536            |
++------------------------------------------------------------------------------------------------------------------+
+| 0     Ascend910           | OK            | -                    52                      0    / 0                |
+| 1     1                   | 0000:9F:00.0  | 0                    0    / 0                2885 / 65536            |
++===========================+===============+======================================================================+
+| 1     Ascend910           | OK            | 165.7                51                      0    / 0                |
+| 0     2                   | 0000:99:00.0  | 0                    0    / 0                3121 / 65536            |
++------------------------------------------------------------------------------------------------------------------+
+| 1     Ascend910           | OK            | -                    51                      0    / 0                |
+| 1     3                   | 0000:9B:00.0  | 0                    0    / 0                2875 / 65536            |
++===========================+===============+======================================================================+
+| 2     Ascend910           | OK            | 175.9                49                      0    / 0                |
+| 0     4                   | 0000:95:00.0  | 0                    0    / 0                3118 / 65536            |
++------------------------------------------------------------------------------------------------------------------+
+| 2     Ascend910           | OK            | -                    50                      0    / 0                |
+| 1     5                   | 0000:97:00.0  | 0                    0    / 0                2890 / 65536            |
++===========================+===============+======================================================================+
+| 3     Ascend910           | OK            | 163.6                48                      0    / 0                |
+| 0     6                   | 0000:91:00.0  | 0                    0    / 0                3112 / 65536            |
++------------------------------------------------------------------------------------------------------------------+
+| 3     Ascend910           | OK            | -                    49                      0    / 0                |
+| 1     7                   | 0000:93:00.0  | 0                    0    / 0                2890 / 65536            |
++===========================+===============+======================================================================+
+| 4     Ascend910           | OK            | 176.4                51                      0    / 0                |
+| 0     8                   | 0000:8D:00.0  | 0                    0    / 0                3196 / 65536            |
++------------------------------------------------------------------------------------------------------------------+
+| 4     Ascend910           | OK            | -                    51                      0    / 0                |
+| 1     9                   | 0000:8F:00.0  | 0                    0    / 0                2939 / 65536            |
++===========================+===============+======================================================================+
+| 5     Ascend910           | OK            | 167.6                49                      0    / 0                |
+| 0     10                  | 0000:89:00.0  | 0                    0    / 0                3192 / 65536            |
++------------------------------------------------------------------------------------------------------------------+
+| 5     Ascend910           | OK            | -                    51                      0    / 0                |
+| 1     11                  | 0000:8B:00.0  | 0                    0    / 0                2940 / 65536            |
++===========================+===============+======================================================================+
+| 6     Ascend910           | OK            | 169.2                52                      0    / 0                |
+| 0     12                  | 0000:85:00.0  | 0                    0    / 0                3193 / 65536            |
++------------------------------------------------------------------------------------------------------------------+
+| 6     Ascend910           | OK            | -                    49                      0    / 0                |
+| 1     13                  | 0000:87:00.0  | 0                    0    / 0                2937 / 65536            |
++===========================+===============+======================================================================+
+| 7     Ascend910           | OK            | 182.7                48                      0    / 0                |
+| 0     14                  | 0000:81:00.0  | 0                    0    / 0                3191 / 65536            |
++------------------------------------------------------------------------------------------------------------------+
+| 7     Ascend910           | OK            | -                    49                      0    / 0                |
+| 1     15                  | 0000:83:00.0  | 0                    0    / 0                2879 / 65536            |
++===========================+===============+======================================================================+
++---------------------------+---------------+----------------------------------------------------------------------+
+| NPU     Chip              | Process id    | Process name       | Process memory(MB)    | Process id in container |
++===========================+===============+======================================================================+
+| No running processes found in NPU 0                                                                              |
++===========================+===============+======================================================================+
+| No running processes found in NPU 1                                                                              |
++===========================+===============+======================================================================+
+| No running processes found in NPU 2                                                                              |
++===========================+===============+======================================================================+
+| No running processes found in NPU 3                                                                              |
++===========================+===============+======================================================================+
+| 4       0                 | 3494441       | VLLMWorker         | 117                   | NA                      |
+| 4       1                 | 3494671       | VLLMWorker         | 117                   | NA                      |
++===========================+===============+======================================================================+
+| 5       0                 | 3495230       | VLLMWorker         | 117                   | NA                      |
+| 5       1                 | 3495603       | VLLMWorker         | 117                   | NA                      |
++===========================+===============+======================================================================+
+| 6       0                 | 3495846       | VLLMWorker         | 117                   | NA                      |
+| 6       1                 | 3496095       | VLLMWorker         | 117                   | NA                      |
++===========================+===============+======================================================================+
+| 7       0                 | 3496501       | VLLMWorker         | 0                     | NA                      |
++===========================+===============+======================================================================+
+TARGET_D_DOCKER_TOP rc=0
+PID                 PPID                STAT                ELAPSED             COMMAND
+585275              585257              Ss                  09:44:20            sleep
+3491386             585257              Ss                  02:39               bash
+3491397             3491386             Sl                  02:39               python3
+3494015             3491397             Sl                  01:29               python3
+3494016             3491397             Sl                  01:29               VLLM::EngineCor
+3494441             3494016             Sl                  01:17               VLLM::Worker
+3494671             3494016             Sl                  01:07               VLLM::Worker
+3495230             3494016             Sl                  00:56               VLLM::Worker
+3495603             3494016             Sl                  00:46               VLLM::Worker
+3495846             3494016             Sl                  00:36               VLLM::Worker
+3496095             3494016             Sl                  00:26               VLLM::Worker
+3496501             3494016             Sl                  00:16               VLLM::Worker
+3496576             3494016             Rl                  00:06               python3
+NPU_PROCESS_ROWS=7
+NPU_ROW physical=8 host_pid=3494441 name=VLLMWorker memory_mb=117
+NPU_ROW physical=9 host_pid=3494671 name=VLLMWorker memory_mb=117
+NPU_ROW physical=10 host_pid=3495230 name=VLLMWorker memory_mb=117
+NPU_ROW physical=11 host_pid=3495603 name=VLLMWorker memory_mb=117
+NPU_ROW physical=12 host_pid=3495846 name=VLLMWorker memory_mb=117
+NPU_ROW physical=13 host_pid=3496095 name=VLLMWorker memory_mb=117
+NPU_ROW physical=14 host_pid=3496501 name=VLLMWorker memory_mb=0
+HOST_PID_METADATA pid=585275
+Name:	sleep
+PPid:	585257
+NSpid:	585275	1
+cgroup=13:pids:/docker/b1aa15d8800346aff8f755a049feaae148b9d6e315e92bd32dcdf1063b429eb0
+12:freezer:/docker/b1aa15d8800346aff8f755a049feaae148b9d6e315e92bd32dcdf1063b429eb0
+11:rdma:/docker/b1aa15d8800346aff8f755a049feaae148b9d6e315e92bd32dcdf1063b429eb0
+10:cpuset:/docker/b1aa15d8800346aff8f755a049feaae148b9d6e315e92bd32dcdf1063b429eb0
+9:memory:/docker/b1aa15d8800346aff8f755a049feaae148b9d6e315e92bd32dcdf1063b429eb0
+8:hugetlb:/docker/b1aa15d8800346aff8f755a049feaae148b9d6e315e92bd32dcdf1063b429eb0
+7:perf_event:/docker/b1aa15d8800346aff8f755a049feaae148b9d6e315e92bd32dcdf1063b429eb0
+6:cpu,cpuacct:/docker/b1aa15d8800346aff8f755a049feaae148b9d6e315e92bd32dcdf1063b429eb0
+5:blkio:/docker/b1aa15d8800346aff8f755a049feaae148b9d6e315e92bd32dcdf1063b429eb0
+4:misc:/docker/b1aa15d8800346aff8f755a049feaae148b9d6e315e92bd32dcdf1063b429eb0
+3:net_cls,net_prio:/docker/b1aa15d8800346aff8f755a049feaae148b9d6e315e92bd32dcdf1063b429eb0
+2:devices:/docker/b1aa15d8800346aff8f755a049feaae148b9d6e315e92bd32dcdf1063b429eb0
+1:name=systemd:/docker/b1aa15d8800346aff8f755a049feaae148b9d6e315e92bd32dcdf1063b429eb0
+target_D_cgroup_match=True
+HOST_PID_METADATA pid=3491386
+Name:	bash
+PPid:	585257
+NSpid:	3491386	1626257
+cgroup=13:pids:/docker/b1aa15d8800346aff8f755a049feaae148b9d6e315e92bd32dcdf1063b429eb0
+12:freezer:/docker/b1aa15d8800346aff8f755a049feaae148b9d6e315e92bd32dcdf1063b429eb0
+11:rdma:/docker/b1aa15d8800346aff8f755a049feaae148b9d6e315e92bd32dcdf1063b429eb0
+10:cpuset:/docker/b1aa15d8800346aff8f755a049feaae148b9d6e315e92bd32dcdf1063b429eb0
+9:memory:/docker/b1aa15d8800346aff8f755a049feaae148b9d6e315e92bd32dcdf1063b429eb0
+8:hugetlb:/docker/b1aa15d8800346aff8f755a049feaae148b9d6e315e92bd32dcdf1063b429eb0
+7:perf_event:/docker/b1aa15d8800346aff8f755a049feaae148b9d6e315e92bd32dcdf1063b429eb0
+6:cpu,cpuacct:/docker/b1aa15d8800346aff8f755a049feaae148b9d6e315e92bd32dcdf1063b429eb0
+5:blkio:/docker/b1aa15d8800346aff8f755a049feaae148b9d6e315e92bd32dcdf1063b429eb0
+4:misc:/docker/b1aa15d8800346aff8f755a049feaae148b9d6e315e92bd32dcdf1063b429eb0
+3:net_cls,net_prio:/docker/b1aa15d8800346aff8f755a049feaae148b9d6e315e92bd32dcdf1063b429eb0
+2:devices:/docker/b1aa15d8800346aff8f755a049feaae148b9d6e315e92bd32dcdf1063b429eb0
+1:name=systemd:/docker/b1aa15d8800346aff8f755a049feaae148b9d6e315e92bd32dcdf1063b429eb0
+target_D_cgroup_match=True
+HOST_PID_METADATA pid=3491397
+Name:	python3
+PPid:	3491386
+NSpid:	3491397	1626263
+cgroup=13:pids:/docker/b1aa15d8800346aff8f755a049feaae148b9d6e315e92bd32dcdf1063b429eb0
+12:freezer:/docker/b1aa15d8800346aff8f755a049feaae148b9d6e315e92bd32dcdf1063b429eb0
+11:rdma:/docker/b1aa15d8800346aff8f755a049feaae148b9d6e315e92bd32dcdf1063b429eb0
+10:cpuset:/docker/b1aa15d8800346aff8f755a049feaae148b9d6e315e92bd32dcdf1063b429eb0
+9:memory:/docker/b1aa15d8800346aff8f755a049feaae148b9d6e315e92bd32dcdf1063b429eb0
+8:hugetlb:/docker/b1aa15d8800346aff8f755a049feaae148b9d6e315e92bd32dcdf1063b429eb0
+7:perf_event:/docker/b1aa15d8800346aff8f755a049feaae148b9d6e315e92bd32dcdf1063b429eb0
+6:cpu,cpuacct:/docker/b1aa15d8800346aff8f755a049feaae148b9d6e315e92bd32dcdf1063b429eb0
+5:blkio:/docker/b1aa15d8800346aff8f755a049feaae148b9d6e315e92bd32dcdf1063b429eb0
+4:misc:/docker/b1aa15d8800346aff8f755a049feaae148b9d6e315e92bd32dcdf1063b429eb0
+3:net_cls,net_prio:/docker/b1aa15d8800346aff8f755a049feaae148b9d6e315e92bd32dcdf1063b429eb0
+2:devices:/docker/b1aa15d8800346aff8f755a049feaae148b9d6e315e92bd32dcdf1063b429eb0
+1:name=systemd:/docker/b1aa15d8800346aff8f755a049feaae148b9d6e315e92bd32dcdf1063b429eb0
+target_D_cgroup_match=True
+HOST_PID_METADATA pid=3494015
+Name:	python3
+PPid:	3491397
+NSpid:	3494015	1627116
+cgroup=13:pids:/docker/b1aa15d8800346aff8f755a049feaae148b9d6e315e92bd32dcdf1063b429eb0
+12:freezer:/docker/b1aa15d8800346aff8f755a049feaae148b9d6e315e92bd32dcdf1063b429eb0
+11:rdma:/docker/b1aa15d8800346aff8f755a049feaae148b9d6e315e92bd32dcdf1063b429eb0
+10:cpuset:/docker/b1aa15d8800346aff8f755a049feaae148b9d6e315e92bd32dcdf1063b429eb0
+9:memory:/docker/b1aa15d8800346aff8f755a049feaae148b9d6e315e92bd32dcdf1063b429eb0
+8:hugetlb:/docker/b1aa15d8800346aff8f755a049feaae148b9d6e315e92bd32dcdf1063b429eb0
+7:perf_event:/docker/b1aa15d8800346aff8f755a049feaae148b9d6e315e92bd32dcdf1063b429eb0
+6:cpu,cpuacct:/docker/b1aa15d8800346aff8f755a049feaae148b9d6e315e92bd32dcdf1063b429eb0
+5:blkio:/docker/b1aa15d8800346aff8f755a049feaae148b9d6e315e92bd32dcdf1063b429eb0
+4:misc:/docker/b1aa15d8800346aff8f755a049feaae148b9d6e315e92bd32dcdf1063b429eb0
+3:net_cls,net_prio:/docker/b1aa15d8800346aff8f755a049feaae148b9d6e315e92bd32dcdf1063b429eb0
+2:devices:/docker/b1aa15d8800346aff8f755a049feaae148b9d6e315e92bd32dcdf1063b429eb0
+1:name=systemd:/docker/b1aa15d8800346aff8f755a049feaae148b9d6e315e92bd32dcdf1063b429eb0
+target_D_cgroup_match=True
+HOST_PID_METADATA pid=3494016
+Name:	VLLM::EngineCor
+PPid:	3491397
+NSpid:	3494016	1627117
+cgroup=13:pids:/docker/b1aa15d8800346aff8f755a049feaae148b9d6e315e92bd32dcdf1063b429eb0
+12:freezer:/docker/b1aa15d8800346aff8f755a049feaae148b9d6e315e92bd32dcdf1063b429eb0
+11:rdma:/docker/b1aa15d8800346aff8f755a049feaae148b9d6e315e92bd32dcdf1063b429eb0
+10:cpuset:/docker/b1aa15d8800346aff8f755a049feaae148b9d6e315e92bd32dcdf1063b429eb0
+9:memory:/docker/b1aa15d8800346aff8f755a049feaae148b9d6e315e92bd32dcdf1063b429eb0
+8:hugetlb:/docker/b1aa15d8800346aff8f755a049feaae148b9d6e315e92bd32dcdf1063b429eb0
+7:perf_event:/docker/b1aa15d8800346aff8f755a049feaae148b9d6e315e92bd32dcdf1063b429eb0
+6:cpu,cpuacct:/docker/b1aa15d8800346aff8f755a049feaae148b9d6e315e92bd32dcdf1063b429eb0
+5:blkio:/docker/b1aa15d8800346aff8f755a049feaae148b9d6e315e92bd32dcdf1063b429eb0
+4:misc:/docker/b1aa15d8800346aff8f755a049feaae148b9d6e315e92bd32dcdf1063b429eb0
+3:net_cls,net_prio:/docker/b1aa15d8800346aff8f755a049feaae148b9d6e315e92bd32dcdf1063b429eb0
+2:devices:/docker/b1aa15d8800346aff8f755a049feaae148b9d6e315e92bd32dcdf1063b429eb0
+1:name=systemd:/docker/b1aa15d8800346aff8f755a049feaae148b9d6e315e92bd32dcdf1063b429eb0
+target_D_cgroup_match=True
+HOST_PID_METADATA pid=3494441
+Name:	VLLM::Worker
+PPid:	3494016
+NSpid:	3494441	1627158
+cgroup=13:pids:/docker/b1aa15d8800346aff8f755a049feaae148b9d6e315e92bd32dcdf1063b429eb0
+12:freezer:/docker/b1aa15d8800346aff8f755a049feaae148b9d6e315e92bd32dcdf1063b429eb0
+11:rdma:/docker/b1aa15d8800346aff8f755a049feaae148b9d6e315e92bd32dcdf1063b429eb0
+10:cpuset:/docker/b1aa15d8800346aff8f755a049feaae148b9d6e315e92bd32dcdf1063b429eb0
+9:memory:/docker/b1aa15d8800346aff8f755a049feaae148b9d6e315e92bd32dcdf1063b429eb0
+8:hugetlb:/docker/b1aa15d8800346aff8f755a049feaae148b9d6e315e92bd32dcdf1063b429eb0
+7:perf_event:/docker/b1aa15d8800346aff8f755a049feaae148b9d6e315e92bd32dcdf1063b429eb0
+6:cpu,cpuacct:/docker/b1aa15d8800346aff8f755a049feaae148b9d6e315e92bd32dcdf1063b429eb0
+5:blkio:/docker/b1aa15d8800346aff8f755a049feaae148b9d6e315e92bd32dcdf1063b429eb0
+4:misc:/docker/b1aa15d8800346aff8f755a049feaae148b9d6e315e92bd32dcdf1063b429eb0
+3:net_cls,net_prio:/docker/b1aa15d8800346aff8f755a049feaae148b9d6e315e92bd32dcdf1063b429eb0
+2:devices:/docker/b1aa15d8800346aff8f755a049feaae148b9d6e315e92bd32dcdf1063b429eb0
+1:name=systemd:/docker/b1aa15d8800346aff8f755a049feaae148b9d6e315e92bd32dcdf1063b429eb0
+target_D_cgroup_match=True
+HOST_PID_METADATA pid=3494671
+Name:	VLLM::Worker
+PPid:	3494016
+NSpid:	3494671	1627177
+cgroup=13:pids:/docker/b1aa15d8800346aff8f755a049feaae148b9d6e315e92bd32dcdf1063b429eb0
+12:freezer:/docker/b1aa15d8800346aff8f755a049feaae148b9d6e315e92bd32dcdf1063b429eb0
+11:rdma:/docker/b1aa15d8800346aff8f755a049feaae148b9d6e315e92bd32dcdf1063b429eb0
+10:cpuset:/docker/b1aa15d8800346aff8f755a049feaae148b9d6e315e92bd32dcdf1063b429eb0
+9:memory:/docker/b1aa15d8800346aff8f755a049feaae148b9d6e315e92bd32dcdf1063b429eb0
+8:hugetlb:/docker/b1aa15d8800346aff8f755a049feaae148b9d6e315e92bd32dcdf1063b429eb0
+7:perf_event:/docker/b1aa15d8800346aff8f755a049feaae148b9d6e315e92bd32dcdf1063b429eb0
+6:cpu,cpuacct:/docker/b1aa15d8800346aff8f755a049feaae148b9d6e315e92bd32dcdf1063b429eb0
+5:blkio:/docker/b1aa15d8800346aff8f755a049feaae148b9d6e315e92bd32dcdf1063b429eb0
+4:misc:/docker/b1aa15d8800346aff8f755a049feaae148b9d6e315e92bd32dcdf1063b429eb0
+3:net_cls,net_prio:/docker/b1aa15d8800346aff8f755a049feaae148b9d6e315e92bd32dcdf1063b429eb0
+2:devices:/docker/b1aa15d8800346aff8f755a049feaae148b9d6e315e92bd32dcdf1063b429eb0
+1:name=systemd:/docker/b1aa15d8800346aff8f755a049feaae148b9d6e315e92bd32dcdf1063b429eb0
+target_D_cgroup_match=True
+HOST_PID_METADATA pid=3495230
+Name:	VLLM::Worker
+PPid:	3494016
+NSpid:	3495230	1627231
+cgroup=13:pids:/docker/b1aa15d8800346aff8f755a049feaae148b9d6e315e92bd32dcdf1063b429eb0
+12:freezer:/docker/b1aa15d8800346aff8f755a049feaae148b9d6e315e92bd32dcdf1063b429eb0
+11:rdma:/docker/b1aa15d8800346aff8f755a049feaae148b9d6e315e92bd32dcdf1063b429eb0
+10:cpuset:/docker/b1aa15d8800346aff8f755a049feaae148b9d6e315e92bd32dcdf1063b429eb0
+9:memory:/docker/b1aa15d8800346aff8f755a049feaae148b9d6e315e92bd32dcdf1063b429eb0
+8:hugetlb:/docker/b1aa15d8800346aff8f755a049feaae148b9d6e315e92bd32dcdf1063b429eb0
+7:perf_event:/docker/b1aa15d8800346aff8f755a049feaae148b9d6e315e92bd32dcdf1063b429eb0
+6:cpu,cpuacct:/docker/b1aa15d8800346aff8f755a049feaae148b9d6e315e92bd32dcdf1063b429eb0
+5:blkio:/docker/b1aa15d8800346aff8f755a049feaae148b9d6e315e92bd32dcdf1063b429eb0
+4:misc:/docker/b1aa15d8800346aff8f755a049feaae148b9d6e315e92bd32dcdf1063b429eb0
+3:net_cls,net_prio:/docker/b1aa15d8800346aff8f755a049feaae148b9d6e315e92bd32dcdf1063b429eb0
+2:devices:/docker/b1aa15d8800346aff8f755a049feaae148b9d6e315e92bd32dcdf1063b429eb0
+1:name=systemd:/docker/b1aa15d8800346aff8f755a049feaae148b9d6e315e92bd32dcdf1063b429eb0
+target_D_cgroup_match=True
+HOST_PID_METADATA pid=3495603
+Name:	VLLM::Worker
+PPid:	3494016
+NSpid:	3495603	1627277
+cgroup=13:pids:/docker/b1aa15d8800346aff8f755a049feaae148b9d6e315e92bd32dcdf1063b429eb0
+12:freezer:/docker/b1aa15d8800346aff8f755a049feaae148b9d6e315e92bd32dcdf1063b429eb0
+11:rdma:/docker/b1aa15d8800346aff8f755a049feaae148b9d6e315e92bd32dcdf1063b429eb0
+10:cpuset:/docker/b1aa15d8800346aff8f755a049feaae148b9d6e315e92bd32dcdf1063b429eb0
+9:memory:/docker/b1aa15d8800346aff8f755a049feaae148b9d6e315e92bd32dcdf1063b429eb0
+8:hugetlb:/docker/b1aa15d8800346aff8f755a049feaae148b9d6e315e92bd32dcdf1063b429eb0
+7:perf_event:/docker/b1aa15d8800346aff8f755a049feaae148b9d6e315e92bd32dcdf1063b429eb0
+6:cpu,cpuacct:/docker/b1aa15d8800346aff8f755a049feaae148b9d6e315e92bd32dcdf1063b429eb0
+5:blkio:/docker/b1aa15d8800346aff8f755a049feaae148b9d6e315e92bd32dcdf1063b429eb0
+4:misc:/docker/b1aa15d8800346aff8f755a049feaae148b9d6e315e92bd32dcdf1063b429eb0
+3:net_cls,net_prio:/docker/b1aa15d8800346aff8f755a049feaae148b9d6e315e92bd32dcdf1063b429eb0
+2:devices:/docker/b1aa15d8800346aff8f755a049feaae148b9d6e315e92bd32dcdf1063b429eb0
+1:name=systemd:/docker/b1aa15d8800346aff8f755a049feaae148b9d6e315e92bd32dcdf1063b429eb0
+target_D_cgroup_match=True
+HOST_PID_METADATA pid=3495846
+Name:	VLLM::Worker
+PPid:	3494016
+NSpid:	3495846	1627323
+cgroup=13:pids:/docker/b1aa15d8800346aff8f755a049feaae148b9d6e315e92bd32dcdf1063b429eb0
+12:freezer:/docker/b1aa15d8800346aff8f755a049feaae148b9d6e315e92bd32dcdf1063b429eb0
+11:rdma:/docker/b1aa15d8800346aff8f755a049feaae148b9d6e315e92bd32dcdf1063b429eb0
+10:cpuset:/docker/b1aa15d8800346aff8f755a049feaae148b9d6e315e92bd32dcdf1063b429eb0
+9:memory:/docker/b1aa15d8800346aff8f755a049feaae148b9d6e315e92bd32dcdf1063b429eb0
+8:hugetlb:/docker/b1aa15d8800346aff8f755a049feaae148b9d6e315e92bd32dcdf1063b429eb0
+7:perf_event:/docker/b1aa15d8800346aff8f755a049feaae148b9d6e315e92bd32dcdf1063b429eb0
+6:cpu,cpuacct:/docker/b1aa15d8800346aff8f755a049feaae148b9d6e315e92bd32dcdf1063b429eb0
+5:blkio:/docker/b1aa15d8800346aff8f755a049feaae148b9d6e315e92bd32dcdf1063b429eb0
+4:misc:/docker/b1aa15d8800346aff8f755a049feaae148b9d6e315e92bd32dcdf1063b429eb0
+3:net_cls,net_prio:/docker/b1aa15d8800346aff8f755a049feaae148b9d6e315e92bd32dcdf1063b429eb0
+2:devices:/docker/b1aa15d8800346aff8f755a049feaae148b9d6e315e92bd32dcdf1063b429eb0
+1:name=systemd:/docker/b1aa15d8800346aff8f755a049feaae148b9d6e315e92bd32dcdf1063b429eb0
+target_D_cgroup_match=True
+HOST_PID_METADATA pid=3496095
+Name:	VLLM::Worker
+PPid:	3494016
+NSpid:	3496095	1627369
+cgroup=13:pids:/docker/b1aa15d8800346aff8f755a049feaae148b9d6e315e92bd32dcdf1063b429eb0
+12:freezer:/docker/b1aa15d8800346aff8f755a049feaae148b9d6e315e92bd32dcdf1063b429eb0
+11:rdma:/docker/b1aa15d8800346aff8f755a049feaae148b9d6e315e92bd32dcdf1063b429eb0
+10:cpuset:/docker/b1aa15d8800346aff8f755a049feaae148b9d6e315e92bd32dcdf1063b429eb0
+9:memory:/docker/b1aa15d8800346aff8f755a049feaae148b9d6e315e92bd32dcdf1063b429eb0
+8:hugetlb:/docker/b1aa15d8800346aff8f755a049feaae148b9d6e315e92bd32dcdf1063b429eb0
+7:perf_event:/docker/b1aa15d8800346aff8f755a049feaae148b9d6e315e92bd32dcdf1063b429eb0
+6:cpu,cpuacct:/docker/b1aa15d8800346aff8f755a049feaae148b9d6e315e92bd32dcdf1063b429eb0
+5:blkio:/docker/b1aa15d8800346aff8f755a049feaae148b9d6e315e92bd32dcdf1063b429eb0
+4:misc:/docker/b1aa15d8800346aff8f755a049feaae148b9d6e315e92bd32dcdf1063b429eb0
+3:net_cls,net_prio:/docker/b1aa15d8800346aff8f755a049feaae148b9d6e315e92bd32dcdf1063b429eb0
+2:devices:/docker/b1aa15d8800346aff8f755a049feaae148b9d6e315e92bd32dcdf1063b429eb0
+1:name=systemd:/docker/b1aa15d8800346aff8f755a049feaae148b9d6e315e92bd32dcdf1063b429eb0
+target_D_cgroup_match=True
+HOST_PID_METADATA pid=3496501
+Name:	VLLM::Worker
+PPid:	3494016
+NSpid:	3496501	1627415
+cgroup=13:pids:/docker/b1aa15d8800346aff8f755a049feaae148b9d6e315e92bd32dcdf1063b429eb0
+12:freezer:/docker/b1aa15d8800346aff8f755a049feaae148b9d6e315e92bd32dcdf1063b429eb0
+11:rdma:/docker/b1aa15d8800346aff8f755a049feaae148b9d6e315e92bd32dcdf1063b429eb0
+10:cpuset:/docker/b1aa15d8800346aff8f755a049feaae148b9d6e315e92bd32dcdf1063b429eb0
+9:memory:/docker/b1aa15d8800346aff8f755a049feaae148b9d6e315e92bd32dcdf1063b429eb0
+8:hugetlb:/docker/b1aa15d8800346aff8f755a049feaae148b9d6e315e92bd32dcdf1063b429eb0
+7:perf_event:/docker/b1aa15d8800346aff8f755a049feaae148b9d6e315e92bd32dcdf1063b429eb0
+6:cpu,cpuacct:/docker/b1aa15d8800346aff8f755a049feaae148b9d6e315e92bd32dcdf1063b429eb0
+5:blkio:/docker/b1aa15d8800346aff8f755a049feaae148b9d6e315e92bd32dcdf1063b429eb0
+4:misc:/docker/b1aa15d8800346aff8f755a049feaae148b9d6e315e92bd32dcdf1063b429eb0
+3:net_cls,net_prio:/docker/b1aa15d8800346aff8f755a049feaae148b9d6e315e92bd32dcdf1063b429eb0
+2:devices:/docker/b1aa15d8800346aff8f755a049feaae148b9d6e315e92bd32dcdf1063b429eb0
+1:name=systemd:/docker/b1aa15d8800346aff8f755a049feaae148b9d6e315e92bd32dcdf1063b429eb0
+target_D_cgroup_match=True
+HOST_PID_METADATA pid=3496576
+Name:	python3
+PPid:	3494016
+NSpid:	3496576	1627461
+cgroup=13:pids:/docker/b1aa15d8800346aff8f755a049feaae148b9d6e315e92bd32dcdf1063b429eb0
+12:freezer:/docker/b1aa15d8800346aff8f755a049feaae148b9d6e315e92bd32dcdf1063b429eb0
+11:rdma:/docker/b1aa15d8800346aff8f755a049feaae148b9d6e315e92bd32dcdf1063b429eb0
+10:cpuset:/docker/b1aa15d8800346aff8f755a049feaae148b9d6e315e92bd32dcdf1063b429eb0
+9:memory:/docker/b1aa15d8800346aff8f755a049feaae148b9d6e315e92bd32dcdf1063b429eb0
+8:hugetlb:/docker/b1aa15d8800346aff8f755a049feaae148b9d6e315e92bd32dcdf1063b429eb0
+7:perf_event:/docker/b1aa15d8800346aff8f755a049feaae148b9d6e315e92bd32dcdf1063b429eb0
+6:cpu,cpuacct:/docker/b1aa15d8800346aff8f755a049feaae148b9d6e315e92bd32dcdf1063b429eb0
+5:blkio:/docker/b1aa15d8800346aff8f755a049feaae148b9d6e315e92bd32dcdf1063b429eb0
+4:misc:/docker/b1aa15d8800346aff8f755a049feaae148b9d6e315e92bd32dcdf1063b429eb0
+3:net_cls,net_prio:/docker/b1aa15d8800346aff8f755a049feaae148b9d6e315e92bd32dcdf1063b429eb0
+2:devices:/docker/b1aa15d8800346aff8f755a049feaae148b9d6e315e92bd32dcdf1063b429eb0
+1:name=systemd:/docker/b1aa15d8800346aff8f755a049feaae148b9d6e315e92bd32dcdf1063b429eb0
+target_D_cgroup_match=True

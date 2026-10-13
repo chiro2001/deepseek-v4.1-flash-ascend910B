@@ -19,6 +19,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Callable
 
+from frozen_dihuo_inputs import load_frozen_dihuo_inputs
 from workloads import (
     CODE_TASKS,
     CODE_TASK_IDS,
@@ -2129,6 +2130,10 @@ def _parser() -> argparse.ArgumentParser:
     parser.add_argument("--tokenizer", help="Optional local HF tokenizer path; remote exact tokenizer is the fallback")
     parser.add_argument("--corpus", default=str(DIHUO_PATH), help="Local cleaned Dihuo source; never fetched by this script")
     parser.add_argument("--suffix-dir", default=str(DIHUO_SUFFIX_DIR))
+    parser.add_argument("--frozen-dihuo-manifest", help="Pinned split manifest with eight historical request.gz inputs; avoids rebuilding prompts")
+    parser.add_argument("--frozen-dihuo-manifest-sha256", help="Required SHA-256 pin for --frozen-dihuo-manifest")
+    parser.add_argument("--expected-service-instance-id", help="Exact instance binding before warmup/generation; required for frozen replay")
+    parser.add_argument("--expected-runtime-fingerprint", help="Exact runtime binding before warmup/generation; required for frozen replay")
     parser.add_argument("--json-out", help="Evidence path; created exclusively and never overwritten")
     parser.add_argument("--code-timeout", type=float, default=3.0)
     parser.add_argument("--code-memory-mb", type=int, default=512)
@@ -2150,6 +2155,24 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         raise ValueError("--canary-only requires --tasks code")
     if args.request_timeout <= 0 or args.code_timeout <= 0 or args.code_memory_mb <= 0 or args.code_cpu_seconds <= 0:
         raise ValueError("timeouts and code resource limits must be positive")
+    frozen_path = getattr(args, "frozen_dihuo_manifest", None)
+    frozen_sha = getattr(args, "frozen_dihuo_manifest_sha256", None)
+    if (frozen_path is None) != (frozen_sha is None):
+        raise ValueError("--frozen-dihuo-manifest and its explicit SHA-256 pin must be supplied together")
+    frozen_inputs = None
+    if frozen_path is not None:
+        if not isinstance(frozen_path, str) or not frozen_path.strip() or not isinstance(frozen_sha, str) or not frozen_sha:
+            raise ValueError("Frozen Dihuo path and SHA-256 pin must not be empty")
+        if args.tasks != "dihuo" or args.rounds != 1 or args.canary_only:
+            raise ValueError("Frozen Dihuo replay requires --tasks dihuo --rounds 1 without a schema canary")
+        expected_sid = getattr(args, "expected_service_instance_id", None)
+        expected_fp = getattr(args, "expected_runtime_fingerprint", None)
+        if (not isinstance(expected_sid, str) or len(expected_sid) != 32
+                or any(c not in "0123456789abcdef" for c in expected_sid)
+                or not _is_sha256_hex(expected_fp)):
+            raise ValueError("Frozen Dihuo replay requires the current 32-hex service instance and 64-hex runtime fingerprint")
+        _CURRENT_STAGE = "verify eight frozen Dihuo inputs before any service request"
+        frozen_inputs = load_frozen_dihuo_inputs(frozen_path, frozen_sha, args.input_tokens, args.output_tokens)
     base_url = args.base_url.rstrip("/")
     _CURRENT_STAGE = "GET /v1/models exact model ownership"
     model_check = verify_model_ownership(base_url, args.model, args.request_timeout, args.api_key)
@@ -2161,6 +2184,12 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         args.request_timeout,
         args.api_key,
     )
+    if (getattr(args, "expected_service_instance_id", None) is not None
+            and service_identity["service_instance_id"] != args.expected_service_instance_id):
+        raise ValueError("delivery identity does not match the pinned service instance")
+    if (getattr(args, "expected_runtime_fingerprint", None) is not None
+            and service_identity["runtime_fingerprint"] != args.expected_runtime_fingerprint):
+        raise ValueError("delivery identity does not match the pinned runtime fingerprint")
     verified_form = service_identity["form"]
     configured_max_len = service_identity["raw_identity"].get("model_kwargs", {}).get("max_model_len")
     output_caps = []
@@ -2174,27 +2203,36 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
             f"requested exact input plus output budget ({required_sequence_len}) exceeds "
             f"service model_kwargs.max_model_len={configured_max_len}"
         )
-    _CURRENT_STAGE = "local tokenizer probe"
-    tokenizer = make_token_counter(base_url, args.model, args.request_timeout, args.api_key, args.tokenizer)
+    tokenizer = None
+    if frozen_inputs is None:
+        _CURRENT_STAGE = "local tokenizer probe"
+        tokenizer = make_token_counter(base_url, args.model, args.request_timeout, args.api_key, args.tokenizer)
 
     requested_tasks = ("dihuo", "code") if args.tasks == "all" else (args.tasks,)
     dih_material: dict[str, Any] | None = None
     prepared: dict[str, list[dict[str, Any]]] = {}
     if "dihuo" in requested_tasks:
-        _CURRENT_STAGE = "load verified local Dihuo corpus/suffix files"
-        dih_material = load_dihuo_material(args.corpus, args.suffix_dir, verify_sha256=True)
-        _CURRENT_STAGE = "calibrate eight Dihuo prompts to exact tokenizer length"
-        prepared["dihuo"] = prepare_dihuo_prompts(
-            dih_material["corpus"], dih_material["suffixes"], tokenizer, args.input_tokens
-        )
+        if frozen_inputs is not None:
+            prepared["dihuo"] = frozen_inputs["samples"]
+        else:
+            _CURRENT_STAGE = "load verified local Dihuo corpus/suffix files"
+            dih_material = load_dihuo_material(args.corpus, args.suffix_dir, verify_sha256=True)
+            _CURRENT_STAGE = "calibrate eight Dihuo prompts to exact tokenizer length"
+            prepared["dihuo"] = prepare_dihuo_prompts(
+                dih_material["corpus"], dih_material["suffixes"], tokenizer, args.input_tokens
+            )
     if "code" in requested_tasks:
         _CURRENT_STAGE = "calibrate eight code prompts to exact tokenizer length"
         prepared["code"] = prepare_code_prompts(tokenizer, args.input_tokens)
-    tokenizer_info = tokenizer.info()
-    tokenizer_info["local_probe_failures"] = getattr(tokenizer, "local_probe_failures", [])
-    if tokenizer.remote.query_count:
-        tokenizer_info["remote_query_count"] = tokenizer.remote.query_count
-        tokenizer_info["remote_completion_fallback_count"] = tokenizer.remote.completion_fallback_count
+    if frozen_inputs is not None:
+        tokenizer_info = {"backend": "frozen historical messages; no tokenizer calls",
+                          "token_count_scope": frozen_inputs["proof"]["token_count_scope"]}
+    else:
+        tokenizer_info = tokenizer.info()
+        tokenizer_info["local_probe_failures"] = getattr(tokenizer, "local_probe_failures", [])
+        if tokenizer.remote.query_count:
+            tokenizer_info["remote_query_count"] = tokenizer.remote.query_count
+            tokenizer_info["remote_completion_fallback_count"] = tokenizer.remote.completion_fallback_count
     prompt_hashes = {
         task: [sha256_text(sample["prompt_text"]) for sample in prepared[task]]
         for task in requested_tasks
@@ -2212,11 +2250,16 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         "dihuo_corpus_sha256": dih_material["corpus_sha256"] if dih_material else None,
         "dihuo_suffix_sha256": dih_material["suffix_sha256"] if dih_material else None,
     }
+    if frozen_inputs is not None:
+        workload_definition = frozen_inputs["workload_manifest"]
     workload_fingerprint = canonical_json_sha256(workload_definition)
     client_source_sha256 = {
         "benchmark.py": sha256_bytes(Path(__file__).read_bytes()),
         "workloads.py": sha256_bytes(Path(__file__).with_name("workloads.py").read_bytes()),
     }
+    if frozen_inputs is not None:
+        client_source_sha256["frozen_dihuo_inputs.py"] = sha256_bytes(
+            Path(__file__).with_name("frozen_dihuo_inputs.py").read_bytes())
 
     evidence: dict[str, Any] = {
         "schema_version": "delivery_matrix_client_evidence_v1",
@@ -2243,6 +2286,9 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
             "seed": 0,
             "output_usage_source": "OpenAI chat-completion stream usage object (stream_options.include_usage=true)",
             "input_length_source": tokenizer_info,
+            "frozen_input_gate": frozen_inputs["proof"] if frozen_inputs else None,
+            "expected_service_instance_id": getattr(args, "expected_service_instance_id", None),
+            "expected_runtime_fingerprint": getattr(args, "expected_runtime_fingerprint", None),
             "client_source_sha256": client_source_sha256,
             "request_timeout_s": args.request_timeout,
             "code_sandbox": {
@@ -2294,6 +2340,10 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
             "ced_prefill_components": "prefill_ranks[].cumulative.prefill_seconds and (ranks[].cumulative.prefill_seconds - prefill_ranks[].cumulative.prefill_seconds), per request; transfer wait excluded",
         },
     }
+    if frozen_inputs is not None:
+        evidence["dihuo_source"] = {"original_source": frozen_inputs["dihuo_source"],
+                                    "copyright_text_loaded_from_frozen_requests": True,
+                                    "corpus_file_read_this_run": False}
 
     if args.canary_only:
         _CURRENT_STAGE = "armed code schema canary"

@@ -110,7 +110,34 @@ CED首canary在实际KV传输/128-token重放后，D侧`_pool_kernel`出现MTE/S
 CED新可写jobs配方和[DCP v6 CPU配方](experiments/delivery_matrix/evidence/dcp8_v6_cpu_prep_20261013/CPU_PLAN.md)
 已审核，等待芯片窗口释放；尚不能宣称三形态全部达标或DRAM容量交付完成。
 
-#### 1.2.2 历史交付配置（不同口径）
+#### 1.2.2 2026-10-13 chip8–15 算子核查：当前 TP8 基线
+
+本轮只核查既有算子优化，不恢复三形态/DRAM大目标。a3-21 physical8–15 的完整 TP8
+保持 Engram开启/index0、DSpark5 draft图、BI/async/双流、SEQ1/PREFIX0；用历史 A2v4 的
+**同八条冻结输入消息**校准，1条排除的warmup + 8条串行2048/256。
+
+| 时间/窗口 | physical chips | HTTP ms/step | A | HTTP tok/s | TTFT均值 | worker prefill wall均值/请求 |
+|---|---|---:|---:|---:|---:|---:|
+| 2026-10-13 历史 A2v4/A3模拟参照 | 0–7 | 28.071337 | 2.524752 | 89.940586 | 0.310032 s | 0.166602 s |
+| 2026-10-13 当前 A3 TP8 base2校准 | 8–15 | **28.634375** | **2.524752** | **88.172083** | **0.321815 s** | **0.198948 s** |
+
+主代理从8个原始请求重算：HTTP200/length、usage2048/256/2304、clean、prompt/messages
+SHA均8/8通过；**输出文本SHA也8/8等于历史**。每rank实际808 decode rounds，2040有效decode
+tokens；worker prefill wall合计 **1.591584930 s**，该wall口径 **10,294.141 tok/s**。
+server-fenced另为 **30.292077 ms/step**，含metrics RPC等待可能性，不与HTTP吞吐混用。
+新旧HTTP步时约+2.01%、吞吐约−1.97%，但这是换物理组/换进程的同输入趋势，**不是单变量A/B或算子收益**。
+
+八rank有实际 draft ACLGraphWrapper/FULL 包装与带3层attention metadata的捕获日志；测量期各rank
+proposal selector计数为808 graph/8 eager。selector不等于逐次底层replay事件，未新增低层profiler。
+[独立raw审计](experiments/operator_stack/evidence/operator_revalidation_20261013/baseline2_client/primary_raw_audit.json)、
+[结果与口径](experiments/operator_stack/evidence/operator_revalidation_20261013/baseline2_client/RESULT.md)及
+[draft图证据](experiments/operator_stack/evidence/operator_revalidation_20261013/draft_graph_evidence/README.md)已保留。
+
+当前服务入口为 `a3-21:18960`（localhost绑定），SID `3cbd844d9f684c43867b4b85c9c78ebe`；
+配置指纹 `79513a0f…0da4319` 与计划一致，实际运行身份另由SID/八rank/PID映射绑定。
+保留 `a2-tp8-a3sim` 适配器form只是复用TP8入口，**不是新的910B硬件或三形态验收**；本轮不重跑GSM/Vision/编程。
+
+#### 1.2.3 历史交付配置（不同口径）
 
 **PD 分离 + CED vs 全 40 层同置**（同机同请求，唯一变量是 P 的层数）：
 
@@ -341,6 +368,31 @@ docker exec <容器> bash /opt/dsv41/tools/enable_codex_responses.sh status  # P
 > ⇒ 这 7 个文件**在上游已不存在**，要往上游提需要按新结构重做。
 > 另外 7 个文件（`model.py` / `indexer.py` / `ascend_forward_context.py` / `rope_dsv4.py` /
 > `block_table.py` / `token_dispatcher.py` / `dsa_v1.py`）在上游存在但无我们的实现。
+
+### 5.2.1 算子优化兑现复核（2026-10-13）
+
+上面的历史基础包收益不等于当前 DSpark+BI 栈中每项优化的独立收益。
+本轮已回查正式权重、实际消费者与配对收据，结论如下：
+
+| 候选 | 历史实测结论 | 当前最优 DSpark 栈的边界 |
+|---|---|---|
+| 新 `tp8meta` slot batching | A=1 真模型同实例配对，11/12 更快 | 当前关闭；源码只支持 1 行，不能覆盖 6 行 verifier 图 |
+| 新 exact MoE mask/cast | A=1 真消费者逐位门与质量门通过，同实例 12/12 更快 | 当前关闭；只选 `(1,6)` 输入，不能把旧收益归给 `(6,6)` verifier |
+| Hostmeta / 新 Indexer 融合 | A=1 有正式配对；Indexer 增量仅约 0.025 ms，7/12 更快 | 当前 DSpark worker 没有这些 arm 的安装/切换；async 下需重核关键路径 |
+| 旧 `V41_SLOT_MAP_FUSED` | 已在 async DSpark HTTP 窗口复测，约 −0.0755 ms，判噪声 | 不采纳；它不是上面的新 slot batching |
+| W4A8 prefix / QKV merge与tail | 正式配对慢于各自基线 | 保持关闭，不重复原几何测试 |
+| WOA Cube | 单算子较快，真实模型消费者精度门失败 | 拒绝，不以微基准代替整网兑现 |
+| GMM2 sparse MSD：M1 / K5 | M1 无统一收益；K5 四个设备窗口候选均慢，约 1.216–1.324× native 时间 | 尚未通过真实 full43 消费者接缝，不能作为已交付优化 |
+
+旧 `V41_MOE_MASK_RANGE=1`（连续 expert-range 比较）仍在基线中开启，**不是**新
+`STACK_MOE_MASK_ENABLED` 概率融合；新候选不能靠翻环境变量沿用已有捕获图。
+扩展至 DSpark 六行几何后，仍需新消费者数值门、重捕获和同实例单变量对照。
+详细证据及口径见 [近期优化复核](experiments/operator_stack/evidence/operator_revalidation_20261013/history_recent.md)
+与 [GMM2/M1/K5 候选复核](experiments/operator_stack/evidence/operator_revalidation_20261013/history_candidates.md)。
+旧基础包的真权重窗口、dummy设备账、CPU相位及统计限制另见
+[基础补丁证据分层](experiments/operator_stack/evidence/operator_revalidation_20261013/history_base_patches.md)。
+本轮 chip8–15 校准已完成（§1.2.2），但没有当前服务的单项A/B；不能把历史设备收益求和或配置开关
+当作当前独立收益。尤其 JIT plan 依赖 fast local-owner 前置，实际采用值未独立证实。
 
 ---
 
