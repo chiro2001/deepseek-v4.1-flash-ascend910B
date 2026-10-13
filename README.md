@@ -540,7 +540,7 @@ grep -a "SpecDecoding metrics" <serve.log> | tail -1
 |---|---|
 | `scripts/` | 起服脚本（`serve_a3.sh` / `serve_a2.sh` / `serve_a3_ced_pd.sh` …） |
 | `deploy/a3-ced-pd/` | **PD 分离 + CED 部署形态**（启动器 + 镜像包 + payload 清单） |
-| `deploy/a3-tp8-fusion/` | **解码路径融合优化叠加包**（自研三输出算子 + 2 个开关 + 可复现发布包） |
+| `deploy/a3-tp8-fusion/` | 解码路径融合**实验包**（自研三输出算子 + 2 个开关）。⚠️ **实测无收益、不对外发布**，仅存档工具与负结果（见 `docs/LNORM-FUSE-RCA-20261008.md`） |
 | `tools/` | 自检、探针、压测、诊断（40+ 个，见 `AGENTS.md` §4） |
 | `patches/` | 补丁件与载荷（`PATCHES.md` 有逐项说明） |
 | `quant/` | 量化链（5 级，含 msmodelslim 补丁） |

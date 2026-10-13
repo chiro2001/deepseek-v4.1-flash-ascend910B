@@ -366,9 +366,15 @@ python3 tools/check_checksums.py        # 期望：三方一致 ✅
 
 ---
 
-## `deploy/a3-tp8-fusion/` —— 解码路径融合优化叠加包（2026-10-08）
+## `deploy/a3-tp8-fusion/` —— 解码路径融合**实验包**（2026-10-08；⛔ 不发布）
 
-**叠加**在任意 A3 TP8 单实例（或 CED-PD 形态）之上的解码优化，不是独立部署形态。
+> ⛔ **不对外发布，也不建议启用**（2026-10-14）：实测**无收益** —— §0 声称的 −0.90%
+> 经查是**噪声**（三层静默失效使融合从未真正执行），地火口径两臂无差异，见
+> [`docs/LNORM-FUSE-RCA-20261008.md`](docs/LNORM-FUSE-RCA-20261008.md)。
+> 本节保留的是**工具入口与踩坑经验**（三个坑对"给 vLLM 加自定义算子"通用）；
+> `package_release.sh` 仅供内部复现打包，**不要**再挂 Release。
+
+**叠加**在任意 A3 TP8 单实例（或 CED-PD 形态）之上的解码实验，不是独立部署形态。
 新增自研算子 `RmsNormDynamicQuantBf16`（三输出：bf16 + int8 + scale），
 把 `input_layernorm` + `wq_a.quantize`（43 层）合成一次下发。
 
@@ -377,7 +383,7 @@ python3 tools/check_checksums.py        # 期望：三方一致 ✅
 | 组装 payload | `bash deploy/a3-tp8-fusion/build_payload.sh --from-container <ct>` （或 `--artifacts <tgz>`） |
 | 装进容器 | `bash deploy/a3-tp8-fusion/install.sh <ct>` （`--dry-run` / `--rollback`） |
 | **一致性判据** | `bash deploy/a3-tp8-fusion/verify_consistency.sh <ct>` （逐文件 sha256） |
-| 出发布包 | `bash deploy/a3-tp8-fusion/package_release.sh build` （`verify` / `selftest`） |
+| 本地打包（内部复现用，**不对外发布**） | `bash deploy/a3-tp8-fusion/package_release.sh build` （`verify` / `selftest`） |
 | **从源码重建二进制** | `deploy/a3-tp8-fusion/REPRODUCE.md` |
 
 **三个开关**（全部只在进程启动时读一次 ⇒ 改完必须重启）：

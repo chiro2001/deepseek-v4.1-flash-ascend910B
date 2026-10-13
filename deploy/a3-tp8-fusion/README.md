@@ -1,26 +1,36 @@
-# DeepSeek-V4.1-Flash / A3 单机 TP8 —— **解码路径融合优化包**
+# DeepSeek-V4.1-Flash / A3 单机 TP8 —— 解码路径融合**实验包**（⛔ 未发布）
 
+> ## ⛔ 本包**不对外发布**，也**不建议启用**（2026-10-14 定）
+>
+> * **无实测收益**：本文档下方 §0 曾声称的 **−0.90% 已被证否** —— 根因是融合
+>   **从未真正执行过**（三层静默失效：补丁打错类 / 缺 Meta 实现 / 真张量当常量），
+>   地火口径下两臂**无差异**。完整证据见
+>   [`docs/LNORM-FUSE-RCA-20261008.md`](../../docs/LNORM-FUSE-RCA-20261008.md)。
+> * **不作为发布物**：GitHub Release 已撤下；仓库内只保留**工具、文档与负结果存档**，
+>   供"给 vLLM 加自定义算子"一类场景复用踩坑经验（三个坑都可复用）。
+> * 下文 §0 的性能表与"发布 tar 包"等表述均为**撤下前的历史记录**，请以上面为准。
+>
+> ---
+>
 > 这是一个**优化叠加包**，不是一个部署形态。它叠加在任意 A3 TP8 单实例
 > （或 `deploy/a3-ced-pd` 的 PD 分离形态）之上，把 decode 路径上的两处
 > 「归一化 + 量化」合成一次算子下发。
 > 所有数字为【实测】。
->
-> 📦 **可直接下载已构建好的包**（不需要仓库）：
-> [Release `a3-tp8-fusion-v1`](https://github.com/chiro2001/deepseek-v4.1-flash-ascend910B/releases/tag/a3-tp8-fusion-v1)
-> —— `dsv41-fusion-c62316af3c37-12060edba7de.tar.zst`（808 KB，
-> sha256 `168d8b70…`）。已实测：从 GitHub 下载后 `sha256sum -c` 通过，
-> 且与本地构建产物**逐字节一致**。
 
 ---
 
-## 0. 一句话
+## 0. 一句话（⚠️ 数字已被证否，见文首）
 
 | | 优化前 | **本包** | 收益 |
 |---|---:|---:|---:|
-| **decode ms/step**（`bneck hp p50`，4 并发×700 token） | 24.668 ms | **24.445 ms** | **−0.90%** |
+| **decode ms/step**（`bneck hp p50`，4 并发×700 token） | 24.668 ms | 24.445 ms | ~~−0.90%~~ **噪声**（融合当时未生效） |
 | 配套的融合点 A（上游已有，本包一并开启） | — | — | −0.62% |
 | 单流吞吐 | 132.3 tok/s | 132.7 tok/s | 噪声内 |
 | **短问答精度** | — | **3/3 正常，无乱码** | — |
+
+> ⚠️ 第一行的 −0.90% 是**噪声**：修好三层根因后重测，地火口径下两臂无差异
+> （`docs/LNORM-FUSE-RCA-20261008.md` §4）。"短问答正常"只证明**没崩**，
+> 不构成收益证据。本包因此**不发布**。
 
 机制：把 decoder layer 里的
 
@@ -34,14 +44,14 @@ bf16（供 compressor/indexer 用）与 int8+scale（供 `wq_a` 用）。覆盖 
 
 ---
 
-## 1. 交付面（**两种形态，逐字节等价**）
+## 1. 两种打包形态（**逐字节等价**；均为内部使用，不对外发布）
 
-| | ① 本仓 + `install.sh` | ② 发布 tar 包 |
+| | ① 本仓 + `install.sh` | ② 本地打好的 tar 包 |
 |---|---|---|
 | 怎么用 | `build_payload.sh --from-container <ct>` → `install.sh <ct>` | `tar -I zstd -xf <包>` → `install.sh <ct>` |
 | 我们的文件从哪来 | 容器里已装好的产物 | 包内的 `opp/ so/ py/` |
 | 需要网络/仓库 | 需要仓库 | **不需要**（一个 tar 即可） |
-| 适用 | 开发、迭代 | 交付、跨机复现、无网环境 |
+| 适用 | 开发、迭代 | 跨机复现、无网环境 |
 | 一致性判据 | `verify_consistency.sh` **逐文件 sha256** | 同左（包内 `PAYLOAD.sha256`） |
 
 > 两面装的是**同一批文件**，清单见 [`PAYLOAD.md`](PAYLOAD.md)（唯一事实源）。
@@ -74,7 +84,7 @@ bf16（供 compressor/indexer 用）与 int8+scale（供 `wq_a` 用）。覆盖 
 ### 3.2 安装（形态 ① / ② 命令相同）
 
 ```bash
-# ① 组装 payload（只有从仓库装才需要；用发布包时已带好）
+# ① 组装 payload（只有从仓库装才需要；用打包好的 tar 时已带好）
 bash build_payload.sh --from-container <ct>       # 或 --artifacts <tar.tgz>
 
 # ② 先看一眼要做什么
@@ -172,7 +182,7 @@ bash install.sh <ct> --rollback     # 换回备份的 .so / .py
 
 ---
 
-## 8. 打包自验（交付前已实跑，可复跑）
+## 8. 打包自验（已实跑，可复跑）
 
 | 检查 | 命令 | 结果 |
 |---|---|---|
@@ -184,11 +194,11 @@ bash install.sh <ct> --rollback     # 换回备份的 .so / .py
 | 安装自校验 | `install.sh <ct>` | ✅ 装完逐文件 sha256 比对通过 |
 | **回滚正确性** | `install.sh --rollback` 后跑 `verify_consistency.sh` | ✅ 检出 2 项不一致（回滚真换了文件、校验器不是摆设） |
 | mount 形态 | `verify_consistency.sh --mode mount` | ✅ 2 个 `.py` 与仓库挂载源一致 |
-| **消费者侧闭环** | 只拿发布 tar：解包 → `sha256sum -c` → `install.sh` → 用**包自带**校验器复验 | ✅ 99 文件解包、包自证 OK、安装 rc=0、87 项一致 |
+| **消费者侧闭环** | 只拿打好的 tar：解包 → `sha256sum -c` → `install.sh` → 用**包自带**校验器复验 | ✅ 99 文件解包、包自证 OK、安装 rc=0、87 项一致 |
 
 > 这些是"可复现"的**证据**，不是承诺。改任何脚本后请重跑 `package_release.sh selftest`。
 
-### 8.1 踩到并已修的五个坑（都会让发布包**静默出错**）
+### 8.1 踩到并已修的五个坑（都会让 tar 包**静默出错**）
 
 1. **`docker cp` 会静默漏文件** —— 在带符号链接/紧权限的目录上，`docker cp <ct>:/dir/. <dst>`
    会报 `evalSymlinksInScope: ... is not in ...`，或只报一个 `permission denied` 就少拷几十个文件。
@@ -200,7 +210,7 @@ bash install.sh <ct> --rollback     # 换回备份的 .so / .py
    ⇒ `find ... ! -name 'PAYLOAD.sha256'`，并在生成后立刻 `sha256sum -c` 自检。
 3. **dry-run 里不能用 `$(...)` 包住会打印内容的探测命令** —— 输出会被当成结果值。
    ⇒ dry-run 分支单独走一条只打印、不取值的路径。
-4. **发布包里漏了 `verify_consistency.sh`** —— 消费者装完无法自证，"可复现"就成了空话。
+4. **tar 包里漏了 `verify_consistency.sh`** —— 消费者装完无法自证，"可复现"就成了空话。
    ⇒ `package_release.sh` 现在把安装/校验脚本、文档、`checks/` 全部打进包并逐个自检存在性。
 5. **包里带着旧版 `install.sh`** —— `payload/install.sh` 是组装时的快照，
    改了源脚本却没重新组装 ⇒ 发出去的是老版本（实测：消费者一装就报 `evalSymlinksInScope`）。
