@@ -34,10 +34,12 @@ Aggregate：808 actual decode rounds；ranks 0–7 各 808 rounds、808 graph-se
 
 计数来源是实测服务的 delivery counter：[`worker.py`](../../../../delivery_matrix/worker.py) 对实际 `initial_draft` 与 round proposal records 中的 `runtime_graph` 布尔值求和；[`formal_dspark_counters.py`](../../../formal_dspark_counters.py) 包住实际 `drafter._propose` 返回后调用 `draft_finished`，并从 `_dspark_use_graph_rt(drafter)` 采样 selector。这比 identity 配置标记强，支持“实际 proposal 调用被 runtime graph selector 标记”的结论。**它不是底层 Graph.replay 调用/捕获完成事件或图ID回执；因此本结果不宣称独立证明了 graph capture/replay 已完成。** raw metrics 内所有请求的 terminal fence 与 terminal TP join 均为 true，8-rank decode-round 差分一致。
 
+后续只读源码/日志审计补充：八 rank 均有实际 FULL ACLGraphWrapper 包装、带三层 draft attention metadata 的捕获及完成日志；同服务亦有通用 ACL graph replay 日志。见[后续 draft 图证据](../draft_graph_evidence/README.md)。上段保留客户端计数证据的原始边界，不表示后续审计仍缺少捕获证明；808 个 selector 计数仍不能等同于逐次独立采集的底层 replay 事件。
+
 ## 归档与趋势边界
 
 - 远端 raw JSON 保留在 `/home/l00886679/tmp/dsv41-operator-baseline-client-v3-20261013/evidence/dihuo_2k_base2_frozen_20261013.json`，1,091,384 bytes，SHA256 `b6dd175184cce2c2fab235cc0dc47bb3a2adb8886b78f5735cab80e208211084`；没有把该 >1 MB 文件传回本机。
-- 远端 split gzip request receipts 均 <1 MB（最大 15,388 bytes；最大解压 188,137 bytes）。原件双 SHA、prompt/output SHA 在 [`request_manifest.json`](request_manifest.json)；其 SHA256 `87c66ad1d78bc6eabc25af32faa34af2d86db10a3aa4fd1589fbe454fb30b39c`。远端 `sha256sum` 与 manifest 字段一致；本地没有保存 prompt/output 正文或 gzip request 文件。
+- 远端 split gzip request receipts 均 <1 MB（最大 15,388 bytes；最大解压 188,137 bytes）。原件双 SHA、prompt/output SHA 在 [`request_manifest.json`](request_manifest.json)；其 SHA256 `87c66ad1d78bc6eabc25af32faa34af2d86db10a3aa4fd1589fbe454fb30b39c`。远端 `sha256sum` 与 manifest 字段一致；首次结果归档时本地没有正文或 gzip，后续私有审计副本的位置及边界见下一项。
 - 仓库内只存去敏 compact summary [`compact_summary.json`](compact_summary.json)，28,747 bytes、SHA256 `90e72c166c939691e0b3522cc61d45be4f6fdbaa768168d57dfe56c529a6dcdd`，split manifest [`request_manifest.json`](request_manifest.json) 与本报告；这些仓库文件均不含 `prompt_text` 或 `output_text`。按 root 后续独立复核授权，8 个 gzip 请求体及 byte-identical manifest 另存于本机私有临时目录 `/home/chiro/tmp/dsv41-operator-revalidation/raw-audit/base2/`（manifest 在目录根，request gzip 在 `requests/`）；每个请求 gzip <1 MB，压缩及解压 SHA/size 均与 manifest 一致。该临时审计副本含正文，仅供 root 私有复核，不在 repo/Git；远端 >1 MB raw JSON 仍保留原地、未传。
 - A2v4 2K 旧参照为 `(28.071337 ms/step, A=2.524752, 89.940586 tok/s)`、server-fenced `29.646913 ms/step`、server prefill 1.332814 s。新旧服务 SID、runtime/config、物理设备范围不同，仅作同输入跨实例趋势；不能当同进程 A/B、算子收益或 performance admission。
-- 本次唯一授权窗口已用完；没有补发 HTTP、轮询或质量请求。详见[客户端准备与输入门计划](../client_prep/BASELINE_CLIENT_PLAN.md)。
+- 本次唯一授权生成窗口已用完；客户端没有补发生成、轮询或质量请求。详见[客户端准备与输入门计划](../client_prep/BASELINE_CLIENT_PLAN.md)。后续现场仅做最终只读在线核验（models/identity GET 各一次，无生成），服务保持在线；见[最终在线快照](../final_live/final_live_snapshot_20261013.md)。

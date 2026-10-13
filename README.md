@@ -135,6 +135,10 @@ proposal selector计数为808 graph/8 eager。selector不等于逐次底层repla
 
 当前服务入口为 `a3-21:18960`（localhost绑定），SID `3cbd844d9f684c43867b4b85c9c78ebe`；
 配置指纹 `79513a0f…0da4319` 与计划一致，实际运行身份另由SID/八rank/PID映射绑定。
+最终只读快照（2026-10-13 12:15–12:17，Asia/Shanghai）确认目标容器running/restart=0、
+端口LISTEN、physical8–15 Health均OK，八个worker的NSpid/cgroup均匹配目标容器；
+两个身份GET各一次通过。服务未重启或停止，未追加生成请求，见
+[最终在线快照及SHA清单](experiments/operator_stack/evidence/operator_revalidation_20261013/final_live/final_live_snapshot_20261013.md)。
 保留 `a2-tp8-a3sim` 适配器form只是复用TP8入口，**不是新的910B硬件或三形态验收**；本轮不重跑GSM/Vision/编程。
 
 #### 1.2.3 历史交付配置（不同口径）
