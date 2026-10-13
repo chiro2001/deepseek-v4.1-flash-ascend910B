@@ -1,0 +1,100 @@
+{
+  "job": "dspark_lane_20261011_c4_graph_geometry2k256_v2",
+  "cpu_ready": true,
+  "cpu_controls": 34,
+  "cpu_gate_sha256": "2c9f7aefeebcea5a900c08faf65b30e816ce7d849fce134789539749161e5fe1",
+  "new_npu_authorization_received": false,
+  "native_window_command": "python3 launch_geometry_gate.py --job dspark_lane_20261011_c4_graph_geometry2k256_v2 --launch",
+  "sources": {
+    "bench_draft_graph_candidate.py": {
+      "bytes": 13183,
+      "sha256": "6c292864b0437197764eaed0602ca89ab4db1d7be6abfda4e072af1912d34ec8"
+    },
+    "dspark_worker.py": {
+      "bytes": 8607,
+      "sha256": "08cdd3ca4b236f75e484797d9959738947223d4723cf998526cb82a4ea3e7f47"
+    },
+    "graph_candidate_worker.py": {
+      "bytes": 2863,
+      "sha256": "572b71410ec0bed8f9a9f405e3973ddea59abd9cd07163966d38ab610c62f404"
+    },
+    "draft_graph_observer.py": {
+      "bytes": 3849,
+      "sha256": "983c31462b285160c7990390b854e0d07cb546d46b66c3d9cc926e53b1737ac0"
+    },
+    "graph_precision_audit.py": {
+      "bytes": 22208,
+      "sha256": "a2f4b5d57179aeb392a651957c81b684f1993f4cd7ab95d4d42cdb3285a29df6"
+    },
+    "native_first_value_trace.py": {
+      "bytes": 24508,
+      "sha256": "4f254f85499417f543a443c49e43f64dc5992b3df57b336dde846f1b255ea57b"
+    },
+    "stage_ids_vendor.py": {
+      "bytes": 4268,
+      "sha256": "16da30c77a5658aebb324e371dec4d92dfa3f38b15214d1be10cc98bc51743a4"
+    },
+    "o_proj_cache_fixture.py": {
+      "bytes": 6611,
+      "sha256": "7dfa11336f7be4c8c55d0f09eb302673ef31ac51d582686d31cffc432af6fe78"
+    },
+    "o_proj_cache_fixture_worker.py": {
+      "bytes": 1468,
+      "sha256": "ecb95df6bb6c829e292f9153de673e69f5cd3edae31791a1984758c0d989f05e"
+    },
+    "native_route_diagnostic_worker.py": {
+      "bytes": 3444,
+      "sha256": "e782dd256fd336856f6744f3948c8e1b32432deda96f62090583b9914776ba5e"
+    },
+    "bench_geometry_gate.py": {
+      "bytes": 15198,
+      "sha256": "461ce8cfa8029aa78c423a558ca7eba5360bf7a033cc5cdf27b07f008c878991"
+    },
+    "geometry_contract.py": {
+      "bytes": 7353,
+      "sha256": "c26634ea3c34dee353b6ddce8106dcd7aa849c418078181ed14dbbe15bb07c04"
+    },
+    "geometry_cache_probe.py": {
+      "bytes": 10251,
+      "sha256": "e1f30a1d90954ba0afe7fc31433c4bdc09095b74ae407b0ed31c110cfa1847bb"
+    },
+    "geometry_quality_worker.py": {
+      "bytes": 443,
+      "sha256": "e1f23cae1fc36e3b3aacfb0cba32736443b9b8b2f09ea3be9b89cbce3f77c200"
+    }
+  },
+  "physical_device": 4,
+  "logical_device": 0,
+  "input_tokens": 2048,
+  "output_tokens": 256,
+  "max_model_len": 4096,
+  "max_batched_tokens": 2048,
+  "capture_representative_seq_len": 3072,
+  "fresh_memory_budget_required_gpu_fraction": 0.7,
+  "model_memory_budget_lowering_allowed": false,
+  "independent_comparisons_required": {
+    "native_off_AA": 3,
+    "off_on": 3,
+    "native_on_AA": 3
+  },
+  "actual_decode_round_count_must_be_derived": true,
+  "native_chunked_prefill_preserved": true,
+  "all_prefill_native_helpers_preserved": true,
+  "unique_sampleable_seed_required": true,
+  "geometry_snapshots_actual_decode_only": true,
+  "v1_numeric_checks_or_geometry_borrowed": false,
+  "per_group_cache_NPU_proof_pending": [
+    "Three actual capture SparseAttnSharedkv input bindings",
+    "Per-group block table in-place refresh and stable native index addresses",
+    "Actual visible logical block columns derived from each real decode reader",
+    "All 665 native selected slots finite and bitwise equal per group, on every real step"
+  ],
+  "SWA128_unretained_prefix_not_scanned": true,
+  "native_null_block_id": 0,
+  "capture_device_reads": false,
+  "timing_evaluation": false,
+  "tiny_admitted": false,
+  "formal_admitted": false,
+  "formal_tp8_claim": false,
+  "remote_script_bytes": 75596
+}

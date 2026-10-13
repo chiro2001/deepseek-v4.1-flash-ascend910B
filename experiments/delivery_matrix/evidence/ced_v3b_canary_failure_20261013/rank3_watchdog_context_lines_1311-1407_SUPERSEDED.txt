@@ -1,0 +1,101 @@
+SUPERSEDED excerpt — this is not the rank-3 watchdog context.
+The earlier Python splitlines() count was skewed by embedded carriage returns; this physical-line range is shutdown-tail evidence only.
+Use rank3_watchdog_context_lines_1113-1253.txt for the corrected 100-before/40-after range.
+Source of truth: d3/run.log; SHA-256 f994496ac288e3c23390872d5b1018d5a83bc0efb5f3409d9cee65f25ee94f90.
+  1311	ERROR 10-12 21:58:42 [serving.py:838] Error in chat completion stream generator.
+  1312	ERROR 10-12 21:58:42 [serving.py:838] Traceback (most recent call last):
+  1313	ERROR 10-12 21:58:42 [serving.py:838]   File "/vllm-workspace/vllm/vllm/entrypoints/openai/chat_completion/serving.py", line 485, in chat_completion_stream_generator
+  1314	ERROR 10-12 21:58:42 [serving.py:838]     async for res in result_generator:
+  1315	ERROR 10-12 21:58:42 [serving.py:838]   File "/vllm-workspace/vllm/vllm/v1/engine/async_llm.py", line 599, in generate
+  1316	ERROR 10-12 21:58:42 [serving.py:838]     out = q.get_nowait() or await q.get()
+  1317	ERROR 10-12 21:58:42 [serving.py:838]                             ^^^^^^^^^^^^^
+  1318	ERROR 10-12 21:58:42 [serving.py:838]   File "/vllm-workspace/vllm/vllm/v1/engine/output_processor.py", line 85, in get
+  1319	ERROR 10-12 21:58:42 [serving.py:838]     raise output
+  1320	ERROR 10-12 21:58:42 [serving.py:838]   File "/vllm-workspace/vllm/vllm/v1/engine/async_llm.py", line 680, in output_handler
+  1321	ERROR 10-12 21:58:42 [serving.py:838]     outputs = await engine_core.get_output_async()
+  1322	ERROR 10-12 21:58:42 [serving.py:838]               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  1323	ERROR 10-12 21:58:42 [serving.py:838]   File "/vllm-workspace/vllm/vllm/v1/engine/core_client.py", line 1101, in get_output_async
+  1324	ERROR 10-12 21:58:42 [serving.py:838]     raise self._format_exception(outputs) from None
+  1325	ERROR 10-12 21:58:42 [serving.py:838] vllm.v1.engine.exceptions.EngineDeadError: EngineCore encountered an issue. See stack trace (above) for the root cause.
+  1326	INFO:     127.0.0.1:57490 - "GET /delivery/identity HTTP/1.1" 200 OK
+  1327	[ERROR] TBE Subprocess[task_distribute] raise error[], main process disappeared!
+  1328	[ERROR] TBE Subprocess[task_distribute] raise error[], main process disappeared!
+  1329	[ERROR] TBE Subprocess[task_distribute] raise error[], main process disappeared!
+  1330	[ERROR] TBE Subprocess[task_distribute] raise error[], main process disappeared!
+  1331	[ERROR] TBE Subprocess[task_distribute] raise error[], main process disappeared!
+  1332	[ERROR] TBE Subprocess[task_distribute] raise error[], main process disappeared!
+  1333	[ERROR] TBE Subprocess[task_distribute] raise error[], main process disappeared!
+  1334	[ERROR] TBE Subprocess[task_distribute] raise error[], main process disappeared!
+  1335	INFO:     127.0.0.1:57490 - "GET /delivery/metrics HTTP/1.1" 500 Internal Server Error
+  1336	[ERROR] TBE Subprocess[task_distribute] raise error[], main process disappeared!
+  1337	[ERROR] TBE Subprocess[task_distribute] raise error[], main process disappeared!
+  1338	[ERROR] TBE Subprocess[task_distribute] raise error[], main process disappeared!
+  1339	[ERROR] TBE Subprocess[task_distribute] raise error[], main process disappeared!
+  1340	[ERROR] TBE Subprocess[task_distribute] raise error[], main process disappeared!
+  1341	[ERROR] TBE Subprocess[task_distribute] raise error[], main process disappeared!
+  1342	[ERROR] TBE Subprocess[task_distribute] raise error[], main process disappeared!
+  1343	[ERROR] TBE Subprocess[task_distribute] raise error[], main process disappeared!
+  1344	INFO:     Shutting down
+  1345	[ERROR] TBE Subprocess[task_distribute] raise error[], main process disappeared!
+  1346	[ERROR] TBE Subprocess[task_distribute] raise error[], main process disappeared!
+  1347	[ERROR] TBE Subprocess[task_distribute] raise error[], main process disappeared!
+  1348	[ERROR] TBE Subprocess[task_distribute] raise error[], main process disappeared!
+  1349	[ERROR] TBE Subprocess[task_distribute] raise error[], main process disappeared!
+  1350	[ERROR] TBE Subprocess[task_distribute] raise error[], main process disappeared!
+  1351	[ERROR] TBE Subprocess[task_distribute] raise error[], main process disappeared!
+  1352	[ERROR] TBE Subprocess[task_distribute] raise error[], main process disappeared!
+  1353	[ERROR] TBE Subprocess[task_distribute] raise error[], main process disappeared!
+  1354	[ERROR] TBE Subprocess[task_distribute] raise error[], main process disappeared!
+  1355	[ERROR] TBE Subprocess[task_distribute] raise error[], main process disappeared!
+  1356	[ERROR] TBE Subprocess[task_distribute] raise error[], main process disappeared!
+  1357	[ERROR] TBE Subprocess[task_distribute] raise error[], main process disappeared!
+  1358	[ERROR] TBE Subprocess[task_distribute] raise error[], main process disappeared!
+  1359	[ERROR] TBE Subprocess[task_distribute] raise error[], main process disappeared!
+  1360	[ERROR] TBE Subprocess[task_distribute] raise error[], main process disappeared!
+  1361	[ERROR] TBE Subprocess[task_distribute] raise error[], main process disappeared!
+  1362	[ERROR] TBE Subprocess[task_distribute] raise error[], main process disappeared!
+  1363	[ERROR] TBE Subprocess[task_distribute] raise error[], main process disappeared!
+  1364	[ERROR] TBE Subprocess[task_distribute] raise error[], main process disappeared!
+  1365	[ERROR] TBE Subprocess[task_distribute] raise error[], main process disappeared!
+  1366	[ERROR] TBE Subprocess[task_distribute] raise error[], main process disappeared!
+  1367	[ERROR] TBE Subprocess[task_distribute] raise error[], main process disappeared!
+  1368	[ERROR] TBE Subprocess[task_distribute] raise error[], main process disappeared!
+  1369	[ERROR] TBE Subprocess[task_distribute] raise error[], main process disappeared!
+  1370	[ERROR] TBE Subprocess[task_distribute] raise error[], main process disappeared!
+  1371	[ERROR] TBE Subprocess[task_distribute] raise error[], main process disappeared!
+  1372	[ERROR] TBE Subprocess[task_distribute] raise error[], main process disappeared!
+  1373	[ERROR] TBE Subprocess[task_distribute] raise error[], main process disappeared!
+  1374	[ERROR] TBE Subprocess[task_distribute] raise error[], main process disappeared!
+  1375	[ERROR] TBE Subprocess[task_distribute] raise error[], main process disappeared!
+  1376	[ERROR] TBE Subprocess[task_distribute] raise error[], main process disappeared!
+  1377	[ERROR] TBE Subprocess[task_distribute] raise error[], main process disappeared!
+  1378	[ERROR] TBE Subprocess[task_distribute] raise error[], main process disappeared!
+  1379	[ERROR] TBE Subprocess[task_distribute] raise error[], main process disappeared!
+  1380	[ERROR] TBE Subprocess[task_distribute] raise error[], main process disappeared!
+  1381	[ERROR] TBE Subprocess[task_distribute] raise error[], main process disappeared!
+  1382	[ERROR] TBE Subprocess[task_distribute] raise error[], main process disappeared!
+  1383	[ERROR] TBE Subprocess[task_distribute] raise error[], main process disappeared!
+  1384	[ERROR] TBE Subprocess[task_distribute] raise error[], main process disappeared!
+  1385	[ERROR] TBE Subprocess[task_distribute] raise error[], main process disappeared!
+  1386	[ERROR] TBE Subprocess[task_distribute] raise error[], main process disappeared!
+  1387	[ERROR] TBE Subprocess[task_distribute] raise error[], main process disappeared!
+  1388	[ERROR] TBE Subprocess[task_distribute] raise error[], main process disappeared!
+  1389	[ERROR] TBE Subprocess[task_distribute] raise error[], main process disappeared!
+  1390	[ERROR] TBE Subprocess[task_distribute] raise error[], main process disappeared!
+  1391	[ERROR] TBE Subprocess[task_distribute] raise error[], main process disappeared!
+  1392	[ERROR] TBE Subprocess[task_distribute] raise error[], main process disappeared!
+  1393	INFO:     Waiting for application shutdown.
+  1394	INFO:     Application shutdown complete.
+  1395	INFO:     Finished server process [1238311]
+  1396	INFO 10-12 21:58:42 [core_client.py:686] [shutdown] MPClient: start timeout=0s
+  1397	INFO 10-12 21:58:42 [core_client.py:688] [shutdown] MPClient: stopping engine manager
+  1398	INFO 10-12 21:58:42 [utils.py:612] [shutdown] Process manager: send sigterm to process EngineCore
+  1399	WARNING 10-12 21:58:42 [utils.py:632] [shutdown] Process manager: force killing remaining processes count=1
+  1400	WARNING 10-12 21:58:42 [utils.py:637] [shutdown] Process manager: force killing remaining process EngineCore pid 1239181
+  1401	INFO 10-12 21:58:42 [core_client.py:690] [shutdown] MPClient: engine manager stopped
+  1402	INFO 10-12 21:58:42 [core_client.py:691] [shutdown] MPClient: cleaning up background resources
+  1403	INFO 10-12 21:58:42 [core_client.py:693] [shutdown] MPClient: complete
+  1404	/usr/local/python3.12.13/lib/python3.12/multiprocessing/resource_tracker.py:279: UserWarning: resource_tracker: There appear to be 248 leaked semaphore objects to clean up at shutdown
+  1405	  warnings.warn('resource_tracker: There appear to be %d '
+  1406	/usr/local/python3.12.13/lib/python3.12/multiprocessing/resource_tracker.py:279: UserWarning: resource_tracker: There appear to be 9 leaked shared_memory objects to clean up at shutdown
+  1407	  warnings.warn('resource_tracker: There appear to be %d '

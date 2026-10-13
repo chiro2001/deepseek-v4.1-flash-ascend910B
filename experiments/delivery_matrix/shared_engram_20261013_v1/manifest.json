@@ -1,0 +1,28 @@
+{
+  "schema": "delivery_shared_engram_component_v1",
+  "source": "/home/chiro/projects/dsv41/operator-stack-tp8/patches/files/engram_hbm.py",
+  "source_sha256": "b422e9899204b7a55af05832073bdea41e24cdc14900ea739c1dcd82822c77ae",
+  "files": {
+    "vllm_ascend/models/deepseek_v41/engram_hbm.py": {
+      "sha256": "895222b92ef67e5d79044e3bec8a334d8f37eca937359aab8c0f34ff416d75b6",
+      "bytes": 63017
+    },
+    "vllm_ascend/models/deepseek_v41/engram_shared_host.py": {
+      "sha256": "595d924fd6800c67c19fcb69bd601f15a5e62daa40e9b4e5d3b299bc9be925ad",
+      "bytes": 7425
+    }
+  },
+  "modules": {
+    "vllm_ascend.models.deepseek_v41.engram_hbm": "vllm_ascend/models/deepseek_v41/engram_hbm.py",
+    "vllm_ascend.models.deepseek_v41.engram_shared_host": "vllm_ascend/models/deepseek_v41/engram_shared_host.py"
+  },
+  "opt_in": "V41_ENGRAM_SHARED_HOST_MMAP=1",
+  "requires_device_index": 0,
+  "requires_host_resident": 1,
+  "requires_prequantized": "INT8 weight + FP32 group32 scale",
+  "routing_and_lookup_math_unchanged": true,
+  "private_table_allocation_skipped": true,
+  "actual_TP8_PD_physical_sharing_proven": false,
+  "actual_quality_passed": false,
+  "service_launch_requested": false
+}

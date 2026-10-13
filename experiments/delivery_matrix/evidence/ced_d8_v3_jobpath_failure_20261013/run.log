@@ -1,0 +1,105 @@
+[BI-META] installed= skipped=npu_reduce_sum_batch_invariant:RuntimeError,npu_reduce_mean_batch_invariant:RuntimeError,npu_softmax_batch_invariant:RuntimeError,npu_log_softmax_batch_invariant:RuntimeError,npu_mm_batch_invariant:RuntimeError,npu_matmul_batch_invariant:RuntimeError,npu_add_rms_norm_batch_invariant:RuntimeError
+INFO 10-12 21:38:42 [__init__.py:52] Available plugins for group vllm.platform_plugins:
+INFO 10-12 21:38:42 [__init__.py:54] - ascend -> vllm_ascend:register
+INFO 10-12 21:38:42 [__init__.py:57] All plugins in this group will be loaded. Set `VLLM_PLUGINS` to control which plugins to load.
+INFO 10-12 21:38:42 [__init__.py:237] Platform plugin ascend is activated
+INFO 10-12 21:38:42 [platform.py:70] Breakable CUDAGraph on Ascend is opt-in; using VLLM_USE_BREAKABLE_CUDAGRAPH=0.
+2026-10-12 21:38:50,060 - 1237377 - ServiceProfiler - INFO - VLLM_USE_V1 not set, auto-detected via vLLM 0.27.1+empty: default 1
+INFO 10-12 21:38:51 [__init__.py:112] Registered model loader `<class 'vllm_ascend.model_loader.netloader.netloader.ModelNetLoaderElastic'>` with load format `netloader`
+INFO 10-12 21:38:51 [__init__.py:112] Registered model loader `<class 'vllm_ascend.model_loader.rfork.rfork_loader.RForkModelLoader'>` with load format `rfork`
+INFO 10-12 21:38:51 [api_utils.py:345] 
+INFO 10-12 21:38:51 [api_utils.py:345]        █     █     █▄   ▄█
+INFO 10-12 21:38:51 [api_utils.py:345]  ▄▄ ▄█ █     █     █ ▀▄▀ █  version 0.27.1
+INFO 10-12 21:38:51 [api_utils.py:345]   █▄█▀ █     █     █     █  model   /home/l00886679/models/out/v41-w4a8-engram-dr-vision-qrot-mtpq
+INFO 10-12 21:38:51 [api_utils.py:345]    ▀▀  ▀▀▀▀▀ ▀▀▀▀▀ ▀     ▀
+INFO 10-12 21:38:51 [api_utils.py:345] 
+INFO 10-12 21:38:51 [api_utils.py:273] non-default args: {'api_server_count': 1, 'default_chat_template_kwargs': {'enable_thinking': False}, 'enable_auto_tool_choice': True, 'tool_call_parser': 'deepseek_v41', 'host': '127.0.0.1', 'port': 18991, 'middleware': ['delivery_matrix.ced_decode_boundary.ced_decode_guard'], 'model': '/home/l00886679/models/out/v41-w4a8-engram-dr-vision-qrot-mtpq', 'tokenizer': '/home/l00886679/models/out/v41-w4a8-engram-dr-vision-qrot-mtpq', 'tokenizer_mode': 'deepseek_v41', 'trust_remote_code': True, 'dtype': 'bfloat16', 'max_model_len': 1048576, 'served_model_name': ['dsv41-ced-pd-v2'], 'safetensors_load_strategy': 'lazy', 'model_loader_extra_config': {'enable_multithread_load': True, 'num_threads': 128}, 'reasoning_parser': 'deepseek_v41', 'distributed_executor_backend': 'mp', 'tensor_parallel_size': 8, 'enable_expert_parallel': True, 'worker_cls': 'delivery_matrix.worker.DeliveryWorker', 'block_size': 128, 'gpu_memory_utilization': 0.7, 'kv_cache_memory_bytes': 15728022528, 'enable_prefix_caching': False, 'limit_mm_per_prompt': {'image': 4}, 'max_num_batched_tokens': 8192, 'max_num_seqs': 1, 'async_scheduling': True, 'speculative_config': {'method': 'dspark', 'num_speculative_tokens': 5, 'enforce_eager': False}, 'kv_transfer_config': KVTransferConfig(kv_connector='MooncakeHybridConnector', engine_id='efd879e0-b803-44be-b2e8-28cc952590c5', kv_buffer_device='npu', kv_buffer_size=1000000000.0, kv_role='kv_consumer', kv_rank=None, kv_parallel_size=1, kv_ip='127.0.0.1', kv_port=19091, kv_connector_extra_config={'prefill': {'dp_size': 1, 'tp_size': 8}, 'decode': {'dp_size': 1, 'tp_size': 8}}, kv_connector_module_path=None, enable_permute_local_kv=False, kv_load_failure_policy='fail'), 'compilation_config': {'cudagraph_mode': 'FULL_DECODE_ONLY', 'cudagraph_capture_sizes': [6]}, 'additional_config': {'enable_engram': True, 'engram_storage': 'int8', 'enable_cpu_binding': False, 'ascend_compilation_config': {'enable_npugraph_ex': True, 'enable_static_kernel': True}, 'multistream_dsv4_dsa_overlap': True, 'multistream_overlap_shared_expert': True}}
+WARNING 10-12 21:38:51 [envs.py:2128] Unknown vLLM environment variable detected: VLLM_ADMISSION_GATE
+[transformers] Unrecognized keys in `rope_parameters` for 'rope_type'='default': {'beta_slow', 'factor', 'beta_fast', 'original_max_position_embeddings'}
+[transformers] Unrecognized keys in `rope_parameters` for 'rope_type'='default': {'beta_slow', 'factor', 'beta_fast', 'original_max_position_embeddings'}
+INFO 10-12 21:39:05 [model.py:645] Resolved architecture: DeepseekV41ForCausalLM
+INFO 10-12 21:39:06 [model.py:2214] Downcasting torch.float32 to torch.bfloat16.
+INFO 10-12 21:39:06 [model.py:1883] Using max model len 1048576
+[transformers] Unrecognized keys in `rope_parameters` for 'rope_type'='default': {'beta_slow', 'factor', 'beta_fast', 'original_max_position_embeddings'}
+[transformers] Unrecognized keys in `rope_parameters` for 'rope_type'='default': {'beta_slow', 'factor', 'beta_fast', 'original_max_position_embeddings'}
+[transformers] Unrecognized keys in `rope_parameters` for 'rope_type'='default': {'beta_slow', 'factor', 'beta_fast', 'original_max_position_embeddings'}
+[transformers] Unrecognized keys in `rope_parameters` for 'rope_type'='default': {'beta_slow', 'factor', 'beta_fast', 'original_max_position_embeddings'}
+INFO 10-12 21:39:07 [model.py:645] Resolved architecture: DeepseekV41ForCausalLM
+INFO 10-12 21:39:08 [model.py:2214] Downcasting torch.float32 to torch.bfloat16.
+INFO 10-12 21:39:08 [model.py:1883] Using max model len 1048576
+[transformers] Unrecognized keys in `rope_parameters` for 'rope_type'='default': {'beta_slow', 'factor', 'beta_fast', 'original_max_position_embeddings'}
+[transformers] Unrecognized keys in `rope_parameters` for 'rope_type'='default': {'beta_slow', 'factor', 'beta_fast', 'original_max_position_embeddings'}
+INFO 10-12 21:39:37 [scheduler.py:242] Chunked prefill is enabled with max_num_batched_tokens=8192.
+INFO 10-12 21:39:37 [kernel.py:306] Final IR op priority after setting platform defaults: IrOpPriorityConfig(rms_norm=['native'], fused_add_rms_norm=['native'])
+WARNING 10-12 21:39:37 [vllm.py:1757] max_num_scheduled_tokens is set to 8188 based on the speculative decoding settings. This may lead to suboptimal performance. Consider increasing max_num_batched_tokens to accommodate the additional draft token slots, or decrease num_speculative_tokens or max_num_seqs.
+WARNING 10-12 21:39:37 [platform.py:651] GPU-specific parameter is not supported on Ascend. parameter=disable_cascade_attn, value=True, action: resetting to False.
+WARNING 10-12 21:39:37 [platform.py:708] Speculative quantization is set but Ascend automatically uses the main model's quantization method. parameter=quantization, action: resetting to None. 
+INFO 10-12 21:39:37 [platform.py:863] The timeout interval of the HCCL operator is 1836s. Timeout in seconds for execute_model RPC calls in multiprocessing must be greater than 1836s, Set VLLM_EXECUTE_MODEL_TIMEOUT_SECONDS=3000
+INFO 10-12 21:39:37 [ascend_config.py:161] Dynamic EPLB is False
+INFO 10-12 21:39:37 [ascend_config.py:162] The number of redundant experts is 0
+INFO 10-12 21:39:37 [platform.py:1167] FlashComm1 is disabled. Using flashinfer_all2allv as the all2all backend.
+INFO 10-12 21:39:37 [platform.py:1356] Set PYTORCH_NPU_ALLOC_CONF=expandable_segments:True
+WARNING 10-12 21:39:37 [vllm.py:1566] Disabling cascade attention when VLLM_BATCH_INVARIANT is enabled.
+INFO 10-12 21:39:37 [compilation.py:329] Enabled custom fusions: norm_quant, act_quant
+[transformers] Unrecognized keys in `rope_parameters` for 'rope_type'='default': {'beta_slow', 'factor', 'beta_fast', 'original_max_position_embeddings'}
+[transformers] Unrecognized keys in `rope_parameters` for 'rope_type'='default': {'beta_slow', 'factor', 'beta_fast', 'original_max_position_embeddings'}
+Traceback (most recent call last):
+  File "<frozen runpy>", line 198, in _run_module_as_main
+  File "<frozen runpy>", line 88, in _run_code
+  File "/work/delivery_matrix_ced_20261013_v3/delivery_matrix/ced_service.py", line 134, in <module>
+    main()
+  File "/work/delivery_matrix_ced_20261013_v3/delivery_matrix/ced_service.py", line 128, in main
+    asyncio.run(serve_ced(args, candidate, plan))
+  File "/usr/local/python3.12.13/lib/python3.12/asyncio/runners.py", line 195, in run
+    return runner.run(main)
+           ^^^^^^^^^^^^^^^^
+  File "/usr/local/python3.12.13/lib/python3.12/asyncio/runners.py", line 118, in run
+    return self._loop.run_until_complete(task)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/python3.12.13/lib/python3.12/asyncio/base_events.py", line 691, in run_until_complete
+    return future.result()
+           ^^^^^^^^^^^^^^^
+  File "/work/delivery_matrix_ced_20261013_v3/delivery_matrix/ced_service.py", line 92, in serve_ced
+    await serve(args, candidate, plan)
+  File "/work/delivery_matrix_ced_20261013_v3/delivery_matrix/service.py", line 109, in serve
+    async with official.build_async_engine_client(config) as engine:
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/python3.12.13/lib/python3.12/contextlib.py", line 210, in __aenter__
+    return await anext(self.gen)
+           ^^^^^^^^^^^^^^^^^^^^^
+  File "/vllm-workspace/vllm/vllm/entrypoints/openai/api_server.py", line 132, in build_async_engine_client
+    async with build_async_engine_client_from_engine_args(
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/python3.12.13/lib/python3.12/contextlib.py", line 210, in __aenter__
+    return await anext(self.gen)
+           ^^^^^^^^^^^^^^^^^^^^^
+  File "/vllm-workspace/vllm/vllm/entrypoints/openai/api_server.py", line 168, in build_async_engine_client_from_engine_args
+    async_llm = AsyncLLM.from_vllm_config(
+                ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/vllm-workspace/vllm/vllm/v1/engine/async_llm.py", line 220, in from_vllm_config
+    return cls(
+           ^^^^
+  File "/vllm-workspace/vllm/vllm/v1/engine/async_llm.py", line 149, in __init__
+    self.engine_core = EngineCoreClient.make_async_mp_client(
+                       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/vllm-workspace/vllm/vllm/tracing/otel.py", line 178, in sync_wrapper
+    return func(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^
+  File "/vllm-workspace/vllm/vllm/v1/engine/core_client.py", line 139, in make_async_mp_client
+    return AsyncMPClient(*client_args)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/vllm-workspace/vllm/vllm/tracing/otel.py", line 178, in sync_wrapper
+    return func(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^
+  File "/vllm-workspace/vllm/vllm/v1/engine/core_client.py", line 987, in __init__
+    super().__init__(
+  File "/vllm-workspace/vllm/vllm/v1/engine/core_client.py", line 589, in __init__
+    self.input_socket = self.resources.input_socket = make_zmq_socket(
+                                                      ^^^^^^^^^^^^^^^^
+  File "/vllm-workspace/vllm/vllm/utils/network_utils.py", line 338, in make_zmq_socket
+    socket.bind(path)
+  File "/usr/local/python3.12.13/lib/python3.12/site-packages/zmq/sugar/socket.py", line 322, in bind
+    super().bind(addr)
+  File "zmq/backend/cython/_zmq.py", line 1002, in zmq.backend.cython._zmq.Socket.bind
+zmq.error.ZMQError: ipc path "/home/l00886679/tmp/dsv41-ced-runtime-20261013/jobs/decode_18991_v3/tmp/55037643-5a1d-41f9-91d4-627249d49009" is longer than 107 characters (sizeof(sockaddr_un.sun_path)). zmq.IPC_PATH_MAX_LEN constant can be used to check addr length (if it is defined). (addr='ipc:///home/l00886679/tmp/dsv41-ced-runtime-20261013/jobs/decode_18991_v3/tmp/55037643-5a1d-41f9-91d4-627249d49009')
+[ERROR] 2026-10-12-21:39:37 (PID:1237377, Device:-1, RankID:-1) ERR99999 UNKNOWN applicaiton exception

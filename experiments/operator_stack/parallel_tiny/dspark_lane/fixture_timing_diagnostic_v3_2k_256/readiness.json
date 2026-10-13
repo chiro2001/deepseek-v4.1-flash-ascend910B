@@ -1,0 +1,59 @@
+{
+  "job": "dspark_lane_20261011_c4_fixture_timing_diagnostic_v3_2k_256",
+  "cpu_ready": true,
+  "cpu_controls": 72,
+  "reference_interface_controls_passed": 18,
+  "cpu_gate_sha256": "217427726b4c6db5e2e8cb47bab371114d0b51a6e6bbe5d9b4a3b81edf3bc5d1",
+  "checker_sha256": "8b0d9faae8be45f912991ed02273ff720fe1bd72e0e351c0c85d07fcd292cd08",
+  "freeze_manifest": {
+    "path": "evidence/dspark_lane_20261011_c4_fixture_timing_diagnostic_v3_2k_256_freeze.json",
+    "sha256": "83004ebe2a6c696b35b9876d5715436e62392e1e5b4c2fe4af570e74415454d4",
+    "launch_blocked_by_pending_reference": false
+  },
+  "reference_token_ids_2k256": {
+    "status": "present"
+  },
+  "pending_items": [
+    "主线程另行授权 fresh physical4 窗口后才可 --launch",
+    "终态需再次取回 physical4 健康与释放证据"
+  ],
+  "future_commands": {
+    "1_extract_reference": "python3 build_reference_2k256.py --job dspark_lane_20261011_c4_graph_geometry2k256_v3 --source <local v3 runtime>/results/requests.json --write",
+    "2_final_freeze": "python3 launch_fixture_timing.py --freeze-only",
+    "3_authorized_launch": "python3 launch_fixture_timing.py --job dspark_lane_20261011_c4_fixture_timing_diagnostic_v3_2k_256 --pairs 8 --launch"
+  },
+  "npu_authorization": {
+    "authorized": false,
+    "npu_permission": 0,
+    "physical_device": 4,
+    "logical_device": 0,
+    "requires_main_thread_fresh_physical4_window": true,
+    "must_not_touch_remote_job": "dspark_lane_20261011_c4_graph_geometry2k256_v3"
+  },
+  "geometry": {
+    "input_tokens": 2048,
+    "output_tokens": 256,
+    "verify_scheduled_tokens": 6,
+    "K": 5,
+    "prefill_chunks": [
+      2044,
+      4
+    ],
+    "max_model_len": 4096,
+    "max_num_batched_tokens": 2048,
+    "capture_representative_seq_len": 3072,
+    "gpu_memory_utilization": 0.7,
+    "kv_cache_memory_bytes": 2147483648,
+    "block_size": 128,
+    "physical_device": 4,
+    "logical_device": 0
+  },
+  "policy": {
+    "dummy_clean_rate_expected": 0.0,
+    "tiny_candidate_admitted": false,
+    "formal_candidate_admitted": false,
+    "formal_tp8_claim": false,
+    "period2_dummy_acceptance_must_not_be_used_as_benefit": true,
+    "results_must_not_be_extrapolated_to_20ms_or_quality": true
+  }
+}

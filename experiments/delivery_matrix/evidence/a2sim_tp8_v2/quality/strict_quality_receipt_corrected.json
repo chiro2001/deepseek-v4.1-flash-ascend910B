@@ -1,0 +1,181 @@
+{
+  "schema": "delivery_a2sim_tp8_v2_actual_quality_receipt_v2",
+  "job_id": "delivery_a2sim_tp8_v2_quality",
+  "form": "a2-tp8-a3sim",
+  "simulated_hardware": true,
+  "served_model": "dsv41-delivery-a2sim-tp8-v2",
+  "service_instance_id": "b1bd54600703406c8585f9d81eb9104a",
+  "candidate_id": "dsv41_mls_async_bi_v1",
+  "candidate_fingerprint": "8a7b052d6ab87cc5fed7ded6a1ce5903ffb36f018955d671477632356b005bdd",
+  "runtime_fingerprint": "3c8b4066e886dc4b1452a2256b392dbb8804e776ee2dfbe5520d77dfc64f6832",
+  "source_root": "/work/src_dspark_general_quality_v11",
+  "quality_source_snapshot_sha256": "aac6ab23a2c3b9abc89d46e13a0f00350c5d05a2cc6cdb374e19200c671c0a05",
+  "quality_assets_sha256": "8d74fe04805c2b45a04c44e000c735fe648e392eb6930898c5c8382734a4a7a4",
+  "source_guard_path": "/work/results/delivery_a2sim_tp8_v2/quality/source_guard.json",
+  "source_guard_sha256": "720303230970b745bc2a78c88682fb37735c716c26f8a61c2dd2ead6d35c434e",
+  "service_launch_receipt_path": "/work/results/delivery_a2sim_tp8_v2/launched.json",
+  "service_launch_receipt_sha256": "4a26a9f8ec199c18ff2f28953a3b2eed255d3f6358087342c6de64d7253c3c6b",
+  "actual_general_API_quality_observed": true,
+  "actual_GSM100_passed": true,
+  "actual_Vision23_passed": true,
+  "actual_client_quality_passed": true,
+  "actual_device_consumer_proof": false,
+  "performance_or_meanA_used_for_quality_admission": false,
+  "actual_performance_observed": false,
+  "performance_receipt_granted": false,
+  "formal_receipt_granted": false,
+  "service_stopped": false,
+  "stop_after": false,
+  "chat_requests_by_supervisor": 0,
+  "gsm_strict": {
+    "strict_GSM100_passed": true,
+    "n": 100,
+    "correct": 100,
+    "acc": 100.0,
+    "empty": 0,
+    "errors": 0,
+    "seconds": 112.4,
+    "served_model": "dsv41-delivery-a2sim-tp8-v2",
+    "gsm8k_jsonl_sha256": {
+      "train": "17f347dc51477c50d4efb83959dbb7c56297aba886e5544ee2aaed3024813465",
+      "test": "3730d312f6e3440559ace48831e51066acaca737f6eabec99bccb9e4b3c39d14"
+    },
+    "output_path": "/work/results/delivery_a2sim_tp8_v2/quality/client/gsm100.json",
+    "output_sha256": "b6a1eba2f73627f52f77eb3f67cf4dc1e853c8774db4843c7682af704b5e64c1"
+  },
+  "vision_strict": {
+    "strict_Vision23_passed": true,
+    "cases": 23,
+    "passed": 23,
+    "failed": 0,
+    "empty_or_garbled": 0,
+    "errors": 0,
+    "mandatory_negatives_passed": true,
+    "hit_rate": 1.0,
+    "verdict": "PASS",
+    "served_model": "dsv41-delivery-a2sim-tp8-v2",
+    "mean_acceptance_length_observed": 1.5711,
+    "output_path": "/work/results/delivery_a2sim_tp8_v2/quality/client/vision23.raw.json",
+    "output_sha256": "c047f44ab30bde205c5b02289be888d6cea91cb971a74a192fa78991f9aa89cd"
+  },
+  "commands": [
+    {
+      "label": "gsm100",
+      "argv": [
+        "/usr/local/python3.12.13/bin/python",
+        "/work/src_dspark_general_quality_v11/client/tests/acc_eval.py",
+        "--task",
+        "gsm8k",
+        "--limit",
+        "100",
+        "--mode",
+        "chat",
+        "--conc",
+        "1",
+        "--max-tokens",
+        "512",
+        "--serialize-prefill",
+        "1",
+        "--base-url",
+        "http://127.0.0.1:18960",
+        "--model",
+        "dsv41-delivery-a2sim-tp8-v2",
+        "--enc-dir",
+        "/home/l00886679/models/DeepSeek-V4.1-Flash/encoding",
+        "--gsm8k-data-dir",
+        "/work/client_data/gsm8k",
+        "--out",
+        "/work/results/delivery_a2sim_tp8_v2/quality/client/gsm100.json",
+        "--tag",
+        "delivery-a2sim-tp8-v2-gsm100"
+      ],
+      "returncode": 0,
+      "log_path": "/work/results/delivery_a2sim_tp8_v2/quality/client/gsm100.log",
+      "log_sha256": "5ac8882423b208ecb4ff616bf942e64534c53d81120976ab1d9dfae1545e8ea6"
+    },
+    {
+      "label": "vision23",
+      "argv": [
+        "/usr/local/python3.12.13/bin/python",
+        "/work/src_dspark_general_quality_v11/client/tests/vision_accuracy_check.py",
+        "--server",
+        "http://127.0.0.1:18960",
+        "--model",
+        "dsv41-delivery-a2sim-tp8-v2",
+        "--images-dir",
+        "/home/l00886679/models/DeepSeek-V4.1-Flash/inference/examples/images",
+        "--official-dir",
+        "/home/l00886679/models/DeepSeek-V4.1-Flash",
+        "--max-tokens",
+        "32",
+        "--temperature",
+        "0",
+        "--min-hit-rate",
+        "1.0",
+        "--expect-dspark",
+        "--out",
+        "/work/results/delivery_a2sim_tp8_v2/quality/client/vision23.raw.json"
+      ],
+      "returncode": 0,
+      "log_path": "/work/results/delivery_a2sim_tp8_v2/quality/client/vision23.log",
+      "log_sha256": "1455395ea793e9067c2f65cc9c102da4c8f751dd6d619685c385a252b0587409"
+    }
+  ],
+  "host_npu_process_observed": true,
+  "source_evaluator_sha256": {
+    "evaluator/acc_eval.py": "aad813de1b1af090c4186b0a443b7839339928f90b63e7c3a654d0e028b8e6e2",
+    "evaluator/vision_accuracy_check.py": "af13bc4785bfcddcd46a398fe7611c6942a4875e1eee8c767ce31148ebee675f",
+    "evaluator/t_vision.py": "b3fb3062cefa09deb72f140a139410666cfc045b774c466fafeadbc456b240ae"
+  },
+  "receipt_revision": 2,
+  "corrected": true,
+  "supersedes": {
+    "path": "/work/results/delivery_a2sim_tp8_v2/quality/strict_quality_receipt.json",
+    "local_copy_path": "operator-stack-tp8/experiments/delivery_matrix/evidence/a2sim_tp8_v2/quality/strict_quality_receipt.json",
+    "sha256": "39644ed478e6e53bb580353a54a16be4ab865e11a04c4a60696db75e2baefeeb"
+  },
+  "host_npu_process_observation_details": {
+    "npu_cards_without_processes": [
+      0,
+      1,
+      2,
+      3
+    ],
+    "target_npu_ids": [
+      4,
+      5,
+      6,
+      7
+    ],
+    "target_worker_pids": [
+      593983,
+      594009,
+      594205,
+      594258,
+      594465,
+      594702,
+      594761,
+      594880
+    ],
+    "physical_chips": [
+      8,
+      9,
+      10,
+      11,
+      12,
+      13,
+      14,
+      15
+    ],
+    "captured_at": "2026-10-13T02:12:26+08:00"
+  },
+  "consumer_proof_correction": {
+    "corrected_at": "2026-10-13T03:20:10.570812+08:00",
+    "previous_actual_device_consumer_proof": true,
+    "actual_device_consumer_proof": false,
+    "host_npu_process_observed": true,
+    "reason": "Host NPU-SMI process visibility and aggregate GSM100/Vision23 quality passes do not establish per-layer or cache-value consumer coverage.",
+    "formal_receipt_granted": false,
+    "performance_receipt_granted": false
+  }
+}

@@ -1,0 +1,30 @@
+{
+  "schema": "k5_capacity_cpu_final_v1",
+  "date": "20261012",
+  "trace": "k5_capacity_cpu",
+  "passed": true,
+  "checks_passed": 228,
+  "checks_failed": 0,
+  "compile_units_passed": "3/3",
+  "adapter_checks": 82,
+  "adapter_negative_rejections": 62,
+  "numeric_positive_cases": 10,
+  "numeric_negative_rejections": 18,
+  "compile_input_negatives": 20,
+  "m1_regression_cases": 9,
+  "source_manifest_sha256": "327581e51be9b5a2bdeb9f2132716c09ec96b6c707b36f0af2bb33f1a9aa674b",
+  "main_evidence": "evidence/k5_capacity_numeric_cpu_verification_20261012.json",
+  "main_evidence_sha256": "eb6bf966331f97d5f1f0414929a6ef0cf9bc519a9c71597d4fbe3d68e45dc9a2",
+  "CPU_only": true,
+  "NPU_calls": 0,
+  "actual_device_numeric_passed": false,
+  "performance_receipt_granted": false,
+  "admission_granted": false,
+  "formal_receipt_granted": false,
+  "remaining_gaps": [
+    "change_header/native source rebuild needs the CANN 9.1.0 grouped_matmul source tree",
+    "bridge workspace bytes need the new-geometry kernel compiler metadata",
+    "weights_cpu payload path needs the real checkpoint and torch on a CPU host",
+    "device planner/kernel numeric and performance proof still requires an authorized NPU window"
+  ]
+}

@@ -1,0 +1,65 @@
+# DCP8 v2 engine-initialization failure excerpt.
+# source=/work/results/delivery_dcp8_v2/run.log
+# source_bytes=189939
+# source_sha256=a48b817be16db206ff9491e5afac16160e6656009daf585a78afa91f05386733
+# full log remains on the remote host; only these lines are archived.
+--- original run.log lines 957-973 ---
+957: (Worker_TP5_DCP5_EP5 pid=835379) ERROR 10-12 19:04:26 [multiproc_executor.py:912]     self.worker.load_model()
+958: (Worker_TP5_DCP5_EP5 pid=835379) ERROR 10-12 19:04:26 [multiproc_executor.py:912]   File "/usr/local/python3.12.13/lib/python3.12/site-packages/torch/utils/_contextlib.py", line 124, in decorate_context
+959: (Worker_TP5_DCP5_EP5 pid=835379) ERROR 10-12 19:04:26 [multiproc_executor.py:912]     return func(*args, **kwargs)
+960: (Worker_TP5_DCP5_EP5 pid=835379) ERROR 10-12 19:04:26 [multiproc_executor.py:912]            ^^^^^^^^^^^^^^^^^^^^^
+961: (Worker_TP5_DCP5_EP5 pid=835379) ERROR 10-12 19:04:26 [multiproc_executor.py:912]   File "/work/src_dspark_general_quality_v11/stack/parallel_tiny/dspark_formal_prep/worker.py", line 58, in load_model
+962: (Worker_TP5_DCP5_EP5 pid=835379) ERROR 10-12 19:04:26 [multiproc_executor.py:912]     receipt=formal_dspark_counters.install_runner(runner,
+963: (Worker_TP5_DCP5_EP5 pid=835379) ERROR 10-12 19:04:26 [multiproc_executor.py:912]             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+964: (Worker_TP5_DCP5_EP5 pid=835379) ERROR 10-12 19:04:26 [multiproc_executor.py:912]   File "/work/src_dspark_general_quality_v11/stack/formal_dspark_counters.py", line 584, in install_runner
+965: (Worker_TP5_DCP5_EP5 pid=835379) ERROR 10-12 19:04:26 [multiproc_executor.py:912]     graph_observer=install_graph_observer(counter,runner,draft_original)
+966: (Worker_TP5_DCP5_EP5 pid=835379) ERROR 10-12 19:04:26 [multiproc_executor.py:912]                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+967: (Worker_TP5_DCP5_EP5 pid=835379) ERROR 10-12 19:04:26 [multiproc_executor.py:912]   File "/work/src_dspark_general_quality_v11/stack/parallel_tiny/dspark_formal_audit/stock_graph_observer.py", line 102, in install
+968: (Worker_TP5_DCP5_EP5 pid=835379) ERROR 10-12 19:04:26 [multiproc_executor.py:912]     'stock_proposer':file_receipt(draft_original,STOCK_PROPOSER_SHA256),
+969: (Worker_TP5_DCP5_EP5 pid=835379) ERROR 10-12 19:04:26 [multiproc_executor.py:912]                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+970: (Worker_TP5_DCP5_EP5 pid=835379) ERROR 10-12 19:04:26 [multiproc_executor.py:912]   File "/work/src_dspark_general_quality_v11/stack/parallel_tiny/dspark_formal_audit/stock_graph_observer.py", line 37, in file_receipt
+971: (Worker_TP5_DCP5_EP5 pid=835379) ERROR 10-12 19:04:26 [multiproc_executor.py:912]     raise ValueError(f'Stock graph observation source mismatch: {path} {sha}')
+972: (Worker_TP5_DCP5_EP5 pid=835379) ERROR 10-12 19:04:26 [multiproc_executor.py:912] ValueError: Stock graph observation source mismatch: /work/delivery_matrix_20261013_v4/delivery_matrix/dcp_draft_20261013_v2/llm_base_proposer.py cbe8f6c913d2c9b4a406c9f9cde03234686dc8f19cace278d306ef24327613f3
+973: (EngineCore pid=835135) INFO 10-12 19:04:26 [multiproc_executor.py:440] [shutdown] Executor: waiting for worker exit count=8
+--- original run.log lines 1182-1215 ---
+1182: (Worker_TP6_DCP6_EP6 pid=835426) ERROR 10-12 19:04:31 [multiproc_executor.py:912] ValueError: Stock graph observation source mismatch: /work/delivery_matrix_20261013_v4/delivery_matrix/dcp_draft_20261013_v2/llm_base_proposer.py cbe8f6c913d2c9b4a406c9f9cde03234686dc8f19cace278d306ef24327613f3
+1183: (EngineCore pid=835135) WARNING 10-12 19:04:31 [multiproc_executor.py:452] [shutdown] Executor: workers still running after grace period; sending SIGTERM count=8
+1184: (EngineCore pid=835135) WARNING 10-12 19:04:35 [multiproc_executor.py:462] [shutdown] Executor: workers still running after SIGTERM; sending SIGKILL count=2
+1185: (EngineCore pid=835135) ERROR 10-12 19:04:35 [core.py:1349] EngineCore failed to start.
+1186: (EngineCore pid=835135) ERROR 10-12 19:04:35 [core.py:1349] Traceback (most recent call last):
+1187: (EngineCore pid=835135) ERROR 10-12 19:04:35 [core.py:1349]   File "/vllm-workspace/vllm/vllm/v1/engine/core.py", line 1318, in run_engine_core
+1188: (EngineCore pid=835135) ERROR 10-12 19:04:35 [core.py:1349]     engine_core = EngineCoreProc(*args, engine_index=dp_rank, **kwargs)
+1189: (EngineCore pid=835135) ERROR 10-12 19:04:35 [core.py:1349]                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+1190: (EngineCore pid=835135) ERROR 10-12 19:04:35 [core.py:1349]   File "/vllm-workspace/vllm/vllm/tracing/otel.py", line 178, in sync_wrapper
+1191: (EngineCore pid=835135) ERROR 10-12 19:04:35 [core.py:1349]     return func(*args, **kwargs)
+1192: (EngineCore pid=835135) ERROR 10-12 19:04:35 [core.py:1349]            ^^^^^^^^^^^^^^^^^^^^^
+1193: (EngineCore pid=835135) ERROR 10-12 19:04:35 [core.py:1349]   File "/vllm-workspace/vllm/vllm/v1/engine/core.py", line 1074, in __init__
+1194: (EngineCore pid=835135) ERROR 10-12 19:04:35 [core.py:1349]     super().__init__(
+1195: (EngineCore pid=835135) ERROR 10-12 19:04:35 [core.py:1349]   File "/vllm-workspace/vllm/vllm/v1/engine/core.py", line 132, in __init__
+1196: (EngineCore pid=835135) ERROR 10-12 19:04:35 [core.py:1349]     self.model_executor = executor_class(vllm_config)
+1197: (EngineCore pid=835135) ERROR 10-12 19:04:35 [core.py:1349]                           ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+1198: (EngineCore pid=835135) ERROR 10-12 19:04:35 [core.py:1349]   File "/vllm-workspace/vllm/vllm/v1/executor/multiproc_executor.py", line 108, in __init__
+1199: (EngineCore pid=835135) ERROR 10-12 19:04:35 [core.py:1349]     super().__init__(vllm_config)
+1200: (EngineCore pid=835135) ERROR 10-12 19:04:35 [core.py:1349]   File "/vllm-workspace/vllm/vllm/tracing/otel.py", line 178, in sync_wrapper
+1201: (EngineCore pid=835135) ERROR 10-12 19:04:35 [core.py:1349]     return func(*args, **kwargs)
+1202: (EngineCore pid=835135) ERROR 10-12 19:04:35 [core.py:1349]            ^^^^^^^^^^^^^^^^^^^^^
+1203: (EngineCore pid=835135) ERROR 10-12 19:04:35 [core.py:1349]   File "/vllm-workspace/vllm/vllm/v1/executor/abstract.py", line 109, in __init__
+1204: (EngineCore pid=835135) ERROR 10-12 19:04:35 [core.py:1349]     self._init_executor()
+1205: (EngineCore pid=835135) ERROR 10-12 19:04:35 [core.py:1349]   File "/vllm-workspace/vllm/vllm/v1/executor/multiproc_executor.py", line 201, in _init_executor
+1206: (EngineCore pid=835135) ERROR 10-12 19:04:35 [core.py:1349]     self.workers = WorkerProc.wait_for_ready(unready_workers)
+1207: (EngineCore pid=835135) ERROR 10-12 19:04:35 [core.py:1349]                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+1208: (EngineCore pid=835135) ERROR 10-12 19:04:35 [core.py:1349]   File "/vllm-workspace/vllm/vllm/v1/executor/multiproc_executor.py", line 776, in wait_for_ready
+1209: (EngineCore pid=835135) ERROR 10-12 19:04:35 [core.py:1349]     raise e from None
+1210: (EngineCore pid=835135) ERROR 10-12 19:04:35 [core.py:1349] Exception: WorkerProc initialization failed due to an exception in a background process. See stack trace for root cause.
+1211: (EngineCore pid=835135) Process EngineCore:
+1212: (EngineCore pid=835135) Traceback (most recent call last):
+1213: (EngineCore pid=835135)   File "/usr/local/python3.12.13/lib/python3.12/multiprocessing/process.py", line 314, in _bootstrap
+1214: (EngineCore pid=835135)     self.run()
+1215: (EngineCore pid=835135)   File "/usr/local/python3.12.13/lib/python3.12/multiprocessing/process.py", line 108, in run
+--- original run.log lines 1302-1307 ---
+1302:   File "/vllm-workspace/vllm/vllm/v1/engine/utils.py", line 1194, in launch_core_engines
+1303:     wait_for_engine_startup(
+1304:   File "/vllm-workspace/vllm/vllm/v1/engine/utils.py", line 1253, in wait_for_engine_startup
+1305:     raise RuntimeError(
+1306: RuntimeError: Engine core initialization failed. See root cause above. Failed core proc(s): {}
+1307: [ERROR] 2026-10-12-19:04:38 (PID:834285, Device:-1, RankID:-1) ERR99999 UNKNOWN applicaiton exception

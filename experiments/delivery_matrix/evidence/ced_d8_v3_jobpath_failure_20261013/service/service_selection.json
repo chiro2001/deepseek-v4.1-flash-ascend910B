@@ -1,0 +1,192 @@
+{
+  "schema": "delivery_ced_service_plan_v1",
+  "form": "a3-ced-pd",
+  "role": "decode",
+  "served_model": "dsv41-ced-pd-v2",
+  "source_root": "/work/src_dspark_general_quality_v11",
+  "source_candidate_fingerprint": "8a7b052d6ab87cc5fed7ded6a1ce5903ffb36f018955d671477632356b005bdd",
+  "ced_overlay_manifest_sha256": "7fc7e2dd1aa4014fa5ff04e022de73473f4b0a50dee0b000c585408eee484989",
+  "native_opp_receipt": {
+    "schema": "delivery_ced_opp_contract_v1",
+    "actual_root": "/usr/local/Ascend/cann-9.1.0/opp/vendors/batch_invariant",
+    "files": {
+      "version.info": {
+        "sha256": "cc3e7001ed18e748e400d78bbcd3a8c51c6d292bd7f252a3ed9c4268dc1a5371",
+        "bytes": 34
+      },
+      "op_api/lib/libcust_opapi.so": {
+        "sha256": "ff82d965a8a08bfa2862567022a04a1fd04df56d142f4393f1fb527592111069",
+        "bytes": 974520
+      },
+      "op_proto/lib/linux/aarch64/libcust_opsproto_rt2.0.so": {
+        "sha256": "f8308be503301621117cd421e411240a077dc4fcf04972321e403e7efc818010",
+        "bytes": 771960
+      },
+      "op_impl/ai_core/tbe/op_tiling/lib/linux/aarch64/libcust_opmaster_rt2.0.so": {
+        "sha256": "68221652dffb7fa13351616ecdf4e3445425697452fed29ae147f0cc335b02c1",
+        "bytes": 5347432
+      }
+    },
+    "artifact_fingerprint": "0167b055e442435b2790f1a77933fe389bdaa45db67a6f2045646606609d4a6b",
+    "scope": "actual A3 BI version.info and three ABI libraries; not a full-tree checksum",
+    "full_tree_verified_by_this_gate": false
+  },
+  "http_middleware": [
+    "delivery_matrix.ced_decode_boundary.ced_decode_guard"
+  ],
+  "model_kwargs": {
+    "model": "/home/l00886679/models/out/v41-w4a8-engram-dr-vision-qrot-mtpq",
+    "tokenizer": "/home/l00886679/models/out/v41-w4a8-engram-dr-vision-qrot-mtpq",
+    "load_format": "auto",
+    "dtype": "bfloat16",
+    "safetensors_load_strategy": "lazy",
+    "model_loader_extra_config": {
+      "enable_multithread_load": true,
+      "num_threads": 128
+    },
+    "worker_cls": "delivery_matrix.worker.DeliveryWorker",
+    "tensor_parallel_size": 8,
+    "distributed_executor_backend": "mp",
+    "enable_expert_parallel": true,
+    "seed": 0,
+    "trust_remote_code": true,
+    "async_scheduling": true,
+    "limit_mm_per_prompt": {
+      "image": 4
+    },
+    "max_model_len": 1048576,
+    "max_num_seqs": 1,
+    "max_num_batched_tokens": 8192,
+    "gpu_memory_utilization": 0.7,
+    "kv_cache_memory_bytes": 15728022528,
+    "block_size": 128,
+    "enable_prefix_caching": false,
+    "enable_return_routed_experts": false,
+    "speculative_config": {
+      "method": "dspark",
+      "num_speculative_tokens": 5,
+      "enforce_eager": false
+    },
+    "compilation_config": {
+      "cudagraph_mode": "FULL_DECODE_ONLY",
+      "cudagraph_capture_sizes": [
+        6
+      ]
+    },
+    "additional_config": {
+      "enable_engram": true,
+      "engram_storage": "int8",
+      "enable_cpu_binding": false,
+      "ascend_compilation_config": {
+        "enable_npugraph_ex": true,
+        "enable_static_kernel": true
+      },
+      "multistream_dsv4_dsa_overlap": true,
+      "multistream_overlap_shared_expert": true
+    },
+    "decode_context_parallel_size": 1,
+    "kv_transfer_config": {
+      "kv_connector": "MooncakeHybridConnector",
+      "kv_role": "kv_consumer",
+      "kv_port": 19091,
+      "kv_connector_extra_config": {
+        "prefill": {
+          "dp_size": 1,
+          "tp_size": 8
+        },
+        "decode": {
+          "dp_size": 1,
+          "tp_size": 8
+        }
+      }
+    }
+  },
+  "environment": {
+    "VLLM_ENABLE_V1_MULTIPROCESSING": "1",
+    "VLLM_WORKER_MULTIPROC_METHOD": "spawn",
+    "VLLM_ALLOW_INSECURE_SERIALIZATION": "1",
+    "VLLM_DISABLE_COMPILE_CACHE": "1",
+    "VLLM_CACHE_ROOT": "/home/l00886679/tmp/dsv41-ced-runtime-20261013/jobs/decode_18991_v3/service/cache",
+    "HCCL_DETERMINISTIC": "strict",
+    "STACK_DSPARK_FORMAL_OUTPUT": "/home/l00886679/tmp/dsv41-ced-runtime-20261013/jobs/decode_18991_v3/service/native",
+    "LOCAL_WORLD_SIZE": "8",
+    "STACK_PHYSICAL_CHIPS": "8,9,10,11,12,13,14,15",
+    "STACK_REAL_WEIGHTS": "1",
+    "STACK_REAL_AUDIT": "0",
+    "STACK_TP8_ARM": "tp8base",
+    "STACK_FP32_DECODE_REDUCTION": "0",
+    "STACK_TINY_PROFILE": "0",
+    "STACK_W4A8_PREFIX_ENABLED": "0",
+    "STACK_WOA_CUBE_ENABLED": "0",
+    "STACK_QKV_MERGE_ENABLED": "0",
+    "STACK_QKV_TAIL_SCHEDULE": "native",
+    "STACK_MOE_MASK_ENABLED": "0",
+    "STACK_METADATA_MANY_SLOTS_ENABLED": "0",
+    "OPT_BLOCKMAP_VERIFY": "0",
+    "DRAFT_FORCE_EAGER": "0",
+    "V41_ENGRAM_WITH_DUMMY": "0",
+    "V41_DUMMY_WO_A_FIX": "0",
+    "DRAFT_GRAPH": "1",
+    "DSPARK_GRAPH_CAPTURE_METADATA": "1",
+    "DSPARK_DRAFT_METADATA_MODE": "sync",
+    "DSPARK_CAPTURE_VALUE_FIX": "1",
+    "DSPARK_SWA_INDICES_RESIDENT": "1",
+    "DSPARK_CAPTURE_NCTX_FIX": "1",
+    "DSPARK_DISPATCH_QUERY_LEN_FIX": "1",
+    "DSPARK_DRAFT_USE_CUDAGRAPH": "1",
+    "DSPARK_HOIST_CONTEXT_KV": "0",
+    "DSPARK_ASYNC_COUNTER": "1",
+    "DSPARK_ASYNC_SCHEDULING": "1",
+    "V41_MLS_SHARED_EXPERT": "1",
+    "V41_MLS_DSA_OVERLAP": "1",
+    "DSPARK_QUALITY_ASYNC_ARM": "1",
+    "STACK_SRC_ROOT": "/work/src_dspark_general_quality_v11",
+    "ASCEND_RT_VISIBLE_DEVICES": "8,9,10,11,12,13,14,15",
+    "ASCEND_VISIBLE_DEVICES": "8,9,10,11,12,13,14,15",
+    "ASCEND_MAX_OP_CACHE_SIZE": "-1",
+    "HCCL_BUFFSIZE": "1024",
+    "HCCL_NPU_SOCKET_PORT_RANGE": "auto",
+    "HCCL_OP_EXPANSION_MODE": "AIV",
+    "NUMBA_CACHE_DIR": "/work/cache/numba",
+    "PYTORCH_NPU_ALLOC_CONF": "expandable_segments:True",
+    "TASK_QUEUE_ENABLE": "1",
+    "V41_ENGRAM_DEVICE_FALLBACK": "0",
+    "V41_ENGRAM_DEVICE_INDEX": "0",
+    "V41_ENGRAM_GATE_CHUNK": "0",
+    "V41_ENGRAM_GATE_HOIST": "0",
+    "V41_ENGRAM_GATE_MAX_TOKENS": "4096",
+    "V41_ENGRAM_HOST_RESIDENT": "1",
+    "V41_ENGRAM_JIT": "1",
+    "V41_ENGRAM_REUSE_EP_GROUP": "1",
+    "V41_ENGRAM_ROUTE_PROBE": "",
+    "V41_MOE_COMM_ALLGATHER": "1",
+    "V41_MOE_MASK_RANGE": "1",
+    "V41_MOE_ZERO_INVALID": "0",
+    "V41_MOE_ZERO_NONFINITE": "0",
+    "V41_O_PROJ_2D": "1",
+    "V41_QLI_NO_CANDIDATE": "1",
+    "V41_ROPE_IDXSEL": "1",
+    "VLLM_BATCH_INVARIANT": "1",
+    "ASCEND_CUSTOM_OPP_PATH": "/usr/local/Ascend/cann-9.1.0/opp/vendors/batch_invariant",
+    "DELIVERY_BASE_WORKER": "parallel_tiny.dspark_formal_prep.worker.FormalDSparkWorker",
+    "DELIVERY_FORM": "a3-ced-pd",
+    "V41_CED_ROLE": "decode",
+    "V41_CED_ALLOW_DSPARK": "1",
+    "VLLM_ADMISSION_GATE": "1",
+    "STACK_EXPECTED_CHIPS": "8,9,10,11,12,13,14,15",
+    "DELIVERY_CED_OVERLAY": "/work/delivery_matrix_ced_20261013_v3/delivery_matrix/ced_runtime_20261013_v1",
+    "DELIVERY_CED_MANIFEST_SHA256": "7fc7e2dd1aa4014fa5ff04e022de73473f4b0a50dee0b000c585408eee484989",
+    "DELIVERY_CED_OPP_FINGERPRINT": "0167b055e442435b2790f1a77933fe389bdaa45db67a6f2045646606609d4a6b",
+    "DSPARK_API_FROZEN_COUNTER": "/work/src_dspark_general_quality_v11/stack/parallel_tiny/dspark_general_quality_launcher_cpu/assets/frozen_v4_counter.py",
+    "V41_CED_GRAPH_PROMPT_TAIL_EAGER": "1",
+    "V41_CED_SWA_CLIP": "1"
+  },
+  "runtime_fingerprint": "efd677133f6a012b8332112d3e41220d93b71a3de1e7aa3fa7bc654a8f838091",
+  "actual_quality_passed": false,
+  "actual_performance_observed": false,
+  "simulated_hardware": false,
+  "service_instance_id": "eac44d253883414e8b16b7c977a6bd4d",
+  "pid": 1237377,
+  "engine_initialized": false,
+  "ASGI_startup_completed": false
+}

@@ -1,0 +1,308 @@
+{
+  "job": "dspark_lane_20261011_c4_graph_diag_v5",
+  "exit": 1,
+  "classification": "quality_rejected_actual_native_OFF_upstream_nonfinite",
+  "actual_round": {
+    "req_id": "draft-graph-003-9b797f5e",
+    "execute_begin_s": 2855243.65576313,
+    "computed_before": 128,
+    "prompt_tokens": 128,
+    "is_decode": true,
+    "scheduled_target_tokens": 6,
+    "verified_draft_tokens": 5,
+    "draft_calls_before": 1,
+    "bookkeeping_done_s": 2855243.70760179,
+    "sampled_token_ids": [
+      96070,
+      120213
+    ],
+    "raw_generated_tokens": 2,
+    "accepted_draft_tokens": 1,
+    "draft_propose_begin_s": 2855243.70843732
+  },
+  "first_observed_bad_label": "draft.0.hidden",
+  "hidden_invalid_count": 25600,
+  "hidden_shape": [
+    5,
+    5120
+  ],
+  "logits_invalid_count": 40,
+  "router_weight_views_and_values_seal_passed": true,
+  "gate_and_bias_all_finite": true,
+  "gate_and_bias_value_hashes_equal_fresh_native_eager_control": true,
+  "before_router_arithmetic": true,
+  "capture": false,
+  "consumer_quality_gate_passed": false,
+  "candidate_admitted": false,
+  "performance_evaluated": false,
+  "formal_tp8_claim": false,
+  "invasive_input_d2h_same_as_native_diag_v2": true,
+  "capture_pollution_causal_claim": false,
+  "tensor_exports_retained_remote": true,
+  "compiled_draft_configuration_differs_from_native_enforce_eager_control": true,
+  "actual_first_decode_trace": {
+    "firstvalue_context_combine_inputs": {
+      "all_tensors_finite": true,
+      "tensor_shapes": {
+        "hidden": [
+          6,
+          15360
+        ],
+        "main_proj_weight": [
+          5120,
+          15360
+        ],
+        "main_norm_weight": [
+          5120
+        ]
+      }
+    },
+    "firstvalue_context_combine_output": {
+      "all_tensors_finite": true,
+      "tensor_shapes": {
+        "hidden": [
+          6,
+          5120
+        ]
+      }
+    },
+    "firstvalue_draft_0_context_kv_inputs": {
+      "all_tensors_finite": true,
+      "tensor_shapes": {
+        "hidden": [
+          6,
+          5120
+        ],
+        "positions": [
+          6
+        ],
+        "wkv_weight": [
+          512,
+          5120
+        ],
+        "kv_norm_weight": [
+          512
+        ]
+      }
+    },
+    "firstvalue_draft_0_context_kv_output": {
+      "all_tensors_finite": true,
+      "tensor_shapes": {
+        "shared_kv": [
+          6,
+          1,
+          512
+        ]
+      }
+    },
+    "firstvalue_draft_1_context_kv_inputs": {
+      "all_tensors_finite": true,
+      "tensor_shapes": {
+        "hidden": [
+          6,
+          5120
+        ],
+        "positions": [
+          6
+        ],
+        "wkv_weight": [
+          512,
+          5120
+        ],
+        "kv_norm_weight": [
+          512
+        ]
+      }
+    },
+    "firstvalue_draft_1_context_kv_output": {
+      "all_tensors_finite": true,
+      "tensor_shapes": {
+        "shared_kv": [
+          6,
+          1,
+          512
+        ]
+      }
+    },
+    "firstvalue_draft_2_context_kv_inputs": {
+      "all_tensors_finite": true,
+      "tensor_shapes": {
+        "hidden": [
+          6,
+          5120
+        ],
+        "positions": [
+          6
+        ],
+        "wkv_weight": [
+          512,
+          5120
+        ],
+        "kv_norm_weight": [
+          512
+        ]
+      }
+    },
+    "firstvalue_draft_2_context_kv_output": {
+      "all_tensors_finite": true,
+      "tensor_shapes": {
+        "shared_kv": [
+          6,
+          1,
+          512
+        ]
+      }
+    },
+    "firstvalue_mtp_0_self_attn_attn_attention_input": {
+      "all_tensors_finite": true,
+      "tensor_shapes": {
+        "hidden": [
+          5,
+          5120
+        ]
+      }
+    },
+    "firstvalue_mtp_0_self_attn_attn_attention_output": {
+      "all_tensors_finite": true,
+      "tensor_shapes": {
+        "output": [
+          5,
+          64,
+          512
+        ]
+      }
+    },
+    "firstvalue_mtp_0_self_attn_attn_query_kv_prolog_inputs": {
+      "all_tensors_finite": true,
+      "tensor_shapes": {
+        "hidden": [
+          5,
+          5120
+        ],
+        "cos": [
+          5,
+          1,
+          1,
+          64
+        ],
+        "sin": [
+          5,
+          1,
+          1,
+          64
+        ],
+        "slot_mapping": [
+          5,
+          2
+        ],
+        "wq_a_weight": [
+          512,
+          5120
+        ],
+        "wq_b_weight": [
+          32768,
+          512
+        ],
+        "q_norm_weight": [
+          512
+        ],
+        "wkv_weight": [
+          512,
+          5120
+        ],
+        "kv_norm_weight": [
+          512
+        ]
+      }
+    },
+    "firstvalue_mtp_0_self_attn_attn_query_kv_prolog_outputs": {
+      "all_tensors_finite": true,
+      "tensor_shapes": {
+        "q": [
+          5,
+          64,
+          512
+        ],
+        "qr": [
+          5,
+          512
+        ]
+      }
+    },
+    "firstvalue_mtp_0_self_attn_attn_sparse_reader_inputs": {
+      "all_tensors_finite": true,
+      "tensor_shapes": {
+        "q": [
+          5,
+          64,
+          512
+        ],
+        "sinks": [
+          64
+        ],
+        "selected_cache": [
+          665,
+          1,
+          512
+        ],
+        "ori_sparse_indices": [
+          5,
+          1,
+          256
+        ],
+        "ori_block_table": [
+          1,
+          16
+        ],
+        "query_start_loc": [
+          2
+        ],
+        "seq_lens": [
+          1
+        ]
+      }
+    },
+    "firstvalue_mtp_0_self_attn_attn_sparse_reader_output": {
+      "all_tensors_finite": true,
+      "tensor_shapes": {
+        "output": [
+          5,
+          64,
+          512
+        ]
+      }
+    }
+  },
+  "prefill_only_trace_not_first_decode_evidence": [
+    "firstvalue_mtp_1_self_attn_attn_attention_input",
+    "firstvalue_mtp_1_self_attn_attn_attention_output",
+    "firstvalue_mtp_1_self_attn_attn_query_kv_prolog_inputs",
+    "firstvalue_mtp_1_self_attn_attn_query_kv_prolog_outputs",
+    "firstvalue_mtp_1_self_attn_attn_sparse_reader_inputs",
+    "firstvalue_mtp_1_self_attn_attn_sparse_reader_output",
+    "firstvalue_mtp_2_self_attn_attn_attention_input",
+    "firstvalue_mtp_2_self_attn_attn_attention_output",
+    "firstvalue_mtp_2_self_attn_attn_query_kv_prolog_inputs",
+    "firstvalue_mtp_2_self_attn_attn_query_kv_prolog_outputs",
+    "firstvalue_mtp_2_self_attn_attn_sparse_reader_inputs",
+    "firstvalue_mtp_2_self_attn_attn_sparse_reader_output"
+  ],
+  "selected_cache_slots_with_duplicates": 665,
+  "selected_cache_query_rows": 5,
+  "selected_cache_finite_filter_used": false,
+  "last_observed_finite": {
+    "stage": "MTP0 native SparseAttnSharedkv output",
+    "shape": [
+      5,
+      64,
+      512
+    ]
+  },
+  "remaining_bad_interval": [
+    "O projection",
+    "attention HcPost",
+    "FFN HcPre",
+    "rms_norm_cast"
+  ],
+  "hc_compiled_output_not_observed_yet": true
+}

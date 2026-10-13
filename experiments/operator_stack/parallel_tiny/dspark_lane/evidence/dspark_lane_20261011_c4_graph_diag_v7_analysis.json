@@ -1,0 +1,68 @@
+{
+  "job": "dspark_lane_20261011_c4_graph_diag_v7",
+  "exit": 1,
+  "classification": "actual_native_derived_wo_a_cache_content_changed_before_first_decode_consumer",
+  "bad_label": "firstvalue.mtp.0.o_proj.inputs.actual_dummy_wo_a_3d",
+  "bad_shape": [
+    8,
+    4096,
+    512
+  ],
+  "bad_dtype": "torch.bfloat16",
+  "invalid_count": 2144,
+  "bad_cache_ptr": 21141976514560,
+  "previous_prefill_cache_ptr": 21141976514560,
+  "same_cache_ptr": true,
+  "same_audited_request": true,
+  "prefill_cache_bitwise_matches_original_loader_permutation": true,
+  "prefill_cache_value_sha256": "7312022bb166163eaf55fc1b8e66f5a254905c723a013b869c6c2f28db6e1ac1",
+  "first_decode_cache_value_sha256": "42b309c0df20719446622b4a00aa210872b49cbd47b4ec18de513770c60bf6e0",
+  "original_wo_a_value_sha256_unchanged": "37bee4a55d54254081a32569adbaba62f2f1e276d554158ac763f21894013360",
+  "original_wo_a_and_wo_b_finite": true,
+  "actual_raw_attention_finite": true,
+  "actual_bad_round": {
+    "req_id": "draft-graph-003-958b9af6",
+    "execute_begin_s": 2857433.06551277,
+    "computed_before": 128,
+    "prompt_tokens": 128,
+    "is_decode": true,
+    "scheduled_target_tokens": 6,
+    "verified_draft_tokens": 5,
+    "draft_calls_before": 1,
+    "bookkeeping_done_s": 2857433.11705535,
+    "sampled_token_ids": [
+      96070,
+      120213
+    ],
+    "raw_generated_tokens": 2,
+    "accepted_draft_tokens": 1,
+    "draft_propose_begin_s": 2857433.11777641
+  },
+  "actual_prefill_round": {
+    "req_id": "draft-graph-003-958b9af6",
+    "execute_begin_s": 2857429.88475539,
+    "computed_before": 0,
+    "prompt_tokens": 128,
+    "is_decode": false,
+    "scheduled_target_tokens": 128,
+    "verified_draft_tokens": 0,
+    "draft_calls_before": 0,
+    "bookkeeping_done_s": 2857430.35170023,
+    "sampled_token_ids": [
+      120213
+    ],
+    "raw_generated_tokens": 1,
+    "accepted_draft_tokens": 0,
+    "draft_propose_begin_s": 2857430.35216767
+  },
+  "bad_first_decode_batchmatmul_not_executed_after_rejection": true,
+  "prefill_bmm_and_wo_b_finite_not_first_decode_evidence": true,
+  "source_parameter_or_cache_not_modified_by_diagnostic": true,
+  "parameter_seal_kept": true,
+  "capture_pollution_causal_claim": false,
+  "next_locator": "target execute/native replay cache boundary snapshots",
+  "candidate_admitted": false,
+  "formal_tp8_claim": false,
+  "performance_evaluated": false,
+  "large_tensor_export_stays_remote": true
+}

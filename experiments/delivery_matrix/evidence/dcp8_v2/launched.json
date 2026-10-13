@@ -1,0 +1,187 @@
+{
+  "schema": "delivery_matrix_launch_v1",
+  "service_launch_requested": true,
+  "service_started": false,
+  "service_process_alive": false,
+  "launch_requested_at": "2026-10-13T02:59:33+08:00",
+  "current_status": "engine_init_failed_stock_graph_observer_hash_guard",
+  "container": "dsv41-real-stack-tp8-20261010-a321",
+  "container_id": "b1aa15d8800346aff8f755a049feaae148b9d6e315e92bd32dcdf1063b429eb0",
+  "image": "local/dsv41-operator-stack-real:20261010-production",
+  "source_root": "/work/src_dspark_general_quality_v11",
+  "candidate": "/work/src_dspark_general_quality_v11/candidate_contract.json",
+  "package": "/work/delivery_matrix_20261013_v4/delivery_matrix",
+  "overlay": "/work/delivery_matrix_20261013_v4/delivery_matrix/dcp_runtime_20261013_v3",
+  "dcp_draft": "/work/delivery_matrix_20261013_v4/delivery_matrix/dcp_draft_20261013_v2",
+  "job_root": "/work/results/delivery_dcp8_v2",
+  "runner": "/work/results/delivery_dcp8_v2/runner.sh",
+  "port": 18960,
+  "served_model": "dsv41-delivery-dcp8-v2",
+  "form": "a3-tp8-dcp8",
+  "device_index": 0,
+  "physical_chips": [
+    8,
+    9,
+    10,
+    11,
+    12,
+    13,
+    14,
+    15
+  ],
+  "dcp_replicate_indexer": 1,
+  "launch_command": [
+    "docker",
+    "exec",
+    "-d",
+    "dsv41-real-stack-tp8-20261010-a321",
+    "setsid",
+    "bash",
+    "/work/results/delivery_dcp8_v2/runner.sh"
+  ],
+  "prelaunch_checks": [
+    {
+      "time": "2026-10-13T02:58:32.908812+08:00",
+      "host_npu_empty": [
+        4,
+        5,
+        6,
+        7
+      ],
+      "host_npu_target_processes": [],
+      "physical_chips_without_processes": [
+        8,
+        9,
+        10,
+        11,
+        12,
+        13,
+        14,
+        15
+      ],
+      "port_18960_listener_count": 0,
+      "target_container_running": true,
+      "container_id": "b1aa15d8800346aff8f755a049feaae148b9d6e315e92bd32dcdf1063b429eb0",
+      "image": "local/dsv41-operator-stack-real:20261010-production",
+      "target_device_nodes": [
+        8,
+        9,
+        10,
+        11,
+        12,
+        13,
+        14,
+        15
+      ],
+      "prior_delivery_process_rows": [],
+      "passed": true
+    },
+    {
+      "time": "2026-10-13T02:59:10.648307+08:00",
+      "host_npu_empty": [
+        4,
+        5,
+        6,
+        7
+      ],
+      "host_npu_target_processes": [],
+      "physical_chips_without_processes": [
+        8,
+        9,
+        10,
+        11,
+        12,
+        13,
+        14,
+        15
+      ],
+      "port_18960_listener_count": 0,
+      "target_container_running": true,
+      "container_id": "b1aa15d8800346aff8f755a049feaae148b9d6e315e92bd32dcdf1063b429eb0",
+      "image": "local/dsv41-operator-stack-real:20261010-production",
+      "target_device_nodes": [
+        8,
+        9,
+        10,
+        11,
+        12,
+        13,
+        14,
+        15
+      ],
+      "prior_delivery_process_rows": [],
+      "passed": true
+    }
+  ],
+  "source_candidate_fingerprint": "8a7b052d6ab87cc5fed7ded6a1ce5903ffb36f018955d671477632356b005bdd",
+  "runtime_fingerprint": "7f582fb3d4fe1514be7041e8df6b968c9a53f940546a260ca0643656b2e101bf",
+  "runtime_plan": "/work/results/delivery_dcp8_v2/service_plan_cpu_only/plan.json",
+  "plan_sha256": "55265b4985750be7c55057e7b0d5ae0339266b7112b46905f95a09d36b0a47aa",
+  "runner_sha256": "b7e6cefcc709fc76c0ad18fd14bd0e0573186b2b214cfe499bed8cdbf996888c",
+  "package_sha256": {
+    "service.py": "86e0b3f9b8ca7d05d0458a59524c1649ec247a375c4a7b62c31b8c277bcf83ee",
+    "worker.py": "4f18899ec4aa3ca3e6b66f91b19f599aa025384303c85908ea430e5565b1383d",
+    "prepare_launch.py": "6d09cfa1a0ed91882fea78c40a1d8a93e28107684ea80dda52d3ece1dfe7b9f1",
+    "run_service.sh": "cc5bcd644c78e5259b82f2cfc8aff3627ab6482b52fb36e8bd7f197ec5a1cdd9",
+    "dcp_overlay.py": "2be889c72906064ff2829a798c84a0e7687418da3825901484e8cc851bfd6710",
+    "build_dcp_overlay.py": "6a47769d4cf85fd966e8a1fe88f2becacb7384640eca627b2f3c9c31ea4d5943",
+    "bootstrap/sitecustomize.py": "2fd6043b20d4d2c02aef6a11b25187c5a6df70ea5148b301a3d9443017f97047",
+    "dcp_runtime_20261013_v3/manifest.json": "8d09cb35615b1a5bfd66c7e4b8f7602c263d2c580423f3599dcc9816ed90b556",
+    "dcp_draft_20261013_v2/manifest.json": "abb1a60cd24f8040a9f87a3a69471a0e38e2a166aed6d073f43c6229316d5074"
+  },
+  "copied_package_files_sha256_verified": 24,
+  "model_kwargs": {
+    "tensor_parallel_size": 8,
+    "decode_context_parallel_size": 8,
+    "max_model_len": 196608,
+    "max_num_batched_tokens": 8192,
+    "max_num_seqs": 1,
+    "async_scheduling": true,
+    "speculative_config": {
+      "method": "dspark",
+      "num_speculative_tokens": 5,
+      "enforce_eager": false
+    }
+  },
+  "environment": {
+    "V41_DCP": "1",
+    "V41_DCP_REPLICATE_INDEXER": "1",
+    "V41_ENGRAM_DEVICE_INDEX": "0",
+    "DELIVERY_DCP_OVERLAY": "/work/delivery_matrix_20261013_v4/delivery_matrix/dcp_runtime_20261013_v3",
+    "DELIVERY_DCP_DRAFT": "/work/delivery_matrix_20261013_v4/delivery_matrix/dcp_draft_20261013_v2",
+    "DRAFT_GRAPH": "1",
+    "DSPARK_GRAPH_CAPTURE_METADATA": "1",
+    "VLLM_BATCH_INVARIANT": "1",
+    "ASCEND_CUSTOM_OPP_PATH": "/usr/local/Ascend/cann-9.1.0/opp/vendors/batch_invariant"
+  },
+  "actual_quality_passed": false,
+  "actual_performance_observed": false,
+  "formal_receipt_granted": false,
+  "performance_receipt_granted": false,
+  "http_ready": false,
+  "engine_initialized": false,
+  "ASGI_startup_completed": false,
+  "current_status_observed_at": "2026-10-13T03:07:29.830130+08:00",
+  "runner_exit_status": 1,
+  "run_log_bytes": 189939,
+  "run_log_sha256": "a48b817be16db206ff9491e5afac16160e6656009daf585a78afa91f05386733",
+  "failure_receipt": "/work/results/delivery_dcp8_v2/failure_receipt.json",
+  "failure_trace_excerpt": "/work/results/delivery_dcp8_v2/failure_trace_excerpt.log",
+  "failure_trace_excerpt_sha256": "ca88d8cc67895016470382fcd82e6fc8c04996f02631e9c4235923bce35a9a18",
+  "post_failure_resource_check": {
+    "checked_at": "2026-10-13T03:07:29.830130+08:00",
+    "container_running": true,
+    "container_id": "b1aa15d8800346aff8f755a049feaae148b9d6e315e92bd32dcdf1063b429eb0",
+    "port_18960_listener_count": 0,
+    "host_npu_empty_observed": [
+      4,
+      5,
+      6,
+      7
+    ],
+    "host_npu_target_processes": [],
+    "physical_chips_8_15_free": true,
+    "project_process_rows_in_container": [],
+    "passed": true
+  }
+}

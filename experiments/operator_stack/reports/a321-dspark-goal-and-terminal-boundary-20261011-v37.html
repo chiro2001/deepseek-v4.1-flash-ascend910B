@@ -1,0 +1,57 @@
+<!doctype html><html lang="zh-CN"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>DSpark 20ms目标与末轮完成边界 · v37</title><style>body{margin:0;background:#f5f7fa;color:#172333;font:16px/1.75 system-ui,sans-serif}article{max-width:1060px;margin:24px auto;padding:32px;background:white;border-radius:12px}h1{font-size:28px;line-height:1.35}h2{font-size:21px;margin-top:32px}table{border-collapse:collapse;width:100%;font-size:14px}td,th{border:1px solid #d9e1ec;padding:8px;text-align:left}th{background:#f0f4fa}code{overflow-wrap:anywhere;background:#eef2f6;padding:1px 4px;border-radius:3px}pre{white-space:pre-wrap;padding:16px;background:#eef2f6}a{color:#135ab5}@media(max-width:700px){article{margin:0;padding:20px;border-radius:0}table{display:block;overflow:auto}}</style><article><h1>正式 DSpark 20ms 目标与末轮完成边界</h1>
+<p>2026-10-11 · a3-21 · 完整40层/TP8/W4A8/Engram int8/视觉/MTP3 · HCCL strict</p>
+<p>用户清除旧 goal 后，已重新创建 <strong>active</strong> 新 goal：正式 TP8 包含 DSpark 草稿生成、目标验证、调度和 cache 全部实际开销，客户端 ≤20ms/step。旧无 DSpark 的17ms与短暂24ms目标均被取代。当前没有包含 DSpark 的20ms验收或最终最优部署，不能标记 complete。</p>
+<h2>正式原生 ON A/A</h2>
+<p>生产 stock <code>AscendDSparkProposer</code> 明确硬禁 draft graph；配置 ON 不等于图执行。原 graph A/A v2 加载及两个 warmup 后因8rank实际 <code>draft_graph_configured=false</code> 拒绝。后续改为真实 eager draft 原生 ON A/A，完整40层/384专家top6/真实W4A8、Engram、视觉与3层MTP保留，K5、target FULL[6]；未修改权重、SDK数学体或 flip 配置字段。</p>
+<p><code>formal_dspark_native_eager_aa_v1</code> 完成两个 warmup，但首个计数请求结束后的 stock 零 token 清理调度被单请求 counter 误拒绝。调度表与 total均为0，finished core ID为<code>2-ae372658</code>，本应返回 EMPTY 并不执行目标/草稿。主线程核对 argv、源根、环境及实际 fatal 后只终止本任务 driver，exit143；没有完成计数闭环，不报价。</p>
+<p>新 stock v3 分开记录空调度及实际 empty return，不让它贡献 rounds/sampler/draft；保留清理墙钟。实际 external→core ID 从 <code>LLMEngine.add_request</code> 返回值和 <code>OutputProcessor.external_req_ids</code>取得，最终输出与8rank counters严格对应，不凭字符串前缀猜测。26项CPU检查过，旧冻结源码不变。</p>
+<p><code>formal_dspark_native_eager_aa_v2</code> 使用该新快照，完成加载、两个warmup及一个计数请求；第二条在 <strong>Client completion precedes final worker sample completion</strong> 门拒绝/exit1。输出rank可先发布结果，而个别rank的末轮已提交草稿和计数尚未完成。正确拒绝该完成边界，不能把后取回counter的时间或 max(worker timestamp)拼成客户端报价。</p>
+<p>新 stock v4 在各rank末轮实际 device fence和sample时间戳之后，以真实 stock CPU Gloo TP8 barrier完成一次join，然后返回末轮输出。所有rank实际设备完成和时间戳均先于barrier entry；输出rank返回之后客户端才结束。join计入decode墙钟，稳态不加额外D2H/同步。32项CPU门过，包括延后最后一个rank的8线程回归；CPU检查不等于NPU消费者证明。原始counter/core ID/tokens/客户端时钟在门前保存，失败也保留。主线程已通过fresh8–15与仅80C98001资源门启动 <code>formal_dspark_native_eager_aa_v3</code>，冻结源<code>/work/src_dspark_native_eager_v3</code>，实际A/A待收取。</p>
+<p>以下三元组口径不同，不作直接收益相减：</p>
+<table>
+<thead>
+<tr>
+<th>记录</th>
+<th style="text-align: right;">ms/step</th>
+<th style="text-align: right;">A</th>
+<th style="text-align: right;">tok/s</th>
+<th>证据范围</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>旧正式mask客户端</td>
+<td style="text-align: right;">19.289956</td>
+<td style="text-align: right;">1</td>
+<td style="text-align: right;">51.840451</td>
+<td>无DSpark，8serial/2K/256，GSM100/100、Vision23/23；不满足新目标</td>
+</tr>
+<tr>
+<td>正式eager v2首条诊断</td>
+<td style="text-align: right;">55.525819</td>
+<td style="text-align: right;">5.75</td>
+<td style="text-align: right;">103.555429</td>
+<td>审计route/logprob开，2K/47、46decode/8实际rounds；A/A整体失败，不是性能报价</td>
+</tr>
+<tr>
+<td>专属tiny v7合并窗</td>
+<td style="text-align: right;">45.881321</td>
+<td style="text-align: right;">1.9375</td>
+<td style="text-align: right;">42.228514</td>
+<td>8serial/248decode/128真实rounds，BF16 dummy；不能外推正式收益</td>
+</tr>
+</tbody>
+</table>
+<p>正式性能仍须关闭审计/profiler、2K输入/256输出、至少8serial。按实际target/verifier rounds计step，A=decoded_tokens/rounds，ms=1000×decode_s/rounds，tok/s=decoded_tokens/decode_s；包含initial和terminal已提交draft完成。须报告clean-rate/复读/空答，完整main/draft/verifier/cache消费者、接受前缀与rollback门先过，最终重新通过GSM100/100、Vision23/23和API归属。</p>
+<h2>DSpark专属tiny与审计SDK</h2>
+<p>已冻结v7三源与37个精确交付文件、compact和profile解析。范围为TP1/full40/hidden5120/8expert top2/BF16 dummy/无Engram/MTP3；target FULL[6]，draft eager。各31decode/16真实rounds/17实际<code>_propose</code>（initial+terminal）/80验证提议，3次原生token/Top5/logprob A/A delta0。8/8 period2复读、完整routes/cache门未过，candidate_admitted=false。profile中的主图/草稿间隙仅诊断，不当可回收预算。</p>
+<p>真实图候选使用原构造入口、完整capture flag组，无bool flip。graph_v1已有entry为BatchDescriptor(6,1,uniform)，capture metadata groups1/layers3/nQuery5/nInput6；OFF warmup实际draft replay0，ON warmup初始draft NONE/eager，后续16实际decode对应16 target与16 draft <code>NPUGraph.replay</code>返回。只证明实际提交，未获质量或性能资格。</p>
+<p>质量门捕获非有限实际消费者并拒绝/exit1，未进入性能配对。随后独立native OFF即时诊断定位到首个真实decode、capture=False的MTP layer0：hidden[5,5120]、logits[5,8]，原router返回FLOAT32 weights[5,2]/INT32 IDs[5,2]，10/10有效weights非有限；5query均有效，不是padding，也发生在后续GMM消费前的即时复制。未sanitize或过滤有效行。代理继续从input/weight/共享KV/attention来源定位，并准备无draft capture的纯eager对照；现有fixture不能获质量证明。</p>
+<p>独立审计代理已实现预分配carrier的真实ATen copy/zero/fill/add与末尾epoch copy，返回Tensor tuple，避免此前None opaque方案。CPU7项过；真实GraphEx static/nonstatic、32代value/epoch/count、实际copy源目的地址与alias门已具体化。已明确分配fresh健康空闲physical7，仅单chip SDK门；必要时独立keep_inference_input_mutations对照，不修改正式compiler。默认static首个SDK case在torch.npu.set_device(0)即报TsdOpen ERR00100/507033，尚无allocation/MatMul/compile/capture/epoch/copy；这不是ATen/alias拒绝。后续nonstatic/keep均未启动，physical7释放，代理继续只读初始化差异与CPU接线。当前完整43层与cache/rollback device receipt仍false。</p>
+<h2>GMM HostArgs边界</h2>
+<p>CPU与真实日志定位到旧<code>isNoNeedH2DCopy=1</code>、16B host栈与HostGetDevPointer drv11契约错误。新HostArgs包装保持原16/72B ABI与zero placeholders，原13源/17数学函数、对象和2032B tiling不变；SDK WithConfig句柄顺序与生命周期另有CPU契约。</p>
+<p>physical6的新R0门实机exit0：Data注册/query/严格属性→唯一planner→stream同步→128B frame逐字节正确且canaries完好。实际<code>aclrtLaunchKernelWithHostArgs</code>、isNoNeedH2DCopy=0、stream46，所有cleanup0，原对象与private so SHA前后不变；fresh释放后无进程/HealthOK。该R0没有GMM数学或权重，不构成精度/性能收益。</p>
+<p>后续固定E48原W2 NZ/scale/assist、M6/K2304/N5120/counts48 type1，R1/R3/R6≤capacity6、9case的最小SDK-native/raw-native/candidate数值门已准备。使用明确synthetic INT8/FP32 activation和层0/rank0真实原loader权重。v1在dtype view/contiguous后的format29 guard前拒绝，未打开raw probe，GMM/planner数学启动0；不是数学失败。只读对照已定位v1的ALLOW_INTERNAL_FORMAT默认disable，而生产runner明确设置allow_internal_format=True；将按生产设置的新冻结v2核对实际GM字节和同一个SDK消费者Tensor，保留29及完整E48字节门，不能删断言或二次NZ转换绕过。数值门不覆盖K5多token verifier，不报告整网收益。</p>
+<h2>阶段交付与后续</h2>
+<p>三代理保持已核验gpt-6.1-sol/max、明文任务及ACK正常，分别负责tiny4、GMM6、SDK7；正式8–15由主线程负责。每次fresh占用/健康门，只放行已授权80C98001；不reset、不清pagecache、不操作其他租户。单SSH文件&lt;1MB，大trace/日志留远端并记录SHA。</p>
+<p>本阶段只提交已冻结baseline/源码/compact，排除代理活graph/exporter/M1开发文件、二进制与大trace。原始SDK/source/编译日志保留原字节和SHA，避免为格式清洁改变证据。报告MD/HTML发布COS及links-server并下载SHA核验，源码提交后从HEAD生成MANIFEST、archive自检和双远端push。新正式A/A和真实消费者门通过后，才继续同实例候选性能、正式客户端质量与20ms验收；当前goal保持active。</p></article></html>

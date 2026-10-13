@@ -1,0 +1,57 @@
+{
+  "job": "dspark_lane_20261011_c4_graph_diag_v6",
+  "exit": 1,
+  "classification": "first_observed_nonfinite_at_native_O_projection_output",
+  "actual_round": {
+    "req_id": "draft-graph-003-8a877eda",
+    "execute_begin_s": 2856361.14952385,
+    "computed_before": 128,
+    "prompt_tokens": 128,
+    "is_decode": true,
+    "scheduled_target_tokens": 6,
+    "verified_draft_tokens": 5,
+    "draft_calls_before": 1,
+    "bookkeeping_done_s": 2856361.20071923,
+    "sampled_token_ids": [
+      96070,
+      120213
+    ],
+    "raw_generated_tokens": 2,
+    "accepted_draft_tokens": 1,
+    "draft_propose_begin_s": 2856361.20141637
+  },
+  "actual_core_id": "draft-graph-003-8a877eda",
+  "draft_arm": "off",
+  "capture": false,
+  "projected_hidden_shape": [
+    5,
+    5120
+  ],
+  "projected_hidden_dtype": "torch.bfloat16",
+  "nonfinite_effective_values": 25600,
+  "effective_query_rows": 5,
+  "all_four_actual_hc_attention_outputs_finite": true,
+  "actual_hc_dispatcher_schema": "_C_ascend::npu_hc_pre_v2(Tensor x, Tensor hc_fn, Tensor hc_scale, Tensor hc_base, Tensor? pre_mix=None, *, int hc_mult=4, int hc_sinkhorn_iters=20, float norm_eps=9.9999999999999995e-07, float hc_eps=9.9999999999999995e-07) -> (Tensor y, Tensor post, Tensor comb_frag, Tensor pre)",
+  "hc_compiler_partition_changed": false,
+  "raw_attention_input_finite": true,
+  "raw_attention_input_range": [
+    -0.000286102294921875,
+    0.0002346038818359375
+  ],
+  "original_wo_a_and_wo_b_parameter_values_finite": true,
+  "actual_derived_wo_a_cache_not_yet_read": true,
+  "bad_interval": [
+    "native cached/transformed wo_a operand",
+    "npu_transpose_batchmatmul",
+    "wo_b input/linear/output"
+  ],
+  "downstream_hc_post_ffn_hc_rms_router_not_executed_after_rejection": true,
+  "full_consumer_precision_gate_passed": false,
+  "candidate_admitted": false,
+  "performance_evaluated": false,
+  "formal_tp8_claim": false,
+  "invasive_diagnostic_reads_add_sync": true,
+  "capture_pollution_causal_claim": false,
+  "tensor_exports_stay_remote": true,
+  "next_job": "dspark_lane_20261011_c4_graph_diag_v7"
+}

@@ -1,0 +1,23 @@
+{
+  "job": "dspark_lane_20261011_c4_native_diag_v1",
+  "exit": 1,
+  "classification": "diagnostic_harness_error_not_a_quality_result",
+  "exception": "Inference tensors do not track version counter",
+  "draft_capture": false,
+  "native_coverage": {
+    "native_draft_forward_calls": 1,
+    "draft_graph_wrapper": false,
+    "all_observed_draft_contexts_none": true,
+    "draft_capture": false,
+    "constructor_use_cuda_graph": false
+  },
+  "router_layers_value_sealed": 43,
+  "sealed_tensor_views": 209,
+  "all_router_weight_tensors_finite": true,
+  "actual_activation_finite_result_available": false,
+  "performance_claim": false,
+  "quality_claim": false,
+  "fixed_in_next_job": "dspark_lane_20261011_c4_native_diag_v2",
+  "fix": "inference activations record absent version counters; parameter value/metadata guards remain strict",
+  "frozen_v7_unchanged": true
+}

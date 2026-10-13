@@ -1,0 +1,2582 @@
+{
+  "request": {
+    "clean": {
+      "clean": true,
+      "reasons": []
+    },
+    "client_decode_ms_per_step": 27.640608181834317,
+    "client_decode_ms_per_step_scope": "HTTP SSE first-content to last-content decode_s, normalized by trusted delivery-counter decode_rounds; excludes TTFT.",
+    "client_e2e_ms_per_round": 27.640608181834317,
+    "client_e2e_ms_per_round_legacy_alias_of": "client_decode_ms_per_step",
+    "code_score": {
+      "case_results": [],
+      "error": "RuntimeError: 执行不可信生成代码必须安装 bubblewrap (bwrap)；不提供弱隔离回退。",
+      "extracted_code": "import heapq\n\n\ndef topological_order(nodes, edges):\n    node_set = set(nodes)\n    indegree = {node: 0 for node in nodes}\n    adj = {node: set() for node in nodes}\n\n    for edge in edges:\n        if not isinstance(edge, (list, tuple)) or len(edge) != 2:\n            continue\n        u, v = edge\n        if u not in node_set or v not in node_set:\n            continue\n        if v not in adj[u]:\n            adj[u].add(v)\n            indegree[v] += 1\n\n    heap = [node for node in nodes if indegree[node] == 0]\n    heapq.heapify(heap)\n\n    result = []\n    while heap:\n        u = heapq.heappop(heap)\n        result.append(u)\n        for v in sorted(adj[u]):\n            indegree[v] -= 1\n            if indegree[v] == 0:\n                heapq.heappush(heap, v)\n\n    if len(result) != len(nodes):\n        return []\n\n    return result\n",
+      "extracted_code_sha256": "396ccd05cc20f8e496d67b4d1f0075bfd2a932f84a04308e0e9a6150a1a25b92",
+      "isolation": null,
+      "passed": 0,
+      "status": "sandbox_error",
+      "total": 16
+    },
+    "code_task_id": "topological_order",
+    "decode_rate_completion_tokens": 232,
+    "decode_s": 1.21618676000071,
+    "decode_tok_s": 190.76017568211694,
+    "delivery_arm": {
+      "data": {
+        "max_tokens": 1024,
+        "ranks": [
+          {
+            "armed": true,
+            "async_mode": true,
+            "max_tokens": 1024,
+            "rank": 0,
+            "tag": "dm-fad6aced42c74d24928f7e65392f4939"
+          },
+          {
+            "armed": true,
+            "async_mode": true,
+            "max_tokens": 1024,
+            "rank": 1,
+            "tag": "dm-fad6aced42c74d24928f7e65392f4939"
+          },
+          {
+            "armed": true,
+            "async_mode": true,
+            "max_tokens": 1024,
+            "rank": 2,
+            "tag": "dm-fad6aced42c74d24928f7e65392f4939"
+          },
+          {
+            "armed": true,
+            "async_mode": true,
+            "max_tokens": 1024,
+            "rank": 3,
+            "tag": "dm-fad6aced42c74d24928f7e65392f4939"
+          },
+          {
+            "armed": true,
+            "async_mode": true,
+            "max_tokens": 1024,
+            "rank": 4,
+            "tag": "dm-fad6aced42c74d24928f7e65392f4939"
+          },
+          {
+            "armed": true,
+            "async_mode": true,
+            "max_tokens": 1024,
+            "rank": 5,
+            "tag": "dm-fad6aced42c74d24928f7e65392f4939"
+          },
+          {
+            "armed": true,
+            "async_mode": true,
+            "max_tokens": 1024,
+            "rank": 6,
+            "tag": "dm-fad6aced42c74d24928f7e65392f4939"
+          },
+          {
+            "armed": true,
+            "async_mode": true,
+            "max_tokens": 1024,
+            "rank": 7,
+            "tag": "dm-fad6aced42c74d24928f7e65392f4939"
+          }
+        ],
+        "schema": "delivery_counter_arm_v1",
+        "service_instance_id": "9d2ba214732b4eed84dc4f416f27c6ae",
+        "tag": "dm-fad6aced42c74d24928f7e65392f4939"
+      },
+      "endpoint": "http://127.0.0.1:18960/delivery/arm",
+      "ok": true,
+      "response_sha256": "35ac645c2b6b1b8502ece99dc1013d896942601909bdf1551f780482d2e3ce44",
+      "sent": {
+        "max_tokens": 1024,
+        "tag": "dm-fad6aced42c74d24928f7e65392f4939"
+      }
+    },
+    "delivery_counter_delta": {
+      "A": 5.2727272727272725,
+      "async_mode": true,
+      "available": true,
+      "counter_deltas_by_rank": {
+        "0": {
+          "decode_rounds": 44,
+          "decode_seconds": 1.3827612200000008,
+          "decode_tokens": null,
+          "prefill_seconds": 0.16311432000000003
+        },
+        "1": {
+          "decode_rounds": 44,
+          "decode_seconds": 1.38781234,
+          "decode_tokens": null,
+          "prefill_seconds": 0.15807613000000043
+        },
+        "2": {
+          "decode_rounds": 44,
+          "decode_seconds": 1.3805937299999993,
+          "decode_tokens": null,
+          "prefill_seconds": 0.16530860000000036
+        },
+        "3": {
+          "decode_rounds": 44,
+          "decode_seconds": 1.3908147599999996,
+          "decode_tokens": null,
+          "prefill_seconds": 0.1550795100000002
+        },
+        "4": {
+          "decode_rounds": 44,
+          "decode_seconds": 1.3875628899999999,
+          "decode_tokens": null,
+          "prefill_seconds": 0.1583221899999998
+        },
+        "5": {
+          "decode_rounds": 44,
+          "decode_seconds": 1.3878117900000007,
+          "decode_tokens": null,
+          "prefill_seconds": 0.15807908000000026
+        },
+        "6": {
+          "decode_rounds": 44,
+          "decode_seconds": 1.3878477500000006,
+          "decode_tokens": null,
+          "prefill_seconds": 0.15804199000000008
+        },
+        "7": {
+          "decode_rounds": 44,
+          "decode_seconds": 1.3898856899999998,
+          "decode_tokens": null,
+          "prefill_seconds": 0.1560060400000003
+        }
+      },
+      "decode_seconds_s": 1.3908147599999996,
+      "decode_tokens": 232,
+      "decode_tokens_raw": null,
+      "final_decode_tokens": 232,
+      "ms_step": 31.609426363636352,
+      "ms_step_legacy_alias_of": "server_fenced_ms_per_step",
+      "ms_step_scope": "terminal prefill CPU bookkeeping -> worker completion fence; may include metrics RPC delay",
+      "prefill_reporting": null,
+      "prefill_request_rows_by_rank": null,
+      "raw_tokens_trimmed_at_terminal": null,
+      "reason": null,
+      "request_id": "chatcmpl-dm-fad6aced42c74d24928f7e65392f4939-8c14b3c8",
+      "request_rows_by_rank": {
+        "0": {
+          "async_mode": true,
+          "decode_rounds": 44,
+          "decode_start_ns": 35163958043730,
+          "decode_wall_scope": "terminal prefill CPU bookkeeping -> worker completion fence; may include metrics RPC delay",
+          "fenced_end_ns": 35165340804950,
+          "last_round_tokens": null,
+          "prefill_wall_scope": "first scheduled prefill -> terminal prefill CPU bookkeeping",
+          "profile_excluded": true,
+          "prompt_tokens": 2048,
+          "raw_decode_tokens": null,
+          "request_id": "chatcmpl-dm-fad6aced42c74d24928f7e65392f4939-8c14b3c8",
+          "seed_tokens": 1,
+          "tag": "dm-fad6aced42c74d24928f7e65392f4939",
+          "terminal_fence_observed": true,
+          "terminal_sample_end_ns": 35165321112120,
+          "terminal_tp_join_observed": true,
+          "window_fingerprint": "2e121967670f29ab0cd6056085c14d12c3d83934d6f9f671e143d049b6b92344"
+        },
+        "1": {
+          "async_mode": true,
+          "decode_rounds": 44,
+          "decode_start_ns": 35163952994190,
+          "decode_wall_scope": "terminal prefill CPU bookkeeping -> worker completion fence; may include metrics RPC delay",
+          "fenced_end_ns": 35165340806530,
+          "last_round_tokens": null,
+          "prefill_wall_scope": "first scheduled prefill -> terminal prefill CPU bookkeeping",
+          "profile_excluded": true,
+          "prompt_tokens": 2048,
+          "raw_decode_tokens": null,
+          "request_id": "chatcmpl-dm-fad6aced42c74d24928f7e65392f4939-8c14b3c8",
+          "seed_tokens": 1,
+          "tag": "dm-fad6aced42c74d24928f7e65392f4939",
+          "terminal_fence_observed": true,
+          "terminal_sample_end_ns": 35165321448600,
+          "terminal_tp_join_observed": true,
+          "window_fingerprint": "2e121967670f29ab0cd6056085c14d12c3d83934d6f9f671e143d049b6b92344"
+        },
+        "2": {
+          "async_mode": true,
+          "decode_rounds": 44,
+          "decode_start_ns": 35163960222220,
+          "decode_wall_scope": "terminal prefill CPU bookkeeping -> worker completion fence; may include metrics RPC delay",
+          "fenced_end_ns": 35165340815950,
+          "last_round_tokens": null,
+          "prefill_wall_scope": "first scheduled prefill -> terminal prefill CPU bookkeeping",
+          "profile_excluded": true,
+          "prompt_tokens": 2048,
+          "raw_decode_tokens": null,
+          "request_id": "chatcmpl-dm-fad6aced42c74d24928f7e65392f4939-8c14b3c8",
+          "seed_tokens": 1,
+          "tag": "dm-fad6aced42c74d24928f7e65392f4939",
+          "terminal_fence_observed": true,
+          "terminal_sample_end_ns": 35165321242680,
+          "terminal_tp_join_observed": true,
+          "window_fingerprint": "2e121967670f29ab0cd6056085c14d12c3d83934d6f9f671e143d049b6b92344"
+        },
+        "3": {
+          "async_mode": true,
+          "decode_rounds": 44,
+          "decode_start_ns": 35163949988160,
+          "decode_wall_scope": "terminal prefill CPU bookkeeping -> worker completion fence; may include metrics RPC delay",
+          "fenced_end_ns": 35165340802920,
+          "last_round_tokens": null,
+          "prefill_wall_scope": "first scheduled prefill -> terminal prefill CPU bookkeeping",
+          "profile_excluded": true,
+          "prompt_tokens": 2048,
+          "raw_decode_tokens": null,
+          "request_id": "chatcmpl-dm-fad6aced42c74d24928f7e65392f4939-8c14b3c8",
+          "seed_tokens": 1,
+          "tag": "dm-fad6aced42c74d24928f7e65392f4939",
+          "terminal_fence_observed": true,
+          "terminal_sample_end_ns": 35165320868110,
+          "terminal_tp_join_observed": true,
+          "window_fingerprint": "2e121967670f29ab0cd6056085c14d12c3d83934d6f9f671e143d049b6b92344"
+        },
+        "4": {
+          "async_mode": true,
+          "decode_rounds": 44,
+          "decode_start_ns": 35163953241510,
+          "decode_wall_scope": "terminal prefill CPU bookkeeping -> worker completion fence; may include metrics RPC delay",
+          "fenced_end_ns": 35165340804400,
+          "last_round_tokens": null,
+          "prefill_wall_scope": "first scheduled prefill -> terminal prefill CPU bookkeeping",
+          "profile_excluded": true,
+          "prompt_tokens": 2048,
+          "raw_decode_tokens": null,
+          "request_id": "chatcmpl-dm-fad6aced42c74d24928f7e65392f4939-8c14b3c8",
+          "seed_tokens": 1,
+          "tag": "dm-fad6aced42c74d24928f7e65392f4939",
+          "terminal_fence_observed": true,
+          "terminal_sample_end_ns": 35165320915870,
+          "terminal_tp_join_observed": true,
+          "window_fingerprint": "2e121967670f29ab0cd6056085c14d12c3d83934d6f9f671e143d049b6b92344"
+        },
+        "5": {
+          "async_mode": true,
+          "decode_rounds": 44,
+          "decode_start_ns": 35163952995090,
+          "decode_wall_scope": "terminal prefill CPU bookkeeping -> worker completion fence; may include metrics RPC delay",
+          "fenced_end_ns": 35165340806880,
+          "last_round_tokens": null,
+          "prefill_wall_scope": "first scheduled prefill -> terminal prefill CPU bookkeeping",
+          "profile_excluded": true,
+          "prompt_tokens": 2048,
+          "raw_decode_tokens": null,
+          "request_id": "chatcmpl-dm-fad6aced42c74d24928f7e65392f4939-8c14b3c8",
+          "seed_tokens": 1,
+          "tag": "dm-fad6aced42c74d24928f7e65392f4939",
+          "terminal_fence_observed": true,
+          "terminal_sample_end_ns": 35165320993730,
+          "terminal_tp_join_observed": true,
+          "window_fingerprint": "2e121967670f29ab0cd6056085c14d12c3d83934d6f9f671e143d049b6b92344"
+        },
+        "6": {
+          "async_mode": true,
+          "decode_rounds": 44,
+          "decode_start_ns": 35163952954150,
+          "decode_wall_scope": "terminal prefill CPU bookkeeping -> worker completion fence; may include metrics RPC delay",
+          "fenced_end_ns": 35165340801900,
+          "last_round_tokens": null,
+          "prefill_wall_scope": "first scheduled prefill -> terminal prefill CPU bookkeeping",
+          "profile_excluded": true,
+          "prompt_tokens": 2048,
+          "raw_decode_tokens": null,
+          "request_id": "chatcmpl-dm-fad6aced42c74d24928f7e65392f4939-8c14b3c8",
+          "seed_tokens": 1,
+          "tag": "dm-fad6aced42c74d24928f7e65392f4939",
+          "terminal_fence_observed": true,
+          "terminal_sample_end_ns": 35165320964030,
+          "terminal_tp_join_observed": true,
+          "window_fingerprint": "2e121967670f29ab0cd6056085c14d12c3d83934d6f9f671e143d049b6b92344"
+        },
+        "7": {
+          "async_mode": true,
+          "decode_rounds": 44,
+          "decode_start_ns": 35163950917930,
+          "decode_wall_scope": "terminal prefill CPU bookkeeping -> worker completion fence; may include metrics RPC delay",
+          "fenced_end_ns": 35165340803620,
+          "last_round_tokens": null,
+          "prefill_wall_scope": "first scheduled prefill -> terminal prefill CPU bookkeeping",
+          "profile_excluded": true,
+          "prompt_tokens": 2048,
+          "raw_decode_tokens": null,
+          "request_id": "chatcmpl-dm-fad6aced42c74d24928f7e65392f4939-8c14b3c8",
+          "seed_tokens": 1,
+          "tag": "dm-fad6aced42c74d24928f7e65392f4939",
+          "terminal_fence_observed": true,
+          "terminal_sample_end_ns": 35165320876850,
+          "terminal_tp_join_observed": true,
+          "window_fingerprint": "2e121967670f29ab0cd6056085c14d12c3d83934d6f9f671e143d049b6b92344"
+        }
+      },
+      "request_tag": "dm-fad6aced42c74d24928f7e65392f4939",
+      "server_counter_decode_wall_may_include_metrics_rpc_delay": true,
+      "server_fenced_ms_per_step": 31.609426363636352,
+      "server_fenced_ms_per_step_scope": "GET /delivery/metrics delta: ranks[].cumulative.decode_seconds; terminal prefill CPU bookkeeping -> worker completion fence; may include metrics RPC delay; may include metrics RPC delay",
+      "server_prefill_components": null,
+      "server_prefill_s": 0.16530860000000036,
+      "server_prefill_scope": "first scheduled prefill -> terminal prefill CPU bookkeeping",
+      "server_prefill_source": "GET /delivery/metrics delta: ranks[].cumulative.prefill_seconds; max rank delta",
+      "steps": 44,
+      "trusted_source": {
+        "counter_scope": "actual runner scheduled/request CPU-token bookkeeping",
+        "decode_service_instance_id": null,
+        "endpoint": "/delivery/metrics",
+        "form": "a2-tp8-a3sim",
+        "prefill_service_instance_id": null,
+        "rank_count": 8,
+        "schema": "delivery_runtime_metrics_v1",
+        "served_model": "dsv41-delivery-a2sim-tp8-v4",
+        "service_instance_id": "9d2ba214732b4eed84dc4f416f27c6ae"
+      },
+      "window_fingerprint": "2e121967670f29ab0cd6056085c14d12c3d83934d6f9f671e143d049b6b92344"
+    },
+    "delivery_metrics_after": {
+      "data": {
+        "counter_scope": "actual runner scheduled/request CPU-token bookkeeping",
+        "form": "a2-tp8-a3sim",
+        "ranks": [
+          {
+            "counter_scope": "actual runner scheduled/request CPU-token bookkeeping",
+            "cumulative": {
+              "decode_rounds": 171,
+              "decode_seconds": 11.79964708,
+              "decode_tokens": null,
+              "draft_eager_calls": 4,
+              "draft_graph_calls": 171,
+              "prefill_calls": 4,
+              "prefill_seconds": 6.42705913
+            },
+            "decode_tokens_scope": "HTTP final usage required for async; raw worker tokens before terminal trimming for sync",
+            "errors": [],
+            "last_window": {
+              "tag": "dm-fad6aced42c74d24928f7e65392f4939",
+              "window_fingerprint": "2e121967670f29ab0cd6056085c14d12c3d83934d6f9f671e143d049b6b92344"
+            },
+            "pending": false,
+            "rank": 0,
+            "requests": [
+              {
+                "async_mode": true,
+                "decode_rounds": 33,
+                "decode_start_ns": 35040928391620,
+                "decode_wall_scope": "terminal prefill CPU bookkeeping -> worker completion fence; may include metrics RPC delay",
+                "fenced_end_ns": 35048389235060,
+                "last_round_tokens": null,
+                "prefill_wall_scope": "first scheduled prefill -> terminal prefill CPU bookkeeping",
+                "profile_excluded": true,
+                "prompt_tokens": 2048,
+                "raw_decode_tokens": null,
+                "request_id": "chatcmpl-dm-canary-e2d50fa44e184e12b3608839c568ba49-b6295811",
+                "seed_tokens": 1,
+                "tag": "dm-canary-e2d50fa44e184e12b3608839c568ba49",
+                "terminal_fence_observed": true,
+                "terminal_sample_end_ns": 35048369093110,
+                "terminal_tp_join_observed": true,
+                "window_fingerprint": "56d61b3af63d6f1af2f2cf8d109bb04c74050bed14cbdc4d45ba4d06af4903e4"
+              },
+              {
+                "async_mode": true,
+                "decode_rounds": 67,
+                "decode_start_ns": 35160624622860,
+                "decode_wall_scope": "terminal prefill CPU bookkeeping -> worker completion fence; may include metrics RPC delay",
+                "fenced_end_ns": 35162677288930,
+                "last_round_tokens": null,
+                "prefill_wall_scope": "first scheduled prefill -> terminal prefill CPU bookkeeping",
+                "profile_excluded": true,
+                "prompt_tokens": 2048,
+                "raw_decode_tokens": null,
+                "request_id": "chatcmpl-dm-46db672b28d548c28a34d9b662e5c75b-b8de022f",
+                "seed_tokens": 1,
+                "tag": "dm-46db672b28d548c28a34d9b662e5c75b",
+                "terminal_fence_observed": true,
+                "terminal_sample_end_ns": 35162657891340,
+                "terminal_tp_join_observed": true,
+                "window_fingerprint": "6b8d150c5dfb21b1a421a45d84da9cf2332d56d618889b5fa8116e9daddf484a"
+              },
+              {
+                "async_mode": true,
+                "decode_rounds": 27,
+                "decode_start_ns": 35162866936180,
+                "decode_wall_scope": "terminal prefill CPU bookkeeping -> worker completion fence; may include metrics RPC delay",
+                "fenced_end_ns": 35163770312530,
+                "last_round_tokens": null,
+                "prefill_wall_scope": "first scheduled prefill -> terminal prefill CPU bookkeeping",
+                "profile_excluded": true,
+                "prompt_tokens": 2048,
+                "raw_decode_tokens": null,
+                "request_id": "chatcmpl-dm-4be35e30bc994f7b8cf2355118e917c5-869368f3",
+                "seed_tokens": 1,
+                "tag": "dm-4be35e30bc994f7b8cf2355118e917c5",
+                "terminal_fence_observed": true,
+                "terminal_sample_end_ns": 35163750760940,
+                "terminal_tp_join_observed": true,
+                "window_fingerprint": "79564a141e3c51ba3817b8f01b90d5212ae8b0ec91da95887a05d93d272bb1d0"
+              },
+              {
+                "async_mode": true,
+                "decode_rounds": 44,
+                "decode_start_ns": 35163958043730,
+                "decode_wall_scope": "terminal prefill CPU bookkeeping -> worker completion fence; may include metrics RPC delay",
+                "fenced_end_ns": 35165340804950,
+                "last_round_tokens": null,
+                "prefill_wall_scope": "first scheduled prefill -> terminal prefill CPU bookkeeping",
+                "profile_excluded": true,
+                "prompt_tokens": 2048,
+                "raw_decode_tokens": null,
+                "request_id": "chatcmpl-dm-fad6aced42c74d24928f7e65392f4939-8c14b3c8",
+                "seed_tokens": 1,
+                "tag": "dm-fad6aced42c74d24928f7e65392f4939",
+                "terminal_fence_observed": true,
+                "terminal_sample_end_ns": 35165321112120,
+                "terminal_tp_join_observed": true,
+                "window_fingerprint": "2e121967670f29ab0cd6056085c14d12c3d83934d6f9f671e143d049b6b92344"
+              }
+            ]
+          },
+          {
+            "counter_scope": "actual runner scheduled/request CPU-token bookkeeping",
+            "cumulative": {
+              "decode_rounds": 171,
+              "decode_seconds": 11.74565847,
+              "decode_tokens": null,
+              "draft_eager_calls": 4,
+              "draft_graph_calls": 171,
+              "prefill_calls": 4,
+              "prefill_seconds": 6.480906290000001
+            },
+            "decode_tokens_scope": "HTTP final usage required for async; raw worker tokens before terminal trimming for sync",
+            "errors": [],
+            "last_window": {
+              "tag": "dm-fad6aced42c74d24928f7e65392f4939",
+              "window_fingerprint": "2e121967670f29ab0cd6056085c14d12c3d83934d6f9f671e143d049b6b92344"
+            },
+            "pending": false,
+            "rank": 1,
+            "requests": [
+              {
+                "async_mode": true,
+                "decode_rounds": 33,
+                "decode_start_ns": 35040985316900,
+                "decode_wall_scope": "terminal prefill CPU bookkeeping -> worker completion fence; may include metrics RPC delay",
+                "fenced_end_ns": 35048389228510,
+                "last_round_tokens": null,
+                "prefill_wall_scope": "first scheduled prefill -> terminal prefill CPU bookkeeping",
+                "profile_excluded": true,
+                "prompt_tokens": 2048,
+                "raw_decode_tokens": null,
+                "request_id": "chatcmpl-dm-canary-e2d50fa44e184e12b3608839c568ba49-b6295811",
+                "seed_tokens": 1,
+                "tag": "dm-canary-e2d50fa44e184e12b3608839c568ba49",
+                "terminal_fence_observed": true,
+                "terminal_sample_end_ns": 35048369026190,
+                "terminal_tp_join_observed": true,
+                "window_fingerprint": "56d61b3af63d6f1af2f2cf8d109bb04c74050bed14cbdc4d45ba4d06af4903e4"
+              },
+              {
+                "async_mode": true,
+                "decode_rounds": 67,
+                "decode_start_ns": 35160630468670,
+                "decode_wall_scope": "terminal prefill CPU bookkeeping -> worker completion fence; may include metrics RPC delay",
+                "fenced_end_ns": 35162677293480,
+                "last_round_tokens": null,
+                "prefill_wall_scope": "first scheduled prefill -> terminal prefill CPU bookkeeping",
+                "profile_excluded": true,
+                "prompt_tokens": 2048,
+                "raw_decode_tokens": null,
+                "request_id": "chatcmpl-dm-46db672b28d548c28a34d9b662e5c75b-b8de022f",
+                "seed_tokens": 1,
+                "tag": "dm-46db672b28d548c28a34d9b662e5c75b",
+                "terminal_fence_observed": true,
+                "terminal_sample_end_ns": 35162657590390,
+                "terminal_tp_join_observed": true,
+                "window_fingerprint": "6b8d150c5dfb21b1a421a45d84da9cf2332d56d618889b5fa8116e9daddf484a"
+              },
+              {
+                "async_mode": true,
+                "decode_rounds": 27,
+                "decode_start_ns": 35162863130460,
+                "decode_wall_scope": "terminal prefill CPU bookkeeping -> worker completion fence; may include metrics RPC delay",
+                "fenced_end_ns": 35163770240170,
+                "last_round_tokens": null,
+                "prefill_wall_scope": "first scheduled prefill -> terminal prefill CPU bookkeeping",
+                "profile_excluded": true,
+                "prompt_tokens": 2048,
+                "raw_decode_tokens": null,
+                "request_id": "chatcmpl-dm-4be35e30bc994f7b8cf2355118e917c5-869368f3",
+                "seed_tokens": 1,
+                "tag": "dm-4be35e30bc994f7b8cf2355118e917c5",
+                "terminal_fence_observed": true,
+                "terminal_sample_end_ns": 35163750599700,
+                "terminal_tp_join_observed": true,
+                "window_fingerprint": "79564a141e3c51ba3817b8f01b90d5212ae8b0ec91da95887a05d93d272bb1d0"
+              },
+              {
+                "async_mode": true,
+                "decode_rounds": 44,
+                "decode_start_ns": 35163952994190,
+                "decode_wall_scope": "terminal prefill CPU bookkeeping -> worker completion fence; may include metrics RPC delay",
+                "fenced_end_ns": 35165340806530,
+                "last_round_tokens": null,
+                "prefill_wall_scope": "first scheduled prefill -> terminal prefill CPU bookkeeping",
+                "profile_excluded": true,
+                "prompt_tokens": 2048,
+                "raw_decode_tokens": null,
+                "request_id": "chatcmpl-dm-fad6aced42c74d24928f7e65392f4939-8c14b3c8",
+                "seed_tokens": 1,
+                "tag": "dm-fad6aced42c74d24928f7e65392f4939",
+                "terminal_fence_observed": true,
+                "terminal_sample_end_ns": 35165321448600,
+                "terminal_tp_join_observed": true,
+                "window_fingerprint": "2e121967670f29ab0cd6056085c14d12c3d83934d6f9f671e143d049b6b92344"
+              }
+            ]
+          },
+          {
+            "counter_scope": "actual runner scheduled/request CPU-token bookkeeping",
+            "cumulative": {
+              "decode_rounds": 171,
+              "decode_seconds": 11.858900709999999,
+              "decode_tokens": null,
+              "draft_eager_calls": 4,
+              "draft_graph_calls": 171,
+              "prefill_calls": 4,
+              "prefill_seconds": 6.36735112
+            },
+            "decode_tokens_scope": "HTTP final usage required for async; raw worker tokens before terminal trimming for sync",
+            "errors": [],
+            "last_window": {
+              "tag": "dm-fad6aced42c74d24928f7e65392f4939",
+              "window_fingerprint": "2e121967670f29ab0cd6056085c14d12c3d83934d6f9f671e143d049b6b92344"
+            },
+            "pending": false,
+            "rank": 2,
+            "requests": [
+              {
+                "async_mode": true,
+                "decode_rounds": 33,
+                "decode_start_ns": 35040857498110,
+                "decode_wall_scope": "terminal prefill CPU bookkeeping -> worker completion fence; may include metrics RPC delay",
+                "fenced_end_ns": 35048389238680,
+                "last_round_tokens": null,
+                "prefill_wall_scope": "first scheduled prefill -> terminal prefill CPU bookkeeping",
+                "profile_excluded": true,
+                "prompt_tokens": 2048,
+                "raw_decode_tokens": null,
+                "request_id": "chatcmpl-dm-canary-e2d50fa44e184e12b3608839c568ba49-b6295811",
+                "seed_tokens": 1,
+                "tag": "dm-canary-e2d50fa44e184e12b3608839c568ba49",
+                "terminal_fence_observed": true,
+                "terminal_sample_end_ns": 35048369264030,
+                "terminal_tp_join_observed": true,
+                "window_fingerprint": "56d61b3af63d6f1af2f2cf8d109bb04c74050bed14cbdc4d45ba4d06af4903e4"
+              },
+              {
+                "async_mode": true,
+                "decode_rounds": 67,
+                "decode_start_ns": 35160633115890,
+                "decode_wall_scope": "terminal prefill CPU bookkeeping -> worker completion fence; may include metrics RPC delay",
+                "fenced_end_ns": 35162677310150,
+                "last_round_tokens": null,
+                "prefill_wall_scope": "first scheduled prefill -> terminal prefill CPU bookkeeping",
+                "profile_excluded": true,
+                "prompt_tokens": 2048,
+                "raw_decode_tokens": null,
+                "request_id": "chatcmpl-dm-46db672b28d548c28a34d9b662e5c75b-b8de022f",
+                "seed_tokens": 1,
+                "tag": "dm-46db672b28d548c28a34d9b662e5c75b",
+                "terminal_fence_observed": true,
+                "terminal_sample_end_ns": 35162657662290,
+                "terminal_tp_join_observed": true,
+                "window_fingerprint": "6b8d150c5dfb21b1a421a45d84da9cf2332d56d618889b5fa8116e9daddf484a"
+              },
+              {
+                "async_mode": true,
+                "decode_rounds": 27,
+                "decode_start_ns": 35162867876800,
+                "decode_wall_scope": "terminal prefill CPU bookkeeping -> worker completion fence; may include metrics RPC delay",
+                "fenced_end_ns": 35163770248950,
+                "last_round_tokens": null,
+                "prefill_wall_scope": "first scheduled prefill -> terminal prefill CPU bookkeeping",
+                "profile_excluded": true,
+                "prompt_tokens": 2048,
+                "raw_decode_tokens": null,
+                "request_id": "chatcmpl-dm-4be35e30bc994f7b8cf2355118e917c5-869368f3",
+                "seed_tokens": 1,
+                "tag": "dm-4be35e30bc994f7b8cf2355118e917c5",
+                "terminal_fence_observed": true,
+                "terminal_sample_end_ns": 35163750674710,
+                "terminal_tp_join_observed": true,
+                "window_fingerprint": "79564a141e3c51ba3817b8f01b90d5212ae8b0ec91da95887a05d93d272bb1d0"
+              },
+              {
+                "async_mode": true,
+                "decode_rounds": 44,
+                "decode_start_ns": 35163960222220,
+                "decode_wall_scope": "terminal prefill CPU bookkeeping -> worker completion fence; may include metrics RPC delay",
+                "fenced_end_ns": 35165340815950,
+                "last_round_tokens": null,
+                "prefill_wall_scope": "first scheduled prefill -> terminal prefill CPU bookkeeping",
+                "profile_excluded": true,
+                "prompt_tokens": 2048,
+                "raw_decode_tokens": null,
+                "request_id": "chatcmpl-dm-fad6aced42c74d24928f7e65392f4939-8c14b3c8",
+                "seed_tokens": 1,
+                "tag": "dm-fad6aced42c74d24928f7e65392f4939",
+                "terminal_fence_observed": true,
+                "terminal_sample_end_ns": 35165321242680,
+                "terminal_tp_join_observed": true,
+                "window_fingerprint": "2e121967670f29ab0cd6056085c14d12c3d83934d6f9f671e143d049b6b92344"
+              }
+            ]
+          },
+          {
+            "counter_scope": "actual runner scheduled/request CPU-token bookkeeping",
+            "cumulative": {
+              "decode_rounds": 171,
+              "decode_seconds": 11.799611520000001,
+              "decode_tokens": null,
+              "draft_eager_calls": 4,
+              "draft_graph_calls": 171,
+              "prefill_calls": 4,
+              "prefill_seconds": 6.42699947
+            },
+            "decode_tokens_scope": "HTTP final usage required for async; raw worker tokens before terminal trimming for sync",
+            "errors": [],
+            "last_window": {
+              "tag": "dm-fad6aced42c74d24928f7e65392f4939",
+              "window_fingerprint": "2e121967670f29ab0cd6056085c14d12c3d83934d6f9f671e143d049b6b92344"
+            },
+            "pending": false,
+            "rank": 3,
+            "requests": [
+              {
+                "async_mode": true,
+                "decode_rounds": 33,
+                "decode_start_ns": 35040941817860,
+                "decode_wall_scope": "terminal prefill CPU bookkeeping -> worker completion fence; may include metrics RPC delay",
+                "fenced_end_ns": 35048389227890,
+                "last_round_tokens": null,
+                "prefill_wall_scope": "first scheduled prefill -> terminal prefill CPU bookkeeping",
+                "profile_excluded": true,
+                "prompt_tokens": 2048,
+                "raw_decode_tokens": null,
+                "request_id": "chatcmpl-dm-canary-e2d50fa44e184e12b3608839c568ba49-b6295811",
+                "seed_tokens": 1,
+                "tag": "dm-canary-e2d50fa44e184e12b3608839c568ba49",
+                "terminal_fence_observed": true,
+                "terminal_sample_end_ns": 35048369474040,
+                "terminal_tp_join_observed": true,
+                "window_fingerprint": "56d61b3af63d6f1af2f2cf8d109bb04c74050bed14cbdc4d45ba4d06af4903e4"
+              },
+              {
+                "async_mode": true,
+                "decode_rounds": 67,
+                "decode_start_ns": 35160626053940,
+                "decode_wall_scope": "terminal prefill CPU bookkeeping -> worker completion fence; may include metrics RPC delay",
+                "fenced_end_ns": 35162677288860,
+                "last_round_tokens": null,
+                "prefill_wall_scope": "first scheduled prefill -> terminal prefill CPU bookkeeping",
+                "profile_excluded": true,
+                "prompt_tokens": 2048,
+                "raw_decode_tokens": null,
+                "request_id": "chatcmpl-dm-46db672b28d548c28a34d9b662e5c75b-b8de022f",
+                "seed_tokens": 1,
+                "tag": "dm-46db672b28d548c28a34d9b662e5c75b",
+                "terminal_fence_observed": true,
+                "terminal_sample_end_ns": 35162657475520,
+                "terminal_tp_join_observed": true,
+                "window_fingerprint": "6b8d150c5dfb21b1a421a45d84da9cf2332d56d618889b5fa8116e9daddf484a"
+              },
+              {
+                "async_mode": true,
+                "decode_rounds": 27,
+                "decode_start_ns": 35162860087520,
+                "decode_wall_scope": "terminal prefill CPU bookkeeping -> worker completion fence; may include metrics RPC delay",
+                "fenced_end_ns": 35163770239330,
+                "last_round_tokens": null,
+                "prefill_wall_scope": "first scheduled prefill -> terminal prefill CPU bookkeeping",
+                "profile_excluded": true,
+                "prompt_tokens": 2048,
+                "raw_decode_tokens": null,
+                "request_id": "chatcmpl-dm-4be35e30bc994f7b8cf2355118e917c5-869368f3",
+                "seed_tokens": 1,
+                "tag": "dm-4be35e30bc994f7b8cf2355118e917c5",
+                "terminal_fence_observed": true,
+                "terminal_sample_end_ns": 35163750434570,
+                "terminal_tp_join_observed": true,
+                "window_fingerprint": "79564a141e3c51ba3817b8f01b90d5212ae8b0ec91da95887a05d93d272bb1d0"
+              },
+              {
+                "async_mode": true,
+                "decode_rounds": 44,
+                "decode_start_ns": 35163949988160,
+                "decode_wall_scope": "terminal prefill CPU bookkeeping -> worker completion fence; may include metrics RPC delay",
+                "fenced_end_ns": 35165340802920,
+                "last_round_tokens": null,
+                "prefill_wall_scope": "first scheduled prefill -> terminal prefill CPU bookkeeping",
+                "profile_excluded": true,
+                "prompt_tokens": 2048,
+                "raw_decode_tokens": null,
+                "request_id": "chatcmpl-dm-fad6aced42c74d24928f7e65392f4939-8c14b3c8",
+                "seed_tokens": 1,
+                "tag": "dm-fad6aced42c74d24928f7e65392f4939",
+                "terminal_fence_observed": true,
+                "terminal_sample_end_ns": 35165320868110,
+                "terminal_tp_join_observed": true,
+                "window_fingerprint": "2e121967670f29ab0cd6056085c14d12c3d83934d6f9f671e143d049b6b92344"
+              }
+            ]
+          },
+          {
+            "counter_scope": "actual runner scheduled/request CPU-token bookkeeping",
+            "cumulative": {
+              "decode_rounds": 171,
+              "decode_seconds": 11.81512863,
+              "decode_tokens": null,
+              "draft_eager_calls": 4,
+              "draft_graph_calls": 171,
+              "prefill_calls": 4,
+              "prefill_seconds": 6.4114465
+            },
+            "decode_tokens_scope": "HTTP final usage required for async; raw worker tokens before terminal trimming for sync",
+            "errors": [],
+            "last_window": {
+              "tag": "dm-fad6aced42c74d24928f7e65392f4939",
+              "window_fingerprint": "2e121967670f29ab0cd6056085c14d12c3d83934d6f9f671e143d049b6b92344"
+            },
+            "pending": false,
+            "rank": 4,
+            "requests": [
+              {
+                "async_mode": true,
+                "decode_rounds": 33,
+                "decode_start_ns": 35040922863370,
+                "decode_wall_scope": "terminal prefill CPU bookkeeping -> worker completion fence; may include metrics RPC delay",
+                "fenced_end_ns": 35048389230950,
+                "last_round_tokens": null,
+                "prefill_wall_scope": "first scheduled prefill -> terminal prefill CPU bookkeeping",
+                "profile_excluded": true,
+                "prompt_tokens": 2048,
+                "raw_decode_tokens": null,
+                "request_id": "chatcmpl-dm-canary-e2d50fa44e184e12b3608839c568ba49-b6295811",
+                "seed_tokens": 1,
+                "tag": "dm-canary-e2d50fa44e184e12b3608839c568ba49",
+                "terminal_fence_observed": true,
+                "terminal_sample_end_ns": 35048369394610,
+                "terminal_tp_join_observed": true,
+                "window_fingerprint": "56d61b3af63d6f1af2f2cf8d109bb04c74050bed14cbdc4d45ba4d06af4903e4"
+              },
+              {
+                "async_mode": true,
+                "decode_rounds": 67,
+                "decode_start_ns": 35160627216070,
+                "decode_wall_scope": "terminal prefill CPU bookkeeping -> worker completion fence; may include metrics RPC delay",
+                "fenced_end_ns": 35162677290650,
+                "last_round_tokens": null,
+                "prefill_wall_scope": "first scheduled prefill -> terminal prefill CPU bookkeeping",
+                "profile_excluded": true,
+                "prompt_tokens": 2048,
+                "raw_decode_tokens": null,
+                "request_id": "chatcmpl-dm-46db672b28d548c28a34d9b662e5c75b-b8de022f",
+                "seed_tokens": 1,
+                "tag": "dm-46db672b28d548c28a34d9b662e5c75b",
+                "terminal_fence_observed": true,
+                "terminal_sample_end_ns": 35162657437450,
+                "terminal_tp_join_observed": true,
+                "window_fingerprint": "6b8d150c5dfb21b1a421a45d84da9cf2332d56d618889b5fa8116e9daddf484a"
+              },
+              {
+                "async_mode": true,
+                "decode_rounds": 27,
+                "decode_start_ns": 35162859113460,
+                "decode_wall_scope": "terminal prefill CPU bookkeeping -> worker completion fence; may include metrics RPC delay",
+                "fenced_end_ns": 35163770237040,
+                "last_round_tokens": null,
+                "prefill_wall_scope": "first scheduled prefill -> terminal prefill CPU bookkeeping",
+                "profile_excluded": true,
+                "prompt_tokens": 2048,
+                "raw_decode_tokens": null,
+                "request_id": "chatcmpl-dm-4be35e30bc994f7b8cf2355118e917c5-869368f3",
+                "seed_tokens": 1,
+                "tag": "dm-4be35e30bc994f7b8cf2355118e917c5",
+                "terminal_fence_observed": true,
+                "terminal_sample_end_ns": 35163750493800,
+                "terminal_tp_join_observed": true,
+                "window_fingerprint": "79564a141e3c51ba3817b8f01b90d5212ae8b0ec91da95887a05d93d272bb1d0"
+              },
+              {
+                "async_mode": true,
+                "decode_rounds": 44,
+                "decode_start_ns": 35163953241510,
+                "decode_wall_scope": "terminal prefill CPU bookkeeping -> worker completion fence; may include metrics RPC delay",
+                "fenced_end_ns": 35165340804400,
+                "last_round_tokens": null,
+                "prefill_wall_scope": "first scheduled prefill -> terminal prefill CPU bookkeeping",
+                "profile_excluded": true,
+                "prompt_tokens": 2048,
+                "raw_decode_tokens": null,
+                "request_id": "chatcmpl-dm-fad6aced42c74d24928f7e65392f4939-8c14b3c8",
+                "seed_tokens": 1,
+                "tag": "dm-fad6aced42c74d24928f7e65392f4939",
+                "terminal_fence_observed": true,
+                "terminal_sample_end_ns": 35165320915870,
+                "terminal_tp_join_observed": true,
+                "window_fingerprint": "2e121967670f29ab0cd6056085c14d12c3d83934d6f9f671e143d049b6b92344"
+              }
+            ]
+          },
+          {
+            "counter_scope": "actual runner scheduled/request CPU-token bookkeeping",
+            "cumulative": {
+              "decode_rounds": 171,
+              "decode_seconds": 11.79759679,
+              "decode_tokens": null,
+              "draft_eager_calls": 4,
+              "draft_graph_calls": 171,
+              "prefill_calls": 4,
+              "prefill_seconds": 6.4289315
+            },
+            "decode_tokens_scope": "HTTP final usage required for async; raw worker tokens before terminal trimming for sync",
+            "errors": [],
+            "last_window": {
+              "tag": "dm-fad6aced42c74d24928f7e65392f4939",
+              "window_fingerprint": "2e121967670f29ab0cd6056085c14d12c3d83934d6f9f671e143d049b6b92344"
+            },
+            "pending": false,
+            "rank": 5,
+            "requests": [
+              {
+                "async_mode": true,
+                "decode_rounds": 33,
+                "decode_start_ns": 35040936501260,
+                "decode_wall_scope": "terminal prefill CPU bookkeeping -> worker completion fence; may include metrics RPC delay",
+                "fenced_end_ns": 35048389226130,
+                "last_round_tokens": null,
+                "prefill_wall_scope": "first scheduled prefill -> terminal prefill CPU bookkeeping",
+                "profile_excluded": true,
+                "prompt_tokens": 2048,
+                "raw_decode_tokens": null,
+                "request_id": "chatcmpl-dm-canary-e2d50fa44e184e12b3608839c568ba49-b6295811",
+                "seed_tokens": 1,
+                "tag": "dm-canary-e2d50fa44e184e12b3608839c568ba49",
+                "terminal_fence_observed": true,
+                "terminal_sample_end_ns": 35048368916080,
+                "terminal_tp_join_observed": true,
+                "window_fingerprint": "56d61b3af63d6f1af2f2cf8d109bb04c74050bed14cbdc4d45ba4d06af4903e4"
+              },
+              {
+                "async_mode": true,
+                "decode_rounds": 67,
+                "decode_start_ns": 35160627340760,
+                "decode_wall_scope": "terminal prefill CPU bookkeeping -> worker completion fence; may include metrics RPC delay",
+                "fenced_end_ns": 35162677291870,
+                "last_round_tokens": null,
+                "prefill_wall_scope": "first scheduled prefill -> terminal prefill CPU bookkeeping",
+                "profile_excluded": true,
+                "prompt_tokens": 2048,
+                "raw_decode_tokens": null,
+                "request_id": "chatcmpl-dm-46db672b28d548c28a34d9b662e5c75b-b8de022f",
+                "seed_tokens": 1,
+                "tag": "dm-46db672b28d548c28a34d9b662e5c75b",
+                "terminal_fence_observed": true,
+                "terminal_sample_end_ns": 35162657584540,
+                "terminal_tp_join_observed": true,
+                "window_fingerprint": "6b8d150c5dfb21b1a421a45d84da9cf2332d56d618889b5fa8116e9daddf484a"
+              },
+              {
+                "async_mode": true,
+                "decode_rounds": 27,
+                "decode_start_ns": 35162863130100,
+                "decode_wall_scope": "terminal prefill CPU bookkeeping -> worker completion fence; may include metrics RPC delay",
+                "fenced_end_ns": 35163770239120,
+                "last_round_tokens": null,
+                "prefill_wall_scope": "first scheduled prefill -> terminal prefill CPU bookkeeping",
+                "profile_excluded": true,
+                "prompt_tokens": 2048,
+                "raw_decode_tokens": null,
+                "request_id": "chatcmpl-dm-4be35e30bc994f7b8cf2355118e917c5-869368f3",
+                "seed_tokens": 1,
+                "tag": "dm-4be35e30bc994f7b8cf2355118e917c5",
+                "terminal_fence_observed": true,
+                "terminal_sample_end_ns": 35163750599770,
+                "terminal_tp_join_observed": true,
+                "window_fingerprint": "79564a141e3c51ba3817b8f01b90d5212ae8b0ec91da95887a05d93d272bb1d0"
+              },
+              {
+                "async_mode": true,
+                "decode_rounds": 44,
+                "decode_start_ns": 35163952995090,
+                "decode_wall_scope": "terminal prefill CPU bookkeeping -> worker completion fence; may include metrics RPC delay",
+                "fenced_end_ns": 35165340806880,
+                "last_round_tokens": null,
+                "prefill_wall_scope": "first scheduled prefill -> terminal prefill CPU bookkeeping",
+                "profile_excluded": true,
+                "prompt_tokens": 2048,
+                "raw_decode_tokens": null,
+                "request_id": "chatcmpl-dm-fad6aced42c74d24928f7e65392f4939-8c14b3c8",
+                "seed_tokens": 1,
+                "tag": "dm-fad6aced42c74d24928f7e65392f4939",
+                "terminal_fence_observed": true,
+                "terminal_sample_end_ns": 35165320993730,
+                "terminal_tp_join_observed": true,
+                "window_fingerprint": "2e121967670f29ab0cd6056085c14d12c3d83934d6f9f671e143d049b6b92344"
+              }
+            ]
+          },
+          {
+            "counter_scope": "actual runner scheduled/request CPU-token bookkeeping",
+            "cumulative": {
+              "decode_rounds": 171,
+              "decode_seconds": 11.955272760000001,
+              "decode_tokens": null,
+              "draft_eager_calls": 4,
+              "draft_graph_calls": 171,
+              "prefill_calls": 4,
+              "prefill_seconds": 6.270738430000001
+            },
+            "decode_tokens_scope": "HTTP final usage required for async; raw worker tokens before terminal trimming for sync",
+            "errors": [],
+            "last_window": {
+              "tag": "dm-fad6aced42c74d24928f7e65392f4939",
+              "window_fingerprint": "2e121967670f29ab0cd6056085c14d12c3d83934d6f9f671e143d049b6b92344"
+            },
+            "pending": false,
+            "rank": 6,
+            "requests": [
+              {
+                "async_mode": true,
+                "decode_rounds": 33,
+                "decode_start_ns": 35040776257630,
+                "decode_wall_scope": "terminal prefill CPU bookkeeping -> worker completion fence; may include metrics RPC delay",
+                "fenced_end_ns": 35048389223940,
+                "last_round_tokens": null,
+                "prefill_wall_scope": "first scheduled prefill -> terminal prefill CPU bookkeeping",
+                "profile_excluded": true,
+                "prompt_tokens": 2048,
+                "raw_decode_tokens": null,
+                "request_id": "chatcmpl-dm-canary-e2d50fa44e184e12b3608839c568ba49-b6295811",
+                "seed_tokens": 1,
+                "tag": "dm-canary-e2d50fa44e184e12b3608839c568ba49",
+                "terminal_fence_observed": true,
+                "terminal_sample_end_ns": 35048369038320,
+                "terminal_tp_join_observed": true,
+                "window_fingerprint": "56d61b3af63d6f1af2f2cf8d109bb04c74050bed14cbdc4d45ba4d06af4903e4"
+              },
+              {
+                "async_mode": true,
+                "decode_rounds": 67,
+                "decode_start_ns": 35160629531380,
+                "decode_wall_scope": "terminal prefill CPU bookkeeping -> worker completion fence; may include metrics RPC delay",
+                "fenced_end_ns": 35162677287900,
+                "last_round_tokens": null,
+                "prefill_wall_scope": "first scheduled prefill -> terminal prefill CPU bookkeeping",
+                "profile_excluded": true,
+                "prompt_tokens": 2048,
+                "raw_decode_tokens": null,
+                "request_id": "chatcmpl-dm-46db672b28d548c28a34d9b662e5c75b-b8de022f",
+                "seed_tokens": 1,
+                "tag": "dm-46db672b28d548c28a34d9b662e5c75b",
+                "terminal_fence_observed": true,
+                "terminal_sample_end_ns": 35162657527720,
+                "terminal_tp_join_observed": true,
+                "window_fingerprint": "6b8d150c5dfb21b1a421a45d84da9cf2332d56d618889b5fa8116e9daddf484a"
+              },
+              {
+                "async_mode": true,
+                "decode_rounds": 27,
+                "decode_start_ns": 35162863532140,
+                "decode_wall_scope": "terminal prefill CPU bookkeeping -> worker completion fence; may include metrics RPC delay",
+                "fenced_end_ns": 35163770234320,
+                "last_round_tokens": null,
+                "prefill_wall_scope": "first scheduled prefill -> terminal prefill CPU bookkeeping",
+                "profile_excluded": true,
+                "prompt_tokens": 2048,
+                "raw_decode_tokens": null,
+                "request_id": "chatcmpl-dm-4be35e30bc994f7b8cf2355118e917c5-869368f3",
+                "seed_tokens": 1,
+                "tag": "dm-4be35e30bc994f7b8cf2355118e917c5",
+                "terminal_fence_observed": true,
+                "terminal_sample_end_ns": 35163750551210,
+                "terminal_tp_join_observed": true,
+                "window_fingerprint": "79564a141e3c51ba3817b8f01b90d5212ae8b0ec91da95887a05d93d272bb1d0"
+              },
+              {
+                "async_mode": true,
+                "decode_rounds": 44,
+                "decode_start_ns": 35163952954150,
+                "decode_wall_scope": "terminal prefill CPU bookkeeping -> worker completion fence; may include metrics RPC delay",
+                "fenced_end_ns": 35165340801900,
+                "last_round_tokens": null,
+                "prefill_wall_scope": "first scheduled prefill -> terminal prefill CPU bookkeeping",
+                "profile_excluded": true,
+                "prompt_tokens": 2048,
+                "raw_decode_tokens": null,
+                "request_id": "chatcmpl-dm-fad6aced42c74d24928f7e65392f4939-8c14b3c8",
+                "seed_tokens": 1,
+                "tag": "dm-fad6aced42c74d24928f7e65392f4939",
+                "terminal_fence_observed": true,
+                "terminal_sample_end_ns": 35165320964030,
+                "terminal_tp_join_observed": true,
+                "window_fingerprint": "2e121967670f29ab0cd6056085c14d12c3d83934d6f9f671e143d049b6b92344"
+              }
+            ]
+          },
+          {
+            "counter_scope": "actual runner scheduled/request CPU-token bookkeeping",
+            "cumulative": {
+              "decode_rounds": 171,
+              "decode_seconds": 11.84577631,
+              "decode_tokens": null,
+              "draft_eager_calls": 4,
+              "draft_graph_calls": 171,
+              "prefill_calls": 4,
+              "prefill_seconds": 6.38082827
+            },
+            "decode_tokens_scope": "HTTP final usage required for async; raw worker tokens before terminal trimming for sync",
+            "errors": [],
+            "last_window": {
+              "tag": "dm-fad6aced42c74d24928f7e65392f4939",
+              "window_fingerprint": "2e121967670f29ab0cd6056085c14d12c3d83934d6f9f671e143d049b6b92344"
+            },
+            "pending": false,
+            "rank": 7,
+            "requests": [
+              {
+                "async_mode": true,
+                "decode_rounds": 33,
+                "decode_start_ns": 35040895487240,
+                "decode_wall_scope": "terminal prefill CPU bookkeeping -> worker completion fence; may include metrics RPC delay",
+                "fenced_end_ns": 35048389228420,
+                "last_round_tokens": null,
+                "prefill_wall_scope": "first scheduled prefill -> terminal prefill CPU bookkeeping",
+                "profile_excluded": true,
+                "prompt_tokens": 2048,
+                "raw_decode_tokens": null,
+                "request_id": "chatcmpl-dm-canary-e2d50fa44e184e12b3608839c568ba49-b6295811",
+                "seed_tokens": 1,
+                "tag": "dm-canary-e2d50fa44e184e12b3608839c568ba49",
+                "terminal_fence_observed": true,
+                "terminal_sample_end_ns": 35048368966310,
+                "terminal_tp_join_observed": true,
+                "window_fingerprint": "56d61b3af63d6f1af2f2cf8d109bb04c74050bed14cbdc4d45ba4d06af4903e4"
+              },
+              {
+                "async_mode": true,
+                "decode_rounds": 67,
+                "decode_start_ns": 35160625568740,
+                "decode_wall_scope": "terminal prefill CPU bookkeeping -> worker completion fence; may include metrics RPC delay",
+                "fenced_end_ns": 35162677289330,
+                "last_round_tokens": null,
+                "prefill_wall_scope": "first scheduled prefill -> terminal prefill CPU bookkeeping",
+                "profile_excluded": true,
+                "prompt_tokens": 2048,
+                "raw_decode_tokens": null,
+                "request_id": "chatcmpl-dm-46db672b28d548c28a34d9b662e5c75b-b8de022f",
+                "seed_tokens": 1,
+                "tag": "dm-46db672b28d548c28a34d9b662e5c75b",
+                "terminal_fence_observed": true,
+                "terminal_sample_end_ns": 35162657375600,
+                "terminal_tp_join_observed": true,
+                "window_fingerprint": "6b8d150c5dfb21b1a421a45d84da9cf2332d56d618889b5fa8116e9daddf484a"
+              },
+              {
+                "async_mode": true,
+                "decode_rounds": 27,
+                "decode_start_ns": 35162859810110,
+                "decode_wall_scope": "terminal prefill CPU bookkeeping -> worker completion fence; may include metrics RPC delay",
+                "fenced_end_ns": 35163770238960,
+                "last_round_tokens": null,
+                "prefill_wall_scope": "first scheduled prefill -> terminal prefill CPU bookkeeping",
+                "profile_excluded": true,
+                "prompt_tokens": 2048,
+                "raw_decode_tokens": null,
+                "request_id": "chatcmpl-dm-4be35e30bc994f7b8cf2355118e917c5-869368f3",
+                "seed_tokens": 1,
+                "tag": "dm-4be35e30bc994f7b8cf2355118e917c5",
+                "terminal_fence_observed": true,
+                "terminal_sample_end_ns": 35163750486690,
+                "terminal_tp_join_observed": true,
+                "window_fingerprint": "79564a141e3c51ba3817b8f01b90d5212ae8b0ec91da95887a05d93d272bb1d0"
+              },
+              {
+                "async_mode": true,
+                "decode_rounds": 44,
+                "decode_start_ns": 35163950917930,
+                "decode_wall_scope": "terminal prefill CPU bookkeeping -> worker completion fence; may include metrics RPC delay",
+                "fenced_end_ns": 35165340803620,
+                "last_round_tokens": null,
+                "prefill_wall_scope": "first scheduled prefill -> terminal prefill CPU bookkeeping",
+                "profile_excluded": true,
+                "prompt_tokens": 2048,
+                "raw_decode_tokens": null,
+                "request_id": "chatcmpl-dm-fad6aced42c74d24928f7e65392f4939-8c14b3c8",
+                "seed_tokens": 1,
+                "tag": "dm-fad6aced42c74d24928f7e65392f4939",
+                "terminal_fence_observed": true,
+                "terminal_sample_end_ns": 35165320876850,
+                "terminal_tp_join_observed": true,
+                "window_fingerprint": "2e121967670f29ab0cd6056085c14d12c3d83934d6f9f671e143d049b6b92344"
+              }
+            ]
+          }
+        ],
+        "schema": "delivery_runtime_metrics_v1",
+        "served_model": "dsv41-delivery-a2sim-tp8-v4",
+        "service_instance_id": "9d2ba214732b4eed84dc4f416f27c6ae",
+        "trusted": true
+      },
+      "endpoint": "http://127.0.0.1:18960/delivery/metrics",
+      "ok": true,
+      "received_at_utc": "2026-10-12T23:42:25.831705+00:00"
+    },
+    "delivery_metrics_before": {
+      "data": {
+        "counter_scope": "actual runner scheduled/request CPU-token bookkeeping",
+        "form": "a2-tp8-a3sim",
+        "ranks": [
+          {
+            "counter_scope": "actual runner scheduled/request CPU-token bookkeeping",
+            "cumulative": {
+              "decode_rounds": 127,
+              "decode_seconds": 10.416885859999999,
+              "decode_tokens": null,
+              "draft_eager_calls": 3,
+              "draft_graph_calls": 127,
+              "prefill_calls": 3,
+              "prefill_seconds": 6.26394481
+            },
+            "decode_tokens_scope": "HTTP final usage required for async; raw worker tokens before terminal trimming for sync",
+            "errors": [],
+            "last_window": {
+              "tag": "dm-4be35e30bc994f7b8cf2355118e917c5",
+              "window_fingerprint": "79564a141e3c51ba3817b8f01b90d5212ae8b0ec91da95887a05d93d272bb1d0"
+            },
+            "pending": false,
+            "rank": 0,
+            "requests": [
+              {
+                "async_mode": true,
+                "decode_rounds": 33,
+                "decode_start_ns": 35040928391620,
+                "decode_wall_scope": "terminal prefill CPU bookkeeping -> worker completion fence; may include metrics RPC delay",
+                "fenced_end_ns": 35048389235060,
+                "last_round_tokens": null,
+                "prefill_wall_scope": "first scheduled prefill -> terminal prefill CPU bookkeeping",
+                "profile_excluded": true,
+                "prompt_tokens": 2048,
+                "raw_decode_tokens": null,
+                "request_id": "chatcmpl-dm-canary-e2d50fa44e184e12b3608839c568ba49-b6295811",
+                "seed_tokens": 1,
+                "tag": "dm-canary-e2d50fa44e184e12b3608839c568ba49",
+                "terminal_fence_observed": true,
+                "terminal_sample_end_ns": 35048369093110,
+                "terminal_tp_join_observed": true,
+                "window_fingerprint": "56d61b3af63d6f1af2f2cf8d109bb04c74050bed14cbdc4d45ba4d06af4903e4"
+              },
+              {
+                "async_mode": true,
+                "decode_rounds": 67,
+                "decode_start_ns": 35160624622860,
+                "decode_wall_scope": "terminal prefill CPU bookkeeping -> worker completion fence; may include metrics RPC delay",
+                "fenced_end_ns": 35162677288930,
+                "last_round_tokens": null,
+                "prefill_wall_scope": "first scheduled prefill -> terminal prefill CPU bookkeeping",
+                "profile_excluded": true,
+                "prompt_tokens": 2048,
+                "raw_decode_tokens": null,
+                "request_id": "chatcmpl-dm-46db672b28d548c28a34d9b662e5c75b-b8de022f",
+                "seed_tokens": 1,
+                "tag": "dm-46db672b28d548c28a34d9b662e5c75b",
+                "terminal_fence_observed": true,
+                "terminal_sample_end_ns": 35162657891340,
+                "terminal_tp_join_observed": true,
+                "window_fingerprint": "6b8d150c5dfb21b1a421a45d84da9cf2332d56d618889b5fa8116e9daddf484a"
+              },
+              {
+                "async_mode": true,
+                "decode_rounds": 27,
+                "decode_start_ns": 35162866936180,
+                "decode_wall_scope": "terminal prefill CPU bookkeeping -> worker completion fence; may include metrics RPC delay",
+                "fenced_end_ns": 35163770312530,
+                "last_round_tokens": null,
+                "prefill_wall_scope": "first scheduled prefill -> terminal prefill CPU bookkeeping",
+                "profile_excluded": true,
+                "prompt_tokens": 2048,
+                "raw_decode_tokens": null,
+                "request_id": "chatcmpl-dm-4be35e30bc994f7b8cf2355118e917c5-869368f3",
+                "seed_tokens": 1,
+                "tag": "dm-4be35e30bc994f7b8cf2355118e917c5",
+                "terminal_fence_observed": true,
+                "terminal_sample_end_ns": 35163750760940,
+                "terminal_tp_join_observed": true,
+                "window_fingerprint": "79564a141e3c51ba3817b8f01b90d5212ae8b0ec91da95887a05d93d272bb1d0"
+              }
+            ]
+          },
+          {
+            "counter_scope": "actual runner scheduled/request CPU-token bookkeeping",
+            "cumulative": {
+              "decode_rounds": 127,
+              "decode_seconds": 10.35784613,
+              "decode_tokens": null,
+              "draft_eager_calls": 3,
+              "draft_graph_calls": 127,
+              "prefill_calls": 3,
+              "prefill_seconds": 6.3228301600000005
+            },
+            "decode_tokens_scope": "HTTP final usage required for async; raw worker tokens before terminal trimming for sync",
+            "errors": [],
+            "last_window": {
+              "tag": "dm-4be35e30bc994f7b8cf2355118e917c5",
+              "window_fingerprint": "79564a141e3c51ba3817b8f01b90d5212ae8b0ec91da95887a05d93d272bb1d0"
+            },
+            "pending": false,
+            "rank": 1,
+            "requests": [
+              {
+                "async_mode": true,
+                "decode_rounds": 33,
+                "decode_start_ns": 35040985316900,
+                "decode_wall_scope": "terminal prefill CPU bookkeeping -> worker completion fence; may include metrics RPC delay",
+                "fenced_end_ns": 35048389228510,
+                "last_round_tokens": null,
+                "prefill_wall_scope": "first scheduled prefill -> terminal prefill CPU bookkeeping",
+                "profile_excluded": true,
+                "prompt_tokens": 2048,
+                "raw_decode_tokens": null,
+                "request_id": "chatcmpl-dm-canary-e2d50fa44e184e12b3608839c568ba49-b6295811",
+                "seed_tokens": 1,
+                "tag": "dm-canary-e2d50fa44e184e12b3608839c568ba49",
+                "terminal_fence_observed": true,
+                "terminal_sample_end_ns": 35048369026190,
+                "terminal_tp_join_observed": true,
+                "window_fingerprint": "56d61b3af63d6f1af2f2cf8d109bb04c74050bed14cbdc4d45ba4d06af4903e4"
+              },
+              {
+                "async_mode": true,
+                "decode_rounds": 67,
+                "decode_start_ns": 35160630468670,
+                "decode_wall_scope": "terminal prefill CPU bookkeeping -> worker completion fence; may include metrics RPC delay",
+                "fenced_end_ns": 35162677293480,
+                "last_round_tokens": null,
+                "prefill_wall_scope": "first scheduled prefill -> terminal prefill CPU bookkeeping",
+                "profile_excluded": true,
+                "prompt_tokens": 2048,
+                "raw_decode_tokens": null,
+                "request_id": "chatcmpl-dm-46db672b28d548c28a34d9b662e5c75b-b8de022f",
+                "seed_tokens": 1,
+                "tag": "dm-46db672b28d548c28a34d9b662e5c75b",
+                "terminal_fence_observed": true,
+                "terminal_sample_end_ns": 35162657590390,
+                "terminal_tp_join_observed": true,
+                "window_fingerprint": "6b8d150c5dfb21b1a421a45d84da9cf2332d56d618889b5fa8116e9daddf484a"
+              },
+              {
+                "async_mode": true,
+                "decode_rounds": 27,
+                "decode_start_ns": 35162863130460,
+                "decode_wall_scope": "terminal prefill CPU bookkeeping -> worker completion fence; may include metrics RPC delay",
+                "fenced_end_ns": 35163770240170,
+                "last_round_tokens": null,
+                "prefill_wall_scope": "first scheduled prefill -> terminal prefill CPU bookkeeping",
+                "profile_excluded": true,
+                "prompt_tokens": 2048,
+                "raw_decode_tokens": null,
+                "request_id": "chatcmpl-dm-4be35e30bc994f7b8cf2355118e917c5-869368f3",
+                "seed_tokens": 1,
+                "tag": "dm-4be35e30bc994f7b8cf2355118e917c5",
+                "terminal_fence_observed": true,
+                "terminal_sample_end_ns": 35163750599700,
+                "terminal_tp_join_observed": true,
+                "window_fingerprint": "79564a141e3c51ba3817b8f01b90d5212ae8b0ec91da95887a05d93d272bb1d0"
+              }
+            ]
+          },
+          {
+            "counter_scope": "actual runner scheduled/request CPU-token bookkeeping",
+            "cumulative": {
+              "decode_rounds": 127,
+              "decode_seconds": 10.47830698,
+              "decode_tokens": null,
+              "draft_eager_calls": 3,
+              "draft_graph_calls": 127,
+              "prefill_calls": 3,
+              "prefill_seconds": 6.20204252
+            },
+            "decode_tokens_scope": "HTTP final usage required for async; raw worker tokens before terminal trimming for sync",
+            "errors": [],
+            "last_window": {
+              "tag": "dm-4be35e30bc994f7b8cf2355118e917c5",
+              "window_fingerprint": "79564a141e3c51ba3817b8f01b90d5212ae8b0ec91da95887a05d93d272bb1d0"
+            },
+            "pending": false,
+            "rank": 2,
+            "requests": [
+              {
+                "async_mode": true,
+                "decode_rounds": 33,
+                "decode_start_ns": 35040857498110,
+                "decode_wall_scope": "terminal prefill CPU bookkeeping -> worker completion fence; may include metrics RPC delay",
+                "fenced_end_ns": 35048389238680,
+                "last_round_tokens": null,
+                "prefill_wall_scope": "first scheduled prefill -> terminal prefill CPU bookkeeping",
+                "profile_excluded": true,
+                "prompt_tokens": 2048,
+                "raw_decode_tokens": null,
+                "request_id": "chatcmpl-dm-canary-e2d50fa44e184e12b3608839c568ba49-b6295811",
+                "seed_tokens": 1,
+                "tag": "dm-canary-e2d50fa44e184e12b3608839c568ba49",
+                "terminal_fence_observed": true,
+                "terminal_sample_end_ns": 35048369264030,
+                "terminal_tp_join_observed": true,
+                "window_fingerprint": "56d61b3af63d6f1af2f2cf8d109bb04c74050bed14cbdc4d45ba4d06af4903e4"
+              },
+              {
+                "async_mode": true,
+                "decode_rounds": 67,
+                "decode_start_ns": 35160633115890,
+                "decode_wall_scope": "terminal prefill CPU bookkeeping -> worker completion fence; may include metrics RPC delay",
+                "fenced_end_ns": 35162677310150,
+                "last_round_tokens": null,
+                "prefill_wall_scope": "first scheduled prefill -> terminal prefill CPU bookkeeping",
+                "profile_excluded": true,
+                "prompt_tokens": 2048,
+                "raw_decode_tokens": null,
+                "request_id": "chatcmpl-dm-46db672b28d548c28a34d9b662e5c75b-b8de022f",
+                "seed_tokens": 1,
+                "tag": "dm-46db672b28d548c28a34d9b662e5c75b",
+                "terminal_fence_observed": true,
+                "terminal_sample_end_ns": 35162657662290,
+                "terminal_tp_join_observed": true,
+                "window_fingerprint": "6b8d150c5dfb21b1a421a45d84da9cf2332d56d618889b5fa8116e9daddf484a"
+              },
+              {
+                "async_mode": true,
+                "decode_rounds": 27,
+                "decode_start_ns": 35162867876800,
+                "decode_wall_scope": "terminal prefill CPU bookkeeping -> worker completion fence; may include metrics RPC delay",
+                "fenced_end_ns": 35163770248950,
+                "last_round_tokens": null,
+                "prefill_wall_scope": "first scheduled prefill -> terminal prefill CPU bookkeeping",
+                "profile_excluded": true,
+                "prompt_tokens": 2048,
+                "raw_decode_tokens": null,
+                "request_id": "chatcmpl-dm-4be35e30bc994f7b8cf2355118e917c5-869368f3",
+                "seed_tokens": 1,
+                "tag": "dm-4be35e30bc994f7b8cf2355118e917c5",
+                "terminal_fence_observed": true,
+                "terminal_sample_end_ns": 35163750674710,
+                "terminal_tp_join_observed": true,
+                "window_fingerprint": "79564a141e3c51ba3817b8f01b90d5212ae8b0ec91da95887a05d93d272bb1d0"
+              }
+            ]
+          },
+          {
+            "counter_scope": "actual runner scheduled/request CPU-token bookkeeping",
+            "cumulative": {
+              "decode_rounds": 127,
+              "decode_seconds": 10.408796760000001,
+              "decode_tokens": null,
+              "draft_eager_calls": 3,
+              "draft_graph_calls": 127,
+              "prefill_calls": 3,
+              "prefill_seconds": 6.27191996
+            },
+            "decode_tokens_scope": "HTTP final usage required for async; raw worker tokens before terminal trimming for sync",
+            "errors": [],
+            "last_window": {
+              "tag": "dm-4be35e30bc994f7b8cf2355118e917c5",
+              "window_fingerprint": "79564a141e3c51ba3817b8f01b90d5212ae8b0ec91da95887a05d93d272bb1d0"
+            },
+            "pending": false,
+            "rank": 3,
+            "requests": [
+              {
+                "async_mode": true,
+                "decode_rounds": 33,
+                "decode_start_ns": 35040941817860,
+                "decode_wall_scope": "terminal prefill CPU bookkeeping -> worker completion fence; may include metrics RPC delay",
+                "fenced_end_ns": 35048389227890,
+                "last_round_tokens": null,
+                "prefill_wall_scope": "first scheduled prefill -> terminal prefill CPU bookkeeping",
+                "profile_excluded": true,
+                "prompt_tokens": 2048,
+                "raw_decode_tokens": null,
+                "request_id": "chatcmpl-dm-canary-e2d50fa44e184e12b3608839c568ba49-b6295811",
+                "seed_tokens": 1,
+                "tag": "dm-canary-e2d50fa44e184e12b3608839c568ba49",
+                "terminal_fence_observed": true,
+                "terminal_sample_end_ns": 35048369474040,
+                "terminal_tp_join_observed": true,
+                "window_fingerprint": "56d61b3af63d6f1af2f2cf8d109bb04c74050bed14cbdc4d45ba4d06af4903e4"
+              },
+              {
+                "async_mode": true,
+                "decode_rounds": 67,
+                "decode_start_ns": 35160626053940,
+                "decode_wall_scope": "terminal prefill CPU bookkeeping -> worker completion fence; may include metrics RPC delay",
+                "fenced_end_ns": 35162677288860,
+                "last_round_tokens": null,
+                "prefill_wall_scope": "first scheduled prefill -> terminal prefill CPU bookkeeping",
+                "profile_excluded": true,
+                "prompt_tokens": 2048,
+                "raw_decode_tokens": null,
+                "request_id": "chatcmpl-dm-46db672b28d548c28a34d9b662e5c75b-b8de022f",
+                "seed_tokens": 1,
+                "tag": "dm-46db672b28d548c28a34d9b662e5c75b",
+                "terminal_fence_observed": true,
+                "terminal_sample_end_ns": 35162657475520,
+                "terminal_tp_join_observed": true,
+                "window_fingerprint": "6b8d150c5dfb21b1a421a45d84da9cf2332d56d618889b5fa8116e9daddf484a"
+              },
+              {
+                "async_mode": true,
+                "decode_rounds": 27,
+                "decode_start_ns": 35162860087520,
+                "decode_wall_scope": "terminal prefill CPU bookkeeping -> worker completion fence; may include metrics RPC delay",
+                "fenced_end_ns": 35163770239330,
+                "last_round_tokens": null,
+                "prefill_wall_scope": "first scheduled prefill -> terminal prefill CPU bookkeeping",
+                "profile_excluded": true,
+                "prompt_tokens": 2048,
+                "raw_decode_tokens": null,
+                "request_id": "chatcmpl-dm-4be35e30bc994f7b8cf2355118e917c5-869368f3",
+                "seed_tokens": 1,
+                "tag": "dm-4be35e30bc994f7b8cf2355118e917c5",
+                "terminal_fence_observed": true,
+                "terminal_sample_end_ns": 35163750434570,
+                "terminal_tp_join_observed": true,
+                "window_fingerprint": "79564a141e3c51ba3817b8f01b90d5212ae8b0ec91da95887a05d93d272bb1d0"
+              }
+            ]
+          },
+          {
+            "counter_scope": "actual runner scheduled/request CPU-token bookkeeping",
+            "cumulative": {
+              "decode_rounds": 127,
+              "decode_seconds": 10.42756574,
+              "decode_tokens": null,
+              "draft_eager_calls": 3,
+              "draft_graph_calls": 127,
+              "prefill_calls": 3,
+              "prefill_seconds": 6.2531243100000005
+            },
+            "decode_tokens_scope": "HTTP final usage required for async; raw worker tokens before terminal trimming for sync",
+            "errors": [],
+            "last_window": {
+              "tag": "dm-4be35e30bc994f7b8cf2355118e917c5",
+              "window_fingerprint": "79564a141e3c51ba3817b8f01b90d5212ae8b0ec91da95887a05d93d272bb1d0"
+            },
+            "pending": false,
+            "rank": 4,
+            "requests": [
+              {
+                "async_mode": true,
+                "decode_rounds": 33,
+                "decode_start_ns": 35040922863370,
+                "decode_wall_scope": "terminal prefill CPU bookkeeping -> worker completion fence; may include metrics RPC delay",
+                "fenced_end_ns": 35048389230950,
+                "last_round_tokens": null,
+                "prefill_wall_scope": "first scheduled prefill -> terminal prefill CPU bookkeeping",
+                "profile_excluded": true,
+                "prompt_tokens": 2048,
+                "raw_decode_tokens": null,
+                "request_id": "chatcmpl-dm-canary-e2d50fa44e184e12b3608839c568ba49-b6295811",
+                "seed_tokens": 1,
+                "tag": "dm-canary-e2d50fa44e184e12b3608839c568ba49",
+                "terminal_fence_observed": true,
+                "terminal_sample_end_ns": 35048369394610,
+                "terminal_tp_join_observed": true,
+                "window_fingerprint": "56d61b3af63d6f1af2f2cf8d109bb04c74050bed14cbdc4d45ba4d06af4903e4"
+              },
+              {
+                "async_mode": true,
+                "decode_rounds": 67,
+                "decode_start_ns": 35160627216070,
+                "decode_wall_scope": "terminal prefill CPU bookkeeping -> worker completion fence; may include metrics RPC delay",
+                "fenced_end_ns": 35162677290650,
+                "last_round_tokens": null,
+                "prefill_wall_scope": "first scheduled prefill -> terminal prefill CPU bookkeeping",
+                "profile_excluded": true,
+                "prompt_tokens": 2048,
+                "raw_decode_tokens": null,
+                "request_id": "chatcmpl-dm-46db672b28d548c28a34d9b662e5c75b-b8de022f",
+                "seed_tokens": 1,
+                "tag": "dm-46db672b28d548c28a34d9b662e5c75b",
+                "terminal_fence_observed": true,
+                "terminal_sample_end_ns": 35162657437450,
+                "terminal_tp_join_observed": true,
+                "window_fingerprint": "6b8d150c5dfb21b1a421a45d84da9cf2332d56d618889b5fa8116e9daddf484a"
+              },
+              {
+                "async_mode": true,
+                "decode_rounds": 27,
+                "decode_start_ns": 35162859113460,
+                "decode_wall_scope": "terminal prefill CPU bookkeeping -> worker completion fence; may include metrics RPC delay",
+                "fenced_end_ns": 35163770237040,
+                "last_round_tokens": null,
+                "prefill_wall_scope": "first scheduled prefill -> terminal prefill CPU bookkeeping",
+                "profile_excluded": true,
+                "prompt_tokens": 2048,
+                "raw_decode_tokens": null,
+                "request_id": "chatcmpl-dm-4be35e30bc994f7b8cf2355118e917c5-869368f3",
+                "seed_tokens": 1,
+                "tag": "dm-4be35e30bc994f7b8cf2355118e917c5",
+                "terminal_fence_observed": true,
+                "terminal_sample_end_ns": 35163750493800,
+                "terminal_tp_join_observed": true,
+                "window_fingerprint": "79564a141e3c51ba3817b8f01b90d5212ae8b0ec91da95887a05d93d272bb1d0"
+              }
+            ]
+          },
+          {
+            "counter_scope": "actual runner scheduled/request CPU-token bookkeeping",
+            "cumulative": {
+              "decode_rounds": 127,
+              "decode_seconds": 10.409785,
+              "decode_tokens": null,
+              "draft_eager_calls": 3,
+              "draft_graph_calls": 127,
+              "prefill_calls": 3,
+              "prefill_seconds": 6.27085242
+            },
+            "decode_tokens_scope": "HTTP final usage required for async; raw worker tokens before terminal trimming for sync",
+            "errors": [],
+            "last_window": {
+              "tag": "dm-4be35e30bc994f7b8cf2355118e917c5",
+              "window_fingerprint": "79564a141e3c51ba3817b8f01b90d5212ae8b0ec91da95887a05d93d272bb1d0"
+            },
+            "pending": false,
+            "rank": 5,
+            "requests": [
+              {
+                "async_mode": true,
+                "decode_rounds": 33,
+                "decode_start_ns": 35040936501260,
+                "decode_wall_scope": "terminal prefill CPU bookkeeping -> worker completion fence; may include metrics RPC delay",
+                "fenced_end_ns": 35048389226130,
+                "last_round_tokens": null,
+                "prefill_wall_scope": "first scheduled prefill -> terminal prefill CPU bookkeeping",
+                "profile_excluded": true,
+                "prompt_tokens": 2048,
+                "raw_decode_tokens": null,
+                "request_id": "chatcmpl-dm-canary-e2d50fa44e184e12b3608839c568ba49-b6295811",
+                "seed_tokens": 1,
+                "tag": "dm-canary-e2d50fa44e184e12b3608839c568ba49",
+                "terminal_fence_observed": true,
+                "terminal_sample_end_ns": 35048368916080,
+                "terminal_tp_join_observed": true,
+                "window_fingerprint": "56d61b3af63d6f1af2f2cf8d109bb04c74050bed14cbdc4d45ba4d06af4903e4"
+              },
+              {
+                "async_mode": true,
+                "decode_rounds": 67,
+                "decode_start_ns": 35160627340760,
+                "decode_wall_scope": "terminal prefill CPU bookkeeping -> worker completion fence; may include metrics RPC delay",
+                "fenced_end_ns": 35162677291870,
+                "last_round_tokens": null,
+                "prefill_wall_scope": "first scheduled prefill -> terminal prefill CPU bookkeeping",
+                "profile_excluded": true,
+                "prompt_tokens": 2048,
+                "raw_decode_tokens": null,
+                "request_id": "chatcmpl-dm-46db672b28d548c28a34d9b662e5c75b-b8de022f",
+                "seed_tokens": 1,
+                "tag": "dm-46db672b28d548c28a34d9b662e5c75b",
+                "terminal_fence_observed": true,
+                "terminal_sample_end_ns": 35162657584540,
+                "terminal_tp_join_observed": true,
+                "window_fingerprint": "6b8d150c5dfb21b1a421a45d84da9cf2332d56d618889b5fa8116e9daddf484a"
+              },
+              {
+                "async_mode": true,
+                "decode_rounds": 27,
+                "decode_start_ns": 35162863130100,
+                "decode_wall_scope": "terminal prefill CPU bookkeeping -> worker completion fence; may include metrics RPC delay",
+                "fenced_end_ns": 35163770239120,
+                "last_round_tokens": null,
+                "prefill_wall_scope": "first scheduled prefill -> terminal prefill CPU bookkeeping",
+                "profile_excluded": true,
+                "prompt_tokens": 2048,
+                "raw_decode_tokens": null,
+                "request_id": "chatcmpl-dm-4be35e30bc994f7b8cf2355118e917c5-869368f3",
+                "seed_tokens": 1,
+                "tag": "dm-4be35e30bc994f7b8cf2355118e917c5",
+                "terminal_fence_observed": true,
+                "terminal_sample_end_ns": 35163750599770,
+                "terminal_tp_join_observed": true,
+                "window_fingerprint": "79564a141e3c51ba3817b8f01b90d5212ae8b0ec91da95887a05d93d272bb1d0"
+              }
+            ]
+          },
+          {
+            "counter_scope": "actual runner scheduled/request CPU-token bookkeeping",
+            "cumulative": {
+              "decode_rounds": 127,
+              "decode_seconds": 10.567425010000001,
+              "decode_tokens": null,
+              "draft_eager_calls": 3,
+              "draft_graph_calls": 127,
+              "prefill_calls": 3,
+              "prefill_seconds": 6.112696440000001
+            },
+            "decode_tokens_scope": "HTTP final usage required for async; raw worker tokens before terminal trimming for sync",
+            "errors": [],
+            "last_window": {
+              "tag": "dm-4be35e30bc994f7b8cf2355118e917c5",
+              "window_fingerprint": "79564a141e3c51ba3817b8f01b90d5212ae8b0ec91da95887a05d93d272bb1d0"
+            },
+            "pending": false,
+            "rank": 6,
+            "requests": [
+              {
+                "async_mode": true,
+                "decode_rounds": 33,
+                "decode_start_ns": 35040776257630,
+                "decode_wall_scope": "terminal prefill CPU bookkeeping -> worker completion fence; may include metrics RPC delay",
+                "fenced_end_ns": 35048389223940,
+                "last_round_tokens": null,
+                "prefill_wall_scope": "first scheduled prefill -> terminal prefill CPU bookkeeping",
+                "profile_excluded": true,
+                "prompt_tokens": 2048,
+                "raw_decode_tokens": null,
+                "request_id": "chatcmpl-dm-canary-e2d50fa44e184e12b3608839c568ba49-b6295811",
+                "seed_tokens": 1,
+                "tag": "dm-canary-e2d50fa44e184e12b3608839c568ba49",
+                "terminal_fence_observed": true,
+                "terminal_sample_end_ns": 35048369038320,
+                "terminal_tp_join_observed": true,
+                "window_fingerprint": "56d61b3af63d6f1af2f2cf8d109bb04c74050bed14cbdc4d45ba4d06af4903e4"
+              },
+              {
+                "async_mode": true,
+                "decode_rounds": 67,
+                "decode_start_ns": 35160629531380,
+                "decode_wall_scope": "terminal prefill CPU bookkeeping -> worker completion fence; may include metrics RPC delay",
+                "fenced_end_ns": 35162677287900,
+                "last_round_tokens": null,
+                "prefill_wall_scope": "first scheduled prefill -> terminal prefill CPU bookkeeping",
+                "profile_excluded": true,
+                "prompt_tokens": 2048,
+                "raw_decode_tokens": null,
+                "request_id": "chatcmpl-dm-46db672b28d548c28a34d9b662e5c75b-b8de022f",
+                "seed_tokens": 1,
+                "tag": "dm-46db672b28d548c28a34d9b662e5c75b",
+                "terminal_fence_observed": true,
+                "terminal_sample_end_ns": 35162657527720,
+                "terminal_tp_join_observed": true,
+                "window_fingerprint": "6b8d150c5dfb21b1a421a45d84da9cf2332d56d618889b5fa8116e9daddf484a"
+              },
+              {
+                "async_mode": true,
+                "decode_rounds": 27,
+                "decode_start_ns": 35162863532140,
+                "decode_wall_scope": "terminal prefill CPU bookkeeping -> worker completion fence; may include metrics RPC delay",
+                "fenced_end_ns": 35163770234320,
+                "last_round_tokens": null,
+                "prefill_wall_scope": "first scheduled prefill -> terminal prefill CPU bookkeeping",
+                "profile_excluded": true,
+                "prompt_tokens": 2048,
+                "raw_decode_tokens": null,
+                "request_id": "chatcmpl-dm-4be35e30bc994f7b8cf2355118e917c5-869368f3",
+                "seed_tokens": 1,
+                "tag": "dm-4be35e30bc994f7b8cf2355118e917c5",
+                "terminal_fence_observed": true,
+                "terminal_sample_end_ns": 35163750551210,
+                "terminal_tp_join_observed": true,
+                "window_fingerprint": "79564a141e3c51ba3817b8f01b90d5212ae8b0ec91da95887a05d93d272bb1d0"
+              }
+            ]
+          },
+          {
+            "counter_scope": "actual runner scheduled/request CPU-token bookkeeping",
+            "cumulative": {
+              "decode_rounds": 127,
+              "decode_seconds": 10.45589062,
+              "decode_tokens": null,
+              "draft_eager_calls": 3,
+              "draft_graph_calls": 127,
+              "prefill_calls": 3,
+              "prefill_seconds": 6.22482223
+            },
+            "decode_tokens_scope": "HTTP final usage required for async; raw worker tokens before terminal trimming for sync",
+            "errors": [],
+            "last_window": {
+              "tag": "dm-4be35e30bc994f7b8cf2355118e917c5",
+              "window_fingerprint": "79564a141e3c51ba3817b8f01b90d5212ae8b0ec91da95887a05d93d272bb1d0"
+            },
+            "pending": false,
+            "rank": 7,
+            "requests": [
+              {
+                "async_mode": true,
+                "decode_rounds": 33,
+                "decode_start_ns": 35040895487240,
+                "decode_wall_scope": "terminal prefill CPU bookkeeping -> worker completion fence; may include metrics RPC delay",
+                "fenced_end_ns": 35048389228420,
+                "last_round_tokens": null,
+                "prefill_wall_scope": "first scheduled prefill -> terminal prefill CPU bookkeeping",
+                "profile_excluded": true,
+                "prompt_tokens": 2048,
+                "raw_decode_tokens": null,
+                "request_id": "chatcmpl-dm-canary-e2d50fa44e184e12b3608839c568ba49-b6295811",
+                "seed_tokens": 1,
+                "tag": "dm-canary-e2d50fa44e184e12b3608839c568ba49",
+                "terminal_fence_observed": true,
+                "terminal_sample_end_ns": 35048368966310,
+                "terminal_tp_join_observed": true,
+                "window_fingerprint": "56d61b3af63d6f1af2f2cf8d109bb04c74050bed14cbdc4d45ba4d06af4903e4"
+              },
+              {
+                "async_mode": true,
+                "decode_rounds": 67,
+                "decode_start_ns": 35160625568740,
+                "decode_wall_scope": "terminal prefill CPU bookkeeping -> worker completion fence; may include metrics RPC delay",
+                "fenced_end_ns": 35162677289330,
+                "last_round_tokens": null,
+                "prefill_wall_scope": "first scheduled prefill -> terminal prefill CPU bookkeeping",
+                "profile_excluded": true,
+                "prompt_tokens": 2048,
+                "raw_decode_tokens": null,
+                "request_id": "chatcmpl-dm-46db672b28d548c28a34d9b662e5c75b-b8de022f",
+                "seed_tokens": 1,
+                "tag": "dm-46db672b28d548c28a34d9b662e5c75b",
+                "terminal_fence_observed": true,
+                "terminal_sample_end_ns": 35162657375600,
+                "terminal_tp_join_observed": true,
+                "window_fingerprint": "6b8d150c5dfb21b1a421a45d84da9cf2332d56d618889b5fa8116e9daddf484a"
+              },
+              {
+                "async_mode": true,
+                "decode_rounds": 27,
+                "decode_start_ns": 35162859810110,
+                "decode_wall_scope": "terminal prefill CPU bookkeeping -> worker completion fence; may include metrics RPC delay",
+                "fenced_end_ns": 35163770238960,
+                "last_round_tokens": null,
+                "prefill_wall_scope": "first scheduled prefill -> terminal prefill CPU bookkeeping",
+                "profile_excluded": true,
+                "prompt_tokens": 2048,
+                "raw_decode_tokens": null,
+                "request_id": "chatcmpl-dm-4be35e30bc994f7b8cf2355118e917c5-869368f3",
+                "seed_tokens": 1,
+                "tag": "dm-4be35e30bc994f7b8cf2355118e917c5",
+                "terminal_fence_observed": true,
+                "terminal_sample_end_ns": 35163750486690,
+                "terminal_tp_join_observed": true,
+                "window_fingerprint": "79564a141e3c51ba3817b8f01b90d5212ae8b0ec91da95887a05d93d272bb1d0"
+              }
+            ]
+          }
+        ],
+        "schema": "delivery_runtime_metrics_v1",
+        "served_model": "dsv41-delivery-a2sim-tp8-v4",
+        "service_instance_id": "9d2ba214732b4eed84dc4f416f27c6ae",
+        "trusted": true
+      },
+      "endpoint": "http://127.0.0.1:18960/delivery/metrics",
+      "ok": true,
+      "received_at_utc": "2026-10-12T23:42:24.265158+00:00"
+    },
+    "engine_request_id": "chatcmpl-dm-fad6aced42c74d24928f7e65392f4939-8c14b3c8",
+    "error": null,
+    "finish_reason": "stop",
+    "http_rate_consistency_abs_delta_tok_s": 2.842170943040401e-14,
+    "http_rate_from_A_tok_s": 190.7601756821169,
+    "http_status": 200,
+    "ignore_eos": false,
+    "ms_step_legacy_alias_of": "server_fenced_ms_per_step",
+    "output_sha256": "fe3a16bd19351c23dee8aa6031e05cfa8e0862e27182b289b7d69f8b6c879c95",
+    "output_text": "```python\nimport heapq\n\n\ndef topological_order(nodes, edges):\n    node_set = set(nodes)\n    indegree = {node: 0 for node in nodes}\n    adj = {node: set() for node in nodes}\n\n    for edge in edges:\n        if not isinstance(edge, (list, tuple)) or len(edge) != 2:\n            continue\n        u, v = edge\n        if u not in node_set or v not in node_set:\n            continue\n        if v not in adj[u]:\n            adj[u].add(v)\n            indegree[v] += 1\n\n    heap = [node for node in nodes if indegree[node] == 0]\n    heapq.heapify(heap)\n\n    result = []\n    while heap:\n        u = heapq.heappop(heap)\n        result.append(u)\n        for v in sorted(adj[u]):\n            indegree[v] -= 1\n            if indegree[v] == 0:\n                heapq.heappush(heap, v)\n\n    if len(result) != len(nodes):\n        return []\n\n    return result\n```",
+    "output_utf8_bytes": 843,
+    "prompt_messages": [
+      {
+        "content": "[delivery-matrix-code-topological_order]\n你正在为 Python 3.10+ 实现一个独立函数。只使用 Python 标准库。最终只输出 Python 代码，可以用一个 ```python 代码块；不要附加解释。\n背景资料：以下重复的通用仓库说明仅用于长上下文负载，不是额外任务要求；请以末尾明确的问题定义为准。\nRepository note: preserve caller-owned input objects unless mutation is required.\nRepository note: use Python's standard library and avoid external services.\nRepository note: keep edge cases such as empty collections well-defined.\nRepository note: return values should be ordinary JSON-compatible Python values.\nRepository note: complexity should be reasonable for inputs with thousands of items.\nRepository note: names and behavior should follow the exact function contract.\nRepository note: public functions should validate through their documented behavior.\nRepository note: prefer deterministic results when multiple answers are valid.\nRepository note: preserve caller-owned input objects unless mutation is required.\nRepository note: use Python's standard library and avoid external services.\nRepository note: keep edge cases such as empty collections well-defined.\nRepository note: return values should be ordinary JSON-compatible Python values.\nRepository note: complexity should be reasonable for inputs with thousands of items.\nRepository note: names and behavior should follow the exact function contract.\nRepository note: public functions should validate through their documented behavior.\nRepository note: prefer deterministic results when multiple answers are valid.\nRepository note: preserve caller-owned input objects unless mutation is required.\nRepository note: use Python's standard library and avoid external services.\nRepository note: keep edge cases such as empty collections well-defined.\nRepository note: return values should be ordinary JSON-compatible Python values.\nRepository note: complexity should be reasonable for inputs with thousands of items.\nRepository note: names and behavior should follow the exact function contract.\nRepository note: public functions should validate through their documented behavior.\nRepository note: prefer deterministic results when multiple answers are valid.\nRepository note: preserve caller-owned input objects unless mutation is required.\nRepository note: use Python's standard library and avoid external services.\nRepository note: keep edge cases such as empty collections well-defined.\nRepository note: return values should be ordinary JSON-compatible Python values.\nRepository note: complexity should be reasonable for inputs with thousands of items.\nRepository note: names and behavior should follow the exact function contract.\nRepository note: public functions should validate through their documented behavior.\nRepository note: prefer deterministic results when multiple answers are valid.\nRepository note: preserve caller-owned input objects unless mutation is required.\nRepository note: use Python's standard library and avoid external services.\nRepository note: keep edge cases such as empty collections well-defined.\nRepository note: return values should be ordinary JSON-compatible Python values.\nRepository note: complexity should be reasonable for inputs with thousands of items.\nRepository note: names and behavior should follow the exact function contract.\nRepository note: public functions should validate through their documented behavior.\nRepository note: prefer deterministic results when multiple answers are valid.\nRepository note: preserve caller-owned input objects unless mutation is required.\nRepository note: use Python's standard library and avoid external services.\nRepository note: keep edge cases such as empty collections well-defined.\nRepository note: return values should be ordinary JSON-compatible Python values.\nRepository note: complexity should be reasonable for inputs with thousands of items.\nRepository note: names and behavior should follow the exact function contract.\nRepository note: public functions should validate through their documented behavior.\nRepository note: prefer deterministic results when multiple answers are valid.\nRepository note: preserve caller-owned input objects unless mutation is required.\nRepository note: use Python's standard library and avoid external services.\nRepository note: keep edge cases such as empty collections well-defined.\nRepository note: return values should be ordinary JSON-compatible Python values.\nRepository note: complexity should be reasonable for inputs with thousands of items.\nRepository note: names and behavior should follow the exact function contract.\nRepository note: public functions should validate through their documented behavior.\nRepository note: prefer deterministic results when multiple answers are valid.\nRepository note: preserve caller-owned input objects unless mutation is required.\nRepository note: use Python's standard library and avoid external services.\nRepository note: keep edge cases such as empty collections well-defined.\nRepository note: return values should be ordinary JSON-compatible Python values.\nRepository note: complexity should be reasonable for inputs with thousands of items.\nRepository note: names and behavior should follow the exact function contract.\nRepository note: public functions should validate through their documented behavior.\nRepository note: prefer deterministic results when multiple answers are valid.\nRepository note: preserve caller-owned input objects unless mutation is required.\nRepository note: use Python's standard library and avoid external services.\nRepository note: keep edge cases such as empty collections well-defined.\nRepository note: return values should be ordinary JSON-compatible Python values.\nRepository note: complexity should be reasonable for inputs with thousands of items.\nRepository note: names and behavior should follow the exact function contract.\nRepository note: public functions should validate through their documented behavior.\nRepository note: prefer deterministic results when multiple answers are valid.\nRepository note: preserve caller-owned input objects unless mutation is required.\nRepository note: use Python's standard library and avoid external services.\nRepository note: keep edge cases such as empty collections well-defined.\nRepository note: return values should be ordinary JSON-compatible Python values.\nRepository note: complexity should be reasonable for inputs with thousands of items.\nRepository note: names and behavior should follow the exact function contract.\nRepository note: public functions should validate through their documented behavior.\nRepository note: prefer deterministic results when multiple answers are valid.\nRepository note: preserve caller-owned input objects unless mutation is required.\nRepository note: use Python's standard library and avoid external services.\nRepository note: keep edge cases such as empty collections well-defined.\nRepository note: return values should be ordinary JSON-compatible Python values.\nRepository note: complexity should be reasonable for inputs with thousands of items.\nRepository note: names and behavior should follow the exact function contract.\nRepository note: public functions should validate through their documented behavior.\nRepository note: prefer deterministic results when multiple answers are valid.\nRepository note: preserve caller-owned input objects unless mutation is required.\nRepository note: use Python's standard library and avoid external services.\nRepository note: keep edge cases such as empty collections well-defined.\nRepository note: return values should be ordinary JSON-compatible Python values.\nRepository note: complexity should be reasonable for inputs with thousands of items.\nRepository note: names and behavior should follow the exact function contract.\nRepository note: public functions should validate through their documented behavior.\nRepository note: prefer deterministic results when multiple answers are valid.\nRepository note: preserve caller-owned input objects unless mutation is required.\nRepository note: use Python's standard library and avoid external services.\nRepository note: keep edge cases such as empty collections well-defined.\nRepository note: return values should be ordinary JSON-compatible Python values.\nRepository note: complexity should be reasonable for inputs with thousands of items.\nRepository note: names and behavior should follow the exact function contract.\nRepository note: public functions should validate through their documented behavior.\nRepository note: prefer deterministic results when multiple answers are valid.\nRepository note: preserve caller-owned input objects unless mutation is required.\nRepository note: use Python's standard library and avoid external services.\nRepository note: keep edge cases such as empty collections well-defined.\nRepository note: return values should be ordinary JSON-compatible Python values.\nRepository note: complexity should be reasonable for inputs with thousands of items.\nRepository note: names and behavior should follow the exact function contract.\nRepository note: public functions should validate through their documented behavior.\nRepository note: prefer deterministic results when multiple answers are valid.\nRepository note: preserve caller-owned input objects unless mutation is required.\nRepository note: use Python's standard library and avoid external services.\nRepository note: keep edge cases such as empty collections well-defined.\nRepository note: return values should be ordinary JSON-compatible Python values.\nRepository note: complexity should be reasonable for inputs with thousands of items.\nRepository note: names and behavior should follow the exact function contract.\nRepository note: public functions should validate through their documented behavior.\nRepository note: prefer deterministic results when multiple answers are valid.\nRepository note: preserve caller-owned input objects unless mutation is required.\nRepository note: use Python's standard library and avoid external services.\nRepository note: keep edge cases such as empty collections well-defined.\nRepository note: return values should be ordinary JSON-compatible Python values.\nRepository note: complexity should be reasonable for inputs with thousands of items.\nRepository note: names and behavior should follow the exact function contract.\nRepository note: public functions should validate through their documented behavior.\nRepository note: prefer deterministic results when multiple answers are valid.\nRepository note: preserve caller-owned input objects unless mutation is required.\nRepository note: use Python's standard library and avoid external services.\nRepository note: keep edge cases such as empty collections well-defined.\nRepository note: return values should be ordinary JSON-compatible Python values.\nRepository note: complexity should be reasonable for inputs with thousands of items.\nRepository note: names and behavior should follow the exact function contract.\nRepository note: public functions should validate through their documented behavior.\nRepository note: prefer deterministic results when multiple answers are valid.\nRepository note: preserve caller-owned input objects unless mutation is required.\nRepository note: use Python's standard library and avoid external services.\nRepository note: keep edge cases such as empty collections well-defined.\nRepository note: return values should be ordinary JSON-compatible Python values.\nRepository note: complexity should be reasonable for inp\n任务：返回有向无环图的字典序最小拓扑序。nodes 是互不重复的字符串节点列表，edges 中的 [u, v]表示 u 必须排在 v 前面；重复边只算一次。每一步若有多个入度为零的节点，选择字典序最小者。若图有环，返回空列表。输入列表不得被修改。\n函数签名：def topological_order(nodes, edges):\n示例：例如 nodes=[\"b\",\"a\",\"c\"], edges=[[\"a\",\"c\"]] 返回 [\"a\",\"b\",\"c\"]。\n请严格遵守函数契约，并覆盖空输入、边界和重复值等情况。",
+        "role": "user"
+      }
+    ],
+    "prompt_messages_sha256": "48fc1a568d4cd3ee992772c949e1970f6ac772da385d06d0f9e24d736d004ab7",
+    "prompt_sha256": "6490bea19721510c6412ad693cc317d968bfdb0d406e72527c32965454448887",
+    "prompt_text": "[delivery-matrix-code-topological_order]\n你正在为 Python 3.10+ 实现一个独立函数。只使用 Python 标准库。最终只输出 Python 代码，可以用一个 ```python 代码块；不要附加解释。\n背景资料：以下重复的通用仓库说明仅用于长上下文负载，不是额外任务要求；请以末尾明确的问题定义为准。\nRepository note: preserve caller-owned input objects unless mutation is required.\nRepository note: use Python's standard library and avoid external services.\nRepository note: keep edge cases such as empty collections well-defined.\nRepository note: return values should be ordinary JSON-compatible Python values.\nRepository note: complexity should be reasonable for inputs with thousands of items.\nRepository note: names and behavior should follow the exact function contract.\nRepository note: public functions should validate through their documented behavior.\nRepository note: prefer deterministic results when multiple answers are valid.\nRepository note: preserve caller-owned input objects unless mutation is required.\nRepository note: use Python's standard library and avoid external services.\nRepository note: keep edge cases such as empty collections well-defined.\nRepository note: return values should be ordinary JSON-compatible Python values.\nRepository note: complexity should be reasonable for inputs with thousands of items.\nRepository note: names and behavior should follow the exact function contract.\nRepository note: public functions should validate through their documented behavior.\nRepository note: prefer deterministic results when multiple answers are valid.\nRepository note: preserve caller-owned input objects unless mutation is required.\nRepository note: use Python's standard library and avoid external services.\nRepository note: keep edge cases such as empty collections well-defined.\nRepository note: return values should be ordinary JSON-compatible Python values.\nRepository note: complexity should be reasonable for inputs with thousands of items.\nRepository note: names and behavior should follow the exact function contract.\nRepository note: public functions should validate through their documented behavior.\nRepository note: prefer deterministic results when multiple answers are valid.\nRepository note: preserve caller-owned input objects unless mutation is required.\nRepository note: use Python's standard library and avoid external services.\nRepository note: keep edge cases such as empty collections well-defined.\nRepository note: return values should be ordinary JSON-compatible Python values.\nRepository note: complexity should be reasonable for inputs with thousands of items.\nRepository note: names and behavior should follow the exact function contract.\nRepository note: public functions should validate through their documented behavior.\nRepository note: prefer deterministic results when multiple answers are valid.\nRepository note: preserve caller-owned input objects unless mutation is required.\nRepository note: use Python's standard library and avoid external services.\nRepository note: keep edge cases such as empty collections well-defined.\nRepository note: return values should be ordinary JSON-compatible Python values.\nRepository note: complexity should be reasonable for inputs with thousands of items.\nRepository note: names and behavior should follow the exact function contract.\nRepository note: public functions should validate through their documented behavior.\nRepository note: prefer deterministic results when multiple answers are valid.\nRepository note: preserve caller-owned input objects unless mutation is required.\nRepository note: use Python's standard library and avoid external services.\nRepository note: keep edge cases such as empty collections well-defined.\nRepository note: return values should be ordinary JSON-compatible Python values.\nRepository note: complexity should be reasonable for inputs with thousands of items.\nRepository note: names and behavior should follow the exact function contract.\nRepository note: public functions should validate through their documented behavior.\nRepository note: prefer deterministic results when multiple answers are valid.\nRepository note: preserve caller-owned input objects unless mutation is required.\nRepository note: use Python's standard library and avoid external services.\nRepository note: keep edge cases such as empty collections well-defined.\nRepository note: return values should be ordinary JSON-compatible Python values.\nRepository note: complexity should be reasonable for inputs with thousands of items.\nRepository note: names and behavior should follow the exact function contract.\nRepository note: public functions should validate through their documented behavior.\nRepository note: prefer deterministic results when multiple answers are valid.\nRepository note: preserve caller-owned input objects unless mutation is required.\nRepository note: use Python's standard library and avoid external services.\nRepository note: keep edge cases such as empty collections well-defined.\nRepository note: return values should be ordinary JSON-compatible Python values.\nRepository note: complexity should be reasonable for inputs with thousands of items.\nRepository note: names and behavior should follow the exact function contract.\nRepository note: public functions should validate through their documented behavior.\nRepository note: prefer deterministic results when multiple answers are valid.\nRepository note: preserve caller-owned input objects unless mutation is required.\nRepository note: use Python's standard library and avoid external services.\nRepository note: keep edge cases such as empty collections well-defined.\nRepository note: return values should be ordinary JSON-compatible Python values.\nRepository note: complexity should be reasonable for inputs with thousands of items.\nRepository note: names and behavior should follow the exact function contract.\nRepository note: public functions should validate through their documented behavior.\nRepository note: prefer deterministic results when multiple answers are valid.\nRepository note: preserve caller-owned input objects unless mutation is required.\nRepository note: use Python's standard library and avoid external services.\nRepository note: keep edge cases such as empty collections well-defined.\nRepository note: return values should be ordinary JSON-compatible Python values.\nRepository note: complexity should be reasonable for inputs with thousands of items.\nRepository note: names and behavior should follow the exact function contract.\nRepository note: public functions should validate through their documented behavior.\nRepository note: prefer deterministic results when multiple answers are valid.\nRepository note: preserve caller-owned input objects unless mutation is required.\nRepository note: use Python's standard library and avoid external services.\nRepository note: keep edge cases such as empty collections well-defined.\nRepository note: return values should be ordinary JSON-compatible Python values.\nRepository note: complexity should be reasonable for inputs with thousands of items.\nRepository note: names and behavior should follow the exact function contract.\nRepository note: public functions should validate through their documented behavior.\nRepository note: prefer deterministic results when multiple answers are valid.\nRepository note: preserve caller-owned input objects unless mutation is required.\nRepository note: use Python's standard library and avoid external services.\nRepository note: keep edge cases such as empty collections well-defined.\nRepository note: return values should be ordinary JSON-compatible Python values.\nRepository note: complexity should be reasonable for inputs with thousands of items.\nRepository note: names and behavior should follow the exact function contract.\nRepository note: public functions should validate through their documented behavior.\nRepository note: prefer deterministic results when multiple answers are valid.\nRepository note: preserve caller-owned input objects unless mutation is required.\nRepository note: use Python's standard library and avoid external services.\nRepository note: keep edge cases such as empty collections well-defined.\nRepository note: return values should be ordinary JSON-compatible Python values.\nRepository note: complexity should be reasonable for inputs with thousands of items.\nRepository note: names and behavior should follow the exact function contract.\nRepository note: public functions should validate through their documented behavior.\nRepository note: prefer deterministic results when multiple answers are valid.\nRepository note: preserve caller-owned input objects unless mutation is required.\nRepository note: use Python's standard library and avoid external services.\nRepository note: keep edge cases such as empty collections well-defined.\nRepository note: return values should be ordinary JSON-compatible Python values.\nRepository note: complexity should be reasonable for inputs with thousands of items.\nRepository note: names and behavior should follow the exact function contract.\nRepository note: public functions should validate through their documented behavior.\nRepository note: prefer deterministic results when multiple answers are valid.\nRepository note: preserve caller-owned input objects unless mutation is required.\nRepository note: use Python's standard library and avoid external services.\nRepository note: keep edge cases such as empty collections well-defined.\nRepository note: return values should be ordinary JSON-compatible Python values.\nRepository note: complexity should be reasonable for inputs with thousands of items.\nRepository note: names and behavior should follow the exact function contract.\nRepository note: public functions should validate through their documented behavior.\nRepository note: prefer deterministic results when multiple answers are valid.\nRepository note: preserve caller-owned input objects unless mutation is required.\nRepository note: use Python's standard library and avoid external services.\nRepository note: keep edge cases such as empty collections well-defined.\nRepository note: return values should be ordinary JSON-compatible Python values.\nRepository note: complexity should be reasonable for inputs with thousands of items.\nRepository note: names and behavior should follow the exact function contract.\nRepository note: public functions should validate through their documented behavior.\nRepository note: prefer deterministic results when multiple answers are valid.\nRepository note: preserve caller-owned input objects unless mutation is required.\nRepository note: use Python's standard library and avoid external services.\nRepository note: keep edge cases such as empty collections well-defined.\nRepository note: return values should be ordinary JSON-compatible Python values.\nRepository note: complexity should be reasonable for inputs with thousands of items.\nRepository note: names and behavior should follow the exact function contract.\nRepository note: public functions should validate through their documented behavior.\nRepository note: prefer deterministic results when multiple answers are valid.\nRepository note: preserve caller-owned input objects unless mutation is required.\nRepository note: use Python's standard library and avoid external services.\nRepository note: keep edge cases such as empty collections well-defined.\nRepository note: return values should be ordinary JSON-compatible Python values.\nRepository note: complexity should be reasonable for inp\n任务：返回有向无环图的字典序最小拓扑序。nodes 是互不重复的字符串节点列表，edges 中的 [u, v]表示 u 必须排在 v 前面；重复边只算一次。每一步若有多个入度为零的节点，选择字典序最小者。若图有环，返回空列表。输入列表不得被修改。\n函数签名：def topological_order(nodes, edges):\n示例：例如 nodes=[\"b\",\"a\",\"c\"], edges=[[\"a\",\"c\"]] 返回 [\"a\",\"b\",\"c\"]。\n请严格遵守函数契约，并覆盖空输入、边界和重复值等情况。",
+    "request_id": "dm-fad6aced42c74d24928f7e65392f4939",
+    "request_index": 2,
+    "request_tag": "dm-fad6aced42c74d24928f7e65392f4939",
+    "request_wall_s": 1.5270525300002191,
+    "requested_max_tokens": 1024,
+    "round_index": 0,
+    "sample_id": "code-03-topological_order",
+    "seed": 2,
+    "server_fenced_ms_per_step": 31.609426363636352,
+    "server_fenced_ms_per_step_scope": "GET /delivery/metrics delta: ranks[].cumulative.decode_seconds; terminal prefill CPU bookkeeping -> worker completion fence; may include metrics RPC delay; may include metrics RPC delay",
+    "source_metadata": {
+      "function_name": "topological_order",
+      "input_tokens_exact": true,
+      "padding_chars": 11248,
+      "padding_seed": 2,
+      "sample_id": "code-03-topological_order",
+      "task_id": "topological_order",
+      "tokenizer_count": 2048,
+      "unit_cases_sha256": "b8ce412de48e610c24587b1555169329131ed5f490273974887993ca85905c43"
+    },
+    "sse_error_event": null,
+    "sse_json_events": 46,
+    "task": "code",
+    "tpot_s": 0.005242184310347888,
+    "ttft_s": 0.3107464600034291,
+    "unit_cases": [
+      {
+        "args": [
+          [],
+          []
+        ],
+        "expected": [],
+        "id": "empty"
+      },
+      {
+        "args": [
+          [
+            "b",
+            "a",
+            "c"
+          ],
+          [
+            [
+              "a",
+              "c"
+            ]
+          ]
+        ],
+        "expected": [
+          "a",
+          "b",
+          "c"
+        ],
+        "id": "tie-break"
+      },
+      {
+        "args": [
+          [
+            "a",
+            "b",
+            "c"
+          ],
+          [
+            [
+              "a",
+              "b"
+            ],
+            [
+              "a",
+              "b"
+            ],
+            [
+              "b",
+              "c"
+            ]
+          ]
+        ],
+        "expected": [
+          "a",
+          "b",
+          "c"
+        ],
+        "id": "duplicate-edge"
+      },
+      {
+        "args": [
+          [
+            "a",
+            "b",
+            "c"
+          ],
+          [
+            [
+              "a",
+              "b"
+            ],
+            [
+              "b",
+              "c"
+            ],
+            [
+              "c",
+              "a"
+            ]
+          ]
+        ],
+        "expected": [],
+        "id": "cycle"
+      },
+      {
+        "args": [
+          [
+            "a",
+            "b"
+          ],
+          []
+        ],
+        "expected": [
+          "a",
+          "b"
+        ],
+        "id": "random-00"
+      },
+      {
+        "args": [
+          [
+            "a",
+            "b",
+            "c",
+            "d",
+            "e"
+          ],
+          [
+            [
+              "a",
+              "c"
+            ],
+            [
+              "a",
+              "d"
+            ],
+            [
+              "b",
+              "a"
+            ],
+            [
+              "b",
+              "c"
+            ],
+            [
+              "c",
+              "a"
+            ]
+          ]
+        ],
+        "expected": [],
+        "id": "random-01"
+      },
+      {
+        "args": [
+          [
+            "a",
+            "b",
+            "c",
+            "d"
+          ],
+          [
+            [
+              "b",
+              "a"
+            ],
+            [
+              "c",
+              "b"
+            ],
+            [
+              "c",
+              "d"
+            ]
+          ]
+        ],
+        "expected": [
+          "c",
+          "b",
+          "a",
+          "d"
+        ],
+        "id": "random-02"
+      },
+      {
+        "args": [
+          [
+            "a",
+            "b",
+            "c",
+            "d",
+            "e"
+          ],
+          [
+            [
+              "c",
+              "b"
+            ],
+            [
+              "d",
+              "a"
+            ],
+            [
+              "e",
+              "b"
+            ],
+            [
+              "e",
+              "d"
+            ],
+            [
+              "c",
+              "b"
+            ]
+          ]
+        ],
+        "expected": [
+          "c",
+          "e",
+          "b",
+          "d",
+          "a"
+        ],
+        "id": "random-03"
+      },
+      {
+        "args": [
+          [
+            "a",
+            "b",
+            "c",
+            "d",
+            "e"
+          ],
+          [
+            [
+              "c",
+              "e"
+            ]
+          ]
+        ],
+        "expected": [
+          "a",
+          "b",
+          "c",
+          "d",
+          "e"
+        ],
+        "id": "random-04"
+      },
+      {
+        "args": [
+          [
+            "a",
+            "b",
+            "c",
+            "d",
+            "e",
+            "f"
+          ],
+          [
+            [
+              "b",
+              "c"
+            ],
+            [
+              "b",
+              "d"
+            ],
+            [
+              "b",
+              "e"
+            ],
+            [
+              "c",
+              "b"
+            ],
+            [
+              "f",
+              "a"
+            ]
+          ]
+        ],
+        "expected": [],
+        "id": "random-05"
+      },
+      {
+        "args": [
+          [
+            "a",
+            "b"
+          ],
+          [
+            [
+              "b",
+              "a"
+            ]
+          ]
+        ],
+        "expected": [
+          "b",
+          "a"
+        ],
+        "id": "random-06"
+      },
+      {
+        "args": [
+          [
+            "a",
+            "b",
+            "c",
+            "d",
+            "e"
+          ],
+          []
+        ],
+        "expected": [
+          "a",
+          "b",
+          "c",
+          "d",
+          "e"
+        ],
+        "id": "random-07"
+      },
+      {
+        "args": [
+          [
+            "a",
+            "b",
+            "c",
+            "d",
+            "e",
+            "f"
+          ],
+          [
+            [
+              "a",
+              "b"
+            ],
+            [
+              "b",
+              "a"
+            ],
+            [
+              "b",
+              "f"
+            ],
+            [
+              "c",
+              "a"
+            ],
+            [
+              "c",
+              "e"
+            ],
+            [
+              "d",
+              "a"
+            ],
+            [
+              "d",
+              "f"
+            ],
+            [
+              "f",
+              "b"
+            ],
+            [
+              "f",
+              "c"
+            ],
+            [
+              "f",
+              "d"
+            ],
+            [
+              "a",
+              "b"
+            ]
+          ]
+        ],
+        "expected": [],
+        "id": "random-08"
+      },
+      {
+        "args": [
+          [
+            "a",
+            "b",
+            "c",
+            "d",
+            "e",
+            "f"
+          ],
+          [
+            [
+              "a",
+              "b"
+            ],
+            [
+              "a",
+              "c"
+            ],
+            [
+              "a",
+              "d"
+            ],
+            [
+              "d",
+              "a"
+            ],
+            [
+              "e",
+              "a"
+            ],
+            [
+              "e",
+              "c"
+            ],
+            [
+              "e",
+              "d"
+            ],
+            [
+              "f",
+              "a"
+            ],
+            [
+              "f",
+              "e"
+            ]
+          ]
+        ],
+        "expected": [],
+        "id": "random-09"
+      },
+      {
+        "args": [
+          [
+            "a",
+            "b"
+          ],
+          []
+        ],
+        "expected": [
+          "a",
+          "b"
+        ],
+        "id": "random-10"
+      },
+      {
+        "args": [
+          [
+            "a",
+            "b",
+            "c",
+            "d",
+            "e"
+          ],
+          [
+            [
+              "a",
+              "c"
+            ],
+            [
+              "b",
+              "e"
+            ],
+            [
+              "c",
+              "b"
+            ],
+            [
+              "d",
+              "b"
+            ],
+            [
+              "e",
+              "b"
+            ]
+          ]
+        ],
+        "expected": [],
+        "id": "random-11"
+      }
+    ],
+    "unit_cases_sha256": "b8ce412de48e610c24587b1555169329131ed5f490273974887993ca85905c43",
+    "usage_tokens": {
+      "completion_tokens": 233,
+      "prompt_tokens": 2048,
+      "source": "stream_options.include_usage final SSE usage object",
+      "total_tokens": 2281
+    }
+  },
+  "request_index": 2,
+  "round_index": 0,
+  "schema_version": "delivery_matrix_request_receipt_v1",
+  "source": {
+    "dihuo_source": null,
+    "form": "a2-tp8-a3sim",
+    "identity_sha256": "7fa3f421435d3431876b90fe00664e8725d9e2b8fc1b2a8dfdd1acb795923fbf",
+    "model": "dsv41-delivery-a2sim-tp8-v4",
+    "rank_descriptions": [
+      {
+        "async_scheduling": true,
+        "base_worker_source": "/work/delivery_matrix_generic_20261013_v7/delivery_matrix/tp8_physical_0_7_20261013_v1/worker.py",
+        "batch_invariant": "1",
+        "ced_compressor_manifest_sha256": null,
+        "ced_compressor_source_sha256": null,
+        "ced_overlay_manifest_sha256": null,
+        "dcp": 1,
+        "dcp_proposer_derivation": null,
+        "dcp_software_ordered_reduction": false,
+        "draft_graph": true,
+        "engram_device_index": "0",
+        "form": "a2-tp8-a3sim",
+        "native_opp_fingerprint": null,
+        "physical_chips": "0,1,2,3,4,5,6,7",
+        "physical_worker_derivation": {
+          "actual_quality_passed": false,
+          "derived_source_sha256": "7cabe528dc5df34d8851637deb1cd4ea2f13624ba5dbd427455d6d0fe5dc9ad0",
+          "manifest_sha256": "df5461194e84c713352d85e3e92b03459c947c1541b3c045da1e676cb879c554",
+          "original_private_API_contract_not_reused": true,
+          "original_worker_unchanged": true,
+          "physical_chips": "0,1,2,3,4,5,6,7",
+          "source_sha256": "8dc2192a04f44e92081af8b85ae15df2cfcfbd837da38434612553dac2564d3d"
+        },
+        "rank": 0,
+        "speculative_tokens": 5,
+        "tp": 8
+      },
+      {
+        "async_scheduling": true,
+        "base_worker_source": "/work/delivery_matrix_generic_20261013_v7/delivery_matrix/tp8_physical_0_7_20261013_v1/worker.py",
+        "batch_invariant": "1",
+        "ced_compressor_manifest_sha256": null,
+        "ced_compressor_source_sha256": null,
+        "ced_overlay_manifest_sha256": null,
+        "dcp": 1,
+        "dcp_proposer_derivation": null,
+        "dcp_software_ordered_reduction": false,
+        "draft_graph": true,
+        "engram_device_index": "0",
+        "form": "a2-tp8-a3sim",
+        "native_opp_fingerprint": null,
+        "physical_chips": "0,1,2,3,4,5,6,7",
+        "physical_worker_derivation": {
+          "actual_quality_passed": false,
+          "derived_source_sha256": "7cabe528dc5df34d8851637deb1cd4ea2f13624ba5dbd427455d6d0fe5dc9ad0",
+          "manifest_sha256": "df5461194e84c713352d85e3e92b03459c947c1541b3c045da1e676cb879c554",
+          "original_private_API_contract_not_reused": true,
+          "original_worker_unchanged": true,
+          "physical_chips": "0,1,2,3,4,5,6,7",
+          "source_sha256": "8dc2192a04f44e92081af8b85ae15df2cfcfbd837da38434612553dac2564d3d"
+        },
+        "rank": 1,
+        "speculative_tokens": 5,
+        "tp": 8
+      },
+      {
+        "async_scheduling": true,
+        "base_worker_source": "/work/delivery_matrix_generic_20261013_v7/delivery_matrix/tp8_physical_0_7_20261013_v1/worker.py",
+        "batch_invariant": "1",
+        "ced_compressor_manifest_sha256": null,
+        "ced_compressor_source_sha256": null,
+        "ced_overlay_manifest_sha256": null,
+        "dcp": 1,
+        "dcp_proposer_derivation": null,
+        "dcp_software_ordered_reduction": false,
+        "draft_graph": true,
+        "engram_device_index": "0",
+        "form": "a2-tp8-a3sim",
+        "native_opp_fingerprint": null,
+        "physical_chips": "0,1,2,3,4,5,6,7",
+        "physical_worker_derivation": {
+          "actual_quality_passed": false,
+          "derived_source_sha256": "7cabe528dc5df34d8851637deb1cd4ea2f13624ba5dbd427455d6d0fe5dc9ad0",
+          "manifest_sha256": "df5461194e84c713352d85e3e92b03459c947c1541b3c045da1e676cb879c554",
+          "original_private_API_contract_not_reused": true,
+          "original_worker_unchanged": true,
+          "physical_chips": "0,1,2,3,4,5,6,7",
+          "source_sha256": "8dc2192a04f44e92081af8b85ae15df2cfcfbd837da38434612553dac2564d3d"
+        },
+        "rank": 2,
+        "speculative_tokens": 5,
+        "tp": 8
+      },
+      {
+        "async_scheduling": true,
+        "base_worker_source": "/work/delivery_matrix_generic_20261013_v7/delivery_matrix/tp8_physical_0_7_20261013_v1/worker.py",
+        "batch_invariant": "1",
+        "ced_compressor_manifest_sha256": null,
+        "ced_compressor_source_sha256": null,
+        "ced_overlay_manifest_sha256": null,
+        "dcp": 1,
+        "dcp_proposer_derivation": null,
+        "dcp_software_ordered_reduction": false,
+        "draft_graph": true,
+        "engram_device_index": "0",
+        "form": "a2-tp8-a3sim",
+        "native_opp_fingerprint": null,
+        "physical_chips": "0,1,2,3,4,5,6,7",
+        "physical_worker_derivation": {
+          "actual_quality_passed": false,
+          "derived_source_sha256": "7cabe528dc5df34d8851637deb1cd4ea2f13624ba5dbd427455d6d0fe5dc9ad0",
+          "manifest_sha256": "df5461194e84c713352d85e3e92b03459c947c1541b3c045da1e676cb879c554",
+          "original_private_API_contract_not_reused": true,
+          "original_worker_unchanged": true,
+          "physical_chips": "0,1,2,3,4,5,6,7",
+          "source_sha256": "8dc2192a04f44e92081af8b85ae15df2cfcfbd837da38434612553dac2564d3d"
+        },
+        "rank": 3,
+        "speculative_tokens": 5,
+        "tp": 8
+      },
+      {
+        "async_scheduling": true,
+        "base_worker_source": "/work/delivery_matrix_generic_20261013_v7/delivery_matrix/tp8_physical_0_7_20261013_v1/worker.py",
+        "batch_invariant": "1",
+        "ced_compressor_manifest_sha256": null,
+        "ced_compressor_source_sha256": null,
+        "ced_overlay_manifest_sha256": null,
+        "dcp": 1,
+        "dcp_proposer_derivation": null,
+        "dcp_software_ordered_reduction": false,
+        "draft_graph": true,
+        "engram_device_index": "0",
+        "form": "a2-tp8-a3sim",
+        "native_opp_fingerprint": null,
+        "physical_chips": "0,1,2,3,4,5,6,7",
+        "physical_worker_derivation": {
+          "actual_quality_passed": false,
+          "derived_source_sha256": "7cabe528dc5df34d8851637deb1cd4ea2f13624ba5dbd427455d6d0fe5dc9ad0",
+          "manifest_sha256": "df5461194e84c713352d85e3e92b03459c947c1541b3c045da1e676cb879c554",
+          "original_private_API_contract_not_reused": true,
+          "original_worker_unchanged": true,
+          "physical_chips": "0,1,2,3,4,5,6,7",
+          "source_sha256": "8dc2192a04f44e92081af8b85ae15df2cfcfbd837da38434612553dac2564d3d"
+        },
+        "rank": 4,
+        "speculative_tokens": 5,
+        "tp": 8
+      },
+      {
+        "async_scheduling": true,
+        "base_worker_source": "/work/delivery_matrix_generic_20261013_v7/delivery_matrix/tp8_physical_0_7_20261013_v1/worker.py",
+        "batch_invariant": "1",
+        "ced_compressor_manifest_sha256": null,
+        "ced_compressor_source_sha256": null,
+        "ced_overlay_manifest_sha256": null,
+        "dcp": 1,
+        "dcp_proposer_derivation": null,
+        "dcp_software_ordered_reduction": false,
+        "draft_graph": true,
+        "engram_device_index": "0",
+        "form": "a2-tp8-a3sim",
+        "native_opp_fingerprint": null,
+        "physical_chips": "0,1,2,3,4,5,6,7",
+        "physical_worker_derivation": {
+          "actual_quality_passed": false,
+          "derived_source_sha256": "7cabe528dc5df34d8851637deb1cd4ea2f13624ba5dbd427455d6d0fe5dc9ad0",
+          "manifest_sha256": "df5461194e84c713352d85e3e92b03459c947c1541b3c045da1e676cb879c554",
+          "original_private_API_contract_not_reused": true,
+          "original_worker_unchanged": true,
+          "physical_chips": "0,1,2,3,4,5,6,7",
+          "source_sha256": "8dc2192a04f44e92081af8b85ae15df2cfcfbd837da38434612553dac2564d3d"
+        },
+        "rank": 5,
+        "speculative_tokens": 5,
+        "tp": 8
+      },
+      {
+        "async_scheduling": true,
+        "base_worker_source": "/work/delivery_matrix_generic_20261013_v7/delivery_matrix/tp8_physical_0_7_20261013_v1/worker.py",
+        "batch_invariant": "1",
+        "ced_compressor_manifest_sha256": null,
+        "ced_compressor_source_sha256": null,
+        "ced_overlay_manifest_sha256": null,
+        "dcp": 1,
+        "dcp_proposer_derivation": null,
+        "dcp_software_ordered_reduction": false,
+        "draft_graph": true,
+        "engram_device_index": "0",
+        "form": "a2-tp8-a3sim",
+        "native_opp_fingerprint": null,
+        "physical_chips": "0,1,2,3,4,5,6,7",
+        "physical_worker_derivation": {
+          "actual_quality_passed": false,
+          "derived_source_sha256": "7cabe528dc5df34d8851637deb1cd4ea2f13624ba5dbd427455d6d0fe5dc9ad0",
+          "manifest_sha256": "df5461194e84c713352d85e3e92b03459c947c1541b3c045da1e676cb879c554",
+          "original_private_API_contract_not_reused": true,
+          "original_worker_unchanged": true,
+          "physical_chips": "0,1,2,3,4,5,6,7",
+          "source_sha256": "8dc2192a04f44e92081af8b85ae15df2cfcfbd837da38434612553dac2564d3d"
+        },
+        "rank": 6,
+        "speculative_tokens": 5,
+        "tp": 8
+      },
+      {
+        "async_scheduling": true,
+        "base_worker_source": "/work/delivery_matrix_generic_20261013_v7/delivery_matrix/tp8_physical_0_7_20261013_v1/worker.py",
+        "batch_invariant": "1",
+        "ced_compressor_manifest_sha256": null,
+        "ced_compressor_source_sha256": null,
+        "ced_overlay_manifest_sha256": null,
+        "dcp": 1,
+        "dcp_proposer_derivation": null,
+        "dcp_software_ordered_reduction": false,
+        "draft_graph": true,
+        "engram_device_index": "0",
+        "form": "a2-tp8-a3sim",
+        "native_opp_fingerprint": null,
+        "physical_chips": "0,1,2,3,4,5,6,7",
+        "physical_worker_derivation": {
+          "actual_quality_passed": false,
+          "derived_source_sha256": "7cabe528dc5df34d8851637deb1cd4ea2f13624ba5dbd427455d6d0fe5dc9ad0",
+          "manifest_sha256": "df5461194e84c713352d85e3e92b03459c947c1541b3c045da1e676cb879c554",
+          "original_private_API_contract_not_reused": true,
+          "original_worker_unchanged": true,
+          "physical_chips": "0,1,2,3,4,5,6,7",
+          "source_sha256": "8dc2192a04f44e92081af8b85ae15df2cfcfbd837da38434612553dac2564d3d"
+        },
+        "rank": 7,
+        "speculative_tokens": 5,
+        "tp": 8
+      }
+    ],
+    "runtime_fingerprint": "61b841dfcd20d7f2892934e1fbd8086ab409a36d99d5de9beea4dd12399e53f9",
+    "schema_version": "delivery_matrix_client_evidence_v1",
+    "service_instance_id": "9d2ba214732b4eed84dc4f416f27c6ae",
+    "source_candidate_fingerprint": "8a7b052d6ab87cc5fed7ded6a1ce5903ffb36f018955d671477632356b005bdd",
+    "source_path": "/home/l00886679/tmp/dsv41-a2sim-v4-bench/evidence/code_formal8_a2sim_v4_20261013.json",
+    "source_sha256": "4c9196d15121358fe0b35ecd77d5b61c43095c49e09a39e9eca3258ec729d0d3",
+    "source_size_bytes": 1419839,
+    "workload_fingerprint": "6ba0371a1806a834119be4062791146c199bc9bf400ef0b87e94dc73d21ec7df",
+    "workload_manifest": {
+      "code_output_tokens": 1024,
+      "code_unit_cases_sha256": {
+        "flatten_dict": "143a10c695a472a15f677a17d8cac82359bdbb2cd0938f49729b208b8d0e76fc",
+        "group_anagrams": "e8f84072f53011d00abd2b321782fad24b0b09787c0d44701bc095c3f87cda12",
+        "kth_largest": "43ed54e22abc4fcb3f4da8dc425e5c4869c23c57809c896ab1a5ae7e2ad1ddbf",
+        "longest_unique_substring": "25b80b1d1b659ba7948b0c341ccd1c05397e0347d68110b5b8b768fdab5a66df",
+        "lru_cache": "f0143dc14db6945ac59867a754f2287f04c9200431e3de4a6e3cc56c38ec5517",
+        "merge_intervals": "b9b156461759b04df12f7f8d798f85f5ef00ae72d138760fdb035509ca58c9ae",
+        "min_window": "0ec90074387681e87cf86e4887dbfddc161429f2136764aeb699f8fdba7341e3",
+        "topological_order": "b8ce412de48e610c24587b1555169329131ed5f490273974887993ca85905c43"
+      },
+      "dihuo_corpus_sha256": null,
+      "dihuo_output_tokens": null,
+      "dihuo_suffix_sha256": null,
+      "input_tokens_target": 2048,
+      "prompt_sha256_by_task": {
+        "code": [
+          "53b396533a39a5533fc4cc7194c223d02fcc47ddf04e625c02714d6ac209d4c8",
+          "8cea410bf404d9399036f746eae4177c1a7e0247a2f40450944aae858ccb2ba6",
+          "6490bea19721510c6412ad693cc317d968bfdb0d406e72527c32965454448887",
+          "4781bcf74ed165312d9a30cb304d10b86069796b8c23950b2ffbf0799493cfe6",
+          "dd35dac97f5df030847140685a5c139f8056555e65a34ffa492b9c7e38ff05de",
+          "d420c292e3dbcdf73dc5b3d71451d2c14347273b28c776c82444cd48cabc26a6",
+          "916d442925261a669eaa9d268552fbb3e994e3a7ba9788a5e6050f0e3d21ac9a",
+          "6cbc1cacaf3ea36024ad0638d257b096be92a9f7c6a9bede48e1f3746d154fd4"
+        ]
+      },
+      "tasks": [
+        "code"
+      ]
+    }
+  },
+  "task": "code"
+}

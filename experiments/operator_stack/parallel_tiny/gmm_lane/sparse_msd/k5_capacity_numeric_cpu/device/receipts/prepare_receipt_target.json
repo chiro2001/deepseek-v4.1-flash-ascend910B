@@ -1,0 +1,241 @@
+{
+  "schema": "k5_capacity_device_prepare_v1",
+  "CPU_only": true,
+  "NPU_launches": 0,
+  "SDK": "/usr/local/Ascend/cann-9.1.0",
+  "family": "target",
+  "profile": {
+    "family": "target",
+    "capacity": 36,
+    "experts": 48,
+    "k": 2304,
+    "n": 5120,
+    "loaded_W2_shape": [
+      48,
+      2304,
+      2560
+    ],
+    "loaded_W2_stage": "original_CPU_transposed_INT8",
+    "FFN_partition": 2304,
+    "source_reference": "k5_capacity_device:/work/gmm_lane_sparse_msd_k5_capacity_p4_20261012_v1/k5_capacity_numeric_cpu",
+    "slots": 36,
+    "frame_bytes": 640,
+    "frame_words": 160,
+    "K_derived_from_loaded_W2_and_FFN_partition": true,
+    "native_math_changes": false,
+    "actual_capacity_numeric_passed": false,
+    "actual_consumer_activation_observed": false,
+    "actual_target36_consumer_proof": false,
+    "actual_draft15_consumer_proof": false,
+    "actual_device_consumer_proof": false,
+    "performance_receipt_granted": false,
+    "formal_receipt_granted": false
+  },
+  "visible_guard": "ASCEND_RT_VISIBLE_DEVICES=ASCEND_VISIBLE_DEVICES=",
+  "actual_numeric_passed": false,
+  "admission_granted": false,
+  "performance_receipt_granted": false,
+  "formal_receipt_granted": false,
+  "prepare_source": {
+    "command": [
+      "/usr/local/python3.12.13/bin/python3",
+      "/work/gmm_lane_sparse_msd_k5_capacity_p4_20261012_v1/k5_capacity_numeric_cpu/borrowed/prepare_source.py",
+      "--root",
+      "/work/gmm_lane_sparse_msd_k5_capacity_p4_20261012_v1/build/target"
+    ],
+    "exit_code": 0,
+    "log": "/work/gmm_lane_sparse_msd_k5_capacity_p4_20261012_v1/build/target/logs/prepare_source.log"
+  },
+  "capacity_geometry": {
+    "api": {
+      "native_file": "/usr/local/Ascend/cann-9.1.0/opp/built-in/op_impl/ai_core/tbe/impl/ops_transformer/ascendc/grouped_matmul/grouped_matmul_antiquant_a8w4_msd.h",
+      "native_sha256": "6ec9c310669459cf88a3910354a0fbce658e5fda201cfc4f3864ccfdf5b99ce5",
+      "frozen_m1_candidate_sha256": "6418c5c6b51d1621d9df723277f973fd3bb5f1c5723d25544bb47a752cc83c29",
+      "capacity_candidate_sha256": "ccbac33956cf0a14d7a122c8eac8210eebffa50f965ca921a8c67e0db0ebe132",
+      "m1_function_body_sha256": {
+        "Init": "408a5245910b951c07178a5d4a621bbde9d9d0a6a577d8fe5ab8f229da590900",
+        "InitUbBuffer": "6bef110693503d5b58f7162cb6403e0c6a9dec4fbb97ecf4b89a5184990f0288",
+        "MMCompute": "0bee8639d9708f8c6d278a1990e4bca6c7e945b9af2bb4405dfd68f57581a8a6",
+        "VectorCompute": "61104e4cdf3aca25f4ac139dc9e57104b2f491446ed58b039899910aa88be6fc",
+        "ComputeDequantAndActivate": "4f037f331a591b064e3e7d0cc8af54766ea90369efe61c94d518a131cfdc44fd",
+        "DataCopyScale": "56aa8588a930ebe048c170e41ece9952725b732ae9ff58c485b67c2186dff95f",
+        "DataCopyOffset": "79fadb9e41eeb36421e217317b4cd110663a1b02b0069280d3c1a2b46aae6a72",
+        "DataCopyPerTokenScaleAndBrcb": "fd0f5f65474054dadef3dd0a61f7866de0815bf090abd93e3712aa52ce842162",
+        "DataCopyAndBrcbOfRowSum": "e108b02c52f9139178869fa608e72e179fd0ab20f9cc840fa45ddcf491f3078f"
+      },
+      "capacity_native_function_body_sha256": {
+        "Init": "408a5245910b951c07178a5d4a621bbde9d9d0a6a577d8fe5ab8f229da590900",
+        "InitUbBuffer": "6bef110693503d5b58f7162cb6403e0c6a9dec4fbb97ecf4b89a5184990f0288",
+        "MMCompute": "0bee8639d9708f8c6d278a1990e4bca6c7e945b9af2bb4405dfd68f57581a8a6",
+        "VectorCompute": "61104e4cdf3aca25f4ac139dc9e57104b2f491446ed58b039899910aa88be6fc",
+        "ComputeDequantAndActivate": "4f037f331a591b064e3e7d0cc8af54766ea90369efe61c94d518a131cfdc44fd",
+        "DataCopyScale": "56aa8588a930ebe048c170e41ece9952725b732ae9ff58c485b67c2186dff95f",
+        "DataCopyOffset": "79fadb9e41eeb36421e217317b4cd110663a1b02b0069280d3c1a2b46aae6a72",
+        "DataCopyPerTokenScaleAndBrcb": "fd0f5f65474054dadef3dd0a61f7866de0815bf090abd93e3712aa52ce842162",
+        "DataCopyAndBrcbOfRowSum": "e108b02c52f9139178869fa608e72e179fd0ab20f9cc840fa45ddcf491f3078f"
+      },
+      "only_AIC_schedule_geometry_and_frame_extent_changed": true
+    },
+    "vector": {
+      "native_file": "/usr/local/Ascend/cann-9.1.0/opp/built-in/op_impl/ai_core/tbe/impl/ops_transformer/ascendc/grouped_matmul/grouped_matmul_antiquant_a8w4_msd_new.h",
+      "native_sha256": "0a273e4a42244285b57c2dd57d1be40b027cc4e12425b8ee9493ad038f58fe08",
+      "frozen_m1_candidate_sha256": "1e0dc2a9c0528691fba1b8976fc91729e17aa3a556ee355ebb215fc48e683cab",
+      "capacity_candidate_sha256": "f605d2df730c4cb1f19e5d2bdcfa1de87764baf9b20af296c1bd32630537ad2d",
+      "m1_function_body_sha256": {
+        "Init": "13ee99e5d33e30c744508cefdc806260679093eda46d9425324786bcd3c82dfe",
+        "InitUbBuffer": "697d637dbde6e35cb9bceda0d4e43bbc436864f80fc29511f148a19d189fde08",
+        "MMCompute": "3b5d3e923f84f4242a01f69289fd2e0b007fda6e20260fc2018164ac72b76658",
+        "VectorCompute": "a6ed24de7988103459946944c454d0f5c729525a2e2b8efd29b47ef77c2b31df",
+        "ComputeDequantAndActivate": "62e795c4758a398159cec5c0bf9512b3262c329b502c06da8562c36198ac2069",
+        "DataCopyScaleBias": "ed26ccb54140bf86a0f4a3e281f5af11a97625d12049f66443e93bbc0d2a0fd5",
+        "DataCopyScaleDequant": "5c8f9f16596c96b54d00fa1a35453f02fda84be20f1edf932152b663d060d501",
+        "DataCopyPerTokenScaleAndBrcb": "7ab2a10f9736928eab4db28b189c1db5d072df843af379c2bbe2bde0838fefa5"
+      },
+      "capacity_native_function_body_sha256": {
+        "Init": "13ee99e5d33e30c744508cefdc806260679093eda46d9425324786bcd3c82dfe",
+        "InitUbBuffer": "697d637dbde6e35cb9bceda0d4e43bbc436864f80fc29511f148a19d189fde08",
+        "MMCompute": "3b5d3e923f84f4242a01f69289fd2e0b007fda6e20260fc2018164ac72b76658",
+        "VectorCompute": "a6ed24de7988103459946944c454d0f5c729525a2e2b8efd29b47ef77c2b31df",
+        "ComputeDequantAndActivate": "62e795c4758a398159cec5c0bf9512b3262c329b502c06da8562c36198ac2069",
+        "DataCopyScaleBias": "ed26ccb54140bf86a0f4a3e281f5af11a97625d12049f66443e93bbc0d2a0fd5",
+        "DataCopyScaleDequant": "5c8f9f16596c96b54d00fa1a35453f02fda84be20f1edf932152b663d060d501",
+        "DataCopyPerTokenScaleAndBrcb": "7ab2a10f9736928eab4db28b189c1db5d072df843af379c2bbe2bde0838fefa5"
+      },
+      "only_AIC_schedule_geometry_and_frame_extent_changed": true
+    }
+  },
+  "candidate_cpp_sha256": "a54d739535bab313c377080b9f90f11072eee453b225cd552b46cc9c9b2015ed",
+  "candidate_frame_bytes": 640,
+  "compile_input_candidate": {
+    "bytes": 4114,
+    "bin_filename": "Gmm2SparseMsdDown_candidate_v6",
+    "x_shape": [
+      36,
+      2304
+    ],
+    "weight_shape": [
+      48,
+      80,
+      144,
+      16,
+      64
+    ]
+  },
+  "compile_input_native": {
+    "bytes": 4112,
+    "bin_filename": "Gmm2NativeMsdDown_control_v6",
+    "x_shape": [
+      36,
+      2304
+    ],
+    "weight_shape": [
+      48,
+      80,
+      144,
+      16,
+      64
+    ]
+  },
+  "planner_cpu_rebuild": {
+    "command": [
+      "/usr/local/Ascend/ascend-toolkit/latest/bin/ccec",
+      "-x",
+      "cce",
+      "-std=c++17",
+      "--cce-aicore-only",
+      "--cce-aicore-arch=dav-c220-vec",
+      "-O2",
+      "-c",
+      "/work/gmm_lane_sparse_msd_k5_capacity_p4_20261012_v1/build/target/planner_capacity.cce",
+      "-o",
+      "/work/gmm_lane_sparse_msd_k5_capacity_p4_20261012_v1/build/target/planner_cpu_rebuild.o",
+      "-I",
+      "/usr/local/Ascend/cann-9.1.0/compiler/tikcpp/tikcfw",
+      "-I",
+      "/usr/local/Ascend/cann-9.1.0/compiler/tikcpp/tikcfw/interface",
+      "-I",
+      "/usr/local/Ascend/cann-9.1.0/compiler/tikcpp/tikcfw/impl",
+      "-I",
+      "/usr/local/Ascend/cann-9.1.0/compiler/tikcpp/tikcfw/lib",
+      "-I",
+      "/usr/local/Ascend/cann-9.1.0/aarch64-linux/asc/include",
+      "-I",
+      "/usr/local/Ascend/cann-9.1.0/aarch64-linux/ascendc/include/highlevel_api"
+    ],
+    "exit_code": 0,
+    "log": "/work/gmm_lane_sparse_msd_k5_capacity_p4_20261012_v1/build/target/logs/planner_cpu_rebuild.log",
+    "source_sha256": "42b55dd7e1b53470a382026881e1dd6e58918d496df41029bb8f6d2ac9edbe26",
+    "object_bytes": 34568,
+    "object_sha256": "d2b2a8c9e1f48f3ab7bc0b95554e42844c1c8cfc44c5c8cbf034ab0fc2cbe71e",
+    "target": "dav-c220-vec",
+    "expected_NPU_ARCH": 2201
+  },
+  "compile_candidate": {
+    "command": [
+      "/usr/local/python3.12.13/bin/python3",
+      "/work/gmm_lane_sparse_msd_k5_capacity_p4_20261012_v1/k5_capacity_numeric_cpu/borrowed/opc_diagnostics.py",
+      "/work/gmm_lane_sparse_msd_k5_capacity_p4_20261012_v1/build/target/private_impl/grouped_matmul_cpu_frontend.py",
+      "--input_param=/work/gmm_lane_sparse_msd_k5_capacity_p4_20261012_v1/build/target/compile_input_candidate.json",
+      "--main_func=grouped_matmul",
+      "--output=/work/gmm_lane_sparse_msd_k5_capacity_p4_20261012_v1/build/target/op_build_candidate",
+      "--soc_version=Ascend910_9382",
+      "--op_mode=dynamic",
+      "--deterministic=true",
+      "--op_debug_config=dump_cce",
+      "--log=debug"
+    ],
+    "exit_code": 0,
+    "log": "/work/gmm_lane_sparse_msd_k5_capacity_p4_20261012_v1/build/target/logs/compile_candidate.log",
+    "object_bytes": 23488,
+    "object_sha256": "b60d8484f0907e55318fec596a33874ccf3f79a6ee3f92fe1cd2fb25b12185a1",
+    "tiling_bytes": 2032,
+    "tiling_sha256": "b131490eeffa60ba944a5f9a88cdb584e376d221266022ff50720cde5181e71b",
+    "tiling_header": "/work/gmm_lane_sparse_msd_k5_capacity_p4_20261012_v1/build/target/kernel_meta_Gmm2SparseMsdDown_candidate_v6/kernel_meta/Gmm2SparseMsdDown_candidate_v6_1817203_tiling_data.h",
+    "kernel_meta": "/work/gmm_lane_sparse_msd_k5_capacity_p4_20261012_v1/build/target/kernel_meta_Gmm2SparseMsdDown_candidate_v6/kernel_meta/Gmm2SparseMsdDown_candidate_v6.json",
+    "kernel_name": "Gmm2SparseMsdDown_candidate_v6",
+    "block_dim": 24,
+    "magic": "RT_DEV_BINARY_MAGIC_ELF",
+    "task_ration": "1:2",
+    "schedule_mode": 1,
+    "native_workspace_bytes": 117440512,
+    "workspace_type": 0
+  },
+  "compile_native": {
+    "command": [
+      "/usr/local/python3.12.13/bin/python3",
+      "/work/gmm_lane_sparse_msd_k5_capacity_p4_20261012_v1/k5_capacity_numeric_cpu/borrowed/opc_diagnostics.py",
+      "/work/gmm_lane_sparse_msd_k5_capacity_p4_20261012_v1/build/target/native_control/grouped_matmul.py",
+      "--input_param=/work/gmm_lane_sparse_msd_k5_capacity_p4_20261012_v1/build/target/compile_input_native.json",
+      "--main_func=grouped_matmul",
+      "--output=/work/gmm_lane_sparse_msd_k5_capacity_p4_20261012_v1/build/target/op_build_native",
+      "--soc_version=Ascend910_9382",
+      "--op_mode=dynamic",
+      "--deterministic=true",
+      "--op_debug_config=dump_cce",
+      "--log=debug"
+    ],
+    "exit_code": 0,
+    "log": "/work/gmm_lane_sparse_msd_k5_capacity_p4_20261012_v1/build/target/logs/compile_native.log",
+    "object_bytes": 19304,
+    "object_sha256": "855b4ddcdb0a60049b55f95e8fe55cd96d62dd2fb782ebbd9a10549f82d9999c",
+    "tiling_bytes": 2032,
+    "tiling_sha256": "b131490eeffa60ba944a5f9a88cdb584e376d221266022ff50720cde5181e71b",
+    "tiling_header": "/work/gmm_lane_sparse_msd_k5_capacity_p4_20261012_v1/build/target/kernel_meta_Gmm2NativeMsdDown_control_v6/kernel_meta/Gmm2NativeMsdDown_control_v6_1819126_tiling_data.h",
+    "kernel_meta": "/work/gmm_lane_sparse_msd_k5_capacity_p4_20261012_v1/build/target/kernel_meta_Gmm2NativeMsdDown_control_v6/kernel_meta/Gmm2NativeMsdDown_control_v6.json",
+    "kernel_name": "Gmm2NativeMsdDown_control_v6",
+    "block_dim": 24,
+    "magic": "RT_DEV_BINARY_MAGIC_ELF",
+    "task_ration": "1:2",
+    "schedule_mode": 1,
+    "native_workspace_bytes": 117440512,
+    "workspace_type": 0
+  },
+  "tiling_byte_equality": {
+    "passed": true,
+    "native_candidate_byte_exact": true,
+    "bytes": 2032,
+    "sha256": "b131490eeffa60ba944a5f9a88cdb584e376d221266022ff50720cde5181e71b"
+  },
+  "native_workspace_bytes": 117440512,
+  "capacity_workspace_bytes": 117441152
+}

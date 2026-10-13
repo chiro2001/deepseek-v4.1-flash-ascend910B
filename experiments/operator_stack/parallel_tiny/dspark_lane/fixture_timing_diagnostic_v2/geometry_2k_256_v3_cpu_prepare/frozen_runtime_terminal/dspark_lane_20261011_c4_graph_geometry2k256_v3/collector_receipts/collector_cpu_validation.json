@@ -1,0 +1,73 @@
+{
+  "scope": "CPU validation of read-only collectors only; separate from the frozen 43 NPU-readiness controls",
+  "source_scripts": [
+    {
+      "path": "runtime_tools/aggregate_geometry_terminal.py",
+      "bytes": 12705,
+      "sha256": "e749a75611e579a2d6409d16aa96b770c63799e97a20803ef3cde337b5addf42",
+      "AST_parse_passed": true
+    },
+    {
+      "path": "runtime_tools/freeze_terminal_evidence.py",
+      "bytes": 13510,
+      "sha256": "69eb4e97aba36208d077f63593f4ea4219c42d6b6f5f5bc5de72c402291e072d",
+      "AST_parse_passed": true
+    },
+    {
+      "path": "runtime_tools/fetch_geometry_gate_bounded.py",
+      "bytes": 7741,
+      "sha256": "8f5dd0dcdbfc19d90156d920da01a06031332a4ff40323c1d714573c575687be",
+      "AST_parse_passed": true
+    },
+    {
+      "path": "runtime_tools/fetch_checks_snapshot.py",
+      "bytes": 2476,
+      "sha256": "b4905779300ed38a45d0c6379a7c104ef7cceb4621e1eaf6ba42b4a571b505f1",
+      "AST_parse_passed": true
+    }
+  ],
+  "actual_existing_warmup_receipts_replayed": [
+    {
+      "tag": "warmup-off",
+      "decode_rounds": 128,
+      "native_helpers": 130
+    },
+    {
+      "tag": "warmup-on",
+      "decode_rounds": 255,
+      "native_helpers": 2
+    }
+  ],
+  "actual_existing_preflight_runtime_source_files_verified": 14,
+  "requests_source_sha256_and_small_packet_roundtrip_verified": true,
+  "metadata_excludes_tokens_and_logprobs_verified": true,
+  "modified_temporary_contract_source_negative_control_rejected": true,
+  "original_source_files_modified": false,
+  "NPU_access": false,
+  "network_access_in_CPU_replay": false,
+  "CPU_fixture_terminal_flag_is_not_an_actual_job_terminal_claim": true,
+  "full_decode_geometry_CPU_replay_covered": false,
+  "terminal_actual_geometry_aggregation_pending": true,
+  "existing_original_input_SHA256": [
+    {
+      "relative_path": "preflight.json",
+      "bytes": 6829,
+      "sha256": "e5e0f53446938c5ea88d8437297fa02a66587518c1f7a7c4578b51b2a959eb61"
+    },
+    {
+      "relative_path": "results/requests.json",
+      "bytes": 11141,
+      "sha256": "39caf8b38829d51a6e93332572d4d825958155a2f232c0ae64163cc6abc0474b"
+    },
+    {
+      "relative_path": "results/raw_001.json",
+      "bytes": 283511,
+      "sha256": "0e1a2bb4fd2d01e667521f28619784b88d01fb1984b88d7021885e365c5d7bd2"
+    },
+    {
+      "relative_path": "results/raw_002.json",
+      "bytes": 482960,
+      "sha256": "31ad1c76d1b4caf27e8f3b12e3018cc003b202288593bb5914bb326dc90312b4"
+    }
+  ]
+}

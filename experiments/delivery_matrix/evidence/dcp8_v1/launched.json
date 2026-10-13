@@ -1,0 +1,284 @@
+{
+  "schema": "delivery_matrix_launch_v1",
+  "service_launch_requested": true,
+  "service_started": true,
+  "launch_requested_at": "2026-10-13T02:32:36+08:00",
+  "container": "dsv41-real-stack-tp8-20261010-a321",
+  "container_id": "b1aa15d8800346aff8f755a049feaae148b9d6e315e92bd32dcdf1063b429eb0",
+  "image": "local/dsv41-operator-stack-real:20261010-production",
+  "source_root": "/work/src_dspark_general_quality_v11",
+  "candidate": "/work/src_dspark_general_quality_v11/candidate_contract.json",
+  "package": "/work/delivery_matrix_20261013_v3/delivery_matrix",
+  "overlay": "/work/delivery_matrix_20261013_v3/delivery_matrix/dcp_runtime_20261013_v3",
+  "job_root": "/work/results/delivery_dcp8_v1",
+  "runner": "/work/results/delivery_dcp8_v1/runner.sh",
+  "port": 18960,
+  "served_model": "dsv41-delivery-dcp8-v1",
+  "form": "a3-tp8-dcp8",
+  "device_index": 0,
+  "physical_chips": [
+    8,
+    9,
+    10,
+    11,
+    12,
+    13,
+    14,
+    15
+  ],
+  "dcp_replicate_indexer": 1,
+  "launch_command": [
+    "docker",
+    "exec",
+    "-d",
+    "dsv41-real-stack-tp8-20261010-a321",
+    "setsid",
+    "bash",
+    "/work/results/delivery_dcp8_v1/runner.sh"
+  ],
+  "prelaunch_checks": [
+    {
+      "time": "2026-10-13T02:31:19.121318+08:00",
+      "host_npu_empty": [
+        4,
+        5,
+        6,
+        7
+      ],
+      "host_npu_target_processes": [],
+      "physical_chips_without_processes": [
+        8,
+        9,
+        10,
+        11,
+        12,
+        13,
+        14,
+        15
+      ],
+      "port_18960_listener_count": 0,
+      "target_container_running": true,
+      "container_id": "b1aa15d8800346aff8f755a049feaae148b9d6e315e92bd32dcdf1063b429eb0",
+      "image": "local/dsv41-operator-stack-real:20261010-production",
+      "target_device_nodes": [
+        8,
+        9,
+        10,
+        11,
+        12,
+        13,
+        14,
+        15
+      ],
+      "passed": true
+    },
+    {
+      "time": "2026-10-13T02:31:40.138841+08:00",
+      "host_npu_empty": [
+        4,
+        5,
+        6,
+        7
+      ],
+      "host_npu_target_processes": [],
+      "physical_chips_without_processes": [
+        8,
+        9,
+        10,
+        11,
+        12,
+        13,
+        14,
+        15
+      ],
+      "port_18960_listener_count": 0,
+      "target_container_running": true,
+      "container_id": "b1aa15d8800346aff8f755a049feaae148b9d6e315e92bd32dcdf1063b429eb0",
+      "image": "local/dsv41-operator-stack-real:20261010-production",
+      "target_device_nodes": [
+        8,
+        9,
+        10,
+        11,
+        12,
+        13,
+        14,
+        15
+      ],
+      "passed": true
+    }
+  ],
+  "source_candidate_fingerprint": "8a7b052d6ab87cc5fed7ded6a1ce5903ffb36f018955d671477632356b005bdd",
+  "runtime_fingerprint": "e0c88ac88f78eb98dd1cf74a94d6fb29f27d80db518c1e704595e69f4d2d0bce",
+  "runtime_plan": "/work/results/delivery_dcp8_v1/service_plan_cpu_only/plan.json",
+  "plan_sha256": "a1ccb4c97b5c053c427896fc81f10835fdfd8daf63c345a49ccc535f842e1f0f",
+  "runner_sha256": "7de45a3a2b72c1416e472c86fdee888803471f268eff92caca2bd9518629f2e9",
+  "package_sha256": {
+    "service.py": "204de912fed5884e11c1a770a4973d8ba09b31a6652ebf31566592826a6dd428",
+    "worker.py": "4f18899ec4aa3ca3e6b66f91b19f599aa025384303c85908ea430e5565b1383d",
+    "prepare_launch.py": "9848210a2a53eec1a346561982364f7828d8b5c6270cd105a3d5e3e1b11781fc",
+    "run_service.sh": "cc5bcd644c78e5259b82f2cfc8aff3627ab6482b52fb36e8bd7f197ec5a1cdd9",
+    "dcp_overlay.py": "40e6f1fcd4caa5333c061e497104ca06115d8edc4eb13a9b67effc74f69337b0",
+    "bootstrap/sitecustomize.py": "f65de4040f924fbb34694964f0a7d88ca5a43edd0db3ba1a3dcd9c2cec0efe34",
+    "dcp_runtime_20261013_v3/manifest.json": "8d09cb35615b1a5bfd66c7e4b8f7602c263d2c580423f3599dcc9816ed90b556"
+  },
+  "copied_package_files_sha256_verified": 20,
+  "model_kwargs": {
+    "tensor_parallel_size": 8,
+    "decode_context_parallel_size": 8,
+    "max_model_len": 196608,
+    "max_num_batched_tokens": 8192,
+    "max_num_seqs": 1,
+    "async_scheduling": true,
+    "speculative_config": {
+      "method": "dspark",
+      "num_speculative_tokens": 5,
+      "enforce_eager": false
+    }
+  },
+  "environment": {
+    "V41_DCP": "1",
+    "V41_DCP_REPLICATE_INDEXER": "1",
+    "V41_ENGRAM_DEVICE_INDEX": "0",
+    "DRAFT_GRAPH": "1",
+    "DSPARK_GRAPH_CAPTURE_METADATA": "1",
+    "VLLM_BATCH_INVARIANT": "1",
+    "ASCEND_CUSTOM_OPP_PATH": "/usr/local/Ascend/cann-9.1.0/opp/vendors/batch_invariant"
+  },
+  "actual_quality_passed": false,
+  "actual_performance_observed": false,
+  "formal_receipt_granted": false,
+  "performance_receipt_granted": false,
+  "http_ready": true,
+  "ready_at": "2026-10-12T18:41:56.963597+00:00",
+  "engine_initialized": true,
+  "ASGI_startup_completed": true,
+  "readiness": {
+    "mysvc": "MINE",
+    "mysvc_expected_model": "dsv41-delivery-dcp8-v1",
+    "served_model_id_verified": "dsv41-delivery-dcp8-v1",
+    "identity_path": "/delivery/identity",
+    "identity_verified": true,
+    "form": "a3-tp8-dcp8",
+    "rank_count": 8,
+    "ranks": [
+      {
+        "rank": 0,
+        "tp": 8,
+        "dcp": 8,
+        "async_scheduling": true,
+        "draft_graph": true,
+        "speculative_tokens": 5,
+        "batch_invariant": "1",
+        "engram_device_index": "0"
+      },
+      {
+        "rank": 1,
+        "tp": 8,
+        "dcp": 8,
+        "async_scheduling": true,
+        "draft_graph": true,
+        "speculative_tokens": 5,
+        "batch_invariant": "1",
+        "engram_device_index": "0"
+      },
+      {
+        "rank": 2,
+        "tp": 8,
+        "dcp": 8,
+        "async_scheduling": true,
+        "draft_graph": true,
+        "speculative_tokens": 5,
+        "batch_invariant": "1",
+        "engram_device_index": "0"
+      },
+      {
+        "rank": 3,
+        "tp": 8,
+        "dcp": 8,
+        "async_scheduling": true,
+        "draft_graph": true,
+        "speculative_tokens": 5,
+        "batch_invariant": "1",
+        "engram_device_index": "0"
+      },
+      {
+        "rank": 4,
+        "tp": 8,
+        "dcp": 8,
+        "async_scheduling": true,
+        "draft_graph": true,
+        "speculative_tokens": 5,
+        "batch_invariant": "1",
+        "engram_device_index": "0"
+      },
+      {
+        "rank": 5,
+        "tp": 8,
+        "dcp": 8,
+        "async_scheduling": true,
+        "draft_graph": true,
+        "speculative_tokens": 5,
+        "batch_invariant": "1",
+        "engram_device_index": "0"
+      },
+      {
+        "rank": 6,
+        "tp": 8,
+        "dcp": 8,
+        "async_scheduling": true,
+        "draft_graph": true,
+        "speculative_tokens": 5,
+        "batch_invariant": "1",
+        "engram_device_index": "0"
+      },
+      {
+        "rank": 7,
+        "tp": 8,
+        "dcp": 8,
+        "async_scheduling": true,
+        "draft_graph": true,
+        "speculative_tokens": 5,
+        "batch_invariant": "1",
+        "engram_device_index": "0"
+      }
+    ],
+    "model_ids": [
+      "dsv41-delivery-dcp8-v1"
+    ],
+    "metrics_path": "/delivery/metrics",
+    "chat_requests_sent_by_supervisor": 0
+  },
+  "service_process_alive": false,
+  "current_http_ready": false,
+  "current_status": "terminated_after_dcp8_canary_engine_fatal",
+  "current_status_observed_at": "2026-10-13T02:46:20.130988+08:00",
+  "runner_exit_status": 0,
+  "run_log_bytes": 405084,
+  "run_log_sha256": "a3dbbffc275bdfcd799a477788b4b313c7622e1d5b3c71463fc739befb16aee3",
+  "failure_receipt": "/work/results/delivery_dcp8_v1/failure_receipt.json",
+  "failure_trace_excerpt": "/work/results/delivery_dcp8_v1/failure_trace_excerpt.log",
+  "failure_trace_excerpt_sha256": "d3fc63ca58128eaf5d8706e77b289d9e15286ac6ed5294dec9bf272e10665adb",
+  "post_failure_resource_check": {
+    "checked_at": "2026-10-13T02:46:20.130988+08:00",
+    "container_running": true,
+    "container_id": "b1aa15d8800346aff8f755a049feaae148b9d6e315e92bd32dcdf1063b429eb0",
+    "port_18960_listener_count": 0,
+    "host_npu_empty": [
+      4,
+      5,
+      6,
+      7
+    ],
+    "host_npu_empty_observed": [
+      4,
+      5,
+      6,
+      7
+    ],
+    "host_npu_target_processes": [],
+    "physical_chips_8_15_free": true,
+    "project_process_rows_in_container": [],
+    "passed": true
+  }
+}

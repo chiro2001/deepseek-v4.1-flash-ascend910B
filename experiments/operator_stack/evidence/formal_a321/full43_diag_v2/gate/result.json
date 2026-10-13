@@ -1,0 +1,213 @@
+{
+  "scope": "partial private real-weight binding/graph/export diagnostic; not formal admission",
+  "mode": "diagnostic",
+  "passed": false,
+  "strict_full43_admission": false,
+  "full_consumer_audit_passed": false,
+  "device_audit_passed": false,
+  "safe_formal_receipt": false,
+  "formal_model_validated": false,
+  "actual_prepack_consumer_order_validated": false,
+  "performance_claim": null,
+  "exception_type": "RuntimeError",
+  "exception": "Engine core initialization failed. See root cause above. Failed core proc(s): {}",
+  "traceback": "Traceback (most recent call last):\n  File \"/work/src_dspark_full43_diag_v2/stack/parallel_tiny/dspark_formal_audit/full43_consumers_v11/formal_audit_driver.py\", line 90, in main\n    llm = LLM(**kwargs)\n          ^^^^^^^^^^^^^\n  File \"/vllm-workspace/vllm/vllm/entrypoints/llm.py\", line 339, in __init__\n    self.llm_engine = LLMEngine.from_engine_args(\n                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/vllm-workspace/vllm/vllm/v1/engine/llm_engine.py\", line 179, in from_engine_args\n    return cls(\n           ^^^^\n  File \"/vllm-workspace/vllm/vllm/v1/engine/llm_engine.py\", line 105, in __init__\n    self.engine_core = EngineCoreClient.make_client(\n                       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/vllm-workspace/vllm/vllm/v1/engine/core_client.py\", line 110, in make_client\n    return SyncMPClient(vllm_config, executor_class, log_stats)\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/vllm-workspace/vllm/vllm/tracing/otel.py\", line 178, in sync_wrapper\n    return func(*args, **kwargs)\n           ^^^^^^^^^^^^^^^^^^^^^\n  File \"/vllm-workspace/vllm/vllm/v1/engine/core_client.py\", line 809, in __init__\n    super().__init__(\n  File \"/vllm-workspace/vllm/vllm/v1/engine/core_client.py\", line 609, in __init__\n    with launch_core_engines(\n         ^^^^^^^^^^^^^^^^^^^^\n  File \"/usr/local/python3.12.13/lib/python3.12/contextlib.py\", line 144, in __exit__\n    next(self.gen)\n  File \"/vllm-workspace/vllm/vllm/v1/engine/utils.py\", line 1194, in launch_core_engines\n    wait_for_engine_startup(\n  File \"/vllm-workspace/vllm/vllm/v1/engine/utils.py\", line 1253, in wait_for_engine_startup\n    raise RuntimeError(\nRuntimeError: Engine core initialization failed. See root cause above. Failed core proc(s): {}\n",
+  "owned_worker_cleanup": {
+    "owner": {
+      "pid": 1500264,
+      "ppid": 1500011,
+      "start_ticks": 288968729,
+      "boot_id": "3e453542-70e1-442f-88ef-ee52db5f8471",
+      "cmdline_sha256": "56b6f083c458bb6e4ad52693c900cf9094936e35b9ba686bf0b3f6ee5004d452"
+    },
+    "scope": "captured driver-owned worker processes only",
+    "signal": "SIGKILL via pidfd after identity verification",
+    "normal_success_grace_seconds": 0,
+    "workers": [
+      {
+        "rank": 0,
+        "pid": 1500308,
+        "birth_identity": {
+          "pid": 1500308,
+          "ppid": 1500264,
+          "start_ticks": 288969904,
+          "boot_id": "3e453542-70e1-442f-88ef-ee52db5f8471"
+        },
+        "hard_kill_sent": true,
+        "terminal": false
+      },
+      {
+        "rank": 1,
+        "pid": 1500338,
+        "birth_identity": {
+          "pid": 1500338,
+          "ppid": 1500264,
+          "start_ticks": 288970910,
+          "boot_id": "3e453542-70e1-442f-88ef-ee52db5f8471"
+        },
+        "hard_kill_sent": true,
+        "terminal": false
+      },
+      {
+        "rank": 2,
+        "pid": 1500369,
+        "birth_identity": {
+          "pid": 1500369,
+          "ppid": 1500264,
+          "start_ticks": 288971925,
+          "boot_id": "3e453542-70e1-442f-88ef-ee52db5f8471"
+        },
+        "hard_kill_sent": true,
+        "terminal": false
+      },
+      {
+        "rank": 3,
+        "pid": 1500432,
+        "birth_identity": {
+          "pid": 1500432,
+          "ppid": 1500264,
+          "start_ticks": 288972952,
+          "boot_id": "3e453542-70e1-442f-88ef-ee52db5f8471"
+        },
+        "hard_kill_sent": true,
+        "terminal": false
+      },
+      {
+        "rank": 4,
+        "pid": 1500462,
+        "birth_identity": {
+          "pid": 1500462,
+          "ppid": 1500264,
+          "start_ticks": 288973964,
+          "boot_id": "3e453542-70e1-442f-88ef-ee52db5f8471"
+        },
+        "hard_kill_sent": true,
+        "terminal": false
+      },
+      {
+        "rank": 5,
+        "pid": 1500527,
+        "birth_identity": {
+          "pid": 1500527,
+          "ppid": 1500264,
+          "start_ticks": 288974976,
+          "boot_id": "3e453542-70e1-442f-88ef-ee52db5f8471"
+        },
+        "hard_kill_sent": true,
+        "terminal": false
+      },
+      {
+        "rank": 6,
+        "pid": 1500557,
+        "birth_identity": {
+          "pid": 1500557,
+          "ppid": 1500264,
+          "start_ticks": 288975996,
+          "boot_id": "3e453542-70e1-442f-88ef-ee52db5f8471"
+        },
+        "hard_kill_sent": true,
+        "terminal": false
+      },
+      {
+        "rank": 7,
+        "pid": 1500622,
+        "birth_identity": {
+          "pid": 1500622,
+          "ppid": 1500264,
+          "start_ticks": 288977068,
+          "boot_id": "3e453542-70e1-442f-88ef-ee52db5f8471"
+        },
+        "hard_kill_sent": true,
+        "terminal": false
+      }
+    ],
+    "worker_exit_codes": {},
+    "all_terminal": false,
+    "pending_owned_pids": [
+      1500308,
+      1500338,
+      1500369,
+      1500432,
+      1500462,
+      1500527,
+      1500557,
+      1500622
+    ]
+  },
+  "worker_exit_codes": {},
+  "worker_exit_codes_complete": false,
+  "actual_exports": {
+    "0": {
+      "all_export_files": 0,
+      "actual_spec_decode_rounds": 0,
+      "actual_generation_ids": [],
+      "actual_loaded43_bindings": false,
+      "complete_43_decoder_and_graph_output_generations": [],
+      "at_least_requested_generations": false,
+      "diagnostic_export_contract_complete": false
+    },
+    "1": {
+      "all_export_files": 0,
+      "actual_spec_decode_rounds": 0,
+      "actual_generation_ids": [],
+      "actual_loaded43_bindings": false,
+      "complete_43_decoder_and_graph_output_generations": [],
+      "at_least_requested_generations": false,
+      "diagnostic_export_contract_complete": false
+    },
+    "2": {
+      "all_export_files": 0,
+      "actual_spec_decode_rounds": 0,
+      "actual_generation_ids": [],
+      "actual_loaded43_bindings": false,
+      "complete_43_decoder_and_graph_output_generations": [],
+      "at_least_requested_generations": false,
+      "diagnostic_export_contract_complete": false
+    },
+    "3": {
+      "all_export_files": 0,
+      "actual_spec_decode_rounds": 0,
+      "actual_generation_ids": [],
+      "actual_loaded43_bindings": false,
+      "complete_43_decoder_and_graph_output_generations": [],
+      "at_least_requested_generations": false,
+      "diagnostic_export_contract_complete": false
+    },
+    "4": {
+      "all_export_files": 0,
+      "actual_spec_decode_rounds": 0,
+      "actual_generation_ids": [],
+      "actual_loaded43_bindings": false,
+      "complete_43_decoder_and_graph_output_generations": [],
+      "at_least_requested_generations": false,
+      "diagnostic_export_contract_complete": false
+    },
+    "5": {
+      "all_export_files": 0,
+      "actual_spec_decode_rounds": 0,
+      "actual_generation_ids": [],
+      "actual_loaded43_bindings": false,
+      "complete_43_decoder_and_graph_output_generations": [],
+      "at_least_requested_generations": false,
+      "diagnostic_export_contract_complete": false
+    },
+    "6": {
+      "all_export_files": 0,
+      "actual_spec_decode_rounds": 0,
+      "actual_generation_ids": [],
+      "actual_loaded43_bindings": false,
+      "complete_43_decoder_and_graph_output_generations": [],
+      "at_least_requested_generations": false,
+      "diagnostic_export_contract_complete": false
+    },
+    "7": {
+      "all_export_files": 0,
+      "actual_spec_decode_rounds": 0,
+      "actual_generation_ids": [],
+      "actual_loaded43_bindings": false,
+      "complete_43_decoder_and_graph_output_generations": [],
+      "at_least_requested_generations": false,
+      "diagnostic_export_contract_complete": false
+    }
+  }
+}

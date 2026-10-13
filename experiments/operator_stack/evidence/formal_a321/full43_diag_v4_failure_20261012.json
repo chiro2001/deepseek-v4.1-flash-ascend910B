@@ -1,0 +1,39 @@
+{
+  "scope": "v13 job formal_dspark_full43_diag_v4 terminal failure analysis: dynamo module-attribute alias fix verified on all 8 ranks (rebind_count=0); failure moved to the DSpark draft outer-return container check",
+  "written_utc": "2026-10-11T19:00:00Z",
+  "job": "formal_dspark_full43_diag_v4",
+  "package": "full43_consumers_v13",
+  "freeze_sha256": "6bc5229f4ddceeca3c1414d29ba1b2f89a7ad8b8836b7bde23651bf91d425a10",
+  "snapshot_manifest_sha256": "ea928c2bb2f49d4afe1129323d34443bf5c5202c6ff1f5e3a31efc678bf22da8",
+  "timeline": {
+    "launch": "2026-10-11T18:42:39Z",
+    "first_failure": "18:52:25 in profile_run -> DSparkProposer.dummy_run -> NativeResultAdapter.__call__: 'Actual outer graph did not return explicit observer buffers'",
+    "terminal": "no result.json; workers exited; EngineCore idled; root terminated the stranded driver and EngineCore at ~18:57Z; run.exit=143"
+  },
+  "verified_progress": {
+    "v13_dynamo_alias_fix_effective": true,
+    "rank_dynamo_alias_audit": {
+      "ranks": 8,
+      "modules": ["vllm_ascend.models.deepseek_v41.model", "vllm_ascend.models.deepseek_v41.dspark",
+                  "vllm_ascend.models.deepseek_v4.dspark", "vllm_ascend.attention.dsa_v41",
+                  "vllm_ascend.attention.dsa_v1", "vllm_ascend.ops.fused_moe.router.fused_topk_router"],
+      "names": ["_v10_enter", "_v10_return", "_v10_value", "_v10_before_write"],
+      "rebind_count_each": 0
+    },
+    "profile_compile_passed_the_previous_guard": true,
+    "eight_rank_before_graph_and_seals": true
+  },
+  "root_cause_v14_target": {
+    "where": "DSparkProposer.dummy_run calls the adapter-wrapped draft root whose outer forward was instrumented with the observer-buffer envelope",
+    "mechanism": "the eager callable returns (value, tuple_of_buffers); the compiled/ACL-replayed callable is not guaranteed to preserve tuple containers, and the v13 adapter required tuple at both levels",
+    "fix": "v14 accepts tuple or list at both envelope levels (payload contract unchanged: count/shape/dtype/device of every observer/prepack tensor), normalizes result[1] to a tuple, and on an unexpected structure writes a structure-only adapter_mismatch_<role>.json before raising",
+    "cpu_contract": "test_CPU_compiled_actual_root_entry_and_adapter now covers the list container and a rejected foreign structure"
+  },
+  "evidence_files": {
+    "run.log": "evidence/formal_a321/full43_diag_v4/run.log",
+    "run.exit": "evidence/formal_a321/full43_diag_v4/run.exit (=143)",
+    "rank_exports": "evidence/formal_a321/full43_diag_v4/gate/rank_exports/rank0..7/{dynamo_alias_audit,weight_seals,retained_root_ownership}.json"
+  },
+  "claims": {"full_consumer_audit_passed": false, "formal_receipt_granted": false,
+             "performance_receipt_granted": false, "device_result": null}
+}

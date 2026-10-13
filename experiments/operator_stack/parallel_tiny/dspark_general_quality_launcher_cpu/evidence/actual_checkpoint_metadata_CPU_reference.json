@@ -1,0 +1,91 @@
+{
+  "schema": "general_quality_actual_checkpoint_metadata_CPU_reference_v1",
+  "CPU_readonly_actual_checkpoint_metadata": true,
+  "actual_candidate_contract_exported": false,
+  "actual_final_qkv_candidate_frozen": false,
+  "reference_native_source": "/work/src_dspark_native_api_v2",
+  "original_checkpoint_checker_sources": {
+    "/work/src_dspark_native_api_v2/stack/formal_model_contract.py": "681bcbe1aa1f0b9e3d1ea4046fd2cab9b8ccc3fbad1af29899c82863708a805b",
+    "/work/src_dspark_native_api_v2/stack/parallel_tiny/dspark_formal_prep/contract.py": "10b7a698785da75c0b85ae0c4d5e5eb59eff768f8c1e3b4c26b4ab7c6c0a054d"
+  },
+  "model": "/home/l00886679/models/out/v41-w4a8-engram-dr-vision-qrot-mtpq",
+  "metadata_files": {
+    "config.json": {
+      "path": "/home/l00886679/models/out/v41-w4a8-engram-dr-vision-qrot-mtpq/config.json",
+      "resolved": "/home/l00886679/models/out/v41-w4a8-engram-dr-vision/config.json",
+      "sha256": "40ebd329d3cb2d99d7176091afb580c182c21f48b88b63b550264a97e9c0d424",
+      "bytes": 3394
+    },
+    "tokenizer.json": {
+      "path": "/home/l00886679/models/out/v41-w4a8-engram-dr-vision-qrot-mtpq/tokenizer.json",
+      "resolved": "/home/l00886679/projects/dsv41/models/out/v41-w4a8-dspark/tokenizer.json",
+      "sha256": "c90dfa01249db1be4245780a052ede752e1361c612ac6d08e2bdada7d599476b",
+      "bytes": 6367257
+    },
+    "tokenizer_config.json": {
+      "path": "/home/l00886679/models/out/v41-w4a8-engram-dr-vision-qrot-mtpq/tokenizer_config.json",
+      "resolved": "/home/l00886679/projects/dsv41/models/out/v41-w4a8-dspark/tokenizer_config.json",
+      "sha256": "6ac8c8dc065ed118161d02dd532749ae3f52c243deac27872134fae2f50d8547",
+      "bytes": 801
+    }
+  },
+  "original_checkpoint_inspection_passed": true,
+  "shards": 90,
+  "full40": 40,
+  "quantization": {
+    "quant_method": "ascend",
+    "model_quant_type": "W4A8_DYNAMIC"
+  },
+  "engram_layer_ids": [
+    1,
+    14
+  ],
+  "dspark": {
+    "method": "dspark",
+    "num_nextn_predict_layers": 3,
+    "target_layer_ids": [
+      37,
+      38,
+      39
+    ],
+    "trained_block_size": 5,
+    "num_speculative_tokens": 5,
+    "mtp_tensor_count": 4718,
+    "mtp_layers": [
+      0,
+      1,
+      2
+    ],
+    "mtp_weight_map_sha256": "2fc101cbd7a670c196eb030eb3dcf754ba2b1695d11b90a84191151ba6b5232a",
+    "quant_description_sha256": "f4d73f07aae692ba2982a8b98093d49e098e2c190ec11b7f34ec35af01e00c4b",
+    "selected_quant_types": {
+      "mtp.0.main_proj.weight": "FLOAT",
+      "mtp.0.attn.wq_a.weight": "W8A8_DYNAMIC",
+      "mtp.0.ffn.experts.0.w1.weight": "W4A8_DYNAMIC"
+    },
+    "draft_checkpoint": "native target checkpoint; stock method=dspark auto-selects it",
+    "draft_weight_content_hashed": false,
+    "vision_config_preserved": true,
+    "runtime_draft_load_verified": false
+  },
+  "indexed_MTP_and_vision_tensor_headers_verified": 4984,
+  "MTP_and_vision_header_fingerprint": "82c78777797ec8e7c94138dc66ad175dfb6ab33a51f124fd513ef6736fa36a01",
+  "vision_tensor_headers": 266,
+  "MTP_tensor_headers": 4718,
+  "tensor_payloads_read": false,
+  "full_weight_content_hashed": false,
+  "backend_modules_imported": [],
+  "NPU_calls": 0,
+  "HTTP_requests": 0,
+  "services_started": 0,
+  "actual_flags": {
+    "actual_general_API_quality_observed": false,
+    "actual_GSM100_passed": false,
+    "actual_Vision23_passed": false,
+    "actual_client_quality_passed": false,
+    "actual_device_consumer_proof": false,
+    "performance_receipt_granted": false,
+    "formal_receipt_granted": false
+  },
+  "capture_header_function_source_sha256": "2e648155fe647f5d664e98f87078d2f6bf5c1b71dabc687bb66de22b2c8ac917"
+}

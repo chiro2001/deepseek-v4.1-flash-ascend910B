@@ -1,0 +1,79 @@
+{
+  "schema": "delivery_dcp8_canary_failure_v1",
+  "observed_at": "2026-10-13T02:42:37+08:00",
+  "service_instance_id": "67d0d1a6134e4f8f88ace1c9c194938f",
+  "service_pid": 258237,
+  "root_cause": {
+    "type": "AssertionError",
+    "message": "long_seq_args is not None",
+    "path": "/work/src_dspark_general_quality_v11/stack/draft_graph_files/llm_base_proposer.py",
+    "line": 1367,
+    "phase": "first DCP8 draft proposal; DCP initial metadata was not supplied to the frozen draft runner"
+  },
+  "secondary_cascade": {
+    "type": "RuntimeError",
+    "message": "execute_model without previous sample completion",
+    "path": "/work/src_dspark_general_quality_v11/stack/formal_dspark_counters.py",
+    "line": 86,
+    "instrumentation_path": "/work/delivery_matrix_20261013_v3/delivery_matrix/worker.py:59",
+    "note": "Counter error followed the failed draft proposal and is not the initiating fault."
+  },
+  "engine_core_fatal": true,
+  "api_stream_error": "EngineDeadError",
+  "service_shutdown_completed": true,
+  "runner_exit_status": 0,
+  "canary": {
+    "receipt_path": "/home/chiro/tmp/dsv41-workload-bench/evidence/dcp8_code_canary_20261013_v1.json",
+    "receipt_sha256": "dc4d36f73262fa3e21265470105d7a11775c3c8bf1ab49992d09356ce192cec4",
+    "request_id": "dm-canary-d15486d1b8a8430b99c759a45197edd0",
+    "request_tag": "dm-canary-d15486d1b8a8430b99c759a45197edd0",
+    "arm_ack_all_8_ranks": true,
+    "arm_async_mode": true,
+    "http_status": 200,
+    "output_text_empty": true,
+    "output_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "usage_tokens": null,
+    "finish_reason": null,
+    "counter_schema_valid": false,
+    "metrics_before_all_ranks_idle": true,
+    "metrics_after_http_status": 500,
+    "excluded_from_formal_8": true,
+    "formal_code8_started": false,
+    "formal_dihuo_started": false
+  },
+  "run_log": {
+    "path": "/work/results/delivery_dcp8_v1/run.log",
+    "bytes": 405084,
+    "sha256": "a3dbbffc275bdfcd799a477788b4b313c7622e1d5b3c71463fc739befb16aee3",
+    "whole_log_copied": false
+  },
+  "trace_excerpt": {
+    "path": "/work/results/delivery_dcp8_v1/failure_trace_excerpt.log",
+    "bytes": 12328,
+    "sha256": "d3fc63ca58128eaf5d8706e77b289d9e15286ac6ed5294dec9bf272e10665adb"
+  },
+  "post_failure_resource_check": {
+    "checked_at": "2026-10-13T02:46:20.130988+08:00",
+    "container_running": true,
+    "container_id": "b1aa15d8800346aff8f755a049feaae148b9d6e315e92bd32dcdf1063b429eb0",
+    "port_18960_listener_count": 0,
+    "host_npu_empty": [
+      4,
+      5,
+      6,
+      7
+    ],
+    "host_npu_empty_observed": [
+      4,
+      5,
+      6,
+      7
+    ],
+    "host_npu_target_processes": [],
+    "physical_chips_8_15_free": true,
+    "project_process_rows_in_container": [],
+    "passed": true
+  },
+  "restart_requested": false,
+  "source_files_modified": false
+}

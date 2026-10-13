@@ -1,0 +1,196 @@
+{
+  "superseded": true,
+  "reason": "draft actually uses dspark_n_routed_experts128/top3 and observed M15/E16; old top6-draft calculation must not be used as a production profile",
+  "old": {
+    "CPU_read_only": true,
+    "NPU_calls": 0,
+    "NPU_permission": 0,
+    "E_global": 384,
+    "E_local": 48,
+    "EP": 8,
+    "top_k": 6,
+    "K5_is_not_M1": true,
+    "geometry": [
+      {
+        "label": "single token",
+        "actual_MoE_input_tokens_T": 1,
+        "global_dispatched_rows": 6,
+        "one_rank_max_R": 6,
+        "one_rank_max_active_experts": 6,
+        "per_expert_max_count_with_unique_topk_per_token": 1,
+        "static_M1_capacity6_universally_covers": true
+      },
+      {
+        "label": "DSpark anchor-first K5 draft queries",
+        "actual_MoE_input_tokens_T": 5,
+        "global_dispatched_rows": 30,
+        "one_rank_max_R": 30,
+        "one_rank_max_active_experts": 30,
+        "per_expert_max_count_with_unique_topk_per_token": 5,
+        "static_M1_capacity6_universally_covers": false
+      },
+      {
+        "label": "target verify anchor+5 drafted tokens, if actual scheduler schedules6",
+        "actual_MoE_input_tokens_T": 6,
+        "global_dispatched_rows": 36,
+        "one_rank_max_R": 36,
+        "one_rank_max_active_experts": 36,
+        "per_expert_max_count_with_unique_topk_per_token": 6,
+        "static_M1_capacity6_universally_covers": false
+      }
+    ],
+    "counterexamples": [
+      {
+        "name": "K5_draft_same6_experts_each_token",
+        "counts": {
+          "0": 5,
+          "1": 5,
+          "2": 5,
+          "3": 5,
+          "4": 5,
+          "5": 5
+        },
+        "R": 30,
+        "active_experts": 6,
+        "fits_slots": true,
+        "fits_rows": false
+      },
+      {
+        "name": "K5_draft_disjoint_routes",
+        "counts": {
+          "0": 1,
+          "1": 1,
+          "2": 1,
+          "3": 1,
+          "4": 1,
+          "5": 1,
+          "6": 1,
+          "7": 1,
+          "8": 1,
+          "9": 1,
+          "10": 1,
+          "11": 1,
+          "12": 1,
+          "13": 1,
+          "14": 1,
+          "15": 1,
+          "16": 1,
+          "17": 1,
+          "18": 1,
+          "19": 1,
+          "20": 1,
+          "21": 1,
+          "22": 1,
+          "23": 1,
+          "24": 1,
+          "25": 1,
+          "26": 1,
+          "27": 1,
+          "28": 1,
+          "29": 1
+        },
+        "R": 30,
+        "active_experts": 30,
+        "fits_slots": false,
+        "fits_rows": false
+      },
+      {
+        "name": "target6_same6_experts",
+        "counts": {
+          "0": 6,
+          "1": 6,
+          "2": 6,
+          "3": 6,
+          "4": 6,
+          "5": 6
+        },
+        "R": 36,
+        "active_experts": 6,
+        "fits_slots": true,
+        "fits_rows": false
+      },
+      {
+        "name": "multi_token_local_rank_only6_rows",
+        "counts": {
+          "0": 1,
+          "1": 1,
+          "2": 1,
+          "3": 1,
+          "4": 1,
+          "5": 1
+        },
+        "R": 6,
+        "active_experts": 6,
+        "fits_slots": true,
+        "fits_rows": true,
+        "still_requires_x_y_capacity_tiling_and_consumer_proof": true
+      }
+    ],
+    "source_refs": {
+      "experiments/operator_stack/parallel_tiny/dspark_formal_audit/discovery/scheduler.py.txt": {
+        "sha256": "c67bda2886b52865ddafabaae7d797c359e930752f374421a33e537d94a5f45a",
+        "selected": [
+          {
+            "line": 268,
+            "text": "                # anchor itself is the first prediction position (no separate bonus"
+          }
+        ]
+      },
+      "experiments/operator_stack/parallel_tiny/dspark_formal_audit/discovery/stock_dspark_proposer.py.txt": {
+        "sha256": "4bbd1d555781bcf4e143a499d56d8b962229a5d0b2b233e13242627184aa47ac",
+        "selected": [
+          {
+            "line": 43,
+            "text": "            self.num_query_per_req = self.num_speculative_tokens"
+          },
+          {
+            "line": 45,
+            "text": "            self.num_query_per_req = 1 + self.num_speculative_tokens"
+          }
+        ]
+      },
+      "experiments/operator_stack/parallel_tiny/dspark_formal_audit/discovery/token_dispatcher.py.txt": {
+        "sha256": "37f96f834b98e257b5b82eaab607c451199b191c9c01078f61213c4e592fc9b8",
+        "selected": [
+          {
+            "line": 487,
+            "text": "            active_num=num_tokens * self.top_k,"
+          },
+          {
+            "line": 489,
+            "text": "            expert_tokens_num_type=1,"
+          },
+          {
+            "line": 496,
+            "text": "        group_list_type = 1  # `count` mode"
+          }
+        ]
+      }
+    },
+    "dispatch_contract": "For each rank/layer, R=sum(INT64 counts48), active=count(counts48>0); routing uses active_num=num_tokens*top_k, count-mode1.",
+    "formal_target_T_binding": "Use actual scheduler.num_scheduled_tokens and actual per-rank/per-layer counts. DSpark draft anchor-first queries=5; target scheduled input includes seed/last token plus scheduled draft IDs and must be measured from native scheduler, not inferred from K alone.",
+    "existing_candidate_contract": {
+      "row_capacity": 6,
+      "max_slots": 6,
+      "x_shape": [
+        6,
+        2304
+      ],
+      "y_shape": [
+        6,
+        5120
+      ],
+      "counts_shape": [
+        48
+      ],
+      "type": 1
+    },
+    "rejection": "Do not connect fixed M1 candidate directly to K5 draft or verifier. Active<=6 alone is insufficient; rows may be30/36. Even occasional R<=6 needs compatible x/y logical capacity, static M6 tiling, cache/capture and consumer proof.",
+    "future_requirements": [
+      "capture actual T and per-layer/rank counts outside measured capture",
+      "establish worst-case row capacity/slot capacity and exact SDK geometry per proposed profile",
+      "preserve separate INT4 dots/FP16 rounds and run fresh numeric/planner/owner guards",
+      "validate real consumer and capture/replay before integration"
+    ]
+  }
+}

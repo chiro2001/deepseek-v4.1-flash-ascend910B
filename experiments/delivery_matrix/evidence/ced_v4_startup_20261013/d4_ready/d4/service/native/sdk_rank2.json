@@ -1,0 +1,18 @@
+{
+  "native_model_source": {
+    "path": "/vllm-workspace/vllm-ascend/vllm_ascend/models/deepseek_v4/model.py",
+    "sha256": "9ef83c7c2879f7b6115f5ac64556703858afa3786bab04ee05f9a65a15353061"
+  },
+  "factory_source": {
+    "path": "/vllm-workspace/vllm-ascend/vllm_ascend/patch/platform/patch_fused_moe.py",
+    "sha256": "6271a3ba9b93a503657a2fbbf48c306fdd9e99fa67dc49435067d2075a787534"
+  },
+  "factory_signature": "(num_experts: int, top_k: int, *args, renormalize: bool = True, use_grouped_topk: bool = False, num_expert_group: int | None = None, topk_group: int | None = None, custom_routing_function: collections.abc.Callable | None = None, router: vllm.model_executor.layers.fused_moe.router.fused_moe_router.FusedMoERouter | None = None, scoring_func: str = 'softmax', routed_scaling_factor: float = 1.0, e_score_correction_bias: torch.Tensor | None = None, enable_eplb: bool = False, num_redundant_experts: int = 0, n_shared_experts: int | None = None, apply_routed_scale_to_output: bool = False, hash_indices_table: torch.Tensor | None = None, runner_cls: typing.Any | None = None, runner_args: dict[str, typing.Any] | None = None, routed_experts_cls: typing.Any | None = None, routed_experts_args: dict[str, typing.Any] | None = None, hash: typing.Any | None = None, tid2eid: torch.Tensor | None = None, bias_vl: torch.Tensor | None = None, image_sentinel_lo: int = 129257, **kwargs)",
+  "constructor_passes_bias_vl": true,
+  "factory_accepts_bias_vl": true,
+  "compatible": true,
+  "mutation_performed": false,
+  "device_execution_performed": false,
+  "scope": "actual new-worker SDK after standard platform initialization",
+  "rank": 2
+}

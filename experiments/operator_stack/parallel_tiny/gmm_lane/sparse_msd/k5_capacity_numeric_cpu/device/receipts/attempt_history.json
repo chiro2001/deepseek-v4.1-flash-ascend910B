@@ -1,0 +1,28 @@
+{
+  "schema": "k5_capacity_device_attempt_history_v1",
+  "date": "20261012",
+  "device": "physical4 = NPU 2 chip 0 (0000:95:00.0), container dsv41-real-stack-tp8-20261010-a321",
+  "rules": "Every attempt ran in its own private root; no retry inside a root; each attempt ended with a release snapshot (fresh npu-smi, Health OK, physical4 released, container global 8-15 environment unchanged). No reset, no cache clear, no other process/container/device touched.",
+  "attempts": [
+    {"root": "gmm_lane_sparse_msd_k5_capacity_p4_20261012_v1", "outcome": "failed",
+     "device_work": "one target case executed on device (SDK reference, raw native A1/A2, planner+candidate, planner frame) with every numeric assertion passing",
+     "failure": "FileNotFoundError: <root>/evidence did not exist when the first case result was written",
+     "classification": "host-script defect, after all case assertions", "fix": "create ROOT/evidence before any write"},
+    {"root": "gmm_lane_sparse_msd_k5_capacity_p4_20261012_v2", "outcome": "failed",
+     "device_work": "4 of 5 target cases fully passed on device, frames byte-exact against the frozen CPU oracle",
+     "failure": "AttributeError: numeric_contract.plan_frame(profile, counts) argument order in the negative-case helper",
+     "classification": "host-script defect in the negative-case helper", "fix": "call NC.plan_frame(counts, profile)"},
+    {"root": "gmm_lane_sparse_msd_k5_capacity_p4_20261012_v3", "outcome": "failed",
+     "device_work": "4 of 5 target cases passed; the R=0 case reached SDK/raw/candidate execution",
+     "failure": "ValueError: zero-size array reduction inside compare_bf16 for the R=0 case",
+     "classification": "host-script defect, empty-array guard", "fix": "guard every BF16 comparison with rows>0"},
+    {"root": "gmm_lane_sparse_msd_k5_capacity_p4_20261012_v4", "outcome": "passed",
+     "device_work": "10/10 numeric cases and 4/4 planner-only negative cases across target36/E48 and draft15/E16",
+     "note": "the embedded timing phase failed on a ctypes argtypes typo and was recorded as non-fatal; the numeric gate is independent of it"},
+    {"root": "gmm_lane_sparse_msd_k5_capacity_p4_20261012_v5", "outcome": "passed",
+     "device_work": "minimal operator-window benchmark (2 cases x 2 methods x (3 warmup + 10 samples) per profile)",
+     "note": "cites the v4 numeric evidence root and SHA; no numeric comparison is made in this window"}
+  ],
+  "no_device_anomaly_observed": true,
+  "no_other_process_or_device_touched": true
+}

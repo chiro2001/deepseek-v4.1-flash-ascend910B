@@ -3,10 +3,11 @@
 在**昇腾 910C（A3）**与 **910B3（A2）**上拉起 DeepSeek-V4.1-Flash 的 W4A8
 量化推理服务：完整补丁、一键起服、自检与验收口径。
 
-**核心卖点**：**单台 A3（8 卡 / 16 device）**即可跑 1M 上下文的 PD 分离；
-prefill 相对全 40 层同置部署 **2.07×**（144K）。
+**历史交付实测**：**单台 A3（8 卡 / 16 device）**可跑 1M 上下文的 PD 分离；
+旧配置 prefill 相对全 40 层同置部署 **2.07×**（144K）。
+2026-10-13 新最优栈的三形态复测见 §1.2.1，尚未全部验收，不继承旧配置结论。
 
-> **本包的全部优化工作（算子分析、补丁编写、性能调优、文档）均由
+> **历史基础包的优化工作（算子分析、补丁编写、性能调优、文档）均由
 > `deepseek-v4.1-flash` 模型自主完成**，未经人工逐行改写。
 
 ---
@@ -19,6 +20,7 @@ prefill 相对全 40 层同置部署 **2.07×**（144K）。
 |---|---|---|
 | **A3 单机 8+8 PD 分离 + CED** | **1 台 A3**（8 卡 = 16 device）全用 | 单机、要长上下文、要 PD 分离 |
 | A3 单实例 TP8 | 1 台 A3 的 **8 个 device（= 4 块卡）** | 单机、不拆 P/D |
+| A3 TP8 + DCP8（实验验收中） | 同一组 **8 个 device / 8 ranks**，不是64 ranks | 长 KV 容量；精度与性能须独立验收 |
 | A2 单实例 TP8 | **1 台 A2**（8×910B3，1 卡 1 device） | A2 口径 |
 
 **A2 与 A3 的差别**：A3 每块卡有 **2 个 die**（`/dev/davinci0..15`），A2 每块卡 1 个。
@@ -28,6 +30,87 @@ prefill 相对全 40 层同置部署 **2.07×**（144K）。
 底座镜像（或本仓 §3.4 的镜像包）。
 
 ### 1.2 性能（实测，A3 真权重）
+
+#### 1.2.1 2026-10-13 新最优栈：三形态已测数据快照
+
+a3-21 真权重；Engram开启、device index关闭、DSpark5真实草稿图、BI/custom OPP、
+async；保留最优多流后逐形态验精度。冷prefill：PREFIX=0、SEQ=1、BAT=8192。
+A2形态是在A3上模拟TP8同置，**不是910B3硬件实测**；CED用P8+D8，DCP8复用TP8
+的同8 ranks。P只执行encoder与全局源，不可能运行依赖末层残差的draft；CED的D须真实入图。
+
+| 形态/正式负载 | 输入/输出预算 | HTTP decode ms/step | A | HTTP decode tok/s | TTFT均值 | worker prefill wall合计 |
+|---|---|---:|---:|---:|---:|---:|
+| A2形态/A3模拟 v2：地火 | 2048/256 | 27.953 | 2.525 | 90.322 | 0.317 s | 1.377 s |
+| A2形态/A3模拟 v2：中级编程 | 2048/自然结束≤1024 | 27.092 | 4.986 | 184.025 | 0.314 s | 1.389 s |
+| A2形态/A3模拟 v4：地火 | 2048/256 | 28.071 | 2.525 | 89.941 | 0.310 s | 1.333 s |
+| A2形态/A3模拟 v4：地火 | 32768/256 | 29.595 | 2.902 | 98.052 | 4.733 s | 36.927 s |
+| A2形态/A3模拟 v4：地火 | 147456/256 | 32.382 | 3.197 | 98.743 | 22.988 s | 180.522 s |
+| A2形态/A3模拟 v4：中级编程 | 2048/自然结束≤1024 | 27.219 | 4.986 | 183.167 | 0.312 s | 1.425 s |
+| A3 TP8+DCP8 v3：地火 | 2048/256 | 54.736 | 2.646 | 48.340 | 1.038 s | 1.786 s |
+| A3 TP8+DCP8 v3：地火 | 32768/256 | 56.235 | 2.731 | 48.563 | 16.339 s | 129.867 s |
+| A3 TP8+DCP8 v3：地火 | 147456/256 | 58.337 | 2.931 | 50.243 | 74.471 s | 592.728 s |
+| A3 TP8+DCP8 v3：中级编程 | 2048/自然结束≤1024 | 53.575 | 4.873 | 90.949 | 1.034 s | 1.862 s |
+| A3 CED P8+D8 | 同负载 | 待测 | 待测 | 待测 | 待测 | 待测 |
+
+已有指标的每行实际8条串行请求、clean 8/8；两种已测形态的编程均独立隔离评分8/8题、128/128用例。
+三元组来自同一HTTP decode窗口与真实worker轮数，满足`tok/s=1000×A÷ms/step`；
+异步原始worker token IDs不可用，不编造逐轮token计数。prefill列是**8请求合计**的
+worker调度→末prompt CPU bookkeeping wall，不是纯设备kernel时间；TTFT是端到端口径。
+含后续metrics RPC等待的server-fenced ms/step单独归档，不能与HTTP tok/s混用。
+
+目前完整通过本轮验收的是 **A2形态/A3模拟 v4**。为避免把8请求合计误当成单请求
+prefill延迟，其最新预填充数据换算如下；均值为原始wall合计÷8，速率为
+8请求实际输入tokens合计÷原始wall合计，**不是由TTFT推导，也不是纯NPU kernel吞吐**。
+
+| A2 v4正式负载 | worker prefill wall均值/请求 | worker wall口径prefill tok/s |
+|---|---:|---:|
+| 地火2048/256 | 0.166602 s | 12,292.791 |
+| 地火32768/256 | 4.615818 s | 7,099.066 |
+| 地火147456/256 | 22.565253 s | 6,534.649 |
+| 中级编程2048/自然结束≤1024 | 0.178076 s | 11,500.736 |
+
+| 形态/候选 | GSM100（严格100/100门） | Vision23 | 147456长针 | 当前结论 |
+|---|---:|---:|---:|---|
+| A2形态/A3模拟 v2 | 100/100 | 23/23 | 待补 | 2K/编程/基础精度通过；长上下文待补 |
+| A2形态/A3模拟 v4 | 100/100 | 23/23 | 4/4 | 本配置精度、编程及地火三档验收通过 |
+| TP8+DCP8 v3 | **99/100，FAIL** | 23/23 | 4/4 | **整体严格精度未达标** |
+| TP8+DCP8 v6 | 待测 | 待测 | 待测 | 有界定序归约CPU候选通过；实机窗口待释放 |
+| CED P8+D8 | 待测 | 待测 | 待测 | 旧canary失败；v4设备回归待测，无有效性能数据 |
+
+DCP唯一GSM错题在同服务/同512预算的一次诊断重复中答对且正常stop，但**不覆盖**
+正式99/100结果。后续定序归约候选尚未上设备，不宣称已修复。A2 v2有旧route探针，
+新无探针长上下文窗口另测；跨进程、跨形态数据不视为严格单变量A/B，也不直接与下面
+128K/1K或旧CED数字相减。DCP短负载实测慢于同置，不能只以KV容量潜力宣称更快。
+新A2 v4关闭旧route探针、修正末prompt计时边界，并在A3的0–7组重新测量；
+只有一处独立worker物理guard派生，模型/SDK/图/BI/async检查保留。它不继承v2精度，
+也不作为与8–15组的严格同卡A/B；冷canary没有混入正式8请求结果。
+A2 v4的GSM/Vision原答已按冻结评分函数独立重评分；四针实际输入147435–147438
+tokens，全部HTTP200/stop，原始请求/响应SHA已复核，不以runner汇总中缺失的
+finish_reason推断截断。见[精度审计收据](experiments/delivery_matrix/evidence/a2sim_tp8_v4/quality/strict_quality_audit.md)。
+A2 v4地火2K/32K/147456每档正式8条，实际usage输入均精确达目标，全部HTTP200/length/clean；
+主代理独立复核gzip双SHA、8rank图计数、请求tag/fence与三元组换算。
+三档的完整性能、计数与原件SHA见
+[地火三档实测索引](experiments/delivery_matrix/evidence/a2sim_tp8_v4/client/DIHUO_RESULT_INDEX_20261013.md)，
+编程性能与独立128用例评分见
+[编程正式轮结果](experiments/delivery_matrix/evidence/a2sim_tp8_v4/CODE8_RESULT.md)。
+
+CED首canary在实际KV传输/128-token重放后，D侧`_pool_kernel`出现MTE/SMMU故障，
+没有有效输出或性能数据；[失败证据](experiments/delivery_matrix/evidence/ced_v3b_canary_failure_20261013/failure_diagnostics.md)
+完整保留。新的四处masked残余地址clamp候选通过CPU负控，尚未实机验收或证明故障因果。
+
+完整口径、配置、原件SHA与失败史见
+[交付矩阵状态](experiments/delivery_matrix/STATUS.md)及
+[DCP实际质量更正收据](experiments/delivery_matrix/evidence/dcp8_v3/quality/strict_quality_receipt_corrected.json)。
+可复现入口在`experiments/delivery_matrix/`，当前仍是固定SDK/最优源快照的实验适配器，
+不是已经完成的通用发布包。CED单侧DRAM卸载、共享Engram mmap与KV唯一存储为下一阶段；
+已有离线mmap组件不等于真实TP8/PSS/容量验收通过。
+
+截至已归档现场快照：A2 v4已完成验收后受控停服，项目容器保留；新CED/DCP未启动。
+外部`fyf_1009`的`rain_fusion_att`先后占physical5/0/1/9，影响P、D两组，未操作外部容器。
+CED新可写jobs配方和[DCP v6 CPU配方](experiments/delivery_matrix/evidence/dcp8_v6_cpu_prep_20261013/CPU_PLAN.md)
+已审核，等待芯片窗口释放；尚不能宣称三形态全部达标或DRAM容量交付完成。
+
+#### 1.2.2 历史交付配置（不同口径）
 
 **PD 分离 + CED vs 全 40 层同置**（同机同请求，唯一变量是 P 的层数）：
 

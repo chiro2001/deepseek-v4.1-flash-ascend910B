@@ -1,0 +1,378 @@
+{
+  "schema": "delivery_matrix_launch_v1",
+  "service_launch_requested": true,
+  "service_started": true,
+  "service_process_alive": true,
+  "launch_requested_at": "2026-10-13T03:14:47+08:00",
+  "current_status": "ready_for_single_canary",
+  "container": "dsv41-real-stack-tp8-20261010-a321",
+  "container_id": "b1aa15d8800346aff8f755a049feaae148b9d6e315e92bd32dcdf1063b429eb0",
+  "image": "local/dsv41-operator-stack-real:20261010-production",
+  "source_root": "/work/src_dspark_general_quality_v11",
+  "candidate": "/work/src_dspark_general_quality_v11/candidate_contract.json",
+  "package": "/work/delivery_matrix_20261013_v5/delivery_matrix",
+  "overlay": "/work/delivery_matrix_20261013_v5/delivery_matrix/dcp_runtime_20261013_v3",
+  "dcp_draft": "/work/delivery_matrix_20261013_v5/delivery_matrix/dcp_draft_20261013_v2",
+  "observer_source": "/work/src_dspark_general_quality_v11/stack/parallel_tiny/dspark_formal_audit/stock_graph_observer.py",
+  "observer_source_sha256": "33fda19564ebb2affdcd6e7c6ca15cfb5523fc5898e4d5b7cf11a219c315a47b",
+  "observer_contract": {
+    "stock_sha256": "d5003b772a1982f032f59a65d9ad4970d598311898c487a50791ee2337bdaae4",
+    "best_overlay_sha256": "36d7c8870538e10e310863f9b628b90b946b534861563542cf7fba4cd88d7c39",
+    "derived_proposer_sha256": "cbe8f6c913d2c9b4a406c9f9cde03234686dc8f19cace278d306ef24327613f3",
+    "original_stock_claim": false,
+    "graph_execution_checks_unchanged": true,
+    "python_s_import_verify_passed": true
+  },
+  "job_root": "/work/results/delivery_dcp8_v3",
+  "runner": "/work/results/delivery_dcp8_v3/runner.sh",
+  "port": 18960,
+  "served_model": "dsv41-delivery-dcp8-v3",
+  "form": "a3-tp8-dcp8",
+  "device_index": 0,
+  "physical_chips": [
+    8,
+    9,
+    10,
+    11,
+    12,
+    13,
+    14,
+    15
+  ],
+  "dcp_replicate_indexer": 1,
+  "launch_command": [
+    "docker",
+    "exec",
+    "-d",
+    "dsv41-real-stack-tp8-20261010-a321",
+    "setsid",
+    "bash",
+    "/work/results/delivery_dcp8_v3/runner.sh"
+  ],
+  "prelaunch_checks": [
+    {
+      "time": "2026-10-13T03:13:52.762601+08:00",
+      "host_npu_empty": [
+        4,
+        5,
+        6,
+        7
+      ],
+      "host_npu_target_processes": [],
+      "physical_chips_without_processes": [
+        8,
+        9,
+        10,
+        11,
+        12,
+        13,
+        14,
+        15
+      ],
+      "port_18960_listener_count": 0,
+      "target_container_running": true,
+      "container_id": "b1aa15d8800346aff8f755a049feaae148b9d6e315e92bd32dcdf1063b429eb0",
+      "image": "local/dsv41-operator-stack-real:20261010-production",
+      "target_device_nodes": [
+        8,
+        9,
+        10,
+        11,
+        12,
+        13,
+        14,
+        15
+      ],
+      "prior_delivery_process_rows": [],
+      "passed": true
+    },
+    {
+      "time": "2026-10-13T03:14:21.983168+08:00",
+      "host_npu_empty": [
+        4,
+        5,
+        6,
+        7
+      ],
+      "host_npu_target_processes": [],
+      "physical_chips_without_processes": [
+        8,
+        9,
+        10,
+        11,
+        12,
+        13,
+        14,
+        15
+      ],
+      "port_18960_listener_count": 0,
+      "target_container_running": true,
+      "container_id": "b1aa15d8800346aff8f755a049feaae148b9d6e315e92bd32dcdf1063b429eb0",
+      "image": "local/dsv41-operator-stack-real:20261010-production",
+      "target_device_nodes": [
+        8,
+        9,
+        10,
+        11,
+        12,
+        13,
+        14,
+        15
+      ],
+      "prior_delivery_process_rows": [],
+      "passed": true
+    }
+  ],
+  "source_candidate_fingerprint": "8a7b052d6ab87cc5fed7ded6a1ce5903ffb36f018955d671477632356b005bdd",
+  "runtime_fingerprint": "0cbe396ee2a5c4a2cc4e885b21361aa4c4711bec31d218831d2afa8fcf571b9b",
+  "runtime_plan": "/work/results/delivery_dcp8_v3/service_plan_cpu_only/plan.json",
+  "plan_sha256": "a42bff15ac9f658cc45a60b044ea3da15f526929b3fb17f563dc1e504e0b7377",
+  "runner_sha256": "39775d074241482f25da062111776d0b448ffed4c22218591c6bbef6ebdae03d",
+  "package_sha256": {
+    "service.py": "86e0b3f9b8ca7d05d0458a59524c1649ec247a375c4a7b62c31b8c277bcf83ee",
+    "worker.py": "077280ae23d80460204af324815e240b29adac74d63efe84fa238e00af6b45fd",
+    "prepare_launch.py": "6d09cfa1a0ed91882fea78c40a1d8a93e28107684ea80dda52d3ece1dfe7b9f1",
+    "run_service.sh": "cc5bcd644c78e5259b82f2cfc8aff3627ab6482b52fb36e8bd7f197ec5a1cdd9",
+    "dcp_overlay.py": "2be889c72906064ff2829a798c84a0e7687418da3825901484e8cc851bfd6710",
+    "build_dcp_overlay.py": "6a47769d4cf85fd966e8a1fe88f2becacb7384640eca627b2f3c9c31ea4d5943",
+    "dcp_observer_contract.py": "3ebc864e6a289aa3b918e371073f8affaa95523edf17df6eaab7728eb2fc984a",
+    "bootstrap/sitecustomize.py": "2fd6043b20d4d2c02aef6a11b25187c5a6df70ea5148b301a3d9443017f97047",
+    "dcp_runtime_20261013_v3/manifest.json": "8d09cb35615b1a5bfd66c7e4b8f7602c263d2c580423f3599dcc9816ed90b556",
+    "dcp_draft_20261013_v2/manifest.json": "abb1a60cd24f8040a9f87a3a69471a0e38e2a166aed6d073f43c6229316d5074"
+  },
+  "copied_package_files_sha256_verified": 25,
+  "model_kwargs": {
+    "tensor_parallel_size": 8,
+    "decode_context_parallel_size": 8,
+    "max_model_len": 196608,
+    "max_num_batched_tokens": 8192,
+    "max_num_seqs": 1,
+    "async_scheduling": true,
+    "speculative_config": {
+      "method": "dspark",
+      "num_speculative_tokens": 5,
+      "enforce_eager": false
+    }
+  },
+  "environment": {
+    "V41_DCP": "1",
+    "V41_DCP_REPLICATE_INDEXER": "1",
+    "V41_ENGRAM_DEVICE_INDEX": "0",
+    "DELIVERY_DCP_OVERLAY": "/work/delivery_matrix_20261013_v5/delivery_matrix/dcp_runtime_20261013_v3",
+    "DELIVERY_DCP_DRAFT": "/work/delivery_matrix_20261013_v5/delivery_matrix/dcp_draft_20261013_v2",
+    "DRAFT_GRAPH": "1",
+    "DSPARK_GRAPH_CAPTURE_METADATA": "1",
+    "VLLM_BATCH_INVARIANT": "1",
+    "ASCEND_CUSTOM_OPP_PATH": "/usr/local/Ascend/cann-9.1.0/opp/vendors/batch_invariant"
+  },
+  "actual_quality_passed": false,
+  "actual_performance_observed": false,
+  "formal_receipt_granted": false,
+  "performance_receipt_granted": false,
+  "http_ready": true,
+  "current_status_observed_at": "2026-10-13T03:21:01.306172+08:00",
+  "engine_initialized": true,
+  "ASGI_startup_completed": true,
+  "ready_at": "2026-10-13T03:21:01.306172+08:00",
+  "readiness": {
+    "mysvc": "MINE",
+    "mysvc_expected_model": "dsv41-delivery-dcp8-v3",
+    "served_model_id_verified": "dsv41-delivery-dcp8-v3",
+    "identity_path": "/delivery/identity",
+    "identity_verified": true,
+    "form": "a3-tp8-dcp8",
+    "rank_count": 8,
+    "ranks": [
+      {
+        "rank": 0,
+        "tp": 8,
+        "dcp": 8,
+        "async_scheduling": true,
+        "draft_graph": true,
+        "speculative_tokens": 5,
+        "batch_invariant": "1",
+        "engram_device_index": "0",
+        "dcp_proposer_derivation": {
+          "original_best_sources": {
+            "llm_base_proposer.py": "36d7c8870538e10e310863f9b628b90b946b534861563542cf7fba4cd88d7c39",
+            "dspark_proposer.py": "56943080f99da2f2dee516aa3e76605c5150408df9a26691cc6529f327ae29b4"
+          },
+          "derived_sources": {
+            "llm_base_proposer.py": "cbe8f6c913d2c9b4a406c9f9cde03234686dc8f19cace278d306ef24327613f3",
+            "dspark_proposer.py": "1749ca09605dabfd11f873fc9293dc88719a199f1a1d82f8a867811548d9867f"
+          },
+          "derivation_manifest_sha256": "abb1a60cd24f8040a9f87a3a69471a0e38e2a166aed6d073f43c6229316d5074",
+          "original_stock_claim": false,
+          "graph_execution_checks_unchanged": true
+        }
+      },
+      {
+        "rank": 1,
+        "tp": 8,
+        "dcp": 8,
+        "async_scheduling": true,
+        "draft_graph": true,
+        "speculative_tokens": 5,
+        "batch_invariant": "1",
+        "engram_device_index": "0",
+        "dcp_proposer_derivation": {
+          "original_best_sources": {
+            "llm_base_proposer.py": "36d7c8870538e10e310863f9b628b90b946b534861563542cf7fba4cd88d7c39",
+            "dspark_proposer.py": "56943080f99da2f2dee516aa3e76605c5150408df9a26691cc6529f327ae29b4"
+          },
+          "derived_sources": {
+            "llm_base_proposer.py": "cbe8f6c913d2c9b4a406c9f9cde03234686dc8f19cace278d306ef24327613f3",
+            "dspark_proposer.py": "1749ca09605dabfd11f873fc9293dc88719a199f1a1d82f8a867811548d9867f"
+          },
+          "derivation_manifest_sha256": "abb1a60cd24f8040a9f87a3a69471a0e38e2a166aed6d073f43c6229316d5074",
+          "original_stock_claim": false,
+          "graph_execution_checks_unchanged": true
+        }
+      },
+      {
+        "rank": 2,
+        "tp": 8,
+        "dcp": 8,
+        "async_scheduling": true,
+        "draft_graph": true,
+        "speculative_tokens": 5,
+        "batch_invariant": "1",
+        "engram_device_index": "0",
+        "dcp_proposer_derivation": {
+          "original_best_sources": {
+            "llm_base_proposer.py": "36d7c8870538e10e310863f9b628b90b946b534861563542cf7fba4cd88d7c39",
+            "dspark_proposer.py": "56943080f99da2f2dee516aa3e76605c5150408df9a26691cc6529f327ae29b4"
+          },
+          "derived_sources": {
+            "llm_base_proposer.py": "cbe8f6c913d2c9b4a406c9f9cde03234686dc8f19cace278d306ef24327613f3",
+            "dspark_proposer.py": "1749ca09605dabfd11f873fc9293dc88719a199f1a1d82f8a867811548d9867f"
+          },
+          "derivation_manifest_sha256": "abb1a60cd24f8040a9f87a3a69471a0e38e2a166aed6d073f43c6229316d5074",
+          "original_stock_claim": false,
+          "graph_execution_checks_unchanged": true
+        }
+      },
+      {
+        "rank": 3,
+        "tp": 8,
+        "dcp": 8,
+        "async_scheduling": true,
+        "draft_graph": true,
+        "speculative_tokens": 5,
+        "batch_invariant": "1",
+        "engram_device_index": "0",
+        "dcp_proposer_derivation": {
+          "original_best_sources": {
+            "llm_base_proposer.py": "36d7c8870538e10e310863f9b628b90b946b534861563542cf7fba4cd88d7c39",
+            "dspark_proposer.py": "56943080f99da2f2dee516aa3e76605c5150408df9a26691cc6529f327ae29b4"
+          },
+          "derived_sources": {
+            "llm_base_proposer.py": "cbe8f6c913d2c9b4a406c9f9cde03234686dc8f19cace278d306ef24327613f3",
+            "dspark_proposer.py": "1749ca09605dabfd11f873fc9293dc88719a199f1a1d82f8a867811548d9867f"
+          },
+          "derivation_manifest_sha256": "abb1a60cd24f8040a9f87a3a69471a0e38e2a166aed6d073f43c6229316d5074",
+          "original_stock_claim": false,
+          "graph_execution_checks_unchanged": true
+        }
+      },
+      {
+        "rank": 4,
+        "tp": 8,
+        "dcp": 8,
+        "async_scheduling": true,
+        "draft_graph": true,
+        "speculative_tokens": 5,
+        "batch_invariant": "1",
+        "engram_device_index": "0",
+        "dcp_proposer_derivation": {
+          "original_best_sources": {
+            "llm_base_proposer.py": "36d7c8870538e10e310863f9b628b90b946b534861563542cf7fba4cd88d7c39",
+            "dspark_proposer.py": "56943080f99da2f2dee516aa3e76605c5150408df9a26691cc6529f327ae29b4"
+          },
+          "derived_sources": {
+            "llm_base_proposer.py": "cbe8f6c913d2c9b4a406c9f9cde03234686dc8f19cace278d306ef24327613f3",
+            "dspark_proposer.py": "1749ca09605dabfd11f873fc9293dc88719a199f1a1d82f8a867811548d9867f"
+          },
+          "derivation_manifest_sha256": "abb1a60cd24f8040a9f87a3a69471a0e38e2a166aed6d073f43c6229316d5074",
+          "original_stock_claim": false,
+          "graph_execution_checks_unchanged": true
+        }
+      },
+      {
+        "rank": 5,
+        "tp": 8,
+        "dcp": 8,
+        "async_scheduling": true,
+        "draft_graph": true,
+        "speculative_tokens": 5,
+        "batch_invariant": "1",
+        "engram_device_index": "0",
+        "dcp_proposer_derivation": {
+          "original_best_sources": {
+            "llm_base_proposer.py": "36d7c8870538e10e310863f9b628b90b946b534861563542cf7fba4cd88d7c39",
+            "dspark_proposer.py": "56943080f99da2f2dee516aa3e76605c5150408df9a26691cc6529f327ae29b4"
+          },
+          "derived_sources": {
+            "llm_base_proposer.py": "cbe8f6c913d2c9b4a406c9f9cde03234686dc8f19cace278d306ef24327613f3",
+            "dspark_proposer.py": "1749ca09605dabfd11f873fc9293dc88719a199f1a1d82f8a867811548d9867f"
+          },
+          "derivation_manifest_sha256": "abb1a60cd24f8040a9f87a3a69471a0e38e2a166aed6d073f43c6229316d5074",
+          "original_stock_claim": false,
+          "graph_execution_checks_unchanged": true
+        }
+      },
+      {
+        "rank": 6,
+        "tp": 8,
+        "dcp": 8,
+        "async_scheduling": true,
+        "draft_graph": true,
+        "speculative_tokens": 5,
+        "batch_invariant": "1",
+        "engram_device_index": "0",
+        "dcp_proposer_derivation": {
+          "original_best_sources": {
+            "llm_base_proposer.py": "36d7c8870538e10e310863f9b628b90b946b534861563542cf7fba4cd88d7c39",
+            "dspark_proposer.py": "56943080f99da2f2dee516aa3e76605c5150408df9a26691cc6529f327ae29b4"
+          },
+          "derived_sources": {
+            "llm_base_proposer.py": "cbe8f6c913d2c9b4a406c9f9cde03234686dc8f19cace278d306ef24327613f3",
+            "dspark_proposer.py": "1749ca09605dabfd11f873fc9293dc88719a199f1a1d82f8a867811548d9867f"
+          },
+          "derivation_manifest_sha256": "abb1a60cd24f8040a9f87a3a69471a0e38e2a166aed6d073f43c6229316d5074",
+          "original_stock_claim": false,
+          "graph_execution_checks_unchanged": true
+        }
+      },
+      {
+        "rank": 7,
+        "tp": 8,
+        "dcp": 8,
+        "async_scheduling": true,
+        "draft_graph": true,
+        "speculative_tokens": 5,
+        "batch_invariant": "1",
+        "engram_device_index": "0",
+        "dcp_proposer_derivation": {
+          "original_best_sources": {
+            "llm_base_proposer.py": "36d7c8870538e10e310863f9b628b90b946b534861563542cf7fba4cd88d7c39",
+            "dspark_proposer.py": "56943080f99da2f2dee516aa3e76605c5150408df9a26691cc6529f327ae29b4"
+          },
+          "derived_sources": {
+            "llm_base_proposer.py": "cbe8f6c913d2c9b4a406c9f9cde03234686dc8f19cace278d306ef24327613f3",
+            "dspark_proposer.py": "1749ca09605dabfd11f873fc9293dc88719a199f1a1d82f8a867811548d9867f"
+          },
+          "derivation_manifest_sha256": "abb1a60cd24f8040a9f87a3a69471a0e38e2a166aed6d073f43c6229316d5074",
+          "original_stock_claim": false,
+          "graph_execution_checks_unchanged": true
+        }
+      }
+    ],
+    "model_ids": [
+      "dsv41-delivery-dcp8-v3"
+    ],
+    "dcp_proposer_derivation_all_ranks_identical": true,
+    "metrics_path": "/delivery/metrics",
+    "chat_requests_sent_by_supervisor": 0
+  }
+}

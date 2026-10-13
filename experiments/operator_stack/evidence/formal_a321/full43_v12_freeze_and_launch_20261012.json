@@ -1,0 +1,76 @@
+{
+  "scope": "v12 host-resident Engram seal repair: CPU contracts, freeze, overlay bundle, remote snapshot and fresh TP8 job launch; no device result yet",
+  "written_utc": "2026-10-11T18:35:00Z",
+  "prior_v11_failure": {
+    "job": "formal_dspark_full43_diag_v2",
+    "sequence_note": "v11 ran with the seal fix absent; failure evidence frozen under evidence/formal_a321/full43_diag_v2/",
+    "exception": "NotImplementedError: Could not run 'npu::get_npu_format' with arguments from the 'CPU' backend",
+    "location": "session.py before_graph -> native_refs.seal_native_parameters -> tensor_layout_metadata",
+    "cause": "V41_ENGRAM_HOST_RESIDENT=1 makes engram.embed.weight an intentionally host-resident CPU int8 parameter (engram_hbm.py allocates device=cpu); the unconditional SDK format query is invalid for it",
+    "progress_before_failure": "8 rank init_device OK; rank workers loaded 39.1183GB each; rank1 wrote retained_root_ownership.json (multimodal root fix effective) before the seal step failed",
+    "evidence_files": {
+      "gate/result.json": "e682bdf2d69110b8e70976b67bc48f8933a72f58f958b49312997ea570b97891",
+      "gate/candidate_contract.json": "b999ea19c121ebde8a7bf1d0891fd7d3a8ddc366e0f98ca5c24c6f7632ba9965",
+      "gate/owned_worker_cleanup.json": "1d759a5d9eaef6e4bf2cd9a0fac399f11ecfeaa7c8f0e9d289265f03aa0b0cac",
+      "gate/rank_exports/rank1/retained_root_ownership.json": "af82fe589d8f7a090255c60dae2186d4ea496bb29d0bd045ec5941bf637b42cf",
+      "run.log": "238ea1bce53cc1dc28f0e907a6c3b0c14ba4668a7866c81b50b293e35c702cee"
+    },
+    "run_exit": "missing (driver killed by its own full43 timeout cleanup after the engine core failed)"
+  },
+  "v12_fix": {
+    "package": "parallel_tiny/dspark_formal_audit/full43_consumers_v12",
+    "files_changed_vs_v11": [
+      "native_refs.py: tensor_layout_metadata records format=None + host_resident=true for cpu tensors without calling the SDK format getter; npu tensors unchanged; foreign devices raise ValueError; seal_native_parameters accepts host-resident parameters (still requires ptr>0, storage_ptr>0, version) and reports host_resident_parameters explicitly",
+      "session.py: before_graph additionally writes weight_seals.json (module/parameter counts, host-resident list, host_resident_npu_format_queried=false)",
+      "formal_audit_driver.py / provenance.py / run_same_version_cpu.py / freeze_delivery.py / consumer_plan.json / README.md: package-name and scope updates; freeze asserts 21 CPU contracts",
+      "test_contracts_cpu.py: +1 contract (host-resident CPU parameter seal never queries NPU format; npu tensor still queries once; foreign device rejected; version-less tensor rejected)"
+    ]
+  },
+  "cpu_contracts": {
+    "local": {"torch": "2.13.0+cpu", "tests": 21, "passed": true, "file": "parallel_tiny/dspark_formal_audit/full43_consumers_v12/evidence/CPU_contracts_local.json"},
+    "same_version_container": {"torch": "2.10.0+cpu", "tests": 21, "passed": true,
+      "command_exit": 0, "fresh_host_root": "/home/l00886679/projects/dsv41-real-stack-tp8-20261010/offline_tools/full43_v12_CPU_root_owner_20261012",
+      "bundle_sha256": "d7bca9879c3e1de196311c6fad1412a9d3f99b38222f9f734a865094d3a8638a",
+      "file": "parallel_tiny/dspark_formal_audit/full43_consumers_v12/evidence/CPU_same_version.json",
+      "NPU_calls": 0, "SDK_imports": []},
+    "cleanup_local": {"python": "3.14.6", "passed": true,
+      "file": "parallel_tiny/dspark_formal_audit/full43_consumers_v12/evidence/CPU_owned_cleanup.json"}
+  },
+  "freeze": {
+    "freeze_json_sha256": "64e5fae9a2f2d4269515b642e13aaf5762a8289fbfdcc7212969ed038e44ce3d",
+    "SHA256SUMS_sha256": "cf33507a0d6893e38737eecf985745a152a6836f81edf11ef18f0cb47caade4d",
+    "files_including_freeze_and_checksum": 56,
+    "strict_uncovered_points": 20,
+    "all_actual_formal_performance_flags_false": true
+  },
+  "overlay_bundle": {
+    "builder": "build_full43_v12_overlay.py",
+    "path": "parallel_tiny/dspark_formal_audit/full43_consumers_v12/evidence/full43_v12_overlay.tgz",
+    "members": 156,
+    "bytes": 613382,
+    "sha256": "607841a091842336a23a1ad791a936bbb0118eea718d296c59e942c2ecc285f1",
+    "ssh_bound_respected": "single file below 1MB"
+  },
+  "remote_snapshot": {
+    "preparer": "offline_tools/full43_launcher_v1/prepare_full43_audit_snapshot_v3.py",
+    "source": "/home/l00886679/projects/dsv41-real-stack-tp8-20261010/src_dspark_full43_diag_v3",
+    "manifest_sha256": "c2bdb9c6736607c06a23e6e00c0217504508daf1292204a0fac84b6edfc543e0",
+    "files": 170,
+    "mode": "diagnostic",
+    "NPU_calls_during_preparation": 0
+  },
+  "launch": {
+    "job": "formal_dspark_full43_diag_v3",
+    "container": "dsv41-real-stack-tp8-20261010-a321",
+    "chips": [8, 9, 10, 11, 12, 13, 14, 15],
+    "audit": true, "profiler": false,
+    "launched_json_sha256": "9ff85f5831075a67247c2f4fbdb8894b87cf5fbe7b97a10040c309afc483df9e",
+    "scope_note": "fresh per-chip health/occupancy gates passed inside the launcher; no tenant signalled, no reset"
+  },
+  "claims": {
+    "device_result": null,
+    "full_consumer_audit_passed": false,
+    "formal_receipt_granted": false,
+    "performance_receipt_granted": false
+  }
+}

@@ -1,0 +1,54 @@
+{
+  "schema": "delivery_ced_overlay_v1",
+  "files": {
+    "vllm/v1/core/sched/scheduler.py": {
+      "source": "/home/chiro/tmp/dsv41-offload-research/ced-v2-base.DoURUn/vllm/vllm/v1/core/sched/scheduler.py",
+      "source_sha256": "c67bda2886b52865ddafabaae7d797c359e930752f374421a33e537d94a5f45a",
+      "sha256": "eba971850e66c8f3c39cfa826fcb665f4a8e451dc35a2b3a84f676f158e7afae",
+      "bytes": 154635
+    },
+    "vllm_ascend/worker/model_runner_v1.py": {
+      "source": "/home/chiro/tmp/dsv41-offload-research/ced-v2-base.DoURUn/vllm-ascend/vllm_ascend/worker/model_runner_v1.py",
+      "source_sha256": "67035d97f1cea4ae2df31adcc33f1de952f4cab6d8421e76df512296e0e3185e",
+      "sha256": "bd250a59819dd806d16706177840c057416944c762264f2a291c608d915c2aff",
+      "bytes": 279238
+    },
+    "vllm_ascend/attention/dsa_v41.py": {
+      "source": "/home/chiro/projects/dsv41/operator-stack-tp8/experimental/ced/dsa_v41.py",
+      "source_sha256": "e1c6bfd81ee0eb6e351f642d11c10933f9de273846fe22b524d38a9d958c7bea",
+      "sha256": "e1c6bfd81ee0eb6e351f642d11c10933f9de273846fe22b524d38a9d958c7bea",
+      "bytes": 66708
+    },
+    "vllm_ascend/distributed/kv_transfer/kv_p2p/mooncake_hybrid_connector.py": {
+      "source": "/home/chiro/projects/dsv41/operator-stack-tp8/experimental/ced/mooncake_hybrid_connector.py",
+      "source_sha256": "e83ed49d500138c02cf97e2078d633845578d4a4ddfc7c8fd16f9bb2e859a4e4",
+      "sha256": "e83ed49d500138c02cf97e2078d633845578d4a4ddfc7c8fd16f9bb2e859a4e4",
+      "bytes": 122754
+    }
+  },
+  "modules": {
+    "vllm.v1.core.sched.scheduler": "vllm/v1/core/sched/scheduler.py",
+    "vllm_ascend.worker.model_runner_v1": "vllm_ascend/worker/model_runner_v1.py",
+    "vllm_ascend.attention.dsa_v41": "vllm_ascend/attention/dsa_v41.py",
+    "vllm_ascend.distributed.kv_transfer.kv_p2p.mooncake_hybrid_connector": "vllm_ascend/distributed/kv_transfer/kv_p2p/mooncake_hybrid_connector.py"
+  },
+  "patches": [
+    {
+      "path": "/home/chiro/projects/dsv41/operator-stack-tp8/patches/admission_gate.patch",
+      "sha256": "9ce42b021589fd1acf79e5370f64fddebb977f5caeb6a757d58d620474291ea3"
+    },
+    {
+      "path": "/home/chiro/projects/dsv41/operator-stack-tp8/experimental/ced/core_scheduler_replay.patch",
+      "sha256": "725e25abfa0fc3ab0e50dfa0449d7bb6dfb658267284269999db91e6685bd3b5"
+    },
+    {
+      "path": "/home/chiro/projects/dsv41/operator-stack-tp8/experimental/ced/core_model_runner_prompt_tail.patch",
+      "sha256": "c877a849b6895cdfaeac167513b771b7445506b25ae191e2ac013177cb06ff4e"
+    }
+  ],
+  "best_model_and_engram_unchanged": true,
+  "DCP": 1,
+  "role_scope": "P encoder+layer20 source / D bounded128 replay",
+  "actual_quality_passed": false,
+  "actual_performance_observed": false
+}

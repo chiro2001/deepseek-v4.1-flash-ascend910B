@@ -1,0 +1,137 @@
+{
+  "remote_root": "/home/l00886679/projects/dsv41-tiny-prof-20261009/dspark_lane_20261011_c4_native_diag_fixture_v1",
+  "job": "dspark_lane_20261011_c4_native_diag_fixture_v1",
+  "supervisor_pid": 85525,
+  "preflight": {
+    "time": "2026-10-11 17:42:59 +0800",
+    "physical4": {
+      "board": 2,
+      "chip": 0,
+      "health": "OK",
+      "line": "| 0     4                   | 0000:95:00.0  | 0                    0    / 0                3289 / 65536            |"
+    },
+    "physical4_processes": [],
+    "initial_gate": {
+      "time_unix": 1791711778.2346854,
+      "physical4": {
+        "board": 2,
+        "chip": 0,
+        "health": "OK",
+        "line": "| 0     4                   | 0000:95:00.0  | 0                    0    / 0                3289 / 65536            |"
+      },
+      "physical4_processes": []
+    },
+    "container": "dsv41-tiny-goal20-20261010-c6",
+    "mounts": [
+      {
+        "source": "/home/l00886679/models/out/v41-tiny",
+        "target": "/model",
+        "rw": false
+      },
+      {
+        "source": "/home/l00886679/projects/dsv41-tiny-prof-20261009",
+        "target": "/work",
+        "rw": true
+      }
+    ],
+    "source_files": {
+      "native_route_diagnostic.py": {
+        "sha256": "5f852da53546bf96c5b7c7a0a58003d964c7468e25b64a9be38f8f9eaf61034b",
+        "bytes": 3897
+      },
+      "native_route_diagnostic_worker.py": {
+        "sha256": "e782dd256fd336856f6744f3948c8e1b32432deda96f62090583b9914776ba5e",
+        "bytes": 3444
+      },
+      "graph_precision_audit.py": {
+        "sha256": "a2f4b5d57179aeb392a651957c81b684f1993f4cd7ab95d4d42cdb3285a29df6",
+        "bytes": 22208
+      },
+      "native_first_value_trace.py": {
+        "sha256": "2a71eda7aa6b1fd576a64754992e20093157da6303e90659be286658edee2143",
+        "bytes": 22603
+      },
+      "dspark_worker.py": {
+        "sha256": "08cdd3ca4b236f75e484797d9959738947223d4723cf998526cb82a4ea3e7f47",
+        "bytes": 8607
+      },
+      "stage_ids_vendor.py": {
+        "sha256": "16da30c77a5658aebb324e371dec4d92dfa3f38b15214d1be10cc98bc51743a4",
+        "bytes": 4268
+      },
+      "o_proj_cache_fixture.py": {
+        "sha256": "7dfa11336f7be4c8c55d0f09eb302673ef31ac51d582686d31cffc432af6fe78",
+        "bytes": 6611
+      },
+      "o_proj_cache_fixture_worker.py": {
+        "sha256": "ecb95df6bb6c829e292f9153de673e69f5cd3edae31791a1984758c0d989f05e",
+        "bytes": 1468
+      },
+      "graph_candidate_worker.py": {
+        "sha256": "572b71410ec0bed8f9a9f405e3973ddea59abd9cd07163966d38ab610c62f404",
+        "bytes": 2863
+      }
+    },
+    "vendor_source": {
+      "successful_ids_source": "/home/l00886679/projects/dsv41-tiny-prof-20261009/ids_lane_private_v3/source",
+      "ids_job_exit": 0,
+      "destination": "/home/l00886679/projects/dsv41-tiny-prof-20261009/dspark_lane_20261011_c4_native_diag_fixture_v1/vendor",
+      "restored_sources": {
+        "model": {
+          "relative_path": "vllm_ascend/models/deepseek_v41/model.py",
+          "instrumented_sha256": "75da3330766ce2adaad323fbf6a9c4beb91833bd51f3718484ae46d40249cbec",
+          "restored_native_sha256": "dfbc3c0d3b0f9ce3349509de5dfb3799a47f834eec26a951769bf4a54e6c022b",
+          "exact_pre_audit_source": true
+        },
+        "router": {
+          "relative_path": "vllm_ascend/ops/fused_moe/router/fused_topk_router.py",
+          "instrumented_sha256": "cf3ef41b3a6d07ee528f8b907abc053dd2d5c4f34bb5b0306f071307b3656faf",
+          "restored_native_sha256": "f32950da16926afe7569b1a6daa437860db2e83171d96623ac79f7734e52b004",
+          "exact_pre_audit_source": true
+        }
+      },
+      "factory_path": "/home/l00886679/projects/dsv41-tiny-prof-20261009/ids_lane_private_v3/source/vllm_ascend/patch/platform/patch_fused_moe.py",
+      "factory_sha256": "6271a3ba9b93a503657a2fbbf48c306fdd9e99fa67dc49435067d2075a787534",
+      "factory_preserves_bias_vl": true,
+      "factory_preserves_image_sentinel_lo": true,
+      "source_py_tree_sha256": "e552b649eb47a39aeeeb549ffdb0f80d8aad199fe5105df34296b5ba62366ecc",
+      "source_py_files": 2806,
+      "no_global_factory_mutation": true,
+      "no_dummy_weight_change": true,
+      "cpu_only_no_npu_init": true
+    },
+    "model_config_sha256": "ad72656e807079b39a5e94f05f5ffe45116725787239344adb4577fc4a2671c3",
+    "target_ms": 20,
+    "formal_tp8_claim": false,
+    "no_reset_no_dropcache": true,
+    "before_sdk_gate": {
+      "time_unix": 1791711779.7287412,
+      "physical4": {
+        "board": 2,
+        "chip": 0,
+        "health": "OK",
+        "line": "| 0     4                   | 0000:95:00.0  | 0                    0    / 0                3289 / 65536            |"
+      },
+      "physical4_processes": []
+    },
+    "sdk": {
+      "exit": 0,
+      "stdout": "INFO 10-11 09:43:04 [__init__.py:52] Available plugins for group vllm.platform_plugins:\nINFO 10-11 09:43:04 [__init__.py:54] - ascend -> vllm_ascend:register\nINFO 10-11 09:43:04 [__init__.py:57] All plugins in this group will be loaded. Set `VLLM_PLUGINS` to control which plugins to load.\nINFO 10-11 09:43:04 [__init__.py:237] Platform plugin ascend is activated\nINFO 10-11 09:43:04 [platform.py:70] Breakable CUDAGraph on Ascend is opt-in; using VLLM_USE_BREAKABLE_CUDAGRAPH=0.\n{\"device_count\": 1, \"logical_device\": 0, \"physical_device\": 4, \"sdk_ok\": true, \"acl_and_worker_import\": true, \"torch\": \"2.10.0+cpu\"}\n",
+      "stderr": "[W1011 09:43:13.730282850 NPUCachingAllocator.cpp:202] Warning: The current CANN and HDK(driver) versions require processing for 32 padding size, with memory allocation. (function operator())\n"
+    },
+    "before_model_gate": {
+      "time_unix": 1791711798.5415177,
+      "physical4": {
+        "board": 2,
+        "chip": 0,
+        "health": "OK",
+        "line": "| 0     4                   | 0000:95:00.0  | 0                    0    / 0                3289 / 65536            |"
+      },
+      "physical4_processes": []
+    }
+  },
+  "fresh_native_eager_only": true,
+  "draft_capture": false,
+  "target_graph_same_as_v7": true,
+  "diagnostic_only_no_performance_claim": true
+}

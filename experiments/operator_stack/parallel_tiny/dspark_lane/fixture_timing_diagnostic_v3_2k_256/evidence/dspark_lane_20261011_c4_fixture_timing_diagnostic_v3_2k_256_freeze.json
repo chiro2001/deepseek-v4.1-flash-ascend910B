@@ -1,0 +1,128 @@
+{
+  "job": "dspark_lane_20261011_c4_fixture_timing_diagnostic_v3_2k_256",
+  "pairs": 8,
+  "measured_requests_per_arm": 8,
+  "input_tokens": 2048,
+  "output_tokens": 256,
+  "verify_scheduled_tokens": 6,
+  "K": 5,
+  "prefill_chunks": [
+    2044,
+    4
+  ],
+  "max_model_len": 4096,
+  "max_num_batched_tokens": 2048,
+  "capture_representative_seq_len": 3072,
+  "gpu_memory_utilization": 0.7,
+  "kv_cache_memory_bytes": 2147483648,
+  "block_size": 128,
+  "physical_device": 4,
+  "logical_device": 0,
+  "cpu_gate_sha256": "217427726b4c6db5e2e8cb47bab371114d0b51a6e6bbe5d9b4a3b81edf3bc5d1",
+  "cpu_controls": 72,
+  "launcher_sha256": "c6f80a568216dc8c15908c525b71fd5a56317643ae53871ba607ed911a072abb",
+  "native_sources_json_sha256": "c21003fa6d83397396e39c3d6d2b96582435ef08c1c0b38c455547ec7e9e3509",
+  "local_tool_files": {
+    "analyze_fixture_timing.py": {
+      "bytes": 14149,
+      "sha256": "874941a97f6e2093c01f27251d459827133b05fe39dff0f64fe7d03fd9b1cd3a"
+    },
+    "fetch_fixture_timing.py": {
+      "bytes": 3767,
+      "sha256": "6ea405e215fe90a3aaf4c0a31441cd69b2caed563482830eb995ba13f2e68b0a"
+    },
+    "build_reference_2k256.py": {
+      "bytes": 4330,
+      "sha256": "4722e7a2ce2cb389e6e592dd411923eebb7245f867504a322a3d5b6d3d4ef18b"
+    },
+    "check_fixture_timing_cpu.py": {
+      "bytes": 29010,
+      "sha256": "8b0d9faae8be45f912991ed02273ff720fe1bd72e0e351c0c85d07fcd292cd08"
+    }
+  },
+  "runtime_source_files": {
+    "bench_fixture_timing.py": {
+      "bytes": 9585,
+      "sha256": "87edfb01b0e21794e93be25af28316a59108f2cda397c725b691ddac381ffb5d"
+    },
+    "fixture_timing_worker.py": {
+      "bytes": 9597,
+      "sha256": "e74f3f5b8630b50e9752ea2d4be23a610c0c9e662ede942134c6cd1eac65d1f9"
+    },
+    "timing_controls.py": {
+      "bytes": 11894,
+      "sha256": "bf04be1c051284cdc1ef03f0fbea472aef1166fc8a6c3c32a66a389148a3120e"
+    },
+    "dspark_worker.py": {
+      "bytes": 8607,
+      "sha256": "08cdd3ca4b236f75e484797d9959738947223d4723cf998526cb82a4ea3e7f47"
+    },
+    "stage_ids_vendor.py": {
+      "bytes": 4268,
+      "sha256": "16da30c77a5658aebb324e371dec4d92dfa3f38b15214d1be10cc98bc51743a4"
+    },
+    "o_proj_cache_fixture.py": {
+      "bytes": 6611,
+      "sha256": "7dfa11336f7be4c8c55d0f09eb302673ef31ac51d582686d31cffc432af6fe78"
+    },
+    "graph_precision_audit.py": {
+      "bytes": 22208,
+      "sha256": "a2f4b5d57179aeb392a651957c81b684f1993f4cd7ab95d4d42cdb3285a29df6"
+    },
+    "draft_graph_observer.py": {
+      "bytes": 3849,
+      "sha256": "983c31462b285160c7990390b854e0d07cb546d46b66c3d9cc926e53b1737ac0"
+    },
+    "reference_token_ids_2k256.json": {
+      "bytes": 12386,
+      "sha256": "c5d9e55c4ac1f72e7d8488f4602ef1f54468fa9101bb517ebb0e8b2e6e48e15d"
+    }
+  },
+  "reference_token_ids_2k256": {
+    "status": "present",
+    "bytes": 12386,
+    "sha256": "c5d9e55c4ac1f72e7d8488f4602ef1f54468fa9101bb517ebb0e8b2e6e48e15d",
+    "provenance": {
+      "pending": false,
+      "source_job": "dspark_lane_20261011_c4_graph_geometry2k256_v3",
+      "source_requests_path": "/home/chiro/projects/dsv41/operator-stack-tp8/experiments/operator_stack/parallel_tiny/dspark_lane/fixture_timing_diagnostic_v2/geometry_2k_256_v3_cpu_prepare/frozen_runtime_terminal/dspark_lane_20261011_c4_graph_geometry2k256_v3/results/requests.json",
+      "source_requests_sha256": "a01abe2be7fb327a3f82e6d6ed66bfba78b3141b0183ff128c4a73f16d3eb1ed",
+      "extractor": "build_reference_2k256.py",
+      "extracted_unix": 1791745879.6484332
+    }
+  },
+  "launch_blocked_by_pending_reference": false,
+  "native_sources": {
+    "vllm_ascend/compilation/acl_graph.py": "c8ab2fe6aaae034b03e9e34b9c07fd445046564acd5d45e2c24b5ea5232c5a74",
+    "vllm_ascend/attention/dsa_v1.py": "24cb4e1ad3b2fcc9f0524153f22c0c6818aba396d290c4b93cdf4f12ced217d5",
+    "vllm_ascend/attention/dsa_attn_kv_plan.py": "cbb50f37e92aec5a39628ce01af89aa77e5b4b9e9d5b141cd1a2ef74d7fbe795",
+    "vllm_ascend/models/deepseek_v41/model.py": "dfbc3c0d3b0f9ce3349509de5dfb3799a47f834eec26a951769bf4a54e6c022b",
+    "vllm_ascend/models/deepseek_v41/dspark.py": "3fdc5c8afd777b493761cd9e646561e7ad56157d369db6d5c02df9579d4074a0",
+    "vllm_ascend/models/deepseek_v4/dspark.py": "840cfde5eecc559e63283f8bc33666f8767569a0b7c4ad7e7719d662c1ea9946",
+    "vllm_ascend/spec_decode/dspark_proposer.py": "bd1004869551791ae481a3cb7c61b124ee25300905f89097799ab4572439fd67",
+    "vllm_ascend/spec_decode/llm_base_proposer.py": "681c76017b1a508b64ce2594960c605a74008b4fd878a082788551e9b8f53db8",
+    "vllm_ascend/ops/fused_moe/router/fused_topk_router.py": "f32950da16926afe7569b1a6daa437860db2e83171d96623ac79f7734e52b004",
+    "vllm_ascend/worker/model_runner_v1.py": "67035d97f1cea4ae2df31adcc33f1de952f4cab6d8421e76df512296e0e3185e"
+  },
+  "fixture_source_sha256": "7dfa11336f7be4c8c55d0f09eb302673ef31ac51d582686d31cffc432af6fe78",
+  "vendor_source_py_tree_sha256": "e552b649eb47a39aeeeb549ffdb0f80d8aad199fe5105df34296b5ba62366ecc",
+  "model_config_sha256": "ad72656e807079b39a5e94f05f5ffe45116725787239344adb4577fc4a2671c3",
+  "before_after_full43_source_cache_finite_gate_outside_window": true,
+  "diagnostic_d2h_and_hash_forbidden_in_timing_window": true,
+  "route_logprob_audit": false,
+  "profiler": false,
+  "first_value_trace": false,
+  "initial_partial_seed_and_terminal_submitted_draft_included": true,
+  "dummy_clean_rate_required": 0.0,
+  "diagnostic_only": true,
+  "tiny_candidate_admitted": false,
+  "formal_candidate_admitted": false,
+  "formal_tp8_claim": false,
+  "formal_full_main_mtp_verify_scheduler_cache_20ms_goal_achieved": false,
+  "acceptance_from_dummy_repetition_must_not_be_used_as_benefit": true,
+  "no_reset_no_dropcache_no_unknown_process_stop": true,
+  "decode_round_count_derived_from_fresh_receipts": true,
+  "geometry_cache_gate_v3_numeric_is_external_precondition": true,
+  "128_32_timing_results_or_geometry_borrowed": false,
+  "npu_authorization_required_from_main_thread": true
+}

@@ -1,0 +1,48 @@
+{
+  "scope": "v12 job formal_dspark_full43_diag_v3 terminal failure analysis: host-resident seal fix verified on all 8 ranks; new failure is a dynamo module-attribute guard for the installed audit tap _v10_enter",
+  "written_utc": "2026-10-11T18:45:00Z",
+  "job": "formal_dspark_full43_diag_v3",
+  "package": "full43_consumers_v12",
+  "freeze_sha256": "64e5fae9a2f2d4269515b642e13aaf5762a8289fbfdcc7212969ed038e44ce3d",
+  "snapshot_manifest_sha256": "c2bdb9c6736607c06a23e6e00c0217504508daf1292204a0fac84b6edfc543e0",
+  "timeline": {
+    "launch": "2026-10-11T18:22:55Z (fresh physical 8-15 gates passed)",
+    "weights_loaded": "18:33:23-18:33:30 (8 rank, 39.1183GB each, cold page cache: ~7.5 min)",
+    "before_graph_success_all_ranks": "18:33 (rank_exports/*/retained_root_ownership.json, weight_seals.json, loaded_bindings.json, installed_sources.json written for all 8 ranks)",
+    "first_failure": "18:34:22 profile_run -> _dummy_run -> compile: AttributeError: module 'vllm_ascend.models.deepseek_v41.model' has no attribute '_v10_enter' (rank3 traceback; rank5 shows the cascaded npugraph signal-handler AssertionError)",
+    "terminal": "no result.json; workers exited; EngineCore idled in do_poll; root terminated the stranded driver (SIGTERM) and EngineCore at ~18:39Z; run.exit=143",
+    "cleanup_safety": "identity verified from /proc/<pid>/cmdline; no other tenant signalled; no reset; no pagecache drop"
+  },
+  "verified_progress": {
+    "v12_host_resident_seal_fix_effective": true,
+    "rank_weight_seals": {
+      "ranks": 8,
+      "module_count_each": 43,
+      "parameter_count_each": 1741,
+      "host_resident_parameter_count_each": 2,
+      "host_resident_parameters": ["main.1.engram.embed.weight", "main.14.engram.embed.weight"],
+      "host_resident_npu_format_queried": false,
+      "note": "matches checkpoint Engram [1,14]; the seal no longer calls npu.get_npu_format with a CPU tensor"
+    },
+    "multimodal_root_ownership_fix_effective": true,
+    "eight_rank_native_load_and_binding": true
+  },
+  "root_cause_v13_target": {
+    "where": "profile_run compile of the instrumented root forward",
+    "mechanism": "torch.dynamo resolves LOAD_GLOBAL names of a source-derived method through the native module object (its __module__); the four tap names (_v10_enter/_v10_return/_v10_value/_v10_before_write) existed only in the transformed function globals, so the module-attribute guard raised AttributeError during guard creation",
+    "cpu_repro": "tests/../full43_consumers_v13/test_contracts_cpu.py::test_dynamo_module_attribute_guard_aliases_exported_for_installed_taps (torch.compile backend=eager): fails without the module attribute, passes after export_dynamo_guard_aliases",
+    "fix": "v13 exports the four tap callables as stable attributes of the native module objects (one object per name per session), records the alias map and any cross-session rebinds, and dumps dynamo_alias_audit.json per rank"
+  },
+  "evidence_files": {
+    "run.log": "evidence/formal_a321/full43_diag_v3/run.log (440952 bytes)",
+    "run.exit": "evidence/formal_a321/full43_diag_v3/run.exit (=143)",
+    "candidate_contract.json": "evidence/formal_a321/full43_diag_v3/gate/candidate_contract.json",
+    "rank_exports": "evidence/formal_a321/full43_diag_v3/gate/rank_exports/rank0..7/{retained_root_ownership,weight_seals,loaded_bindings,installed_sources}.json"
+  },
+  "claims": {
+    "full_consumer_audit_passed": false,
+    "formal_receipt_granted": false,
+    "performance_receipt_granted": false,
+    "device_result": null
+  }
+}

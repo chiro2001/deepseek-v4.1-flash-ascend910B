@@ -1,0 +1,276 @@
+{
+  "scope": "new private v15 production consumer source/owner plan; no NPU execution or consumer admission",
+  "formal_source_snapshot": "/work/src_dspark_native_v2",
+  "hooks": [
+    {
+      "file": "v41_model.py",
+      "remote_source": "/vllm-workspace/vllm-ascend/vllm_ascend/models/deepseek_v41/model.py",
+      "file_sha256": "11ddc71dd178061113f2b206758a9e3a6b85925949fe3a816af38311bf3ed607",
+      "qualified_function": "DeepseekV41DecoderLayer.forward",
+      "line": 833,
+      "function_sha256": "cdba55450799c1dfdebe395cec2b7eab3197126d32e15d07852687aa8c89b9fe",
+      "consumer": "main0-39/draft40-42 actual layer output",
+      "applied": false
+    },
+    {
+      "file": "actual_router.py",
+      "remote_source": "/vllm-workspace/vllm-ascend/vllm_ascend/ops/fused_moe/router/fused_topk_router.py",
+      "file_sha256": "f32950da16926afe7569b1a6daa437860db2e83171d96623ac79f7734e52b004",
+      "qualified_function": "AscendFusedTopKRouter._compute_routing",
+      "line": 139,
+      "function_sha256": "45b1e6305c3de89f28a82e95706fbee6bb6a7b27c82cdf1066c4fa6fac2972c6",
+      "consumer": "actual role/layer top6 route producer",
+      "applied": false
+    },
+    {
+      "file": "token_dispatcher.py",
+      "remote_source": "/vllm-workspace/vllm-ascend/vllm_ascend/ops/fused_moe/token_dispatcher.py",
+      "file_sha256": "37f96f834b98e257b5b82eaab607c451199b191c9c01078f61213c4e592fc9b8",
+      "qualified_function": "TokenDispatcherWithAllGather.token_dispatch",
+      "line": 415,
+      "function_sha256": "ce72f695b4d3f9b889ee9b58b6deb58c7c580e841debafe78df354458edff9c4",
+      "consumer": "actual route IDs/weights consumed by dispatch",
+      "applied": false
+    },
+    {
+      "file": "token_dispatcher.py",
+      "remote_source": "/vllm-workspace/vllm-ascend/vllm_ascend/ops/fused_moe/token_dispatcher.py",
+      "file_sha256": "37f96f834b98e257b5b82eaab607c451199b191c9c01078f61213c4e592fc9b8",
+      "qualified_function": "TokenDispatcherWithMC2.token_dispatch",
+      "line": 302,
+      "function_sha256": "90f1331548b0956f55298cc520341616b582bef9a04b087516c81602a0dd661d",
+      "consumer": "source guard if actual backend selects MC2; not inferred from config",
+      "applied": false
+    },
+    {
+      "file": "v41_model.py",
+      "remote_source": "/vllm-workspace/vllm-ascend/vllm_ascend/models/deepseek_v41/model.py",
+      "file_sha256": "11ddc71dd178061113f2b206758a9e3a6b85925949fe3a816af38311bf3ed607",
+      "qualified_function": "DeepseekV41Model.forward",
+      "line": 1416,
+      "function_sha256": "6c23d4160b40d5501bf0c0ea95f97488c741899964ed61a257b6938fb191087c",
+      "consumer": "actual aux residual entering target layers37-39",
+      "applied": false
+    },
+    {
+      "file": "v4_dspark.py",
+      "remote_source": "/vllm-workspace/vllm-ascend/vllm_ascend/models/deepseek_v4/dspark.py",
+      "file_sha256": "840cfde5eecc559e63283f8bc33666f8767569a0b7c4ad7e7719d662c1ea9946",
+      "qualified_function": "DeepseekV4DSparkModel.combine_hidden_states",
+      "line": 205,
+      "function_sha256": "d8da272d42fdb37fffce42330c94cb4cc7f5947bdeecc457fc291098e158b4d8",
+      "consumer": "actual aux main_proj/main_norm",
+      "applied": false
+    },
+    {
+      "file": "v4_dspark.py",
+      "remote_source": "/vllm-workspace/vllm-ascend/vllm_ascend/models/deepseek_v4/dspark.py",
+      "file_sha256": "840cfde5eecc559e63283f8bc33666f8767569a0b7c4ad7e7719d662c1ea9946",
+      "qualified_function": "DeepseekV4DSparkModel._project_shared_kv",
+      "line": 208,
+      "function_sha256": "ed1f65aee1b73aca053323fe21221b21dd3d1b5a4b1b7479277defb41832c220",
+      "consumer": "three distinct native wkv/norm/RoPE producers",
+      "applied": false
+    },
+    {
+      "file": "v4_dspark.py",
+      "remote_source": "/vllm-workspace/vllm-ascend/vllm_ascend/models/deepseek_v4/dspark.py",
+      "file_sha256": "840cfde5eecc559e63283f8bc33666f8767569a0b7c4ad7e7719d662c1ea9946",
+      "qualified_function": "DeepseekV4DSparkModel._store_standard_swa_kv",
+      "line": 220,
+      "function_sha256": "45b3695890a8bd0b02e55fb565daea247832c2c0af16a8a4664329e787ce7ecb",
+      "consumer": "actual draft SWA scatter consumer",
+      "applied": false
+    },
+    {
+      "file": "v41_dspark.py",
+      "remote_source": "/vllm-workspace/vllm-ascend/vllm_ascend/models/deepseek_v41/dspark.py",
+      "file_sha256": "3fdc5c8afd777b493761cd9e646561e7ad56157d369db6d5c02df9579d4074a0",
+      "qualified_function": "DeepseekV41DSparkModel.forward",
+      "line": 120,
+      "function_sha256": "f1f88a690c87594765f16bc683c4a89d18491a15fc2e296c2384f8756b96924b",
+      "consumer": "three serial delayed-mHC draft blocks",
+      "applied": false
+    },
+    {
+      "file": "kv_plan.py",
+      "remote_source": "/vllm-workspace/vllm-ascend/vllm_ascend/attention/dsa_attn_kv_plan.py",
+      "file_sha256": "cbb50f37e92aec5a39628ce01af89aa77e5b4b9e9d5b141cd1a2ef74d7fbe795",
+      "qualified_function": "DsaAttnKvPlan.dsa_kv_compress_scatter",
+      "line": 111,
+      "function_sha256": "1eea3de60edf5a9343b645b53883492af60bafb697cf86c2757c84095b2b24a3",
+      "consumer": "native formatted valid-slot cache write",
+      "applied": false
+    },
+    {
+      "file": "dsa_v41.py",
+      "remote_source": "/vllm-workspace/vllm-ascend/vllm_ascend/attention/dsa_v41.py",
+      "file_sha256": "56d3ce83098babf585289d3e078d1efff0442547f61fb0955a11f0b42bfc6ba3",
+      "qualified_function": "DeepseekV41EagerAttentionImpl._write_compressed_source",
+      "line": 383,
+      "function_sha256": "b8192daf4b3855038b75c22fa9b92b7285149bfd14b9a1dd8ce0a49a0912486f",
+      "consumer": "actual target long/indexer KV source",
+      "applied": false
+    },
+    {
+      "file": "dsa_v41.py",
+      "remote_source": "/vllm-workspace/vllm-ascend/vllm_ascend/attention/dsa_v41.py",
+      "file_sha256": "56d3ce83098babf585289d3e078d1efff0442547f61fb0955a11f0b42bfc6ba3",
+      "qualified_function": "DeepseekV41EagerAttentionImpl._attention",
+      "line": 483,
+      "function_sha256": "0a01eb4caa23a4059f2bc3633bab7b2f509b7b69ae783a0bcf7eb4a86a807cdd",
+      "consumer": "actual main SparseFlashMla cache reader",
+      "applied": false
+    },
+    {
+      "file": "dsa_v1.py",
+      "remote_source": "/vllm-workspace/vllm-ascend/vllm_ascend/attention/dsa_v1.py",
+      "file_sha256": "f2633fd764203b14beff046a8029b48f4585d57df38914895be1cd432f41612c",
+      "qualified_function": "AscendDSAImpl._forward_attention",
+      "line": 2025,
+      "function_sha256": "48a03bd7ff6dcb9c95477ecca6903f71408e54a3de9a082201f655bb4f76ce24",
+      "consumer": "actual draft attention/cache reader",
+      "applied": false
+    },
+    {
+      "file": "stock_dspark_proposer.py",
+      "remote_source": "/vllm-workspace/vllm-ascend/vllm_ascend/spec_decode/dspark_proposer.py",
+      "file_sha256": "4bbd1d555781bcf4e143a499d56d8b962229a5d0b2b233e13242627184aa47ac",
+      "qualified_function": "AscendDSparkProposer.set_inputs_first_pass",
+      "line": 223,
+      "function_sha256": "6ea2e5a1331a548681145f8a2ea8df2ee28a0eb763e950694f7dad59d1f3f9a8",
+      "consumer": "actual per-group positions/block/slot/seq metadata",
+      "applied": false
+    },
+    {
+      "file": "runner.py",
+      "remote_source": "/vllm-workspace/vllm-ascend/vllm_ascend/worker/model_runner_v1.py",
+      "file_sha256": "67035d97f1cea4ae2df31adcc33f1de952f4cab6d8421e76df512296e0e3185e",
+      "qualified_function": "NPUModelRunner._sample",
+      "line": 2774,
+      "function_sha256": "ef4b5da3ed8a2dae191fc3a89ce8ec9cb3e5fb30a42c1458823449d1db32054e",
+      "consumer": "actual native rejection sampler device output",
+      "applied": false
+    },
+    {
+      "file": "runner.py",
+      "remote_source": "/vllm-workspace/vllm-ascend/vllm_ascend/worker/model_runner_v1.py",
+      "file_sha256": "67035d97f1cea4ae2df31adcc33f1de952f4cab6d8421e76df512296e0e3185e",
+      "qualified_function": "NPUModelRunner._bookkeeping_sync",
+      "line": 2805,
+      "function_sha256": "09a6eab342d4bc344a56c608197d118be1e2f0d96563c8e0e23a51414ab2801c",
+      "consumer": "existing CPU accepted-prefix bookkeeping",
+      "applied": false
+    },
+    {
+      "file": "scheduler.py",
+      "remote_source": "/vllm-workspace/vllm/vllm/v1/core/sched/scheduler.py",
+      "file_sha256": "c67bda2886b52865ddafabaae7d797c359e930752f374421a33e537d94a5f45a",
+      "qualified_function": "Scheduler.update_from_output",
+      "line": 1670,
+      "function_sha256": "66a648c23c624e488ad004d6940912096ab3e36406b278abd1707134774d08c6",
+      "consumer": "actual rejected-token rollback/stop/clip",
+      "applied": false
+    }
+  ],
+  "checkpoint_target_ids": [
+    37,
+    38,
+    39
+  ],
+  "runner_aux_ids": [
+    38,
+    39,
+    40
+  ],
+  "actual_target_entry_layer_indices": [
+    37,
+    38,
+    39
+  ],
+  "main_layers": [
+    0,
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9,
+    10,
+    11,
+    12,
+    13,
+    14,
+    15,
+    16,
+    17,
+    18,
+    19,
+    20,
+    21,
+    22,
+    23,
+    24,
+    25,
+    26,
+    27,
+    28,
+    29,
+    30,
+    31,
+    32,
+    33,
+    34,
+    35,
+    36,
+    37,
+    38,
+    39
+  ],
+  "draft_layers": [
+    40,
+    41,
+    42
+  ],
+  "capture_policy": {
+    "preallocated_fixed_address_bounded_buffers_only": true,
+    "device_epoch_and_position_payload_required": true,
+    "d2h_inside_capture": false,
+    "logging_inside_capture": false,
+    "python_budget_count_inside_capture": false,
+    "opaque_none_mutation_wait_copy_reused": false,
+    "native_aten_copy_epoch_capture_alias_verified": false
+  },
+  "export_policy": "real decode/propose/sample generation -> current-rank full device fence -> export before reuse",
+  "source_registration_is_device_coverage": false,
+  "device_audit_passed": false,
+  "full_consumer_audit_passed": false,
+  "safe_formal_receipt": false,
+  "formal_model_validated": false,
+  "performance_claim": null,
+  "sdk_pair_bridge": "formal_consumer_sdk_bridge_v9_cpu.evidence_loader.load_tp8_sdk_pair",
+  "prepack_component": "dspark_prepack_audit_cpu.pure_graph_factory.make_pure_graph_entry",
+  "role_geometry": {
+    "main": {
+      "experts": 384,
+      "topk": 6,
+      "local_experts": 48,
+      "max_target_rows": 6,
+      "max_expanded_rows": 36
+    },
+    "draft": {
+      "experts": 128,
+      "topk": 3,
+      "local_experts": 16,
+      "max_draft_rows": 5,
+      "max_expanded_rows": 15
+    }
+  },
+  "FFN_width_from_actual_loaded_W2_and_partition": true,
+  "all_observer_buffers_explicit_graph_outputs": true,
+  "unsupported_prepack_extent_uses_original_native_uncovered_fallback": true,
+  "npu_jobs": 0
+}

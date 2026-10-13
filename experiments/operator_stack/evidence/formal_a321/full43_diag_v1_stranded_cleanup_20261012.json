@@ -1,0 +1,58 @@
+{
+  "scope": "post-v11-launch audit: identity-verified termination of the failed v10 job's stranded driver and its stuck multiprocessing resource_tracker; no device reset; no other tenant signalled",
+  "written_utc": "2026-10-11T18:17:29Z",
+  "sequence_note": "discovered in the container audit immediately AFTER the fresh v11 job (formal_dspark_full43_diag_v2) was launched and its fresh per-chip gates passed; cleanup commands ran within the same audit window (times approximate to the main-session timeline, not individually timestamped)",
+  "container": {
+    "name": "dsv41-real-stack-tp8-20261010-a321",
+    "id": "b1aa15d8800346aff8f755a049feaae148b9d6e315e92bd32dcdf1063b429eb0",
+    "cgroup_match_verified": true
+  },
+  "pid_namespace_note": "the TP8 container uses its own PID namespace; PIDs below are container-namespace PIDs (host ps does not see them)",
+  "stranded_processes": [
+    {
+      "pid": 1495100,
+      "ppid": 1495094,
+      "cmdline": "python -u /work/src_dspark_full43_diag_v1/stack/parallel_tiny/dspark_formal_audit/full43_consumers_v10/formal_audit_driver.py --model /home/l00886679/models/out/v41-w4a8-engram-dr-vision-qrot-mtpq --physical-chips 8,9,10,11,12,13,14,15 --output /work/results/formal_dspark_full43_diag_v1/gate --generations 32 --max-output-tokens 192 --mode diagnostic --execute",
+      "identity_evidence": "cmdline identical to the v10 driver argv; /proc/1495100/cgroup matched the TP8 container id; parent 1495094 (the v10 runner script) had already been killed",
+      "state_before": {
+        "state": "S",
+        "wchan": "do_wait",
+        "threads": 4,
+        "vm_rss_kb": 1804512,
+        "vm_size_kb": 4428124,
+        "fds": ["0->/dev/null", "1->/work/results/formal_dspark_full43_diag_v1/run.log", "2->/work/results/formal_dspark_full43_diag_v1/run.log", "3->/dev/davinci_manager", "4->/dev/davinci_manager", "5->/dev/davinci_manager", "6->/dev/hisi_hdc"],
+        "per_chip_davinci_fds": 0,
+        "listening_sockets_owned": [],
+        "child": 1495303
+      }
+    },
+    {
+      "pid": 1495303,
+      "ppid": 1495100,
+      "cmdline": "/usr/local/python3.12.13/bin/python -c from multiprocessing.resource_tracker import main;main(26)",
+      "note": "classic Python multiprocessing resource_tracker; the driver was blocked forever in do_wait for this child"
+    }
+  ],
+  "v10_output_completeness": {
+    "run_log_final_json_present": true,
+    "final_flags_in_run_log": {"passed": false, "mode": "diagnostic", "strict_full43_admission": false, "safe_formal_receipt": false},
+    "note": "the v10 diagnostic output had already been written; the stranded pair was pure shutdown residue. run.exit was never written because the v10 runner script (1495094) was killed earlier."
+  },
+  "host_memory_before": {"total_gb": 2013, "used_gb": 242, "free_gb": 432, "available_gb": 1770},
+  "cleanup_commands": [
+    "docker exec dsv41-real-stack-tp8-20261010-a321 kill -TERM 1495303 (no effect within 3s)",
+    "docker exec dsv41-real-stack-tp8-20261010-a321 kill -KILL 1495303",
+    "PID 1495100 exited by itself when the tracker died (do_wait unblocked); no signal sent to 1495100"
+  ],
+  "after": {
+    "ps_1495100_1495303": "both absent",
+    "v11_job_unaffected": "formal_dspark_full43_diag_v2 proceeded (model-loading log lines observed before and after cleanup)"
+  },
+  "safety": {
+    "other_tenants_signalled": false,
+    "device_reset": false,
+    "pagecache_dropped": false,
+    "remote_files_deleted": false,
+    "npu_process_table_on_chips_8_15": "empty before and after (this residue held no per-chip device context)"
+  }
+}

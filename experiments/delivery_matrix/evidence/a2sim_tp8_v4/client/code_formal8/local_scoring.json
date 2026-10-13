@@ -1,0 +1,854 @@
+{
+  "created_at_utc": "2026-10-12T23:52:43.273224+00:00",
+  "local_scorer_sources": {
+    "benchmark.py_sha256": "33c4580e2e458de466a2fd48f20259d97c2d856e29a5fa35c25bbff750d23816",
+    "cpu_seconds": 2,
+    "isolated_runtime": "bubblewrap; private network namespace; read-only system Python/stdlib/libs; task TMPDIR",
+    "memory_mb": 512,
+    "timeout_s": 3.0,
+    "workloads.py_sha256": "62db3507dd74ea69406a940963f93414ae2e9f87aa77424f8204f5c9b7ce4d35"
+  },
+  "requests": [
+    {
+      "case_results": [
+        {
+          "actual": "[]",
+          "id": "empty",
+          "passed": true
+        },
+        {
+          "actual": "[null]",
+          "id": "miss",
+          "passed": true
+        },
+        {
+          "actual": "[1,null,3]",
+          "id": "evicts-least-recent",
+          "passed": true
+        },
+        {
+          "actual": "[null]",
+          "id": "zero-capacity",
+          "passed": true
+        },
+        {
+          "actual": "[9]",
+          "id": "update-existing",
+          "passed": true
+        },
+        {
+          "actual": "[null,null,-16,-14]",
+          "id": "random-00",
+          "passed": true
+        },
+        {
+          "actual": "[null,-5]",
+          "id": "random-01",
+          "passed": true
+        },
+        {
+          "actual": "[null]",
+          "id": "random-02",
+          "passed": true
+        },
+        {
+          "actual": "[-16,-5,-16]",
+          "id": "random-03",
+          "passed": true
+        },
+        {
+          "actual": "[null,null,null,null,null,null,13]",
+          "id": "random-04",
+          "passed": true
+        },
+        {
+          "actual": "[null]",
+          "id": "random-05",
+          "passed": true
+        },
+        {
+          "actual": "[null,null,null,null,null]",
+          "id": "random-06",
+          "passed": true
+        },
+        {
+          "actual": "[null,null,15,null]",
+          "id": "random-07",
+          "passed": true
+        },
+        {
+          "actual": "[null,null,null,null,null]",
+          "id": "random-08",
+          "passed": true
+        },
+        {
+          "actual": "[null,null]",
+          "id": "random-09",
+          "passed": true
+        },
+        {
+          "actual": "[null,null,4,null]",
+          "id": "random-10",
+          "passed": true
+        },
+        {
+          "actual": "[]",
+          "id": "random-11",
+          "passed": true
+        }
+      ],
+      "engine_request_id": "chatcmpl-dm-46db672b28d548c28a34d9b662e5c75b-b8de022f",
+      "local_extracted_code_sha256": "0d93742d7f256b63124e60683b9e9c7e796e352ed980625bc3bf7369fe786764",
+      "local_score": {
+        "extracted_code_sha256": "0d93742d7f256b63124e60683b9e9c7e796e352ed980625bc3bf7369fe786764",
+        "failed_case_ids": [],
+        "isolation": "bubblewrap: minimal Python/stdlib/libs, private task tmp, read-only runtime, private network namespace",
+        "passed": 17,
+        "status": "pass",
+        "total": 17
+      },
+      "output_sha256": "05ceef8c470bb0d4dda0ab5b384188c44270ba7bc5b4f523376c7b87cd403c8e",
+      "prompt_sha256": "53b396533a39a5533fc4cc7194c223d02fcc47ddf04e625c02714d6ac209d4c8",
+      "remote_extracted_code_sha256": "0d93742d7f256b63124e60683b9e9c7e796e352ed980625bc3bf7369fe786764",
+      "remote_sandbox_status": "sandbox_error",
+      "request_tag": "dm-46db672b28d548c28a34d9b662e5c75b",
+      "split_artifact_path": "/home/chiro/tmp/dsv41-a2sim-v4-bench/evidence/code_formal8_a2sim_v4_20261013_requests/code_round00_request00.json",
+      "split_artifact_sha256": "7c1ad824a4b4873135d9d79bd5db4df34ce08853141e3578cba342b3e5cc3bb1",
+      "task_id": "lru_cache",
+      "unit_cases_sha256": "f0143dc14db6945ac59867a754f2287f04c9200431e3de4a6e3cc56c38ec5517"
+    },
+    {
+      "case_results": [
+        {
+          "actual": "[]",
+          "id": "empty",
+          "passed": true
+        },
+        {
+          "actual": "[[2,2]]",
+          "id": "single-point",
+          "passed": true
+        },
+        {
+          "actual": "[[1,5],[8,9]]",
+          "id": "touching",
+          "passed": true
+        },
+        {
+          "actual": "[[1,7],[8,10],[12,12]]",
+          "id": "nested-and-unsorted",
+          "passed": true
+        },
+        {
+          "actual": "[[2,4],[12,12]]",
+          "id": "random-00",
+          "passed": true
+        },
+        {
+          "actual": "[[-9,-9],[-7,12]]",
+          "id": "random-01",
+          "passed": true
+        },
+        {
+          "actual": "[[2,8]]",
+          "id": "random-02",
+          "passed": true
+        },
+        {
+          "actual": "[[-11,14]]",
+          "id": "random-03",
+          "passed": true
+        },
+        {
+          "actual": "[[-9,-6],[-1,19]]",
+          "id": "random-04",
+          "passed": true
+        },
+        {
+          "actual": "[[-7,9],[12,12]]",
+          "id": "random-05",
+          "passed": true
+        },
+        {
+          "actual": "[[-9,7]]",
+          "id": "random-06",
+          "passed": true
+        },
+        {
+          "actual": "[[-9,-2]]",
+          "id": "random-07",
+          "passed": true
+        },
+        {
+          "actual": "[[-11,-3],[2,14]]",
+          "id": "random-08",
+          "passed": true
+        },
+        {
+          "actual": "[[12,20]]",
+          "id": "random-09",
+          "passed": true
+        },
+        {
+          "actual": "[[-12,-3],[-2,17]]",
+          "id": "random-10",
+          "passed": true
+        },
+        {
+          "actual": "[]",
+          "id": "random-11",
+          "passed": true
+        }
+      ],
+      "engine_request_id": "chatcmpl-dm-4be35e30bc994f7b8cf2355118e917c5-869368f3",
+      "local_extracted_code_sha256": "e636be5296f3e43cd3a00c8b1bcc503b2e4ac59effe4dd9314f80d11381ee53c",
+      "local_score": {
+        "extracted_code_sha256": "e636be5296f3e43cd3a00c8b1bcc503b2e4ac59effe4dd9314f80d11381ee53c",
+        "failed_case_ids": [],
+        "isolation": "bubblewrap: minimal Python/stdlib/libs, private task tmp, read-only runtime, private network namespace",
+        "passed": 16,
+        "status": "pass",
+        "total": 16
+      },
+      "output_sha256": "1e4c289be3f20328826e1f099b71297a2f45aa807d6aa5319f8fbd76f45ed337",
+      "prompt_sha256": "8cea410bf404d9399036f746eae4177c1a7e0247a2f40450944aae858ccb2ba6",
+      "remote_extracted_code_sha256": "e636be5296f3e43cd3a00c8b1bcc503b2e4ac59effe4dd9314f80d11381ee53c",
+      "remote_sandbox_status": "sandbox_error",
+      "request_tag": "dm-4be35e30bc994f7b8cf2355118e917c5",
+      "split_artifact_path": "/home/chiro/tmp/dsv41-a2sim-v4-bench/evidence/code_formal8_a2sim_v4_20261013_requests/code_round00_request01.json",
+      "split_artifact_sha256": "aba6899031c61a23a2b2fe601452e481ffbe3e858edbd50a6d9a507da485e978",
+      "task_id": "merge_intervals",
+      "unit_cases_sha256": "b9b156461759b04df12f7f8d798f85f5ef00ae72d138760fdb035509ca58c9ae"
+    },
+    {
+      "case_results": [
+        {
+          "actual": "[]",
+          "id": "empty",
+          "passed": true
+        },
+        {
+          "actual": "[\"a\",\"b\",\"c\"]",
+          "id": "tie-break",
+          "passed": true
+        },
+        {
+          "actual": "[\"a\",\"b\",\"c\"]",
+          "id": "duplicate-edge",
+          "passed": true
+        },
+        {
+          "actual": "[]",
+          "id": "cycle",
+          "passed": true
+        },
+        {
+          "actual": "[\"a\",\"b\"]",
+          "id": "random-00",
+          "passed": true
+        },
+        {
+          "actual": "[]",
+          "id": "random-01",
+          "passed": true
+        },
+        {
+          "actual": "[\"c\",\"b\",\"a\",\"d\"]",
+          "id": "random-02",
+          "passed": true
+        },
+        {
+          "actual": "[\"c\",\"e\",\"b\",\"d\",\"a\"]",
+          "id": "random-03",
+          "passed": true
+        },
+        {
+          "actual": "[\"a\",\"b\",\"c\",\"d\",\"e\"]",
+          "id": "random-04",
+          "passed": true
+        },
+        {
+          "actual": "[]",
+          "id": "random-05",
+          "passed": true
+        },
+        {
+          "actual": "[\"b\",\"a\"]",
+          "id": "random-06",
+          "passed": true
+        },
+        {
+          "actual": "[\"a\",\"b\",\"c\",\"d\",\"e\"]",
+          "id": "random-07",
+          "passed": true
+        },
+        {
+          "actual": "[]",
+          "id": "random-08",
+          "passed": true
+        },
+        {
+          "actual": "[]",
+          "id": "random-09",
+          "passed": true
+        },
+        {
+          "actual": "[\"a\",\"b\"]",
+          "id": "random-10",
+          "passed": true
+        },
+        {
+          "actual": "[]",
+          "id": "random-11",
+          "passed": true
+        }
+      ],
+      "engine_request_id": "chatcmpl-dm-fad6aced42c74d24928f7e65392f4939-8c14b3c8",
+      "local_extracted_code_sha256": "396ccd05cc20f8e496d67b4d1f0075bfd2a932f84a04308e0e9a6150a1a25b92",
+      "local_score": {
+        "extracted_code_sha256": "396ccd05cc20f8e496d67b4d1f0075bfd2a932f84a04308e0e9a6150a1a25b92",
+        "failed_case_ids": [],
+        "isolation": "bubblewrap: minimal Python/stdlib/libs, private task tmp, read-only runtime, private network namespace",
+        "passed": 16,
+        "status": "pass",
+        "total": 16
+      },
+      "output_sha256": "fe3a16bd19351c23dee8aa6031e05cfa8e0862e27182b289b7d69f8b6c879c95",
+      "prompt_sha256": "6490bea19721510c6412ad693cc317d968bfdb0d406e72527c32965454448887",
+      "remote_extracted_code_sha256": "396ccd05cc20f8e496d67b4d1f0075bfd2a932f84a04308e0e9a6150a1a25b92",
+      "remote_sandbox_status": "sandbox_error",
+      "request_tag": "dm-fad6aced42c74d24928f7e65392f4939",
+      "split_artifact_path": "/home/chiro/tmp/dsv41-a2sim-v4-bench/evidence/code_formal8_a2sim_v4_20261013_requests/code_round00_request02.json",
+      "split_artifact_sha256": "222fe58f1b1114c096cfc71a9572a8813bd8f477345522ebafcc06bab045efaf",
+      "task_id": "topological_order",
+      "unit_cases_sha256": "b8ce412de48e610c24587b1555169329131ed5f490273974887993ca85905c43"
+    },
+    {
+      "case_results": [
+        {
+          "actual": "0",
+          "id": "empty",
+          "passed": true
+        },
+        {
+          "actual": "1",
+          "id": "all-same",
+          "passed": true
+        },
+        {
+          "actual": "2",
+          "id": "middle-repeat",
+          "passed": true
+        },
+        {
+          "actual": "3",
+          "id": "unicode",
+          "passed": true
+        },
+        {
+          "actual": "2",
+          "id": "random-00",
+          "passed": true
+        },
+        {
+          "actual": "5",
+          "id": "random-01",
+          "passed": true
+        },
+        {
+          "actual": "5",
+          "id": "random-02",
+          "passed": true
+        },
+        {
+          "actual": "2",
+          "id": "random-03",
+          "passed": true
+        },
+        {
+          "actual": "5",
+          "id": "random-04",
+          "passed": true
+        },
+        {
+          "actual": "5",
+          "id": "random-05",
+          "passed": true
+        },
+        {
+          "actual": "4",
+          "id": "random-06",
+          "passed": true
+        },
+        {
+          "actual": "4",
+          "id": "random-07",
+          "passed": true
+        },
+        {
+          "actual": "0",
+          "id": "random-08",
+          "passed": true
+        },
+        {
+          "actual": "2",
+          "id": "random-09",
+          "passed": true
+        },
+        {
+          "actual": "3",
+          "id": "random-10",
+          "passed": true
+        },
+        {
+          "actual": "3",
+          "id": "random-11",
+          "passed": true
+        }
+      ],
+      "engine_request_id": "chatcmpl-dm-837cd69799444abfad4d58764b133ffa-b32a55d7",
+      "local_extracted_code_sha256": "c7b27922cb8a0f9282812e34f7755977281927c98422fb0d9e4230dd5db423aa",
+      "local_score": {
+        "extracted_code_sha256": "c7b27922cb8a0f9282812e34f7755977281927c98422fb0d9e4230dd5db423aa",
+        "failed_case_ids": [],
+        "isolation": "bubblewrap: minimal Python/stdlib/libs, private task tmp, read-only runtime, private network namespace",
+        "passed": 16,
+        "status": "pass",
+        "total": 16
+      },
+      "output_sha256": "4c4dc51542c06797147daf1a2c832eb533b478c676b07956f13a9a5ad2063e7a",
+      "prompt_sha256": "4781bcf74ed165312d9a30cb304d10b86069796b8c23950b2ffbf0799493cfe6",
+      "remote_extracted_code_sha256": "c7b27922cb8a0f9282812e34f7755977281927c98422fb0d9e4230dd5db423aa",
+      "remote_sandbox_status": "sandbox_error",
+      "request_tag": "dm-837cd69799444abfad4d58764b133ffa",
+      "split_artifact_path": "/home/chiro/tmp/dsv41-a2sim-v4-bench/evidence/code_formal8_a2sim_v4_20261013_requests/code_round00_request03.json",
+      "split_artifact_sha256": "845f70e30f59a854eda56acb0d7fe4b59d818caa2e67cba25c46b9a3ae161369",
+      "task_id": "longest_unique_substring",
+      "unit_cases_sha256": "25b80b1d1b659ba7948b0c341ccd1c05397e0347d68110b5b8b768fdab5a66df"
+    },
+    {
+      "case_results": [
+        {
+          "actual": "7",
+          "id": "single",
+          "passed": true
+        },
+        {
+          "actual": "3",
+          "id": "duplicate-rank",
+          "passed": true
+        },
+        {
+          "actual": "-9",
+          "id": "negative",
+          "passed": true
+        },
+        {
+          "actual": "-24",
+          "id": "random-00",
+          "passed": true
+        },
+        {
+          "actual": "30",
+          "id": "random-01",
+          "passed": true
+        },
+        {
+          "actual": "-24",
+          "id": "random-02",
+          "passed": true
+        },
+        {
+          "actual": "-19",
+          "id": "random-03",
+          "passed": true
+        },
+        {
+          "actual": "10",
+          "id": "random-04",
+          "passed": true
+        },
+        {
+          "actual": "-10",
+          "id": "random-05",
+          "passed": true
+        },
+        {
+          "actual": "-29",
+          "id": "random-06",
+          "passed": true
+        },
+        {
+          "actual": "-7",
+          "id": "random-07",
+          "passed": true
+        },
+        {
+          "actual": "8",
+          "id": "random-08",
+          "passed": true
+        },
+        {
+          "actual": "3",
+          "id": "random-09",
+          "passed": true
+        },
+        {
+          "actual": "-9",
+          "id": "random-10",
+          "passed": true
+        },
+        {
+          "actual": "-27",
+          "id": "random-11",
+          "passed": true
+        }
+      ],
+      "engine_request_id": "chatcmpl-dm-88533aa2da3c4e2882998bd080842740-a6e2a425",
+      "local_extracted_code_sha256": "5663a4dd5b19ef6aa716e751b37a49d57c4e4c6c4bc709b0260b1f161d34e08c",
+      "local_score": {
+        "extracted_code_sha256": "5663a4dd5b19ef6aa716e751b37a49d57c4e4c6c4bc709b0260b1f161d34e08c",
+        "failed_case_ids": [],
+        "isolation": "bubblewrap: minimal Python/stdlib/libs, private task tmp, read-only runtime, private network namespace",
+        "passed": 15,
+        "status": "pass",
+        "total": 15
+      },
+      "output_sha256": "b1433e54347bfeb3957ddef710aeeb10998d29c45e6c4bc048c3da0db4218cc3",
+      "prompt_sha256": "dd35dac97f5df030847140685a5c139f8056555e65a34ffa492b9c7e38ff05de",
+      "remote_extracted_code_sha256": "5663a4dd5b19ef6aa716e751b37a49d57c4e4c6c4bc709b0260b1f161d34e08c",
+      "remote_sandbox_status": "sandbox_error",
+      "request_tag": "dm-88533aa2da3c4e2882998bd080842740",
+      "split_artifact_path": "/home/chiro/tmp/dsv41-a2sim-v4-bench/evidence/code_formal8_a2sim_v4_20261013_requests/code_round00_request04.json",
+      "split_artifact_sha256": "0059a12163e9e2a5dffb29140cb7e04c0242ddf3fee5d7fe77efe80881490415",
+      "task_id": "kth_largest",
+      "unit_cases_sha256": "43ed54e22abc4fcb3f4da8dc425e5c4869c23c57809c896ab1a5ae7e2ad1ddbf"
+    },
+    {
+      "case_results": [
+        {
+          "actual": "\"\"",
+          "id": "empty-pattern",
+          "passed": true
+        },
+        {
+          "actual": "\"\"",
+          "id": "no-match",
+          "passed": true
+        },
+        {
+          "actual": "\"aabdec\"",
+          "id": "multiplicity",
+          "passed": true
+        },
+        {
+          "actual": "\"ab\"",
+          "id": "leftmost-tie",
+          "passed": true
+        },
+        {
+          "actual": "\"BANC\"",
+          "id": "classic",
+          "passed": true
+        },
+        {
+          "actual": "\"a\"",
+          "id": "random-00",
+          "passed": true
+        },
+        {
+          "actual": "\"\"",
+          "id": "random-01",
+          "passed": true
+        },
+        {
+          "actual": "\"cbcc\"",
+          "id": "random-02",
+          "passed": true
+        },
+        {
+          "actual": "\"b\"",
+          "id": "random-03",
+          "passed": true
+        },
+        {
+          "actual": "\"a\"",
+          "id": "random-04",
+          "passed": true
+        },
+        {
+          "actual": "\"\"",
+          "id": "random-05",
+          "passed": true
+        },
+        {
+          "actual": "\"c\"",
+          "id": "random-06",
+          "passed": true
+        },
+        {
+          "actual": "\"acb\"",
+          "id": "random-07",
+          "passed": true
+        },
+        {
+          "actual": "\"\"",
+          "id": "random-08",
+          "passed": true
+        },
+        {
+          "actual": "\"\"",
+          "id": "random-09",
+          "passed": true
+        },
+        {
+          "actual": "\"\"",
+          "id": "random-10",
+          "passed": true
+        },
+        {
+          "actual": "\"ba\"",
+          "id": "random-11",
+          "passed": true
+        }
+      ],
+      "engine_request_id": "chatcmpl-dm-c3183ed9ab8f4f2eaae9c43df7c831d6-86c20976",
+      "local_extracted_code_sha256": "f99b97a478564674fd9ce84b35e78c3f56a134c834d10067459a26d4406a1e49",
+      "local_score": {
+        "extracted_code_sha256": "f99b97a478564674fd9ce84b35e78c3f56a134c834d10067459a26d4406a1e49",
+        "failed_case_ids": [],
+        "isolation": "bubblewrap: minimal Python/stdlib/libs, private task tmp, read-only runtime, private network namespace",
+        "passed": 17,
+        "status": "pass",
+        "total": 17
+      },
+      "output_sha256": "6cc179cb534752299770223e14a7d61f8b25e95fd7e6446472142f7522f9a5ee",
+      "prompt_sha256": "d420c292e3dbcdf73dc5b3d71451d2c14347273b28c776c82444cd48cabc26a6",
+      "remote_extracted_code_sha256": "f99b97a478564674fd9ce84b35e78c3f56a134c834d10067459a26d4406a1e49",
+      "remote_sandbox_status": "sandbox_error",
+      "request_tag": "dm-c3183ed9ab8f4f2eaae9c43df7c831d6",
+      "split_artifact_path": "/home/chiro/tmp/dsv41-a2sim-v4-bench/evidence/code_formal8_a2sim_v4_20261013_requests/code_round00_request05.json",
+      "split_artifact_sha256": "3da5874737e65bfb88142b09e9e156c557dd68c16850b91a105841e45e811203",
+      "task_id": "min_window",
+      "unit_cases_sha256": "0ec90074387681e87cf86e4887dbfddc161429f2136764aeb699f8fdba7341e3"
+    },
+    {
+      "case_results": [
+        {
+          "actual": "[]",
+          "id": "empty",
+          "passed": true
+        },
+        {
+          "actual": "[[\"\",\"\"],[\"a\"]]",
+          "id": "empty-words",
+          "passed": true
+        },
+        {
+          "actual": "[[\"eat\",\"tea\",\"ate\"],[\"tan\"]]",
+          "id": "stable-order",
+          "passed": true
+        },
+        {
+          "actual": "[[\"Ab\"],[\"ba\",\"ab\"]]",
+          "id": "case-sensitive",
+          "passed": true
+        },
+        {
+          "actual": "[[\"aac\"],[\"\",\"\",\"\"],[\"bbbc\"],[\"a\",\"a\"],[\"c\"],[\"bbc\"],[\"caaa\"],[\"cb\"],[\"b\"]]",
+          "id": "random-00",
+          "passed": true
+        },
+        {
+          "actual": "[[\"\",\"\",\"\",\"\",\"\",\"\"],[\"bbaa\"],[\"bbca\"],[\"cba\"]]",
+          "id": "random-01",
+          "passed": true
+        },
+        {
+          "actual": "[[\"ccabb\"],[\"b\"],[\"\"],[\"cc\"]]",
+          "id": "random-02",
+          "passed": true
+        },
+        {
+          "actual": "[[\"\"],[\"babc\"],[\"aa\"],[\"aaa\"]]",
+          "id": "random-03",
+          "passed": true
+        },
+        {
+          "actual": "[[\"\",\"\"],[\"acaa\"],[\"baa\"],[\"acba\"]]",
+          "id": "random-04",
+          "passed": true
+        },
+        {
+          "actual": "[[\"c\",\"c\"],[\"cbbca\"],[\"acca\"],[\"bbca\"],[\"\"],[\"b\"],[\"bacbb\"]]",
+          "id": "random-05",
+          "passed": true
+        },
+        {
+          "actual": "[[\"bbc\"],[\"abccc\"],[\"aac\"]]",
+          "id": "random-06",
+          "passed": true
+        },
+        {
+          "actual": "[[\"aba\"],[\"aacbc\"],[\"ca\",\"ac\",\"ca\"],[\"ba\"],[\"bcca\"],[\"\"],[\"abcb\"],[\"acc\"],[\"aaabb\"],[\"caa\"],[\"bbcac\"]]",
+          "id": "random-07",
+          "passed": true
+        },
+        {
+          "actual": "[[\"cacca\"]]",
+          "id": "random-08",
+          "passed": true
+        },
+        {
+          "actual": "[[\"c\",\"c\"],[\"acca\"],[\"bbab\"],[\"bccc\"],[\"bac\"],[\"cb\"],[\"bbc\"],[\"ccccb\"],[\"a\"],[\"\",\"\"]]",
+          "id": "random-09",
+          "passed": true
+        },
+        {
+          "actual": "[[\"\"],[\"ccccb\"],[\"acac\"],[\"aa\"],[\"acc\"],[\"cbaa\"],[\"bc\"],[\"bbc\"],[\"c\"],[\"aaa\"],[\"ccab\"]]",
+          "id": "random-10",
+          "passed": true
+        },
+        {
+          "actual": "[[\"accb\"],[\"ac\"],[\"baa\"]]",
+          "id": "random-11",
+          "passed": true
+        }
+      ],
+      "engine_request_id": "chatcmpl-dm-9b11b009792c46baaef2681292af16e1-974d717a",
+      "local_extracted_code_sha256": "c23441c15c973704accb6e85378a3babf2673f0a9b52fdb2f43d3b8c5b9ff844",
+      "local_score": {
+        "extracted_code_sha256": "c23441c15c973704accb6e85378a3babf2673f0a9b52fdb2f43d3b8c5b9ff844",
+        "failed_case_ids": [],
+        "isolation": "bubblewrap: minimal Python/stdlib/libs, private task tmp, read-only runtime, private network namespace",
+        "passed": 16,
+        "status": "pass",
+        "total": 16
+      },
+      "output_sha256": "8b82c76e6f1a15612f950c1d1e1aef35072793187d15466e65aaed2021f332f0",
+      "prompt_sha256": "916d442925261a669eaa9d268552fbb3e994e3a7ba9788a5e6050f0e3d21ac9a",
+      "remote_extracted_code_sha256": "c23441c15c973704accb6e85378a3babf2673f0a9b52fdb2f43d3b8c5b9ff844",
+      "remote_sandbox_status": "sandbox_error",
+      "request_tag": "dm-9b11b009792c46baaef2681292af16e1",
+      "split_artifact_path": "/home/chiro/tmp/dsv41-a2sim-v4-bench/evidence/code_formal8_a2sim_v4_20261013_requests/code_round00_request06.json",
+      "split_artifact_sha256": "2ca9c85fd1932f4c377daa14260fb37e42828df1c4f8e55ef9b208f8415b1929",
+      "task_id": "group_anagrams",
+      "unit_cases_sha256": "e8f84072f53011d00abd2b321782fad24b0b09787c0d44701bc095c3f87cda12"
+    },
+    {
+      "case_results": [
+        {
+          "actual": "{}",
+          "id": "root-empty",
+          "passed": true
+        },
+        {
+          "actual": "{\"a.b\":{},\"c\":1}",
+          "id": "nested-empty-leaf",
+          "passed": true
+        },
+        {
+          "actual": "{\"a/b\":2,\"c\":3}",
+          "id": "custom-separator",
+          "passed": true
+        },
+        {
+          "actual": "{}",
+          "id": "random-00",
+          "passed": true
+        },
+        {
+          "actual": "{}",
+          "id": "random-01",
+          "passed": true
+        },
+        {
+          "actual": "{\"k0\":true}",
+          "id": "random-02",
+          "passed": true
+        },
+        {
+          "actual": "{\"k0/k0\":-2,\"k0/k1\":0,\"k0/k2/k0\":null,\"k1\":false}",
+          "id": "random-03",
+          "passed": true
+        },
+        {
+          "actual": "{\"k0\":{},\"k1.k0\":7,\"k1.k1.k0.k0\":7,\"k1.k1.k0.k1\":0,\"k1.k1.k0.k2\":\"v\",\"k1.k2.k0\":{},\"k2\":false}",
+          "id": "random-04",
+          "passed": true
+        },
+        {
+          "actual": "{}",
+          "id": "random-05",
+          "passed": true
+        },
+        {
+          "actual": "{}",
+          "id": "random-06",
+          "passed": true
+        },
+        {
+          "actual": "{\"k0\":true,\"k1\":{},\"k2\":\"v\"}",
+          "id": "random-07",
+          "passed": true
+        },
+        {
+          "actual": "{\"k0\":\"v\",\"k1\":\"v\",\"k2::k0\":0,\"k2::k1\":-2}",
+          "id": "random-08",
+          "passed": true
+        },
+        {
+          "actual": "{}",
+          "id": "random-09",
+          "passed": true
+        },
+        {
+          "actual": "{\"k0\":7,\"k1.k0\":false,\"k1.k1\":true}",
+          "id": "random-10",
+          "passed": true
+        },
+        {
+          "actual": "{}",
+          "id": "random-11",
+          "passed": true
+        }
+      ],
+      "engine_request_id": "chatcmpl-dm-11586a91a0ea41dd8097730d60e008fe-8906cc58",
+      "local_extracted_code_sha256": "30dd0e2420788979c9b19d4ac61d0c0605be7fd7a6092e9fe8affa4e1a323d1e",
+      "local_score": {
+        "extracted_code_sha256": "30dd0e2420788979c9b19d4ac61d0c0605be7fd7a6092e9fe8affa4e1a323d1e",
+        "failed_case_ids": [],
+        "isolation": "bubblewrap: minimal Python/stdlib/libs, private task tmp, read-only runtime, private network namespace",
+        "passed": 15,
+        "status": "pass",
+        "total": 15
+      },
+      "output_sha256": "13df1b723fef6094f1e5939f737ffdfcae4b5f82f13e7dfc47328efa96633804",
+      "prompt_sha256": "6cbc1cacaf3ea36024ad0638d257b096be92a9f7c6a9bede48e1f3746d154fd4",
+      "remote_extracted_code_sha256": "30dd0e2420788979c9b19d4ac61d0c0605be7fd7a6092e9fe8affa4e1a323d1e",
+      "remote_sandbox_status": "sandbox_error",
+      "request_tag": "dm-11586a91a0ea41dd8097730d60e008fe",
+      "split_artifact_path": "/home/chiro/tmp/dsv41-a2sim-v4-bench/evidence/code_formal8_a2sim_v4_20261013_requests/code_round00_request07.json",
+      "split_artifact_sha256": "b2c3584d497459554088eb66e81724c3a7426e83dddcad38c1cdb40872fea9a2",
+      "task_id": "flatten_dict",
+      "unit_cases_sha256": "143a10c695a472a15f677a17d8cac82359bdbb2cd0938f49729b208b8d0e76fc"
+    }
+  ],
+  "schema_version": "delivery_matrix_local_code_scoring_v1",
+  "source_evidence": {
+    "original_path": "/home/l00886679/tmp/dsv41-a2sim-v4-bench/evidence/code_formal8_a2sim_v4_20261013.json",
+    "original_sha256": "4c9196d15121358fe0b35ecd77d5b61c43095c49e09a39e9eca3258ec729d0d3",
+    "original_size_bytes": 1419839,
+    "split_manifest_path": "/home/chiro/tmp/dsv41-a2sim-v4-bench/evidence/code_formal8_a2sim_v4_20261013_requests/manifest.json",
+    "split_manifest_sha256": "6ec9d9267695a4b6e7d5e27a1beaf0823df8498c9762b4c7204d2892474a8704",
+    "workload_fingerprint": "6ba0371a1806a834119be4062791146c199bc9bf400ef0b87e94dc73d21ec7df"
+  },
+  "summary": {
+    "locally_evaluated_tasks": 8,
+    "locally_failed_tasks": 0,
+    "locally_passed_tasks": 8,
+    "passed_cases": 128,
+    "remote_sandbox_errors": 8,
+    "total_cases": 128
+  }
+}

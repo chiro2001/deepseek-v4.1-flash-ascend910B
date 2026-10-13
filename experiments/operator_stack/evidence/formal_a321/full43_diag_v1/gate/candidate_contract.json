@@ -1,0 +1,5677 @@
+{
+  "schema": "full43_consumers_v10",
+  "candidate_id": "v10_native_consumer_observation",
+  "source_root": "/work/src_dspark_full43_diag_v1",
+  "candidate_package_root": "/work/src_dspark_full43_diag_v1/stack/parallel_tiny/dspark_formal_audit/full43_consumers_v10",
+  "source_sha256": {
+    "stack/parallel_tiny/dspark_formal_audit/full43_consumers_v10/test_cleanup_cpu.py": "8b57aebfde4cbbc11e9a1beb18fe1bcf54072445ce2ce038957923cd36c6248a",
+    "stack/parallel_tiny/dspark_formal_audit/full43_consumers_v10/test_contracts_cpu.py": "2615346905112ca64ee83bba27a8ad6919ec2f77076c323ba855d17509e18e3b",
+    "stack/parallel_tiny/dspark_formal_audit/full43_consumers_v10/rollback.py": "113322931e0f127b0ef97f4c956dfeb702f24242942125d0cc9fef7d2416121a",
+    "stack/parallel_tiny/dspark_formal_audit/full43_consumers_v10/lifecycle.py": "0b3511559a2fdb4e69124ecf495e8fdbce3a0dc3079f81a77a633f6a9159ccb3",
+    "stack/parallel_tiny/dspark_formal_audit/full43_consumers_v10/native_refs.py": "97fb0b96c24fb78bc9912678b6010e573cbe61d39c195665a30baab10bed2461",
+    "stack/parallel_tiny/dspark_formal_audit/full43_consumers_v10/observer.py": "3772157d8df091309ca75333ec40985435bb7bd848d20d2c7af7a67a51afe7eb",
+    "stack/parallel_tiny/dspark_formal_audit/full43_consumers_v10/source_factory.py": "a848dbdd59cd12d635ed2083183fa72bd127dbd8b2bb8256d1ba32992b93c7e9",
+    "stack/parallel_tiny/dspark_formal_audit/full43_consumers_v10/__init__.py": "82f2cd4723f4a0c8ea16c1341aef090e01c6848cacabd1ca210ded6b65a993c1",
+    "stack/parallel_tiny/dspark_formal_audit/full43_consumers_v10/session.py": "018af6f28359198d5ffc6ae3e010c94e50d76bee190ec00a0e6f954b84c1a371",
+    "stack/parallel_tiny/dspark_formal_audit/full43_consumers_v10/sdk_worker.py": "3a0af3e5e713dc0d344ebe5dd898d69fc36af0b0bfa18911a8d20c745ff290da",
+    "stack/parallel_tiny/dspark_formal_audit/full43_consumers_v10/prepack_integration.py": "fced2ecfb35a3a45dad24d5dae8d4a40703ea961aab89559ac0bb592e146e535",
+    "stack/parallel_tiny/dspark_formal_audit/full43_consumers_v10/formal_audit_driver.py": "cc8b35e6bc0a924d59f895c61c62bdcdfafe1d56077c1a5e8ad3b6fd9f957afc",
+    "stack/parallel_tiny/dspark_formal_audit/full43_consumers_v10/sdk_executor.py": "a572cd24994a76bb3dc71e1d97916e19cef23bb15d13f7127f2b872ed05b2881",
+    "stack/parallel_tiny/dspark_formal_audit/full43_consumers_v10/provenance.py": "e7fd5d2b738ecb250accdcf5a7b79e5cba5704c19aa1c8442ad04d3d1ca57f8d",
+    "stack/parallel_tiny/dspark_formal_audit/full43_consumers_v10/bindings.py": "ed7a9893cdebed2db66171258cd223dc3d9edc55d61c17f8bbc31f4679055908",
+    "stack/parallel_tiny/dspark_formal_audit/full43_consumers_v10/run_same_version_cpu.py": "128dab109d52bcd42bbad69c0d0556fe30c4fb52068dcfe555594d8020669f85",
+    "stack/parallel_tiny/dspark_formal_audit/full43_consumers_v10/freeze_delivery.py": "478091a90414f9a070ec9c831e0ea8456e35986e83c62f05299aabe8bc437686",
+    "stack/parallel_tiny/dspark_formal_audit/full43_consumers_v10/executor_source.py": "3040717f18a804e3ff4bfb46730f89108c992fbcb0709f9a8dd98893270c62c2",
+    "stack/parallel_tiny/dspark_formal_audit/full43_consumers_v10/runtime_callbacks.py": "fd3f096e444aaf5a7a7b0c983376d1b731fcfc94e6d5834fcd46851bcd1f9048"
+  },
+  "model_kwargs": {
+    "model": "/home/l00886679/models/out/v41-w4a8-engram-dr-vision-qrot-mtpq",
+    "tokenizer": "/home/l00886679/models/out/v41-w4a8-engram-dr-vision-qrot-mtpq",
+    "load_format": "auto",
+    "dtype": "bfloat16",
+    "safetensors_load_strategy": "lazy",
+    "model_loader_extra_config": {
+      "enable_multithread_load": true,
+      "num_threads": 128
+    },
+    "worker_cls": "parallel_tiny.dspark_formal_audit.full43_consumers_v10.sdk_worker.Full43AuditWorker",
+    "tensor_parallel_size": 8,
+    "distributed_executor_backend": "parallel_tiny.dspark_formal_audit.full43_consumers_v10.sdk_executor.Full43AuditExecutor",
+    "enable_expert_parallel": true,
+    "seed": 0,
+    "trust_remote_code": true,
+    "async_scheduling": false,
+    "limit_mm_per_prompt": {
+      "image": 4
+    },
+    "max_model_len": 8192,
+    "max_num_seqs": 1,
+    "max_num_batched_tokens": 2048,
+    "gpu_memory_utilization": 0.7,
+    "kv_cache_memory_bytes": 4294967296,
+    "block_size": 128,
+    "enable_prefix_caching": false,
+    "enable_return_routed_experts": false,
+    "speculative_config": {
+      "method": "dspark",
+      "num_speculative_tokens": 5,
+      "enforce_eager": true
+    },
+    "compilation_config": {
+      "cudagraph_mode": "FULL_DECODE_ONLY",
+      "cudagraph_capture_sizes": [
+        6
+      ]
+    },
+    "additional_config": {
+      "enable_engram": true,
+      "engram_storage": "int8",
+      "enable_cpu_binding": false,
+      "ascend_compilation_config": {
+        "enable_npugraph_ex": true,
+        "enable_static_kernel": true
+      },
+      "multistream_dsv4_dsa_overlap": false
+    }
+  },
+  "startup_env": {
+    "VLLM_ENABLE_V1_MULTIPROCESSING": "1",
+    "VLLM_WORKER_MULTIPROC_METHOD": "spawn",
+    "VLLM_ALLOW_INSECURE_SERIALIZATION": "1",
+    "VLLM_DISABLE_COMPILE_CACHE": "1",
+    "VLLM_CACHE_ROOT": "/work/results/formal_dspark_full43_diag_v1/gate/cache",
+    "HCCL_DETERMINISTIC": "strict",
+    "STACK_DSPARK_FORMAL_OUTPUT": "/work/results/formal_dspark_full43_diag_v1/gate",
+    "LOCAL_WORLD_SIZE": "8",
+    "STACK_PHYSICAL_CHIPS": "8,9,10,11,12,13,14,15",
+    "STACK_REAL_WEIGHTS": "1",
+    "STACK_REAL_AUDIT": "1",
+    "STACK_TP8_ARM": "tp8base",
+    "STACK_FP32_DECODE_REDUCTION": "0",
+    "STACK_TINY_PROFILE": "0",
+    "STACK_W4A8_PREFIX_ENABLED": "0",
+    "STACK_WOA_CUBE_ENABLED": "0",
+    "STACK_QKV_MERGE_ENABLED": "0",
+    "STACK_QKV_TAIL_SCHEDULE": "native",
+    "STACK_MOE_MASK_ENABLED": "0",
+    "STACK_METADATA_MANY_SLOTS_ENABLED": "0",
+    "OPT_BLOCKMAP_VERIFY": "0",
+    "DRAFT_FORCE_EAGER": "0",
+    "V41_ENGRAM_WITH_DUMMY": "0",
+    "V41_DUMMY_WO_A_FIX": "0",
+    "DRAFT_GRAPH": "0",
+    "DSPARK_GRAPH_CAPTURE_METADATA": "1",
+    "DSPARK_DRAFT_METADATA_MODE": "sync",
+    "DSPARK_CAPTURE_VALUE_FIX": "1",
+    "DSPARK_SWA_INDICES_RESIDENT": "1",
+    "DSPARK_CAPTURE_NCTX_FIX": "1",
+    "DSPARK_DISPATCH_QUERY_LEN_FIX": "1",
+    "DSPARK_DRAFT_USE_CUDAGRAPH": "0",
+    "DSPARK_HOIST_CONTEXT_KV": "0",
+    "V10_AUDIT_ENABLED": "1",
+    "V10_AUDIT_OUTPUT": "/work/results/formal_dspark_full43_diag_v1/gate/rank_exports",
+    "STACK_SRC_ROOT": "/work/src_dspark_full43_diag_v1",
+    "ASCEND_RT_VISIBLE_DEVICES": "8,9,10,11,12,13,14,15",
+    "ASCEND_VISIBLE_DEVICES": "8,9,10,11,12,13,14,15"
+  },
+  "startup_env_basis": {
+    "qualified_function": "parallel_tiny.dspark_formal_prep.contract.startup_env",
+    "source_path": "/work/src_dspark_full43_diag_v1/stack/parallel_tiny/dspark_formal_prep/contract.py",
+    "source_sha256": "10b7a698785da75c0b85ae0c4d5e5eb59eff768f8c1e3b4c26b4ab7c6c0a054d",
+    "audit": false,
+    "draft_graph": false
+  },
+  "startup_env_overrides": {
+    "STACK_REAL_AUDIT": "1",
+    "V10_AUDIT_ENABLED": "1",
+    "V10_AUDIT_OUTPUT": "/work/results/formal_dspark_full43_diag_v1/gate/rank_exports"
+  },
+  "pythonpath": [
+    "/work/src_dspark_full43_diag_v1/stack",
+    "/work/src_dspark_full43_diag_v1/operator",
+    "/work/src_dspark_full43_diag_v1/operator/baseline",
+    "/work/src_dspark_full43_diag_v1/up950"
+  ],
+  "checkpoint_config": {
+    "path": "/home/l00886679/models/out/v41-w4a8-engram-dr-vision/config.json",
+    "sha256": "40ebd329d3cb2d99d7176091afb580c182c21f48b88b63b550264a97e9c0d424"
+  },
+  "sdk_source_manifest_sha256": "63be4d40848aa22903ad839179059b5256bff91e9317e1e7a33ea363d0b539f4",
+  "sdk_source_manifest": {
+    "path": "/work/src_dspark_full43_diag_v1/stack/parallel_tiny/dspark_formal_audit/full43_consumers_v10/evidence/sdk_source_manifest_static.json",
+    "sha256": "63be4d40848aa22903ad839179059b5256bff91e9317e1e7a33ea363d0b539f4",
+    "bytes": 4710,
+    "original_pair_manifest_reference": {
+      "path": "/home/chiro/projects/dsv41/operator-stack-tp8/experiments/operator_stack/evidence/formal_a321/sdk_init_static_keep_v8/gate/metadata/source_manifest.json",
+      "bytes": 4710,
+      "sha256": "63be4d40848aa22903ad839179059b5256bff91e9317e1e7a33ea363d0b539f4",
+      "raw_bytes_transferred": true
+    }
+  },
+  "sdk_pair_provenance": {
+    "static": {
+      "job_dir": "/home/chiro/projects/dsv41/operator-stack-tp8/experiments/operator_stack/evidence/formal_a321/sdk_init_static_keep_v8",
+      "job_id": "formal_dspark_sdk_init_static_keep_v8",
+      "remote_job_root": "/work/results/formal_dspark_sdk_init_static_keep_v8",
+      "variant": "static_keep",
+      "archive_receipt": {
+        "path": "/home/chiro/projects/dsv41/operator-stack-tp8/experiments/operator_stack/evidence/formal_a321/sdk_init_static_keep_v8/archive_receipt.json",
+        "bytes": 715,
+        "sha256": "623ad17ae459a99f86e64cd2a828d11332fc4b1d8590d126886812af99198bd2",
+        "raw_bytes_transferred": true
+      },
+      "fetch_manifest": {
+        "path": "/home/chiro/projects/dsv41/operator-stack-tp8/experiments/operator_stack/evidence/formal_a321/sdk_init_static_keep_v8/fetch_manifest.json",
+        "bytes": 12044,
+        "sha256": "b8e81994262a17b5c84d71b400763d4d13fbc70237e880d31fe58f2b82b6a467",
+        "raw_bytes_transferred": true
+      },
+      "driver_compact": {
+        "path": "/home/chiro/projects/dsv41/operator-stack-tp8/experiments/operator_stack/evidence/formal_a321/sdk_init_static_keep_v8/gate/result_compact.json",
+        "bytes": 11664,
+        "sha256": "a40d8ab72a27345d9ee2889f5d04db2c88a070ba916f3b2da398cfb29e7aeec0",
+        "raw_bytes_transferred": true
+      },
+      "original_driver": {
+        "path": "/work/results/formal_dspark_sdk_init_static_keep_v8/gate/result.json",
+        "bytes": 6557101,
+        "sha256": "87947c87762e4890d542cc66cc208146d7a6791eca1829ee48fbd18a8412187d",
+        "raw_bytes_transferred": false
+      },
+      "controller": {
+        "path": "/home/chiro/projects/dsv41/operator-stack-tp8/experiments/operator_stack/evidence/formal_a321/sdk_init_static_keep_v8/gate/metadata/controller.json",
+        "bytes": 4304,
+        "sha256": "1427b6831fdc65da698c86714acc32ffd3deaed11b0c5474122f48cc23e40bc4",
+        "raw_bytes_transferred": true
+      },
+      "source_manifest": {
+        "path": "/home/chiro/projects/dsv41/operator-stack-tp8/experiments/operator_stack/evidence/formal_a321/sdk_init_static_keep_v8/gate/metadata/source_manifest.json",
+        "bytes": 4710,
+        "sha256": "63be4d40848aa22903ad839179059b5256bff91e9317e1e7a33ea363d0b539f4",
+        "raw_bytes_transferred": true
+      },
+      "cleanup": {
+        "path": "/home/chiro/projects/dsv41/operator-stack-tp8/experiments/operator_stack/evidence/formal_a321/sdk_init_static_keep_v8/gate/owned_failure_cleanup.json",
+        "bytes": 3044,
+        "sha256": "167e27884a30f95c9e437bb03ebbd76ca79f32d163f712c235035b54833949db",
+        "raw_bytes_transferred": true
+      },
+      "driver_identity": {
+        "pid": 1469368,
+        "ppid": 1469362,
+        "start_ticks": 287401258,
+        "boot_id": "3e453542-70e1-442f-88ef-ee52db5f8471",
+        "cmdline_sha256": "783917714c817dbea88d2b7b3c23c54baf4c51aec28c86ad0a242985a349103c"
+      },
+      "ranks": [
+        {
+          "rank": 0,
+          "physical_chip": 8,
+          "identity": {
+            "pid": 1469567,
+            "boot_id": "3e453542-70e1-442f-88ef-ee52db5f8471",
+            "normal_init_return_ns": 2874108496839950
+          },
+          "result": {
+            "path": "/home/chiro/projects/dsv41/operator-stack-tp8/experiments/operator_stack/evidence/formal_a321/sdk_init_static_keep_v8/gate/sdk_results/static_keep/rank0/result.json",
+            "bytes": 697402,
+            "sha256": "db3f9fc06065ca563516fdd466222fb61cdb6f8cf582b5f421b8ab988d5e171d",
+            "raw_bytes_transferred": true
+          },
+          "loaded_abi_proofs": {
+            "path": "/home/chiro/projects/dsv41/operator-stack-tp8/experiments/operator_stack/evidence/formal_a321/sdk_init_static_keep_v8/gate/metadata/loaded_abi_proofs/rank0.json",
+            "bytes": 9344,
+            "sha256": "9b19ba0bf5bb091a8015ba437c59a1f7279168873cf8231d81f344a0597faaa0",
+            "raw_bytes_transferred": true
+          },
+          "generated_kernels": [
+            {
+              "path": "/home/chiro/projects/dsv41/operator-stack-tp8/experiments/operator_stack/evidence/formal_a321/sdk_init_static_keep_v8/gate/sdk_results/static_keep/rank0/generated_kernel_0.py",
+              "bytes": 6701,
+              "sha256": "a0e7e38639f775c9a1a07bc4976840129d0ce7ed8f70b4bcf488164b3881e18c",
+              "raw_bytes_transferred": true
+            }
+          ],
+          "initialized_scope": {
+            "current_initialized": true,
+            "context_ptr": 187651090174224,
+            "runtime_logical_device": 0,
+            "physical_device": 8,
+            "torch_current_device": 0,
+            "worker_device_index": 0,
+            "stream_ptr": 187651396550680,
+            "tp_rank": 0,
+            "tp_world_size": 8,
+            "worker_rank": 0,
+            "global_rank": 0,
+            "runner_idle": true,
+            "capturing": false
+          },
+          "native_scope": {
+            "owner": "vllm_ascend.worker.model_runner_v1.graph_capture",
+            "source": {
+              "path": "/vllm-workspace/vllm-ascend/vllm_ascend/worker/model_runner_v1.py",
+              "bytes": 278172,
+              "sha256": "67035d97f1cea4ae2df31adcc33f1de952f4cab6d8421e76df512296e0e3185e",
+              "function_sha256": "5cef623525ea2042e0306fc5a3795ddfa56808dc7213c68cf6cc29599f148644",
+              "qualified_function": "vllm_ascend.worker.model_runner_v1.graph_capture"
+            },
+            "native_context_creates_stream": true,
+            "init_return_stream_borrowed_unchanged": false,
+            "default_stream_ptr": 187651396550680,
+            "init_return_baseline": {
+              "current_initialized": true,
+              "context_ptr": 187651090174224,
+              "runtime_logical_device": 0,
+              "physical_device": 8,
+              "torch_current_device": 0,
+              "worker_device_index": 0,
+              "stream_ptr": 187651396550680,
+              "tp_rank": 0,
+              "tp_world_size": 8,
+              "worker_rank": 0,
+              "global_rank": 0,
+              "runner_idle": true,
+              "capturing": false
+            },
+            "normal_exit_restoration_verified": true,
+            "gate_stream_constructor_called": false,
+            "gate_stream_patch_applied": false,
+            "context_object_id": 281469676816528,
+            "stream_object_id": 281469675285744,
+            "native_scope": {
+              "current_initialized": true,
+              "context_ptr": 187651090174224,
+              "runtime_logical_device": 0,
+              "physical_device": 8,
+              "torch_current_device": 0,
+              "worker_device_index": 0,
+              "stream_ptr": 187651427049256,
+              "tp_rank": 0,
+              "tp_world_size": 8,
+              "worker_rank": 0,
+              "global_rank": 0,
+              "runner_idle": true,
+              "capturing": false
+            },
+            "native_stream_ptr": 187651427049256,
+            "native_context_exit_completed": true,
+            "restored_baseline": {
+              "current_initialized": true,
+              "context_ptr": 187651090174224,
+              "runtime_logical_device": 0,
+              "physical_device": 8,
+              "torch_current_device": 0,
+              "worker_device_index": 0,
+              "stream_ptr": 187651396550680,
+              "tp_rank": 0,
+              "tp_world_size": 8,
+              "worker_rank": 0,
+              "global_rank": 0,
+              "runner_idle": true,
+              "capturing": false
+            }
+          },
+          "owner_seals": {
+            "producer.values": {
+              "owner": "producer.values",
+              "tensor_object_id": 281469879679120,
+              "layout": {
+                "ptr": 20771535599616,
+                "shape": [
+                  6,
+                  64
+                ],
+                "stride": [
+                  64,
+                  1
+                ],
+                "dtype": "torch.bfloat16",
+                "device": "npu:0",
+                "format": 2
+              }
+            },
+            "producer.positions": {
+              "owner": "producer.positions",
+              "tensor_object_id": 281469879679760,
+              "layout": {
+                "ptr": 20771535600640,
+                "shape": [
+                  6,
+                  1
+                ],
+                "stride": [
+                  1,
+                  1
+                ],
+                "dtype": "torch.int64",
+                "device": "npu:0",
+                "format": 2
+              }
+            },
+            "producer.valid": {
+              "owner": "producer.valid",
+              "tensor_object_id": 281469879680960,
+              "layout": {
+                "ptr": 20771535601152,
+                "shape": [
+                  6
+                ],
+                "stride": [
+                  1
+                ],
+                "dtype": "torch.bool",
+                "device": "npu:0",
+                "format": 2
+              }
+            },
+            "producer.epoch": {
+              "owner": "producer.epoch",
+              "tensor_object_id": 281469879680320,
+              "layout": {
+                "ptr": 20771535601664,
+                "shape": [
+                  1
+                ],
+                "stride": [
+                  1
+                ],
+                "dtype": "torch.int64",
+                "device": "npu:0",
+                "format": 2
+              }
+            },
+            "producer.copy_count": {
+              "owner": "producer.copy_count",
+              "tensor_object_id": 281469879680800,
+              "layout": {
+                "ptr": 20771535602176,
+                "shape": [
+                  1
+                ],
+                "stride": [
+                  1
+                ],
+                "dtype": "torch.int64",
+                "device": "npu:0",
+                "format": 2
+              }
+            },
+            "producer.row_count": {
+              "owner": "producer.row_count",
+              "tensor_object_id": 281469879679680,
+              "layout": {
+                "ptr": 20771535602688,
+                "shape": [
+                  1
+                ],
+                "stride": [
+                  1
+                ],
+                "dtype": "torch.int64",
+                "device": "npu:0",
+                "format": 2
+              }
+            },
+            "reader.values": {
+              "owner": "reader.values",
+              "tensor_object_id": 281469879667280,
+              "layout": {
+                "ptr": 20771535603200,
+                "shape": [
+                  6,
+                  64
+                ],
+                "stride": [
+                  64,
+                  1
+                ],
+                "dtype": "torch.bfloat16",
+                "device": "npu:0",
+                "format": 2
+              }
+            },
+            "reader.positions": {
+              "owner": "reader.positions",
+              "tensor_object_id": 281469879666880,
+              "layout": {
+                "ptr": 20771535604224,
+                "shape": [
+                  6,
+                  1
+                ],
+                "stride": [
+                  1,
+                  1
+                ],
+                "dtype": "torch.int64",
+                "device": "npu:0",
+                "format": 2
+              }
+            },
+            "reader.valid": {
+              "owner": "reader.valid",
+              "tensor_object_id": 281469879680720,
+              "layout": {
+                "ptr": 20771535604736,
+                "shape": [
+                  6
+                ],
+                "stride": [
+                  1
+                ],
+                "dtype": "torch.bool",
+                "device": "npu:0",
+                "format": 2
+              }
+            },
+            "reader.epoch": {
+              "owner": "reader.epoch",
+              "tensor_object_id": 281469879666640,
+              "layout": {
+                "ptr": 20771535605248,
+                "shape": [
+                  1
+                ],
+                "stride": [
+                  1
+                ],
+                "dtype": "torch.int64",
+                "device": "npu:0",
+                "format": 2
+              }
+            },
+            "reader.copy_count": {
+              "owner": "reader.copy_count",
+              "tensor_object_id": 281469879667040,
+              "layout": {
+                "ptr": 20771535605760,
+                "shape": [
+                  1
+                ],
+                "stride": [
+                  1
+                ],
+                "dtype": "torch.int64",
+                "device": "npu:0",
+                "format": 2
+              }
+            },
+            "reader.row_count": {
+              "owner": "reader.row_count",
+              "tensor_object_id": 281469879667440,
+              "layout": {
+                "ptr": 20771535606272,
+                "shape": [
+                  1
+                ],
+                "stride": [
+                  1
+                ],
+                "dtype": "torch.int64",
+                "device": "npu:0",
+                "format": 2
+              }
+            },
+            "native.cache": {
+              "owner": "native.cache",
+              "tensor_object_id": 281469879676640,
+              "layout": {
+                "ptr": 20771535597056,
+                "shape": [
+                  16,
+                  64
+                ],
+                "stride": [
+                  64,
+                  1
+                ],
+                "dtype": "torch.bfloat16",
+                "device": "npu:0",
+                "format": 2
+              }
+            }
+          },
+          "epochs": 32,
+          "copy_classes": {
+            "payload": 8,
+            "count": 0,
+            "native_cache": 0
+          }
+        },
+        {
+          "rank": 1,
+          "physical_chip": 9,
+          "identity": {
+            "pid": 1469568,
+            "boot_id": "3e453542-70e1-442f-88ef-ee52db5f8471",
+            "normal_init_return_ns": 2874108492647850
+          },
+          "result": {
+            "path": "/home/chiro/projects/dsv41/operator-stack-tp8/experiments/operator_stack/evidence/formal_a321/sdk_init_static_keep_v8/gate/sdk_results/static_keep/rank1/result.json",
+            "bytes": 697158,
+            "sha256": "584d66fed85f05386fbe08525acc6417493d44cc557af9faef4491484a9336b6",
+            "raw_bytes_transferred": true
+          },
+          "loaded_abi_proofs": {
+            "path": "/home/chiro/projects/dsv41/operator-stack-tp8/experiments/operator_stack/evidence/formal_a321/sdk_init_static_keep_v8/gate/metadata/loaded_abi_proofs/rank1.json",
+            "bytes": 9344,
+            "sha256": "d5e60ec4678e8b1c8af7f689f646b1fa3ebbb0427fcb0597f6fd21d6545b6d42",
+            "raw_bytes_transferred": true
+          },
+          "generated_kernels": [
+            {
+              "path": "/home/chiro/projects/dsv41/operator-stack-tp8/experiments/operator_stack/evidence/formal_a321/sdk_init_static_keep_v8/gate/sdk_results/static_keep/rank1/generated_kernel_0.py",
+              "bytes": 6701,
+              "sha256": "d475e10e35b3c445f9c7f02c698099c2325509fa8299b62bc5598412a8372698",
+              "raw_bytes_transferred": true
+            }
+          ],
+          "initialized_scope": {
+            "current_initialized": true,
+            "context_ptr": 187652023029984,
+            "runtime_logical_device": 1,
+            "physical_device": 9,
+            "torch_current_device": 1,
+            "worker_device_index": 1,
+            "stream_ptr": 187652324159448,
+            "tp_rank": 1,
+            "tp_world_size": 8,
+            "worker_rank": 1,
+            "global_rank": 1,
+            "runner_idle": true,
+            "capturing": false
+          },
+          "native_scope": {
+            "owner": "vllm_ascend.worker.model_runner_v1.graph_capture",
+            "source": {
+              "path": "/vllm-workspace/vllm-ascend/vllm_ascend/worker/model_runner_v1.py",
+              "bytes": 278172,
+              "sha256": "67035d97f1cea4ae2df31adcc33f1de952f4cab6d8421e76df512296e0e3185e",
+              "function_sha256": "5cef623525ea2042e0306fc5a3795ddfa56808dc7213c68cf6cc29599f148644",
+              "qualified_function": "vllm_ascend.worker.model_runner_v1.graph_capture"
+            },
+            "native_context_creates_stream": true,
+            "init_return_stream_borrowed_unchanged": false,
+            "default_stream_ptr": 187652324159448,
+            "init_return_baseline": {
+              "current_initialized": true,
+              "context_ptr": 187652023029984,
+              "runtime_logical_device": 1,
+              "physical_device": 9,
+              "torch_current_device": 1,
+              "worker_device_index": 1,
+              "stream_ptr": 187652324159448,
+              "tp_rank": 1,
+              "tp_world_size": 8,
+              "worker_rank": 1,
+              "global_rank": 1,
+              "runner_idle": true,
+              "capturing": false
+            },
+            "normal_exit_restoration_verified": true,
+            "gate_stream_constructor_called": false,
+            "gate_stream_patch_applied": false,
+            "context_object_id": 281469810771776,
+            "stream_object_id": 281469810814192,
+            "native_scope": {
+              "current_initialized": true,
+              "context_ptr": 187652023029984,
+              "runtime_logical_device": 1,
+              "physical_device": 9,
+              "torch_current_device": 1,
+              "worker_device_index": 1,
+              "stream_ptr": 187652354733144,
+              "tp_rank": 1,
+              "tp_world_size": 8,
+              "worker_rank": 1,
+              "global_rank": 1,
+              "runner_idle": true,
+              "capturing": false
+            },
+            "native_stream_ptr": 187652354733144,
+            "native_context_exit_completed": true,
+            "restored_baseline": {
+              "current_initialized": true,
+              "context_ptr": 187652023029984,
+              "runtime_logical_device": 1,
+              "physical_device": 9,
+              "torch_current_device": 1,
+              "worker_device_index": 1,
+              "stream_ptr": 187652324159448,
+              "tp_rank": 1,
+              "tp_world_size": 8,
+              "worker_rank": 1,
+              "global_rank": 1,
+              "runner_idle": true,
+              "capturing": false
+            }
+          },
+          "owner_seals": {
+            "producer.values": {
+              "owner": "producer.values",
+              "tensor_object_id": 281470124617200,
+              "layout": {
+                "ptr": 20771535599616,
+                "shape": [
+                  6,
+                  64
+                ],
+                "stride": [
+                  64,
+                  1
+                ],
+                "dtype": "torch.bfloat16",
+                "device": "npu:1",
+                "format": 2
+              }
+            },
+            "producer.positions": {
+              "owner": "producer.positions",
+              "tensor_object_id": 281470124619840,
+              "layout": {
+                "ptr": 20771535600640,
+                "shape": [
+                  6,
+                  1
+                ],
+                "stride": [
+                  1,
+                  1
+                ],
+                "dtype": "torch.int64",
+                "device": "npu:1",
+                "format": 2
+              }
+            },
+            "producer.valid": {
+              "owner": "producer.valid",
+              "tensor_object_id": 281470124620000,
+              "layout": {
+                "ptr": 20771535601152,
+                "shape": [
+                  6
+                ],
+                "stride": [
+                  1
+                ],
+                "dtype": "torch.bool",
+                "device": "npu:1",
+                "format": 2
+              }
+            },
+            "producer.epoch": {
+              "owner": "producer.epoch",
+              "tensor_object_id": 281470124621200,
+              "layout": {
+                "ptr": 20771535601664,
+                "shape": [
+                  1
+                ],
+                "stride": [
+                  1
+                ],
+                "dtype": "torch.int64",
+                "device": "npu:1",
+                "format": 2
+              }
+            },
+            "producer.copy_count": {
+              "owner": "producer.copy_count",
+              "tensor_object_id": 281470124619920,
+              "layout": {
+                "ptr": 20771535602176,
+                "shape": [
+                  1
+                ],
+                "stride": [
+                  1
+                ],
+                "dtype": "torch.int64",
+                "device": "npu:1",
+                "format": 2
+              }
+            },
+            "producer.row_count": {
+              "owner": "producer.row_count",
+              "tensor_object_id": 281470124619600,
+              "layout": {
+                "ptr": 20771535602688,
+                "shape": [
+                  1
+                ],
+                "stride": [
+                  1
+                ],
+                "dtype": "torch.int64",
+                "device": "npu:1",
+                "format": 2
+              }
+            },
+            "reader.values": {
+              "owner": "reader.values",
+              "tensor_object_id": 281470124621280,
+              "layout": {
+                "ptr": 20771535603200,
+                "shape": [
+                  6,
+                  64
+                ],
+                "stride": [
+                  64,
+                  1
+                ],
+                "dtype": "torch.bfloat16",
+                "device": "npu:1",
+                "format": 2
+              }
+            },
+            "reader.positions": {
+              "owner": "reader.positions",
+              "tensor_object_id": 281470124620080,
+              "layout": {
+                "ptr": 20771535604224,
+                "shape": [
+                  6,
+                  1
+                ],
+                "stride": [
+                  1,
+                  1
+                ],
+                "dtype": "torch.int64",
+                "device": "npu:1",
+                "format": 2
+              }
+            },
+            "reader.valid": {
+              "owner": "reader.valid",
+              "tensor_object_id": 281470124620320,
+              "layout": {
+                "ptr": 20771535604736,
+                "shape": [
+                  6
+                ],
+                "stride": [
+                  1
+                ],
+                "dtype": "torch.bool",
+                "device": "npu:1",
+                "format": 2
+              }
+            },
+            "reader.epoch": {
+              "owner": "reader.epoch",
+              "tensor_object_id": 281470124620960,
+              "layout": {
+                "ptr": 20771535605248,
+                "shape": [
+                  1
+                ],
+                "stride": [
+                  1
+                ],
+                "dtype": "torch.int64",
+                "device": "npu:1",
+                "format": 2
+              }
+            },
+            "reader.copy_count": {
+              "owner": "reader.copy_count",
+              "tensor_object_id": 281470124621760,
+              "layout": {
+                "ptr": 20771535605760,
+                "shape": [
+                  1
+                ],
+                "stride": [
+                  1
+                ],
+                "dtype": "torch.int64",
+                "device": "npu:1",
+                "format": 2
+              }
+            },
+            "reader.row_count": {
+              "owner": "reader.row_count",
+              "tensor_object_id": 281470124621360,
+              "layout": {
+                "ptr": 20771535606272,
+                "shape": [
+                  1
+                ],
+                "stride": [
+                  1
+                ],
+                "dtype": "torch.int64",
+                "device": "npu:1",
+                "format": 2
+              }
+            },
+            "native.cache": {
+              "owner": "native.cache",
+              "tensor_object_id": 281470124617040,
+              "layout": {
+                "ptr": 20771535597056,
+                "shape": [
+                  16,
+                  64
+                ],
+                "stride": [
+                  64,
+                  1
+                ],
+                "dtype": "torch.bfloat16",
+                "device": "npu:1",
+                "format": 2
+              }
+            }
+          },
+          "epochs": 32,
+          "copy_classes": {
+            "payload": 8,
+            "count": 0,
+            "native_cache": 0
+          }
+        },
+        {
+          "rank": 2,
+          "physical_chip": 10,
+          "identity": {
+            "pid": 1469569,
+            "boot_id": "3e453542-70e1-442f-88ef-ee52db5f8471",
+            "normal_init_return_ns": 2874108493138480
+          },
+          "result": {
+            "path": "/home/chiro/projects/dsv41/operator-stack-tp8/experiments/operator_stack/evidence/formal_a321/sdk_init_static_keep_v8/gate/sdk_results/static_keep/rank2/result.json",
+            "bytes": 695940,
+            "sha256": "4559b1087cfe615d70f5d8afaf801b7b5c0a5675ca5cbb0ba886c491693e4eb5",
+            "raw_bytes_transferred": true
+          },
+          "loaded_abi_proofs": {
+            "path": "/home/chiro/projects/dsv41/operator-stack-tp8/experiments/operator_stack/evidence/formal_a321/sdk_init_static_keep_v8/gate/metadata/loaded_abi_proofs/rank2.json",
+            "bytes": 9344,
+            "sha256": "442397636c72eb447251334b3d1c70838facd9fda40c9c3acb9f94daf8203646",
+            "raw_bytes_transferred": true
+          },
+          "generated_kernels": [
+            {
+              "path": "/home/chiro/projects/dsv41/operator-stack-tp8/experiments/operator_stack/evidence/formal_a321/sdk_init_static_keep_v8/gate/sdk_results/static_keep/rank2/generated_kernel_0.py",
+              "bytes": 6701,
+              "sha256": "ee3579775957e123a8bd53776aa20fb930493430c0ee6da1734cc13f9be1d40c",
+              "raw_bytes_transferred": true
+            }
+          ],
+          "initialized_scope": {
+            "current_initialized": true,
+            "context_ptr": 187651269885648,
+            "runtime_logical_device": 2,
+            "physical_device": 10,
+            "torch_current_device": 2,
+            "worker_device_index": 2,
+            "stream_ptr": 187651570087496,
+            "tp_rank": 2,
+            "tp_world_size": 8,
+            "worker_rank": 2,
+            "global_rank": 2,
+            "runner_idle": true,
+            "capturing": false
+          },
+          "native_scope": {
+            "owner": "vllm_ascend.worker.model_runner_v1.graph_capture",
+            "source": {
+              "path": "/vllm-workspace/vllm-ascend/vllm_ascend/worker/model_runner_v1.py",
+              "bytes": 278172,
+              "sha256": "67035d97f1cea4ae2df31adcc33f1de952f4cab6d8421e76df512296e0e3185e",
+              "function_sha256": "5cef623525ea2042e0306fc5a3795ddfa56808dc7213c68cf6cc29599f148644",
+              "qualified_function": "vllm_ascend.worker.model_runner_v1.graph_capture"
+            },
+            "native_context_creates_stream": true,
+            "init_return_stream_borrowed_unchanged": false,
+            "default_stream_ptr": 187651570087496,
+            "init_return_baseline": {
+              "current_initialized": true,
+              "context_ptr": 187651269885648,
+              "runtime_logical_device": 2,
+              "physical_device": 10,
+              "torch_current_device": 2,
+              "worker_device_index": 2,
+              "stream_ptr": 187651570087496,
+              "tp_rank": 2,
+              "tp_world_size": 8,
+              "worker_rank": 2,
+              "global_rank": 2,
+              "runner_idle": true,
+              "capturing": false
+            },
+            "normal_exit_restoration_verified": true,
+            "gate_stream_constructor_called": false,
+            "gate_stream_patch_applied": false,
+            "context_object_id": 281469879043184,
+            "stream_object_id": 281469879086320,
+            "native_scope": {
+              "current_initialized": true,
+              "context_ptr": 187651269885648,
+              "runtime_logical_device": 2,
+              "physical_device": 10,
+              "torch_current_device": 2,
+              "worker_device_index": 2,
+              "stream_ptr": 187651600647176,
+              "tp_rank": 2,
+              "tp_world_size": 8,
+              "worker_rank": 2,
+              "global_rank": 2,
+              "runner_idle": true,
+              "capturing": false
+            },
+            "native_stream_ptr": 187651600647176,
+            "native_context_exit_completed": true,
+            "restored_baseline": {
+              "current_initialized": true,
+              "context_ptr": 187651269885648,
+              "runtime_logical_device": 2,
+              "physical_device": 10,
+              "torch_current_device": 2,
+              "worker_device_index": 2,
+              "stream_ptr": 187651570087496,
+              "tp_rank": 2,
+              "tp_world_size": 8,
+              "worker_rank": 2,
+              "global_rank": 2,
+              "runner_idle": true,
+              "capturing": false
+            }
+          },
+          "owner_seals": {
+            "producer.values": {
+              "owner": "producer.values",
+              "tensor_object_id": 281470176146960,
+              "layout": {
+                "ptr": 20771535599616,
+                "shape": [
+                  6,
+                  64
+                ],
+                "stride": [
+                  64,
+                  1
+                ],
+                "dtype": "torch.bfloat16",
+                "device": "npu:2",
+                "format": 2
+              }
+            },
+            "producer.positions": {
+              "owner": "producer.positions",
+              "tensor_object_id": 281470176147600,
+              "layout": {
+                "ptr": 20771535600640,
+                "shape": [
+                  6,
+                  1
+                ],
+                "stride": [
+                  1,
+                  1
+                ],
+                "dtype": "torch.int64",
+                "device": "npu:2",
+                "format": 2
+              }
+            },
+            "producer.valid": {
+              "owner": "producer.valid",
+              "tensor_object_id": 281470176149040,
+              "layout": {
+                "ptr": 20771535601152,
+                "shape": [
+                  6
+                ],
+                "stride": [
+                  1
+                ],
+                "dtype": "torch.bool",
+                "device": "npu:2",
+                "format": 2
+              }
+            },
+            "producer.epoch": {
+              "owner": "producer.epoch",
+              "tensor_object_id": 281470176149120,
+              "layout": {
+                "ptr": 20771535601664,
+                "shape": [
+                  1
+                ],
+                "stride": [
+                  1
+                ],
+                "dtype": "torch.int64",
+                "device": "npu:2",
+                "format": 2
+              }
+            },
+            "producer.copy_count": {
+              "owner": "producer.copy_count",
+              "tensor_object_id": 281470176148400,
+              "layout": {
+                "ptr": 20771535602176,
+                "shape": [
+                  1
+                ],
+                "stride": [
+                  1
+                ],
+                "dtype": "torch.int64",
+                "device": "npu:2",
+                "format": 2
+              }
+            },
+            "producer.row_count": {
+              "owner": "producer.row_count",
+              "tensor_object_id": 281470176149200,
+              "layout": {
+                "ptr": 20771535602688,
+                "shape": [
+                  1
+                ],
+                "stride": [
+                  1
+                ],
+                "dtype": "torch.int64",
+                "device": "npu:2",
+                "format": 2
+              }
+            },
+            "reader.values": {
+              "owner": "reader.values",
+              "tensor_object_id": 281470176148960,
+              "layout": {
+                "ptr": 20771535603200,
+                "shape": [
+                  6,
+                  64
+                ],
+                "stride": [
+                  64,
+                  1
+                ],
+                "dtype": "torch.bfloat16",
+                "device": "npu:2",
+                "format": 2
+              }
+            },
+            "reader.positions": {
+              "owner": "reader.positions",
+              "tensor_object_id": 281470176135120,
+              "layout": {
+                "ptr": 20771535604224,
+                "shape": [
+                  6,
+                  1
+                ],
+                "stride": [
+                  1,
+                  1
+                ],
+                "dtype": "torch.int64",
+                "device": "npu:2",
+                "format": 2
+              }
+            },
+            "reader.valid": {
+              "owner": "reader.valid",
+              "tensor_object_id": 281470176148800,
+              "layout": {
+                "ptr": 20771535604736,
+                "shape": [
+                  6
+                ],
+                "stride": [
+                  1
+                ],
+                "dtype": "torch.bool",
+                "device": "npu:2",
+                "format": 2
+              }
+            },
+            "reader.epoch": {
+              "owner": "reader.epoch",
+              "tensor_object_id": 281470176139840,
+              "layout": {
+                "ptr": 20771535605248,
+                "shape": [
+                  1
+                ],
+                "stride": [
+                  1
+                ],
+                "dtype": "torch.int64",
+                "device": "npu:2",
+                "format": 2
+              }
+            },
+            "reader.copy_count": {
+              "owner": "reader.copy_count",
+              "tensor_object_id": 281470176135360,
+              "layout": {
+                "ptr": 20771535605760,
+                "shape": [
+                  1
+                ],
+                "stride": [
+                  1
+                ],
+                "dtype": "torch.int64",
+                "device": "npu:2",
+                "format": 2
+              }
+            },
+            "reader.row_count": {
+              "owner": "reader.row_count",
+              "tensor_object_id": 281470176134800,
+              "layout": {
+                "ptr": 20771535606272,
+                "shape": [
+                  1
+                ],
+                "stride": [
+                  1
+                ],
+                "dtype": "torch.int64",
+                "device": "npu:2",
+                "format": 2
+              }
+            },
+            "native.cache": {
+              "owner": "native.cache",
+              "tensor_object_id": 281470176144720,
+              "layout": {
+                "ptr": 20771535597056,
+                "shape": [
+                  16,
+                  64
+                ],
+                "stride": [
+                  64,
+                  1
+                ],
+                "dtype": "torch.bfloat16",
+                "device": "npu:2",
+                "format": 2
+              }
+            }
+          },
+          "epochs": 32,
+          "copy_classes": {
+            "payload": 8,
+            "count": 0,
+            "native_cache": 0
+          }
+        },
+        {
+          "rank": 3,
+          "physical_chip": 11,
+          "identity": {
+            "pid": 1469570,
+            "boot_id": "3e453542-70e1-442f-88ef-ee52db5f8471",
+            "normal_init_return_ns": 2874108495828490
+          },
+          "result": {
+            "path": "/home/chiro/projects/dsv41/operator-stack-tp8/experiments/operator_stack/evidence/formal_a321/sdk_init_static_keep_v8/gate/sdk_results/static_keep/rank3/result.json",
+            "bytes": 695958,
+            "sha256": "b12afc14e5b3d987db9f17559cef6ec9340611d5cee0e80a628833f937aa5fa1",
+            "raw_bytes_transferred": true
+          },
+          "loaded_abi_proofs": {
+            "path": "/home/chiro/projects/dsv41/operator-stack-tp8/experiments/operator_stack/evidence/formal_a321/sdk_init_static_keep_v8/gate/metadata/loaded_abi_proofs/rank3.json",
+            "bytes": 9344,
+            "sha256": "edbbd446ebd11681084535a448b43ab4c4809651d497e79f55d073367fb85990",
+            "raw_bytes_transferred": true
+          },
+          "generated_kernels": [
+            {
+              "path": "/home/chiro/projects/dsv41/operator-stack-tp8/experiments/operator_stack/evidence/formal_a321/sdk_init_static_keep_v8/gate/sdk_results/static_keep/rank3/generated_kernel_0.py",
+              "bytes": 6701,
+              "sha256": "0ca7820a2b2ab03be284ad6e7224e796f98b7b877ad7f8ebe077160cf5ab743d",
+              "raw_bytes_transferred": true
+            }
+          ],
+          "initialized_scope": {
+            "current_initialized": true,
+            "context_ptr": 187651469375776,
+            "runtime_logical_device": 3,
+            "physical_device": 11,
+            "torch_current_device": 3,
+            "worker_device_index": 3,
+            "stream_ptr": 187651769448984,
+            "tp_rank": 3,
+            "tp_world_size": 8,
+            "worker_rank": 3,
+            "global_rank": 3,
+            "runner_idle": true,
+            "capturing": false
+          },
+          "native_scope": {
+            "owner": "vllm_ascend.worker.model_runner_v1.graph_capture",
+            "source": {
+              "path": "/vllm-workspace/vllm-ascend/vllm_ascend/worker/model_runner_v1.py",
+              "bytes": 278172,
+              "sha256": "67035d97f1cea4ae2df31adcc33f1de952f4cab6d8421e76df512296e0e3185e",
+              "function_sha256": "5cef623525ea2042e0306fc5a3795ddfa56808dc7213c68cf6cc29599f148644",
+              "qualified_function": "vllm_ascend.worker.model_runner_v1.graph_capture"
+            },
+            "native_context_creates_stream": true,
+            "init_return_stream_borrowed_unchanged": false,
+            "default_stream_ptr": 187651769448984,
+            "init_return_baseline": {
+              "current_initialized": true,
+              "context_ptr": 187651469375776,
+              "runtime_logical_device": 3,
+              "physical_device": 11,
+              "torch_current_device": 3,
+              "worker_device_index": 3,
+              "stream_ptr": 187651769448984,
+              "tp_rank": 3,
+              "tp_world_size": 8,
+              "worker_rank": 3,
+              "global_rank": 3,
+              "runner_idle": true,
+              "capturing": false
+            },
+            "normal_exit_restoration_verified": true,
+            "gate_stream_constructor_called": false,
+            "gate_stream_patch_applied": false,
+            "context_object_id": 281470404647184,
+            "stream_object_id": 281470079397104,
+            "native_scope": {
+              "current_initialized": true,
+              "context_ptr": 187651469375776,
+              "runtime_logical_device": 3,
+              "physical_device": 11,
+              "torch_current_device": 3,
+              "worker_device_index": 3,
+              "stream_ptr": 187651800020776,
+              "tp_rank": 3,
+              "tp_world_size": 8,
+              "worker_rank": 3,
+              "global_rank": 3,
+              "runner_idle": true,
+              "capturing": false
+            },
+            "native_stream_ptr": 187651800020776,
+            "native_context_exit_completed": true,
+            "restored_baseline": {
+              "current_initialized": true,
+              "context_ptr": 187651469375776,
+              "runtime_logical_device": 3,
+              "physical_device": 11,
+              "torch_current_device": 3,
+              "worker_device_index": 3,
+              "stream_ptr": 187651769448984,
+              "tp_rank": 3,
+              "tp_world_size": 8,
+              "worker_rank": 3,
+              "global_rank": 3,
+              "runner_idle": true,
+              "capturing": false
+            }
+          },
+          "owner_seals": {
+            "producer.values": {
+              "owner": "producer.values",
+              "tensor_object_id": 281470401837200,
+              "layout": {
+                "ptr": 20771535599616,
+                "shape": [
+                  6,
+                  64
+                ],
+                "stride": [
+                  64,
+                  1
+                ],
+                "dtype": "torch.bfloat16",
+                "device": "npu:3",
+                "format": 2
+              }
+            },
+            "producer.positions": {
+              "owner": "producer.positions",
+              "tensor_object_id": 281470401837680,
+              "layout": {
+                "ptr": 20771535600640,
+                "shape": [
+                  6,
+                  1
+                ],
+                "stride": [
+                  1,
+                  1
+                ],
+                "dtype": "torch.int64",
+                "device": "npu:3",
+                "format": 2
+              }
+            },
+            "producer.valid": {
+              "owner": "producer.valid",
+              "tensor_object_id": 281470401838880,
+              "layout": {
+                "ptr": 20771535601152,
+                "shape": [
+                  6
+                ],
+                "stride": [
+                  1
+                ],
+                "dtype": "torch.bool",
+                "device": "npu:3",
+                "format": 2
+              }
+            },
+            "producer.epoch": {
+              "owner": "producer.epoch",
+              "tensor_object_id": 281470401829440,
+              "layout": {
+                "ptr": 20771535601664,
+                "shape": [
+                  1
+                ],
+                "stride": [
+                  1
+                ],
+                "dtype": "torch.int64",
+                "device": "npu:3",
+                "format": 2
+              }
+            },
+            "producer.copy_count": {
+              "owner": "producer.copy_count",
+              "tensor_object_id": 281470401838640,
+              "layout": {
+                "ptr": 20771535602176,
+                "shape": [
+                  1
+                ],
+                "stride": [
+                  1
+                ],
+                "dtype": "torch.int64",
+                "device": "npu:3",
+                "format": 2
+              }
+            },
+            "producer.row_count": {
+              "owner": "producer.row_count",
+              "tensor_object_id": 281470401838960,
+              "layout": {
+                "ptr": 20771535602688,
+                "shape": [
+                  1
+                ],
+                "stride": [
+                  1
+                ],
+                "dtype": "torch.int64",
+                "device": "npu:3",
+                "format": 2
+              }
+            },
+            "reader.values": {
+              "owner": "reader.values",
+              "tensor_object_id": 281470401824560,
+              "layout": {
+                "ptr": 20771535603200,
+                "shape": [
+                  6,
+                  64
+                ],
+                "stride": [
+                  64,
+                  1
+                ],
+                "dtype": "torch.bfloat16",
+                "device": "npu:3",
+                "format": 2
+              }
+            },
+            "reader.positions": {
+              "owner": "reader.positions",
+              "tensor_object_id": 281470401824880,
+              "layout": {
+                "ptr": 20771535604224,
+                "shape": [
+                  6,
+                  1
+                ],
+                "stride": [
+                  1,
+                  1
+                ],
+                "dtype": "torch.int64",
+                "device": "npu:3",
+                "format": 2
+              }
+            },
+            "reader.valid": {
+              "owner": "reader.valid",
+              "tensor_object_id": 281470401824720,
+              "layout": {
+                "ptr": 20771535604736,
+                "shape": [
+                  6
+                ],
+                "stride": [
+                  1
+                ],
+                "dtype": "torch.bool",
+                "device": "npu:3",
+                "format": 2
+              }
+            },
+            "reader.epoch": {
+              "owner": "reader.epoch",
+              "tensor_object_id": 281470401824800,
+              "layout": {
+                "ptr": 20771535605248,
+                "shape": [
+                  1
+                ],
+                "stride": [
+                  1
+                ],
+                "dtype": "torch.int64",
+                "device": "npu:3",
+                "format": 2
+              }
+            },
+            "reader.copy_count": {
+              "owner": "reader.copy_count",
+              "tensor_object_id": 281470401825120,
+              "layout": {
+                "ptr": 20771535605760,
+                "shape": [
+                  1
+                ],
+                "stride": [
+                  1
+                ],
+                "dtype": "torch.int64",
+                "device": "npu:3",
+                "format": 2
+              }
+            },
+            "reader.row_count": {
+              "owner": "reader.row_count",
+              "tensor_object_id": 281470401825200,
+              "layout": {
+                "ptr": 20771535606272,
+                "shape": [
+                  1
+                ],
+                "stride": [
+                  1
+                ],
+                "dtype": "torch.int64",
+                "device": "npu:3",
+                "format": 2
+              }
+            },
+            "native.cache": {
+              "owner": "native.cache",
+              "tensor_object_id": 281470401834560,
+              "layout": {
+                "ptr": 20771535597056,
+                "shape": [
+                  16,
+                  64
+                ],
+                "stride": [
+                  64,
+                  1
+                ],
+                "dtype": "torch.bfloat16",
+                "device": "npu:3",
+                "format": 2
+              }
+            }
+          },
+          "epochs": 32,
+          "copy_classes": {
+            "payload": 8,
+            "count": 0,
+            "native_cache": 0
+          }
+        },
+        {
+          "rank": 4,
+          "physical_chip": 12,
+          "identity": {
+            "pid": 1469571,
+            "boot_id": "3e453542-70e1-442f-88ef-ee52db5f8471",
+            "normal_init_return_ns": 2874108492731990
+          },
+          "result": {
+            "path": "/home/chiro/projects/dsv41/operator-stack-tp8/experiments/operator_stack/evidence/formal_a321/sdk_init_static_keep_v8/gate/sdk_results/static_keep/rank4/result.json",
+            "bytes": 694542,
+            "sha256": "dbcbb2b27fb8aeaa33f598fda96e797d18c6c86df9d5252b2386bf4e05720164",
+            "raw_bytes_transferred": true
+          },
+          "loaded_abi_proofs": {
+            "path": "/home/chiro/projects/dsv41/operator-stack-tp8/experiments/operator_stack/evidence/formal_a321/sdk_init_static_keep_v8/gate/metadata/loaded_abi_proofs/rank4.json",
+            "bytes": 9344,
+            "sha256": "55daa125b6f0d6f2b69b8f01c3b9e99d3b11a6a0f5ba3d625a9b1d502d3b6a35",
+            "raw_bytes_transferred": true
+          },
+          "generated_kernels": [
+            {
+              "path": "/home/chiro/projects/dsv41/operator-stack-tp8/experiments/operator_stack/evidence/formal_a321/sdk_init_static_keep_v8/gate/sdk_results/static_keep/rank4/generated_kernel_0.py",
+              "bytes": 6701,
+              "sha256": "d6d93c5eac9da99f4f3afb058c524adb0dea36606d8164f30b30576d7400ee00",
+              "raw_bytes_transferred": true
+            }
+          ],
+          "initialized_scope": {
+            "current_initialized": true,
+            "context_ptr": 187651546986064,
+            "runtime_logical_device": 4,
+            "physical_device": 12,
+            "torch_current_device": 4,
+            "worker_device_index": 4,
+            "stream_ptr": 187651593332600,
+            "tp_rank": 4,
+            "tp_world_size": 8,
+            "worker_rank": 4,
+            "global_rank": 4,
+            "runner_idle": true,
+            "capturing": false
+          },
+          "native_scope": {
+            "owner": "vllm_ascend.worker.model_runner_v1.graph_capture",
+            "source": {
+              "path": "/vllm-workspace/vllm-ascend/vllm_ascend/worker/model_runner_v1.py",
+              "bytes": 278172,
+              "sha256": "67035d97f1cea4ae2df31adcc33f1de952f4cab6d8421e76df512296e0e3185e",
+              "function_sha256": "5cef623525ea2042e0306fc5a3795ddfa56808dc7213c68cf6cc29599f148644",
+              "qualified_function": "vllm_ascend.worker.model_runner_v1.graph_capture"
+            },
+            "native_context_creates_stream": true,
+            "init_return_stream_borrowed_unchanged": false,
+            "default_stream_ptr": 187651593332600,
+            "init_return_baseline": {
+              "current_initialized": true,
+              "context_ptr": 187651546986064,
+              "runtime_logical_device": 4,
+              "physical_device": 12,
+              "torch_current_device": 4,
+              "worker_device_index": 4,
+              "stream_ptr": 187651593332600,
+              "tp_rank": 4,
+              "tp_world_size": 8,
+              "worker_rank": 4,
+              "global_rank": 4,
+              "runner_idle": true,
+              "capturing": false
+            },
+            "normal_exit_restoration_verified": true,
+            "gate_stream_constructor_called": false,
+            "gate_stream_patch_applied": false,
+            "context_object_id": 281469748119792,
+            "stream_object_id": 281469748145392,
+            "native_scope": {
+              "current_initialized": true,
+              "context_ptr": 187651546986064,
+              "runtime_logical_device": 4,
+              "physical_device": 12,
+              "torch_current_device": 4,
+              "worker_device_index": 4,
+              "stream_ptr": 187651623903560,
+              "tp_rank": 4,
+              "tp_world_size": 8,
+              "worker_rank": 4,
+              "global_rank": 4,
+              "runner_idle": true,
+              "capturing": false
+            },
+            "native_stream_ptr": 187651623903560,
+            "native_context_exit_completed": true,
+            "restored_baseline": {
+              "current_initialized": true,
+              "context_ptr": 187651546986064,
+              "runtime_logical_device": 4,
+              "physical_device": 12,
+              "torch_current_device": 4,
+              "worker_device_index": 4,
+              "stream_ptr": 187651593332600,
+              "tp_rank": 4,
+              "tp_world_size": 8,
+              "worker_rank": 4,
+              "global_rank": 4,
+              "runner_idle": true,
+              "capturing": false
+            }
+          },
+          "owner_seals": {
+            "producer.values": {
+              "owner": "producer.values",
+              "tensor_object_id": 281470028019376,
+              "layout": {
+                "ptr": 20771535599616,
+                "shape": [
+                  6,
+                  64
+                ],
+                "stride": [
+                  64,
+                  1
+                ],
+                "dtype": "torch.bfloat16",
+                "device": "npu:4",
+                "format": 2
+              }
+            },
+            "producer.positions": {
+              "owner": "producer.positions",
+              "tensor_object_id": 281470028019456,
+              "layout": {
+                "ptr": 20771535600640,
+                "shape": [
+                  6,
+                  1
+                ],
+                "stride": [
+                  1,
+                  1
+                ],
+                "dtype": "torch.int64",
+                "device": "npu:4",
+                "format": 2
+              }
+            },
+            "producer.valid": {
+              "owner": "producer.valid",
+              "tensor_object_id": 281470028020736,
+              "layout": {
+                "ptr": 20771535601152,
+                "shape": [
+                  6
+                ],
+                "stride": [
+                  1
+                ],
+                "dtype": "torch.bool",
+                "device": "npu:4",
+                "format": 2
+              }
+            },
+            "producer.epoch": {
+              "owner": "producer.epoch",
+              "tensor_object_id": 281470028021216,
+              "layout": {
+                "ptr": 20771535601664,
+                "shape": [
+                  1
+                ],
+                "stride": [
+                  1
+                ],
+                "dtype": "torch.int64",
+                "device": "npu:4",
+                "format": 2
+              }
+            },
+            "producer.copy_count": {
+              "owner": "producer.copy_count",
+              "tensor_object_id": 281470028019296,
+              "layout": {
+                "ptr": 20771535602176,
+                "shape": [
+                  1
+                ],
+                "stride": [
+                  1
+                ],
+                "dtype": "torch.int64",
+                "device": "npu:4",
+                "format": 2
+              }
+            },
+            "producer.row_count": {
+              "owner": "producer.row_count",
+              "tensor_object_id": 281470028018656,
+              "layout": {
+                "ptr": 20771535602688,
+                "shape": [
+                  1
+                ],
+                "stride": [
+                  1
+                ],
+                "dtype": "torch.int64",
+                "device": "npu:4",
+                "format": 2
+              }
+            },
+            "reader.values": {
+              "owner": "reader.values",
+              "tensor_object_id": 281470028020576,
+              "layout": {
+                "ptr": 20771535603200,
+                "shape": [
+                  6,
+                  64
+                ],
+                "stride": [
+                  64,
+                  1
+                ],
+                "dtype": "torch.bfloat16",
+                "device": "npu:4",
+                "format": 2
+              }
+            },
+            "reader.positions": {
+              "owner": "reader.positions",
+              "tensor_object_id": 281470028019776,
+              "layout": {
+                "ptr": 20771535604224,
+                "shape": [
+                  6,
+                  1
+                ],
+                "stride": [
+                  1,
+                  1
+                ],
+                "dtype": "torch.int64",
+                "device": "npu:4",
+                "format": 2
+              }
+            },
+            "reader.valid": {
+              "owner": "reader.valid",
+              "tensor_object_id": 281470028018896,
+              "layout": {
+                "ptr": 20771535604736,
+                "shape": [
+                  6
+                ],
+                "stride": [
+                  1
+                ],
+                "dtype": "torch.bool",
+                "device": "npu:4",
+                "format": 2
+              }
+            },
+            "reader.epoch": {
+              "owner": "reader.epoch",
+              "tensor_object_id": 281470028020416,
+              "layout": {
+                "ptr": 20771535605248,
+                "shape": [
+                  1
+                ],
+                "stride": [
+                  1
+                ],
+                "dtype": "torch.int64",
+                "device": "npu:4",
+                "format": 2
+              }
+            },
+            "reader.copy_count": {
+              "owner": "reader.copy_count",
+              "tensor_object_id": 281470028021296,
+              "layout": {
+                "ptr": 20771535605760,
+                "shape": [
+                  1
+                ],
+                "stride": [
+                  1
+                ],
+                "dtype": "torch.int64",
+                "device": "npu:4",
+                "format": 2
+              }
+            },
+            "reader.row_count": {
+              "owner": "reader.row_count",
+              "tensor_object_id": 281470028021376,
+              "layout": {
+                "ptr": 20771535606272,
+                "shape": [
+                  1
+                ],
+                "stride": [
+                  1
+                ],
+                "dtype": "torch.int64",
+                "device": "npu:4",
+                "format": 2
+              }
+            },
+            "native.cache": {
+              "owner": "native.cache",
+              "tensor_object_id": 281470028016656,
+              "layout": {
+                "ptr": 20771535597056,
+                "shape": [
+                  16,
+                  64
+                ],
+                "stride": [
+                  64,
+                  1
+                ],
+                "dtype": "torch.bfloat16",
+                "device": "npu:4",
+                "format": 2
+              }
+            }
+          },
+          "epochs": 32,
+          "copy_classes": {
+            "payload": 8,
+            "count": 0,
+            "native_cache": 0
+          }
+        },
+        {
+          "rank": 5,
+          "physical_chip": 13,
+          "identity": {
+            "pid": 1469572,
+            "boot_id": "3e453542-70e1-442f-88ef-ee52db5f8471",
+            "normal_init_return_ns": 2874108494664410
+          },
+          "result": {
+            "path": "/home/chiro/projects/dsv41/operator-stack-tp8/experiments/operator_stack/evidence/formal_a321/sdk_init_static_keep_v8/gate/sdk_results/static_keep/rank5/result.json",
+            "bytes": 694442,
+            "sha256": "23cb505a46fa0b3f57314d04320267b882ba0862101cecc3fd02288669a64f8e",
+            "raw_bytes_transferred": true
+          },
+          "loaded_abi_proofs": {
+            "path": "/home/chiro/projects/dsv41/operator-stack-tp8/experiments/operator_stack/evidence/formal_a321/sdk_init_static_keep_v8/gate/metadata/loaded_abi_proofs/rank5.json",
+            "bytes": 9344,
+            "sha256": "52edfb750ab97b3af4ab9ac453e8825b92d8124a29e96032f163572355bd504a",
+            "raw_bytes_transferred": true
+          },
+          "generated_kernels": [
+            {
+              "path": "/home/chiro/projects/dsv41/operator-stack-tp8/experiments/operator_stack/evidence/formal_a321/sdk_init_static_keep_v8/gate/sdk_results/static_keep/rank5/generated_kernel_0.py",
+              "bytes": 6701,
+              "sha256": "da05b317ee368e0fae6423c4203d3f6712fcac3d135f10151e3b8ff9d074cdfa",
+              "raw_bytes_transferred": true
+            }
+          ],
+          "initialized_scope": {
+            "current_initialized": true,
+            "context_ptr": 187650926165968,
+            "runtime_logical_device": 5,
+            "physical_device": 13,
+            "torch_current_device": 5,
+            "worker_device_index": 5,
+            "stream_ptr": 187651228949768,
+            "tp_rank": 5,
+            "tp_world_size": 8,
+            "worker_rank": 5,
+            "global_rank": 5,
+            "runner_idle": true,
+            "capturing": false
+          },
+          "native_scope": {
+            "owner": "vllm_ascend.worker.model_runner_v1.graph_capture",
+            "source": {
+              "path": "/vllm-workspace/vllm-ascend/vllm_ascend/worker/model_runner_v1.py",
+              "bytes": 278172,
+              "sha256": "67035d97f1cea4ae2df31adcc33f1de952f4cab6d8421e76df512296e0e3185e",
+              "function_sha256": "5cef623525ea2042e0306fc5a3795ddfa56808dc7213c68cf6cc29599f148644",
+              "qualified_function": "vllm_ascend.worker.model_runner_v1.graph_capture"
+            },
+            "native_context_creates_stream": true,
+            "init_return_stream_borrowed_unchanged": false,
+            "default_stream_ptr": 187651228949768,
+            "init_return_baseline": {
+              "current_initialized": true,
+              "context_ptr": 187650926165968,
+              "runtime_logical_device": 5,
+              "physical_device": 13,
+              "torch_current_device": 5,
+              "worker_device_index": 5,
+              "stream_ptr": 187651228949768,
+              "tp_rank": 5,
+              "tp_world_size": 8,
+              "worker_rank": 5,
+              "global_rank": 5,
+              "runner_idle": true,
+              "capturing": false
+            },
+            "normal_exit_restoration_verified": true,
+            "gate_stream_constructor_called": false,
+            "gate_stream_patch_applied": false,
+            "context_object_id": 281469614819280,
+            "stream_object_id": 281469612797168,
+            "native_scope": {
+              "current_initialized": true,
+              "context_ptr": 187650926165968,
+              "runtime_logical_device": 5,
+              "physical_device": 13,
+              "torch_current_device": 5,
+              "worker_device_index": 5,
+              "stream_ptr": 187651259508520,
+              "tp_rank": 5,
+              "tp_world_size": 8,
+              "worker_rank": 5,
+              "global_rank": 5,
+              "runner_idle": true,
+              "capturing": false
+            },
+            "native_stream_ptr": 187651259508520,
+            "native_context_exit_completed": true,
+            "restored_baseline": {
+              "current_initialized": true,
+              "context_ptr": 187650926165968,
+              "runtime_logical_device": 5,
+              "physical_device": 13,
+              "torch_current_device": 5,
+              "worker_device_index": 5,
+              "stream_ptr": 187651228949768,
+              "tp_rank": 5,
+              "tp_world_size": 8,
+              "worker_rank": 5,
+              "global_rank": 5,
+              "runner_idle": true,
+              "capturing": false
+            }
+          },
+          "owner_seals": {
+            "producer.values": {
+              "owner": "producer.values",
+              "tensor_object_id": 281470246631408,
+              "layout": {
+                "ptr": 20771535599616,
+                "shape": [
+                  6,
+                  64
+                ],
+                "stride": [
+                  64,
+                  1
+                ],
+                "dtype": "torch.bfloat16",
+                "device": "npu:5",
+                "format": 2
+              }
+            },
+            "producer.positions": {
+              "owner": "producer.positions",
+              "tensor_object_id": 281470246631568,
+              "layout": {
+                "ptr": 20771535600640,
+                "shape": [
+                  6,
+                  1
+                ],
+                "stride": [
+                  1,
+                  1
+                ],
+                "dtype": "torch.int64",
+                "device": "npu:5",
+                "format": 2
+              }
+            },
+            "producer.valid": {
+              "owner": "producer.valid",
+              "tensor_object_id": 281470246632928,
+              "layout": {
+                "ptr": 20771535601152,
+                "shape": [
+                  6
+                ],
+                "stride": [
+                  1
+                ],
+                "dtype": "torch.bool",
+                "device": "npu:5",
+                "format": 2
+              }
+            },
+            "producer.epoch": {
+              "owner": "producer.epoch",
+              "tensor_object_id": 281470246633408,
+              "layout": {
+                "ptr": 20771535601664,
+                "shape": [
+                  1
+                ],
+                "stride": [
+                  1
+                ],
+                "dtype": "torch.int64",
+                "device": "npu:5",
+                "format": 2
+              }
+            },
+            "producer.copy_count": {
+              "owner": "producer.copy_count",
+              "tensor_object_id": 281470246623808,
+              "layout": {
+                "ptr": 20771535602176,
+                "shape": [
+                  1
+                ],
+                "stride": [
+                  1
+                ],
+                "dtype": "torch.int64",
+                "device": "npu:5",
+                "format": 2
+              }
+            },
+            "producer.row_count": {
+              "owner": "producer.row_count",
+              "tensor_object_id": 281470246619088,
+              "layout": {
+                "ptr": 20771535602688,
+                "shape": [
+                  1
+                ],
+                "stride": [
+                  1
+                ],
+                "dtype": "torch.int64",
+                "device": "npu:5",
+                "format": 2
+              }
+            },
+            "reader.values": {
+              "owner": "reader.values",
+              "tensor_object_id": 281470246633008,
+              "layout": {
+                "ptr": 20771535603200,
+                "shape": [
+                  6,
+                  64
+                ],
+                "stride": [
+                  64,
+                  1
+                ],
+                "dtype": "torch.bfloat16",
+                "device": "npu:5",
+                "format": 2
+              }
+            },
+            "reader.positions": {
+              "owner": "reader.positions",
+              "tensor_object_id": 281470246619328,
+              "layout": {
+                "ptr": 20771535604224,
+                "shape": [
+                  6,
+                  1
+                ],
+                "stride": [
+                  1,
+                  1
+                ],
+                "dtype": "torch.int64",
+                "device": "npu:5",
+                "format": 2
+              }
+            },
+            "reader.valid": {
+              "owner": "reader.valid",
+              "tensor_object_id": 281470246632768,
+              "layout": {
+                "ptr": 20771535604736,
+                "shape": [
+                  6
+                ],
+                "stride": [
+                  1
+                ],
+                "dtype": "torch.bool",
+                "device": "npu:5",
+                "format": 2
+              }
+            },
+            "reader.epoch": {
+              "owner": "reader.epoch",
+              "tensor_object_id": 281470246618688,
+              "layout": {
+                "ptr": 20771535605248,
+                "shape": [
+                  1
+                ],
+                "stride": [
+                  1
+                ],
+                "dtype": "torch.int64",
+                "device": "npu:5",
+                "format": 2
+              }
+            },
+            "reader.copy_count": {
+              "owner": "reader.copy_count",
+              "tensor_object_id": 281470246619008,
+              "layout": {
+                "ptr": 20771535605760,
+                "shape": [
+                  1
+                ],
+                "stride": [
+                  1
+                ],
+                "dtype": "torch.int64",
+                "device": "npu:5",
+                "format": 2
+              }
+            },
+            "reader.row_count": {
+              "owner": "reader.row_count",
+              "tensor_object_id": 281470246619408,
+              "layout": {
+                "ptr": 20771535606272,
+                "shape": [
+                  1
+                ],
+                "stride": [
+                  1
+                ],
+                "dtype": "torch.int64",
+                "device": "npu:5",
+                "format": 2
+              }
+            },
+            "native.cache": {
+              "owner": "native.cache",
+              "tensor_object_id": 281470246628688,
+              "layout": {
+                "ptr": 20771535597056,
+                "shape": [
+                  16,
+                  64
+                ],
+                "stride": [
+                  64,
+                  1
+                ],
+                "dtype": "torch.bfloat16",
+                "device": "npu:5",
+                "format": 2
+              }
+            }
+          },
+          "epochs": 32,
+          "copy_classes": {
+            "payload": 8,
+            "count": 0,
+            "native_cache": 0
+          }
+        },
+        {
+          "rank": 6,
+          "physical_chip": 14,
+          "identity": {
+            "pid": 1469573,
+            "boot_id": "3e453542-70e1-442f-88ef-ee52db5f8471",
+            "normal_init_return_ns": 2874108496463390
+          },
+          "result": {
+            "path": "/home/chiro/projects/dsv41/operator-stack-tp8/experiments/operator_stack/evidence/formal_a321/sdk_init_static_keep_v8/gate/sdk_results/static_keep/rank6/result.json",
+            "bytes": 693242,
+            "sha256": "81321f4e9d4aff392442c79c1c2be8c0450590fb43d512478a21d1d1396a2c12",
+            "raw_bytes_transferred": true
+          },
+          "loaded_abi_proofs": {
+            "path": "/home/chiro/projects/dsv41/operator-stack-tp8/experiments/operator_stack/evidence/formal_a321/sdk_init_static_keep_v8/gate/metadata/loaded_abi_proofs/rank6.json",
+            "bytes": 9344,
+            "sha256": "c3372c27aa332e58e336dc5196096ec0b9e4b813e34197c5f9ab66932ca0c24a",
+            "raw_bytes_transferred": true
+          },
+          "generated_kernels": [
+            {
+              "path": "/home/chiro/projects/dsv41/operator-stack-tp8/experiments/operator_stack/evidence/formal_a321/sdk_init_static_keep_v8/gate/sdk_results/static_keep/rank6/generated_kernel_0.py",
+              "bytes": 6701,
+              "sha256": "9c90d40a2edcf43d557023b0cb04ea0e17ac91808383319b177f8b3d0c163b3a",
+              "raw_bytes_transferred": true
+            }
+          ],
+          "initialized_scope": {
+            "current_initialized": true,
+            "context_ptr": 187651382029536,
+            "runtime_logical_device": 6,
+            "physical_device": 14,
+            "torch_current_device": 6,
+            "worker_device_index": 6,
+            "stream_ptr": 187651730920920,
+            "tp_rank": 6,
+            "tp_world_size": 8,
+            "worker_rank": 6,
+            "global_rank": 6,
+            "runner_idle": true,
+            "capturing": false
+          },
+          "native_scope": {
+            "owner": "vllm_ascend.worker.model_runner_v1.graph_capture",
+            "source": {
+              "path": "/vllm-workspace/vllm-ascend/vllm_ascend/worker/model_runner_v1.py",
+              "bytes": 278172,
+              "sha256": "67035d97f1cea4ae2df31adcc33f1de952f4cab6d8421e76df512296e0e3185e",
+              "function_sha256": "5cef623525ea2042e0306fc5a3795ddfa56808dc7213c68cf6cc29599f148644",
+              "qualified_function": "vllm_ascend.worker.model_runner_v1.graph_capture"
+            },
+            "native_context_creates_stream": true,
+            "init_return_stream_borrowed_unchanged": false,
+            "default_stream_ptr": 187651730920920,
+            "init_return_baseline": {
+              "current_initialized": true,
+              "context_ptr": 187651382029536,
+              "runtime_logical_device": 6,
+              "physical_device": 14,
+              "torch_current_device": 6,
+              "worker_device_index": 6,
+              "stream_ptr": 187651730920920,
+              "tp_rank": 6,
+              "tp_world_size": 8,
+              "worker_rank": 6,
+              "global_rank": 6,
+              "runner_idle": true,
+              "capturing": false
+            },
+            "normal_exit_restoration_verified": true,
+            "gate_stream_constructor_called": false,
+            "gate_stream_patch_applied": false,
+            "context_object_id": 281469815867392,
+            "stream_object_id": 281469815893232,
+            "native_scope": {
+              "current_initialized": true,
+              "context_ptr": 187651382029536,
+              "runtime_logical_device": 6,
+              "physical_device": 14,
+              "torch_current_device": 6,
+              "worker_device_index": 6,
+              "stream_ptr": 187651761482296,
+              "tp_rank": 6,
+              "tp_world_size": 8,
+              "worker_rank": 6,
+              "global_rank": 6,
+              "runner_idle": true,
+              "capturing": false
+            },
+            "native_stream_ptr": 187651761482296,
+            "native_context_exit_completed": true,
+            "restored_baseline": {
+              "current_initialized": true,
+              "context_ptr": 187651382029536,
+              "runtime_logical_device": 6,
+              "physical_device": 14,
+              "torch_current_device": 6,
+              "worker_device_index": 6,
+              "stream_ptr": 187651730920920,
+              "tp_rank": 6,
+              "tp_world_size": 8,
+              "worker_rank": 6,
+              "global_rank": 6,
+              "runner_idle": true,
+              "capturing": false
+            }
+          },
+          "owner_seals": {
+            "producer.values": {
+              "owner": "producer.values",
+              "tensor_object_id": 281470675721088,
+              "layout": {
+                "ptr": 20771535599616,
+                "shape": [
+                  6,
+                  64
+                ],
+                "stride": [
+                  64,
+                  1
+                ],
+                "dtype": "torch.bfloat16",
+                "device": "npu:6",
+                "format": 2
+              }
+            },
+            "producer.positions": {
+              "owner": "producer.positions",
+              "tensor_object_id": 281470675723408,
+              "layout": {
+                "ptr": 20771535600640,
+                "shape": [
+                  6,
+                  1
+                ],
+                "stride": [
+                  1,
+                  1
+                ],
+                "dtype": "torch.int64",
+                "device": "npu:6",
+                "format": 2
+              }
+            },
+            "producer.valid": {
+              "owner": "producer.valid",
+              "tensor_object_id": 281470675723648,
+              "layout": {
+                "ptr": 20771535601152,
+                "shape": [
+                  6
+                ],
+                "stride": [
+                  1
+                ],
+                "dtype": "torch.bool",
+                "device": "npu:6",
+                "format": 2
+              }
+            },
+            "producer.epoch": {
+              "owner": "producer.epoch",
+              "tensor_object_id": 281470675724768,
+              "layout": {
+                "ptr": 20771535601664,
+                "shape": [
+                  1
+                ],
+                "stride": [
+                  1
+                ],
+                "dtype": "torch.int64",
+                "device": "npu:6",
+                "format": 2
+              }
+            },
+            "producer.copy_count": {
+              "owner": "producer.copy_count",
+              "tensor_object_id": 281470675725568,
+              "layout": {
+                "ptr": 20771535602176,
+                "shape": [
+                  1
+                ],
+                "stride": [
+                  1
+                ],
+                "dtype": "torch.int64",
+                "device": "npu:6",
+                "format": 2
+              }
+            },
+            "producer.row_count": {
+              "owner": "producer.row_count",
+              "tensor_object_id": 281470675726288,
+              "layout": {
+                "ptr": 20771535602688,
+                "shape": [
+                  1
+                ],
+                "stride": [
+                  1
+                ],
+                "dtype": "torch.int64",
+                "device": "npu:6",
+                "format": 2
+              }
+            },
+            "reader.values": {
+              "owner": "reader.values",
+              "tensor_object_id": 281470675726448,
+              "layout": {
+                "ptr": 20771535603200,
+                "shape": [
+                  6,
+                  64
+                ],
+                "stride": [
+                  64,
+                  1
+                ],
+                "dtype": "torch.bfloat16",
+                "device": "npu:6",
+                "format": 2
+              }
+            },
+            "reader.positions": {
+              "owner": "reader.positions",
+              "tensor_object_id": 281470675726848,
+              "layout": {
+                "ptr": 20771535604224,
+                "shape": [
+                  6,
+                  1
+                ],
+                "stride": [
+                  1,
+                  1
+                ],
+                "dtype": "torch.int64",
+                "device": "npu:6",
+                "format": 2
+              }
+            },
+            "reader.valid": {
+              "owner": "reader.valid",
+              "tensor_object_id": 281470675727008,
+              "layout": {
+                "ptr": 20771535604736,
+                "shape": [
+                  6
+                ],
+                "stride": [
+                  1
+                ],
+                "dtype": "torch.bool",
+                "device": "npu:6",
+                "format": 2
+              }
+            },
+            "reader.epoch": {
+              "owner": "reader.epoch",
+              "tensor_object_id": 281470675727408,
+              "layout": {
+                "ptr": 20771535605248,
+                "shape": [
+                  1
+                ],
+                "stride": [
+                  1
+                ],
+                "dtype": "torch.int64",
+                "device": "npu:6",
+                "format": 2
+              }
+            },
+            "reader.copy_count": {
+              "owner": "reader.copy_count",
+              "tensor_object_id": 281470675728128,
+              "layout": {
+                "ptr": 20771535605760,
+                "shape": [
+                  1
+                ],
+                "stride": [
+                  1
+                ],
+                "dtype": "torch.int64",
+                "device": "npu:6",
+                "format": 2
+              }
+            },
+            "reader.row_count": {
+              "owner": "reader.row_count",
+              "tensor_object_id": 281470675728768,
+              "layout": {
+                "ptr": 20771535606272,
+                "shape": [
+                  1
+                ],
+                "stride": [
+                  1
+                ],
+                "dtype": "torch.int64",
+                "device": "npu:6",
+                "format": 2
+              }
+            },
+            "native.cache": {
+              "owner": "native.cache",
+              "tensor_object_id": 281470675721248,
+              "layout": {
+                "ptr": 20771535597056,
+                "shape": [
+                  16,
+                  64
+                ],
+                "stride": [
+                  64,
+                  1
+                ],
+                "dtype": "torch.bfloat16",
+                "device": "npu:6",
+                "format": 2
+              }
+            }
+          },
+          "epochs": 32,
+          "copy_classes": {
+            "payload": 8,
+            "count": 0,
+            "native_cache": 0
+          }
+        },
+        {
+          "rank": 7,
+          "physical_chip": 15,
+          "identity": {
+            "pid": 1469574,
+            "boot_id": "3e453542-70e1-442f-88ef-ee52db5f8471",
+            "normal_init_return_ns": 2874108492670380
+          },
+          "result": {
+            "path": "/home/chiro/projects/dsv41/operator-stack-tp8/experiments/operator_stack/evidence/formal_a321/sdk_init_static_keep_v8/gate/sdk_results/static_keep/rank7/result.json",
+            "bytes": 693330,
+            "sha256": "43aa645a5890709b81f781b1f90fbfd19a4997667c69a34d84ac2f5fcc6961bd",
+            "raw_bytes_transferred": true
+          },
+          "loaded_abi_proofs": {
+            "path": "/home/chiro/projects/dsv41/operator-stack-tp8/experiments/operator_stack/evidence/formal_a321/sdk_init_static_keep_v8/gate/metadata/loaded_abi_proofs/rank7.json",
+            "bytes": 9344,
+            "sha256": "f53259b1c8c38788d48e858e4555734fab76d550046ed1cb6b4b8d3b6ddce654",
+            "raw_bytes_transferred": true
+          },
+          "generated_kernels": [
+            {
+              "path": "/home/chiro/projects/dsv41/operator-stack-tp8/experiments/operator_stack/evidence/formal_a321/sdk_init_static_keep_v8/gate/sdk_results/static_keep/rank7/generated_kernel_0.py",
+              "bytes": 6701,
+              "sha256": "3b4b03a71eee94559c8cc77702d4b16f9e737a2cca2829eaac0d4703abef22ef",
+              "raw_bytes_transferred": true
+            }
+          ],
+          "initialized_scope": {
+            "current_initialized": true,
+            "context_ptr": 187651550895936,
+            "runtime_logical_device": 7,
+            "physical_device": 15,
+            "torch_current_device": 7,
+            "worker_device_index": 7,
+            "stream_ptr": 187651853241944,
+            "tp_rank": 7,
+            "tp_world_size": 8,
+            "worker_rank": 7,
+            "global_rank": 7,
+            "runner_idle": true,
+            "capturing": false
+          },
+          "native_scope": {
+            "owner": "vllm_ascend.worker.model_runner_v1.graph_capture",
+            "source": {
+              "path": "/vllm-workspace/vllm-ascend/vllm_ascend/worker/model_runner_v1.py",
+              "bytes": 278172,
+              "sha256": "67035d97f1cea4ae2df31adcc33f1de952f4cab6d8421e76df512296e0e3185e",
+              "function_sha256": "5cef623525ea2042e0306fc5a3795ddfa56808dc7213c68cf6cc29599f148644",
+              "qualified_function": "vllm_ascend.worker.model_runner_v1.graph_capture"
+            },
+            "native_context_creates_stream": true,
+            "init_return_stream_borrowed_unchanged": false,
+            "default_stream_ptr": 187651853241944,
+            "init_return_baseline": {
+              "current_initialized": true,
+              "context_ptr": 187651550895936,
+              "runtime_logical_device": 7,
+              "physical_device": 15,
+              "torch_current_device": 7,
+              "worker_device_index": 7,
+              "stream_ptr": 187651853241944,
+              "tp_rank": 7,
+              "tp_world_size": 8,
+              "worker_rank": 7,
+              "global_rank": 7,
+              "runner_idle": true,
+              "capturing": false
+            },
+            "normal_exit_restoration_verified": true,
+            "gate_stream_constructor_called": false,
+            "gate_stream_patch_applied": false,
+            "context_object_id": 281470540987328,
+            "stream_object_id": 281469748063472,
+            "native_scope": {
+              "current_initialized": true,
+              "context_ptr": 187651550895936,
+              "runtime_logical_device": 7,
+              "physical_device": 15,
+              "torch_current_device": 7,
+              "worker_device_index": 7,
+              "stream_ptr": 187651883802632,
+              "tp_rank": 7,
+              "tp_world_size": 8,
+              "worker_rank": 7,
+              "global_rank": 7,
+              "runner_idle": true,
+              "capturing": false
+            },
+            "native_stream_ptr": 187651883802632,
+            "native_context_exit_completed": true,
+            "restored_baseline": {
+              "current_initialized": true,
+              "context_ptr": 187651550895936,
+              "runtime_logical_device": 7,
+              "physical_device": 15,
+              "torch_current_device": 7,
+              "worker_device_index": 7,
+              "stream_ptr": 187651853241944,
+              "tp_rank": 7,
+              "tp_world_size": 8,
+              "worker_rank": 7,
+              "global_rank": 7,
+              "runner_idle": true,
+              "capturing": false
+            }
+          },
+          "owner_seals": {
+            "producer.values": {
+              "owner": "producer.values",
+              "tensor_object_id": 281470541142912,
+              "layout": {
+                "ptr": 20771535599616,
+                "shape": [
+                  6,
+                  64
+                ],
+                "stride": [
+                  64,
+                  1
+                ],
+                "dtype": "torch.bfloat16",
+                "device": "npu:7",
+                "format": 2
+              }
+            },
+            "producer.positions": {
+              "owner": "producer.positions",
+              "tensor_object_id": 281470541144912,
+              "layout": {
+                "ptr": 20771535600640,
+                "shape": [
+                  6,
+                  1
+                ],
+                "stride": [
+                  1,
+                  1
+                ],
+                "dtype": "torch.int64",
+                "device": "npu:7",
+                "format": 2
+              }
+            },
+            "producer.valid": {
+              "owner": "producer.valid",
+              "tensor_object_id": 281470541145072,
+              "layout": {
+                "ptr": 20771535601152,
+                "shape": [
+                  6
+                ],
+                "stride": [
+                  1
+                ],
+                "dtype": "torch.bool",
+                "device": "npu:7",
+                "format": 2
+              }
+            },
+            "producer.epoch": {
+              "owner": "producer.epoch",
+              "tensor_object_id": 281470541146192,
+              "layout": {
+                "ptr": 20771535601664,
+                "shape": [
+                  1
+                ],
+                "stride": [
+                  1
+                ],
+                "dtype": "torch.int64",
+                "device": "npu:7",
+                "format": 2
+              }
+            },
+            "producer.copy_count": {
+              "owner": "producer.copy_count",
+              "tensor_object_id": 281470541146992,
+              "layout": {
+                "ptr": 20771535602176,
+                "shape": [
+                  1
+                ],
+                "stride": [
+                  1
+                ],
+                "dtype": "torch.int64",
+                "device": "npu:7",
+                "format": 2
+              }
+            },
+            "producer.row_count": {
+              "owner": "producer.row_count",
+              "tensor_object_id": 281470541147792,
+              "layout": {
+                "ptr": 20771535602688,
+                "shape": [
+                  1
+                ],
+                "stride": [
+                  1
+                ],
+                "dtype": "torch.int64",
+                "device": "npu:7",
+                "format": 2
+              }
+            },
+            "reader.values": {
+              "owner": "reader.values",
+              "tensor_object_id": 281470541147952,
+              "layout": {
+                "ptr": 20771535603200,
+                "shape": [
+                  6,
+                  64
+                ],
+                "stride": [
+                  64,
+                  1
+                ],
+                "dtype": "torch.bfloat16",
+                "device": "npu:7",
+                "format": 2
+              }
+            },
+            "reader.positions": {
+              "owner": "reader.positions",
+              "tensor_object_id": 281470541148272,
+              "layout": {
+                "ptr": 20771535604224,
+                "shape": [
+                  6,
+                  1
+                ],
+                "stride": [
+                  1,
+                  1
+                ],
+                "dtype": "torch.int64",
+                "device": "npu:7",
+                "format": 2
+              }
+            },
+            "reader.valid": {
+              "owner": "reader.valid",
+              "tensor_object_id": 281470541148592,
+              "layout": {
+                "ptr": 20771535604736,
+                "shape": [
+                  6
+                ],
+                "stride": [
+                  1
+                ],
+                "dtype": "torch.bool",
+                "device": "npu:7",
+                "format": 2
+              }
+            },
+            "reader.epoch": {
+              "owner": "reader.epoch",
+              "tensor_object_id": 281470541148832,
+              "layout": {
+                "ptr": 20771535605248,
+                "shape": [
+                  1
+                ],
+                "stride": [
+                  1
+                ],
+                "dtype": "torch.int64",
+                "device": "npu:7",
+                "format": 2
+              }
+            },
+            "reader.copy_count": {
+              "owner": "reader.copy_count",
+              "tensor_object_id": 281470541149392,
+              "layout": {
+                "ptr": 20771535605760,
+                "shape": [
+                  1
+                ],
+                "stride": [
+                  1
+                ],
+                "dtype": "torch.int64",
+                "device": "npu:7",
+                "format": 2
+              }
+            },
+            "reader.row_count": {
+              "owner": "reader.row_count",
+              "tensor_object_id": 281470541150352,
+              "layout": {
+                "ptr": 20771535606272,
+                "shape": [
+                  1
+                ],
+                "stride": [
+                  1
+                ],
+                "dtype": "torch.int64",
+                "device": "npu:7",
+                "format": 2
+              }
+            },
+            "native.cache": {
+              "owner": "native.cache",
+              "tensor_object_id": 281470541142592,
+              "layout": {
+                "ptr": 20771535597056,
+                "shape": [
+                  16,
+                  64
+                ],
+                "stride": [
+                  64,
+                  1
+                ],
+                "dtype": "torch.bfloat16",
+                "device": "npu:7",
+                "format": 2
+              }
+            }
+          },
+          "epochs": 32,
+          "copy_classes": {
+            "payload": 8,
+            "count": 0,
+            "native_cache": 0
+          }
+        }
+      ],
+      "protocol_passed": true,
+      "actual_sdk_gate_passed": false,
+      "device_audit_passed": false,
+      "full_consumer_audit_passed": false,
+      "safe_formal_receipt": false,
+      "formal_model_validated": false,
+      "actual_prepack_consumer_order_validated": false
+    },
+    "nonstatic": {
+      "job_dir": "/home/chiro/projects/dsv41/operator-stack-tp8/experiments/operator_stack/evidence/formal_a321/sdk_init_nonstatic_keep_v8",
+      "job_id": "formal_dspark_sdk_init_nonstatic_keep_v8",
+      "remote_job_root": "/work/results/formal_dspark_sdk_init_nonstatic_keep_v8",
+      "variant": "nonstatic_keep",
+      "archive_receipt": {
+        "path": "/home/chiro/projects/dsv41/operator-stack-tp8/experiments/operator_stack/evidence/formal_a321/sdk_init_nonstatic_keep_v8/archive_receipt.json",
+        "bytes": 718,
+        "sha256": "f773b90bdeaea3061600c4fe9fb16acf2c3bef23c70fc4942c43bae1aeadca9f",
+        "raw_bytes_transferred": true
+      },
+      "fetch_manifest": {
+        "path": "/home/chiro/projects/dsv41/operator-stack-tp8/experiments/operator_stack/evidence/formal_a321/sdk_init_nonstatic_keep_v8/fetch_manifest.json",
+        "bytes": 12164,
+        "sha256": "fda05661e8e7e60bb7685531e314e4281e7934f8c7265ab2cf79d231541a85c2",
+        "raw_bytes_transferred": true
+      },
+      "driver_compact": {
+        "path": "/home/chiro/projects/dsv41/operator-stack-tp8/experiments/operator_stack/evidence/formal_a321/sdk_init_nonstatic_keep_v8/gate/result_compact.json",
+        "bytes": 11694,
+        "sha256": "c9395ba25c5053727e07834f1a71ad5d39dc914764870c2756043aaa828fa80c",
+        "raw_bytes_transferred": true
+      },
+      "original_driver": {
+        "path": "/work/results/formal_dspark_sdk_init_nonstatic_keep_v8/gate/result.json",
+        "bytes": 6555992,
+        "sha256": "2cf0d7c2df578313471089efb617edee5df2f63a73796c312fa4e06a078663c4",
+        "raw_bytes_transferred": false
+      },
+      "controller": {
+        "path": "/home/chiro/projects/dsv41/operator-stack-tp8/experiments/operator_stack/evidence/formal_a321/sdk_init_nonstatic_keep_v8/gate/metadata/controller.json",
+        "bytes": 4349,
+        "sha256": "849872c679f274e12e79da4e96c84d81809160f862848689aafbe6bd133aabb7",
+        "raw_bytes_transferred": true
+      },
+      "source_manifest": {
+        "path": "/home/chiro/projects/dsv41/operator-stack-tp8/experiments/operator_stack/evidence/formal_a321/sdk_init_nonstatic_keep_v8/gate/metadata/source_manifest.json",
+        "bytes": 4710,
+        "sha256": "63be4d40848aa22903ad839179059b5256bff91e9317e1e7a33ea363d0b539f4",
+        "raw_bytes_transferred": true
+      },
+      "cleanup": {
+        "path": "/home/chiro/projects/dsv41/operator-stack-tp8/experiments/operator_stack/evidence/formal_a321/sdk_init_nonstatic_keep_v8/gate/owned_failure_cleanup.json",
+        "bytes": 3044,
+        "sha256": "d48dafb5bcc7d743429d6c3c1c3a515beb7bc6b2c39385eaa530454edf40b97b",
+        "raw_bytes_transferred": true
+      },
+      "driver_identity": {
+        "pid": 1470336,
+        "ppid": 1470330,
+        "start_ticks": 287419903,
+        "boot_id": "3e453542-70e1-442f-88ef-ee52db5f8471",
+        "cmdline_sha256": "28796d2c93189d0edc7435e6078423c6cf01c5aa30ee0e19f2b46476c109b61f"
+      },
+      "ranks": [
+        {
+          "rank": 0,
+          "physical_chip": 8,
+          "identity": {
+            "pid": 1470540,
+            "boot_id": "3e453542-70e1-442f-88ef-ee52db5f8471",
+            "normal_init_return_ns": 2874294230444930
+          },
+          "result": {
+            "path": "/home/chiro/projects/dsv41/operator-stack-tp8/experiments/operator_stack/evidence/formal_a321/sdk_init_nonstatic_keep_v8/gate/sdk_results/nonstatic_keep/rank0/result.json",
+            "bytes": 697280,
+            "sha256": "a2cfa1c6947454971f47ddc1ccb1d18458491c63e3a8fcbd2803c34371ea5c72",
+            "raw_bytes_transferred": true
+          },
+          "loaded_abi_proofs": {
+            "path": "/home/chiro/projects/dsv41/operator-stack-tp8/experiments/operator_stack/evidence/formal_a321/sdk_init_nonstatic_keep_v8/gate/metadata/loaded_abi_proofs/rank0.json",
+            "bytes": 9344,
+            "sha256": "6da33eb2b6aa1096c10878dba870b7c2c6cbfa0cfcf4b439b8ae2ce41f89ecac",
+            "raw_bytes_transferred": true
+          },
+          "generated_kernels": [
+            {
+              "path": "/home/chiro/projects/dsv41/operator-stack-tp8/experiments/operator_stack/evidence/formal_a321/sdk_init_nonstatic_keep_v8/gate/sdk_results/nonstatic_keep/rank0/generated_kernel_0.py",
+              "bytes": 6529,
+              "sha256": "2091c624cc56daa1dbd201c5348bf5f5dab4130d3ae8f985e53ac20471f1c584",
+              "raw_bytes_transferred": true
+            }
+          ],
+          "initialized_scope": {
+            "current_initialized": true,
+            "context_ptr": 187651976927136,
+            "runtime_logical_device": 0,
+            "physical_device": 8,
+            "torch_current_device": 0,
+            "worker_device_index": 0,
+            "stream_ptr": 187652325567848,
+            "tp_rank": 0,
+            "tp_world_size": 8,
+            "worker_rank": 0,
+            "global_rank": 0,
+            "runner_idle": true,
+            "capturing": false
+          },
+          "native_scope": {
+            "owner": "vllm_ascend.worker.model_runner_v1.graph_capture",
+            "source": {
+              "path": "/vllm-workspace/vllm-ascend/vllm_ascend/worker/model_runner_v1.py",
+              "bytes": 278172,
+              "sha256": "67035d97f1cea4ae2df31adcc33f1de952f4cab6d8421e76df512296e0e3185e",
+              "function_sha256": "5cef623525ea2042e0306fc5a3795ddfa56808dc7213c68cf6cc29599f148644",
+              "qualified_function": "vllm_ascend.worker.model_runner_v1.graph_capture"
+            },
+            "native_context_creates_stream": true,
+            "init_return_stream_borrowed_unchanged": false,
+            "default_stream_ptr": 187652325567848,
+            "init_return_baseline": {
+              "current_initialized": true,
+              "context_ptr": 187651976927136,
+              "runtime_logical_device": 0,
+              "physical_device": 8,
+              "torch_current_device": 0,
+              "worker_device_index": 0,
+              "stream_ptr": 187652325567848,
+              "tp_rank": 0,
+              "tp_world_size": 8,
+              "worker_rank": 0,
+              "global_rank": 0,
+              "runner_idle": true,
+              "capturing": false
+            },
+            "normal_exit_restoration_verified": true,
+            "gate_stream_constructor_called": false,
+            "gate_stream_patch_applied": false,
+            "context_object_id": 281470137984608,
+            "stream_object_id": 281469813025808,
+            "native_scope": {
+              "current_initialized": true,
+              "context_ptr": 187651976927136,
+              "runtime_logical_device": 0,
+              "physical_device": 8,
+              "torch_current_device": 0,
+              "worker_device_index": 0,
+              "stream_ptr": 187652356068664,
+              "tp_rank": 0,
+              "tp_world_size": 8,
+              "worker_rank": 0,
+              "global_rank": 0,
+              "runner_idle": true,
+              "capturing": false
+            },
+            "native_stream_ptr": 187652356068664,
+            "native_context_exit_completed": true,
+            "restored_baseline": {
+              "current_initialized": true,
+              "context_ptr": 187651976927136,
+              "runtime_logical_device": 0,
+              "physical_device": 8,
+              "torch_current_device": 0,
+              "worker_device_index": 0,
+              "stream_ptr": 187652325567848,
+              "tp_rank": 0,
+              "tp_world_size": 8,
+              "worker_rank": 0,
+              "global_rank": 0,
+              "runner_idle": true,
+              "capturing": false
+            }
+          },
+          "owner_seals": {
+            "producer.values": {
+              "owner": "producer.values",
+              "tensor_object_id": 281470135318032,
+              "layout": {
+                "ptr": 20771535599616,
+                "shape": [
+                  6,
+                  64
+                ],
+                "stride": [
+                  64,
+                  1
+                ],
+                "dtype": "torch.bfloat16",
+                "device": "npu:0",
+                "format": 2
+              }
+            },
+            "producer.positions": {
+              "owner": "producer.positions",
+              "tensor_object_id": 281470135318832,
+              "layout": {
+                "ptr": 20771535600640,
+                "shape": [
+                  6,
+                  1
+                ],
+                "stride": [
+                  1,
+                  1
+                ],
+                "dtype": "torch.int64",
+                "device": "npu:0",
+                "format": 2
+              }
+            },
+            "producer.valid": {
+              "owner": "producer.valid",
+              "tensor_object_id": 281470135320112,
+              "layout": {
+                "ptr": 20771535601152,
+                "shape": [
+                  6
+                ],
+                "stride": [
+                  1
+                ],
+                "dtype": "torch.bool",
+                "device": "npu:0",
+                "format": 2
+              }
+            },
+            "producer.epoch": {
+              "owner": "producer.epoch",
+              "tensor_object_id": 281470135320352,
+              "layout": {
+                "ptr": 20771535601664,
+                "shape": [
+                  1
+                ],
+                "stride": [
+                  1
+                ],
+                "dtype": "torch.int64",
+                "device": "npu:0",
+                "format": 2
+              }
+            },
+            "producer.copy_count": {
+              "owner": "producer.copy_count",
+              "tensor_object_id": 281470135320432,
+              "layout": {
+                "ptr": 20771535602176,
+                "shape": [
+                  1
+                ],
+                "stride": [
+                  1
+                ],
+                "dtype": "torch.int64",
+                "device": "npu:0",
+                "format": 2
+              }
+            },
+            "producer.row_count": {
+              "owner": "producer.row_count",
+              "tensor_object_id": 281470135319872,
+              "layout": {
+                "ptr": 20771535602688,
+                "shape": [
+                  1
+                ],
+                "stride": [
+                  1
+                ],
+                "dtype": "torch.int64",
+                "device": "npu:0",
+                "format": 2
+              }
+            },
+            "reader.values": {
+              "owner": "reader.values",
+              "tensor_object_id": 281470135319152,
+              "layout": {
+                "ptr": 20771535603200,
+                "shape": [
+                  6,
+                  64
+                ],
+                "stride": [
+                  64,
+                  1
+                ],
+                "dtype": "torch.bfloat16",
+                "device": "npu:0",
+                "format": 2
+              }
+            },
+            "reader.positions": {
+              "owner": "reader.positions",
+              "tensor_object_id": 281470135318672,
+              "layout": {
+                "ptr": 20771535604224,
+                "shape": [
+                  6,
+                  1
+                ],
+                "stride": [
+                  1,
+                  1
+                ],
+                "dtype": "torch.int64",
+                "device": "npu:0",
+                "format": 2
+              }
+            },
+            "reader.valid": {
+              "owner": "reader.valid",
+              "tensor_object_id": 281470135318112,
+              "layout": {
+                "ptr": 20771535604736,
+                "shape": [
+                  6
+                ],
+                "stride": [
+                  1
+                ],
+                "dtype": "torch.bool",
+                "device": "npu:0",
+                "format": 2
+              }
+            },
+            "reader.epoch": {
+              "owner": "reader.epoch",
+              "tensor_object_id": 281470135319792,
+              "layout": {
+                "ptr": 20771535605248,
+                "shape": [
+                  1
+                ],
+                "stride": [
+                  1
+                ],
+                "dtype": "torch.int64",
+                "device": "npu:0",
+                "format": 2
+              }
+            },
+            "reader.copy_count": {
+              "owner": "reader.copy_count",
+              "tensor_object_id": 281470135320192,
+              "layout": {
+                "ptr": 20771535605760,
+                "shape": [
+                  1
+                ],
+                "stride": [
+                  1
+                ],
+                "dtype": "torch.int64",
+                "device": "npu:0",
+                "format": 2
+              }
+            },
+            "reader.row_count": {
+              "owner": "reader.row_count",
+              "tensor_object_id": 281470135306112,
+              "layout": {
+                "ptr": 20771535606272,
+                "shape": [
+                  1
+                ],
+                "stride": [
+                  1
+                ],
+                "dtype": "torch.int64",
+                "device": "npu:0",
+                "format": 2
+              }
+            },
+            "native.cache": {
+              "owner": "native.cache",
+              "tensor_object_id": 281470135315952,
+              "layout": {
+                "ptr": 20771535597056,
+                "shape": [
+                  16,
+                  64
+                ],
+                "stride": [
+                  64,
+                  1
+                ],
+                "dtype": "torch.bfloat16",
+                "device": "npu:0",
+                "format": 2
+              }
+            }
+          },
+          "epochs": 32,
+          "copy_classes": {
+            "payload": 8,
+            "count": 0,
+            "native_cache": 0
+          }
+        },
+        {
+          "rank": 1,
+          "physical_chip": 9,
+          "identity": {
+            "pid": 1470541,
+            "boot_id": "3e453542-70e1-442f-88ef-ee52db5f8471",
+            "normal_init_return_ns": 2874294222895760
+          },
+          "result": {
+            "path": "/home/chiro/projects/dsv41/operator-stack-tp8/experiments/operator_stack/evidence/formal_a321/sdk_init_nonstatic_keep_v8/gate/sdk_results/nonstatic_keep/rank1/result.json",
+            "bytes": 697036,
+            "sha256": "830bd7dbc43758cbd21781bc35ee087481ea2ccacc326cb39925e093a48c0b67",
+            "raw_bytes_transferred": true
+          },
+          "loaded_abi_proofs": {
+            "path": "/home/chiro/projects/dsv41/operator-stack-tp8/experiments/operator_stack/evidence/formal_a321/sdk_init_nonstatic_keep_v8/gate/metadata/loaded_abi_proofs/rank1.json",
+            "bytes": 9344,
+            "sha256": "fdca249569a460c22c5cdec773853551e1993a03afcf7dab52ca84b618203140",
+            "raw_bytes_transferred": true
+          },
+          "generated_kernels": [
+            {
+              "path": "/home/chiro/projects/dsv41/operator-stack-tp8/experiments/operator_stack/evidence/formal_a321/sdk_init_nonstatic_keep_v8/gate/sdk_results/nonstatic_keep/rank1/generated_kernel_0.py",
+              "bytes": 6529,
+              "sha256": "a93b9bbc8af5f6e0647611517f46aadea4230c572a22dc0f455acd42f7004510",
+              "raw_bytes_transferred": true
+            }
+          ],
+          "initialized_scope": {
+            "current_initialized": true,
+            "context_ptr": 187651298160864,
+            "runtime_logical_device": 1,
+            "physical_device": 9,
+            "torch_current_device": 1,
+            "worker_device_index": 1,
+            "stream_ptr": 187651604537896,
+            "tp_rank": 1,
+            "tp_world_size": 8,
+            "worker_rank": 1,
+            "global_rank": 1,
+            "runner_idle": true,
+            "capturing": false
+          },
+          "native_scope": {
+            "owner": "vllm_ascend.worker.model_runner_v1.graph_capture",
+            "source": {
+              "path": "/vllm-workspace/vllm-ascend/vllm_ascend/worker/model_runner_v1.py",
+              "bytes": 278172,
+              "sha256": "67035d97f1cea4ae2df31adcc33f1de952f4cab6d8421e76df512296e0e3185e",
+              "function_sha256": "5cef623525ea2042e0306fc5a3795ddfa56808dc7213c68cf6cc29599f148644",
+              "qualified_function": "vllm_ascend.worker.model_runner_v1.graph_capture"
+            },
+            "native_context_creates_stream": true,
+            "init_return_stream_borrowed_unchanged": false,
+            "default_stream_ptr": 187651604537896,
+            "init_return_baseline": {
+              "current_initialized": true,
+              "context_ptr": 187651298160864,
+              "runtime_logical_device": 1,
+              "physical_device": 9,
+              "torch_current_device": 1,
+              "worker_device_index": 1,
+              "stream_ptr": 187651604537896,
+              "tp_rank": 1,
+              "tp_world_size": 8,
+              "worker_rank": 1,
+              "global_rank": 1,
+              "runner_idle": true,
+              "capturing": false
+            },
+            "normal_exit_restoration_verified": true,
+            "gate_stream_constructor_called": false,
+            "gate_stream_patch_applied": false,
+            "context_object_id": 281470146331952,
+            "stream_object_id": 281470146391056,
+            "native_scope": {
+              "current_initialized": true,
+              "context_ptr": 187651298160864,
+              "runtime_logical_device": 1,
+              "physical_device": 9,
+              "torch_current_device": 1,
+              "worker_device_index": 1,
+              "stream_ptr": 187651635100360,
+              "tp_rank": 1,
+              "tp_world_size": 8,
+              "worker_rank": 1,
+              "global_rank": 1,
+              "runner_idle": true,
+              "capturing": false
+            },
+            "native_stream_ptr": 187651635100360,
+            "native_context_exit_completed": true,
+            "restored_baseline": {
+              "current_initialized": true,
+              "context_ptr": 187651298160864,
+              "runtime_logical_device": 1,
+              "physical_device": 9,
+              "torch_current_device": 1,
+              "worker_device_index": 1,
+              "stream_ptr": 187651604537896,
+              "tp_rank": 1,
+              "tp_world_size": 8,
+              "worker_rank": 1,
+              "global_rank": 1,
+              "runner_idle": true,
+              "capturing": false
+            }
+          },
+          "owner_seals": {
+            "producer.values": {
+              "owner": "producer.values",
+              "tensor_object_id": 281470365756592,
+              "layout": {
+                "ptr": 20771535599616,
+                "shape": [
+                  6,
+                  64
+                ],
+                "stride": [
+                  64,
+                  1
+                ],
+                "dtype": "torch.bfloat16",
+                "device": "npu:1",
+                "format": 2
+              }
+            },
+            "producer.positions": {
+              "owner": "producer.positions",
+              "tensor_object_id": 281470365758912,
+              "layout": {
+                "ptr": 20771535600640,
+                "shape": [
+                  6,
+                  1
+                ],
+                "stride": [
+                  1,
+                  1
+                ],
+                "dtype": "torch.int64",
+                "device": "npu:1",
+                "format": 2
+              }
+            },
+            "producer.valid": {
+              "owner": "producer.valid",
+              "tensor_object_id": 281470365759632,
+              "layout": {
+                "ptr": 20771535601152,
+                "shape": [
+                  6
+                ],
+                "stride": [
+                  1
+                ],
+                "dtype": "torch.bool",
+                "device": "npu:1",
+                "format": 2
+              }
+            },
+            "producer.epoch": {
+              "owner": "producer.epoch",
+              "tensor_object_id": 281470365760912,
+              "layout": {
+                "ptr": 20771535601664,
+                "shape": [
+                  1
+                ],
+                "stride": [
+                  1
+                ],
+                "dtype": "torch.int64",
+                "device": "npu:1",
+                "format": 2
+              }
+            },
+            "producer.copy_count": {
+              "owner": "producer.copy_count",
+              "tensor_object_id": 281470365761232,
+              "layout": {
+                "ptr": 20771535602176,
+                "shape": [
+                  1
+                ],
+                "stride": [
+                  1
+                ],
+                "dtype": "torch.int64",
+                "device": "npu:1",
+                "format": 2
+              }
+            },
+            "producer.row_count": {
+              "owner": "producer.row_count",
+              "tensor_object_id": 281470365761072,
+              "layout": {
+                "ptr": 20771535602688,
+                "shape": [
+                  1
+                ],
+                "stride": [
+                  1
+                ],
+                "dtype": "torch.int64",
+                "device": "npu:1",
+                "format": 2
+              }
+            },
+            "reader.values": {
+              "owner": "reader.values",
+              "tensor_object_id": 281470365758512,
+              "layout": {
+                "ptr": 20771535603200,
+                "shape": [
+                  6,
+                  64
+                ],
+                "stride": [
+                  64,
+                  1
+                ],
+                "dtype": "torch.bfloat16",
+                "device": "npu:1",
+                "format": 2
+              }
+            },
+            "reader.positions": {
+              "owner": "reader.positions",
+              "tensor_object_id": 281470365759472,
+              "layout": {
+                "ptr": 20771535604224,
+                "shape": [
+                  6,
+                  1
+                ],
+                "stride": [
+                  1,
+                  1
+                ],
+                "dtype": "torch.int64",
+                "device": "npu:1",
+                "format": 2
+              }
+            },
+            "reader.valid": {
+              "owner": "reader.valid",
+              "tensor_object_id": 281470365759952,
+              "layout": {
+                "ptr": 20771535604736,
+                "shape": [
+                  6
+                ],
+                "stride": [
+                  1
+                ],
+                "dtype": "torch.bool",
+                "device": "npu:1",
+                "format": 2
+              }
+            },
+            "reader.epoch": {
+              "owner": "reader.epoch",
+              "tensor_object_id": 281470365760592,
+              "layout": {
+                "ptr": 20771535605248,
+                "shape": [
+                  1
+                ],
+                "stride": [
+                  1
+                ],
+                "dtype": "torch.int64",
+                "device": "npu:1",
+                "format": 2
+              }
+            },
+            "reader.copy_count": {
+              "owner": "reader.copy_count",
+              "tensor_object_id": 281470365761472,
+              "layout": {
+                "ptr": 20771535605760,
+                "shape": [
+                  1
+                ],
+                "stride": [
+                  1
+                ],
+                "dtype": "torch.int64",
+                "device": "npu:1",
+                "format": 2
+              }
+            },
+            "reader.row_count": {
+              "owner": "reader.row_count",
+              "tensor_object_id": 281470365760992,
+              "layout": {
+                "ptr": 20771535606272,
+                "shape": [
+                  1
+                ],
+                "stride": [
+                  1
+                ],
+                "dtype": "torch.int64",
+                "device": "npu:1",
+                "format": 2
+              }
+            },
+            "native.cache": {
+              "owner": "native.cache",
+              "tensor_object_id": 281470365756432,
+              "layout": {
+                "ptr": 20771535597056,
+                "shape": [
+                  16,
+                  64
+                ],
+                "stride": [
+                  64,
+                  1
+                ],
+                "dtype": "torch.bfloat16",
+                "device": "npu:1",
+                "format": 2
+              }
+            }
+          },
+          "epochs": 32,
+          "copy_classes": {
+            "payload": 8,
+            "count": 0,
+            "native_cache": 0
+          }
+        },
+        {
+          "rank": 2,
+          "physical_chip": 10,
+          "identity": {
+            "pid": 1470542,
+            "boot_id": "3e453542-70e1-442f-88ef-ee52db5f8471",
+            "normal_init_return_ns": 2874294232471040
+          },
+          "result": {
+            "path": "/home/chiro/projects/dsv41/operator-stack-tp8/experiments/operator_stack/evidence/formal_a321/sdk_init_nonstatic_keep_v8/gate/sdk_results/nonstatic_keep/rank2/result.json",
+            "bytes": 695818,
+            "sha256": "c774f2b370d2df7ed82644db73ebce91285fda33bcc3eeeec077d30fa5061acb",
+            "raw_bytes_transferred": true
+          },
+          "loaded_abi_proofs": {
+            "path": "/home/chiro/projects/dsv41/operator-stack-tp8/experiments/operator_stack/evidence/formal_a321/sdk_init_nonstatic_keep_v8/gate/metadata/loaded_abi_proofs/rank2.json",
+            "bytes": 9344,
+            "sha256": "05a6b4e73fdb26a2f457409dae24de91aa240e9daa0a7d6f8c702bc564cd33ad",
+            "raw_bytes_transferred": true
+          },
+          "generated_kernels": [
+            {
+              "path": "/home/chiro/projects/dsv41/operator-stack-tp8/experiments/operator_stack/evidence/formal_a321/sdk_init_nonstatic_keep_v8/gate/sdk_results/nonstatic_keep/rank2/generated_kernel_0.py",
+              "bytes": 6529,
+              "sha256": "e63114706e6d40361fa4460ea8613eb8436395a1372e9f02a76345f22877c68e",
+              "raw_bytes_transferred": true
+            }
+          ],
+          "initialized_scope": {
+            "current_initialized": true,
+            "context_ptr": 187651409888848,
+            "runtime_logical_device": 2,
+            "physical_device": 10,
+            "torch_current_device": 2,
+            "worker_device_index": 2,
+            "stream_ptr": 187651712236104,
+            "tp_rank": 2,
+            "tp_world_size": 8,
+            "worker_rank": 2,
+            "global_rank": 2,
+            "runner_idle": true,
+            "capturing": false
+          },
+          "native_scope": {
+            "owner": "vllm_ascend.worker.model_runner_v1.graph_capture",
+            "source": {
+              "path": "/vllm-workspace/vllm-ascend/vllm_ascend/worker/model_runner_v1.py",
+              "bytes": 278172,
+              "sha256": "67035d97f1cea4ae2df31adcc33f1de952f4cab6d8421e76df512296e0e3185e",
+              "function_sha256": "5cef623525ea2042e0306fc5a3795ddfa56808dc7213c68cf6cc29599f148644",
+              "qualified_function": "vllm_ascend.worker.model_runner_v1.graph_capture"
+            },
+            "native_context_creates_stream": true,
+            "init_return_stream_borrowed_unchanged": false,
+            "default_stream_ptr": 187651712236104,
+            "init_return_baseline": {
+              "current_initialized": true,
+              "context_ptr": 187651409888848,
+              "runtime_logical_device": 2,
+              "physical_device": 10,
+              "torch_current_device": 2,
+              "worker_device_index": 2,
+              "stream_ptr": 187651712236104,
+              "tp_rank": 2,
+              "tp_world_size": 8,
+              "worker_rank": 2,
+              "global_rank": 2,
+              "runner_idle": true,
+              "capturing": false
+            },
+            "normal_exit_restoration_verified": true,
+            "gate_stream_constructor_called": false,
+            "gate_stream_patch_applied": false,
+            "context_object_id": 281470117627808,
+            "stream_object_id": 281469413551120,
+            "native_scope": {
+              "current_initialized": true,
+              "context_ptr": 187651409888848,
+              "runtime_logical_device": 2,
+              "physical_device": 10,
+              "torch_current_device": 2,
+              "worker_device_index": 2,
+              "stream_ptr": 187651742793752,
+              "tp_rank": 2,
+              "tp_world_size": 8,
+              "worker_rank": 2,
+              "global_rank": 2,
+              "runner_idle": true,
+              "capturing": false
+            },
+            "native_stream_ptr": 187651742793752,
+            "native_context_exit_completed": true,
+            "restored_baseline": {
+              "current_initialized": true,
+              "context_ptr": 187651409888848,
+              "runtime_logical_device": 2,
+              "physical_device": 10,
+              "torch_current_device": 2,
+              "worker_device_index": 2,
+              "stream_ptr": 187651712236104,
+              "tp_rank": 2,
+              "tp_world_size": 8,
+              "worker_rank": 2,
+              "global_rank": 2,
+              "runner_idle": true,
+              "capturing": false
+            }
+          },
+          "owner_seals": {
+            "producer.values": {
+              "owner": "producer.values",
+              "tensor_object_id": 281470114608896,
+              "layout": {
+                "ptr": 20771535599616,
+                "shape": [
+                  6,
+                  64
+                ],
+                "stride": [
+                  64,
+                  1
+                ],
+                "dtype": "torch.bfloat16",
+                "device": "npu:2",
+                "format": 2
+              }
+            },
+            "producer.positions": {
+              "owner": "producer.positions",
+              "tensor_object_id": 281470114609536,
+              "layout": {
+                "ptr": 20771535600640,
+                "shape": [
+                  6,
+                  1
+                ],
+                "stride": [
+                  1,
+                  1
+                ],
+                "dtype": "torch.int64",
+                "device": "npu:2",
+                "format": 2
+              }
+            },
+            "producer.valid": {
+              "owner": "producer.valid",
+              "tensor_object_id": 281470114610816,
+              "layout": {
+                "ptr": 20771535601152,
+                "shape": [
+                  6
+                ],
+                "stride": [
+                  1
+                ],
+                "dtype": "torch.bool",
+                "device": "npu:2",
+                "format": 2
+              }
+            },
+            "producer.epoch": {
+              "owner": "producer.epoch",
+              "tensor_object_id": 281470114611056,
+              "layout": {
+                "ptr": 20771535601664,
+                "shape": [
+                  1
+                ],
+                "stride": [
+                  1
+                ],
+                "dtype": "torch.int64",
+                "device": "npu:2",
+                "format": 2
+              }
+            },
+            "producer.copy_count": {
+              "owner": "producer.copy_count",
+              "tensor_object_id": 281470114610976,
+              "layout": {
+                "ptr": 20771535602176,
+                "shape": [
+                  1
+                ],
+                "stride": [
+                  1
+                ],
+                "dtype": "torch.int64",
+                "device": "npu:2",
+                "format": 2
+              }
+            },
+            "producer.row_count": {
+              "owner": "producer.row_count",
+              "tensor_object_id": 281470114608816,
+              "layout": {
+                "ptr": 20771535602688,
+                "shape": [
+                  1
+                ],
+                "stride": [
+                  1
+                ],
+                "dtype": "torch.int64",
+                "device": "npu:2",
+                "format": 2
+              }
+            },
+            "reader.values": {
+              "owner": "reader.values",
+              "tensor_object_id": 281470114610336,
+              "layout": {
+                "ptr": 20771535603200,
+                "shape": [
+                  6,
+                  64
+                ],
+                "stride": [
+                  64,
+                  1
+                ],
+                "dtype": "torch.bfloat16",
+                "device": "npu:2",
+                "format": 2
+              }
+            },
+            "reader.positions": {
+              "owner": "reader.positions",
+              "tensor_object_id": 281470114611136,
+              "layout": {
+                "ptr": 20771535604224,
+                "shape": [
+                  6,
+                  1
+                ],
+                "stride": [
+                  1,
+                  1
+                ],
+                "dtype": "torch.int64",
+                "device": "npu:2",
+                "format": 2
+              }
+            },
+            "reader.valid": {
+              "owner": "reader.valid",
+              "tensor_object_id": 281470114610736,
+              "layout": {
+                "ptr": 20771535604736,
+                "shape": [
+                  6
+                ],
+                "stride": [
+                  1
+                ],
+                "dtype": "torch.bool",
+                "device": "npu:2",
+                "format": 2
+              }
+            },
+            "reader.epoch": {
+              "owner": "reader.epoch",
+              "tensor_object_id": 281470114597056,
+              "layout": {
+                "ptr": 20771535605248,
+                "shape": [
+                  1
+                ],
+                "stride": [
+                  1
+                ],
+                "dtype": "torch.int64",
+                "device": "npu:2",
+                "format": 2
+              }
+            },
+            "reader.copy_count": {
+              "owner": "reader.copy_count",
+              "tensor_object_id": 281470114596736,
+              "layout": {
+                "ptr": 20771535605760,
+                "shape": [
+                  1
+                ],
+                "stride": [
+                  1
+                ],
+                "dtype": "torch.int64",
+                "device": "npu:2",
+                "format": 2
+              }
+            },
+            "reader.row_count": {
+              "owner": "reader.row_count",
+              "tensor_object_id": 281470114596976,
+              "layout": {
+                "ptr": 20771535606272,
+                "shape": [
+                  1
+                ],
+                "stride": [
+                  1
+                ],
+                "dtype": "torch.int64",
+                "device": "npu:2",
+                "format": 2
+              }
+            },
+            "native.cache": {
+              "owner": "native.cache",
+              "tensor_object_id": 281470114606496,
+              "layout": {
+                "ptr": 20771535597056,
+                "shape": [
+                  16,
+                  64
+                ],
+                "stride": [
+                  64,
+                  1
+                ],
+                "dtype": "torch.bfloat16",
+                "device": "npu:2",
+                "format": 2
+              }
+            }
+          },
+          "epochs": 32,
+          "copy_classes": {
+            "payload": 8,
+            "count": 0,
+            "native_cache": 0
+          }
+        },
+        {
+          "rank": 3,
+          "physical_chip": 11,
+          "identity": {
+            "pid": 1470543,
+            "boot_id": "3e453542-70e1-442f-88ef-ee52db5f8471",
+            "normal_init_return_ns": 2874294232387350
+          },
+          "result": {
+            "path": "/home/chiro/projects/dsv41/operator-stack-tp8/experiments/operator_stack/evidence/formal_a321/sdk_init_nonstatic_keep_v8/gate/sdk_results/nonstatic_keep/rank3/result.json",
+            "bytes": 695836,
+            "sha256": "c403e1db9ddf3490ec5beb65411b0d114744f66454c44e83b252ac6878f9e369",
+            "raw_bytes_transferred": true
+          },
+          "loaded_abi_proofs": {
+            "path": "/home/chiro/projects/dsv41/operator-stack-tp8/experiments/operator_stack/evidence/formal_a321/sdk_init_nonstatic_keep_v8/gate/metadata/loaded_abi_proofs/rank3.json",
+            "bytes": 9344,
+            "sha256": "22bd8a3933e7ea2eff3820affecf94606656449ee9305b139e3dcbfe1659f21b",
+            "raw_bytes_transferred": true
+          },
+          "generated_kernels": [
+            {
+              "path": "/home/chiro/projects/dsv41/operator-stack-tp8/experiments/operator_stack/evidence/formal_a321/sdk_init_nonstatic_keep_v8/gate/sdk_results/nonstatic_keep/rank3/generated_kernel_0.py",
+              "bytes": 6529,
+              "sha256": "914ced66e0962081d3a90efd59027add1f331dd3fb8e197eef96fd1447962222",
+              "raw_bytes_transferred": true
+            }
+          ],
+          "initialized_scope": {
+            "current_initialized": true,
+            "context_ptr": 187651675689120,
+            "runtime_logical_device": 3,
+            "physical_device": 11,
+            "torch_current_device": 3,
+            "worker_device_index": 3,
+            "stream_ptr": 187651973293800,
+            "tp_rank": 3,
+            "tp_world_size": 8,
+            "worker_rank": 3,
+            "global_rank": 3,
+            "runner_idle": true,
+            "capturing": false
+          },
+          "native_scope": {
+            "owner": "vllm_ascend.worker.model_runner_v1.graph_capture",
+            "source": {
+              "path": "/vllm-workspace/vllm-ascend/vllm_ascend/worker/model_runner_v1.py",
+              "bytes": 278172,
+              "sha256": "67035d97f1cea4ae2df31adcc33f1de952f4cab6d8421e76df512296e0e3185e",
+              "function_sha256": "5cef623525ea2042e0306fc5a3795ddfa56808dc7213c68cf6cc29599f148644",
+              "qualified_function": "vllm_ascend.worker.model_runner_v1.graph_capture"
+            },
+            "native_context_creates_stream": true,
+            "init_return_stream_borrowed_unchanged": false,
+            "default_stream_ptr": 187651973293800,
+            "init_return_baseline": {
+              "current_initialized": true,
+              "context_ptr": 187651675689120,
+              "runtime_logical_device": 3,
+              "physical_device": 11,
+              "torch_current_device": 3,
+              "worker_device_index": 3,
+              "stream_ptr": 187651973293800,
+              "tp_rank": 3,
+              "tp_world_size": 8,
+              "worker_rank": 3,
+              "global_rank": 3,
+              "runner_idle": true,
+              "capturing": false
+            },
+            "normal_exit_restoration_verified": true,
+            "gate_stream_constructor_called": false,
+            "gate_stream_patch_applied": false,
+            "context_object_id": 281470283039472,
+            "stream_object_id": 281470283082768,
+            "native_scope": {
+              "current_initialized": true,
+              "context_ptr": 187651675689120,
+              "runtime_logical_device": 3,
+              "physical_device": 11,
+              "torch_current_device": 3,
+              "worker_device_index": 3,
+              "stream_ptr": 187652003871048,
+              "tp_rank": 3,
+              "tp_world_size": 8,
+              "worker_rank": 3,
+              "global_rank": 3,
+              "runner_idle": true,
+              "capturing": false
+            },
+            "native_stream_ptr": 187652003871048,
+            "native_context_exit_completed": true,
+            "restored_baseline": {
+              "current_initialized": true,
+              "context_ptr": 187651675689120,
+              "runtime_logical_device": 3,
+              "physical_device": 11,
+              "torch_current_device": 3,
+              "worker_device_index": 3,
+              "stream_ptr": 187651973293800,
+              "tp_rank": 3,
+              "tp_world_size": 8,
+              "worker_rank": 3,
+              "global_rank": 3,
+              "runner_idle": true,
+              "capturing": false
+            }
+          },
+          "owner_seals": {
+            "producer.values": {
+              "owner": "producer.values",
+              "tensor_object_id": 281470493979936,
+              "layout": {
+                "ptr": 20771535599616,
+                "shape": [
+                  6,
+                  64
+                ],
+                "stride": [
+                  64,
+                  1
+                ],
+                "dtype": "torch.bfloat16",
+                "device": "npu:3",
+                "format": 2
+              }
+            },
+            "producer.positions": {
+              "owner": "producer.positions",
+              "tensor_object_id": 281470493980576,
+              "layout": {
+                "ptr": 20771535600640,
+                "shape": [
+                  6,
+                  1
+                ],
+                "stride": [
+                  1,
+                  1
+                ],
+                "dtype": "torch.int64",
+                "device": "npu:3",
+                "format": 2
+              }
+            },
+            "producer.valid": {
+              "owner": "producer.valid",
+              "tensor_object_id": 281470493982016,
+              "layout": {
+                "ptr": 20771535601152,
+                "shape": [
+                  6
+                ],
+                "stride": [
+                  1
+                ],
+                "dtype": "torch.bool",
+                "device": "npu:3",
+                "format": 2
+              }
+            },
+            "producer.epoch": {
+              "owner": "producer.epoch",
+              "tensor_object_id": 281470493982256,
+              "layout": {
+                "ptr": 20771535601664,
+                "shape": [
+                  1
+                ],
+                "stride": [
+                  1
+                ],
+                "dtype": "torch.int64",
+                "device": "npu:3",
+                "format": 2
+              }
+            },
+            "producer.copy_count": {
+              "owner": "producer.copy_count",
+              "tensor_object_id": 281470493982096,
+              "layout": {
+                "ptr": 20771535602176,
+                "shape": [
+                  1
+                ],
+                "stride": [
+                  1
+                ],
+                "dtype": "torch.int64",
+                "device": "npu:3",
+                "format": 2
+              }
+            },
+            "producer.row_count": {
+              "owner": "producer.row_count",
+              "tensor_object_id": 281470493978496,
+              "layout": {
+                "ptr": 20771535602688,
+                "shape": [
+                  1
+                ],
+                "stride": [
+                  1
+                ],
+                "dtype": "torch.int64",
+                "device": "npu:3",
+                "format": 2
+              }
+            },
+            "reader.values": {
+              "owner": "reader.values",
+              "tensor_object_id": 281470493980176,
+              "layout": {
+                "ptr": 20771535603200,
+                "shape": [
+                  6,
+                  64
+                ],
+                "stride": [
+                  64,
+                  1
+                ],
+                "dtype": "torch.bfloat16",
+                "device": "npu:3",
+                "format": 2
+              }
+            },
+            "reader.positions": {
+              "owner": "reader.positions",
+              "tensor_object_id": 281470493980416,
+              "layout": {
+                "ptr": 20771535604224,
+                "shape": [
+                  6,
+                  1
+                ],
+                "stride": [
+                  1,
+                  1
+                ],
+                "dtype": "torch.int64",
+                "device": "npu:3",
+                "format": 2
+              }
+            },
+            "reader.valid": {
+              "owner": "reader.valid",
+              "tensor_object_id": 281470493980656,
+              "layout": {
+                "ptr": 20771535604736,
+                "shape": [
+                  6
+                ],
+                "stride": [
+                  1
+                ],
+                "dtype": "torch.bool",
+                "device": "npu:3",
+                "format": 2
+              }
+            },
+            "reader.epoch": {
+              "owner": "reader.epoch",
+              "tensor_object_id": 281470493980896,
+              "layout": {
+                "ptr": 20771535605248,
+                "shape": [
+                  1
+                ],
+                "stride": [
+                  1
+                ],
+                "dtype": "torch.int64",
+                "device": "npu:3",
+                "format": 2
+              }
+            },
+            "reader.copy_count": {
+              "owner": "reader.copy_count",
+              "tensor_object_id": 281470493981136,
+              "layout": {
+                "ptr": 20771535605760,
+                "shape": [
+                  1
+                ],
+                "stride": [
+                  1
+                ],
+                "dtype": "torch.int64",
+                "device": "npu:3",
+                "format": 2
+              }
+            },
+            "reader.row_count": {
+              "owner": "reader.row_count",
+              "tensor_object_id": 281470493981776,
+              "layout": {
+                "ptr": 20771535606272,
+                "shape": [
+                  1
+                ],
+                "stride": [
+                  1
+                ],
+                "dtype": "torch.int64",
+                "device": "npu:3",
+                "format": 2
+              }
+            },
+            "native.cache": {
+              "owner": "native.cache",
+              "tensor_object_id": 281470493977936,
+              "layout": {
+                "ptr": 20771535597056,
+                "shape": [
+                  16,
+                  64
+                ],
+                "stride": [
+                  64,
+                  1
+                ],
+                "dtype": "torch.bfloat16",
+                "device": "npu:3",
+                "format": 2
+              }
+            }
+          },
+          "epochs": 32,
+          "copy_classes": {
+            "payload": 8,
+            "count": 0,
+            "native_cache": 0
+          }
+        },
+        {
+          "rank": 4,
+          "physical_chip": 12,
+          "identity": {
+            "pid": 1470544,
+            "boot_id": "3e453542-70e1-442f-88ef-ee52db5f8471",
+            "normal_init_return_ns": 2874294224298320
+          },
+          "result": {
+            "path": "/home/chiro/projects/dsv41/operator-stack-tp8/experiments/operator_stack/evidence/formal_a321/sdk_init_nonstatic_keep_v8/gate/sdk_results/nonstatic_keep/rank4/result.json",
+            "bytes": 694420,
+            "sha256": "f516c4ba9f6d36e47f725c2fad4e3af274b34c0deaeb7555ea0f5f63a3995d61",
+            "raw_bytes_transferred": true
+          },
+          "loaded_abi_proofs": {
+            "path": "/home/chiro/projects/dsv41/operator-stack-tp8/experiments/operator_stack/evidence/formal_a321/sdk_init_nonstatic_keep_v8/gate/metadata/loaded_abi_proofs/rank4.json",
+            "bytes": 9344,
+            "sha256": "2af3253495eb0991df4454c76a099d60112b57e85166be18b774ac8e983ffef7",
+            "raw_bytes_transferred": true
+          },
+          "generated_kernels": [
+            {
+              "path": "/home/chiro/projects/dsv41/operator-stack-tp8/experiments/operator_stack/evidence/formal_a321/sdk_init_nonstatic_keep_v8/gate/sdk_results/nonstatic_keep/rank4/generated_kernel_0.py",
+              "bytes": 6529,
+              "sha256": "094a3119c91945b5405779fb280ce9310c043b8752cd47f7a640705a46543238",
+              "raw_bytes_transferred": true
+            }
+          ],
+          "initialized_scope": {
+            "current_initialized": true,
+            "context_ptr": 187651061998704,
+            "runtime_logical_device": 4,
+            "physical_device": 12,
+            "torch_current_device": 4,
+            "worker_device_index": 4,
+            "stream_ptr": 187651364927512,
+            "tp_rank": 4,
+            "tp_world_size": 8,
+            "worker_rank": 4,
+            "global_rank": 4,
+            "runner_idle": true,
+            "capturing": false
+          },
+          "native_scope": {
+            "owner": "vllm_ascend.worker.model_runner_v1.graph_capture",
+            "source": {
+              "path": "/vllm-workspace/vllm-ascend/vllm_ascend/worker/model_runner_v1.py",
+              "bytes": 278172,
+              "sha256": "67035d97f1cea4ae2df31adcc33f1de952f4cab6d8421e76df512296e0e3185e",
+              "function_sha256": "5cef623525ea2042e0306fc5a3795ddfa56808dc7213c68cf6cc29599f148644",
+              "qualified_function": "vllm_ascend.worker.model_runner_v1.graph_capture"
+            },
+            "native_context_creates_stream": true,
+            "init_return_stream_borrowed_unchanged": false,
+            "default_stream_ptr": 187651364927512,
+            "init_return_baseline": {
+              "current_initialized": true,
+              "context_ptr": 187651061998704,
+              "runtime_logical_device": 4,
+              "physical_device": 12,
+              "torch_current_device": 4,
+              "worker_device_index": 4,
+              "stream_ptr": 187651364927512,
+              "tp_rank": 4,
+              "tp_world_size": 8,
+              "worker_rank": 4,
+              "global_rank": 4,
+              "runner_idle": true,
+              "capturing": false
+            },
+            "normal_exit_restoration_verified": true,
+            "gate_stream_constructor_called": false,
+            "gate_stream_patch_applied": false,
+            "context_object_id": 281470551492368,
+            "stream_object_id": 281470549470224,
+            "native_scope": {
+              "current_initialized": true,
+              "context_ptr": 187651061998704,
+              "runtime_logical_device": 4,
+              "physical_device": 12,
+              "torch_current_device": 4,
+              "worker_device_index": 4,
+              "stream_ptr": 187651395487032,
+              "tp_rank": 4,
+              "tp_world_size": 8,
+              "worker_rank": 4,
+              "global_rank": 4,
+              "runner_idle": true,
+              "capturing": false
+            },
+            "native_stream_ptr": 187651395487032,
+            "native_context_exit_completed": true,
+            "restored_baseline": {
+              "current_initialized": true,
+              "context_ptr": 187651061998704,
+              "runtime_logical_device": 4,
+              "physical_device": 12,
+              "torch_current_device": 4,
+              "worker_device_index": 4,
+              "stream_ptr": 187651364927512,
+              "tp_rank": 4,
+              "tp_world_size": 8,
+              "worker_rank": 4,
+              "global_rank": 4,
+              "runner_idle": true,
+              "capturing": false
+            }
+          },
+          "owner_seals": {
+            "producer.values": {
+              "owner": "producer.values",
+              "tensor_object_id": 281470796150368,
+              "layout": {
+                "ptr": 20771535599616,
+                "shape": [
+                  6,
+                  64
+                ],
+                "stride": [
+                  64,
+                  1
+                ],
+                "dtype": "torch.bfloat16",
+                "device": "npu:4",
+                "format": 2
+              }
+            },
+            "producer.positions": {
+              "owner": "producer.positions",
+              "tensor_object_id": 281470796151088,
+              "layout": {
+                "ptr": 20771535600640,
+                "shape": [
+                  6,
+                  1
+                ],
+                "stride": [
+                  1,
+                  1
+                ],
+                "dtype": "torch.int64",
+                "device": "npu:4",
+                "format": 2
+              }
+            },
+            "producer.valid": {
+              "owner": "producer.valid",
+              "tensor_object_id": 281470796152368,
+              "layout": {
+                "ptr": 20771535601152,
+                "shape": [
+                  6
+                ],
+                "stride": [
+                  1
+                ],
+                "dtype": "torch.bool",
+                "device": "npu:4",
+                "format": 2
+              }
+            },
+            "producer.epoch": {
+              "owner": "producer.epoch",
+              "tensor_object_id": 281470796152528,
+              "layout": {
+                "ptr": 20771535601664,
+                "shape": [
+                  1
+                ],
+                "stride": [
+                  1
+                ],
+                "dtype": "torch.int64",
+                "device": "npu:4",
+                "format": 2
+              }
+            },
+            "producer.copy_count": {
+              "owner": "producer.copy_count",
+              "tensor_object_id": 281470796152288,
+              "layout": {
+                "ptr": 20771535602176,
+                "shape": [
+                  1
+                ],
+                "stride": [
+                  1
+                ],
+                "dtype": "torch.int64",
+                "device": "npu:4",
+                "format": 2
+              }
+            },
+            "producer.row_count": {
+              "owner": "producer.row_count",
+              "tensor_object_id": 281470796152768,
+              "layout": {
+                "ptr": 20771535602688,
+                "shape": [
+                  1
+                ],
+                "stride": [
+                  1
+                ],
+                "dtype": "torch.int64",
+                "device": "npu:4",
+                "format": 2
+              }
+            },
+            "reader.values": {
+              "owner": "reader.values",
+              "tensor_object_id": 281470796152128,
+              "layout": {
+                "ptr": 20771535603200,
+                "shape": [
+                  6,
+                  64
+                ],
+                "stride": [
+                  64,
+                  1
+                ],
+                "dtype": "torch.bfloat16",
+                "device": "npu:4",
+                "format": 2
+              }
+            },
+            "reader.positions": {
+              "owner": "reader.positions",
+              "tensor_object_id": 281470796150608,
+              "layout": {
+                "ptr": 20771535604224,
+                "shape": [
+                  6,
+                  1
+                ],
+                "stride": [
+                  1,
+                  1
+                ],
+                "dtype": "torch.int64",
+                "device": "npu:4",
+                "format": 2
+              }
+            },
+            "reader.valid": {
+              "owner": "reader.valid",
+              "tensor_object_id": 281470796138528,
+              "layout": {
+                "ptr": 20771535604736,
+                "shape": [
+                  6
+                ],
+                "stride": [
+                  1
+                ],
+                "dtype": "torch.bool",
+                "device": "npu:4",
+                "format": 2
+              }
+            },
+            "reader.epoch": {
+              "owner": "reader.epoch",
+              "tensor_object_id": 281470796152608,
+              "layout": {
+                "ptr": 20771535605248,
+                "shape": [
+                  1
+                ],
+                "stride": [
+                  1
+                ],
+                "dtype": "torch.int64",
+                "device": "npu:4",
+                "format": 2
+              }
+            },
+            "reader.copy_count": {
+              "owner": "reader.copy_count",
+              "tensor_object_id": 281470796138368,
+              "layout": {
+                "ptr": 20771535605760,
+                "shape": [
+                  1
+                ],
+                "stride": [
+                  1
+                ],
+                "dtype": "torch.int64",
+                "device": "npu:4",
+                "format": 2
+              }
+            },
+            "reader.row_count": {
+              "owner": "reader.row_count",
+              "tensor_object_id": 281470796138288,
+              "layout": {
+                "ptr": 20771535606272,
+                "shape": [
+                  1
+                ],
+                "stride": [
+                  1
+                ],
+                "dtype": "torch.int64",
+                "device": "npu:4",
+                "format": 2
+              }
+            },
+            "native.cache": {
+              "owner": "native.cache",
+              "tensor_object_id": 281470796147968,
+              "layout": {
+                "ptr": 20771535597056,
+                "shape": [
+                  16,
+                  64
+                ],
+                "stride": [
+                  64,
+                  1
+                ],
+                "dtype": "torch.bfloat16",
+                "device": "npu:4",
+                "format": 2
+              }
+            }
+          },
+          "epochs": 32,
+          "copy_classes": {
+            "payload": 8,
+            "count": 0,
+            "native_cache": 0
+          }
+        },
+        {
+          "rank": 5,
+          "physical_chip": 13,
+          "identity": {
+            "pid": 1470545,
+            "boot_id": "3e453542-70e1-442f-88ef-ee52db5f8471",
+            "normal_init_return_ns": 2874294231016040
+          },
+          "result": {
+            "path": "/home/chiro/projects/dsv41/operator-stack-tp8/experiments/operator_stack/evidence/formal_a321/sdk_init_nonstatic_keep_v8/gate/sdk_results/nonstatic_keep/rank5/result.json",
+            "bytes": 694320,
+            "sha256": "5515d65ea1017057818b96a095561f96b334f8a9fc0d693444956d0ec501fde8",
+            "raw_bytes_transferred": true
+          },
+          "loaded_abi_proofs": {
+            "path": "/home/chiro/projects/dsv41/operator-stack-tp8/experiments/operator_stack/evidence/formal_a321/sdk_init_nonstatic_keep_v8/gate/metadata/loaded_abi_proofs/rank5.json",
+            "bytes": 9344,
+            "sha256": "23e2903895546bb7be1eb0c87f0498a8bd6f6fd2434230d534237d9f5f3632f5",
+            "raw_bytes_transferred": true
+          },
+          "generated_kernels": [
+            {
+              "path": "/home/chiro/projects/dsv41/operator-stack-tp8/experiments/operator_stack/evidence/formal_a321/sdk_init_nonstatic_keep_v8/gate/sdk_results/nonstatic_keep/rank5/generated_kernel_0.py",
+              "bytes": 6529,
+              "sha256": "17786335d91df031e796ff249c55d3214b2e11f1e73965947a9310671de37384",
+              "raw_bytes_transferred": true
+            }
+          ],
+          "initialized_scope": {
+            "current_initialized": true,
+            "context_ptr": 187651839292016,
+            "runtime_logical_device": 5,
+            "physical_device": 13,
+            "torch_current_device": 5,
+            "worker_device_index": 5,
+            "stream_ptr": 187652150033176,
+            "tp_rank": 5,
+            "tp_world_size": 8,
+            "worker_rank": 5,
+            "global_rank": 5,
+            "runner_idle": true,
+            "capturing": false
+          },
+          "native_scope": {
+            "owner": "vllm_ascend.worker.model_runner_v1.graph_capture",
+            "source": {
+              "path": "/vllm-workspace/vllm-ascend/vllm_ascend/worker/model_runner_v1.py",
+              "bytes": 278172,
+              "sha256": "67035d97f1cea4ae2df31adcc33f1de952f4cab6d8421e76df512296e0e3185e",
+              "function_sha256": "5cef623525ea2042e0306fc5a3795ddfa56808dc7213c68cf6cc29599f148644",
+              "qualified_function": "vllm_ascend.worker.model_runner_v1.graph_capture"
+            },
+            "native_context_creates_stream": true,
+            "init_return_stream_borrowed_unchanged": false,
+            "default_stream_ptr": 187652150033176,
+            "init_return_baseline": {
+              "current_initialized": true,
+              "context_ptr": 187651839292016,
+              "runtime_logical_device": 5,
+              "physical_device": 13,
+              "torch_current_device": 5,
+              "worker_device_index": 5,
+              "stream_ptr": 187652150033176,
+              "tp_rank": 5,
+              "tp_world_size": 8,
+              "worker_rank": 5,
+              "global_rank": 5,
+              "runner_idle": true,
+              "capturing": false
+            },
+            "normal_exit_restoration_verified": true,
+            "gate_stream_constructor_called": false,
+            "gate_stream_patch_applied": false,
+            "context_object_id": 281470349411824,
+            "stream_object_id": 281470349437968,
+            "native_scope": {
+              "current_initialized": true,
+              "context_ptr": 187651839292016,
+              "runtime_logical_device": 5,
+              "physical_device": 13,
+              "torch_current_device": 5,
+              "worker_device_index": 5,
+              "stream_ptr": 187652180598136,
+              "tp_rank": 5,
+              "tp_world_size": 8,
+              "worker_rank": 5,
+              "global_rank": 5,
+              "runner_idle": true,
+              "capturing": false
+            },
+            "native_stream_ptr": 187652180598136,
+            "native_context_exit_completed": true,
+            "restored_baseline": {
+              "current_initialized": true,
+              "context_ptr": 187651839292016,
+              "runtime_logical_device": 5,
+              "physical_device": 13,
+              "torch_current_device": 5,
+              "worker_device_index": 5,
+              "stream_ptr": 187652150033176,
+              "tp_rank": 5,
+              "tp_world_size": 8,
+              "worker_rank": 5,
+              "global_rank": 5,
+              "runner_idle": true,
+              "capturing": false
+            }
+          },
+          "owner_seals": {
+            "producer.values": {
+              "owner": "producer.values",
+              "tensor_object_id": 281470621005328,
+              "layout": {
+                "ptr": 20771535599616,
+                "shape": [
+                  6,
+                  64
+                ],
+                "stride": [
+                  64,
+                  1
+                ],
+                "dtype": "torch.bfloat16",
+                "device": "npu:5",
+                "format": 2
+              }
+            },
+            "producer.positions": {
+              "owner": "producer.positions",
+              "tensor_object_id": 281470621006048,
+              "layout": {
+                "ptr": 20771535600640,
+                "shape": [
+                  6,
+                  1
+                ],
+                "stride": [
+                  1,
+                  1
+                ],
+                "dtype": "torch.int64",
+                "device": "npu:5",
+                "format": 2
+              }
+            },
+            "producer.valid": {
+              "owner": "producer.valid",
+              "tensor_object_id": 281470621007248,
+              "layout": {
+                "ptr": 20771535601152,
+                "shape": [
+                  6
+                ],
+                "stride": [
+                  1
+                ],
+                "dtype": "torch.bool",
+                "device": "npu:5",
+                "format": 2
+              }
+            },
+            "producer.epoch": {
+              "owner": "producer.epoch",
+              "tensor_object_id": 281470621007568,
+              "layout": {
+                "ptr": 20771535601664,
+                "shape": [
+                  1
+                ],
+                "stride": [
+                  1
+                ],
+                "dtype": "torch.int64",
+                "device": "npu:5",
+                "format": 2
+              }
+            },
+            "producer.copy_count": {
+              "owner": "producer.copy_count",
+              "tensor_object_id": 281470621007408,
+              "layout": {
+                "ptr": 20771535602176,
+                "shape": [
+                  1
+                ],
+                "stride": [
+                  1
+                ],
+                "dtype": "torch.int64",
+                "device": "npu:5",
+                "format": 2
+              }
+            },
+            "producer.row_count": {
+              "owner": "producer.row_count",
+              "tensor_object_id": 281470621005648,
+              "layout": {
+                "ptr": 20771535602688,
+                "shape": [
+                  1
+                ],
+                "stride": [
+                  1
+                ],
+                "dtype": "torch.int64",
+                "device": "npu:5",
+                "format": 2
+              }
+            },
+            "reader.values": {
+              "owner": "reader.values",
+              "tensor_object_id": 281470621007808,
+              "layout": {
+                "ptr": 20771535603200,
+                "shape": [
+                  6,
+                  64
+                ],
+                "stride": [
+                  64,
+                  1
+                ],
+                "dtype": "torch.bfloat16",
+                "device": "npu:5",
+                "format": 2
+              }
+            },
+            "reader.positions": {
+              "owner": "reader.positions",
+              "tensor_object_id": 281470621007648,
+              "layout": {
+                "ptr": 20771535604224,
+                "shape": [
+                  6,
+                  1
+                ],
+                "stride": [
+                  1,
+                  1
+                ],
+                "dtype": "torch.int64",
+                "device": "npu:5",
+                "format": 2
+              }
+            },
+            "reader.valid": {
+              "owner": "reader.valid",
+              "tensor_object_id": 281470621007168,
+              "layout": {
+                "ptr": 20771535604736,
+                "shape": [
+                  6
+                ],
+                "stride": [
+                  1
+                ],
+                "dtype": "torch.bool",
+                "device": "npu:5",
+                "format": 2
+              }
+            },
+            "reader.epoch": {
+              "owner": "reader.epoch",
+              "tensor_object_id": 281470620993568,
+              "layout": {
+                "ptr": 20771535605248,
+                "shape": [
+                  1
+                ],
+                "stride": [
+                  1
+                ],
+                "dtype": "torch.int64",
+                "device": "npu:5",
+                "format": 2
+              }
+            },
+            "reader.copy_count": {
+              "owner": "reader.copy_count",
+              "tensor_object_id": 281470620993408,
+              "layout": {
+                "ptr": 20771535605760,
+                "shape": [
+                  1
+                ],
+                "stride": [
+                  1
+                ],
+                "dtype": "torch.int64",
+                "device": "npu:5",
+                "format": 2
+              }
+            },
+            "reader.row_count": {
+              "owner": "reader.row_count",
+              "tensor_object_id": 281470620993328,
+              "layout": {
+                "ptr": 20771535606272,
+                "shape": [
+                  1
+                ],
+                "stride": [
+                  1
+                ],
+                "dtype": "torch.int64",
+                "device": "npu:5",
+                "format": 2
+              }
+            },
+            "native.cache": {
+              "owner": "native.cache",
+              "tensor_object_id": 281470621003008,
+              "layout": {
+                "ptr": 20771535597056,
+                "shape": [
+                  16,
+                  64
+                ],
+                "stride": [
+                  64,
+                  1
+                ],
+                "dtype": "torch.bfloat16",
+                "device": "npu:5",
+                "format": 2
+              }
+            }
+          },
+          "epochs": 32,
+          "copy_classes": {
+            "payload": 8,
+            "count": 0,
+            "native_cache": 0
+          }
+        },
+        {
+          "rank": 6,
+          "physical_chip": 14,
+          "identity": {
+            "pid": 1470546,
+            "boot_id": "3e453542-70e1-442f-88ef-ee52db5f8471",
+            "normal_init_return_ns": 2874294233014290
+          },
+          "result": {
+            "path": "/home/chiro/projects/dsv41/operator-stack-tp8/experiments/operator_stack/evidence/formal_a321/sdk_init_nonstatic_keep_v8/gate/sdk_results/nonstatic_keep/rank6/result.json",
+            "bytes": 693120,
+            "sha256": "7b942a2b8046c364b6d9e429ea7feec4a5aea1321041c159244557530b6cd790",
+            "raw_bytes_transferred": true
+          },
+          "loaded_abi_proofs": {
+            "path": "/home/chiro/projects/dsv41/operator-stack-tp8/experiments/operator_stack/evidence/formal_a321/sdk_init_nonstatic_keep_v8/gate/metadata/loaded_abi_proofs/rank6.json",
+            "bytes": 9344,
+            "sha256": "5d5b4d512773a8a678537851a737de2b6b8454bc503ba8b3d65b82ed185abf36",
+            "raw_bytes_transferred": true
+          },
+          "generated_kernels": [
+            {
+              "path": "/home/chiro/projects/dsv41/operator-stack-tp8/experiments/operator_stack/evidence/formal_a321/sdk_init_nonstatic_keep_v8/gate/sdk_results/nonstatic_keep/rank6/generated_kernel_0.py",
+              "bytes": 6529,
+              "sha256": "f604a6993e1d6e750a26056c231cb7f700ae973d0722f05bce26baef51856b4b",
+              "raw_bytes_transferred": true
+            }
+          ],
+          "initialized_scope": {
+            "current_initialized": true,
+            "context_ptr": 187651221577120,
+            "runtime_logical_device": 6,
+            "physical_device": 14,
+            "torch_current_device": 6,
+            "worker_device_index": 6,
+            "stream_ptr": 187651521442792,
+            "tp_rank": 6,
+            "tp_world_size": 8,
+            "worker_rank": 6,
+            "global_rank": 6,
+            "runner_idle": true,
+            "capturing": false
+          },
+          "native_scope": {
+            "owner": "vllm_ascend.worker.model_runner_v1.graph_capture",
+            "source": {
+              "path": "/vllm-workspace/vllm-ascend/vllm_ascend/worker/model_runner_v1.py",
+              "bytes": 278172,
+              "sha256": "67035d97f1cea4ae2df31adcc33f1de952f4cab6d8421e76df512296e0e3185e",
+              "function_sha256": "5cef623525ea2042e0306fc5a3795ddfa56808dc7213c68cf6cc29599f148644",
+              "qualified_function": "vllm_ascend.worker.model_runner_v1.graph_capture"
+            },
+            "native_context_creates_stream": true,
+            "init_return_stream_borrowed_unchanged": false,
+            "default_stream_ptr": 187651521442792,
+            "init_return_baseline": {
+              "current_initialized": true,
+              "context_ptr": 187651221577120,
+              "runtime_logical_device": 6,
+              "physical_device": 14,
+              "torch_current_device": 6,
+              "worker_device_index": 6,
+              "stream_ptr": 187651521442792,
+              "tp_rank": 6,
+              "tp_world_size": 8,
+              "worker_rank": 6,
+              "global_rank": 6,
+              "runner_idle": true,
+              "capturing": false
+            },
+            "normal_exit_restoration_verified": true,
+            "gate_stream_constructor_called": false,
+            "gate_stream_patch_applied": false,
+            "context_object_id": 281470150805408,
+            "stream_object_id": 281470150863888,
+            "native_scope": {
+              "current_initialized": true,
+              "context_ptr": 187651221577120,
+              "runtime_logical_device": 6,
+              "physical_device": 14,
+              "torch_current_device": 6,
+              "worker_device_index": 6,
+              "stream_ptr": 187651552006776,
+              "tp_rank": 6,
+              "tp_world_size": 8,
+              "worker_rank": 6,
+              "global_rank": 6,
+              "runner_idle": true,
+              "capturing": false
+            },
+            "native_stream_ptr": 187651552006776,
+            "native_context_exit_completed": true,
+            "restored_baseline": {
+              "current_initialized": true,
+              "context_ptr": 187651221577120,
+              "runtime_logical_device": 6,
+              "physical_device": 14,
+              "torch_current_device": 6,
+              "worker_device_index": 6,
+              "stream_ptr": 187651521442792,
+              "tp_rank": 6,
+              "tp_world_size": 8,
+              "worker_rank": 6,
+              "global_rank": 6,
+              "runner_idle": true,
+              "capturing": false
+            }
+          },
+          "owner_seals": {
+            "producer.values": {
+              "owner": "producer.values",
+              "tensor_object_id": 281470699845216,
+              "layout": {
+                "ptr": 20771535599616,
+                "shape": [
+                  6,
+                  64
+                ],
+                "stride": [
+                  64,
+                  1
+                ],
+                "dtype": "torch.bfloat16",
+                "device": "npu:6",
+                "format": 2
+              }
+            },
+            "producer.positions": {
+              "owner": "producer.positions",
+              "tensor_object_id": 281470699845856,
+              "layout": {
+                "ptr": 20771535600640,
+                "shape": [
+                  6,
+                  1
+                ],
+                "stride": [
+                  1,
+                  1
+                ],
+                "dtype": "torch.int64",
+                "device": "npu:6",
+                "format": 2
+              }
+            },
+            "producer.valid": {
+              "owner": "producer.valid",
+              "tensor_object_id": 281470699847136,
+              "layout": {
+                "ptr": 20771535601152,
+                "shape": [
+                  6
+                ],
+                "stride": [
+                  1
+                ],
+                "dtype": "torch.bool",
+                "device": "npu:6",
+                "format": 2
+              }
+            },
+            "producer.epoch": {
+              "owner": "producer.epoch",
+              "tensor_object_id": 281470699847296,
+              "layout": {
+                "ptr": 20771535601664,
+                "shape": [
+                  1
+                ],
+                "stride": [
+                  1
+                ],
+                "dtype": "torch.int64",
+                "device": "npu:6",
+                "format": 2
+              }
+            },
+            "producer.copy_count": {
+              "owner": "producer.copy_count",
+              "tensor_object_id": 281470699847216,
+              "layout": {
+                "ptr": 20771535602176,
+                "shape": [
+                  1
+                ],
+                "stride": [
+                  1
+                ],
+                "dtype": "torch.int64",
+                "device": "npu:6",
+                "format": 2
+              }
+            },
+            "producer.row_count": {
+              "owner": "producer.row_count",
+              "tensor_object_id": 281470699845056,
+              "layout": {
+                "ptr": 20771535602688,
+                "shape": [
+                  1
+                ],
+                "stride": [
+                  1
+                ],
+                "dtype": "torch.int64",
+                "device": "npu:6",
+                "format": 2
+              }
+            },
+            "reader.values": {
+              "owner": "reader.values",
+              "tensor_object_id": 281470699846656,
+              "layout": {
+                "ptr": 20771535603200,
+                "shape": [
+                  6,
+                  64
+                ],
+                "stride": [
+                  64,
+                  1
+                ],
+                "dtype": "torch.bfloat16",
+                "device": "npu:6",
+                "format": 2
+              }
+            },
+            "reader.positions": {
+              "owner": "reader.positions",
+              "tensor_object_id": 281470699847616,
+              "layout": {
+                "ptr": 20771535604224,
+                "shape": [
+                  6,
+                  1
+                ],
+                "stride": [
+                  1,
+                  1
+                ],
+                "dtype": "torch.int64",
+                "device": "npu:6",
+                "format": 2
+              }
+            },
+            "reader.valid": {
+              "owner": "reader.valid",
+              "tensor_object_id": 281470699847456,
+              "layout": {
+                "ptr": 20771535604736,
+                "shape": [
+                  6
+                ],
+                "stride": [
+                  1
+                ],
+                "dtype": "torch.bool",
+                "device": "npu:6",
+                "format": 2
+              }
+            },
+            "reader.epoch": {
+              "owner": "reader.epoch",
+              "tensor_object_id": 281470699846976,
+              "layout": {
+                "ptr": 20771535605248,
+                "shape": [
+                  1
+                ],
+                "stride": [
+                  1
+                ],
+                "dtype": "torch.int64",
+                "device": "npu:6",
+                "format": 2
+              }
+            },
+            "reader.copy_count": {
+              "owner": "reader.copy_count",
+              "tensor_object_id": 281470699833136,
+              "layout": {
+                "ptr": 20771535605760,
+                "shape": [
+                  1
+                ],
+                "stride": [
+                  1
+                ],
+                "dtype": "torch.int64",
+                "device": "npu:6",
+                "format": 2
+              }
+            },
+            "reader.row_count": {
+              "owner": "reader.row_count",
+              "tensor_object_id": 281470699833216,
+              "layout": {
+                "ptr": 20771535606272,
+                "shape": [
+                  1
+                ],
+                "stride": [
+                  1
+                ],
+                "dtype": "torch.int64",
+                "device": "npu:6",
+                "format": 2
+              }
+            },
+            "native.cache": {
+              "owner": "native.cache",
+              "tensor_object_id": 281470699842816,
+              "layout": {
+                "ptr": 20771535597056,
+                "shape": [
+                  16,
+                  64
+                ],
+                "stride": [
+                  64,
+                  1
+                ],
+                "dtype": "torch.bfloat16",
+                "device": "npu:6",
+                "format": 2
+              }
+            }
+          },
+          "epochs": 32,
+          "copy_classes": {
+            "payload": 8,
+            "count": 0,
+            "native_cache": 0
+          }
+        },
+        {
+          "rank": 7,
+          "physical_chip": 15,
+          "identity": {
+            "pid": 1470547,
+            "boot_id": "3e453542-70e1-442f-88ef-ee52db5f8471",
+            "normal_init_return_ns": 2874294223844660
+          },
+          "result": {
+            "path": "/home/chiro/projects/dsv41/operator-stack-tp8/experiments/operator_stack/evidence/formal_a321/sdk_init_nonstatic_keep_v8/gate/sdk_results/nonstatic_keep/rank7/result.json",
+            "bytes": 693208,
+            "sha256": "a65eb2b45a29d2aaf8b47d883a06eaf79371a0e1f151dadb9d7746a9350ae54a",
+            "raw_bytes_transferred": true
+          },
+          "loaded_abi_proofs": {
+            "path": "/home/chiro/projects/dsv41/operator-stack-tp8/experiments/operator_stack/evidence/formal_a321/sdk_init_nonstatic_keep_v8/gate/metadata/loaded_abi_proofs/rank7.json",
+            "bytes": 9344,
+            "sha256": "96577ac8659390fe46ec2ec93f8b7c0a62901a856442e26eacd7930395ccaa0f",
+            "raw_bytes_transferred": true
+          },
+          "generated_kernels": [
+            {
+              "path": "/home/chiro/projects/dsv41/operator-stack-tp8/experiments/operator_stack/evidence/formal_a321/sdk_init_nonstatic_keep_v8/gate/sdk_results/nonstatic_keep/rank7/generated_kernel_0.py",
+              "bytes": 6529,
+              "sha256": "204ad1bd135a8f8dfae54fd3083fa02e5fee79fbf75545e7b227f414b995f3f1",
+              "raw_bytes_transferred": true
+            }
+          ],
+          "initialized_scope": {
+            "current_initialized": true,
+            "context_ptr": 187651135902416,
+            "runtime_logical_device": 7,
+            "physical_device": 15,
+            "torch_current_device": 7,
+            "worker_device_index": 7,
+            "stream_ptr": 187651446804408,
+            "tp_rank": 7,
+            "tp_world_size": 8,
+            "worker_rank": 7,
+            "global_rank": 7,
+            "runner_idle": true,
+            "capturing": false
+          },
+          "native_scope": {
+            "owner": "vllm_ascend.worker.model_runner_v1.graph_capture",
+            "source": {
+              "path": "/vllm-workspace/vllm-ascend/vllm_ascend/worker/model_runner_v1.py",
+              "bytes": 278172,
+              "sha256": "67035d97f1cea4ae2df31adcc33f1de952f4cab6d8421e76df512296e0e3185e",
+              "function_sha256": "5cef623525ea2042e0306fc5a3795ddfa56808dc7213c68cf6cc29599f148644",
+              "qualified_function": "vllm_ascend.worker.model_runner_v1.graph_capture"
+            },
+            "native_context_creates_stream": true,
+            "init_return_stream_borrowed_unchanged": false,
+            "default_stream_ptr": 187651446804408,
+            "init_return_baseline": {
+              "current_initialized": true,
+              "context_ptr": 187651135902416,
+              "runtime_logical_device": 7,
+              "physical_device": 15,
+              "torch_current_device": 7,
+              "worker_device_index": 7,
+              "stream_ptr": 187651446804408,
+              "tp_rank": 7,
+              "tp_world_size": 8,
+              "worker_rank": 7,
+              "global_rank": 7,
+              "runner_idle": true,
+              "capturing": false
+            },
+            "normal_exit_restoration_verified": true,
+            "gate_stream_constructor_called": false,
+            "gate_stream_patch_applied": false,
+            "context_object_id": 281469884824848,
+            "stream_object_id": 281469610732560,
+            "native_scope": {
+              "current_initialized": true,
+              "context_ptr": 187651135902416,
+              "runtime_logical_device": 7,
+              "physical_device": 15,
+              "torch_current_device": 7,
+              "worker_device_index": 7,
+              "stream_ptr": 187651477371576,
+              "tp_rank": 7,
+              "tp_world_size": 8,
+              "worker_rank": 7,
+              "global_rank": 7,
+              "runner_idle": true,
+              "capturing": false
+            },
+            "native_stream_ptr": 187651477371576,
+            "native_context_exit_completed": true,
+            "restored_baseline": {
+              "current_initialized": true,
+              "context_ptr": 187651135902416,
+              "runtime_logical_device": 7,
+              "physical_device": 15,
+              "torch_current_device": 7,
+              "worker_device_index": 7,
+              "stream_ptr": 187651446804408,
+              "tp_rank": 7,
+              "tp_world_size": 8,
+              "worker_rank": 7,
+              "global_rank": 7,
+              "runner_idle": true,
+              "capturing": false
+            }
+          },
+          "owner_seals": {
+            "producer.values": {
+              "owner": "producer.values",
+              "tensor_object_id": 281469882152544,
+              "layout": {
+                "ptr": 20771535599616,
+                "shape": [
+                  6,
+                  64
+                ],
+                "stride": [
+                  64,
+                  1
+                ],
+                "dtype": "torch.bfloat16",
+                "device": "npu:7",
+                "format": 2
+              }
+            },
+            "producer.positions": {
+              "owner": "producer.positions",
+              "tensor_object_id": 281469882153104,
+              "layout": {
+                "ptr": 20771535600640,
+                "shape": [
+                  6,
+                  1
+                ],
+                "stride": [
+                  1,
+                  1
+                ],
+                "dtype": "torch.int64",
+                "device": "npu:7",
+                "format": 2
+              }
+            },
+            "producer.valid": {
+              "owner": "producer.valid",
+              "tensor_object_id": 281469882154384,
+              "layout": {
+                "ptr": 20771535601152,
+                "shape": [
+                  6
+                ],
+                "stride": [
+                  1
+                ],
+                "dtype": "torch.bool",
+                "device": "npu:7",
+                "format": 2
+              }
+            },
+            "producer.epoch": {
+              "owner": "producer.epoch",
+              "tensor_object_id": 281469882154704,
+              "layout": {
+                "ptr": 20771535601664,
+                "shape": [
+                  1
+                ],
+                "stride": [
+                  1
+                ],
+                "dtype": "torch.int64",
+                "device": "npu:7",
+                "format": 2
+              }
+            },
+            "producer.copy_count": {
+              "owner": "producer.copy_count",
+              "tensor_object_id": 281469882154544,
+              "layout": {
+                "ptr": 20771535602176,
+                "shape": [
+                  1
+                ],
+                "stride": [
+                  1
+                ],
+                "dtype": "torch.int64",
+                "device": "npu:7",
+                "format": 2
+              }
+            },
+            "producer.row_count": {
+              "owner": "producer.row_count",
+              "tensor_object_id": 281469882154784,
+              "layout": {
+                "ptr": 20771535602688,
+                "shape": [
+                  1
+                ],
+                "stride": [
+                  1
+                ],
+                "dtype": "torch.int64",
+                "device": "npu:7",
+                "format": 2
+              }
+            },
+            "reader.values": {
+              "owner": "reader.values",
+              "tensor_object_id": 281469882152624,
+              "layout": {
+                "ptr": 20771535603200,
+                "shape": [
+                  6,
+                  64
+                ],
+                "stride": [
+                  64,
+                  1
+                ],
+                "dtype": "torch.bfloat16",
+                "device": "npu:7",
+                "format": 2
+              }
+            },
+            "reader.positions": {
+              "owner": "reader.positions",
+              "tensor_object_id": 281469882154464,
+              "layout": {
+                "ptr": 20771535604224,
+                "shape": [
+                  6,
+                  1
+                ],
+                "stride": [
+                  1,
+                  1
+                ],
+                "dtype": "torch.int64",
+                "device": "npu:7",
+                "format": 2
+              }
+            },
+            "reader.valid": {
+              "owner": "reader.valid",
+              "tensor_object_id": 281469882140304,
+              "layout": {
+                "ptr": 20771535604736,
+                "shape": [
+                  6
+                ],
+                "stride": [
+                  1
+                ],
+                "dtype": "torch.bool",
+                "device": "npu:7",
+                "format": 2
+              }
+            },
+            "reader.epoch": {
+              "owner": "reader.epoch",
+              "tensor_object_id": 281469882154864,
+              "layout": {
+                "ptr": 20771535605248,
+                "shape": [
+                  1
+                ],
+                "stride": [
+                  1
+                ],
+                "dtype": "torch.int64",
+                "device": "npu:7",
+                "format": 2
+              }
+            },
+            "reader.copy_count": {
+              "owner": "reader.copy_count",
+              "tensor_object_id": 281469882140624,
+              "layout": {
+                "ptr": 20771535605760,
+                "shape": [
+                  1
+                ],
+                "stride": [
+                  1
+                ],
+                "dtype": "torch.int64",
+                "device": "npu:7",
+                "format": 2
+              }
+            },
+            "reader.row_count": {
+              "owner": "reader.row_count",
+              "tensor_object_id": 281469882140464,
+              "layout": {
+                "ptr": 20771535606272,
+                "shape": [
+                  1
+                ],
+                "stride": [
+                  1
+                ],
+                "dtype": "torch.int64",
+                "device": "npu:7",
+                "format": 2
+              }
+            },
+            "native.cache": {
+              "owner": "native.cache",
+              "tensor_object_id": 281469882150144,
+              "layout": {
+                "ptr": 20771535597056,
+                "shape": [
+                  16,
+                  64
+                ],
+                "stride": [
+                  64,
+                  1
+                ],
+                "dtype": "torch.bfloat16",
+                "device": "npu:7",
+                "format": 2
+              }
+            }
+          },
+          "epochs": 32,
+          "copy_classes": {
+            "payload": 8,
+            "count": 0,
+            "native_cache": 0
+          }
+        }
+      ],
+      "protocol_passed": true,
+      "actual_sdk_gate_passed": false,
+      "device_audit_passed": false,
+      "full_consumer_audit_passed": false,
+      "safe_formal_receipt": false,
+      "formal_model_validated": false,
+      "actual_prepack_consumer_order_validated": false
+    },
+    "source_root": "/home/chiro/projects/dsv41/operator-stack-tp8/experiments/operator_stack/parallel_tiny/dspark_formal_audit/native_initialized_worker_discovery_v8",
+    "source_freeze": {
+      "path": "/home/chiro/projects/dsv41/operator-stack-tp8/experiments/operator_stack/parallel_tiny/dspark_formal_audit/native_initialized_worker_discovery_v8/freeze.json",
+      "bytes": 16956,
+      "sha256": "73f865b8ce39a631db991cac1d6f8b39b35e9b7ab1e5cfdc1d89e7cadae33432",
+      "raw_bytes_transferred": true
+    },
+    "source_contract": {
+      "path": "/home/chiro/projects/dsv41/operator-stack-tp8/experiments/operator_stack/parallel_tiny/dspark_formal_audit/formal_consumer_sdk_bridge_v9_cpu/source_contract.json",
+      "bytes": 9508,
+      "sha256": "5f9904d4d826dc33a2617d2a661b9986c695f74777c97bcac5540dc6ccdb88b9",
+      "raw_bytes_transferred": true
+    },
+    "protocol_passed": true,
+    "npu_jobs": 0,
+    "actual_sdk_gate_passed": false,
+    "device_audit_passed": false,
+    "full_consumer_audit_passed": false,
+    "safe_formal_receipt": false,
+    "formal_model_validated": false,
+    "actual_prepack_consumer_order_validated": false
+  },
+  "sdk_pair_reference": {
+    "path": "/work/src_dspark_full43_diag_v1/stack/parallel_tiny/dspark_formal_audit/formal_consumer_sdk_bridge_v9_cpu/evidence/actual_pair_protocol.json",
+    "sha256": "565b09199888490dd67399cceae3346d88e420f2b40074a2fa089e0260e949d5",
+    "bridge_freeze_sha256": "1bbdc613969add1f47d9e678ac9ade9d35ad9e187a9985e8c21b67ff881623e5",
+    "scope": "prior hardware capability prerequisite only"
+  },
+  "audit_enabled": true,
+  "PYTHONPATH_source_root": "/work/src_dspark_full43_diag_v1/stack",
+  "native_math_and_formal_model_kwargs_preserved": true,
+  "device_audit_passed": false,
+  "full_consumer_audit_passed": false,
+  "safe_formal_receipt": false,
+  "formal_model_validated": false,
+  "actual_prepack_consumer_order_validated": false,
+  "performance_claim": null
+}

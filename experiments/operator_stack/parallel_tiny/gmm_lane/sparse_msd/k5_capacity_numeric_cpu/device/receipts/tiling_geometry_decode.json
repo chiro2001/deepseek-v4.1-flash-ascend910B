@@ -1,0 +1,31 @@
+{
+ "schema": "k5_capacity_tiling_geometry_decode_v1",
+ "method": "byte and u32-word diff of the compiled constant tiling arrays (2032B) of the frozen M1 capacity6/E48 build versus the two K5 capacity builds; this constant array is what the shipped kernel reads at runtime (no host tiling is used on the raw launches)",
+ "source": {
+  "m1": {"file": "sparse_msd/evidence/v3/tiling_candidate.bin", "sha256": "5a596a726706e39d34be71b61a6ed563325c1d482953937050a7b8373e9a263c"},
+  "target": {"file": "device/receipts/prepare_receipt_target.json compiled.tiling_sha256", "sha256": "b131490eeffa60ba944a5f9a88cdb584e376d221266022ff50720cde5181e71b"},
+  "draft": {"file": "device/receipts/prepare_receipt_draft.json compiled.tiling_sha256", "sha256": "5ca85302e83ce05fc9cef2d4e6b64437f73cbacd83d64ec74584036079f3a99b"}
+ },
+ "target": {
+  "differing_bytes": 2,
+  "differing_byte_offsets": [56, 72],
+  "changed_u32_fields": [
+   {"offset": 56, "m1_value": 6, "capacity_value": 36},
+   {"offset": 72, "m1_value": 6, "capacity_value": 36}
+  ],
+  "groupNum_48_to": null,
+  "M_6_to": 36
+ },
+ "draft": {
+  "differing_bytes": 3,
+  "differing_byte_offsets": [0, 56, 72],
+  "changed_u32_fields": [
+   {"offset": 0, "m1_value": 48, "capacity_value": 16},
+   {"offset": 56, "m1_value": 6, "capacity_value": 15},
+   {"offset": 72, "m1_value": 6, "capacity_value": 15}
+  ],
+  "groupNum_48_to": 16,
+  "M_6_to": 15
+ },
+ "conclusion": "The candidate kernel geometry guard (groupNum == experts, m == capacity) reads these constant tiling fields. The capacity builds carry groupNum 48/16 and M 36/15, so the compiled sparse scheduling block is armed for the K5 geometry. Arming is necessary but not sufficient for engagement: legal inputs make the sparse and dense schedules produce identical output rows by design, so engagement itself is still only covered by the compile-time code/source evidence and by the measured planner-inclusive timing signature, not by an output difference."
+}

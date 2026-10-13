@@ -1,0 +1,56 @@
+{
+  "schema_version": "delivery_ced_client_failure_summary_v1",
+  "stage": "single_code_schema_canary",
+  "created_at_utc": "2026-10-12T21:57:43.218304+00:00",
+  "service": {
+    "model": "dsv41-ced-pd-v2",
+    "form": "a3-ced-pd",
+    "proxy_url": "http://127.0.0.1:18992",
+    "root_service_instance_id": "3762dc9b083a4b33c045c877273d19a7cb5fc927dee2960b0181948d81424f41",
+    "prefill_service_instance_id": "53af26c59ea9402ba83283a4865f8057",
+    "decode_service_instance_id": "b975c203b8f54d4794c39603563e4286"
+  },
+  "request": {
+    "tag": "dm-canary-3e48e9fe86e8454ab214308d2910f6a1",
+    "task": "lru_cache",
+    "prompt_tokens_target": 2048,
+    "max_output_tokens": 128,
+    "http_status": 200,
+    "sse_error_event": {
+      "code": 500,
+      "type": "InternalServerError",
+      "message": "EngineCore encountered an issue. See stack trace (above) for the root cause.",
+      "param": null
+    },
+    "output_text_length": 0,
+    "usage_tokens": null,
+    "finish_reason": null
+  },
+  "measurement": {
+    "decode_arm_ack_ranks": 8,
+    "prefill_arm_ack_ranks": 8,
+    "async_mode": true,
+    "metrics_before_ok": true,
+    "metrics_after_error": "HTTP 502 from proxy; D backend /delivery/metrics returned HTTP 500 with EngineCore InternalServerError",
+    "counter_schema_valid": false,
+    "formal_code8_started": false,
+    "formal_dihuo_started": false,
+    "actual_outputs": 0,
+    "quality_passed": false,
+    "performance_observed": false,
+    "excluded_from_formal": true
+  },
+  "root_cause_attribution": null,
+  "preservation": {
+    "old_path": "/home/chiro/tmp/dsv41-ced-runtime-20261013/bench_v2/evidence/code_canary_ced_20261013_v2.json",
+    "new_path": "/home/chiro/projects/dsv41/operator-stack-tp8/experiments/delivery_matrix/evidence/ced_v3b_canary_failure_20261013/code_canary_ced_20261013_v2.json",
+    "size_bytes": 140954,
+    "sha256": "d76a4b56ce047312ddba029b963a7a4bc860cc34517fdffc23076c860f48b235",
+    "copied_without_modification": true
+  },
+  "client_actions": {
+    "retried": false,
+    "service_stopped_or_restarted": false,
+    "formal_requests_sent": false
+  }
+}

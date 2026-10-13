@@ -1,0 +1,115 @@
+{
+  "relative_path": "vllm/v1/core/block_pool.py",
+  "sha256": "51cad2fd425128a0ff433ca4685acfc022e40659153ea5d7180fc586e1eebb6c",
+  "source_lines": [
+    {
+      "line": 184,
+      "text": "        self.cached_block_hash_to_block: BlockHashToBlockMap = BlockHashToBlockMap()"
+    },
+    {
+      "line": 185,
+      "text": "        self.cached_block_hashes_by_block: dict[int, set[BlockHashWithGroupId]] = {}"
+    },
+    {
+      "line": 186,
+      "text": ""
+    },
+    {
+      "line": 187,
+      "text": "        # To represent a placeholder block with block_id=0."
+    },
+    {
+      "line": 188,
+      "text": "        # The ref_cnt of null_block is not maintained, needs special care to"
+    },
+    {
+      "line": 189,
+      "text": "        # avoid freeing it."
+    },
+    {
+      "line": 190,
+      "text": "        self.null_block = self.free_block_queue.popleft()"
+    },
+    {
+      "line": 191,
+      "text": "        self.null_block.is_null = True"
+    },
+    {
+      "line": 192,
+      "text": ""
+    },
+    {
+      "line": 186,
+      "text": ""
+    },
+    {
+      "line": 187,
+      "text": "        # To represent a placeholder block with block_id=0."
+    },
+    {
+      "line": 188,
+      "text": "        # The ref_cnt of null_block is not maintained, needs special care to"
+    },
+    {
+      "line": 189,
+      "text": "        # avoid freeing it."
+    },
+    {
+      "line": 190,
+      "text": "        self.null_block = self.free_block_queue.popleft()"
+    },
+    {
+      "line": 191,
+      "text": "        self.null_block.is_null = True"
+    },
+    {
+      "line": 192,
+      "text": ""
+    },
+    {
+      "line": 193,
+      "text": "        self.enable_kv_cache_events = enable_kv_cache_events"
+    },
+    {
+      "line": 194,
+      "text": "        self.kv_event_queue: list[KVCacheEvent] = []"
+    },
+    {
+      "line": 187,
+      "text": "        # To represent a placeholder block with block_id=0."
+    },
+    {
+      "line": 188,
+      "text": "        # The ref_cnt of null_block is not maintained, needs special care to"
+    },
+    {
+      "line": 189,
+      "text": "        # avoid freeing it."
+    },
+    {
+      "line": 190,
+      "text": "        self.null_block = self.free_block_queue.popleft()"
+    },
+    {
+      "line": 191,
+      "text": "        self.null_block.is_null = True"
+    },
+    {
+      "line": 192,
+      "text": ""
+    },
+    {
+      "line": 193,
+      "text": "        self.enable_kv_cache_events = enable_kv_cache_events"
+    },
+    {
+      "line": 194,
+      "text": "        self.kv_event_queue: list[KVCacheEvent] = []"
+    },
+    {
+      "line": 195,
+      "text": ""
+    }
+  ],
+  "cpu_only_no_sdk_import": true
+}

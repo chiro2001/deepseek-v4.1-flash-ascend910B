@@ -1,0 +1,371 @@
+{
+  "schema": "k5_capacity_device_timing_v1",
+  "date": "20261012",
+  "root": "/work/gmm_lane_sparse_msd_k5_capacity_p4_20261012_v5",
+  "attempt": {
+    "command": [
+      "python3",
+      "/work/gmm_lane_sparse_msd_k5_capacity_p4_20261012_v5/k5_capacity_numeric_cpu/device/runtime_capacity_gate.py"
+    ],
+    "script": "runtime_capacity_gate.py",
+    "UTC": "2026-10-11T23:06:14.377199+00:00",
+    "physical": 4,
+    "logical": 0,
+    "ASCEND_RT_VISIBLE_DEVICES": "4",
+    "ASCEND_VISIBLE_DEVICES": "4",
+    "CAPACITY_EXPECTED_PHYSICAL": "4",
+    "TASK_QUEUE_ENABLE": "0",
+    "K5_CAPACITY_PHASE": "timing_only",
+    "scope": "K5 target36/E48 and draft15/E16 numeric + minimal operator-window timing",
+    "fullnet_K5_verifier": false,
+    "admission": false,
+    "retries_authorized": false
+  },
+  "passed": true,
+  "timing_passed": true,
+  "numeric_phase_evidence": {
+    "root": "/work/gmm_lane_sparse_msd_k5_capacity_p4_20261012_v4",
+    "passed": true,
+    "runtime_terminal_sha256": "d8e56217b1d1a68eddd5ba33f6e9f4db381ea7edfb7e68446a3641a34d26ff2b",
+    "run_receipt_sha256": "28630ed4882a25d00ed3e7cb6b5bea23e89416026a7eea8b8f8c9fb3d0857075"
+  },
+  "physical": 4,
+  "logical": 0,
+  "counters": {
+    "aclrtGetDeviceCount": 4,
+    "single_visible_guard": 4,
+    "rtGetDeviceIndexByPhyId(expected)": 4,
+    "rtGetDevicePhyIdByIndex": 4,
+    "logical0_physical6_guard": 4,
+    "mapping_guard": 2,
+    "aclrtGetCurrentContext:borrowed": 2,
+    "borrowed_context_nonnull": 2,
+    "aclrtGetDevice:borrowed": 2,
+    "borrowed_logical0_guard": 2,
+    "loader_v2_open": 2,
+    "loader_v2_functions": 2,
+    "aclrtGetFunctionAddr": 6,
+    "aclrtGetFunctionSize": 6,
+    "strict_engine_pair_and_size": 6,
+    "rtGetC2cCtrlAddr:current_context": 2,
+    "ffts_nonnull_guard": 2,
+    "aclrtGetMemInfo:HBM_before_workspace": 2,
+    "aclrtMalloc:workspace+canaries:HUGE_FIRST": 2,
+    "workspace_aligned_within_backing_and_canaries": 2,
+    "aclrtMalloc:y+canaries": 2,
+    "aclrtMalloc:single_tensor_list32": 10,
+    "D2H:original_parameter_storage": 68,
+    "aclrtGetCurrentContext:bind": 88,
+    "same_borrowed_context_guard:bind": 88,
+    "frozen_buffer_contract:bind": 88,
+    "frozen_single_tensor_list_pack:bind": 88,
+    "H2D:single_tensor_list32:bind": 440,
+    "memset:bind_workspace_canaries": 88,
+    "memset:bind_workspace": 88,
+    "memset:bind_y_canaries": 88,
+    "HostArgs:timed_native": 52,
+    "sync:timed_batch": 88,
+    "D2H:workspace_prefix": 88,
+    "D2H:workspace_suffix": 88,
+    "D2H:y_prefix": 88,
+    "D2H:y_suffix": 88,
+    "workspace_and_y_canary_guard": 88,
+    "HostArgs:timed_planner_included": 52,
+    "HostArgs:timed_candidate": 52,
+    "cleanup:single_tensor_list": 10,
+    "cleanup:y": 2,
+    "cleanup:workspace": 2,
+    "cleanup:loader_v2_close": 2
+  },
+  "runtime_log_bytes": 43472497,
+  "runtime_log_sha256": "c255c5dc842027bf8e041b88f232dc578e030472ce1f7fb94bc6b3dd9e78fc5c",
+  "runtime_terminal_sha256": "4344f5dcdb67dd79f7f21dfec89dcf0441dbcb2435bc0eec24f2238892bb68c1",
+  "release": {
+    "UTC": "2026-10-11T23:06:36.053943+00:00",
+    "physical": 4,
+    "physical_released": true,
+    "health_allowed": true,
+    "container_global_env_unchanged": true,
+    "runtime_wrapper_exit": 0
+  },
+  "families": {
+    "target": {
+      "profile": {
+        "family": "target",
+        "capacity": 36,
+        "experts": 48,
+        "k": 2304,
+        "n": 5120,
+        "loaded_W2_shape": [
+          48,
+          2304,
+          2560
+        ],
+        "loaded_W2_stage": "original_CPU_transposed_INT8",
+        "FFN_partition": 2304,
+        "source_reference": "k5_capacity_device_gate:/work/gmm_lane_sparse_msd_k5_capacity_p4_20261012_v5/k5_capacity_numeric_cpu",
+        "slots": 36,
+        "frame_bytes": 640,
+        "frame_words": 160,
+        "K_derived_from_loaded_W2_and_FFN_partition": true,
+        "native_math_changes": false,
+        "actual_capacity_numeric_passed": false,
+        "actual_consumer_activation_observed": false,
+        "actual_target36_consumer_proof": false,
+        "actual_draft15_consumer_proof": false,
+        "actual_device_consumer_proof": false,
+        "performance_receipt_granted": false,
+        "formal_receipt_granted": false
+      },
+      "bridge_shared_sha256": "609578ebef2ec0b986fbaa6d96f4d02d819787778fc0cdc169d281d4e9c56e24",
+      "timing": {
+        "warmup_rounds": 3,
+        "measured_samples": 10,
+        "operator_window": "torch.npu.Event(enable_timing) pair around the planner+GMM launch",
+        "restore_and_bind_outside_window": true,
+        "D2H_outside_window": true,
+        "host_workspace_reset_outside_window": true,
+        "planner_included_in_candidate": true,
+        "interleaved_order": [
+          "raw_native",
+          "candidate"
+        ],
+        "cases": {
+          "target_full_last_expert": {
+            "case": "target_full_last_expert",
+            "R": 36,
+            "active_slots": 1,
+            "methods": {
+              "raw_native": {
+                "ms": [
+                  0.26291999220848083,
+                  0.18870000541210175,
+                  0.18493999540805817,
+                  0.14402000606060028,
+                  0.14842000603675842,
+                  0.1474200040102005,
+                  0.1273999959230423,
+                  0.14074000716209412,
+                  0.1439799964427948,
+                  0.14959999918937683
+                ],
+                "median_ms": 0.14792000502347946,
+                "min_ms": 0.1273999959230423,
+                "max_ms": 0.26291999220848083,
+                "mean_ms": 0.1638140007853508
+              },
+              "candidate": {
+                "ms": [
+                  0.18490000069141388,
+                  0.2051600068807602,
+                  0.21488000452518463,
+                  0.19832000136375427,
+                  0.18371999263763428,
+                  0.18051999807357788,
+                  0.19050000607967377,
+                  0.2053000032901764,
+                  0.1785999983549118,
+                  0.18320000171661377
+                ],
+                "median_ms": 0.18770000338554382,
+                "min_ms": 0.1785999983549118,
+                "max_ms": 0.21488000452518463,
+                "mean_ms": 0.1925100013613701
+              }
+            },
+            "candidate_over_raw_median_ratio": 1.2689291306862114,
+            "candidate_planner_included": true
+          },
+          "target_full_mixed_counts": {
+            "case": "target_full_mixed_counts",
+            "R": 36,
+            "active_slots": 3,
+            "methods": {
+              "raw_native": {
+                "ms": [
+                  0.14159999787807465,
+                  0.13853999972343445,
+                  0.1398800015449524,
+                  0.14098000526428223,
+                  0.17339999973773956,
+                  0.17443999648094177,
+                  0.1443600058555603,
+                  0.13728000223636627,
+                  0.15501999855041504,
+                  0.15666000545024872
+                ],
+                "median_ms": 0.14298000186681747,
+                "min_ms": 0.13728000223636627,
+                "max_ms": 0.17443999648094177,
+                "mean_ms": 0.15021600127220153
+              },
+              "candidate": {
+                "ms": [
+                  0.19220000505447388,
+                  0.1754399985074997,
+                  0.18634000420570374,
+                  0.2021999955177307,
+                  0.2234400063753128,
+                  0.206619992852211,
+                  0.17790000140666962,
+                  0.17611999809741974,
+                  0.258899986743927,
+                  0.179639995098114
+                ],
+                "median_ms": 0.1892700046300888,
+                "min_ms": 0.1754399985074997,
+                "max_ms": 0.258899986743927,
+                "mean_ms": 0.19787999838590623
+              }
+            },
+            "candidate_over_raw_median_ratio": 1.323751588745882,
+            "candidate_planner_included": true
+          }
+        },
+        "same_instance_paired": true,
+        "performance_receipt_granted": false,
+        "note": "queue/submit idle inside the window is not pure core time"
+      },
+      "closed_owner_null": true
+    },
+    "draft": {
+      "profile": {
+        "family": "draft",
+        "capacity": 15,
+        "experts": 16,
+        "k": 2304,
+        "n": 5120,
+        "loaded_W2_shape": [
+          16,
+          2304,
+          2560
+        ],
+        "loaded_W2_stage": "original_CPU_transposed_INT8",
+        "FFN_partition": 2304,
+        "source_reference": "k5_capacity_device_gate:/work/gmm_lane_sparse_msd_k5_capacity_p4_20261012_v5/k5_capacity_numeric_cpu",
+        "slots": 15,
+        "frame_bytes": 256,
+        "frame_words": 64,
+        "K_derived_from_loaded_W2_and_FFN_partition": true,
+        "native_math_changes": false,
+        "actual_capacity_numeric_passed": false,
+        "actual_consumer_activation_observed": false,
+        "actual_target36_consumer_proof": false,
+        "actual_draft15_consumer_proof": false,
+        "actual_device_consumer_proof": false,
+        "performance_receipt_granted": false,
+        "formal_receipt_granted": false
+      },
+      "bridge_shared_sha256": "ca3c9a8a545ca51d5effc6bf043216f071f072b8ae3bc986970c35e7b3905da6",
+      "timing": {
+        "warmup_rounds": 3,
+        "measured_samples": 10,
+        "operator_window": "torch.npu.Event(enable_timing) pair around the planner+GMM launch",
+        "restore_and_bind_outside_window": true,
+        "D2H_outside_window": true,
+        "host_workspace_reset_outside_window": true,
+        "planner_included_in_candidate": true,
+        "interleaved_order": [
+          "raw_native",
+          "candidate"
+        ],
+        "cases": {
+          "draft_full_last_expert": {
+            "case": "draft_full_last_expert",
+            "R": 15,
+            "active_slots": 1,
+            "methods": {
+              "raw_native": {
+                "ms": [
+                  0.1409199982881546,
+                  0.14645999670028687,
+                  0.13366000354290009,
+                  0.1618800014257431,
+                  0.18841999769210815,
+                  0.1793999969959259,
+                  0.14854000508785248,
+                  0.1430400013923645,
+                  0.1417199969291687,
+                  0.1673399955034256
+                ],
+                "median_ms": 0.14750000089406967,
+                "min_ms": 0.13366000354290009,
+                "max_ms": 0.18841999769210815,
+                "mean_ms": 0.155137999355793
+              },
+              "candidate": {
+                "ms": [
+                  0.1804800033569336,
+                  0.1697400063276291,
+                  0.21690000593662262,
+                  0.18092000484466553,
+                  0.26212000846862793,
+                  0.19798000156879425,
+                  0.20960000157356262,
+                  0.22327999770641327,
+                  0.17637999355793,
+                  0.17533999681472778
+                ],
+                "median_ms": 0.1894500032067299,
+                "min_ms": 0.1697400063276291,
+                "max_ms": 0.26212000846862793,
+                "mean_ms": 0.19927400201559067
+              }
+            },
+            "candidate_over_raw_median_ratio": 1.2844067936161405,
+            "candidate_planner_included": true
+          },
+          "draft_full_mixed_counts": {
+            "case": "draft_full_mixed_counts",
+            "R": 15,
+            "active_slots": 3,
+            "methods": {
+              "raw_native": {
+                "ms": [
+                  0.15107999742031097,
+                  0.16235999763011932,
+                  0.14166000485420227,
+                  0.1569799929857254,
+                  0.13986000418663025,
+                  0.13558000326156616,
+                  0.14837999641895294,
+                  0.15875999629497528,
+                  0.13901999592781067,
+                  0.15029999613761902
+                ],
+                "median_ms": 0.14933999627828598,
+                "min_ms": 0.13558000326156616,
+                "max_ms": 0.16235999763011932,
+                "mean_ms": 0.14839799851179122
+              },
+              "candidate": {
+                "ms": [
+                  0.20476000010967255,
+                  0.17542000114917755,
+                  0.17560000717639923,
+                  0.17615999281406403,
+                  0.19115999341011047,
+                  0.1837799996137619,
+                  0.18376000225543976,
+                  0.1793999969959259,
+                  0.19726000726222992,
+                  0.17613999545574188
+                ],
+                "median_ms": 0.18157999962568283,
+                "min_ms": 0.17542000114917755,
+                "max_ms": 0.20476000010967255,
+                "mean_ms": 0.18434399962425232
+              }
+            },
+            "candidate_over_raw_median_ratio": 1.2158832472937764,
+            "candidate_planner_included": true
+          }
+        },
+        "same_instance_paired": true,
+        "performance_receipt_granted": false,
+        "note": "queue/submit idle inside the window is not pure core time"
+      },
+      "closed_owner_null": true
+    }
+  }
+}

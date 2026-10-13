@@ -1,0 +1,32 @@
+[server] http://127.0.0.1:18960 models=['dsv41-delivery-a2sim-tp8-v2'] using=dsv41-delivery-a2sim-tp8-v2
+  [PASS] carrots-01     胡萝卜
+  [PASS] carrots-02     carrots
+  [PASS] carrots-03     橙色
+  [PASS] carrots-04     白色
+  [PASS] carrots-05     下面
+  [PASS] carrots-06     根
+  [PASS] carrots-07     细长条
+  [PASS] carrots-08     食物特写
+  [PASS] carrots-09     光滑
+  [PASS] carrots-10     是
+  [PASS] corn-01        玉米
+  [PASS] corn-02        corn
+  [PASS] corn-03        黄色和绿色
+  [PASS] corn-04        白色
+  [PASS] corn-05        上面
+  [PASS] corn-06        果实
+  [PASS] corn-07        细长棒状
+  [PASS] corn-08        食物特写
+  [PASS] corn-09        颗粒
+  [PASS] corn-10        是
+  [PASS] neg-text-01    北京
+  [PASS] neg-swap-01    否
+  [PASS] neg-blank-01   无法判断
+[image-tokens] {"carrots.jpeg": {"prompt_tokens_with_image": 455, "prompt_tokens_text_only": 9, "image_tokens": 446, "max_image_tokens_config": 1024}, "corn.jpeg": {"prompt_tokens_with_image": 200, "prompt_tokens_text_only": 9, "image_tokens": 191, "max_image_tokens_config": 1024}}
+== vision_accuracy_check ==
+cases: 23  pass: 23 (100.0%)  empty/garbled: 0  errors: 0
+mandatory negatives: OK
+vision weights: 266 tensors / 0.9705 GB (BF16, FLOAT, not quantized)
+dspark: {"expected": true, "acceptance_rate": 0.5711, "mean_acceptance_length": 1.5711}
+verdict: PASS
+json: /work/results/delivery_a2sim_tp8_v2/quality/client/vision23.raw.json

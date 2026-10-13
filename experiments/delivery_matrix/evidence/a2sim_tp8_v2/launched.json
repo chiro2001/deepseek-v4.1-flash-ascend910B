@@ -1,0 +1,125 @@
+{
+  "schema": "delivery_matrix_launch_v1",
+  "service_launch_requested": true,
+  "service_started": true,
+  "launch_requested_at": "2026-10-13T01:30:00+08:00",
+  "container": "dsv41-real-stack-tp8-20261010-a321",
+  "container_id": "b1aa15d8800346aff8f755a049feaae148b9d6e315e92bd32dcdf1063b429eb0",
+  "image": "local/dsv41-operator-stack-real:20261010-production",
+  "source_root": "/work/src_dspark_general_quality_v11",
+  "candidate": "/work/src_dspark_general_quality_v11/candidate_contract.json",
+  "package": "/work/delivery_matrix_20261013_v2/delivery_matrix",
+  "job_root": "/work/results/delivery_a2sim_tp8_v2",
+  "runner": "/work/results/delivery_a2sim_tp8_v2/runner.sh",
+  "port": 18960,
+  "served_model": "dsv41-delivery-a2sim-tp8-v2",
+  "form": "a2-tp8-a3sim",
+  "device_index": 0,
+  "physical_chips": [
+    8,
+    9,
+    10,
+    11,
+    12,
+    13,
+    14,
+    15
+  ],
+  "launch_command": [
+    "docker",
+    "exec",
+    "-d",
+    "dsv41-real-stack-tp8-20261010-a321",
+    "setsid",
+    "bash",
+    "/work/results/delivery_a2sim_tp8_v2/runner.sh"
+  ],
+  "prelaunch_checks": [
+    {
+      "time": "2026-10-13T01:29:53+08:00",
+      "host_npu_cards_without_processes": 8,
+      "port_18960_listener_count": 0,
+      "target_container_running": true,
+      "target_device_nodes": [
+        8,
+        9,
+        10,
+        11,
+        12,
+        13,
+        14,
+        15
+      ]
+    },
+    {
+      "time": "2026-10-13T01:29:59+08:00",
+      "host_npu_cards_without_processes": 8,
+      "port_18960_listener_count": 0,
+      "target_container_running": true,
+      "target_device_nodes": [
+        8,
+        9,
+        10,
+        11,
+        12,
+        13,
+        14,
+        15
+      ]
+    }
+  ],
+  "source_candidate_fingerprint": "8a7b052d6ab87cc5fed7ded6a1ce5903ffb36f018955d671477632356b005bdd",
+  "runtime_fingerprint": "3c8b4066e886dc4b1452a2256b392dbb8804e776ee2dfbe5520d77dfc64f6832",
+  "runtime_plan": "/work/results/delivery_a2sim_tp8_v2/service_plan_cpu_only/plan.json",
+  "runner_sha256": "05068ef74092921995fdfb593250e73d79107e52d6773336320f2cb02b232ad3",
+  "plan_sha256": "cc03334ec2b81001d0b04685c9220cbc3e0ff392b578f1c94c9760e196e0198f",
+  "package_sha256": {
+    "__init__.py": "f7a135fad6732864c25621daf455f76c5f2f48da4f8793144c85fdbd95c9c585",
+    "service.py": "6a55b0c8995dd025b3f7cbfd50583dc017b5a52d0f4a6a96ea22b10c571aaa9b",
+    "worker.py": "5b801a53841abe5e8507568b60525e7193a697a9bb13df11f12d7dc52ccebf1b",
+    "run_service.sh": "a1cfd49a794bbb03ac9656a6a88259ae7018dee323078193980e803a325843c5",
+    "prepare_launch.py": "194866e13d937f98854ebe43f5e6e7fa364b73de358870fa08c959c5855302b6"
+  },
+  "model_kwargs": {
+    "max_model_len": 147456,
+    "max_num_batched_tokens": 8192,
+    "max_num_seqs": 1,
+    "enable_engram": true,
+    "engram_storage": "int8",
+    "speculative_tokens": 5
+  },
+  "environment": {
+    "V41_ENGRAM_DEVICE_INDEX": "0",
+    "V41_ENGRAM_HOST_RESIDENT": "1",
+    "V41_ENGRAM_WITH_DUMMY": "0",
+    "DRAFT_GRAPH": "1",
+    "DSPARK_GRAPH_CAPTURE_METADATA": "1",
+    "VLLM_BATCH_INVARIANT": "1"
+  },
+  "actual_quality_passed": false,
+  "actual_performance_observed": false,
+  "formal_receipt_granted": false,
+  "performance_receipt_granted": false,
+  "http_ready": true,
+  "ready_at": "2026-10-13T01:39:46+08:00",
+  "readiness": {
+    "mysvc": "MINE",
+    "served_model_id_verified": "dsv41-delivery-a2sim-tp8-v2",
+    "identity_path": "/delivery/identity",
+    "identity_verified": true,
+    "form": "a2-tp8-a3sim",
+    "rank_count": 8,
+    "tp": 8,
+    "dcp": 1,
+    "async_scheduling": true,
+    "draft_graph": true,
+    "speculative_tokens": 5,
+    "batch_invariant": "1",
+    "engram_device_index": "0",
+    "metrics_path": "/delivery/metrics",
+    "metrics_trusted": true,
+    "metrics_initial_requests": 0,
+    "metrics_initial_pending": 0,
+    "chat_requests_sent_by_supervisor": 0
+  }
+}

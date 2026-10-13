@@ -1,0 +1,1079 @@
+{
+ "summary": {
+  "script": "scripts/vision_accuracy_check.py",
+  "server": "http://127.0.0.1:18960",
+  "model": "dsv41-delivery-a2sim-tp8-v2",
+  "images_dir": "/home/l00886679/models/DeepSeek-V4.1-Flash/inference/examples/images",
+  "official_dir": "/home/l00886679/models/DeepSeek-V4.1-Flash",
+  "cases": 23,
+  "passed": 23,
+  "failed": 0,
+  "empty_or_garbled": 0,
+  "errors": 0,
+  "criteria": {
+   "hit_rate_min": 1.0,
+   "hit_rate": 1.0,
+   "empty_or_garbled_max": 0,
+   "empty_or_garbled": 0,
+   "errors_max": 0,
+   "errors": 0,
+   "mandatory_negative_checks": [
+    "neg-text-01",
+    "neg-swap-01"
+   ],
+   "mandatory_negative_ok": true
+  },
+  "verdict": "PASS",
+  "vision_weight_bytes": 970536960,
+  "vision_weight_count": 266,
+  "image_tokens": {
+   "carrots.jpeg": {
+    "prompt_tokens_with_image": 455,
+    "prompt_tokens_text_only": 9,
+    "image_tokens": 446,
+    "max_image_tokens_config": 1024
+   },
+   "corn.jpeg": {
+    "prompt_tokens_with_image": 200,
+    "prompt_tokens_text_only": 9,
+    "image_tokens": 191,
+    "max_image_tokens_config": 1024
+   }
+  },
+  "dspark": {
+   "expected": true,
+   "spec_decode_metrics": {
+    "vllm:spec_decode_num_drafts_total": 4323.0,
+    "vllm:spec_decode_num_drafts_created": 1791826632.54566,
+    "vllm:spec_decode_num_draft_tokens_total": 21615.0,
+    "vllm:spec_decode_num_draft_tokens_created": 1791826632.545689,
+    "vllm:spec_decode_num_accepted_tokens_total": 12344.0,
+    "vllm:spec_decode_num_accepted_tokens_created": 1791826632.5457113,
+    "vllm:spec_decode_num_accepted_tokens_per_pos_total": 12344.0,
+    "vllm:spec_decode_num_accepted_tokens_per_pos_created": 8959133162.728785
+   },
+   "acceptance_rate": 0.5711,
+   "mean_acceptance_length": 1.5711
+  },
+  "latency": {
+   "ttft_s": [
+    0.863,
+    0.2003,
+    0.1949,
+    0.1935,
+    0.2012,
+    0.2013,
+    0.2063,
+    0.2063,
+    0.1933,
+    0.1901,
+    0.351,
+    0.2802,
+    0.2699,
+    0.2702,
+    0.279,
+    0.2773,
+    0.2808,
+    0.2778,
+    0.2724,
+    0.2747,
+    0.2701,
+    0.2719,
+    0.3419
+   ],
+   "latency_s": [
+    0.9036,
+    0.2685,
+    0.2352,
+    0.2327,
+    0.242,
+    0.2416,
+    0.2472,
+    0.2472,
+    0.2328,
+    0.2288,
+    0.3909,
+    0.3194,
+    0.3088,
+    0.3086,
+    0.3188,
+    0.317,
+    0.3201,
+    0.3178,
+    0.311,
+    0.3132,
+    0.3092,
+    0.3105,
+    0.4082
+   ]
+  }
+ },
+ "results": [
+  {
+   "id": "carrots-01",
+   "image": "carrots.jpeg",
+   "question": "图中主要是什么食材？只回答食材名称。",
+   "accept": [
+    "胡萝卜",
+    "萝卜",
+    "carrot"
+   ],
+   "forbid": [
+    "玉米",
+    "corn"
+   ],
+   "mandatory": false,
+   "answer": "胡萝卜",
+   "ttft_s": 0.863,
+   "latency_s": 0.9036,
+   "usage": {
+    "prompt_tokens": 460,
+    "total_tokens": 462,
+    "completion_tokens": 2
+   },
+   "passed": true,
+   "reason": "matched:胡萝卜",
+   "metrics_memory_delta": {
+    "process_virtual_memory_bytes": 250134528.0,
+    "process_resident_memory_bytes": 126775296.0,
+    "vllm:kv_cache_usage_perc{engine=\"0\",model_name=\"dsv41-delivery-a2sim-tp8-v2\"}": 0.0
+   },
+   "spec_decode": {
+    "vllm:spec_decode_num_drafts_total": 4295.0,
+    "vllm:spec_decode_num_drafts_created": 1791826632.54566,
+    "vllm:spec_decode_num_draft_tokens_total": 21475.0,
+    "vllm:spec_decode_num_draft_tokens_created": 1791826632.545689,
+    "vllm:spec_decode_num_accepted_tokens_total": 12307.0,
+    "vllm:spec_decode_num_accepted_tokens_created": 1791826632.5457113,
+    "vllm:spec_decode_num_accepted_tokens_per_pos_total": 12307.0,
+    "vllm:spec_decode_num_accepted_tokens_per_pos_created": 8959133162.728785
+   }
+  },
+  {
+   "id": "carrots-02",
+   "image": "carrots.jpeg",
+   "question": "用英文回答：图中主要是什么食材？只回答一个英文单词。",
+   "accept": [
+    "carrot"
+   ],
+   "forbid": [
+    "corn"
+   ],
+   "mandatory": false,
+   "answer": "carrots",
+   "ttft_s": 0.2003,
+   "latency_s": 0.2685,
+   "usage": {
+    "prompt_tokens": 465,
+    "total_tokens": 468,
+    "completion_tokens": 3
+   },
+   "passed": true,
+   "reason": "matched:carrot",
+   "metrics_memory_delta": {
+    "process_virtual_memory_bytes": 0.0,
+    "process_resident_memory_bytes": 0.0,
+    "vllm:kv_cache_usage_perc{engine=\"0\",model_name=\"dsv41-delivery-a2sim-tp8-v2\"}": 0.0
+   },
+   "spec_decode": {
+    "vllm:spec_decode_num_drafts_total": 4297.0,
+    "vllm:spec_decode_num_drafts_created": 1791826632.54566,
+    "vllm:spec_decode_num_draft_tokens_total": 21485.0,
+    "vllm:spec_decode_num_draft_tokens_created": 1791826632.545689,
+    "vllm:spec_decode_num_accepted_tokens_total": 12308.0,
+    "vllm:spec_decode_num_accepted_tokens_created": 1791826632.5457113,
+    "vllm:spec_decode_num_accepted_tokens_per_pos_total": 12308.0,
+    "vllm:spec_decode_num_accepted_tokens_per_pos_created": 8959133162.728785
+   }
+  },
+  {
+   "id": "carrots-03",
+   "image": "carrots.jpeg",
+   "question": "图中食材的主要颜色是什么？只回答颜色。",
+   "accept": [
+    "橙",
+    "橘",
+    "orange"
+   ],
+   "forbid": [
+    "绿",
+    "green"
+   ],
+   "mandatory": false,
+   "answer": "橙色",
+   "ttft_s": 0.1949,
+   "latency_s": 0.2352,
+   "usage": {
+    "prompt_tokens": 460,
+    "total_tokens": 462,
+    "completion_tokens": 2
+   },
+   "passed": true,
+   "reason": "matched:橙",
+   "metrics_memory_delta": {
+    "process_virtual_memory_bytes": 0.0,
+    "process_resident_memory_bytes": 0.0,
+    "vllm:kv_cache_usage_perc{engine=\"0\",model_name=\"dsv41-delivery-a2sim-tp8-v2\"}": 0.0
+   },
+   "spec_decode": {
+    "vllm:spec_decode_num_drafts_total": 4298.0,
+    "vllm:spec_decode_num_drafts_created": 1791826632.54566,
+    "vllm:spec_decode_num_draft_tokens_total": 21490.0,
+    "vllm:spec_decode_num_draft_tokens_created": 1791826632.545689,
+    "vllm:spec_decode_num_accepted_tokens_total": 12309.0,
+    "vllm:spec_decode_num_accepted_tokens_created": 1791826632.5457113,
+    "vllm:spec_decode_num_accepted_tokens_per_pos_total": 12309.0,
+    "vllm:spec_decode_num_accepted_tokens_per_pos_created": 8959133162.728785
+   }
+  },
+  {
+   "id": "carrots-04",
+   "image": "carrots.jpeg",
+   "question": "图片的背景大致是什么颜色？只回答颜色。",
+   "accept": [
+    "白",
+    "white"
+   ],
+   "forbid": [],
+   "mandatory": false,
+   "answer": "白色",
+   "ttft_s": 0.1935,
+   "latency_s": 0.2327,
+   "usage": {
+    "prompt_tokens": 460,
+    "total_tokens": 462,
+    "completion_tokens": 2
+   },
+   "passed": true,
+   "reason": "matched:白",
+   "metrics_memory_delta": {
+    "process_virtual_memory_bytes": 0.0,
+    "process_resident_memory_bytes": 0.0,
+    "vllm:kv_cache_usage_perc{engine=\"0\",model_name=\"dsv41-delivery-a2sim-tp8-v2\"}": 0.0
+   },
+   "spec_decode": {
+    "vllm:spec_decode_num_drafts_total": 4299.0,
+    "vllm:spec_decode_num_drafts_created": 1791826632.54566,
+    "vllm:spec_decode_num_draft_tokens_total": 21495.0,
+    "vllm:spec_decode_num_draft_tokens_created": 1791826632.545689,
+    "vllm:spec_decode_num_accepted_tokens_total": 12310.0,
+    "vllm:spec_decode_num_accepted_tokens_created": 1791826632.5457113,
+    "vllm:spec_decode_num_accepted_tokens_per_pos_total": 12310.0,
+    "vllm:spec_decode_num_accepted_tokens_per_pos_created": 8959133162.728785
+   }
+  },
+  {
+   "id": "carrots-05",
+   "image": "carrots.jpeg",
+   "question": "图中的食材通常生长在土壤的下面还是上面？只回答“下面”或“上面”。",
+   "accept": [
+    "下面",
+    "地下",
+    "土壤下",
+    "below",
+    "underground"
+   ],
+   "forbid": [
+    "上面",
+    "地上",
+    "above"
+   ],
+   "mandatory": false,
+   "answer": "下面",
+   "ttft_s": 0.2012,
+   "latency_s": 0.242,
+   "usage": {
+    "prompt_tokens": 470,
+    "total_tokens": 472,
+    "completion_tokens": 2
+   },
+   "passed": true,
+   "reason": "matched:下面",
+   "metrics_memory_delta": {
+    "process_virtual_memory_bytes": 0.0,
+    "process_resident_memory_bytes": 0.0,
+    "vllm:kv_cache_usage_perc{engine=\"0\",model_name=\"dsv41-delivery-a2sim-tp8-v2\"}": 0.0
+   },
+   "spec_decode": {
+    "vllm:spec_decode_num_drafts_total": 4300.0,
+    "vllm:spec_decode_num_drafts_created": 1791826632.54566,
+    "vllm:spec_decode_num_draft_tokens_total": 21500.0,
+    "vllm:spec_decode_num_draft_tokens_created": 1791826632.545689,
+    "vllm:spec_decode_num_accepted_tokens_total": 12311.0,
+    "vllm:spec_decode_num_accepted_tokens_created": 1791826632.5457113,
+    "vllm:spec_decode_num_accepted_tokens_per_pos_total": 12311.0,
+    "vllm:spec_decode_num_accepted_tokens_per_pos_created": 8959133162.728785
+   }
+  },
+  {
+   "id": "carrots-06",
+   "image": "carrots.jpeg",
+   "question": "这种食材通常食用的是植物的哪个部位？只回答一个词。",
+   "accept": [
+    "根",
+    "root"
+   ],
+   "forbid": [
+    "种子",
+    "果实",
+    "叶"
+   ],
+   "mandatory": false,
+   "answer": "根",
+   "ttft_s": 0.2013,
+   "latency_s": 0.2416,
+   "usage": {
+    "prompt_tokens": 464,
+    "total_tokens": 466,
+    "completion_tokens": 2
+   },
+   "passed": true,
+   "reason": "matched:根",
+   "metrics_memory_delta": {
+    "process_virtual_memory_bytes": 0.0,
+    "process_resident_memory_bytes": 0.0,
+    "vllm:kv_cache_usage_perc{engine=\"0\",model_name=\"dsv41-delivery-a2sim-tp8-v2\"}": 0.0
+   },
+   "spec_decode": {
+    "vllm:spec_decode_num_drafts_total": 4301.0,
+    "vllm:spec_decode_num_drafts_created": 1791826632.54566,
+    "vllm:spec_decode_num_draft_tokens_total": 21505.0,
+    "vllm:spec_decode_num_draft_tokens_created": 1791826632.545689,
+    "vllm:spec_decode_num_accepted_tokens_total": 12312.0,
+    "vllm:spec_decode_num_accepted_tokens_created": 1791826632.5457113,
+    "vllm:spec_decode_num_accepted_tokens_per_pos_total": 12312.0,
+    "vllm:spec_decode_num_accepted_tokens_per_pos_created": 8959133162.728785
+   }
+  },
+  {
+   "id": "carrots-07",
+   "image": "carrots.jpeg",
+   "question": "图中食材的形状更接近细长条还是圆球？只回答“细长条”或“圆球”。",
+   "accept": [
+    "细长",
+    "长条",
+    "长",
+    "elongated"
+   ],
+   "forbid": [
+    "圆球",
+    "球状",
+    "round",
+    "sphere"
+   ],
+   "mandatory": false,
+   "answer": "细长条",
+   "ttft_s": 0.2063,
+   "latency_s": 0.2472,
+   "usage": {
+    "prompt_tokens": 474,
+    "total_tokens": 478,
+    "completion_tokens": 4
+   },
+   "passed": true,
+   "reason": "matched:细长",
+   "metrics_memory_delta": {
+    "process_virtual_memory_bytes": 0.0,
+    "process_resident_memory_bytes": 0.0,
+    "vllm:kv_cache_usage_perc{engine=\"0\",model_name=\"dsv41-delivery-a2sim-tp8-v2\"}": 0.0
+   },
+   "spec_decode": {
+    "vllm:spec_decode_num_drafts_total": 4302.0,
+    "vllm:spec_decode_num_drafts_created": 1791826632.54566,
+    "vllm:spec_decode_num_draft_tokens_total": 21510.0,
+    "vllm:spec_decode_num_draft_tokens_created": 1791826632.545689,
+    "vllm:spec_decode_num_accepted_tokens_total": 12315.0,
+    "vllm:spec_decode_num_accepted_tokens_created": 1791826632.5457113,
+    "vllm:spec_decode_num_accepted_tokens_per_pos_total": 12315.0,
+    "vllm:spec_decode_num_accepted_tokens_per_pos_created": 8959133162.728785
+   }
+  },
+  {
+   "id": "carrots-08",
+   "image": "carrots.jpeg",
+   "question": "这张照片的类型是食物特写、自然风景还是人物照？只回答类型。",
+   "accept": [
+    "食物",
+    "食品",
+    "特写",
+    "food"
+   ],
+   "forbid": [
+    "风景",
+    "人物",
+    "landscape",
+    "portrait"
+   ],
+   "mandatory": false,
+   "answer": "食物特写",
+   "ttft_s": 0.2063,
+   "latency_s": 0.2472,
+   "usage": {
+    "prompt_tokens": 468,
+    "total_tokens": 472,
+    "completion_tokens": 4
+   },
+   "passed": true,
+   "reason": "matched:食物",
+   "metrics_memory_delta": {
+    "process_virtual_memory_bytes": 0.0,
+    "process_resident_memory_bytes": 0.0,
+    "vllm:kv_cache_usage_perc{engine=\"0\",model_name=\"dsv41-delivery-a2sim-tp8-v2\"}": 0.0
+   },
+   "spec_decode": {
+    "vllm:spec_decode_num_drafts_total": 4303.0,
+    "vllm:spec_decode_num_drafts_created": 1791826632.54566,
+    "vllm:spec_decode_num_draft_tokens_total": 21515.0,
+    "vllm:spec_decode_num_draft_tokens_created": 1791826632.545689,
+    "vllm:spec_decode_num_accepted_tokens_total": 12318.0,
+    "vllm:spec_decode_num_accepted_tokens_created": 1791826632.5457113,
+    "vllm:spec_decode_num_accepted_tokens_per_pos_total": 12318.0,
+    "vllm:spec_decode_num_accepted_tokens_per_pos_created": 8959133162.728785
+   }
+  },
+  {
+   "id": "carrots-09",
+   "image": "carrots.jpeg",
+   "question": "图中食材表面是光滑的还是有明显颗粒感？只回答“光滑”或“颗粒”。",
+   "accept": [
+    "光滑",
+    "smooth"
+   ],
+   "forbid": [
+    "颗粒",
+    "凹凸",
+    "bumpy"
+   ],
+   "mandatory": false,
+   "answer": "光滑",
+   "ttft_s": 0.1933,
+   "latency_s": 0.2328,
+   "usage": {
+    "prompt_tokens": 470,
+    "total_tokens": 472,
+    "completion_tokens": 2
+   },
+   "passed": true,
+   "reason": "matched:光滑",
+   "metrics_memory_delta": {
+    "process_virtual_memory_bytes": 0.0,
+    "process_resident_memory_bytes": 0.0,
+    "vllm:kv_cache_usage_perc{engine=\"0\",model_name=\"dsv41-delivery-a2sim-tp8-v2\"}": 0.0
+   },
+   "spec_decode": {
+    "vllm:spec_decode_num_drafts_total": 4304.0,
+    "vllm:spec_decode_num_drafts_created": 1791826632.54566,
+    "vllm:spec_decode_num_draft_tokens_total": 21520.0,
+    "vllm:spec_decode_num_draft_tokens_created": 1791826632.545689,
+    "vllm:spec_decode_num_accepted_tokens_total": 12319.0,
+    "vllm:spec_decode_num_accepted_tokens_created": 1791826632.5457113,
+    "vllm:spec_decode_num_accepted_tokens_per_pos_total": 12319.0,
+    "vllm:spec_decode_num_accepted_tokens_per_pos_created": 8959133162.728785
+   }
+  },
+  {
+   "id": "carrots-10",
+   "image": "carrots.jpeg",
+   "question": "画面中央是否存在食物？只回答“是”或“否”。",
+   "accept": [
+    "是",
+    "yes",
+    "有"
+   ],
+   "forbid": [
+    "否",
+    "没有",
+    "no"
+   ],
+   "mandatory": false,
+   "answer": "是",
+   "ttft_s": 0.1901,
+   "latency_s": 0.2288,
+   "usage": {
+    "prompt_tokens": 464,
+    "total_tokens": 466,
+    "completion_tokens": 2
+   },
+   "passed": true,
+   "reason": "matched:是",
+   "metrics_memory_delta": {
+    "process_virtual_memory_bytes": 0.0,
+    "process_resident_memory_bytes": 0.0,
+    "vllm:kv_cache_usage_perc{engine=\"0\",model_name=\"dsv41-delivery-a2sim-tp8-v2\"}": 0.0
+   },
+   "spec_decode": {
+    "vllm:spec_decode_num_drafts_total": 4305.0,
+    "vllm:spec_decode_num_drafts_created": 1791826632.54566,
+    "vllm:spec_decode_num_draft_tokens_total": 21525.0,
+    "vllm:spec_decode_num_draft_tokens_created": 1791826632.545689,
+    "vllm:spec_decode_num_accepted_tokens_total": 12320.0,
+    "vllm:spec_decode_num_accepted_tokens_created": 1791826632.5457113,
+    "vllm:spec_decode_num_accepted_tokens_per_pos_total": 12320.0,
+    "vllm:spec_decode_num_accepted_tokens_per_pos_created": 8959133162.728785
+   }
+  },
+  {
+   "id": "corn-01",
+   "image": "corn.jpeg",
+   "question": "图中主要是什么食材？只回答食材名称。",
+   "accept": [
+    "玉米",
+    "苞米",
+    "粟米",
+    "corn",
+    "maize"
+   ],
+   "forbid": [
+    "胡萝卜",
+    "carrot"
+   ],
+   "mandatory": false,
+   "answer": "玉米",
+   "ttft_s": 0.351,
+   "latency_s": 0.3909,
+   "usage": {
+    "prompt_tokens": 205,
+    "total_tokens": 207,
+    "completion_tokens": 2
+   },
+   "passed": true,
+   "reason": "matched:玉米",
+   "metrics_memory_delta": {
+    "process_virtual_memory_bytes": 0.0,
+    "process_resident_memory_bytes": 0.0,
+    "vllm:kv_cache_usage_perc{engine=\"0\",model_name=\"dsv41-delivery-a2sim-tp8-v2\"}": 0.0
+   },
+   "spec_decode": {
+    "vllm:spec_decode_num_drafts_total": 4306.0,
+    "vllm:spec_decode_num_drafts_created": 1791826632.54566,
+    "vllm:spec_decode_num_draft_tokens_total": 21530.0,
+    "vllm:spec_decode_num_draft_tokens_created": 1791826632.545689,
+    "vllm:spec_decode_num_accepted_tokens_total": 12321.0,
+    "vllm:spec_decode_num_accepted_tokens_created": 1791826632.5457113,
+    "vllm:spec_decode_num_accepted_tokens_per_pos_total": 12321.0,
+    "vllm:spec_decode_num_accepted_tokens_per_pos_created": 8959133162.728785
+   }
+  },
+  {
+   "id": "corn-02",
+   "image": "corn.jpeg",
+   "question": "用英文回答：图中主要是什么食材？只回答一个英文单词。",
+   "accept": [
+    "corn",
+    "maize"
+   ],
+   "forbid": [
+    "carrot"
+   ],
+   "mandatory": false,
+   "answer": "corn",
+   "ttft_s": 0.2802,
+   "latency_s": 0.3194,
+   "usage": {
+    "prompt_tokens": 210,
+    "total_tokens": 212,
+    "completion_tokens": 2
+   },
+   "passed": true,
+   "reason": "matched:corn",
+   "metrics_memory_delta": {
+    "process_virtual_memory_bytes": 0.0,
+    "process_resident_memory_bytes": 0.0,
+    "vllm:kv_cache_usage_perc{engine=\"0\",model_name=\"dsv41-delivery-a2sim-tp8-v2\"}": 0.0
+   },
+   "spec_decode": {
+    "vllm:spec_decode_num_drafts_total": 4307.0,
+    "vllm:spec_decode_num_drafts_created": 1791826632.54566,
+    "vllm:spec_decode_num_draft_tokens_total": 21535.0,
+    "vllm:spec_decode_num_draft_tokens_created": 1791826632.545689,
+    "vllm:spec_decode_num_accepted_tokens_total": 12322.0,
+    "vllm:spec_decode_num_accepted_tokens_created": 1791826632.5457113,
+    "vllm:spec_decode_num_accepted_tokens_per_pos_total": 12322.0,
+    "vllm:spec_decode_num_accepted_tokens_per_pos_created": 8959133162.728785
+   }
+  },
+  {
+   "id": "corn-03",
+   "image": "corn.jpeg",
+   "question": "图中食材的主要颜色是什么？只回答颜色。",
+   "accept": [
+    "黄",
+    "yellow"
+   ],
+   "forbid": [
+    "橙",
+    "orange",
+    "紫",
+    "purple"
+   ],
+   "mandatory": false,
+   "answer": "黄色和绿色",
+   "ttft_s": 0.2699,
+   "latency_s": 0.3088,
+   "usage": {
+    "prompt_tokens": 205,
+    "total_tokens": 209,
+    "completion_tokens": 4
+   },
+   "passed": true,
+   "reason": "matched:黄",
+   "metrics_memory_delta": {
+    "process_virtual_memory_bytes": 0.0,
+    "process_resident_memory_bytes": 0.0,
+    "vllm:kv_cache_usage_perc{engine=\"0\",model_name=\"dsv41-delivery-a2sim-tp8-v2\"}": 0.0
+   },
+   "spec_decode": {
+    "vllm:spec_decode_num_drafts_total": 4308.0,
+    "vllm:spec_decode_num_drafts_created": 1791826632.54566,
+    "vllm:spec_decode_num_draft_tokens_total": 21540.0,
+    "vllm:spec_decode_num_draft_tokens_created": 1791826632.545689,
+    "vllm:spec_decode_num_accepted_tokens_total": 12325.0,
+    "vllm:spec_decode_num_accepted_tokens_created": 1791826632.5457113,
+    "vllm:spec_decode_num_accepted_tokens_per_pos_total": 12325.0,
+    "vllm:spec_decode_num_accepted_tokens_per_pos_created": 8959133162.728785
+   }
+  },
+  {
+   "id": "corn-04",
+   "image": "corn.jpeg",
+   "question": "图片的背景大致是什么颜色？只回答颜色。",
+   "accept": [
+    "白",
+    "white"
+   ],
+   "forbid": [],
+   "mandatory": false,
+   "answer": "白色",
+   "ttft_s": 0.2702,
+   "latency_s": 0.3086,
+   "usage": {
+    "prompt_tokens": 205,
+    "total_tokens": 207,
+    "completion_tokens": 2
+   },
+   "passed": true,
+   "reason": "matched:白",
+   "metrics_memory_delta": {
+    "process_virtual_memory_bytes": 0.0,
+    "process_resident_memory_bytes": 0.0,
+    "vllm:kv_cache_usage_perc{engine=\"0\",model_name=\"dsv41-delivery-a2sim-tp8-v2\"}": 0.0
+   },
+   "spec_decode": {
+    "vllm:spec_decode_num_drafts_total": 4309.0,
+    "vllm:spec_decode_num_drafts_created": 1791826632.54566,
+    "vllm:spec_decode_num_draft_tokens_total": 21545.0,
+    "vllm:spec_decode_num_draft_tokens_created": 1791826632.545689,
+    "vllm:spec_decode_num_accepted_tokens_total": 12326.0,
+    "vllm:spec_decode_num_accepted_tokens_created": 1791826632.5457113,
+    "vllm:spec_decode_num_accepted_tokens_per_pos_total": 12326.0,
+    "vllm:spec_decode_num_accepted_tokens_per_pos_created": 8959133162.728785
+   }
+  },
+  {
+   "id": "corn-05",
+   "image": "corn.jpeg",
+   "question": "图中的食材通常生长在土壤的下面还是上面？只回答“下面”或“上面”。",
+   "accept": [
+    "上面",
+    "地上",
+    "地面",
+    "above",
+    "ground"
+   ],
+   "forbid": [
+    "地下",
+    "土壤下",
+    "underground",
+    "below"
+   ],
+   "mandatory": false,
+   "answer": "上面",
+   "ttft_s": 0.279,
+   "latency_s": 0.3188,
+   "usage": {
+    "prompt_tokens": 215,
+    "total_tokens": 217,
+    "completion_tokens": 2
+   },
+   "passed": true,
+   "reason": "matched:上面",
+   "metrics_memory_delta": {
+    "process_virtual_memory_bytes": 0.0,
+    "process_resident_memory_bytes": 0.0,
+    "vllm:kv_cache_usage_perc{engine=\"0\",model_name=\"dsv41-delivery-a2sim-tp8-v2\"}": 0.0
+   },
+   "spec_decode": {
+    "vllm:spec_decode_num_drafts_total": 4310.0,
+    "vllm:spec_decode_num_drafts_created": 1791826632.54566,
+    "vllm:spec_decode_num_draft_tokens_total": 21550.0,
+    "vllm:spec_decode_num_draft_tokens_created": 1791826632.545689,
+    "vllm:spec_decode_num_accepted_tokens_total": 12327.0,
+    "vllm:spec_decode_num_accepted_tokens_created": 1791826632.5457113,
+    "vllm:spec_decode_num_accepted_tokens_per_pos_total": 12327.0,
+    "vllm:spec_decode_num_accepted_tokens_per_pos_created": 8959133162.728785
+   }
+  },
+  {
+   "id": "corn-06",
+   "image": "corn.jpeg",
+   "question": "这种食材通常食用的是植物的哪个部位？只回答一个词。",
+   "accept": [
+    "种子",
+    "籽",
+    "籽粒",
+    "果实",
+    "穗",
+    "kernel",
+    "seed",
+    "grain"
+   ],
+   "forbid": [
+    "根",
+    "root",
+    "叶"
+   ],
+   "mandatory": false,
+   "answer": "果实",
+   "ttft_s": 0.2773,
+   "latency_s": 0.317,
+   "usage": {
+    "prompt_tokens": 209,
+    "total_tokens": 211,
+    "completion_tokens": 2
+   },
+   "passed": true,
+   "reason": "matched:果实",
+   "metrics_memory_delta": {
+    "process_virtual_memory_bytes": 0.0,
+    "process_resident_memory_bytes": 0.0,
+    "vllm:kv_cache_usage_perc{engine=\"0\",model_name=\"dsv41-delivery-a2sim-tp8-v2\"}": 0.0
+   },
+   "spec_decode": {
+    "vllm:spec_decode_num_drafts_total": 4311.0,
+    "vllm:spec_decode_num_drafts_created": 1791826632.54566,
+    "vllm:spec_decode_num_draft_tokens_total": 21555.0,
+    "vllm:spec_decode_num_draft_tokens_created": 1791826632.545689,
+    "vllm:spec_decode_num_accepted_tokens_total": 12328.0,
+    "vllm:spec_decode_num_accepted_tokens_created": 1791826632.5457113,
+    "vllm:spec_decode_num_accepted_tokens_per_pos_total": 12328.0,
+    "vllm:spec_decode_num_accepted_tokens_per_pos_created": 8959133162.728785
+   }
+  },
+  {
+   "id": "corn-07",
+   "image": "corn.jpeg",
+   "question": "图中食材的形状更接近细长棒状还是圆球？只回答“细长棒状”或“圆球”。",
+   "accept": [
+    "长",
+    "棒",
+    "椭",
+    "圆柱",
+    "穗",
+    "ear",
+    "long",
+    "ellip"
+   ],
+   "forbid": [
+    "圆球",
+    "球状",
+    "round",
+    "sphere"
+   ],
+   "mandatory": false,
+   "answer": "细长棒状",
+   "ttft_s": 0.2808,
+   "latency_s": 0.3201,
+   "usage": {
+    "prompt_tokens": 221,
+    "total_tokens": 226,
+    "completion_tokens": 5
+   },
+   "passed": true,
+   "reason": "matched:长",
+   "metrics_memory_delta": {
+    "process_virtual_memory_bytes": 0.0,
+    "process_resident_memory_bytes": 0.0,
+    "vllm:kv_cache_usage_perc{engine=\"0\",model_name=\"dsv41-delivery-a2sim-tp8-v2\"}": 0.0
+   },
+   "spec_decode": {
+    "vllm:spec_decode_num_drafts_total": 4312.0,
+    "vllm:spec_decode_num_drafts_created": 1791826632.54566,
+    "vllm:spec_decode_num_draft_tokens_total": 21560.0,
+    "vllm:spec_decode_num_draft_tokens_created": 1791826632.545689,
+    "vllm:spec_decode_num_accepted_tokens_total": 12332.0,
+    "vllm:spec_decode_num_accepted_tokens_created": 1791826632.5457113,
+    "vllm:spec_decode_num_accepted_tokens_per_pos_total": 12332.0,
+    "vllm:spec_decode_num_accepted_tokens_per_pos_created": 8959133162.728785
+   }
+  },
+  {
+   "id": "corn-08",
+   "image": "corn.jpeg",
+   "question": "这张照片的类型是食物特写、自然风景还是人物照？只回答类型。",
+   "accept": [
+    "食物",
+    "食品",
+    "特写",
+    "food"
+   ],
+   "forbid": [
+    "风景",
+    "人物",
+    "landscape",
+    "portrait"
+   ],
+   "mandatory": false,
+   "answer": "食物特写",
+   "ttft_s": 0.2778,
+   "latency_s": 0.3178,
+   "usage": {
+    "prompt_tokens": 213,
+    "total_tokens": 217,
+    "completion_tokens": 4
+   },
+   "passed": true,
+   "reason": "matched:食物",
+   "metrics_memory_delta": {
+    "process_virtual_memory_bytes": 0.0,
+    "process_resident_memory_bytes": 0.0,
+    "vllm:kv_cache_usage_perc{engine=\"0\",model_name=\"dsv41-delivery-a2sim-tp8-v2\"}": 0.0
+   },
+   "spec_decode": {
+    "vllm:spec_decode_num_drafts_total": 4313.0,
+    "vllm:spec_decode_num_drafts_created": 1791826632.54566,
+    "vllm:spec_decode_num_draft_tokens_total": 21565.0,
+    "vllm:spec_decode_num_draft_tokens_created": 1791826632.545689,
+    "vllm:spec_decode_num_accepted_tokens_total": 12335.0,
+    "vllm:spec_decode_num_accepted_tokens_created": 1791826632.5457113,
+    "vllm:spec_decode_num_accepted_tokens_per_pos_total": 12335.0,
+    "vllm:spec_decode_num_accepted_tokens_per_pos_created": 8959133162.728785
+   }
+  },
+  {
+   "id": "corn-09",
+   "image": "corn.jpeg",
+   "question": "图中食材表面是光滑的还是有明显颗粒感？只回答“光滑”或“颗粒”。",
+   "accept": [
+    "颗粒",
+    "粒",
+    "凹凸",
+    "bumpy",
+    "kernel"
+   ],
+   "forbid": [
+    "光滑",
+    "smooth"
+   ],
+   "mandatory": false,
+   "answer": "颗粒",
+   "ttft_s": 0.2724,
+   "latency_s": 0.311,
+   "usage": {
+    "prompt_tokens": 215,
+    "total_tokens": 217,
+    "completion_tokens": 2
+   },
+   "passed": true,
+   "reason": "matched:颗粒",
+   "metrics_memory_delta": {
+    "process_virtual_memory_bytes": 0.0,
+    "process_resident_memory_bytes": 0.0,
+    "vllm:kv_cache_usage_perc{engine=\"0\",model_name=\"dsv41-delivery-a2sim-tp8-v2\"}": 0.0
+   },
+   "spec_decode": {
+    "vllm:spec_decode_num_drafts_total": 4314.0,
+    "vllm:spec_decode_num_drafts_created": 1791826632.54566,
+    "vllm:spec_decode_num_draft_tokens_total": 21570.0,
+    "vllm:spec_decode_num_draft_tokens_created": 1791826632.545689,
+    "vllm:spec_decode_num_accepted_tokens_total": 12336.0,
+    "vllm:spec_decode_num_accepted_tokens_created": 1791826632.5457113,
+    "vllm:spec_decode_num_accepted_tokens_per_pos_total": 12336.0,
+    "vllm:spec_decode_num_accepted_tokens_per_pos_created": 8959133162.728785
+   }
+  },
+  {
+   "id": "corn-10",
+   "image": "corn.jpeg",
+   "question": "画面中央是否存在食物？只回答“是”或“否”。",
+   "accept": [
+    "是",
+    "yes",
+    "有"
+   ],
+   "forbid": [
+    "否",
+    "没有",
+    "no"
+   ],
+   "mandatory": false,
+   "answer": "是",
+   "ttft_s": 0.2747,
+   "latency_s": 0.3132,
+   "usage": {
+    "prompt_tokens": 209,
+    "total_tokens": 211,
+    "completion_tokens": 2
+   },
+   "passed": true,
+   "reason": "matched:是",
+   "metrics_memory_delta": {
+    "process_virtual_memory_bytes": 0.0,
+    "process_resident_memory_bytes": 0.0,
+    "vllm:kv_cache_usage_perc{engine=\"0\",model_name=\"dsv41-delivery-a2sim-tp8-v2\"}": 0.0
+   },
+   "spec_decode": {
+    "vllm:spec_decode_num_drafts_total": 4315.0,
+    "vllm:spec_decode_num_drafts_created": 1791826632.54566,
+    "vllm:spec_decode_num_draft_tokens_total": 21575.0,
+    "vllm:spec_decode_num_draft_tokens_created": 1791826632.545689,
+    "vllm:spec_decode_num_accepted_tokens_total": 12337.0,
+    "vllm:spec_decode_num_accepted_tokens_created": 1791826632.5457113,
+    "vllm:spec_decode_num_accepted_tokens_per_pos_total": 12337.0,
+    "vllm:spec_decode_num_accepted_tokens_per_pos_created": 8959133162.728785
+   }
+  },
+  {
+   "id": "neg-text-01",
+   "image": null,
+   "question": "中国的首都是哪里？只回答城市名。",
+   "accept": [
+    "北京"
+   ],
+   "forbid": [
+    "上海",
+    "广州",
+    "深圳"
+   ],
+   "mandatory": true,
+   "answer": "北京",
+   "ttft_s": 0.2701,
+   "latency_s": 0.3092,
+   "usage": {
+    "prompt_tokens": 14,
+    "total_tokens": 16,
+    "completion_tokens": 2
+   },
+   "passed": true,
+   "reason": "matched:北京",
+   "metrics_memory_delta": {
+    "process_virtual_memory_bytes": 0.0,
+    "process_resident_memory_bytes": 0.0,
+    "vllm:kv_cache_usage_perc{engine=\"0\",model_name=\"dsv41-delivery-a2sim-tp8-v2\"}": 0.0
+   },
+   "spec_decode": {
+    "vllm:spec_decode_num_drafts_total": 4316.0,
+    "vllm:spec_decode_num_drafts_created": 1791826632.54566,
+    "vllm:spec_decode_num_draft_tokens_total": 21580.0,
+    "vllm:spec_decode_num_draft_tokens_created": 1791826632.545689,
+    "vllm:spec_decode_num_accepted_tokens_total": 12338.0,
+    "vllm:spec_decode_num_accepted_tokens_created": 1791826632.5457113,
+    "vllm:spec_decode_num_accepted_tokens_per_pos_total": 12338.0,
+    "vllm:spec_decode_num_accepted_tokens_per_pos_created": 8959133162.728785
+   }
+  },
+  {
+   "id": "neg-swap-01",
+   "image": "corn.jpeg",
+   "question": "图中的食材是胡萝卜吗？只回答“是”或“否”。",
+   "accept": [
+    "否",
+    "不是",
+    "不",
+    "no"
+   ],
+   "forbid": [
+    "是的",
+    "对"
+   ],
+   "mandatory": true,
+   "answer": "否",
+   "ttft_s": 0.2719,
+   "latency_s": 0.3105,
+   "usage": {
+    "prompt_tokens": 210,
+    "total_tokens": 212,
+    "completion_tokens": 2
+   },
+   "passed": true,
+   "reason": "matched:否",
+   "metrics_memory_delta": {
+    "process_virtual_memory_bytes": 0.0,
+    "process_resident_memory_bytes": 0.0,
+    "vllm:kv_cache_usage_perc{engine=\"0\",model_name=\"dsv41-delivery-a2sim-tp8-v2\"}": 0.0
+   },
+   "spec_decode": {
+    "vllm:spec_decode_num_drafts_total": 4317.0,
+    "vllm:spec_decode_num_drafts_created": 1791826632.54566,
+    "vllm:spec_decode_num_draft_tokens_total": 21585.0,
+    "vllm:spec_decode_num_draft_tokens_created": 1791826632.545689,
+    "vllm:spec_decode_num_accepted_tokens_total": 12339.0,
+    "vllm:spec_decode_num_accepted_tokens_created": 1791826632.5457113,
+    "vllm:spec_decode_num_accepted_tokens_per_pos_total": 12339.0,
+    "vllm:spec_decode_num_accepted_tokens_per_pos_created": 8959133162.728785
+   }
+  },
+  {
+   "id": "neg-blank-01",
+   "image": "__blank__",
+   "question": "图中主要是什么食材？如果图中没有清晰可辨的食材，请只回答“无法判断”。",
+   "accept": [
+    "无法判断",
+    "无法",
+    "不能",
+    "不知道",
+    "没有",
+    "看不清",
+    "unclear"
+   ],
+   "forbid": [
+    "胡萝卜",
+    "玉米",
+    "carrot",
+    "corn"
+   ],
+   "mandatory": false,
+   "answer": "无法判断",
+   "ttft_s": 0.3419,
+   "latency_s": 0.4082,
+   "usage": {
+    "prompt_tokens": 211,
+    "total_tokens": 214,
+    "completion_tokens": 3
+   },
+   "passed": true,
+   "reason": "matched:无法判断",
+   "metrics_memory_delta": {
+    "process_virtual_memory_bytes": 0.0,
+    "process_resident_memory_bytes": 0.0,
+    "vllm:kv_cache_usage_perc{engine=\"0\",model_name=\"dsv41-delivery-a2sim-tp8-v2\"}": 0.0
+   },
+   "spec_decode": {
+    "vllm:spec_decode_num_drafts_total": 4319.0,
+    "vllm:spec_decode_num_drafts_created": 1791826632.54566,
+    "vllm:spec_decode_num_draft_tokens_total": 21595.0,
+    "vllm:spec_decode_num_draft_tokens_created": 1791826632.545689,
+    "vllm:spec_decode_num_accepted_tokens_total": 12340.0,
+    "vllm:spec_decode_num_accepted_tokens_created": 1791826632.5457113,
+    "vllm:spec_decode_num_accepted_tokens_per_pos_total": 12340.0,
+    "vllm:spec_decode_num_accepted_tokens_per_pos_created": 8959133162.728785
+   }
+  }
+ ],
+ "baseline_metrics_before": {
+  "spec_decode": {
+   "vllm:spec_decode_num_drafts_total": 4294.0,
+   "vllm:spec_decode_num_drafts_created": 1791826632.54566,
+   "vllm:spec_decode_num_draft_tokens_total": 21470.0,
+   "vllm:spec_decode_num_draft_tokens_created": 1791826632.545689,
+   "vllm:spec_decode_num_accepted_tokens_total": 12306.0,
+   "vllm:spec_decode_num_accepted_tokens_created": 1791826632.5457113,
+   "vllm:spec_decode_num_accepted_tokens_per_pos_total": 12306.0,
+   "vllm:spec_decode_num_accepted_tokens_per_pos_created": 8959133162.728785
+  },
+  "memory": {
+   "process_virtual_memory_bytes": 49134788608.0,
+   "process_resident_memory_bytes": 2043777024.0,
+   "vllm:kv_cache_usage_perc{engine=\"0\",model_name=\"dsv41-delivery-a2sim-tp8-v2\"}": 0.0
+  }
+ }
+}

@@ -1,0 +1,69 @@
+<!doctype html><html lang="zh-CN"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>DSpark全轮次账与43层绑定 · v45</title><style>body{margin:32px auto;padding:0 24px;max-width:1060px;font-family:system-ui,sans-serif;color:#172033;line-height:1.65}h1{font-size:28px}h2{margin-top:32px;font-size:21px}table{border-collapse:collapse;width:100%;display:block;overflow:auto}td,th{border:1px solid #d9deea;padding:8px 12px;text-align:left}th{background:#f1f4f9}code{background:#eef1f6;padding:2px 4px;overflow-wrap:anywhere}</style><body><h1>DSpark 完整轮次计时与43层实机绑定修复</h1>
+<p>2026-10-12。正式完整真实权重 TP8、包含 DSpark 全部执行开销的 ≤20 ms/实际 verifier step 目标仍 active。当前真实 HTTP 集成基线仍为 <strong>57.581661 ms/step、A=2.965116、51.494108 tok/s，clean7/8</strong>；尚无正式20ms、完整消费者、通用质量或最优部署通过。</p>
+<h2>远端原始 HTTP 全轮次核验</h2>
+<p>在原始数据所在 host，以 <code>python -S</code> 与原冻结 v4 计数模块独立重算 22,145,365B acceptance。10请求（2warmup/8measured）/80份rank窗口的 <strong>6648个rank-round原payload</strong>，包括所有中间完整token/proposal/接受与首末fence/join，均通过。各原HTTP响应SHA、原core绑定与计数三元组一致。后端runtime imports=[]、NPU_calls=0、HTTP_requests=0，没有重跑请求。</p>
+<p>原数据SHA：<code>1ea53d1bf189b8444dd1f4fdd7856b7bd5ef8d28a7fc8b3d577e20935f492a12</code>；计数源SHA：<code>da845a5891557f21e80eac06d96aec1955263d1ae93afbc4d84e86dd9585dbec</code>。完整大原文件继续留远端，SSH仅取回小型验证回执。</p>
+<p>8 measured合计688 actual rounds、2040 decoded tokens、39.61618308s。选择每请求初始边界最早的rank，以下互不重叠host区间逐纳秒精确重建完整客户端decode窗口：</p>
+<table>
+<thead>
+<tr>
+<th>host区间</th>
+<th style="text-align: right;">合计秒</th>
+<th style="text-align: right;">ms/实际round</th>
+<th style="text-align: right;">decode占比</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>initial draft及首调度</td>
+<td style="text-align: right;">0.14525071</td>
+<td style="text-align: right;">0.211120</td>
+<td style="text-align: right;">0.37%</td>
+</tr>
+<tr>
+<td>execute开始→bookkeeping</td>
+<td style="text-align: right;">24.38666496</td>
+<td style="text-align: right;">35.445734</td>
+<td style="text-align: right;">61.56%</td>
+</tr>
+<tr>
+<td>bookkeeping→sample返回</td>
+<td style="text-align: right;">11.59303214</td>
+<td style="text-align: right;">16.850337</td>
+<td style="text-align: right;">29.26%</td>
+</tr>
+<tr>
+<td>相邻轮之间</td>
+<td style="text-align: right;">1.13159119</td>
+<td style="text-align: right;">1.644755</td>
+<td style="text-align: right;">2.86%</td>
+</tr>
+<tr>
+<td>末sample→客户端read</td>
+<td style="text-align: right;">2.35964408</td>
+<td style="text-align: right;">3.429715</td>
+<td style="text-align: right;">5.96%</td>
+</tr>
+<tr>
+<td>合计</td>
+<td style="text-align: right;"><strong>39.61618308</strong></td>
+<td style="text-align: right;"><strong>57.581661</strong></td>
+<td style="text-align: right;"><strong>100%</strong></td>
+</tr>
+</tbody>
+</table>
+<p>这是实际host边界账，不隔离设备kernel或单独draft成本，也不与另一个profile进程相减。后续主模型、草稿、调度候选须在同实例实际配对，兼顾A、tok/s和clean-rate。</p>
+<h2>首个完整权重诊断发现真实对象绑定错误</h2>
+<p>v10 diagnostic冻结48文件，同容器Torch2.10 CPU16项/17原AST/32轮CPU出口通过，20项未覆盖明确保留。完整v10/v9/v8/prepack overlay 148成员、592596B，SHA <code>88e6b0d5c2ff286d4c850aae618de82d214e20c31a5ba874493b4e0553c1781c</code>。root纯prep形成162文件的不可变stack快照，manifest SHA <code>abba4d19f628c28eb4edbf8e2714a46c1da6c0ad41348fb6da5c8852ac247f98</code>。</p>
+<p>root在启动前校源/config/SHA，fresh physical8–15无进程、健康仅原授权80C98001。正式容器没有继承此前完整Engram/HCCL wrapper环境，launcher v2因此逐SHA读取实际已完成native API job的启动回执，显式恢复其原runtime flags，再叠加冻结audit配置；CPU正例与篡改/冲突两反例通过。没有修改v10冻结或模型数学。</p>
+<p>真实job <code>formal_dspark_full43_diag_v1</code> 的rank5于加载39.1183GB权重后，在<code>session.py:66 before_graph</code>抛错：<code>AscendDeepseekV41ForConditionalGeneration</code>没有<code>.model</code>。完整视觉架构的实际language decoder通过<code>language_model.model</code>持有。原source注册/CPU能力不能替代真实对象入口验证，本job没有完成graph捕获、43实际出口、32轮数值或性能门。</p>
+<p>原cleanup回执2853B，SHA <code>54821a35bfb94fd8f288d002232860dc75c5c6fb7644fe4f10c278673cd95405</code>：8个child出生PPID均为本EngineCore1495304，8个pidfd hard-kill成功，无身份signal拒绝；但10s内全部terminal=false、exitcodes={}。原result严格passed=false、worker_exit_codes_complete=false、全rank 0 exports，run.exit仍缺失。后续只读确认原core/worker不可见与physical8–15无进程，仅证明当前设备释放；不从不可见推断reaped，更不改判旧job。</p>
+<p>独立v11按实际原vl_model源码、Conditional class/global symbol与registered ownership守卫，精确取<code>language_model.model</code>。原conditional/vision对象、原forward/数学/ABI与draft.model保持。同版本20 CPU正反门与17原AST通过；56文件冻结，SHA <code>8f582de3e5c46337c7e002d4b0a1c94a1338acef33980875024f65f1ef752e4d</code>。20项未覆盖与所有device/full/formal/prepack/performance标志仍false。新窗口必须再次fresh门，实际通过后才能记录对应能力。</p>
+<h2>并行tiny与后续算子准备</h2>
+<p>同一physical4/PID953926的2K/256 v3继续，当前快照13请求、<strong>5/9数值门通过</strong>。三组OFF A/A、首seed OFF/ON与ON A/A均token/Top5相等、logprob delta0，proposal、43路由、3attention、逻辑cache、全逐步visible cache及parameter seal bitwise通过，unretained_prefix_not_read=true。原5-check文件3856B，SHA <code>2c482764fe5f853a958d3513d48afbae6af7313efd5bd035a23f6b773ca9e24a</code>。剩余4门未完成，job非terminal，未授性能或正式资格。</p>
+<p>通用质量launcher已冻结21文本，14CPU/59拒绝，通过原FastAPI/AsyncLLM/生命周期/归属与严格GSM100/100、Vision23/23的CPU流水线。实际20assets、90shards、4984 MTP+vision headers只读核验；未启动新HTTP/NPU/服务/真实signal。manifest SHA <code>b17a98a8656d220ed3daf78b59b4cadea665d1b8615de95c92b3514a39a08c02</code>，37394B compact SHA <code>172fbaa85917bd1d6842d9d5bedad7fd96f20baf82772116f0de8d7fbf1d03dc</code>。部署seed须合真实wrapper env，再切audit0，不能把basis-only配置称为全部实际环境。</p>
+<p>另启独立K5容量CPU优化准备线：target36/E48、原生draft15/E16；K从实际loaded W2/FFN角色派生，保留原INT8 prepack前snapshot、canary/planner与原x恢复契约。旧M1已过矩阵不重跑，其机制结果不外推正式收益。准备完成后root按fresh门分配健康空闲单芯，与TP8及tiny4并行。</p>
+<h2>临时目录约定与实际迁移</h2>
+<p>用户指定后续dsv41本地临时内容使用<code>~/tmp/dsv41-&lt;任务名&gt;</code>，已写入workspace/repo AGENTS并由三代理ACK。检查无活跃open文件或特殊节点后，46项历史文件/目录共 <strong>6,578,301,143B</strong>，经复制前/复制后/源再检查三份内容清单一致而迁移，保留旧路径链接。</p>
+<p>历史产物集中于<code>~/tmp/dsv41-history-20261012</code>；本轮自检目录位于<code>~/tmp/dsv41-tp8-selfcheck-20261012</code>。迁移回执SHA <code>86109b9f9fec5f1dfd15d6833440330693fb238468302f4da2ff4e7d323e1bcc</code>。<code>/tmp</code>由86%占用降到18%，空闲6.7GB。已冻结源码/证据原字节、当前远端NPU运行目录与任务保持。</p>
+<p>v44已完成HEAD5709项清单、归档自检、GitHub/a321双push，提交<code>e6080309685a0cd2d429c2eaeb9a8269ed0b3673</code>。本次进一步源码/原证据与临时路径约定将精确交付；目标始终active，完整20ms/质量/最优部署未达成。</p></body></html>

@@ -1,0 +1,52 @@
+{
+  "schema": "delivery_dcp8_startup_failure_v1",
+  "observed_at": "2026-10-13T03:04:31+08:00",
+  "service_launch_requested": true,
+  "http_ready": false,
+  "service_pid": 834285,
+  "runner_exit_status": 1,
+  "failure_phase": "worker.load_model / graph-observer source receipt installation",
+  "root_cause": {
+    "type": "ValueError",
+    "message": "Stock graph observation source mismatch",
+    "path": "/work/src_dspark_general_quality_v11/stack/parallel_tiny/dspark_formal_audit/stock_graph_observer.py:37",
+    "actual_source_path": "/work/delivery_matrix_20261013_v4/delivery_matrix/dcp_draft_20261013_v2/llm_base_proposer.py",
+    "actual_source_sha256": "cbe8f6c913d2c9b4a406c9f9cde03234686dc8f19cace278d306ef24327613f3",
+    "stock_proposer_sha256": "d5003b772a1982f032f59a65d9ad4970d598311898c487a50791ee2337bdaae4",
+    "best_snapshot_overlay_sha256": "36d7c8870538e10e310863f9b628b90b946b534861563542cf7fba4cd88d7c39",
+    "guard_behavior": "Only allows the best snapshot SHA when the source path includes draft_graph_files; dcp_draft_20261013_v2 is not allowed and its patched SHA is different."
+  },
+  "engine_core_initialization_failed": true,
+  "canary_sent": false,
+  "formal_code8_started": false,
+  "formal_dihuo_started": false,
+  "run_log": {
+    "path": "/work/results/delivery_dcp8_v2/run.log",
+    "bytes": 189939,
+    "sha256": "a48b817be16db206ff9491e5afac16160e6656009daf585a78afa91f05386733",
+    "whole_log_copied": false
+  },
+  "trace_excerpt": {
+    "path": "/work/results/delivery_dcp8_v2/failure_trace_excerpt.log",
+    "bytes": 8108,
+    "sha256": "ca88d8cc67895016470382fcd82e6fc8c04996f02631e9c4235923bce35a9a18"
+  },
+  "post_failure_resource_check": {
+    "checked_at": "2026-10-13T03:07:29.830130+08:00",
+    "container_running": true,
+    "container_id": "b1aa15d8800346aff8f755a049feaae148b9d6e315e92bd32dcdf1063b429eb0",
+    "port_18960_listener_count": 0,
+    "host_npu_empty_observed": [
+      4,
+      5,
+      6,
+      7
+    ],
+    "host_npu_target_processes": [],
+    "physical_chips_8_15_free": true,
+    "project_process_rows_in_container": [],
+    "passed": true
+  },
+  "source_files_modified": false,
+  "container_restarted": false
+}
