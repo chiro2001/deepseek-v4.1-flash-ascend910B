@@ -265,6 +265,7 @@ python3 tools/check_checksums.py        # 期望：三方一致 ✅
 | CED-PD 逐算子 A/B（归一到 ms/step） | `python3 tools/ced_prof_ab.py a.csv:80:1.9 b.csv:86:1.9:4.55` |
 | 静态核真生效？（判据见 §3.11） | `bash experiments/dspark/check_static_kernel.sh <run_dir>` |
 | **连不上 a3 / 内网链路排查** | [`docs/NETWORK-RUNBOOK.md`](docs/NETWORK-RUNBOOK.md)：拓扑 / 逐跳排查命令 / 已知故障特征 |
+| **KV 容量 / slot 重排是否真生效**（A3 交付默认已开） | `grep -aE "V41-KV32-CAP\|GPU KV cache size" <serve.log> \| tail -3` —— 期望 `4,010,585 tokens`；起服日志里 `pool stride` 应为 **524288**（旧几何是 540928 ⇒ 重排没生效） |
 
 ---
 
@@ -277,6 +278,7 @@ python3 tools/check_checksums.py        # 期望：三方一致 ✅
 | 默认口径 | A3 开 Engram 算子入图（`ENGRAM_DEVICE_INDEX` 自动）｜**A2 关**（`=0` 走 host 路径）—— A2 上整表 host_register 会 `ret=207001`，见 `CHANGELOG.md` v8 §3 |
 | 性能口径 | `MAX_SEQS=4 PREFIX=0` |
 | 生产口径 | `MAX_SEQS=32 PREFIX=1` |
+| **A3 交付默认 = 容量优先** | `BAT_TOKENS=2048` + `V41_KV32_REPACK=1`（2026-10-14 起）⇒ KV **4,010,585** tokens。两条**必须成对**（只降 BAT ⇒ 池越过 32 位边界 ⇒ 长文静默读错）。**A2 入口仍是 8192**（repack 未在 A2 实测）。回退：`BAT_TOKENS=8192 V41_KV32_REPACK=0` |
 | 长 prompt 首 token 的命门 | `GPU_UTIL`：**0.92 是默认**，0.94 会让 8K prefill 从 1.14 s 掉到 8.0–8.6 s（`docs/prefill-memory-headroom.md`） |
 | **CED-PD 形态的卡分配** | **P = die 0–7 / D = die 8–15**（16 个 die = **8 块卡全用**）；全部实测参数在 `deploy/a3-ced-pd/launch/_common.sh` |
 | **CED-PD 的 D 必须关多流** | `MULTISTREAM=0 DSA_OVERLAP=0` —— 开了长上下文**静默算错**（实测 144K 四针 0/4） |

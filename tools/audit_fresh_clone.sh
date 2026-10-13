@@ -121,6 +121,13 @@ check scripts/serve_a2.sh "FORCE_EPLB" "哑开关透传（force_eplb）"
 check scripts/serve_v2.sh "eplb_config" "EPLB 接线"
 check tools/build_a3_tp8_image.sh "OPP_SRC" "镜像烘焙自定义内核"
 check tools/ab_gate.py "STABLE-BUCKET" "稳定桶判据提醒"
+# [KV-CAPACITY-DEFAULT 2026-10-14] A3 交付默认 = 容量优先：BAT=2048 + slot 重排。
+#   这两条必须成对（只改 BAT 会让池越过 32 位块边界 ⇒ 长上下文静默读错；
+#   只改 repack 没有容量收益），所以两条分别断言，缺一即 FAIL。
+check scripts/serve_a3.sh "BAT_TOKENS=\${BAT_TOKENS:-2048}" "A3 交付默认 BAT_TOKENS=2048"
+check scripts/serve_a3.sh "V41_KV32_REPACK=\${V41_KV32_REPACK:-1}" "A3 交付默认开启 KV32 slot 重排"
+check scripts/serve_a2.sh "V41_KV32_REPACK" "repack 门控接线（serve_a2.sh 里实现）"
+check patches/files/deepseek_v41.repack.py "V41-KV32-CAP" "repack 载荷携带上限语义（[V41-KV32-CAP]）"
 for k in GroupedMatmulSwigluQuantV2_fa3d6d3de6e1f32e170e39d2ddd3a20e.o; do
   if find "$TMP/kernels" -name "$k" | grep -q .; then say "   ✅ gmm1 armF 内核 $k"; else say "   ⛔ 缺内核 $k"; fail=1; fi
 done

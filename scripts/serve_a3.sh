@@ -69,11 +69,36 @@ export MAX_SEQS=${MAX_SEQS:-32}
 #     serve_a2.sh 的默认仍保守为 0（历史上撞过一次未查明根因的静默失效 A≈1.06），
 #     所以这里显式给。**起服后务必用 tools/draft_graph_guard.sh 断言 A ≥ 1.3**。
 #     本机连续多轮 DRAFT_GRAPH=1 实测 A 稳定在 3.4–3.7，且 144K/1M 四针 + regress2 全过。
-#   · GPU_UTIL=0.92 / BAT_TOKENS=8192 —— 与容量实测口径一致（KV 2.82M tokens）。
 #   · SP_TOKENS=5 保持默认（K=5 在 N=1/2/4/8 全面优于 K=7）。
+#
+# [KV-CAPACITY-DEFAULT 2026-10-14] ★ A3 交付默认改为**容量优先**：
+#   GPU_UTIL=0.92 / BAT_TOKENS=2048 + V41_KV32_REPACK=1
+#   ⇒ KV 2,987,727 → **4,010,585 tokens（+34.2%）**
+#
+#   为什么这两条必须**成对**出现（只改一条会起不来或静默读错）：
+#     ① BAT_TOKENS=2048 把 activation 峰值从 3.21 GiB 压到 0.79 GiB
+#        ⇒ 自动 profiling 多给约 9,000 块 KV（+35%）；
+#     ② 但这份增益会把池推过 **32 位块号边界**（33,994 块 > 上界）
+#        ⇒ **块号回绕 ⇒ 长上下文静默读错**（09-23 负控 12/12 FAIL、09-18 A2 150K≈0%
+#        都是这一族的现场）。所以必须同时开 ③；
+#     ③ V41_KV32_REPACK=1 挂 slot 重排版 core/deepseek_v41.py：四槽页步长全 131,072
+#        ⇒ 池 stride 540,928 → 524,288、块上限 29,076 → **32,768（+12.7%）**，装得下；
+#        该文件同时带 **[V41-KV32-CAP]**（上限语义 `min(自动 profiling, 几何自算上限)`）
+#        ⇒ **不要再手动钉 KV_CACHE_MEMORY_BYTES**（钉死 16 GiB 会在可用 KV 只有
+#        14.40 GiB 的机器上 OOM；cap 在小显存机器上自动不动作）。
+#        【实测】A3 TP8 DCP1：4,010,585 tokens、长文针 24/24；DCP8：18,864,624（+10.1%）。
+#        见 `docs/KV32-SLOT-REPACK-A3-VERDICT-20261006.md` 与
+#        `docs/KV32-CAP-MAX-SEMANTICS-20261006.md`。
+#   代价（同日同机受控 A/B，非估算）：prefill 8K ~7.2K → **6,478 tok/s（−11%）**、
+#        首 token 更慢（分块粒度降到 ~1,920 tok/step，300K prompt 约 79 刀）；
+#        decode 吞吐 0~−6%（并发 1 反而 +1.3%）、单流 ms/step 24.196 vs 24.416（−0.9%）。
+#   回退（要旧口径时显式给）：`BAT_TOKENS=8192 V41_KV32_REPACK=0 bash scripts/serve_a3.sh`
+#   ⚠️ A2 入口（serve_a2.sh）**仍是 8192**：repack 载荷按 A3 交付镜像的
+#      core/deepseek_v41.py 移植，A2 上尚未实测（见上引文档 §4/§6）。
 export DRAFT_GRAPH=${DRAFT_GRAPH:-1}
 export GPU_UTIL=${GPU_UTIL:-0.92}
-export BAT_TOKENS=${BAT_TOKENS:-8192}
+export BAT_TOKENS=${BAT_TOKENS:-2048}
+export V41_KV32_REPACK=${V41_KV32_REPACK:-1}
 export DP=${DP:-1}
 # [绑核] 外部**不做** CPU/NUMA 绑定：容器不设 --cpuset-cpus/--cpuset-mems，
 #   由 vllm-ascend 内部的 cpu_binding 按 NPU 拓扑给每个 rank 自己绑
