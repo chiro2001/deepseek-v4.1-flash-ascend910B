@@ -1,0 +1,53 @@
+diff -u /home/chiro/tmp/kfix/base_op_kernel/arch22/sparse_flash_mla_csa_kernel.h /home/chiro/tmp/kfix/ve/sparse_flash_mla_csa_kernel.h
+--- /home/chiro/tmp/kfix/base_op_kernel/arch22/sparse_flash_mla_csa_kernel.h	2026-09-11 09:19:46.000000000 +0800
++++ /home/chiro/tmp/kfix/ve/sparse_flash_mla_csa_kernel.h	2026-09-30 21:40:07.694408705 +0800
+@@ -43,6 +43,7 @@
+     int32_t actS1Size = 0; // TND场景下当前Batch循环处理的S1轴的大小
+     int32_t actOriS2Size = 0;
+     int32_t actCmpS2Size = 0;
++    int32_t localCmpLen = 0;   // [DCP8-FIX E] this rank cache length (from seqused_cmp_kv)
+ 
+     bool curActSeqLenIsZero = false;
+ 
+@@ -423,9 +424,17 @@
+     // 对于cmp部分还有top k, tempLoopInfo.actS2Size只针对cmp。
+     // 因果可见长度是 q_idx+1，连续 indices（0..q_idx,-1）时有效条数等于该长度；
+     // 出现 sparse gap（如 0..70,88,89,90,-1）时有效条数更少，gather 与计算都按真实有效条数走。
+-    int32_t thresHold = (tempLoopInfo.cmpMaskRight + tempLoopInfo.s1EndIdx + 1) / constInfo.cmpRatio;
++    // ===== [DCP8-FIX E] bound by THIS rank's actual cache length, not a shifted global limit =====
++    // `actCmpS2Size` entering here is the local compressed length (seqused_cmp_kv) == the number
++    // of rows this rank's paged cache actually holds. The old code additionally clamped it with
++    // `thresHold`, a causality limit derived from GLOBAL coordinates
++    // (cmpMaskRight = cmpMaskS2Size - actS1Size). Under KV sharding that premise breaks and the
++    // limit is shifted as a whole: it zeroed the compressed branch for early rows and silently
++    // dropped legitimate keys for later ones. The caller has already filtered indices for
++    // causality and shard ownership, so we simply honour the local cache length.
++    tempLoopInfo.localCmpLen = tempLoopInfo.actCmpS2Size;
+     int32_t bound = Min(tempLoopInfo.actCmpS2Size,
+-                        Min(constInfo.sparseBlockCount * constInfo.sparseBlockSize, Max(thresHold, 0)));
++                        constInfo.sparseBlockCount * constInfo.sparseBlockSize);
+     tempLoopInfo.actCmpS2Size = Min(bound, CountValidCmpSparseLen(bound));
+ }
+ 
+@@ -671,7 +680,9 @@
+             info.actualSingleProcessSInnerSize = constInfo.s2BaseSize;
+         }
+         info.s2StartPoint = tempLoopInfo.oriMaskLeft;
+-        info.cmpS2IdLimit = (tempLoopInfo.cmpMaskRight + tempLoopInfo.s1EndIdx + 1) / constInfo.cmpRatio;
++        // [DCP8-FIX E] bound the gather by THIS rank's cache length. Not the shifted global
++        // limit (drops valid keys) and not sparseBlockCount (can exceed the local cache -> OOB).
++        info.cmpS2IdLimit = tempLoopInfo.localCmpLen;
+     } else {
+         info.isOriOnly = false;
+         info.relativeS2Idx = info.s2Idx - tempLoopInfo.oriLoopTimes;
+@@ -682,7 +693,9 @@
+             info.actualSingleProcessSInnerSize = constInfo.s2BaseSize;
+         }
+         info.s2StartPoint = 0;
+-        info.cmpS2IdLimit = (tempLoopInfo.cmpMaskRight + tempLoopInfo.s1EndIdx + 1) / constInfo.cmpRatio;
++        // [DCP8-FIX E] bound the gather by THIS rank's cache length. Not the shifted global
++        // limit (drops valid keys) and not sparseBlockCount (can exceed the local cache -> OOB).
++        info.cmpS2IdLimit = tempLoopInfo.localCmpLen;
+         if constexpr (HEAD_RATIO_ONE) {
+             info.v0S2Start = static_cast<int32_t>(s2Offset);
+             info.v0S2DealSize = static_cast<int32_t>(info.actualSingleProcessSInnerSize);

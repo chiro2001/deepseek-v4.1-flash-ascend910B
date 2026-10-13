@@ -1,0 +1,15 @@
+diff -u /home/chiro/tmp/kfix/base_op_kernel/arch22/sparse_flash_mla_csa_kernel.h /home/chiro/tmp/kfix/va/sparse_flash_mla_csa_kernel.h
+--- /home/chiro/tmp/kfix/base_op_kernel/arch22/sparse_flash_mla_csa_kernel.h	2026-09-11 09:19:46.000000000 +0800
++++ /home/chiro/tmp/kfix/va/sparse_flash_mla_csa_kernel.h	2026-09-30 21:34:02.765698387 +0800
+@@ -423,9 +423,9 @@
+     // 对于cmp部分还有top k, tempLoopInfo.actS2Size只针对cmp。
+     // 因果可见长度是 q_idx+1，连续 indices（0..q_idx,-1）时有效条数等于该长度；
+     // 出现 sparse gap（如 0..70,88,89,90,-1）时有效条数更少，gather 与计算都按真实有效条数走。
+-    int32_t thresHold = (tempLoopInfo.cmpMaskRight + tempLoopInfo.s1EndIdx + 1) / constInfo.cmpRatio;
++    // [DCP8-FIX A] drop the global-coordinate thresHold clamp (keep everything else identical)
+     int32_t bound = Min(tempLoopInfo.actCmpS2Size,
+-                        Min(constInfo.sparseBlockCount * constInfo.sparseBlockSize, Max(thresHold, 0)));
++                        constInfo.sparseBlockCount * constInfo.sparseBlockSize);
+     tempLoopInfo.actCmpS2Size = Min(bound, CountValidCmpSparseLen(bound));
+ }
+ 

@@ -1,0 +1,17 @@
+--- dsa_v41.py.orig	2026-10-08 01:59:06.665150210 +0000
++++ dsa_v41.py.new	2026-10-08 01:59:06.669150210 +0000
+@@ -329,7 +329,13 @@
+         )
+ 
+         # Part 1: Q_a matmul (Cube) overlaps independent KV quantization (Vector).
+-        q_quant, q_scale = wq_a.quantize(hidden_states)
++        _fused_quant = getattr(attn, "_lnorm_fused_quant", None)   # [LNORM-FUSE]
++        if _fused_quant is not None and not wq_a._has_communication and getattr(wq_a, "_is_w8a8_dynamic", False):
++            q_quant, q_scale = _fused_quant
++        else:
++            q_quant, q_scale = wq_a.quantize(hidden_states)
++        if _fused_quant is not None:
++            attn._lnorm_fused_quant = None   # [LNORM-FUSE] 每步消费一次，避免残留
+         kv_quant_done = None
+         if share_quant:
+             kv_quant, kv_scale = q_quant, q_scale

@@ -377,7 +377,14 @@ if _DSPARK_DRAFT_METADATA_MODE not in ("sync", "async"):
     )
 _DSPARK_DRAFT_METADATA_SYNC = _DSPARK_DRAFT_METADATA_MODE == "sync"
 def _v41_diag_bt(tag, gid, cam, full_buffer):
-    """[DYNSPEC-DIAG] 只在 dspark 草稿元数据行数不一致时打印（正常零输出）。"""
+    """[DYNSPEC-DIAG 2026-10-03] 只在草稿元数据**行数不一致**时打印（正常零输出）。
+
+    用于定位 dsa_v1.py 的
+    `AclNN_Parameter_Error: expected index shape 2 smaller than self shape 1`：
+    `_propose` 的 `_pad_query_start_loc_for_fia` 可能补一个 dummy 请求并把
+    `num_reqs_padded +1`，而 per-group block table 只是**目标侧**的切片
+    ⇒ 行数少一行，草稿侧拿它去 gather 就是行数不匹配。
+    """
     try:
         bt = cam.block_table_tensor
         sl = cam.seq_lens
@@ -466,30 +473,6 @@ def _is_glm_model(model_config) -> bool:
     model_type = getattr(hf_text_config, "model_type", "") or ""
     return "glm" in str(model_type).lower()
 
-
-
-
-# ======================================================================= [V41-PROBE]
-def _v41_shape_probe(stage, **kw):
-    """只打 shape / python int ⇒ 不触发 device 同步。默认关闭。"""
-    import os as _os
-    if _os.environ.get("V41_DSPARK_SHAPE_PROBE", "0") != "1":
-        return
-    try:
-        import torch as _t
-        import logging as _lg
-        ps = []
-        for k, v in kw.items():
-            if isinstance(v, _t.Tensor):
-                ps.append("%s.shape=%s" % (k, tuple(v.shape)))
-            elif v is None:
-                ps.append("%s=None" % k)
-            else:
-                ps.append("%s=%s" % (k, v))
-        _lg.getLogger(__name__).warning("[V41-PROBE] %s | %s", stage, " ".join(ps))
-    except Exception:
-        pass
-# ===================================================================================
 
 class AscendSpecDecodeBaseProposer(SpecDecodeBaseProposer):
     _runnable: ACLGraphWrapper | Callable
@@ -1336,20 +1319,6 @@ class AscendSpecDecodeBaseProposer(SpecDecodeBaseProposer):
         global _DSPARK_STEP_PROBE_LEFT, _DSPARK_DISPATCH_DIAG_LEFT
         global _DSPARK_DISPATCH_SEEN
         batch_size = common_attn_metadata.batch_size()
-        _v41_shape_probe(
-            "lb.propose.IN",
-            batch_size=batch_size,
-            K=num_speculative_tokens,
-            method=self.method,
-            parallel_drafting=getattr(self, "parallel_drafting", None),
-            target_token_ids=target_token_ids,
-            next_token_ids=next_token_ids,
-            target_positions=target_positions,
-            target_hidden=target_hidden_states,
-            tis_in=token_indices_to_sample,
-            cad_num_reqs=getattr(common_attn_metadata, "num_reqs", None),
-            cad_num_actual=getattr(common_attn_metadata, "num_actual_tokens", None),
-        )
 
         # Dynamic SD: take the scheduled per-step K as an explicit argument and
         # set it here -- mirroring vLLM's ``propose(num_speculative_tokens=...)``
@@ -1689,7 +1658,16 @@ class AscendSpecDecodeBaseProposer(SpecDecodeBaseProposer):
         # Clone the data so that when calculating the data at position 2 and position 3
         # in the merged graph, it does not affect position 1
         # FIXME(lilinsiman)
-        if self.dcp_size > 1 and self.use_cuda_graph:
+        # [V41-DCP-DSPARK] 这条 clone 分支是为**多步草稿**准备的（draft_index 1..N
+        # 的合并图里同一个 metadata 对象被就地改写，必须给第 1 步一份私有副本）。
+        # parallel drafting（DSpark/DFlash）是单次并行草稿 —— 见下方
+        # `should_update_next_steps = not self.parallel_drafting and ...`，
+        # 步进循环根本不执行 ⇒ 别名风险不存在，走 DCP=1 那条**已验证**的
+        # `.clone()` 路径即可。这同时绕开两个真实缺陷：
+        #   (a) DSpark 覆写了 dummy_run ⇒ block_table_tensor_clone 永不被创建；
+        #   (b) clone 的宽度取自 input_batch.block_table[0]（实测 256），而本
+        #       metadata 的宽度是 512 ⇒ 即便建出来也会 shape mismatch。
+        if self.dcp_size > 1 and self.use_cuda_graph and not self.parallel_drafting:
             assert self.block_table_tensor_clone is not None, "block_table_tensor_clone is not init"
             self.block_table_tensor_clone[: common_attn_metadata.block_table_tensor.shape[0]] = (
                 common_attn_metadata.block_table_tensor
@@ -1709,7 +1687,13 @@ class AscendSpecDecodeBaseProposer(SpecDecodeBaseProposer):
             "slot_indices": None,
             "mtp_slot_mapping": None,
         }
-        if dcp_manager is not None:
+        # [V41-DCP-DSPARK] parallel drafting（DSpark/DFlash）**不需要** MTP 步进元数据：
+        # 下面 `should_update_next_steps = not self.parallel_drafting and (...)` 恒为
+        # False ⇒ `for draft_index in range(1, num_speculative_tokens)` 循环从不执行
+        # ⇒ dcp_mtp_inputs / draft_cp_kwargs 全是死值。不加这个门会崩：DSpark 的
+        # attn_metadata 既没有 seq_lens 也没有 seq_lens_cpu（不走 Ascend 那条
+        # builder），dcp_utils.prepare_spec_decode_mtp_drafting_inputs:236 直接 assert。
+        if dcp_manager is not None and not self.parallel_drafting:
             dcp_mtp_inputs = dcp_manager.prepare_spec_decode_mtp_drafting_inputs(
                 common_attn_metadata=common_attn_metadata,
                 attn_metadata=attn_metadata_i,
@@ -2446,6 +2430,18 @@ class AscendSpecDecodeBaseProposer(SpecDecodeBaseProposer):
         else:
             assert self.is_rejected_token_mask is not None
             assert self.is_masked_token_mask is not None
+            # [V41-DCP-DSPARK] 抓取**展开前**的 sample 索引。
+            # DCP 的 prepare_spec_decode_mtp_drafting_inputs 需要与
+            # query_start_loc_full（scheduler 布局）同坐标系的逐请求索引；
+            # 而下面 npu_copy_and_expand_eagle_inputs 返回的是**展开后**布局的
+            # 索引（batch_size * num_spec 个），两者不可混用 ⇒ 必须在这里先记住入参。
+            # 语义核对（prepare_inputs_padded）：入参 =
+            #   query_start_loc[1:] - 1 - num_rejected
+            # 消费端算：
+            #   num_reject = cu_num_tokens - idx - 1  ⇒ 正好还原 num_rejected。
+            ori_token_indices_to_sample = token_indices_to_sample
+            if ori_token_indices_to_sample is None:
+                ori_token_indices_to_sample = cad.query_start_loc[1:] - 1
             # 1.
             # Call the CopyAndExpandEagleInputs AscendC operator to copy
             # input_ids and positions into the correct slots in the
@@ -2545,7 +2541,38 @@ class AscendSpecDecodeBaseProposer(SpecDecodeBaseProposer):
             if cad.seq_lens_cpu is not None:
                 new_cad.seq_lens_cpu = cad.seq_lens_cpu + N
 
-            return total_num_output_tokens, token_indices_to_sample, new_cad, None
+            # [V41-DCP-DSPARK] parallel-drafting（DSpark/DFlash）分支也必须提供
+            # DCP 的 first-pass 元数据：上游只按 draft 架构名 K3DSparkModel
+            # 拒绝 DSpark x DCP，漏掉了我们的 DSparkDeepseekV41ForCausalLM，
+            # 于是绕过那条保护、直接撞上 _propose 的
+            # assert long_seq_args is not None。
+            # 复用与 EAGLE 分支**完全相同**的
+            # prepare_spec_decode_first_pass_inputs（它只做两件事：给 cad 挂上
+            # context_parallel_metadata、产出 long_seq_args），但**丢弃**它对
+            # num_tokens / 输入张量的覆盖 —— parallel drafting 是展开后的布局，
+            # 与 EAGLE 分支不同，不能被它改写。
+            long_seq_args = None
+            assert self.runner is not None
+            dcp_manager = getattr(self.runner, "dcp_manager", None)
+            if dcp_manager is not None:
+                _first_pass = dcp_manager.prepare_spec_decode_first_pass_inputs(
+                    input_ids=self.input_ids[:total_num_output_tokens],
+                    target_positions=self.positions[:total_num_output_tokens],
+                    target_hidden_states=self.hidden_states[:total_num_output_tokens],
+                    token_indices_to_sample=ori_token_indices_to_sample,
+                    common_attn_metadata=new_cad,
+                    long_seq_metadata=long_seq_metadata,
+                    req_scheduled_tokens=req_scheduled_tokens,
+                    req_ids=self.runner.input_batch.req_ids,
+                    logits_indices=self.runner.logits_indices,
+                    num_tokens=total_num_output_tokens,
+                    num_prefill_reqs=num_prefill_reqs,
+                    num_decode_reqs=num_decode_reqs,
+                    uses_mrope=self.uses_mrope,
+                )
+                long_seq_args = _first_pass.long_seq_args
+
+            return total_num_output_tokens, token_indices_to_sample, new_cad, long_seq_args
 
     def model_returns_tuple(self) -> bool:
         if self.method == "mtp":
@@ -3311,13 +3338,7 @@ class AscendSpecDecodeBaseProposer(SpecDecodeBaseProposer):
                 block_table = getattr(self, "_per_group_block_table_buffers", {}).get(gid)
                 if block_table is not None:
                     common_attn_metadata.block_table_tensor = block_table[: common_attn_metadata.num_reqs]
-                    # [DYNSPEC-DIAG 2026-10-03] 只在**行数不一致**时打印：定位
-                    #   dsa_v1.py:618 `torch.gather(block_table, 1, safe_nums)`
-                    #   的 `expected index shape 2 smaller than self shape 1`。
-                    #   正常路径下这几行不产生任何输出（零噪声）。
-                    _v41_diag_bt(
-                        "pre-window", gid, common_attn_metadata, block_table
-                    )
+                    _v41_diag_bt("pre-window", gid, common_attn_metadata, block_table)
                 slot_mapping = self._per_group_query_slot_mapping_buffers[gid]
                 if slot_mapping is not None:
                     common_attn_metadata.slot_mapping = slot_mapping[:num_input_tokens]
@@ -3330,9 +3351,7 @@ class AscendSpecDecodeBaseProposer(SpecDecodeBaseProposer):
                 # (dspark only - self.sliding_window is None for MTP.)
                 if self.sliding_window is not None:
                     self.sliding_window.apply(common_attn_metadata)
-                    _v41_diag_bt(
-                        "post-window", gid, common_attn_metadata, block_table
-                    )
+                    _v41_diag_bt("post-window", gid, common_attn_metadata, block_table)
                 attn_metadata = builder.build_for_drafting(
                     common_attn_metadata, draft_index=1, **extra_attn_metadata_args
                 )

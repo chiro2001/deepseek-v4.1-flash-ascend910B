@@ -1,0 +1,57 @@
+#
+# Copyright (c) 2025 Huawei Technologies Co., Ltd. All Rights Reserved.
+# This file is a part of the vllm-ascend project.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+import os
+
+import vllm_ascend.patch.platform.patch_circular_buffer  # noqa
+import vllm_ascend.patch.platform.patch_deepseek_v4_vision  # noqa
+import vllm_ascend.patch.platform.patch_deepseek_v41_config  # noqa
+import vllm_ascend.patch.platform.patch_deepseek_v41_frontend  # noqa
+import vllm_ascend.patch.platform.patch_distributed  # noqa
+import vllm_ascend.patch.platform.patch_kv_cache_utils  # noqa
+import vllm_ascend.patch.platform.patch_mamba_block_aligned_split  # noqa
+import vllm_ascend.patch.platform.patch_mla_prefill_backend  # noqa
+import vllm_ascend.patch.platform.patch_pp_mtp  # noqa
+import vllm_ascend.patch.platform.patch_use_v2_model_runner  # noqa
+from vllm_ascend.device.hardware_profile import HardwareCapability, get_current_hardware_profile
+
+if get_current_hardware_profile().supports(HardwareCapability.STANDARD_MAMBA_PATCH):
+    import vllm_ascend.patch.platform.patch_mamba_config  # noqa
+else:
+    import vllm_ascend.patch.platform.patch_mamba_config_310  # noqa
+import vllm_ascend.patch.platform.patch_minimax_m2_config  # noqa
+
+import vllm_ascend.patch.platform.patch_structured_output  # noqa
+import vllm_ascend.patch.platform.patch_torch_accelerator  # noqa
+import vllm_ascend.patch.platform.patch_mamba_manager  # noqa
+# [V41-DCP] DeepSeek-V4.1 decode-context-parallel reconciliation. Self-gated on
+# `V41_DCP` / `V41_DCP_ALLOW_CAPACITY_PROBE`, so it is a no-op in production.
+import vllm_ascend.patch.platform.patch_v41_dcp  # noqa
+
+if os.getenv("DYNAMIC_EPLB", "false").lower() in ("true", "1") or os.getenv("EXPERT_MAP_RECORD", "false") == "true":
+    import vllm_ascend.patch.platform.patch_multiproc_executor  # noqa
+
+import vllm_ascend.patch.platform.patch_balance_schedule  # noqa
+import vllm_ascend.patch.platform.patch_dyntra_lb_core  # noqa
+
+import vllm_ascend.patch.platform.patch_kv_cache_coordinator  # noqa
+import vllm_ascend.patch.platform.patch_speculative_config  # noqa
+
+import vllm_ascend.patch.platform.patch_eplb  # noqa
+import vllm_ascend.patch.platform.patch_fused_moe  # noqa
+import vllm_ascend.patch.platform.patch_dp_device_ids  # noqa
+import vllm_ascend.patch.platform.patch_vision  # noqa
+import vllm_ascend.patch.platform.patch_glm5next_config  # noqa

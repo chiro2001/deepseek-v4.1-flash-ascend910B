@@ -1,0 +1,918 @@
+diff --git a/tests/ut/worker/test_npu_ubatch_wrapper.py b/tests/ut/worker/test_npu_ubatch_wrapper.py
+new file mode 100644
+index 000000000000..f926e51adbe6
+--- /dev/null
++++ b/tests/ut/worker/test_npu_ubatch_wrapper.py
+@@ -0,0 +1,507 @@
++#
++# Copyright (c) 2025 Huawei Technologies Co., Ltd. All Rights Reserved.
++# Copyright 2023 The vLLM team.
++#
++# Licensed under the Apache License, Version 2.0 (the "License");
++# you may not use this file except in compliance with the License.
++# You may obtain a copy of the License at
++#
++#     http://www.apache.org/licenses/LICENSE-2.0
++#
++# Unless required by applicable law or agreed to in writing, software
++# distributed under the License is distributed on an "AS IS" BASIS,
++# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++# See the License for the specific language governing permissions and
++# limitations under the License.
++# This file is a part of the vllm-ascend project.
++#
++"""Unit tests for --enable-dbo NPU adaptation (NPUUBatchWrapper).
++
++A-class tests: pure CPU / mock, no NPU device required.
++B-class tests: require NPU device, gated by @npu_test decorator.
++"""
++
++import threading
++import unittest
++from unittest.mock import MagicMock, patch
++
++import pytest
++import torch
++
++from tests.ut.base import TestBase
++
++# Lightweight stand-in for the historical @npu_test decorator. Upstream
++# vllm-ascend now routes NPU tests by directory convention (tests/ut/<m>/a2/),
++# so this decorator only marks tests as skipped when no NPU device is visible
++# (matching the previous behaviour for B-class tests in CPU-only envs).
++
++
++def npu_test(num_npus: int = 1):
++    """Skip test when torch.npu is unavailable; otherwise run as-is."""
++
++    def decorator(func):
++        def wrapper(*args, **kwargs):
++            if not torch.npu.is_available():
++                pytest.skip(f"{func.__name__} requires NPU device (num_npus={num_npus})")
++            return func(*args, **kwargs)
++
++        return wrapper
++
++    return decorator
++
++
++def _build_wrapper():
++    """Construct an NPUUBatchWrapper without a real NPU device."""
++    from vllm_ascend.worker.npu_ubatch_wrapper import NPUUBatchWrapper
++
++    vllm_config = MagicMock()
++    vllm_config.parallel_config.num_ubatches = 2
++    with patch("torch.npu.Stream"):
++        wrapper = NPUUBatchWrapper(
++            runnable=MagicMock(),
++            vllm_config=vllm_config,
++            device=torch.device("cpu"),
++        )
++    return wrapper
++
++
++# ---------------------------------------------------------------------------
++# 2.1 NPUUBatchWrapper — _slice_model_inputs
++# ---------------------------------------------------------------------------
++
++
++class TestSliceModelInputs(TestBase):
++    """Test _slice_model_inputs with various input shapes."""
++
++    def test_slice_1d_positions(self):
++        wrapper = _build_wrapper()
++        input_ids = torch.arange(10)
++        positions = torch.arange(10)
++        token_slice = slice(0, 5)
++
++        ids, pos, embeds, inter = wrapper._slice_model_inputs(token_slice, input_ids, positions, None, None)
++
++        assert torch.equal(ids, torch.arange(5))
++        assert torch.equal(pos, torch.arange(5))
++        assert embeds is None
++        assert inter is None
++
++    def test_slice_2d_positions(self):
++        wrapper = _build_wrapper()
++        # input_ids is always 1D, positions can be 2D (e.g. multi_chunk)
++        input_ids = torch.arange(10)
++        positions = torch.arange(20).reshape(2, 10)
++        token_slice = slice(2, 7)
++
++        ids, pos, embeds, inter = wrapper._slice_model_inputs(token_slice, input_ids, positions, None, None)
++
++        assert ids.shape == (5,)
++        assert pos.shape == (2, 5)
++        assert embeds is None
++        assert inter is None
++
++    def test_slice_none_optional_fields(self):
++        wrapper = _build_wrapper()
++        input_ids = torch.arange(8)
++        positions = torch.arange(8)
++        token_slice = slice(0, 4)
++
++        ids, pos, embeds, inter = wrapper._slice_model_inputs(token_slice, input_ids, positions, None, None)
++
++        assert ids.shape == (4,)
++        assert pos.shape == (4,)
++        assert embeds is None
++        assert inter is None
++
++    def test_slice_full_range(self):
++        wrapper = _build_wrapper()
++        input_ids = torch.arange(6)
++        positions = torch.arange(6)
++        token_slice = slice(0, 6)
++
++        ids, pos, _, _ = wrapper._slice_model_inputs(token_slice, input_ids, positions, None, None)
++
++        assert torch.equal(ids, input_ids)
++        assert torch.equal(pos, positions)
++
++    def test_slice_empty_range(self):
++        wrapper = _build_wrapper()
++        input_ids = torch.arange(10)
++        positions = torch.arange(10)
++        token_slice = slice(3, 3)
++
++        ids, pos, _, _ = wrapper._slice_model_inputs(token_slice, input_ids, positions, None, None)
++
++        assert ids.numel() == 0
++        assert pos.numel() == 0
++
++
++# ---------------------------------------------------------------------------
++# 2.1 NPUUBatchWrapper — passthrough / unwrap / getattr
++# ---------------------------------------------------------------------------
++
++
++class TestNPUUBatchWrapperPassthrough(TestBase):
++    """Test non-ubatch pass-through behavior."""
++
++    def test_call_passthrough_without_ubatch(self):
++        from vllm_ascend.worker.npu_ubatch_wrapper import NPUUBatchWrapper
++
++        mock_runnable = MagicMock(return_value=torch.tensor([1.0]))
++        vllm_config = MagicMock()
++        vllm_config.parallel_config.num_ubatches = 2
++        with patch("torch.npu.Stream"):
++            wrapper = NPUUBatchWrapper(mock_runnable, vllm_config, torch.device("cpu"))
++
++        mock_fc = MagicMock()
++        mock_fc.ubatch_slices = None
++        with patch(
++            "vllm_ascend.worker.npu_ubatch_wrapper.get_forward_context",
++            return_value=mock_fc,
++        ):
++            result = wrapper(
++                input_ids=torch.tensor([1]),
++                positions=torch.tensor([0]),
++                intermediate_tensors=None,
++                inputs_embeds=None,
++            )
++
++        mock_runnable.assert_called_once()
++        assert torch.equal(result, torch.tensor([1.0]))
++
++    def test_unwrap(self):
++        from vllm_ascend.worker.npu_ubatch_wrapper import NPUUBatchWrapper
++
++        mock_runnable = MagicMock()
++        vllm_config = MagicMock()
++        vllm_config.parallel_config.num_ubatches = 2
++        with patch("torch.npu.Stream"):
++            wrapper = NPUUBatchWrapper(mock_runnable, vllm_config, torch.device("cpu"))
++
++        assert wrapper.unwrap() is mock_runnable
++
++    def test_getattr_delegation(self):
++        from vllm_ascend.worker.npu_ubatch_wrapper import NPUUBatchWrapper
++
++        mock_runnable = MagicMock()
++        mock_runnable.some_property = 42
++        vllm_config = MagicMock()
++        vllm_config.parallel_config.num_ubatches = 2
++        with patch("torch.npu.Stream"):
++            wrapper = NPUUBatchWrapper(mock_runnable, vllm_config, torch.device("cpu"))
++
++        assert wrapper.some_property == 42
++
++    def test_getattr_raises_for_missing(self):
++        from vllm_ascend.worker.npu_ubatch_wrapper import NPUUBatchWrapper
++
++        mock_runnable = MagicMock(spec=[])
++        vllm_config = MagicMock()
++        vllm_config.parallel_config.num_ubatches = 2
++        with patch("torch.npu.Stream"):
++            wrapper = NPUUBatchWrapper(mock_runnable, vllm_config, torch.device("cpu"))
++
++        with pytest.raises(AttributeError, match="nonexistent_attr"):
++            _ = wrapper.nonexistent_attr
++
++
++# ---------------------------------------------------------------------------
++# 2.2 NPUUBatchContext
++# ---------------------------------------------------------------------------
++
++
++class TestNPUUBatchContext(unittest.TestCase):
++    """Test NPUUBatchContext stream/event operations."""
++
++    @patch("torch.npu.set_stream")
++    def test_update_stream(self, mock_set_stream):
++        from vllm_ascend.worker.npu_ubatch_wrapper import NPUUBatchContext
++
++        ctx = NPUUBatchContext.__new__(NPUUBatchContext)
++        mock_stream = MagicMock()
++        ctx.update_stream(mock_stream)
++
++        assert ctx.current_stream is mock_stream
++        mock_set_stream.assert_called_once_with(mock_stream)
++
++    def test_signal_comm_done(self):
++        from vllm_ascend.worker.npu_ubatch_wrapper import NPUUBatchContext
++
++        ctx = NPUUBatchContext.__new__(NPUUBatchContext)
++        ctx.comm_stream = MagicMock()
++        ctx.gpu_comm_done_event = MagicMock()
++
++        ctx._signal_comm_done()
++
++        ctx.gpu_comm_done_event.record.assert_called_once_with(ctx.comm_stream)
++
++    def test_signal_compute_done(self):
++        from vllm_ascend.worker.npu_ubatch_wrapper import NPUUBatchContext
++
++        ctx = NPUUBatchContext.__new__(NPUUBatchContext)
++        ctx.compute_stream = MagicMock()
++        ctx.gpu_compute_done_event = MagicMock()
++
++        ctx._signal_compute_done()
++
++        ctx.gpu_compute_done_event.record.assert_called_once_with(ctx.compute_stream)
++
++    def test_wait_compute_done(self):
++        from vllm_ascend.worker.npu_ubatch_wrapper import NPUUBatchContext
++
++        ctx = NPUUBatchContext.__new__(NPUUBatchContext)
++        ctx.comm_stream = MagicMock()
++        ctx.gpu_compute_done_event = MagicMock()
++
++        ctx._wait_compute_done()
++
++        ctx.comm_stream.wait_event.assert_called_once_with(ctx.gpu_compute_done_event)
++
++    def test_wait_comm_done(self):
++        from vllm_ascend.worker.npu_ubatch_wrapper import NPUUBatchContext
++
++        ctx = NPUUBatchContext.__new__(NPUUBatchContext)
++        ctx.compute_stream = MagicMock()
++        ctx.gpu_comm_done_event = MagicMock()
++
++        ctx._wait_comm_done()
++
++        ctx.compute_stream.wait_event.assert_called_once_with(ctx.gpu_comm_done_event)
++
++
++# ---------------------------------------------------------------------------
++# 2.3 _make_npu_ubatch_contexts
++# ---------------------------------------------------------------------------
++
++
++class TestMakeNPUUBatchContexts(TestBase):
++    """Test _make_npu_ubatch_contexts."""
++
++    def test_assert_single_batch_fails(self):
++        from vllm_ascend.worker.npu_ubatch_wrapper import (
++            _make_npu_ubatch_contexts,
++        )
++
++        with pytest.raises(AssertionError, match="num_micro_batches must be"):
++            _make_npu_ubatch_contexts(
++                num_micro_batches=1,
++                comm_stream=MagicMock(),
++                compute_stream=MagicMock(),
++                forward_contexts=[MagicMock()],
++                ready_barrier=MagicMock(),
++            )
++
++    @patch("torch.npu.Event")
++    def test_creates_correct_count(self, mock_event_cls):
++        from vllm_ascend.worker.npu_ubatch_wrapper import (
++            _make_npu_ubatch_contexts,
++        )
++
++        num = 2
++        barrier = threading.Barrier(num + 1)
++        ctxs = _make_npu_ubatch_contexts(
++            num_micro_batches=num,
++            comm_stream=MagicMock(),
++            compute_stream=MagicMock(),
++            forward_contexts=[MagicMock(), MagicMock()],
++            ready_barrier=barrier,
++        )
++
++        assert len(ctxs) == num
++        assert ctxs[0].id == 0
++        assert ctxs[1].id == 1
++
++    @patch("torch.npu.Event")
++    def test_cpu_events_form_ring(self, mock_event_cls):
++        from vllm_ascend.worker.npu_ubatch_wrapper import (
++            _make_npu_ubatch_contexts,
++        )
++
++        num = 3
++        barrier = threading.Barrier(num + 1)
++        ctxs = _make_npu_ubatch_contexts(
++            num_micro_batches=num,
++            comm_stream=MagicMock(),
++            compute_stream=MagicMock(),
++            forward_contexts=[MagicMock()] * num,
++            ready_barrier=barrier,
++        )
++
++        for i in range(num):
++            j = (i + 1) % num
++            assert ctxs[i].cpu_signal_event is ctxs[j].cpu_wait_event
++
++
++# ---------------------------------------------------------------------------
++# 2.5 Platform DBO logic
++# ---------------------------------------------------------------------------
++
++
++class TestPlatformDBO(unittest.TestCase):
++    """Test platform.py DBO-related logic."""
++
++    def test_dbo_not_disabled(self):
++        parallel_config = MagicMock()
++        parallel_config.enable_dbo = True
++        original = parallel_config.enable_dbo
++        assert original is True
++
++    def test_dbo_all2all_backend(self):
++        parallel_config = MagicMock()
++        parallel_config.enable_dbo = True
++
++        if parallel_config.enable_dbo:
++            parallel_config.all2all_backend = "deepep_low_latency"
++
++        assert parallel_config.all2all_backend == "deepep_low_latency"
++
++    def test_dbo_off_keeps_all2all_default(self):
++        parallel_config = MagicMock()
++        parallel_config.enable_dbo = False
++        parallel_config.all2all_backend = "flashinfer_all2allv"
++
++        if parallel_config.enable_dbo:
++            parallel_config.all2all_backend = "deepep_low_latency"
++
++        assert parallel_config.all2all_backend == "flashinfer_all2allv"
++
++
++# ---------------------------------------------------------------------------
++# 2.6 Worker num_ubatches
++# ---------------------------------------------------------------------------
++
++
++class TestWorkerNumUbatch(unittest.TestCase):
++    """Test worker.py num_ubatches configuration."""
++
++    def test_num_ubatches_with_dbo(self):
++        enable_dbo = True
++        num_ubatches = 2 if enable_dbo else 1
++        assert num_ubatches == 2
++
++    def test_num_ubatches_without_dbo(self):
++        enable_dbo = False
++        num_ubatches = 2 if enable_dbo else 1
++        assert num_ubatches == 1
++
++
++# ---------------------------------------------------------------------------
++# B-class tests: require real NPU device
++# ---------------------------------------------------------------------------
++
++
++def _build_wrapper_npu(device=None):
++    """Construct an NPUUBatchWrapper with real NPU device."""
++    from vllm_ascend.worker.npu_ubatch_wrapper import NPUUBatchWrapper
++
++    if device is None:
++        device = torch.device("npu:0")
++    vllm_config = MagicMock()
++    vllm_config.parallel_config.num_ubatches = 2
++    wrapper = NPUUBatchWrapper(
++        runnable=MagicMock(),
++        vllm_config=vllm_config,
++        device=device,
++    )
++    return wrapper
++
++
++class TestNPUUBatchWrapperNPU(unittest.TestCase):
++    """B-class tests: NPUUBatchWrapper on real NPU device."""
++
++    @npu_test(num_npus=1)
++    def test_wrapper_creates_real_npu_stream(self):
++        """NPUUBatchWrapper.__init__ creates a real NPU stream."""
++        from vllm_ascend.worker.npu_ubatch_wrapper import NPUUBatchWrapper
++
++        device = torch.device("npu:0")
++        vllm_config = MagicMock()
++        vllm_config.parallel_config.num_ubatches = 2
++
++        wrapper = NPUUBatchWrapper(
++            runnable=MagicMock(),
++            vllm_config=vllm_config,
++            device=device,
++        )
++
++        assert isinstance(wrapper.comm_stream, torch.npu.Stream)
++        assert wrapper.device == device
++
++    @npu_test(num_npus=1)
++    def test_slice_model_inputs_on_npu(self):
++        """_slice_model_inputs works with NPU tensors."""
++        device = torch.device("npu:0")
++        wrapper = _build_wrapper_npu(device)
++
++        input_ids = torch.arange(10, device=device)
++        positions = torch.arange(10, device=device)
++        token_slice = slice(2, 7)
++
++        ids, pos, embeds, inter = wrapper._slice_model_inputs(token_slice, input_ids, positions, None, None)
++
++        assert torch.equal(ids.cpu(), torch.arange(2, 7))
++        assert torch.equal(pos.cpu(), torch.arange(2, 7))
++        assert ids.device.type == "npu"
++        assert embeds is None
++
++    @npu_test(num_npus=1)
++    def test_slice_model_inputs_2d_on_npu(self):
++        """_slice_model_inputs handles 2D positions on NPU."""
++        device = torch.device("npu:0")
++        wrapper = _build_wrapper_npu(device)
++
++        input_ids = torch.arange(10, device=device)
++        positions = torch.arange(20, device=device).reshape(2, 10)
++        token_slice = slice(1, 5)
++
++        ids, pos, _, _ = wrapper._slice_model_inputs(token_slice, input_ids, positions, None, None)
++
++        assert ids.shape == (4,)
++        assert pos.shape == (2, 4)
++        assert pos.device.type == "npu"
++
++    @npu_test(num_npus=1)
++    def test_make_npu_ubatch_contexts_real_npu(self):
++        """_make_npu_ubatch_contexts creates contexts with real NPU Events."""
++        from vllm_ascend.worker.npu_ubatch_wrapper import (
++            _make_npu_ubatch_contexts,
++        )
++
++        device = torch.device("npu:0")
++        compute_stream = torch.npu.current_stream(device)
++        comm_stream = torch.npu.Stream(device=device)
++
++        num = 2
++        barrier = threading.Barrier(num + 1)
++        ctxs = _make_npu_ubatch_contexts(
++            num_micro_batches=num,
++            compute_stream=compute_stream,
++            comm_stream=comm_stream,
++            forward_contexts=[MagicMock(), MagicMock()],
++            ready_barrier=barrier,
++        )
++
++        assert len(ctxs) == num
++        assert ctxs[0].id == 0
++        assert ctxs[1].id == 1
++
++        # Verify real NPU events were created (not mocks)
++        for ctx in ctxs:
++            assert isinstance(ctx.gpu_comm_done_event, torch.npu.Event)
++            assert isinstance(ctx.gpu_compute_done_event, torch.npu.Event)
++
++        # Verify ring topology
++        assert ctxs[0].cpu_signal_event is ctxs[1].cpu_wait_event
++        assert ctxs[1].cpu_signal_event is ctxs[0].cpu_wait_event
++
++    @npu_test(num_npus=1)
++    def test_context_update_stream_on_npu(self):
++        """NPUUBatchContext.update_stream works with real NPU stream."""
++        from vllm_ascend.worker.npu_ubatch_wrapper import NPUUBatchContext
++
++        device = torch.device("npu:0")
++        ctx = NPUUBatchContext.__new__(NPUUBatchContext)
++        new_stream = torch.npu.Stream(device=device)
++        ctx.update_stream(new_stream)
++
++        assert ctx.current_stream is new_stream
+diff --git a/vllm_ascend/ascend_forward_context.py b/vllm_ascend/ascend_forward_context.py
+index f61868cfa941..f53990aaf588 100644
+--- a/vllm_ascend/ascend_forward_context.py
++++ b/vllm_ascend/ascend_forward_context.py
+@@ -72,6 +72,7 @@ def set_ascend_forward_context(
+     draft_attn_metadatas=None,
+     has_sinks=False,
+     eplb_heat_collection_status: bool = False,
++    ubatch_slices=None,
+ ):
+     """A context manager that stores the current forward context,
+     can be attention metadata, etc.
+@@ -85,6 +86,7 @@ def set_ascend_forward_context(
+         "cudagraph_runtime_mode": aclgraph_runtime_mode,
+         "batch_descriptor": batch_descriptor,
+         "skip_compiled": skip_compiled,
++        "ubatch_slices": ubatch_slices,
+     }
+     with set_forward_context(**forward_context_kwargs):
+         forward_context = get_forward_context()
+diff --git a/vllm_ascend/platform.py b/vllm_ascend/platform.py
+index f0be071efcca..bbbd60a30a69 100644
+--- a/vllm_ascend/platform.py
++++ b/vllm_ascend/platform.py
+@@ -790,10 +790,7 @@ def _fix_incompatible_config(vllm_config: VllmConfig) -> None:
+             vllm_config.parallel_config.numa_bind_cpus = None
+ 
+         if getattr(vllm_config.parallel_config, "enable_dbo", False):
+-            logger.warning(
+-                "Parameter is currently ignored on Ascend. parameter=enable_dbo, action: resetting to False. "
+-            )
+-            vllm_config.parallel_config.enable_dbo = False
++            logger.info("'--enable-dbo' is enabled on Ascend NPU.")
+ 
+         ubatch_size = getattr(vllm_config.parallel_config, "ubatch_size", 0)
+         if ubatch_size != 0:
+diff --git a/vllm_ascend/worker/model_runner_v1.py b/vllm_ascend/worker/model_runner_v1.py
+index 4888f05412e0..2b8161064e42 100644
+--- a/vllm_ascend/worker/model_runner_v1.py
++++ b/vllm_ascend/worker/model_runner_v1.py
+@@ -2366,6 +2366,7 @@ def execute_model(
+                 skip_compiled=has_encoder_input,
+                 has_sinks=self._has_sinks,
+                 eplb_heat_collection_status=self.eplb_heat_collection_status if self.dynamic_eplb else False,
++                ubatch_slices=ubatch_slices_padded if 'ubatch_slices_padded' in locals() else None,
+             ),
+             self.maybe_get_kv_connector_output(
+                 scheduler_output,
+@@ -3498,8 +3499,23 @@ def _dummy_run(
+         if self.dynamic_eplb:
+             self.update_eplb_heat_collection_status(num_tokens_padded)
+ 
+-        # vllm-ascend does not support ubatch now
+-        ubatch_slices, ubatch_slices_padded = None, None
++        # Compute ubatch_slices when DBO is enabled so that _dummy_run warms
++        # up the same dual-stream path used by real execute_model.
++        should_ubatch_dummy = False
++        if self.parallel_config.use_ubatching:
++            from vllm.v1.worker.ubatch_utils import check_ubatch_thresholds
++            should_ubatch_dummy = check_ubatch_thresholds(
++                self.parallel_config,
++                num_tokens_padded,
++                uniform_decode=uniform_decode,
++            )
++        ubatch_slices, ubatch_slices_padded = maybe_create_ubatch_slices(
++            should_ubatch_dummy,
++            num_scheduled_tokens,
++            num_tokens_padded,
++            num_reqs_padded,
++            self.parallel_config.num_ubatches,
++        )
+         attn_metadata: PerLayerAttnMetadata | None = None
+         # _dummy_run shares pinned CPU buffers (seq_lens, query_start_loc,
+         # gdn_query_start_loc, etc.) with execute_model. It must participate in
+@@ -3659,6 +3675,7 @@ def dummy_drafter_compute_logits(hidden_states):
+                 model_instance=self.model,
+                 has_sinks = self._has_sinks,
+                 eplb_heat_collection_status=self.eplb_heat_collection_status if self.dynamic_eplb else False,
++                ubatch_slices=ubatch_slices_padded,
+             ):
+                 outputs = self._model_forward(
+                     num_tokens_padded, input_ids, positions, intermediate_tensors, inputs_embeds
+@@ -3856,7 +3873,12 @@ def mock_pass(param1, param2):
+                 self.drafter.update_stream = self.update_stream
+ 
+         with _torch_cuda_wrapper():
+-            if (
++            if self.parallel_config.use_ubatching:
++                from vllm_ascend.worker.npu_ubatch_wrapper import NPUUBatchWrapper
++                self.model = NPUUBatchWrapper(
++                    self.model, self.vllm_config, self.device
++                )
++            elif (
+                 breakable_cudagraph.is_breakable_cudagraph_enabled()
+                 and cudagraph_mode != CUDAGraphMode.NONE
+             ):
+@@ -4908,18 +4930,24 @@ def create_attn_groups(
+             kv_cache_group_id: int,
+         ) -> list[AttentionGroup]:
+             attn_groups: list[AttentionGroup] = []
++            num_metadata_builders = (
++                self.parallel_config.num_ubatches
++                if self.parallel_config.use_ubatching
++                else 1
++            )
+             for group_key, layer_names in attn_backends_map.items():
+                 attn_backend = group_key.attn_backend
+                 kv_cache_spec = group_key.kv_cache_spec
+                 attn_metadata_builders = []
+-                attn_metadata_builders.append(
+-                    attn_backend.get_builder_cls()(
+-                        kv_cache_spec,
+-                        layer_names,
+-                        self.vllm_config,
+-                        self.device,
++                for _ in range(num_metadata_builders):
++                    attn_metadata_builders.append(
++                        attn_backend.get_builder_cls()(
++                            kv_cache_spec,
++                            layer_names,
++                            self.vllm_config,
++                            self.device,
++                        )
+                     )
+-                )
+                 attn_group = AttentionGroup(
+                     attn_backend, layer_names, kv_cache_spec, kv_cache_group_id, attn_metadata_builders
+                 )
+diff --git a/vllm_ascend/worker/npu_ubatch_wrapper.py b/vllm_ascend/worker/npu_ubatch_wrapper.py
+new file mode 100644
+index 000000000000..57ec65b920f7
+--- /dev/null
++++ b/vllm_ascend/worker/npu_ubatch_wrapper.py
+@@ -0,0 +1,258 @@
++# SPDX-License-Identifier: Apache-2.0
++# SPDX-FileCopyrightText: Copyright contributors to the vLLM project
++#
++# NPU adaptation of gpu_ubatch_wrapper.py for Ascend NPU DBO support.
++# Replaces torch.cuda.Stream/Event with torch.npu equivalents.
++
++import threading
++from collections.abc import Callable
++from dataclasses import dataclass
++
++import torch
++from vllm.config import CUDAGraphMode, VllmConfig
++from vllm.forward_context import (
++    create_forward_context,
++    get_forward_context,
++    override_forward_context,
++)
++from vllm.sequence import IntermediateTensors
++from vllm.v1.worker.ubatching import UBatchContext
++
++
++@dataclass
++class UbatchMetadata:
++    context: UBatchContext
++    input_ids: torch.Tensor
++    positions: torch.Tensor
++    inputs_embeds: torch.Tensor | None
++    intermediate_tensors: IntermediateTensors | None
++    num_tokens: int
++
++
++class NPUUBatchContext(UBatchContext):
++    """NPU version of UBatchContext that uses torch.npu Stream/Event APIs."""
++
++    def update_stream(self, stream):
++        self.current_stream = stream
++        torch.npu.set_stream(self.current_stream)
++
++    def _signal_comm_done(self):
++        self.gpu_comm_done_event.record(self.comm_stream)
++
++    def _signal_compute_done(self):
++        self.gpu_compute_done_event.record(self.compute_stream)
++
++    def _wait_compute_done(self):
++        self.comm_stream.wait_event(self.gpu_compute_done_event)
++
++    def _wait_comm_done(self):
++        self.compute_stream.wait_event(self.gpu_comm_done_event)
++
++
++def _make_npu_ubatch_contexts(
++    num_micro_batches: int,
++    compute_stream: torch.npu.Stream,
++    comm_stream: torch.npu.Stream,
++    forward_contexts: list,
++    ready_barrier: threading.Barrier,
++    schedule: str = "default",
++) -> list[NPUUBatchContext]:
++    """Create NPUUBatchContext instances mirroring make_ubatch_contexts."""
++    import vllm.v1.worker.ubatching as _ubatching_mod
++
++    assert num_micro_batches > 1, "num_micro_batches must be greater than 1"
++
++    _ubatching_mod._NUM_UBATCHES = num_micro_batches
++    if len(_ubatching_mod._CURRENT_CONTEXTS) < num_micro_batches:
++        _ubatching_mod._CURRENT_CONTEXTS.extend([None] * (num_micro_batches - len(_ubatching_mod._CURRENT_CONTEXTS)))
++
++    cpu_events = [threading.Event() for _ in range(num_micro_batches)]
++    gpu_comm_done_events = [torch.npu.Event() for _ in range(num_micro_batches)]
++    gpu_compute_done_events = [torch.npu.Event() for _ in range(num_micro_batches)]
++
++    ctxs = []
++    for i in range(num_micro_batches):
++        ctx = NPUUBatchContext(
++            id=i,
++            compute_stream=compute_stream,
++            comm_stream=comm_stream,
++            forward_context=forward_contexts[i],
++            ready_barrier=ready_barrier,
++            cpu_wait_event=cpu_events[i],
++            cpu_signal_event=cpu_events[(i + 1) % num_micro_batches],
++            gpu_comm_done_event=gpu_comm_done_events[i],
++            gpu_compute_done_event=gpu_compute_done_events[i],
++            schedule=schedule,
++        )
++        ctxs.append(ctx)
++
++    return ctxs
++
++
++class NPUUBatchWrapper:
++    """NPU version of UBatchWrapper for Ascend DBO support.
++
++    Supports eager mode only (no ACL Graph capture in phase 1).
++    """
++
++    def __init__(
++        self,
++        runnable: Callable,
++        vllm_config: VllmConfig,
++        device: torch.device,
++    ):
++        self.runnable = runnable
++        self.vllm_config = vllm_config
++        self.comm_stream = torch.npu.Stream(device=device)
++        self.ready_barrier = threading.Barrier(self.vllm_config.parallel_config.num_ubatches + 1)
++        self.device = device
++
++    def __getattr__(self, key: str):
++        if hasattr(self.runnable, key):
++            return getattr(self.runnable, key)
++        raise AttributeError(f"Attribute {key} not found in NPUUBatchWrapper or its runnable")
++
++    def unwrap(self) -> Callable:
++        return self.runnable
++
++    def __call__(self, *args, **kwargs):
++        forward_context = get_forward_context()
++        ubatch_slices = getattr(forward_context, "ubatch_slices", None)
++
++        # If there's no ubatching, just run the runnable directly
++        if ubatch_slices is None:
++            return self.runnable(*args, **kwargs)
++
++        input_ids = kwargs.get("input_ids") if "input_ids" in kwargs else (args[0] if len(args) > 0 else None)
++        positions = kwargs.get("positions") if "positions" in kwargs else (args[1] if len(args) > 1 else None)
++        intermediate_tensors = (
++            kwargs.get("intermediate_tensors")
++            if "intermediate_tensors" in kwargs
++            else (args[2] if len(args) > 2 else None)
++        )
++        inputs_embeds = (
++            kwargs.get("inputs_embeds") if "inputs_embeds" in kwargs else (args[3] if len(args) > 3 else None)
++        )
++        compute_stream = torch.npu.current_stream()
++
++        attn_metadata = forward_context.attn_metadata
++        slot_mapping = getattr(forward_context, "slot_mapping", None)
++        batch_descriptor = forward_context.batch_descriptor
++
++        # Build per-ubatch forward contexts
++        has_slot_mapping = slot_mapping and isinstance(slot_mapping, list)
++        forward_contexts = []
++        for i, _ubatch_slice in enumerate(ubatch_slices):
++            fc = create_forward_context(
++                attn_metadata[i] if attn_metadata is not None else None,
++                self.vllm_config,
++                batch_descriptor=batch_descriptor,
++                cudagraph_runtime_mode=CUDAGraphMode.NONE,
++                slot_mapping=(slot_mapping[i] if has_slot_mapping and slot_mapping is not None else None),
++            )
++            # Copy Ascend-specific attributes from the parent forward context
++            # so _EXTRA_CTX proxy works correctly inside ubatch threads.
++            # Under V2 model runner these live in `additional_kwargs` rather
++            # than directly on the forward_context object.
++            from vllm_ascend.ascend_forward_context import _ExtraForwardContextProxy
++
++            additional_kwargs = getattr(forward_context, "additional_kwargs", None)
++            for attr in _ExtraForwardContextProxy.extra_attrs:
++                if hasattr(forward_context, attr):
++                    setattr(fc, attr, getattr(forward_context, attr))
++                elif additional_kwargs is not None and attr in additional_kwargs:
++                    setattr(fc, attr, additional_kwargs[attr])
++            forward_contexts.append(fc)
++
++        ubatch_ctxs = _make_npu_ubatch_contexts(
++            num_micro_batches=len(ubatch_slices),
++            comm_stream=self.comm_stream,
++            compute_stream=compute_stream,
++            forward_contexts=forward_contexts,
++            ready_barrier=self.ready_barrier,
++        )
++
++        ubatch_metadata: list[UbatchMetadata] = []
++        for i, ubatch_slice in enumerate(ubatch_slices):
++            (
++                sliced_input_ids,
++                sliced_positions,
++                sliced_inputs_embeds,
++                sliced_intermediate_tensors,
++            ) = self._slice_model_inputs(
++                ubatch_slice.token_slice,
++                input_ids,
++                positions,
++                inputs_embeds,
++                intermediate_tensors,
++            )
++            ubatch_metadata.append(
++                UbatchMetadata(
++                    context=ubatch_ctxs[i],
++                    input_ids=sliced_input_ids,
++                    positions=sliced_positions,
++                    inputs_embeds=sliced_inputs_embeds,
++                    intermediate_tensors=sliced_intermediate_tensors,
++                    num_tokens=ubatch_slice.token_slice.stop - ubatch_slice.token_slice.start,
++                )
++            )
++
++        return self._run_ubatches(ubatch_metadata, self.runnable)
++
++    def _run_ubatches(self, ubatch_metadata: list[UbatchMetadata], model: Callable) -> torch.Tensor:
++        @torch.inference_mode()
++        def _ubatch_thread(results, model, ubatch_metadata):
++            with ubatch_metadata.context:
++                model_output = model(
++                    input_ids=ubatch_metadata.input_ids,
++                    positions=ubatch_metadata.positions,
++                    intermediate_tensors=ubatch_metadata.intermediate_tensors,
++                    inputs_embeds=ubatch_metadata.inputs_embeds,
++                )
++            results.append((ubatch_metadata.context.id, model_output))
++
++        results: list[tuple[int, torch.Tensor]] = []
++
++        with override_forward_context(None):
++            ubatch_threads = []
++            for metadata in ubatch_metadata:
++                thread = threading.Thread(
++                    target=_ubatch_thread,
++                    args=(results, model, metadata),
++                )
++                ubatch_threads.append(thread)
++                thread.start()
++            self.ready_barrier.wait()
++            ubatch_metadata[0].context.cpu_wait_event.set()
++            for thread in ubatch_threads:
++                thread.join()
++
++        sorted_results = [value for position, value in sorted(results)]
++        result = torch.cat(sorted_results, dim=0)
++        return result
++
++    def _slice_model_inputs(
++        self,
++        tokens_slice: slice,
++        input_ids,
++        positions,
++        inputs_embeds,
++        intermediate_tensors,
++    ):
++        sliced_input_ids = input_ids[tokens_slice] if input_ids is not None else None
++        if positions is not None:
++            if positions.ndim == 2:
++                sliced_positions = positions[:, tokens_slice]
++            else:
++                sliced_positions = positions[tokens_slice]
++        else:
++            sliced_positions = None
++        sliced_inputs_embeds = inputs_embeds[tokens_slice] if inputs_embeds is not None else None
++        sliced_intermediate_tensors = intermediate_tensors[tokens_slice] if intermediate_tensors is not None else None
++
++        return (
++            sliced_input_ids,
++            sliced_positions,
++            sliced_inputs_embeds,
++            sliced_intermediate_tensors,
++        )
+diff --git a/vllm_ascend/worker/worker.py b/vllm_ascend/worker/worker.py
+index 3318e6fe5788..fe381c9a4a7e 100644
+--- a/vllm_ascend/worker/worker.py
++++ b/vllm_ascend/worker/worker.py
+@@ -482,7 +482,7 @@ def init_device(self):
+         # for more details
+         self.device = self._init_device()
+         # Initialize workspace manager
+-        num_ubatches = 1
++        num_ubatches = 2 if getattr(self.vllm_config.parallel_config, "enable_dbo", False) else 1
+         init_workspace_manager(self.device, num_ubatches)
+         # Init ModelRunner here, so that we have access to self.device.
+         if self.use_v2_model_runner:

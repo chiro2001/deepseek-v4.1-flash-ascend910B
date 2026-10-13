@@ -34,6 +34,7 @@ SCRIPT=${SERVE_A2_UNDER_TEST:-scripts/serve_a2.sh}
 [ -f "$SCRIPT" ] || { echo "缺 $SCRIPT"; exit 2; }
 
 CAP=15728022528          # 29076 × 540928
+CAP_REPACK=17179869184   # 32768 × 524288（[V41-KV32-REPACK] 重排后的真实上界 = 16 GiB）
 TMP=$(mktemp -d)
 trap 'rm -rf "$TMP"' EXIT
 mkdir -p "$TMP/model" "$TMP/bin"
@@ -130,6 +131,25 @@ EXTRA_ENV=(V41_CED_ALLOW_32BIT_OVERFLOW=1 V41_CED_ROLE=decode)
 run_case ok auto 0 0 0 '<unset>' \
   'case10 旧逃生口 ⇒ 等价 off（不改 scope，只关 enforce）'
 
+# ★ [V41-KV32-REPACK] 重排把每槽页步长压到 131072 ⇒ 真实上界 32768 块 / 池 stride 524288。
+#   case11-14 锁住"重排开 ⇒ 16 GiB 不被钳"，以及"重排关 ⇒ 同样 16 GiB 必须被钳回旧上界"。
+#   （case13/14 是负控：没有它们，守卫被整体改成 16 GiB 也能蒙混过关。）
+EXTRA_ENV=(V41_KV32_REPACK=1 KV_CACHE_MEMORY_BYTES=17179869184)
+run_case ok auto 0 1 0 17179869184 \
+  'case11 重排开 + 显式 16 GiB ⇒ 不钳（否则重排收益被静默废掉）'
+
+EXTRA_ENV=(V41_KV32_REPACK=1 V41_CED_ROLE=decode)
+run_case ok auto 1 1 1 "$CAP_REPACK" \
+  'case12 重排开 + CED 角色 ⇒ pin 到 16 GiB'
+
+EXTRA_ENV=(KV_CACHE_MEMORY_BYTES=17179869184)
+run_case ok auto 0 1 0 "$CAP" \
+  'case13 重排关 + 显式 16 GiB ⇒ 仍钳回旧上界（负控）'
+
+EXTRA_ENV=(V41_KV32_REPACK=1 KV_CACHE_MEMORY_BYTES=18000000000)
+run_case ok auto 0 1 0 "$CAP_REPACK" \
+  'case14 重排开 + 超出 16 GiB ⇒ 钳到 16 GiB'
+
 EXTRA_ENV=()
 
 echo "== 正控：起服后池上界复核（从被检脚本抽取 kv32_pool_blocks_from_log，喂合成日志）=="
@@ -190,6 +210,54 @@ else
     echo "  ✗ [无数据 ⇒ 跳过] 却算出了块数（会把 pinned 路径误判）"; n_bad=$((n_bad + 1))
   else
     echo "  ✓ [无数据 ⇒ 跳过]"; n_ok=$((n_ok + 1))
+  fi
+
+  # ===== ★ [KV32-CHECK 2026-10-06] 新增两个函数的正/负控 =====
+  # (6) 回归锁：真机上"tokens÷BLOCK 低报 14%"的那份日志必须取到**常数口径**的 27433 块。
+  #     数据来自交付实例 armIMG_v3_restore7（BAT=8192，非 DCP，实测 13.82 GiB / 2,988,163 tokens）。
+  mk2() {  # mk2 <gib> <tokens> → 合成含两行的日志
+    : > "$TMP/log2.txt"
+    printf '(Worker_TP0_EP0 pid=1433) INFO 10-05 15:20:35 [worker.py:826] Available KV cache memory: %s GiB\n' "$1" > "$TMP/log2.txt"
+    printf '(EngineCore pid=1406) INFO 10-05 15:11:10 [kv_cache_utils.py:2235] GPU KV cache size: %s tokens\n' "$2" >> "$TMP/log2.txt"
+  }
+  mk2 13.82 2,988,163
+  _res=$(kv32_resolve_blocks "$TMP/log2.txt" "$BPB" 128)
+  _rb=${_res%%$'\t'*}; _rsrc=${_res#*$'\t'}
+  if [ "$_rb" = "27432" ]; then
+    echo "  ✓ [resolve 取常数口径] 13.82 GiB + 2,988,163 tok ⇒ $_rb 块（旧做法会低报成 23345）★floor 口径"
+    n_ok=$((n_ok + 1))
+  else
+    echo "  ✗ [resolve 取常数口径] 实得 $_rb（期望 27432；$_rsrc）"; n_bad=$((n_bad + 1))
+  fi
+
+  # (7) 反方向：DCP 形态下常数口径**偏小**，必须取 tokens 口径（否则漏报越界）。
+  mk2 2.03 17,142,231
+  _res=$(kv32_resolve_blocks "$TMP/log2.txt" "$BPB" 128)
+  _rb=${_res%%$'\t'*}; _rsrc=${_res#*$'\t'}
+  if [ "$_rb" = "133923" ]; then
+    echo "  ✓ [resolve 取 tokens 口径] 2.03 GiB + 17,142,231 tok ⇒ $_rb 块（常数口径只有 4027，会漏报）★floor 口径"
+    n_ok=$((n_ok + 1))
+  else
+    echo "  ✗ [resolve 取 tokens 口径] 实得 $_rb（期望 133923；$_rsrc）"; n_bad=$((n_bad + 1))
+  fi
+
+  # (8) 显式形态块数：重排后 16 GiB 恰好 32768 块（等于上界，按 ≤ 放行）。
+  _b=$(kv32_blocks_explicit 17179869184 524288)
+  if [ "$_b" = "32768" ]; then
+    echo "  ✓ [显式块数 重排几何] 17179869184 ÷ 524288 = $_b 块"
+    n_ok=$((n_ok + 1))
+  else
+    echo "  ✗ [显式块数 重排几何] 实得 $_b（期望 32768）"; n_bad=$((n_bad + 1))
+  fi
+
+  # (9) ★负控：同样的 16 GiB 在**旧几何**下是 31,758 块 > 29,076 ⇒ 必须能被判越界。
+  #     （这条锁住"显式形态也要复核"这个新行为；旧版整段跳过复核 ⇒ 无人查。）
+  _b=$(kv32_blocks_explicit 17179869184 540928)
+  if [ "${_b:-0}" -gt 29076 ]; then
+    echo "  ✓ [负控 显式+旧几何 判越界] 17179869184 ÷ 540928 = $_b 块 > 29076 ⇒ 会被拦"
+    n_ok=$((n_ok + 1))
+  else
+    echo "  ✗ [负控 显式+旧几何 判越界] 实得 $_b（应 > 29076）"; n_bad=$((n_bad + 1))
   fi
 fi
 

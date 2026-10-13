@@ -491,8 +491,19 @@ if [ "${V41_CED_ALLOW_32BIT_OVERFLOW:-0}" = "1" ]; then
 fi
 # 兼容 CED 角色脚本历史上用的 D 前缀变量名（两处默认值相同，收敛后仍认它，
 #   避免外部按旧名字调参时静默失效）。
-_ced_max_blocks=${CED_MAX_NUM_BLOCKS:-29076}
-_ced_bytes_per_block=${CED_BYTES_PER_BLOCK:-${CED_D_BYTES_PER_BLOCK:-540928}}
+# ★ [V41-KV32-REPACK] 重排后每槽页步长全为 131072 ⇒ 真实 32 位上界 = ⌊2³²/131072⌋ = 32768 块；
+#   池 stride = 4 × 131072 = 524288 ⇒ 32768 × 524288 = 16 GiB 恰好顶到上界（不再有 12.7% 损耗）。
+#   旧默认（29076 / 540928）在这里会把 16 GiB 钳回 14.65 GiB，**静默废掉重排收益**。
+#   显式给 CED_MAX_NUM_BLOCKS / CED_BYTES_PER_BLOCK 仍然优先。
+if [ "${V41_KV32_REPACK:-0}" = "1" ]; then
+  _kv32_def_blocks=32768
+  _kv32_def_bpb=524288
+else
+  _kv32_def_blocks=29076
+  _kv32_def_bpb=540928
+fi
+_ced_max_blocks=${CED_MAX_NUM_BLOCKS:-$_kv32_def_blocks}
+_ced_bytes_per_block=${CED_BYTES_PER_BLOCK:-${CED_D_BYTES_PER_BLOCK:-$_kv32_def_bpb}}
 _ced_cap=$(( _ced_max_blocks * _ced_bytes_per_block ))
 _kv32_pinned=0
 # 记录"调用方**显式**给过值" —— 显式给值说明调用方自己管池大小，
@@ -934,12 +945,24 @@ if [ -z "${CAPTURE_SIZES:-}" ]; then
   # 见 docs/CAPTURE-BUCKET-6N-20261004.md。
   # 覆盖的并发档是**稀疏但完整覆盖关键档**的集合（桶数 ~16，与几何表相当，
   # 起服捕获时间几乎不变；实测 9:56）。其余档 padding 到最近的上方桶。
-  for _n in 1 2 3 4 5 6 7 8 10 12 16; do
+  _n_list="1 2 3 4 5 6 7 8 10 12 16"
+  # [CAPTURE-BUCKET-EXT 2026-10-07] ★ MAX_SEQS>32 时必须**补中间档**，否则 N=17..MAX_SEQS-1
+  # 全部被 padding 到最大桶，性能断崖。实测（`docs/MAXSEQS-128-MEASURED-20261007.md`）：
+  #   · MAX_SEQS=64 ：旧表只有 `…,96,384` ⇒ conc=17 的 102 token 被 padding 到 **384（+276%）**；
+  #                    补齐 144/192/240/288/336 后 conc=64 实测 **2210~2290 tok/s**；
+  #   · MAX_SEQS=128：旧表只有 `…,96,768` ⇒ 最坏 **+653%**；补齐后 conc=128 实测 **2768~2853 tok/s**。
+  # **门控条件故意写成 `MAX_SEQS>32`**（而不是 `_cap_max>96`）：交付基线 MAX_SEQS=32 时
+  # 桶表与历史**逐字节相同**（已用仿真核对 `tools/capture_sizes_sim.py`），
+  # 只有显式提高 MAX_SEQS 的场景才会多捕几个桶（每桶 ~10-30 s 捕获）。
+  if [ "$MAX_SEQS" -gt 32 ]; then
+    _n_list="$_n_list 20 24 32 40 48 56 64 72 80 96 112 128 144 160 192 224 256"
+  fi
+  for _n in $_n_list; do
     _c=$(( _n * _step_tokens ))
     if [ "$_c" -ge "$_step_tokens" ] && [ "$_c" -le "$_cap_max" ]; then CAPTURE_SIZES="$CAPTURE_SIZES,$_c"; fi
   done
-  # 覆盖到 MAX_SEQS 档（大 batch 若没有桶会被判为不可图 ⇒ 退 eager）
-  if [ "$_cap_max" -gt $(( 16 * _step_tokens )) ]; then CAPTURE_SIZES="$CAPTURE_SIZES,$_cap_max"; fi
+  # 覆盖到 MAX_SEQS 档（大 batch 若没有桶会被判为不可图 ⇒ 退 eager）。
+  # 固定的下方 `case` 已保证 `_cap_max` 在表内 ⇒ 这里不再重复追加（否则会出现重复项）。
   case ",$CAPTURE_SIZES," in
     *",$_step_tokens,"*) : ;;
     *) CAPTURE_SIZES="$CAPTURE_SIZES,$_step_tokens" ;;
@@ -1115,7 +1138,19 @@ if [ "$PATCH_MODE" = "mount" ]; then
   MOUNTS+=(-v "$F/engram_jit_kernel.py:/vllm-workspace/vllm-ascend/vllm_ascend/models/deepseek_v41/engram_jit_kernel.py:ro")
   MOUNTS+=(-v "$F/engram_plan_kernel.py:/vllm-workspace/vllm-ascend/vllm_ascend/models/deepseek_v41/engram_plan_kernel.py:ro")
   MOUNTS+=(-v "$F/engram_gate.py:/vllm-workspace/vllm-ascend/vllm_ascend/models/deepseek_v41/engram_gate.py:ro")
-  MOUNTS+=(-v "$F/model.py:/vllm-workspace/vllm-ascend/vllm_ascend/models/deepseek_v41/model.py:rw")
+  # [V41-HCFUSE-MOUNT] HcPre+RMSNorm 融合（Track B）的 A/B 用：交付的 model.py
+  # 打上 trackB/apply_overlay_hcfuse.py 那几处补丁后，用本 env 指过去覆盖，
+  # **不动交付文件** ⇒ 随时可以切回 `V41_HCFUSE_MOUNT=` 空值跑基线。
+  #   V41_HCFUSE_MOUNT=<宿主 model.py 路径>
+  # ⚠️ 该路径也必须**同时**挂载 libhc_pre_norm_ops.so 与 custom OPP 包（见 V41_HC_OPP_PKG），
+  #    否则 overlay 会在 import 期 load_library 失败。
+  _model_py="$F/model.py"
+  if [ -n "${V41_HCFUSE_MOUNT:-}" ]; then
+    [ -f "$V41_HCFUSE_MOUNT" ] || die "V41_HCFUSE_MOUNT=$V41_HCFUSE_MOUNT 不存在"
+    _model_py="$V41_HCFUSE_MOUNT"
+    say "[V41-HCFUSE-MOUNT] model.py <- $V41_HCFUSE_MOUNT（交付文件未被改动）"
+  fi
+  MOUNTS+=(-v "$_model_py:/vllm-workspace/vllm-ascend/vllm_ascend/models/deepseek_v41/model.py:rw")
   # [DMQ-GUARD-REMOVED] 曾在这里挂 patches/files/model_runner_v1.py（device_metadata
   # 的 submit/release 自愈护栏）。**已撤销**：该护栏在正常运行中也会误触发，
   # 提前释放 device metadata ⇒ 64 并发实测 57/64 + 服务挂（ScatterElements 0x91 →
@@ -1123,6 +1158,17 @@ if [ "$PATCH_MODE" = "mount" ]; then
   # 不要恢复这个挂载 —— 整文件覆盖 model_runner_v1.py 的风险远大于收益。
   MOUNTS+=(-v "$F/ascend_forward_context.py:/vllm-workspace/vllm-ascend/vllm_ascend/ascend_forward_context.py:ro")
   MOUNTS+=(-v "$F/rope_dsv4.py:/vllm-workspace/vllm-ascend/vllm_ascend/ops/rope_dsv4.py:ro")
+  # [V41-KV32-REPACK] core/deepseek_v41.py：把 ratio-1 源的 index 平面挪到另一个 slot 的
+  #   空闲区 ⇒ 四个 slot 页步长全为 131072 ⇒ 块上限 29076 → 32768（+12.7% 容量，零精度风险）。
+  #   门控默认关：只有 V41_KV32_REPACK=1 且 patches/files/deepseek_v41.repack.py 存在才挂。
+  if [ "${V41_KV32_REPACK:-0}" = "1" ]; then
+    if [ -f "$F/deepseek_v41.repack.py" ]; then
+      MOUNTS+=(-v "$F/deepseek_v41.repack.py:/vllm-workspace/vllm-ascend/vllm_ascend/core/deepseek_v41.py:ro")
+      say "[V41-KV32-REPACK] 已挂载 slot 重排版 deepseek_v41.py（四 slot 全 131072）"
+    else
+      die "V41_KV32_REPACK=1 但缺 patches/files/deepseek_v41.repack.py"
+    fi
+  fi
   # [META-HOST-SLEEP] 2026-10-04：device_metadata.py 的 host 侧 sleep 注入（**诊断用**）。
   #   背景：api_statistic 显示三件套 GetWorkspaceSize 合计 919.7ms/4396 次
   #         （平均 209µs，是算子入队 21µs 的 10 倍），但它在 host CPU 上跑，
@@ -1158,6 +1204,27 @@ if [ "$PATCH_MODE" = "mount" ]; then
     MOUNTS+=(-v "$F/draft/llm_base_proposer.py:/vllm-workspace/vllm-ascend/vllm_ascend/spec_decode/llm_base_proposer.py:ro")
   else
     MOUNTS+=(-v "$F/dsa_v1.py:/vllm-workspace/vllm-ascend/vllm_ascend/attention/dsa_v1.py:rw")
+  fi
+
+  # [V41-MAINPY-MOUNT] 主层（40 层）的 prolog 不在 dsa_v1.py 里，而在**镜像自带的**
+  # attention/dsa_v41.py（1092 行）与 models/deepseek_v41/indexer.py（244 行）。
+  # 这两个文件**默认不被挂载** ⇒ 想改主层路径就必须重建镜像。
+  # 本开关把它们纳入挂载，从而可以「改文件 + 重启」迭代（无需重建镜像）。
+  #
+  #   V41_MAINPY_MOUNT=1 → 挂 patches/files/mainpy/{dsa_v41.py,indexer.py}
+  #
+  # ⚠️ 基线是**从镜像逐字节抽出**的（dsa_v41.py md5 6e60fc4d…、indexer.py md5 eabbce97…），
+  #    所以只开这个开关而文件不改 ⇒ 行为与镜像完全一致（可作为 A/B 的 A 臂）。
+  # ⚠️ 与 CED decode 路径冲突（那里也挂 dsa_v41.py，同一目标会 duplicate mount）。
+  if [ "${V41_MAINPY_MOUNT:-0}" = "1" ]; then
+    [ "${V41_CED_ROLE:-}" != "decode" ] || die "V41_MAINPY_MOUNT=1 与 CED decode 冲突（两者都挂 dsa_v41.py）"
+    _mainpy_dsa="$F/mainpy/dsa_v41.py"
+    _mainpy_idx="$F/mainpy/indexer.py"
+    [ -f "$_mainpy_dsa" ] || die "V41_MAINPY_MOUNT=1 但缺 $_mainpy_dsa"
+    [ -f "$_mainpy_idx" ] || die "V41_MAINPY_MOUNT=1 但缺 $_mainpy_idx"
+    MOUNTS+=(-v "$_mainpy_dsa:/vllm-workspace/vllm-ascend/vllm_ascend/attention/dsa_v41.py:ro")
+    MOUNTS+=(-v "$_mainpy_idx:/vllm-workspace/vllm-ascend/vllm_ascend/models/deepseek_v41/indexer.py:ro")
+    echo "[serve_a2] [V41-MAINPY-MOUNT] 已挂 patches/files/mainpy/{dsa_v41.py,indexer.py}（主层路径可迭代）"
   fi
 
   # [V41-HC-FUSE] 自定义融合算子包：hc_pre_norm 需要 ASCEND_CUSTOM_OPP_PATH 指向它。
@@ -1455,6 +1522,10 @@ $DOCKER rm -f "$NAME" >/dev/null 2>&1 || true
 #    `"docker run" requires at least 1 argument` + `-e: command not found`。
 #    `bash -n` **抓不到**这种错（语法合法），所以已加 `tools/check_serve_run_chain.py` 回归。
   # [V41-HC-FUSE] HcPre+RMSNorm 融合（Track B，env 门控，默认关）：V41_HC_FUSE_NORM / V41_HC_NORM_LIB / ASCEND_CUSTOM_OPP_PATH
+  # [V41-HC-LIMITCORE] HcPre 核数预算实验（纯 Python，不改数值路径）：
+  #   V41_HC_LIMIT_AIC / V41_HC_LIMIT_AIV —— 见 trackB 的 limit_core 实验说明。
+  #   ⚠️ 这两个 env **必须显式透传**：启动器只转发白名单里的变量，
+  #      2026-10-07 实测漏了它们 ⇒ 容器内读到 0 ⇒ 整臂静默变成空操作（浪费一次 10 min 重启）。
 $DOCKER run -d --name "$NAME" --net=host --shm-size=512g --privileged=true \
   --ulimit memlock=-1 \
   "${CGROUP_ARGS[@]}" \
@@ -1569,6 +1640,9 @@ $DOCKER run -d --name "$NAME" --net=host --shm-size=512g --privileged=true \
   ${V41_GATE_MAX_PREFILL:+-e V41_GATE_MAX_PREFILL="$V41_GATE_MAX_PREFILL"} \
   ${V41_HC_FUSE_ATTN_FP32:+-e V41_HC_FUSE_ATTN_FP32="$V41_HC_FUSE_ATTN_FP32"} \
   ${V41_HC_NORM_LIB:+-e V41_HC_NORM_LIB="$V41_HC_NORM_LIB"} \
+  ${V41_HC_LIMIT_FILE:+-e V41_HC_LIMIT_FILE="$V41_HC_LIMIT_FILE"} \
+  ${V41_HC_LIMIT_AIC:+-e V41_HC_LIMIT_AIC="$V41_HC_LIMIT_AIC"} \
+  ${V41_HC_LIMIT_AIV:+-e V41_HC_LIMIT_AIV="$V41_HC_LIMIT_AIV"} \
   ${ASCEND_CUSTOM_OPP_PATH:+-e ASCEND_CUSTOM_OPP_PATH="$ASCEND_CUSTOM_OPP_PATH"} \
   -e LOAD_FORMAT="$LOAD_FORMAT" \
   -e KV_ARGS_EXTRA="$KV_ARGS_EXTRA" \
@@ -2078,9 +2152,61 @@ kv32_pool_blocks_from_log() {   # <logfile> <bytes_per_block> → 打印最小 r
   awk -v g="$_g" -v bpb="$_bpb" 'BEGIN{printf "%d", (g*1073741824)/bpb}'
   return 0
 }
+# ★★ [KV32-CHECK 2026-10-06] 从日志解出"池块数"并**取两个来源的最大值**（防漏报）。
+#
+# 为什么不能只用 `GPU KV cache size ÷ BLOCK`（旧做法）：那条恒等式只在
+#   `num_blocks_per_request == BLOCK` 时成立。实测反例（交付实例，非 DCP）：
+#   BAT=8192 ⇒ tokens 2,988,163、BLOCK=128 ⇒ 23,345 块，而真实块数是
+#   `Available KV cache memory 13.82 GiB ÷ 540,928` ≈ 27,433 块 —— 旧做法**低报 14%**，
+#   一个真越界的池可能因此被放行（正是本守卫要堵的"静默回绕"）。
+# 两个来源的偏小方向：
+#   · 常数估算 在 DCP 形态偏小（每块字节数被 dcp 分片，常数偏大 ⇒ 块数偏小）；
+#   · tokens÷BLOCK 在 npr > BLOCK 时偏小（非 DCP 恒有 npr ≥ 8193 > 128… 见上例）。
+# ⇒ 取 max：非 DCP 下等价于常数估算（正确），DCP 下取到 tokens 口径（偏大但保守）。
+kv32_resolve_blocks() {   # <logfile> <bytes_per_block> <block_size> → "blocks<TAB>source"
+  local _log=$1 _bpb=$2 _blk=$3 _a=0 _b=0 _g _t
+  _g=$(grep -aoE 'Available KV cache memory: [0-9.]+ GiB' "$_log" 2>/dev/null \
+       | awk '{print $(NF-1)}' | sort -g | head -1)
+  if [ -n "$_g" ]; then
+    _a=$(awk -v g="$_g" -v bpb="$_bpb" 'BEGIN{printf "%d", (g*1073741824)/bpb}')
+  fi
+  # ★ [2026-10-06] 先看 [V41-KV32-CAP]：它给出**夹取后的真实块数**。
+  #   没有这行时（未启用 cap）再退回"profiling 估算 vs tokens÷block 取大"的旧逻辑。
+  _cap=$(grep -aoE '\[V41-KV32-CAP\] 块数 [0-9]+ → [0-9]+' "$_log" 2>/dev/null | tail -1 | grep -oE '[0-9]+$')
+  if [ -n "${_cap:-}" ]; then
+    printf '%s\t精确块数（[V41-KV32-CAP] 夹取后）\n' "$_cap"
+    return 0
+  fi
+  _t=$(grep -aoE 'GPU KV cache size: [0-9,]+ tokens' "$_log" 2>/dev/null \
+       | tail -1 | grep -oE '[0-9,]+' | tr -d ',' | head -1)
+  if [ -n "${_t:-}" ] && [ "${_blk:-0}" -gt 0 ] 2>/dev/null; then
+    _b=$(( _t / _blk ))
+  fi
+  if [ "$_a" -ge "$_b" ] && [ "$_a" -gt 0 ]; then
+    printf '%d\t估算（%s GiB ÷ %s B/块）\n' "$_a" "$_g" "$_bpb"
+  elif [ "$_b" -gt 0 ]; then
+    printf '%d\t精确块数（GPU KV cache size %s tokens ÷ block %s）\n' "$_b" "$_t" "$_blk"
+  else
+    printf '0\t无数据\n'
+  fi
+}
+# 显式 KV_CACHE_MEMORY_BYTES 形态下的块数：**确定值**（引擎按 字节数 ÷ 每块字节数 分配）。
+# 单独成函数是为了能在离线自检里正/负控（例如 16 GiB 在 540,928 的旧几何下 = 31,758 块 > 29,076 ⇒ 必须判越界）。
+kv32_blocks_explicit() {   # <kv_bytes> <bytes_per_block> → 块数
+  local _b=$1 _bpb=$2
+  [ "${_bpb:-0}" -gt 0 ] || { printf '0'; return; }
+  awk -v b="$_b" -v bpb="$_bpb" 'BEGIN{printf "%d", b/bpb}'
+}
 # --- [KV32] 辅助函数结束（selftest 按这两行标记抽取本函数）---
 
-if [ "$_kv32_enforce" = "1" ] && [ "$_kv32_pinned" != "1" ] && [ "$_kv32_user_set" != "1" ]; then
+if [ "$_kv32_enforce" = "1" ] && [ "$_kv32_pinned" != "1" ]; then
+  # ★ [KV32-CHECK-EXPLICIT 2026-10-06] **显式给值也要复核**：显式只保证"池 = 我给的字节数"，
+  #   不保证"块数 ≤ 上界"。显式形态下块数是确定值（引擎按 KV_CACHE_MEMORY_BYTES ÷ 每块字节数分配），
+  #   所以直接精确相除，不依赖日志。旧版在显式形态**整段跳过复核** ⇒ 给错值没人查。
+  if [ "$_kv32_user_set" = "1" ]; then
+    _kv32_blocks=$(kv32_blocks_explicit "$KV_CACHE_MEMORY_BYTES" "$_ced_bytes_per_block")
+    _kv32_src="精确块数（显式 KV_CACHE_MEMORY_BYTES ${KV_CACHE_MEMORY_BYTES} B ÷ ${_ced_bytes_per_block} B/块）"
+  fi
   _kv32_avail=$(grep -aoE 'Available KV cache memory: [0-9.]+ GiB' "$LOG" 2>/dev/null | awk '{print $(NF-1)}' | sort -g | head -1 || true)
   # ★★ [KV32-DCP 2026-10-05] DCP 形态下**不要**用固定 bytes_per_block 估算：
   # DCP 把每个 KV group 按 decode_context_parallel_size 路分片 ⇒ 每块字节数变小，
@@ -2089,22 +2215,16 @@ if [ "$_kv32_enforce" = "1" ] && [ "$_kv32_pinned" != "1" ] && [ "$_kv32_user_se
   # 修法：**优先用 vLLM 自己打印的 `GPU KV cache size: <N> tokens` 反算块数**（精确，
   # 不依赖任何常数）；只有拿不到那行时才退回常数估算（并明确标注是估算）。
   _kv32_tokens=$(grep -aoE 'GPU KV cache size: [0-9,]+ tokens' "$LOG" 2>/dev/null | tail -1 | grep -oE '[0-9,]+' | tr -d ',' | head -1)
-  if [ -n "${_kv32_tokens:-}" ] && [ "${BLOCK:-0}" -gt 0 ] 2>/dev/null; then
-    _kv32_blocks=$(( _kv32_tokens / BLOCK ))
-    # ⚠️ [KV32-DCP 2026-10-05] 这里**只报告精确块数，不改上界**。
-    # 为什么不去推"本配置自己的页步长"：`Available KV cache memory` 是**所有 cache group
-    # 的总预算**，而回绕判据用的是**单个绑定组**的页步长（CED 文档：147712 B）——
-    # 两者不同源，用前者除总块数会得到错误的页步长（实测推导值与已知常数 540,928/147712
-    # 都不吻合）⇒ 那样改会引入新的误判。**上界仍沿用 _ced_max_blocks（已由 CED 文档校准）**，
-    # 但块数现在是**精确值**（以前是估算），所以 DCP 形态下的偏差会被如实报出来（供人工判断）。
-    _kv32_src="精确块数（GPU KV cache size ${_kv32_tokens} tokens ÷ block ${BLOCK}）"
-  elif [ -z "$_kv32_avail" ]; then
-    echo "  [KV32] 复核跳过：日志里既没有 'GPU KV cache size' 也没有 'Available KV cache memory'"
-    _kv32_blocks=0
-    _kv32_src=""
-  else
-    _kv32_blocks=$(kv32_pool_blocks_from_log "$LOG" "$_ced_bytes_per_block" || echo 0)
-    _kv32_src="估算（${_kv32_avail} GiB ÷ ${_ced_bytes_per_block} B/块）⚠️ DCP 形态下此估算偏小"
+  if [ "$_kv32_user_set" != "1" ]; then
+    # 自动 profiling 形态：块数只能从日志反解 ⇒ 用 kv32_resolve_blocks 取两个来源的最大值。
+    _kv32_resolved=$(kv32_resolve_blocks "$LOG" "$_ced_bytes_per_block" "${BLOCK:-0}" || printf '0\t无数据\n')
+    _kv32_blocks=${_kv32_resolved%%$'\t'*}
+    _kv32_src=${_kv32_resolved#*$'\t'}
+    if [ -z "${_kv32_src:-}" ] || [ "${_kv32_blocks:-0}" = "0" ]; then
+      echo "  [KV32] 复核跳过：日志里既没有 'GPU KV cache size' 也没有 'Available KV cache memory'"
+      _kv32_blocks=0
+      _kv32_src=""
+    fi
   fi
   if [ -n "${_kv32_src:-}" ]; then
     echo "  [KV32] 池大小来源：$_kv32_src"
