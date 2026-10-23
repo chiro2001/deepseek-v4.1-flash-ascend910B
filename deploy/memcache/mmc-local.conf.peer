@@ -1,0 +1,9 @@
+# MemCache 客户端配置（跨机池：本机是客户端，MetaService 在对端）
+# 注意：端口必须与对端 mmc-meta.conf 一致（示例用 5000/6000）
+ock.mmc.meta_service_url = tcp://<META_HOST>:5000
+ock.mmc.local_service.config_store_url = tcp://<META_HOST>:6000
+ock.mmc.log_level = info
+ock.mmc.local_service.world_size = 256
+ock.mmc.local_service.protocol = device_rdma
+ock.mmc.local_service.dram.size = 48GB
+ock.mmc.local_service.max.dram.size = 384GB
