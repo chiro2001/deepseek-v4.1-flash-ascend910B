@@ -1,5 +1,37 @@
 # CHANGELOG.md —— v3 → v4 → v5 → v6 → v7 → v8 逐项 diff
 
+# ★★ compressor 寻址改 int64（2026-11-02）—— 修 [#7](https://github.com/chiro2001/deepseek-v4.1-flash-ascend910B/issues/7) 的 MTE invalid GM
+
+> ## 为什么
+>
+> `_pool_kernel` / `_cache_update_kernel` 里块偏移是
+> `(cache_row * CACHE_SIZE + slot) * 2 * HEAD_DIM`，`cache_row` 来自 **int32** 的
+> block_table ⇒ 物理页号一大，乘积越过 `INT32_MAX` 就**回绕成负**，设备侧报
+> `aivec error 0x800000` / `MTE accesses an invalid GM address` / `507035`。
+> 四份现场里浮现算子只落在 `_pool_kernel`（10-13 金丝雀 `+0x62c`）与
+> `_cache_update_kernel`（10-31 双机 17/17）—— 就是这两个函数。
+>
+> 上游 vllm-ascend 已在 `6fd763c284`(#17927, 2026-10-08) 把 4 处 `cache_row`
+> 加宽成 int64（注释原文 "At page 65536 the element offset exceeds INT32_MAX"），
+> **镜像内版本没有**。
+>
+> ## 改了什么
+>
+> | 文件 | 改动 |
+> |---|---|
+> | `patches/files/triton/compressor_triton.py` | **新增**：与上游 `main`（blob `114ca055`）逐字节一致；相对镜像内版本只多 6 个 hunk —— 4 处 `.to(tl.int64)` + 4 处 `tl.maximum(seg_off, 0)`（掩码 lane 的 DMA 地址也夹进分配区内） |
+> | `scripts/serve_a2.sh` | `PATCH_MODE=mount` 下新增 `[COMPRESSOR-INT64]` 挂载，默认开，`V41_COMPRESSOR_INT64=0` 可回退镜像内版本 |
+> | `tests/test_compressor_int64_addressing.py` | **新增**：纯 CPU 回归（4 处加宽是否齐全 + 回绕点算术），不需要 NPU / torch / triton |
+>
+> ## 边界（别当成已验证的根因）
+>
+> 这是**防御性修复**：把上游已发布的修复补齐，消掉一个确定的越界源。它**尚未被
+> 证明**就是那四次崩溃的根因 —— 元素级越界要 `num_blocks × 64 × HEAD_DIM > 2³¹`，
+> 按 `HEAD_DIM=512` 需 `num_blocks > 65536`；本机 `num_blocks=29076` 在元素域内，
+> 但在 **int8/byte 视图**下上界只有 14538 块。要定性仍需起服探针打
+> `state_cache.shape`（见 issue #7「请求 / 下一步」）。
+
+
 # ★★ KV32 池守卫**只在 CED/PD 形态默认使能**（2026-09-29）—— 修复"非 CED 被强制 pin"
 
 > ## 为什么

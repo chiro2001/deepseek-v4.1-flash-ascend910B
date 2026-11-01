@@ -39,6 +39,7 @@
 | 12 | `$A/models/deepseek_v41/engram_device_index.py` | `files/engram_device_index.py` | `41e7f012c596cc7539162e5f7ed8475d` | `V41_ENGRAM_DEVICE_INDEX=auto` | **v8 新增**：host-mapped 表（设备直读 host DRAM）+ 设备侧向量化哈希 + 能力探测（只做 `host_register`） |
 | 13 | `$A/models/deepseek_v41/engram_graph.py` | `files/engram_graph.py` | `bee1bdb20491ce0dfb2df1c3be1bf1f4` | `V41_ENGRAM_DEVICE_INDEX=auto` | **v8 新增**：每个 batch shape 一张 ACLGraph（零拷贝 + 指针校验），把整条设备路径入图 |
 | 14 | `patches/admission_gate.patch`（git apply 到 `$VLLM_ROOT=/vllm-workspace/vllm`） | `admission_gate.patch` | `782c58fe925609e1683c39f375075f57` | `VLLM_ADMISSION_GATE=1` | 预填充隔离，prefill 不饿死 decode |
+| 15 | `$A/ops/triton/compressor/compressor_triton.py` | `files/triton/compressor_triton.py` | `18eb87b7fefc4c4e9ea3f1f4cf845af4` | `V41_COMPRESSOR_INT64=1`（默认开，`=0` 回退） | **修复 #7**：`_pool_kernel` / `_cache_update_kernel` 的 `cache_row` 改 int64 寻址（逐字对齐上游 vllm-ascend `6fd763c284` / #17927）；物理页号大时 int32 回绕成负偏移 ⇒ MTE invalid GM |
 
 > 注：#3/#4/#12/#13 是**新增文件**（不是覆盖），构建脚本会直接 COPY；其余是覆盖 + `.a2orig` 备份。
 > #14 是**补丁**（不是整文件）：`build_image.sh` 烘焙时 `git apply`；`PATCH_MODE=mount` 由 `serve_a2.sh` 起容器后**现场 apply** 并断言 live tree 命中（不补的话 `VLLM_ADMISSION_GATE=1` 会被静默忽略）。

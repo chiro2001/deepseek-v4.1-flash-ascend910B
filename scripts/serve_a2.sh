@@ -1158,6 +1158,23 @@ if [ "$PATCH_MODE" = "mount" ]; then
   # 不要恢复这个挂载 —— 整文件覆盖 model_runner_v1.py 的风险远大于收益。
   MOUNTS+=(-v "$F/ascend_forward_context.py:/vllm-workspace/vllm-ascend/vllm_ascend/ascend_forward_context.py:ro")
   MOUNTS+=(-v "$F/rope_dsv4.py:/vllm-workspace/vllm-ascend/vllm_ascend/ops/rope_dsv4.py:ro")
+  # [COMPRESSOR-INT64] ops/triton/compressor/compressor_triton.py：`_pool_kernel` /
+  #   `_cache_update_kernel` 用 int32 的 `cache_row` 参与
+  #   `(cache_row * CACHE_SIZE + slot) * 2 * HEAD_DIM` 寻址。物理页号一大就回绕成
+  #   负偏移 ⇒ 设备侧 MTE "invalid GM address"（issue #7：10-13 金丝雀
+  #   `_pool_kernel+0x62c`、10-31 双机 17/17 落在 `_cache_update_kernel`）。
+  #   上游 vllm-ascend 已修：6fd763c284(#17927, 2026-10-08) 把 4 处 `cache_row`
+  #   加宽成 int64（注释明写 "At page 65536 the element offset exceeds INT32_MAX"），
+  #   **镜像内版本没有**。这里挂上游同款文件补上。
+  #   门控默认开：`V41_COMPRESSOR_INT64=0` 回退镜像内版本（可疑时 A/B 用）。
+  if [ "${V41_COMPRESSOR_INT64:-1}" = "1" ]; then
+    if [ -f "$F/triton/compressor_triton.py" ]; then
+      MOUNTS+=(-v "$F/triton/compressor_triton.py:/vllm-workspace/vllm-ascend/vllm_ascend/ops/triton/compressor/compressor_triton.py:ro")
+      say "[COMPRESSOR-INT64] 已挂载 compressor_triton.py（cache_row int64 寻址，对齐上游 6fd763c284）"
+    else
+      die "V41_COMPRESSOR_INT64=1 但缺 patches/files/triton/compressor_triton.py"
+    fi
+  fi
   # [V41-KV32-REPACK] core/deepseek_v41.py：把 ratio-1 源的 index 平面挪到另一个 slot 的
   #   空闲区 ⇒ 四个 slot 页步长全为 131072 ⇒ 块上限 29076 → 32768（+12.7% 容量，零精度风险）。
   #   门控默认关：只有 V41_KV32_REPACK=1 且 patches/files/deepseek_v41.repack.py 存在才挂。
