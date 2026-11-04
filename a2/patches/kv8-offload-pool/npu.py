@@ -21,6 +21,9 @@ from vllm_ascend.distributed.kv_transfer.kv_pool.kv_offload.native.cpu_npu impor
 from vllm_ascend.distributed.kv_transfer.kv_pool.kv_offload.native.p2_worker import (
     P2OffloadingWorker,
 )
+from vllm_ascend.distributed.kv_transfer.kv_pool.kv_offload.native import (
+    shared_region_single_copy as _sc,
+)
 
 
 def _normalize_legacy_num_blocks(
@@ -84,12 +87,34 @@ class NPUOffloadingSpec(_CPUOffloadingSpec):
         from vllm.v1.kv_offload.cpu import p2_pool
 
         row_counts = p2_pool.worker_rows(self, kv_caches)
+        # [CED-SINGLE-COPY] TP8 下池只存一份：8 个 rank 映射同一份 `/dev/shm` 物理页。
+        # `self.replicated_layout` 由 `cpu_spec.py` 用
+        # `config.replicated_layout and self._uses_shared_region()` 算出；
+        # 后者在 NPU 上默认 False（见下），本补丁在 env 打开时覆写为 True。
+        single_copy = None
+        if _sc.enabled() and self.replicated_layout:
+            single_copy = {"engine_id": self.config.engine_id}
         return P2OffloadingWorker(
             kv_caches=kv_caches,
             blocks_per_chunk=self.blocks_per_chunk,
             num_cpu_blocks=self.num_blocks,
             row_counts=row_counts,
+            single_copy=single_copy,
         )
+
+    def _uses_shared_region(self) -> bool:
+        """[CED-SINGLE-COPY] Ascend 也能提供共享 mmap region。
+
+        上游单 tier 的注释说 *"Unlike CUDA, Ascend has no public
+        cudaHostRegister-equivalent for an arbitrary mmap buffer"* ⇒ 把
+        `replicated_layout` 一直关着。该理由**已被实测证伪**（`a2/logs/014`
+        与 `results/ced_dram_single_copy_20261010/shared_region_probe_8rank.json`）：
+        `aclrtHostRegister(ptr,size,ACL_HOST_REGISTER_MAPPED)` 对任意
+        `/dev/shm` mmap 成立（8/8 rank ret=0），且注册后的 DMA 逐字节正确。
+        """
+        if _sc.enabled():
+            return True
+        return super()._uses_shared_region()
 
     def get_worker(
         self,

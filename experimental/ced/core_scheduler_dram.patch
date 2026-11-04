@@ -1,0 +1,34 @@
+--- a/vllm/v1/core/sched/scheduler.py
++++ b/vllm/v1/core/sched/scheduler.py
+@@ -2666,8 +2666,31 @@
+         else:
++            # [CED-DRAM-RESUME] The P lookup has already selected the SWA
++            # checkpoint at a chunk/manager-aligned boundary below N-1.
++            # Do not apply D's replay or stock full-hit token decrement to
++            # this boundary: that would read a different recurrent state.
++            _ced_params = request.kv_transfer_params or {}
++            _ced_boundary = _ced_params.pop("_ced_dram_load_boundary", None)
++            _ced_unit = _ced_params.pop("_ced_dram_alignment", None)
++            if _ced_boundary is not None:
++                if (
++                    os.environ.get("V41_CED_ROLE") != "prefill"
++                    or not isinstance(_ced_unit, int)
++                    or _ced_unit <= 0
++                    or request.num_computed_tokens != _ced_boundary
++                    or _ced_boundary % _ced_unit
++                    or not 0 <= _ced_boundary < request.num_tokens
++                ):
++                    raise RuntimeError("CED DRAM completed at an invalid P boundary")
++                print(
++                    "[CED-DRAM-RESUME] req=%s loaded=%d tail=%d unit=%d"
++                    % (request.request_id, _ced_boundary,
++                       request.num_tokens - _ced_boundary, _ced_unit),
++                    flush=True,
++                )
+             # Now that the blocks are ready, actually cache them.
+             # This will cache the blocks iff caching is enabled.
+             self.kv_cache_manager.cache_blocks(request, request.num_computed_tokens)
+ 
+             # on a full prompt hit, we need to re-compute the last token
+             # in order to be able to sample the next token
+             if request.num_computed_tokens == request.num_tokens:

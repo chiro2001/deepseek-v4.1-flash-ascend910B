@@ -25,6 +25,9 @@ from vllm_ascend.distributed.kv_transfer.kv_pool.kv_offload.native.cpu_npu impor
     SingleDirectionNPUOffloadingHandler,
     _allocate_npu_offload_cpu_tensor,
 )
+from vllm_ascend.distributed.kv_transfer.kv_pool.kv_offload.native import (
+    shared_region_single_copy as _sc,
+)
 
 # P1 的后端选择变量（pageable / pinned / registered）；只为把它的那行日志复现出来。
 _HOST_MEM_MODE = os.environ.get("NPU_OFFLOAD_HOST_MEM", "registered").strip().lower()
@@ -44,6 +47,7 @@ class P2OffloadingWorker(NPUOffloadingWorker):
         blocks_per_chunk: int,
         num_cpu_blocks: int,
         row_counts=None,
+        single_copy=None,
     ) -> None:
         pin_memory = is_pin_memory_available()
         n_tensors = len(kv_caches.tensors)
@@ -65,6 +69,13 @@ class P2OffloadingWorker(NPUOffloadingWorker):
         npu_tensors: list[torch.Tensor] = []
         cpu_tensors: list[torch.Tensor] = []
         total = 0
+        # [CED-SINGLE-COPY] 所有 rank 都把 region 建在同一个 inode 上（rank0 语义），
+        # 因此 8 个进程共享同一份物理页 ⇒ 池里只有**一份** KV（8× 容量）。
+        self._sc_regions = []
+        if single_copy is not None:
+            self._sc = single_copy
+        else:
+            self._sc = None
         for idx, kv_cache_tensor in enumerate(kv_caches.tensors):
             npu_page_size_bytes = kv_cache_tensor.page_size_bytes
             npu_tensor = kv_cache_tensor.tensor
@@ -84,16 +95,27 @@ class P2OffloadingWorker(NPUOffloadingWorker):
             rows = row_counts[idx]
 
             start_time = time.monotonic()
-            cpu_tensor = _allocate_npu_offload_cpu_tensor(rows, cpu_page_size_bytes)
+            if self._sc is not None:
+                region = _sc.SingleCopyRegion(
+                    engine_id=self._sc["engine_id"],
+                    tensor_idx=idx,
+                    rows=rows,
+                    page_bytes=cpu_page_size_bytes,
+                )
+                self._sc_regions.append(region)
+                cpu_tensor = region.tensor
+            else:
+                cpu_tensor = _allocate_npu_offload_cpu_tensor(rows, cpu_page_size_bytes)
             total += rows * cpu_page_size_bytes
             _log(
-                "③   tensor[%d] rows=%d x page=%d (物理 %.3f GiB, %.3f s)"
+                "③   tensor[%d] rows=%d x page=%d (物理 %.3f GiB, %.3f s)%s"
                 % (
                     idx,
                     rows,
                     cpu_page_size_bytes,
                     rows * cpu_page_size_bytes / (1 << 30),
                     time.monotonic() - start_time,
+                    "" if self._sc is None else " [shared-single-copy]",
                 )
             )
             npu_tensors.append(npu_tensor)
@@ -101,6 +123,13 @@ class P2OffloadingWorker(NPUOffloadingWorker):
 
         _log("③ worker 物理池合计 = %d B (%.3f GiB)" % (total, total / (1 << 30)))
         print("[P2_poolsizing] P2_WORKER_HOST_BYTES=%d" % total, flush=True)
+        if self._sc is not None:
+            print(
+                "[CED-SINGLE-COPY] shared pool: tensors=%d bytes=%d (%.3f GiB) "
+                "=> unique-KV capacity = 8x credited pool"
+                % (len(self._sc_regions), total, total / (1 << 30)),
+                flush=True,
+            )
 
         self._store_handler = SingleDirectionNPUOffloadingHandler(
             npu_tensors=npu_tensors,
@@ -116,3 +145,12 @@ class P2OffloadingWorker(NPUOffloadingWorker):
             kv_cache_groups_data_refs=kv_caches.group_data_refs,
             npu_to_cpu=False,
         )
+
+    def shutdown(self) -> None:
+        super().shutdown()
+        for region in getattr(self, "_sc_regions", ()) or ():
+            try:
+                region.cleanup()
+            except Exception as exc:  # noqa: BLE001 - 退出路径不能因清理失败而挂
+                _log("shared region cleanup failed: %r" % (exc,))
+        self._sc_regions = []

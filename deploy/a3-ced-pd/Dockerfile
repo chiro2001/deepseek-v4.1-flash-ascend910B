@@ -42,6 +42,9 @@ COPY payload/draft/ /tmp/bake/draft/
 COPY payload/guard/ /tmp/bake/guard/
 COPY payload/patches/ /tmp/bake/patches/
 COPY payload/scripts/ /tmp/bake/scripts/
+COPY payload/dram_vllm/ /tmp/bake/dram_vllm/
+COPY payload/dram_ascend/ /tmp/bake/dram_ascend/
+COPY payload/dram_ced/ /tmp/bake/dram_ced/
 # payload 清单也打进镜像：事后可以对着它核对"这层到底装了哪些文件"，
 # 不需要回头找仓库（清单本身逐字节派生自仓库源文件）。
 COPY payload/PAYLOAD.sha256 /opt/dsv41/deploy/PAYLOAD.sha256
@@ -102,6 +105,50 @@ RUN set -euo pipefail; \
     ls -la /opt/dsv41/patches/draft/; \
     grep -c DSPARK_GRAPH_CAPTURE_METADATA /opt/dsv41/patches/draft/dspark_proposer.py
 
+# ---------- 4.5) * DRAM offload single-copy pool pieces (P-side) ----------
+# Previously mounted only via serve_a2.sh [CED-DRAM] (-v, PATCH_MODE=mount).
+# Baking them at real paths lets baked mode run DRAM offload; a runtime
+# [CED-DRAM-BAKED-GUARD] verifies the observable trace, not the env.
+#
+# inst() = overwrite a file already present in the base image (keep .cedpdorig backup).
+# newf() = a file that does not exist in the base image.
+RUN set -euo pipefail; \
+    V=${VLLM_ROOT}/vllm; \
+    A=${ASCEND_PKG}/distributed/kv_transfer; \
+    inst() { \
+      local src="$1" tgt="$2"; \
+      test -f "$src" || { echo "[build] MISSING DRAM payload $src"; exit 30; }; \
+      test -f "$tgt" || { echo "[build] MISSING DRAM target $tgt"; exit 31; }; \
+      cp -f "$tgt" "$tgt.cedpdorig"; \
+      cp -f "$src" "$tgt"; \
+      python3 -m py_compile "$tgt"; \
+      echo "[build] dram inst  $2"; \
+    }; \
+    newf() { \
+      local src="$1" tgt="$2"; \
+      test -f "$src" || { echo "[build] MISSING DRAM payload $src"; exit 30; }; \
+      mkdir -p "$(dirname "$tgt")"; \
+      cp -f "$src" "$tgt"; \
+      python3 -m py_compile "$tgt"; \
+      echo "[build] dram newf  $2"; \
+    }; \
+    inst /tmp/bake/dram_vllm/distributed/kv_transfer/kv_connector/v1/offloading/scheduler.py "$V/distributed/kv_transfer/kv_connector/v1/offloading/scheduler.py"; \
+    inst /tmp/bake/dram_vllm/distributed/kv_transfer/kv_connector/v1/offloading/config.py "$V/distributed/kv_transfer/kv_connector/v1/offloading/config.py"; \
+    inst /tmp/bake/dram_vllm/v1/kv_offload/cpu/spec.py "$V/v1/kv_offload/cpu/spec.py"; \
+    newf /tmp/bake/dram_vllm/v1/kv_offload/cpu/pgp_manager.py "$V/v1/kv_offload/cpu/pgp_manager.py"; \
+    newf /tmp/bake/dram_vllm/v1/kv_offload/cpu/p2_pool.py "$V/v1/kv_offload/cpu/p2_pool.py"; \
+    inst /tmp/bake/dram_ascend/kv_pool/kv_offload/native/cpu_npu.py "$A/kv_pool/kv_offload/native/cpu_npu.py"; \
+    inst /tmp/bake/dram_ascend/kv_pool/kv_offload/native/npu.py "$A/kv_pool/kv_offload/native/npu.py"; \
+    newf /tmp/bake/dram_ascend/kv_pool/kv_offload/native/p2_worker.py "$A/kv_pool/kv_offload/native/p2_worker.py"; \
+    newf /tmp/bake/dram_ascend/kv_pool/kv_offload/native/shared_region_single_copy.py "$A/kv_pool/kv_offload/native/shared_region_single_copy.py"; \
+    mkdir -p "$A/ced_dram"; \
+    cp -f /tmp/bake/dram_ced/*.py "$A/ced_dram/"; \
+    python3 -m py_compile "$A/ced_dram/"*.py; \
+    test -s "$A/ced_dram/connector.py" || { echo "[build] FATAL: missing ced_dram/connector.py"; exit 32; }; \
+    grep -q "CED-SINGLE-COPY" "$A/kv_pool/kv_offload/native/shared_region_single_copy.py" || { echo "[build] FATAL: single-copy marker missing"; exit 33; }; \
+    echo "[build] DRAM offload pieces installed (P-side)"
+
+
 # ---------- 5) vLLM core：admission gate **构建期就打**（baked 模式不再现场打）----------
 RUN set -euo pipefail; \
     cd "${VLLM_ROOT}"; \
@@ -131,7 +178,8 @@ RUN set -euo pipefail; \
     cp -f /tmp/bake/patches/core_model_runner_prompt_tail.patch /opt/dsv41/ced_runner_prompt_tail.patch; \
     cp -f /tmp/bake/patches/core_model_runner_dynamic_spec.patch /opt/dsv41/ced_runner_dynamic_spec.patch; \
     cp -f /tmp/bake/patches/core_config_dynamic_sd_gate.patch     /opt/dsv41/ced_config_dynamic_sd_gate.patch; \
-    for f in /opt/dsv41/ced_scheduler_replay.patch /opt/dsv41/ced_scheduler_prefill_hit.patch /opt/dsv41/ced_runner_prompt_tail.patch /opt/dsv41/ced_runner_dynamic_spec.patch /opt/dsv41/ced_config_dynamic_sd_gate.patch; do \
+    cp -f /tmp/bake/patches/core_scheduler_dram.patch           /opt/dsv41/ced_scheduler_dram.patch; \
+    for f in /opt/dsv41/ced_scheduler_replay.patch /opt/dsv41/ced_scheduler_prefill_hit.patch /opt/dsv41/ced_runner_prompt_tail.patch /opt/dsv41/ced_runner_dynamic_spec.patch /opt/dsv41/ced_config_dynamic_sd_gate.patch /opt/dsv41/ced_scheduler_dram.patch; do \
       test -s "$f" || { echo "[build] FATAL: missing $f"; exit 25; }; \
     done; \
     mkdir -p /opt/dsv41/guards; \

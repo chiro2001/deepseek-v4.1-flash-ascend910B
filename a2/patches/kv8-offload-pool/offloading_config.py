@@ -28,6 +28,19 @@ def is_kv_cache_tensor_packed(kv_cache_tensor: "KVCacheTensor") -> bool:
     return bool(kv_cache_tensor.block_stride)
 
 
+def validate_group_hash_alignment(groups, tokens_per_hash, excluded_groups=()):
+    """Inactive CED state/decoder groups do not consume prefix hashes."""
+    excluded = set(excluded_groups)
+    for idx, group in enumerate(groups):
+        if idx in excluded:
+            continue
+        assert group.tokens_per_block % tokens_per_hash == 0, (
+            f"group={idx}: tokens_per_block={group.tokens_per_block} not divisible by "
+            f"tokens_per_hash={tokens_per_hash}. "
+            "Hybrid models need prefix-cache-compatible block sizes."
+        )
+
+
 def build_offloading_config(
     vllm_config: "VllmConfig",
     kv_cache_config: "KVCacheConfig",
@@ -56,12 +69,14 @@ def build_offloading_config(
     )
 
     _, tokens_per_hash = resolve_kv_cache_block_sizes(kv_cache_config, vllm_config)
-    for group in groups:
-        assert group.tokens_per_block % tokens_per_hash == 0, (
-            f"tokens_per_block={group.tokens_per_block} not divisible by "
-            f"tokens_per_hash={tokens_per_hash}. "
-            f"Hybrid models (e.g. Mamba+Attention) need "
-            f"--enable-prefix-caching to align block sizes."
+    validate_group_hash_alignment(
+        groups, tokens_per_hash, extra_config.get("ced_excluded_groups", ())
+    )
+    if "ced_excluded_groups" in extra_config:
+        print(
+            "[CED-DRAM] hash geometry: tokens_per_hash=%d group_blocks=%s excluded=%s"
+            % (tokens_per_hash, [g.tokens_per_block for g in groups], extra_config["ced_excluded_groups"]),
+            flush=True,
         )
 
     blocks_per_chunk = 1
@@ -193,6 +208,77 @@ def build_offloading_config(
         and parallel_config.distributed_executor_backend == "mp"
         and parallel_config.nnodes_within_dp == 1
     )
+
+    # [CED-SINGLE-COPY] 2026-10-10：把上面那道"单组 + 裸 MLAAttentionSpec"的门放宽到
+    # **DSV4.1 的 hybrid MLA 几何**，以便 TP8 下 DRAM 池只存**一份** KV（8×容量）。
+    #
+    # 上游那段门的注释原文是 *"fail closed on wrappers and sliding-window variants"*，
+    # 它对 CUDA 侧是**保守**而不是必须：真正的语义前提只有两条
+    #   ① 拓扑把 KV 复制到每个 rank（TP-only、无 PP/PCP/DCP、单机 mp）；
+    #   ② 每个参与组的 canonical 页在 8 个 rank 上逐字节相同。
+    # V4.1 的 ①成立（w4a8 MLA latent：K/V 不按头切分，`num_kv_heads=1`，indexer/compressor
+    # 都是 replicated `nn.Linear`，slot 表全局唯一），②由 `ced_dram/connector.py` 的
+    # [CED-SINGLE-COPY-VERIFY] 在**运行期**逐 job 取 8 rank 源 KV 的 sha256 复核；
+    # 任何一条不满足就**拒绝启动**（这里）或**直接抛错**（那里），绝不放行。
+    #
+    # 该分支默认关（`CED_DRAM_SINGLE_COPY=0`），且只在**全部**组都是 MLA 家族
+    # （`MLAAttentionSpec` / `SlidingWindowMLASpec`，后者是 SWA 变体）时才成立。
+    single_copy_requested = extra_config.get("ced_single_copy", False) is True
+    single_copy_eligible = False
+    if single_copy_requested:
+        from vllm.v1.kv_cache_interface import SlidingWindowMLASpec
+
+        mla_family = (MLAAttentionSpec, SlidingWindowMLASpec)
+        # Only the groups that actually take part in offloading must be MLA
+        # family; CED excludes the non-prefix-cacheable state/recurrent groups
+        # (their tensors are dropped from the canonical set entirely).
+        excluded = set(extra_config.get("ced_excluded_groups", ()))
+        participating = [
+            group.kv_cache_spec
+            for idx, group in enumerate(kv_cache_config.kv_cache_groups)
+            if idx not in excluded
+        ]
+        topology_ok = (
+            parallel_config.tensor_parallel_size > 1
+            and parallel_config.pipeline_parallel_size == 1
+            and parallel_config.prefill_context_parallel_size == 1
+            and parallel_config.decode_context_parallel_size == 1
+            and parallel_config.world_size == parallel_config.tensor_parallel_size
+            and parallel_config.distributed_executor_backend == "mp"
+            and parallel_config.nnodes_within_dp == 1
+        )
+        # HMA wraps per-layer specs in UniformTypeKVCacheSpecs; unwrap before judging.
+        def _leaf(spec):
+            members = getattr(spec, "kv_cache_specs", None)
+            if members:
+                return tuple(members.values())
+            return (spec,)
+
+        leaves = [leaf for spec in participating for leaf in _leaf(spec)]
+        mla_ok = bool(leaves) and all(isinstance(leaf, mla_family) for leaf in leaves)
+        single_copy_eligible = topology_ok and mla_ok
+        print(
+            "[CED-SINGLE-COPY] gate: requested=%s eligible=%s topology=%s "
+            "mla_family=%s(pages=%d) excluded=%s"
+            % (
+                single_copy_requested,
+                single_copy_eligible,
+                topology_ok,
+                mla_ok,
+                len(leaves),
+                sorted(excluded),
+            ),
+            flush=True,
+        )
+        if not single_copy_eligible:
+            raise RuntimeError(
+                "[CED-SINGLE-COPY] requested but the KV geometry is not "
+                "certifiable as byte-replicated across TP ranks "
+                f"(topology_ok={topology_ok} mla_family={mla_ok} "
+                f"participating_specs={[type(s).__name__ for s in leaves]}). "
+                "Refusing to start rather than silently storing 8 copies."
+            )
+        replicated_layout = True
 
     # Only a single non-MLA full-attention group is parallelism-invariant:
     # MLA latent KV is replicated per rank (never head-sharded), and the V2

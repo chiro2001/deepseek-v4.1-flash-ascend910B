@@ -1,0 +1,72 @@
+--- a/vllm/v1/core/sched/scheduler.py
++++ b/vllm/v1/core/sched/scheduler.py
+@@ -462,6 +462,28 @@
+                     return True
+         return False
+ 
++    def _ced_preemptible_running(self) -> list[Request]:
++        """Return requests that are safe to preempt on a CED decode node.
++
++        CED decode requests hold KV received from prefill and replay a fixed
++        128-token prefix. Normal preemption resets ``num_computed_tokens`` but
++        leaves the replay boundary intact, turning the next replay into a large
++        recompute without the required source KV. Protect the handoff until the
++        request finishes; KV pressure then delays new admissions instead.
++        """
++        if os.environ.get("V41_CED_ROLE") != "decode":
++            return self.running
++        if os.environ.get("V41_CED_PREEMPT_GUARD", "1") != "1":
++            return self.running
++        return [
++            request
++            for request in self.running
++            if not (
++                request.kv_transfer_params
++                and request.kv_transfer_params.get("ced_replay_tokens")
++            )
++        ]
++
+     def _mamba_block_aligned_split(
+         self,
+         request: Request,
+@@ -723,9 +745,12 @@
+ 
+                     # The request cannot be scheduled.
+                     # Preempt the lowest-priority request.
++                    preemptible_running = self._ced_preemptible_running()
++                    if not preemptible_running:
++                        break
+                     if self.policy == SchedulingPolicy.PRIORITY:
+                         preempted_req = max(
+-                            self.running,
++                            preemptible_running,
+                             key=lambda r: (r.priority, r.arrival_time),
+                         )
+                         self.running.remove(preempted_req)
+@@ -748,7 +773,8 @@
+                                 encoder_compute_budget += num_embeds_to_restore
+                             req_index -= 1
+                     else:
+-                        preempted_req = self.running.pop()
++                        preempted_req = preemptible_running[-1]
++                        self.running.remove(preempted_req)
+ 
+                     self._preempt_request(
+                         preempted_req,
+@@ -1571,6 +1597,16 @@
+         tokens out of order, and for connectors with a pending KV hand-off,
+         which the preemption's block free would leave without valid KV.
+         """
++        if (
++            os.environ.get("V41_CED_ROLE") == "decode"
++            and os.environ.get("V41_CED_PREEMPT_GUARD", "1") == "1"
++            and request.kv_transfer_params
++            and request.kv_transfer_params.get("ced_replay_tokens")
++        ):
++            raise RuntimeError(
++                "Refusing to preempt an active CED decode request: "
++                f"{request.request_id}"
++            )
+         assert request.status == RequestStatus.RUNNING, (
+             "Only running requests can be preempted"
+         )

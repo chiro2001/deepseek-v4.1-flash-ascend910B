@@ -30,7 +30,7 @@ say "仓库根 = $PKG"
 say "输出   = $OUT"
 
 rm -rf "$OUT"
-mkdir -p "$OUT"/{ascend,ced,draft,guard,patches,scripts}
+mkdir -p "$OUT"/{ascend,ced,draft,guard,patches,scripts,dram_vllm,dram_ascend,dram_ced}
 
 # ---- A. vllm-ascend 补丁件（13）----
 A=(
@@ -64,6 +64,42 @@ done
 # 整个 D 实例死掉（docs/CED-DECODE-API-GUARD-20260927.md）。
 need "patches/files/v41_decode_guard.py"
 cp -f "$PKG/patches/files/v41_decode_guard.py" "$OUT/guard/"
+
+# ---- C3. * DRAM offload single-copy pool pieces (P-side; our branch only) ----
+# CED DRAM KV offload: vLLM native offload scheduler + Ascend native pool +
+# shared-region single-copy + ced_dram adapter. Mounted path (serve_a2.sh
+# [CED-DRAM] section) uses per-file -v; baked path lands at real image paths
+# via Dockerfile section 4.5. Both ship the same files.
+DRAM_VLLM=(
+  "a2/patches/0001-offload-scheduler.patch.py:distributed/kv_transfer/kv_connector/v1/offloading/scheduler.py"
+  "a2/patches/kv8-offload-pool/offloading_config.py:distributed/kv_transfer/kv_connector/v1/offloading/config.py"
+  "a2/patches/kv8-offload-pool/cpu_spec.py:v1/kv_offload/cpu/spec.py"
+  "a2/patches/kv8-offload-pool/pgp_manager.py:v1/kv_offload/cpu/pgp_manager.py"
+  "a2/patches/kv8-offload-pool/p2_pool.py:v1/kv_offload/cpu/p2_pool.py"
+)
+for _e in "${DRAM_VLLM[@]}"; do
+  _s="${_e%%:*}"; _d="${_e#*:}"
+  need "$_s"
+  mkdir -p "$OUT/dram_vllm/$(dirname "$_d")"
+  cp -f "$PKG/$_s" "$OUT/dram_vllm/$_d"
+done
+DRAM_ASCEND=(
+  "a2/patches/0002-offload-cpu-pool-host-registered.patch.py:kv_pool/kv_offload/native/cpu_npu.py"
+  "a2/patches/kv8-offload-pool/npu.py:kv_pool/kv_offload/native/npu.py"
+  "a2/patches/kv8-offload-pool/p2_worker.py:kv_pool/kv_offload/native/p2_worker.py"
+  "a2/patches/kv8-offload-pool/shared_region_single_copy.py:kv_pool/kv_offload/native/shared_region_single_copy.py"
+)
+for _e in "${DRAM_ASCEND[@]}"; do
+  _s="${_e%%:*}"; _d="${_e#*:}"
+  need "$_s"
+  mkdir -p "$OUT/dram_ascend/$(dirname "$_d")"
+  cp -f "$PKG/$_s" "$OUT/dram_ascend/$_d"
+done
+need "experimental/ced/dram/connector.py"
+cp -f "$PKG"/experimental/ced/dram/*.py "$OUT/dram_ced/"
+need "experimental/ced/core_scheduler_dram.patch"
+cp -f "$PKG/experimental/ced/core_scheduler_dram.patch" "$OUT/patches/"
+
 
 # ---- D. vLLM core 补丁（4）----
 for p in admission_gate.patch; do

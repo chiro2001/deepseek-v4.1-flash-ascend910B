@@ -1307,6 +1307,14 @@ if [ -n "${V41_CED_ROLE:-}" ]; then
       die "V41_CED_ROLE 要求 PATCH_MODE=mount 或 baked，当前 $PATCH_MODE"
       ;;
   esac
+  # [CED-PREEMPT] This is a runtime patch in both delivery modes. The baked
+  # image predates the fix, so requiring mount mode would let the default
+  # baked deployment run without protection.
+  if [ "${V41_CED_ROLE:-}" = "decode" ]; then
+    _ced_preempt="$PKG/experimental/ced/core_scheduler_preempt_guard.patch"
+    [ -f "$_ced_preempt" ] || die "CED decode 缺少抢占保护补丁 $_ced_preempt"
+    MOUNTS+=(-v "$_ced_preempt:/opt/dsv41/core_scheduler_preempt_guard.patch:ro")
+  fi
   if [ "${PATCH_MODE}" = "mount" ] && [ "${V41_CED_ROLE:-}" = "decode" ]; then
     [ "${PROBE:-0}" != "1" ] || die "CED decode 实验不能与 PROBE=1 同时覆盖 dsa_v41.py"
     _ced_dsa="$PKG/experimental/ced/dsa_v41.py"
@@ -1367,6 +1375,53 @@ if [ -n "${V41_CED_SNAPSHOT_POS:-}" ] && [ -z "${V41_CED_ROLE:-}" ]; then
   _ced_dsa="$PKG/experimental/ced/dsa_v41.py"
   [ -f "$_ced_dsa" ] || die "CED cache snapshot 缺少 $_ced_dsa"
   MOUNTS+=(-v "$_ced_dsa:/vllm-workspace/vllm-ascend/vllm_ascend/attention/dsa_v41.py:ro")
+fi
+CED_DRAM_ENV_ARGS=()
+if [ "${CED_DRAM:-0}" = "1" ]; then
+  [ "${V41_CED_ROLE:-}" = prefill ] && [ "$PREFIX" = 1 ] \
+    || die "CED DRAM requires prefill + PREFIX=1"
+  # [CED-DRAM-PATCH-MODE] both delivery faces supported (same as CED pieces):
+  #   mount - base image + per-file -v DRAM mounts (dev / single-variable)
+  #   baked - working image already has DRAM pieces at real paths (Dockerfile 4.5)
+  # baked effectiveness is proven later by [CED-DRAM-BAKED-GUARD].
+  case "$PATCH_MODE" in
+    mount)
+      _V=/vllm-workspace/vllm/vllm
+      _A=/vllm-workspace/vllm-ascend/vllm_ascend/distributed/kv_transfer
+      for _entry in \
+        "0001-offload-scheduler.patch.py:$_V/distributed/kv_transfer/kv_connector/v1/offloading/scheduler.py" \
+        "0002-offload-cpu-pool-host-registered.patch.py:$_A/kv_pool/kv_offload/native/cpu_npu.py" \
+        "kv8-offload-pool/offloading_config.py:$_V/distributed/kv_transfer/kv_connector/v1/offloading/config.py" \
+        "kv8-offload-pool/cpu_spec.py:$_V/v1/kv_offload/cpu/spec.py" \
+        "kv8-offload-pool/pgp_manager.py:$_V/v1/kv_offload/cpu/pgp_manager.py" \
+        "kv8-offload-pool/p2_pool.py:$_V/v1/kv_offload/cpu/p2_pool.py" \
+        "kv8-offload-pool/npu.py:$_A/kv_pool/kv_offload/native/npu.py" \
+        "kv8-offload-pool/p2_worker.py:$_A/kv_pool/kv_offload/native/p2_worker.py" \
+        "kv8-offload-pool/shared_region_single_copy.py:$_A/kv_pool/kv_offload/native/shared_region_single_copy.py"; do
+        _source="$PKG/a2/patches/${_entry%%:*}"
+        [ -f "$_source" ] || die "CED DRAM missing $_source"
+        MOUNTS+=(-v "$_source:${_entry#*:}:ro")
+      done
+      MOUNTS+=(-v "$PKG/experimental/ced/dram:$_A/ced_dram:ro")
+      MOUNTS+=(-v "$PKG/experimental/ced/core_scheduler_dram.patch:/opt/dsv41/ced_scheduler_dram.patch:ro")
+      ;;
+    baked)
+      # baked into image (Dockerfile 4.5). Effectiveness proven by [CED-DRAM-BAKED-GUARD].
+      ;;
+    *)
+      die "CED DRAM requires PATCH_MODE=mount or baked, got $PATCH_MODE"
+      ;;
+  esac
+  CED_DRAM_ENV_ARGS=(-e NPU_OFFLOAD_HOST_MEM=registered -e CED_DRAM_STRICT_REGISTER=1
+    -e P2_POOL_PATCH=1 -e P2_WORKER_ROWS=1 -e VLLM_V41_APC_ALIGN=3 -e SWA_TRIM=off
+    -e "V41_CED_MOCK_ENABLE=${V41_CED_MOCK_ENABLE:-0}"
+    -e "CED_DRAM_SINGLE_COPY=${CED_DRAM_SINGLE_COPY:-0}"
+    -e "CED_DRAM_SINGLE_COPY_VERIFY=${CED_DRAM_SINGLE_COPY_VERIFY:-1}"
+    -e "CED_DRAM_SINGLE_COPY_VERIFY_JOBS=${CED_DRAM_SINGLE_COPY_VERIFY_JOBS:-2}"
+    -e "CED_DRAM_SINGLE_COPY_VERIFY_ALL=${CED_DRAM_SINGLE_COPY_VERIFY_ALL:-0}"
+    -e "CED_DRAM_SINGLE_COPY_DIR=${CED_DRAM_SINGLE_COPY_DIR:-/dev/shm}"
+    -e "CED_DRAM_SINGLE_COPY_UNLINK=${CED_DRAM_SINGLE_COPY_UNLINK:-0}")
+  say "[CED-DRAM] native adapter, per-group chunks, registered host pool"
 fi
 [ -n "$PGO_LIB" ] && MOUNTS+=(-v "$PKG/optim/pgo/libpython3.12.so.1.0:$PGO_LIB:ro")
 # ---------- [PROBE] 稀疏状态插针（事后取证；独立于 PATCH_MODE） ----------
@@ -1613,6 +1668,7 @@ $DOCKER run -d --name "$NAME" --net=host --shm-size=512g --privileged=true \
   -e V41_CED_SOURCE_COMPARE="${V41_CED_SOURCE_COMPARE:-0}" \
   -e V41_CED_SOURCE_COMPARE_CHUNKS="${V41_CED_SOURCE_COMPARE_CHUNKS:-1}" \
   -e V41_CED_ROLE="${V41_CED_ROLE:-}" \
+  -e V41_CED_PREEMPT_GUARD="${V41_CED_PREEMPT_GUARD:-1}" \
   -e V41_CED_ALLOW_DSPARK="${V41_CED_ALLOW_DSPARK:-0}" \
   -e V41_SLOT_MAP_FUSED="${V41_SLOT_MAP_FUSED:-0}" \
   -e V41_CED_GRAPH_PROMPT_TAIL_EAGER="${V41_CED_GRAPH_PROMPT_TAIL_EAGER:-0}" \
@@ -1646,6 +1702,7 @@ $DOCKER run -d --name "$NAME" --net=host --shm-size=512g --privileged=true \
   ${ASCEND_CUSTOM_OPP_PATH:+-e ASCEND_CUSTOM_OPP_PATH="$ASCEND_CUSTOM_OPP_PATH"} \
   -e LOAD_FORMAT="$LOAD_FORMAT" \
   -e KV_ARGS_EXTRA="$KV_ARGS_EXTRA" \
+  ${CED_DRAM_ENV_ARGS[@]+"${CED_DRAM_ENV_ARGS[@]}"} \
   ${HCCL_ENV_ARGS[@]+"${HCCL_ENV_ARGS[@]}"} \
   -w /workspace "$IMAGE" \
   bash -lc "sleep infinity" >/dev/null || die "docker run 失败"
@@ -1735,6 +1792,36 @@ if [ "${V41_CED_ROLE:-}" != "" ] && [ "${PATCH_MODE:-}" = "baked" ]; then
   say "[CED-BAKED-GUARD] CED 连接器 + dsa_v41 均已生效 ✓"
 fi
 
+# ---------- [CED-DRAM-BAKED-GUARD] baked must prove DRAM pieces are present ----------
+if [ "${CED_DRAM:-0}" = "1" ] && [ "${PATCH_MODE:-}" = "baked" ]; then
+  say "[CED-DRAM-BAKED-GUARD] verify baked DRAM pieces"
+  _dramchk=$($DOCKER exec "$NAME" bash -lc '
+    V=/vllm-workspace/vllm/vllm
+    A=/vllm-workspace/vllm-ascend/vllm_ascend/distributed/kv_transfer
+    s=$V/distributed/kv_transfer/kv_connector/v1/offloading/scheduler.py
+    sc=$A/kv_pool/kv_offload/native/shared_region_single_copy.py
+    c=$A/ced_dram/connector.py
+    [ -f "$s" ] || { echo "MISSING_OFFLOAD_SCHEDULER"; exit 0; }
+    [ -f "$sc" ] || { echo "MISSING_SINGLE_COPY"; exit 0; }
+    [ -f "$c" ] || { echo "MISSING_CED_DRAM"; exit 0; }
+    a=$(grep -c "CED-DRAM" "$s" 2>/dev/null || true)
+    b=$(grep -c "CED-SINGLE-COPY" "$sc" 2>/dev/null || true)
+    echo "sched=${a:-0} single=${b:-0}"' 2>/dev/null | tail -1)
+  case "${_dramchk:-}" in
+    MISSING_*) die "[CED-DRAM-BAKED-GUARD] image missing DRAM pieces ($_dramchk)" ;;
+    "")        die "[CED-DRAM-BAKED-GUARD] cannot verify baked DRAM pieces (docker exec failed)" ;;
+    *)         say "[CED-DRAM-BAKED-GUARD] markers = $_dramchk" ;;
+  esac
+  _dok=$($DOCKER exec "$NAME" bash -lc '
+    V=/vllm-workspace/vllm/vllm
+    s=$V/distributed/kv_transfer/kv_connector/v1/offloading/scheduler.py
+    a=$(grep -c "CED-DRAM" "$s" 2>/dev/null || true)
+    [ "${a:-0}" -ge 1 ] && echo OK || echo BAD' 2>/dev/null | tail -1)
+  [ "${_dok:-}" = "OK" ] || die "[CED-DRAM-BAKED-GUARD] DRAM pieces not effective (no CED-DRAM marker in offload scheduler)"
+  say "[CED-DRAM-BAKED-GUARD] DRAM offload scheduler effective"
+fi
+
+
 if [ "${V41_CED_ROLE:-}" = "decode" ]; then
   say "[CED-D] 应用固定 Core 版本的 128-token replay 调度补丁"
   _ced_patch=$($DOCKER exec "$NAME" bash -lc '
@@ -1747,6 +1834,28 @@ if [ "${V41_CED_ROLE:-}" = "decode" ]; then
     grep -Fq "[CED-KVRECV]" vllm/v1/core/sched/scheduler.py || exit 1
     echo APPLIED' 2>/dev/null | tail -1)
   [ "${_ced_patch:-}" = "APPLIED" ] || die "CED decode replay 调度补丁未应用"
+  say "[CED-D] 应用 CED handoff 抢占保护补丁"
+  _ced_preempt_patch=$($DOCKER exec "$NAME" bash -lc '
+    C=/vllm-workspace/vllm/vllm/v1/core/sched/scheduler.py
+    if grep -Fq "_ced_preemptible_running" "$C"; then
+      grep -Fq "Refusing to preempt an active CED decode request" "$C" \
+        || exit 1
+      echo ALREADY
+      exit 0
+    fi
+    test -s /opt/dsv41/core_scheduler_preempt_guard.patch || exit 1
+    git -C /vllm-workspace/vllm apply --unidiff-zero \
+      /opt/dsv41/core_scheduler_preempt_guard.patch || exit 1
+    grep -Fq "_ced_preemptible_running" "$C" || exit 1
+    grep -Fq "Refusing to preempt an active CED decode request" "$C" || exit 1
+    grep -Fq "[CED-D] replay request=" "$C" || exit 1
+    grep -Fq "CED-KVRECV" "$C" || exit 1
+    python3 -m py_compile "$C" || exit 1
+    echo APPLIED' 2>/dev/null | tail -1)
+  case "${_ced_preempt_patch:-}" in
+    APPLIED|ALREADY) say "[CED-D] CED handoff 抢占保护已生效（$_ced_preempt_patch）✓" ;;
+    *) die "CED handoff 抢占保护补丁未应用" ;;
+  esac
 fi
 if [ "${V41_CED_ROLE:-}" = "prefill" ] && [ "${V41_CED_P_HIT_DIAG:-1}" = "1" ]; then
   say "[CED-P] 应用只读命中诊断补丁（不改分支）"
@@ -1760,6 +1869,18 @@ if [ "${V41_CED_ROLE:-}" = "prefill" ] && [ "${V41_CED_P_HIT_DIAG:-1}" = "1" ]; 
     python3 -m py_compile vllm/v1/core/sched/scheduler.py || exit 1
     echo APPLIED' 2>/dev/null | tail -1)
   [ "${_ced_phhit:-}" = "APPLIED" ] || die "CED prefill 命中诊断补丁未应用"
+fi
+if [ "${CED_DRAM:-0}" = "1" ]; then
+  say "[CED-DRAM] applying P async-load boundary validation"
+  _ced_dram_patch=$($DOCKER exec "$NAME" bash -lc '
+    cd /vllm-workspace/vllm || exit 1
+    grep -Fq "[CED-P-HIT]" vllm/v1/core/sched/scheduler.py || exit 1
+    git apply --unidiff-zero --check /opt/dsv41/ced_scheduler_dram.patch || exit 1
+    git apply --unidiff-zero /opt/dsv41/ced_scheduler_dram.patch || exit 1
+    python3 -m py_compile vllm/v1/core/sched/scheduler.py || exit 1
+    grep -Fq "[CED-DRAM-RESUME]" vllm/v1/core/sched/scheduler.py || exit 1
+    echo APPLIED' 2>/dev/null | tail -1)
+  [ "${_ced_dram_patch:-}" = APPLIED ] || die "CED DRAM async-load patch was not applied"
 fi
 if [ "${V41_CED_GRAPH_PROMPT_TAIL_EAGER:-0}" = "1" ]; then
   say "[CED-GRAPH] 应用固定 runner 版本的单 token prompt 尾部 eager 补丁"

@@ -423,6 +423,15 @@ class SchedulerOffloadConfig(NamedTuple):
         #   bpc_map 为 None 时逐字回退到镜像内行为（全局标量 `spec.blocks_per_chunk`）。
         bpc_map = bpc_map_from_extra(spec.extra_config)
 
+        # CED P computes only the encoder SWA groups. Keep the complete
+        # group vector, but exclude unwritten decoder groups from both
+        # alignment and store/lookup. This config belongs to this child
+        # connector; other CED/normal PD connectors remain unaffected.
+        ced_excluded = frozenset(spec.extra_config.get("ced_excluded_groups", ()))
+
+        def participates(idx: int, kv_spec: KVCacheSpec) -> bool:
+            return idx not in ced_excluded and _offload_participates(kv_spec)
+
         def bpc_of(idx: int, kv_spec: KVCacheSpec) -> int:
             if bpc_map is None:
                 return int(spec.blocks_per_chunk)
@@ -454,7 +463,7 @@ class SchedulerOffloadConfig(NamedTuple):
                     getattr(g.kv_cache_spec, "block_size", None),
                     len(g.layer_names),
                     type(_effective_offload_spec(g.kv_cache_spec)).__name__,
-                    _offload_participates(g.kv_cache_spec),
+                    participates(idx, g.kv_cache_spec),
                 )
                 for idx, g in enumerate(kv_cache_config.kv_cache_groups)
             ],
@@ -462,7 +471,7 @@ class SchedulerOffloadConfig(NamedTuple):
         full_attn_tokens_per_chunk: set[int] = set()
         for idx, tokens_per_block in enumerate(spec.tokens_per_block):
             kv_spec = kv_cache_config.kv_cache_groups[idx].kv_cache_spec
-            if not _offload_participates(kv_spec):
+            if not participates(idx, kv_spec):
                 # [D2_offload] 不参与卸载的组不进 alignment 统计：
                 # 否则 {1024, 256} 会让 alignment_tokens=None（策略退化）。
                 continue
@@ -545,7 +554,8 @@ class SchedulerOffloadConfig(NamedTuple):
                         kv_cache_config.kv_cache_groups[idx]
                     ),
                     is_eagle_group=idx in eagle_groups,
-                    offload_participating=_offload_participates(
+                    offload_participating=participates(
+                        idx,
                         kv_cache_config.kv_cache_groups[idx].kv_cache_spec
                     ),
                     blocks_per_chunk=bpc_for(idx),
@@ -798,6 +808,12 @@ class OffloadingConnectorScheduler:
         self.config = SchedulerOffloadConfig.from_spec(
             spec, vllm_config, kv_cache_config
         )
+        self._ced_prefill_cache = "ced_excluded_groups" in spec.extra_config
+        self._ced_store_block_limit = int(
+            spec.extra_config.get("ced_max_pending_store_blocks", 16384)
+        )
+        if self._ced_prefill_cache and self._ced_store_block_limit < self.config.blocks_per_chunk:
+            raise ValueError("CED pending store bound is smaller than one chunk")
         self.manager: OffloadingManager = spec.get_manager()
         self._connector_stats = OffloadingConnectorStats()
 
@@ -1009,11 +1025,17 @@ class OffloadingConnectorScheduler:
         """
         num_computed_tokens = req_status.num_locally_computed_tokens
         max_hit_size_tokens: int = req_status.req.num_tokens
+        if self._ced_prefill_cache:
+            # P must execute a tail to produce the CED handoff token/state.
+            # Apply this before SWA convergence; rounding a full hit only
+            # after load would restore the wrong SWA checkpoint.
+            max_hit_size_tokens -= 1
         if self._sliding_window_groups:
             # the last prompt token has to be recomputed to get the logprobs
             # for sliding window attention, we must reduce by 1 to make sure
             # we still have a hit after reduction
-            max_hit_size_tokens -= 1
+            if not self._ced_prefill_cache:
+                max_hit_size_tokens -= 1
             if self._mamba_align_size is not None:
                 # Constrain hit-window to the mamba block size.
                 max_hit_size_tokens = round_down(
@@ -1532,6 +1554,7 @@ class OffloadingConnectorScheduler:
             # Filter out chunks skipped due to sliding window attention / SSM
             # or unreachable by the load path's alignment constraints.
             new_offload_keys: list[OffloadKey] = []
+            ced_candidate_blocks: dict[OffloadKey, set[int]] = {}
             for group_config, group_state in zip(
                 self.config.kv_group_configs, req_status.group_states
             ):
@@ -1594,6 +1617,36 @@ class OffloadingConnectorScheduler:
                     ):
                         continue
                     new_offload_keys.append(offload_key)
+                    if self._ced_prefill_cache:
+                        ced_candidate_blocks[offload_key] = set(
+                            group_state.block_ids[
+                                abs_chunk_idx * bpc_g : (abs_chunk_idx + 1) * bpc_g
+                            ]
+                        ) - {0}
+
+            if self._ced_prefill_cache:
+                from vllm_ascend.distributed.kv_transfer.ced_dram.contract import bound_store_keys
+
+                pending_blocks = set()
+                for job in self._jobs.values():
+                    if job.is_store:
+                        pending_blocks.update(job.sliding_window_block_ids or ())
+                        pending_blocks.update(job.non_sliding_window_block_ids or ())
+                bounded_keys, pending_blocks = bound_store_keys(
+                    new_offload_keys, ced_candidate_blocks,
+                    pending_blocks, self._ced_store_block_limit,
+                )
+                if len(bounded_keys) != len(new_offload_keys):
+                    logger.warning(
+                        "[CED-DRAM] store backpressure req=%s skipped_keys=%d "
+                        "pending_physical_blocks=%d limit=%d",
+                        req_id, len(new_offload_keys) - len(bounded_keys),
+                        len(pending_blocks), self._ced_store_block_limit,
+                    )
+                # Best-effort cache: omitted checkpoints remain misses and
+                # are never published as completed data. Native per-group
+                # next_stored_chunk_idx may skip them once this batch drains.
+                new_offload_keys = bounded_keys
 
             if not new_offload_keys:
                 req_status.advance_stored_idx(num_offloadable_tokens)

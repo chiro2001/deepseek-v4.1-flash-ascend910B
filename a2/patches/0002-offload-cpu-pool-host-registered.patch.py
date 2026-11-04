@@ -105,6 +105,10 @@ def _allocate_npu_offload_cpu_tensor(
         )
         return tensor
 
+    if os.environ.get("CED_DRAM_STRICT_REGISTER", "0") == "1":
+        raise RuntimeError(
+            "CED DRAM host registration failed (ret=%s, %.2f GiB)" % (ret, gib)
+        )
     logger.warning(
         "[P1_pinned] aclrtHostRegister failed (ret=%s, %.2f GiB) -> falling back to pinned",
         ret, gib,
