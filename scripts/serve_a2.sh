@@ -1827,13 +1827,18 @@ if [ "${V41_CED_ROLE:-}" = "decode" ]; then
   _ced_patch=$($DOCKER exec "$NAME" bash -lc '
     cd /vllm-workspace/vllm || exit 1
     _base=$(sha256sum vllm/v1/core/sched/scheduler.py | cut -d " " -f1)
-    [ "$_base" = 533eed493cb307e6d4423ff550910278f6434d71f00581737ce420d60298e8bc ] || exit 1
+    # 旧 admission 与当前多 prefill admission 的两份已验证基线。
+    case "$_base" in
+      533eed493cb307e6d4423ff550910278f6434d71f00581737ce420d60298e8bc) : ;;
+      90dd1abc16e4164e0e1e3a050cb3ea1d422ee0c210619db293a656aa74a77d39) : ;;
+      *) echo "BASE_SHA_UNKNOWN:$_base"; exit 1 ;;
+    esac
     git apply --unidiff-zero --check /opt/dsv41/ced_scheduler_replay.patch || exit 1
     git apply --unidiff-zero /opt/dsv41/ced_scheduler_replay.patch || exit 1
     grep -Fq "[CED-D] replay request=" vllm/v1/core/sched/scheduler.py || exit 1
     grep -Fq "[CED-KVRECV]" vllm/v1/core/sched/scheduler.py || exit 1
     echo APPLIED' 2>/dev/null | tail -1)
-  [ "${_ced_patch:-}" = "APPLIED" ] || die "CED decode replay 调度补丁未应用"
+  [ "${_ced_patch:-}" = "APPLIED" ] || die "CED decode replay 调度补丁未应用（${_ced_patch:-unknown}）"
   say "[CED-D] 应用 CED handoff 抢占保护补丁"
   _ced_preempt_patch=$($DOCKER exec "$NAME" bash -lc '
     C=/vllm-workspace/vllm/vllm/v1/core/sched/scheduler.py
@@ -1862,13 +1867,18 @@ if [ "${V41_CED_ROLE:-}" = "prefill" ] && [ "${V41_CED_P_HIT_DIAG:-1}" = "1" ]; 
   _ced_phhit=$($DOCKER exec "$NAME" bash -lc '
     cd /vllm-workspace/vllm || exit 1
     _base=$(sha256sum vllm/v1/core/sched/scheduler.py | cut -d " " -f1)
-    [ "$_base" = 533eed493cb307e6d4423ff550910278f6434d71f00581737ce420d60298e8bc ] || exit 1
+    # 与 D 侧使用相同基线；未知内容在应用任何 CED 补丁前拒绝。
+    case "$_base" in
+      533eed493cb307e6d4423ff550910278f6434d71f00581737ce420d60298e8bc) : ;;
+      90dd1abc16e4164e0e1e3a050cb3ea1d422ee0c210619db293a656aa74a77d39) : ;;
+      *) echo "BASE_SHA_UNKNOWN:$_base"; exit 1 ;;
+    esac
     git apply --unidiff-zero --check /opt/dsv41/ced_scheduler_prefill_hit.patch || exit 1
     git apply --unidiff-zero /opt/dsv41/ced_scheduler_prefill_hit.patch || exit 1
     grep -Fq "[CED-P-HIT]" vllm/v1/core/sched/scheduler.py || exit 1
     python3 -m py_compile vllm/v1/core/sched/scheduler.py || exit 1
     echo APPLIED' 2>/dev/null | tail -1)
-  [ "${_ced_phhit:-}" = "APPLIED" ] || die "CED prefill 命中诊断补丁未应用"
+  [ "${_ced_phhit:-}" = "APPLIED" ] || die "CED prefill 命中诊断补丁未应用（${_ced_phhit:-unknown}）"
 fi
 if [ "${CED_DRAM:-0}" = "1" ]; then
   say "[CED-DRAM] applying P async-load boundary validation"
